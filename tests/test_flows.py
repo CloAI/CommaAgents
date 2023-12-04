@@ -1,6 +1,6 @@
 import unittest
-from commaagents.flows import BaseFlow, SequentialFlow
-from commaagents.agents.base_agent import BaseAgent
+from comma_agents.flows import BaseFlow, SequentialFlow
+from comma_agents.agents.base_agent import BaseAgent
 # Other necessary imports
 
 class TestFlows(unittest.TestCase):

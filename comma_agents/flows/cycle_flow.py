@@ -1,3 +1,6 @@
+from comma_agents.flows.base_flow import BaseFlow
+
+
 class CycleFlow:
     def __init__(self, flow, cycles=1):
         # Ensure that flow is an instance of BaseFlow or its subclasses

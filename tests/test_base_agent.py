@@ -1,6 +1,6 @@
 # tests/test_base_agent.py
 import unittest
-from commaagents.agents.base_agent import BaseAgent
+from comma_agents.agents.base_agent import BaseAgent
 
 class TestBaseAgent(unittest.TestCase):
 
