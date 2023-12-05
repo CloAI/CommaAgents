@@ -1,28 +1,22 @@
-from typing import List
+from typing import List, Union
 from comma_agents.agents.base_agent import BaseAgent
 from .base_flow import BaseFlow
 
 class SequentialFlow(BaseFlow):
-    def __init__(self, agents: List[BaseAgent], verbose_level: int = 1):
-        super().__init__(agents, verbose_level)
-        self.first_call = True
-    
-    def run_flow(self, *args, **kwargs):
-        previous_response = None
+    def __init__(self, flows: Union[List[Union[BaseAgent, BaseFlow]], BaseAgent, BaseFlow], verbose_level: int = 1):
+        super().__init__(flows, verbose_level)
 
-        if self.first_call:
-            for agent in self.agents:
-                # For the first call of each agent, use the original args and kwargs
-                response = agent.initial_call(previous_response)
-                previous_response = response
-            
-            self.first_call = False
-        else:
-            for agent in self.agents:
-                # For subsequent calls, use the response of the previous agent as the new input
-                response = agent.call(previous_response)
+    def _run_flow(self, prompt=None):
+        previous_response = prompt
+        for flow in self.flows:
+            # Check if the element is an agent or another flow
+            if isinstance(flow, BaseAgent):
+                response = flow.call(previous_response)
+            elif isinstance(flow, BaseFlow):
+                response = flow.run_flow(previous_response)
+            else:
+                raise TypeError("Unsupported flow type")
 
-                previous_response = response
+            previous_response = response  # Update the prompt for the next agent/flow
 
         return response
-

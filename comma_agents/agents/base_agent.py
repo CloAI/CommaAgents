@@ -1,5 +1,5 @@
 from typing import Callable, Dict, List, Optional, Any, TypedDict
-import comma_agents.agents.utils.formats.clis.agent_verbose_formats as agent_verbose_formats
+from comma_agents.utils.formats.clis.agent_verbose_formats import print_agent_prompt_format
 
 class BaseAgent:
     class AgentVerboseFormats(TypedDict, total=False):
@@ -66,6 +66,7 @@ class BaseAgent:
         self.verbose_level = verbose_level
         self.keep_historical_context = keep_historical_context
         self.historical_context = []
+        self.first_call = True
 
 
         # Normalize hooks: convert single functions to lists or default to an empty list
@@ -89,7 +90,7 @@ class BaseAgent:
         }
         
         self.verbose_formats: "BaseAgent.AgentVerboseFormats" = {
-            "print_agent_prompt_format": verbose_formats.get("print_agent_prompt_format", agent_verbose_formats.print_agent_prompt_format)
+            "print_agent_prompt_format": verbose_formats.get("print_agent_prompt_format", print_agent_prompt_format)
         }
 
     def initial_call(self, prompt, *args, **kwargs):
@@ -134,6 +135,9 @@ class BaseAgent:
         :param kwargs: Keyword arguments for the LLM call.
         :return: Response from the LLM.
         """
+        if self.first_call:
+            return self.initial_call(prompt, *args, **kwargs)
+
         prompt = self._execute_alter_hooks("alter_call_prompt", prompt)
 
         # Execute 'before' hooks
