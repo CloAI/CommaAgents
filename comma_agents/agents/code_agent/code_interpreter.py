@@ -47,11 +47,11 @@ def print_code_agent_prompt_format(
 # TODO: Implements a default language to use for the code block or maybe make a detector?
 
 
-class CodeAgent(BaseAgent):
+class CodeInterpreter(BaseAgent):
     def __init__(
             self,
             prompt='',
-            coding_agent: BaseAgent = None,
+            name='Code Interpreter',
             use_docker: bool = False,
             code_block_pattern: str = CODE_BLOCK_PATTERN,
             supported_languages: dict = {
@@ -61,19 +61,20 @@ class CodeAgent(BaseAgent):
             **kwargs
         ):
         super().__init__(
+            name=name,
             verbose_formats={
                 "print_agent_prompt_format": print_code_agent_prompt_format,
             },
             **kwargs
         )
         self.prompt = prompt
-        self.coding_agent = coding_agent
+        # self.coding_agent = coding_agent
         self.use_docker = use_docker
         self.code_block_pattern = code_block_pattern
         self.supported_languages = supported_languages
         
     def _call_llm(self, prompt, **kwargs):
-        response = self.coding_agent.call(prompt, **kwargs)
+        response = prompt
         code_segments = self._extract_code_blocks(content=response)
         combined_code_blocks = self._combine_code_blocks(code_segments)
         if self.use_docker:

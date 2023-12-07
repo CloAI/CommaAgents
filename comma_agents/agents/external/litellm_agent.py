@@ -2,8 +2,8 @@ from ..base_agent import BaseAgent
 from litellm import completion
 
 class LiteLLMAgent(BaseAgent):
-    def __init__(self, agent_name = '', model_name='', hooks={}, **kwargs):
-        super().__init__(agent_name=agent_name, hooks=hooks, **kwargs)
+    def __init__(self, name = 'Lite LLM Agent', model_name='', hooks={}, **kwargs):
+        super().__init__(name=name, hooks=hooks, **kwargs)
         self.model_name = model_name
 
     def _call_llm(self, prompt, **kwargs):

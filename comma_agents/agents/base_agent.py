@@ -36,7 +36,7 @@ class BaseAgent:
 
     def __init__(
         self,
-        agent_name: str,
+        name: str,
         system_prompt: str = None,
         keep_historical_context: bool = False,
         verbose_level: int = 1,
@@ -61,7 +61,7 @@ class BaseAgent:
             - 2: Outputs model prompts, responses, and hook call outputs.
             - 3: Outputs all details, including hook calls and arguments, and context appending.
         """
-        self.agent_name = agent_name
+        self.name = name
         self.system_prompt = system_prompt
         self.verbose_level = verbose_level
         self.keep_historical_context = keep_historical_context
@@ -109,14 +109,14 @@ class BaseAgent:
         full_prompt = prompt
         if self.system_prompt is not None:
             if self.verbose_level >= 2:
-                print(f"Calling {self.agent_name} LLM with system prompt {self.system_prompt} and prompt {prompt}, arguments {args} and keyword arguments {kwargs}")
+                print(f"Calling {self.name} LLM with system prompt {self.system_prompt} and prompt {prompt}, arguments {args} and keyword arguments {kwargs}")
             full_prompt = self.system_prompt + prompt
 
         # Actual call to the LLM
         response = self._call_llm(prompt=full_prompt, **kwargs)
         
         if self.verbose_level >= 1:
-            self.verbose_formats["print_agent_prompt_format"](self.agent_name, prompt, response, self.system_prompt)
+            self.verbose_formats["print_agent_prompt_format"](self.name, prompt, response, self.system_prompt)
 
         # Execute 'after' hooks
         self._execute_hooks("after_initial_call", response)
@@ -144,12 +144,12 @@ class BaseAgent:
         self._execute_hooks("before_call", *args, **kwargs)
 
         if self.verbose_level >= 2:
-            print(f"Calling {self.agent_name} LLM with prompt {prompt}, arguments {args} and keyword arguments {kwargs}")
+            print(f"Calling {self.name} LLM with prompt {prompt}, arguments {args} and keyword arguments {kwargs}")
         # Actual call to the LLM
         full_prompt = prompt
         if self.system_prompt is not None and self.keep_historical_context is False:
             if self.verbose_level >= 2:
-                print(f"Calling {self.agent_name} LLM with system prompt {self.system_prompt} and prompt {prompt}, arguments {args} and keyword arguments {kwargs} because we are not keeping context...")
+                print(f"Calling {self.name} LLM with system prompt {self.system_prompt} and prompt {prompt}, arguments {args} and keyword arguments {kwargs} because we are not keeping context...")
             full_prompt = self.system_prompt + prompt
         
         if self.keep_historical_context:
@@ -164,7 +164,7 @@ class BaseAgent:
         response = self._call_llm(prompt=full_prompt, **kwargs)
         
         if self.verbose_level >= 1:
-            self.verbose_formats["print_agent_prompt_format"](self.agent_name, prompt, response, self.system_prompt)
+            self.verbose_formats["print_agent_prompt_format"](self.name, prompt, response, self.system_prompt)
 
         # Execute 'after' hooks
         self._execute_hooks("after_call", response)
@@ -186,7 +186,7 @@ class BaseAgent:
         :return: Mock response indicating the call details.
         """
         # This method should be overridden to make an actual call to a language learning model.
-        return f"Calling {self.agent_name} LLM with prompt {prompt}, arguments {args} and keyword arguments {kwargs}"
+        return f"Calling {self.name} LLM with prompt {prompt}, arguments {args} and keyword arguments {kwargs}"
 
     # Updated method to include verbosity
     def _execute_hooks(self, hook_name, *args, **kwargs):

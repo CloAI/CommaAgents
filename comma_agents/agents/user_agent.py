@@ -35,9 +35,9 @@ def print_user_agent_prompt_format(
     print("#" * width)
 
 class UserAgent(BaseAgent):
-    def __init__(self, prompt='', agent_name = '', **kwargs):
+    def __init__(self, prompt='User Agent', name = '', **kwargs):
         super().__init__(
-            agent_name=agent_name,
+            name=name,
             verbose_formats={
                 "print_agent_prompt_format": print_user_agent_prompt_format,
             },
