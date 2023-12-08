@@ -10,7 +10,7 @@ class BaseFlow:
 
     def __init__(
             self,
-            flows: Union[BaseAgent, 'BaseFlow', List[Union[BaseAgent, 'BaseFlow']]],
+            flows: Union[BaseAgent, 'BaseFlow', List[Union[BaseAgent, 'BaseFlow']]] = [],
             verbose_level: int = 1,
             flow_name: str = "",
             hooks: "BaseFlow.FlowHooks" = {},):
@@ -55,7 +55,7 @@ class BaseFlow:
         prompt = self._execute_alter_hooks("alter_prompt_before_flow", prompt=prompt)
         response = self._run_flow(prompt)
         self._execute_hooks("after_flow")
-        response = self._execute_alter_hooks("alter_prompt_after_flow", prompt=prompt)
+        response = self._execute_alter_hooks("alter_prompt_after_flow", prompt=response)
         return response
 
     def _run_flow(self, prompt=""):

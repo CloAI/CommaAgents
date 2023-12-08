@@ -3,8 +3,8 @@ from comma_agents.agents.base_agent import BaseAgent
 from .base_flow import BaseFlow
 
 class SequentialFlow(BaseFlow):
-    def __init__(self, flows: Union[List[Union[BaseAgent, BaseFlow]], BaseAgent, BaseFlow], verbose_level: int = 1):
-        super().__init__(flows, verbose_level)
+    def __init__(self, flows: Union[List[Union[BaseAgent, BaseFlow]], BaseAgent, BaseFlow] = [], verbose_level: int = 1):
+        super().__init__(flows=flows, verbose_level=verbose_level)
 
     def _run_flow(self, prompt=None):
         previous_response = prompt
