@@ -1,6 +1,6 @@
 
 
-class BasePrompt():
+class PromptTemplate():
     def __init__(self, prompt, **kwargs):
         self.prompt = prompt
         

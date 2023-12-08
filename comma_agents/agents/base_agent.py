@@ -12,7 +12,7 @@ class BaseAgent:
             
         """
         print_agent_prompt_format: Optional[Callable[[str, Optional[str], Optional[str], Optional[bool], bool], None]]
-    
+
     class AgentHooks(TypedDict, total=False):
         """
         A custom type for defining hooks used in the BaseAgent class. This TypedDict specifies the allowed
@@ -34,15 +34,40 @@ class BaseAgent:
         alter_call_prompt: Optional[Callable[..., Any]]
         after_call: Optional[Callable[..., Any]]
 
+    class AgentPromptFormats(TypedDict, total=False):
+        """
+        A custom type for defining prompt formats used in the BaseAgent class. This TypedDict specifies the allowed
+        formats and their corresponding types. Each key is a stage in the LLM call process where
+        prompt formats can be applied.
+
+        Attributes:
+            initial_prompt_format (Optional[str]): Format string for the initial prompt.
+            subsequent_prompt_format (Optional[str]): Format string for subsequent prompts.
+        """
+        system_message_start_token: str
+        system_message_end_token: str
+        user_message_start_token: str
+        user_message_end_token: str
+        assistant_message_start_token: str
+        assistant_message_end_token: str
+
     def __init__(
         self,
         name: str,
-        system_prompt: str = None,
+        system_prompt: Optional[str] = "",
         keep_historical_context: bool = False,
         verbose_level: int = 1,
         hooks: "BaseAgent.AgentHooks" = {},
         verbose_formats: "BaseAgent.AgentVerboseFormats" = {},
-        history_context_window_size: Optional[int] = None
+        history_context_window_size: Optional[int] = None,
+        prompt_formats: "BaseAgent.AgentPromptFormats" = {
+            "system_message_start_token": "",
+            "system_message_end_token": "",
+            "user_message_start_token": "",
+            "user_message_end_token": "",
+            "assistant_message_start_token": "",
+            "assistant_message_end_token": "",
+        }
     ):
         """
         Initializes a BaseAgent instance.
@@ -68,6 +93,7 @@ class BaseAgent:
         self.keep_historical_context = keep_historical_context
         self.historical_context = []
         self.first_call = True
+        self.prompt_formats: "BaseAgent.AgentPromptFormats" = prompt_formats
 
 
         # Normalize hooks: convert single functions to lists or default to an empty list
@@ -108,11 +134,7 @@ class BaseAgent:
         # Execute 'before' hooks
         self._execute_hooks("before_initial_call", *args, **kwargs)
 
-        full_prompt = prompt
-        if self.system_prompt is not None:
-            if self.verbose_level >= 2:
-                print(f"Calling {self.name} LLM with system prompt {self.system_prompt} and prompt {prompt}, arguments {args} and keyword arguments {kwargs}")
-            full_prompt = self.system_prompt + prompt
+        full_prompt = self.prompt_formats["system_message_start_token"] + self.system_prompt + self.prompt_formats["system_message_end_token"] + self.prompt_formats["user_message_start_token"] + prompt + self.prompt_formats["user_message_end_token"] + self.prompt_formats["assistant_message_start_token"]
 
         # Actual call to the LLM
         response = self._call_llm(prompt=full_prompt, **kwargs)
@@ -138,6 +160,7 @@ class BaseAgent:
         :return: Response from the LLM.
         """
         if self.first_call:
+            self.first_call = False
             return self.initial_call(prompt, *args, **kwargs)
 
         prompt = self._execute_alter_hooks("alter_call_prompt", prompt)
@@ -148,25 +171,23 @@ class BaseAgent:
         if self.verbose_level >= 2:
             print(f"Calling {self.name} LLM with prompt {prompt}, arguments {args} and keyword arguments {kwargs}")
         # Actual call to the LLM
-        full_prompt = prompt
-        if self.system_prompt is not None and self.keep_historical_context is False:
-            if self.verbose_level >= 2:
-                print(f"Calling {self.name} LLM with system prompt {self.system_prompt} and prompt {prompt}, arguments {args} and keyword arguments {kwargs} because we are not keeping context...")
-            full_prompt = self.system_prompt + prompt
+        
+        full_prompt = self.prompt_formats["system_message_start_token"] + self.system_prompt + self.prompt_formats["system_message_end_token"]
         
         if self.keep_historical_context:
-            if self.verbose_level >= 3:
-                print(f"Appending historical context to prompt {prompt}")
             for (historical_prompt, historical_response) in self.historical_context:
-                full_prompt += historical_prompt
-                full_prompt += historical_response
+
+                full_prompt += self.prompt_formats["user_message_start_token"] + historical_prompt + self.prompt_formats["user_message_end_token"]
+                full_prompt += self.prompt_formats["assistant_message_start_token"] + historical_response + self.prompt_formats["assistant_message_end_token"]
             
-            full_prompt += prompt
+            full_prompt += self.prompt_formats["user_message_start_token"] + prompt + self.prompt_formats["user_message_end_token"]
         
-        response = self._call_llm(prompt=full_prompt, **kwargs)
+        print("\nFull prompt being sent to LLM: " + full_prompt + self.prompt_formats["assistant_message_start_token"] + "\n")
+
+        response = self._call_llm(prompt=full_prompt + self.prompt_formats["assistant_message_start_token"], **kwargs)
         
         if self.verbose_level >= 1:
-            self.verbose_formats["print_agent_prompt_format"](self.name, full_prompt, response, self.system_prompt)
+            self.verbose_formats["print_agent_prompt_format"](self.name, prompt, response, self.system_prompt)
 
         # Execute 'after' hooks
         self._execute_hooks("after_call", response)

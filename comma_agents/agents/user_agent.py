@@ -20,14 +20,6 @@ def print_user_agent_prompt_format(
     # Print the separator
     print("#" * width)
     print(bust_in_silhouette + Fore.CYAN + "User: " + agent_name + Style.RESET_ALL)
-
-    if system_prompt is not None:
-        # Print the separator
-        print("#" * width)
-
-        # Print the prompt in yellow
-        print(settings_emoji + Fore.BLUE + "System Prompt: " + system_prompt + Style.RESET_ALL)
-
     # Print the prompt in yellow
     print(speaking_head + Fore.YELLOW + " Prompt: " + response + Style.RESET_ALL)
 
@@ -35,7 +27,7 @@ def print_user_agent_prompt_format(
     print("#" * width)
 
 class UserAgent(BaseAgent):
-    def __init__(self, prompt='User Agent', name = '', **kwargs):
+    def __init__(self, prompt = '', name = '', require_input: bool = False, **kwargs):
         super().__init__(
             name=name,
             verbose_formats={
@@ -44,8 +36,11 @@ class UserAgent(BaseAgent):
             **kwargs
         )
         self.prompt = prompt
+        self.require_input = require_input
         
     def _call_llm(self, prompt, **kwargs):
+        if self.require_input:
+            return input("User input: ")
         return self.prompt
         
     
