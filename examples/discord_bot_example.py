@@ -26,12 +26,17 @@ zypher_prompt_format: BaseAgent.AgentPromptFormats = {
 
 chat_agent = LLaMaAgent(
         name="Discord Chat Agent",
-        system_prompt="You're a cool and funny chat bot. You can also do some light insults and passive aggressive comments. If someone asks you to code get mad at them. Have a funny catchphrase at the end of your messages.",
+        system_prompt="""
+You're a cool and funny chat bot.
+You can also do some light insults and passive aggressive comments.
+If someone asks you to code get mad at them.
+You have a funny random catchphrase at the end of your messages.
+""",
         prompt_formats=zypher_prompt_format,
         keep_historical_context=True,
         history_context_window_size=2,
         llama_config={
-            "model_path": "/Users/nateageek/.cache/lm-studio/models/TheBloke/zephyr-7B-beta-GGUF/zephyr-7b-beta.Q6_K.gguf",
+            "model_path": "~/.cache/lm-studio/models/TheBloke/zephyr-7B-beta-GGUF/zephyr-7b-beta.Q6_K.gguf",
         }
 )
 

@@ -34,15 +34,20 @@ class BaseAgent:
         alter_call_prompt: Optional[Callable[..., Any]]
         after_call: Optional[Callable[..., Any]]
 
+
     class AgentPromptFormats(TypedDict, total=False):
         """
-        A custom type for defining prompt formats used in the BaseAgent class. This TypedDict specifies the allowed
-        formats and their corresponding types. Each key is a stage in the LLM call process where
-        prompt formats can be applied.
+        A custom type for defining prompt formats used in the BaseAgent class. This TypedDict specifies
+        the allowed formats and their corresponding types. Each key represents a stage in the LLM 
+        call process where prompt formats can be applied.
 
         Attributes:
-            initial_prompt_format (Optional[str]): Format string for the initial prompt.
-            subsequent_prompt_format (Optional[str]): Format string for subsequent prompts.
+            system_message_start_token (str): A token to denote the start of a system message.
+            system_message_end_token (str): A token to denote the end of a system message.
+            user_message_start_token (str): A token to denote the start of a user message.
+            user_message_end_token (str): A token to denote the end of a user message.
+            assistant_message_start_token (str): A token to denote the start of an assistant message.
+            assistant_message_end_token (str): A token to denote the end of an assistant message.
         """
         system_message_start_token: str
         system_message_end_token: str
@@ -181,8 +186,6 @@ class BaseAgent:
                 full_prompt += self.prompt_formats["assistant_message_start_token"] + historical_response + self.prompt_formats["assistant_message_end_token"]
             
             full_prompt += self.prompt_formats["user_message_start_token"] + prompt + self.prompt_formats["user_message_end_token"]
-        
-        print("\nFull prompt being sent to LLM: " + full_prompt + self.prompt_formats["assistant_message_start_token"] + "\n")
 
         response = self._call_llm(prompt=full_prompt + self.prompt_formats["assistant_message_start_token"], **kwargs)
         

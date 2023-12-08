@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "comma-agents"
+version = "0.0.1"
+description = "A way to elevate your AI workflow with Comma Agents, a versatile Python library designed for seamless AI model integration and automation. Perfect for developers looking to enhance efficiency in local or remote environments, it offers customizable AI flows and scalable solutions. Streamline your projects with Comma Agents, the ideal tool for Python-based AI automation."
+authors = ["Nathaniel Hatch-Martinez <nhm@cloai.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+colorama = "^0.4.6"
+litellm = "^1.12.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+
+
+[tool.poetry.group.docs.dependencies]
+furo = "^2023.9.10"
+sphinx = "^7.2.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
