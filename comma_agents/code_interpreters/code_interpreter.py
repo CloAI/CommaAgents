@@ -1,4 +1,4 @@
-from ..base_agent import BaseAgent
+from comma_agents.agents import BaseAgent
 import os
 import re
 from colorama import Fore, Style
@@ -9,6 +9,7 @@ from .languages.sh_code_agent_language_handler import CodeAgentLanguageHandlerSh
 # Found some spec they reference here: https://spec.commonmark.org/0.30/#fenced-code-blocks
 # Yo, shout out to AutoGen and specifically (Dear.Va) https://github.com/DearVa!
 # Thank you for your pattern :)
+# TODO: Add support for some LLaMa formats I've seen [PYTHON] [/PYTHON]
 # Regular expression for finding a code block
 # ```[ \t]*(\w+)?[ \t]*\r?\n(.*?)[ \t]*\r?\n``` Matches multi-line code blocks.
 #   The [ \t]* matches the potential spaces before language name.
@@ -18,13 +19,11 @@ from .languages.sh_code_agent_language_handler import CodeAgentLanguageHandlerSh
 #   The (.*?) matches the code itself (non-greedy).
 #   The \r?\n makes sure there is a linebreak before ```.
 #   The [ \t]* matches the potential spaces before closing ``` (the spec allows indentation).
-CODE_BLOCK_PATTERN = r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
+CODE_BLOCK_PATTERN = r"(```)[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
 
 def print_code_agent_prompt_format(
-    agent_name: str,
-    prompt: str = None,
+    agent_name: str = "Code Interpreter",
     response: str = None,
-    system_prompt: bool = None,
     use_unicode: bool = True
 ):
     nerd_face = '\U0001F913' if use_unicode else '[:nerd_face:]'

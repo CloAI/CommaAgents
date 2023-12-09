@@ -1,44 +1,89 @@
-
-
-
-from typing import Optional, TypedDict
 from comma_agents.agents.base_agent import BaseAgent
 from llama_cpp import Llama
 
 class LLaMaAgent(BaseAgent):
-    class LLaMaAgentConfig(TypedDict, total=True):
-        """Configuration for LLaMa Agent
+    """
+    A subclass of BaseAgent designed for interaction with the LLaMa model.
+
+    This agent extends the BaseAgent functionalities by integrating with a LLaMa model, 
+    allowing for easy handling and processing of interactions with this specific language model.
+
+    Parameters
+    ----------
+    name : str
+        The name of the agent, used for identification and logging purposes.
+    llama_config : dict, optional
+        Configuration settings for initializing the LLaMa model. Default is an empty dictionary.
+    **kwargs
+        Arbitrary keyword arguments that are passed to the BaseAgent's constructor for further customization.
+
+    Attributes
+    ----------
+    llama_config : dict
+        Stores the configuration settings for the LLaMa model.
+    llm : Llama
+        An instance of the LLaMa model initialized with the provided configuration settings.
+
+    Methods
+    -------
+    _call_llm(prompt='', *args, **kwargs)
+        Sends a prompt to the LLaMa model and returns its response.
+
+    Examples
+    --------
+    >>> llama_agent = LLaMaAgent(name="MyLLaMaAgent", llama_config={"verbose": True})
+    >>> response = llama_agent._call_llm("What is the capital of France?")
+    """
+
+    def __init__(self, name: str, llama_config={}, **kwargs):
         """
-        model_path: str
-    
-    def __init__(
-        self,
-        name: str,
-        system_prompt: str = None,
-        keep_historical_context: bool = False,
-        verbose_level: int = 1,
-        hooks: "BaseAgent.AgentHooks" = {},
-        verbose_formats: "BaseAgent.AgentVerboseFormats" = {},
-        llama_config: "LLaMaAgent.LLaMaAgentConfig" = {},
-        history_context_window_size: Optional[int] = None,
-        prompt_formats: "BaseAgent.AgentPromptFormats" = {}
-    ):
-        super().__init__(
-            name=name,
-            system_prompt=system_prompt,
-            keep_historical_context=keep_historical_context,
-            verbose_level=verbose_level,
-            hooks=hooks,
-            verbose_formats=verbose_formats,
-            history_context_window_size=history_context_window_size,
-            prompt_formats=prompt_formats
-        )
+        Initializes a new instance of the LLaMaAgent class.
+
+        The constructor sets up the agent with the specified LLaMa model configuration and inherits 
+        additional configurations from BaseAgent.
+
+        Parameters
+        ----------
+        name : str
+            The name of the agent.
+        llama_config : dict, optional
+            The configuration settings for the LLaMa model. Default is an empty dictionary.
+        **kwargs
+            Additional keyword arguments for BaseAgent configuration.
+        """
+        super().__init__(name=name, **kwargs)
         if llama_config.get("verbose", None) is None:
             llama_config["verbose"] = False
-        
+
         self.lamma_config = llama_config
         self.llm = Llama(**self.lamma_config)
-        
+
     def _call_llm(self, prompt='', *args, **kwargs):
+        """
+        Sends the provided prompt to the LLaMa model and retrieves its response.
+
+        This method is an override of the _call_llm method from BaseAgent, tailored to interact 
+        with the LLaMa model. It sends the prompt to the model and returns the text content of the model's response.
+
+        Parameters
+        ----------
+        prompt : str, optional
+            The prompt or message to send to the LLaMa model. Default is an empty string.
+        *args
+            Variable length argument list, representing additional arguments for the LLaMa call.
+        **kwargs
+            Arbitrary keyword arguments for the LLaMa call.
+
+        Returns
+        -------
+        str
+            The content of the response from the LLaMa model.
+
+        Examples
+        --------
+        >>> llama_agent = LLaMaAgent(name="LLaMaBot")
+        >>> response = llama_agent._call_llm("Translate 'Hello' to Spanish.")
+        'Hola'
+        """
         response = self.llm(prompt)
         return response["choices"][0]["text"]
