@@ -94,7 +94,7 @@ class BaseAgent:
         An initial system prompt or message used to start conversations.
     hooks : BaseAgent.AgentHooks
         A set of user-defined functions executed at specific stages of the Agent interaction.
-    keep_historical_context : bool
+    remember_context : bool
         A flag to determine whether the agent should maintain a history of interactions.
     history_context_window_size : Optional[int]
         The maximum number of past interactions to retain in history, if historical context is enabled.
@@ -122,7 +122,7 @@ class BaseAgent:
 
     Examples
     --------
-    >>> agent = BaseAgent(name="ExampleAgent", keep_historical_context=True, verbose_level=2)
+    >>> agent = BaseAgent(name="ExampleAgent", remember_context=True, verbose_level=2)
     >>> response = agent.call("What is the capital of France?")
     >>> print(response)
     'Calling ExampleAgent Agent with prompt What is the capital of France?'
@@ -174,7 +174,6 @@ class BaseAgent:
         before_call: Optional[Callable[..., Any]]
         alter_call_prompt: Optional[Callable[..., Any]]
         after_call: Optional[Callable[..., Any]]
-
 
     class AgentPromptFormats(TypedDict, total=False):
         """
@@ -402,7 +401,7 @@ class BaseAgent:
         self._execute_hooks("after_initial_call", response)
 
         # If keeping historical context is enabled, update it with the current prompt and response
-        if self.keep_historical_context:
+        if self.remember_context:
             self._update_historical_context(prompt, response)
 
         # Return the response received from the agent
@@ -452,7 +451,7 @@ class BaseAgent:
         
         full_prompt = self.prompt_formats["system_message_start_token"] + self.system_prompt + self.prompt_formats["system_message_end_token"]
         
-        if self.keep_historical_context:
+        if self.remember_context:
             for (historical_prompt, historical_response) in self.historical_context:
 
                 full_prompt += self.prompt_formats["user_message_start_token"] + historical_prompt + self.prompt_formats["user_message_end_token"]
@@ -461,7 +460,7 @@ class BaseAgent:
             full_prompt += self.prompt_formats["user_message_start_token"] + prompt + self.prompt_formats["user_message_end_token"]
         
 
-        response = self._call_Agent(prompt=full_prompt + self.prompt_formats["assistant_message_start_token"])
+        response = self._call_llm(prompt=full_prompt + self.prompt_formats["assistant_message_start_token"])
         
         if self.verbose_level >= 1:
             self.verbose_formats["print_agent_prompt_format"](self.name, prompt, response, self.system_prompt)
@@ -470,14 +469,14 @@ class BaseAgent:
         self._execute_hooks("after_call", response)
 
         # Update historical context with response
-        if self.keep_historical_context:
+        if self.remember_context:
             if self.verbose_level >= 3:
                 print(f"Updating historical context with prompt {prompt} and response {response}")
             self._update_historical_context(prompt, response)
 
         return response
     
-    def _call_Agent(self, prompt: str='') -> str:
+    def _call_llm(self, prompt: str='') -> str:
         """
         Placeholder method for the actual Large Language Model (Agent) interaction. 
         This method is intended to be overridden in subclasses to implement the specific Agent calling mechanism.
@@ -602,7 +601,7 @@ class BaseAgent:
 
         Examples
         --------
-        >>> agent = BaseAgent(name="ExampleAgent", keep_historical_context=True, history_context_window_size=3)
+        >>> agent = BaseAgent(name="ExampleAgent", remember_context=True, history_context_window_size=3)
         >>> agent._update_historical_context("How's the weather?", "It's sunny.")
         >>> agent._update_historical_context("What about tomorrow?", "Partly cloudy.")
         >>> print(agent.historical_context)
