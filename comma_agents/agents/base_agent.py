@@ -96,7 +96,7 @@ class BaseAgent:
         A set of user-defined functions executed at specific stages of the Agent interaction.
     remember_context : bool
         A flag to determine whether the agent should maintain a history of interactions.
-    history_context_window_size : Optional[int]
+    context_window_size : Optional[int]
         The maximum number of past interactions to retain in history, if historical context is enabled.
     prompt_formats : BaseAgent.AgentPromptFormats
         Formatting specifications for various types of messages.
@@ -111,7 +111,7 @@ class BaseAgent:
         Initiates the first interaction with the Agent, applying necessary hooks and formatting.
     call(prompt)
         Manages subsequent interactions with the Agent, incorporating historical context as needed.
-    _call_Agent(prompt)
+    _call_llm(prompt)
         Placeholder for the actual Agent interaction, intended to be overridden in subclasses.
     _execute_hooks(hook_name, *args, **kwargs)
         Executes a set of predefined hooks based on the specified hook name.
@@ -391,7 +391,7 @@ class BaseAgent:
                     self.prompt_formats["assistant_message_start_token"]
 
         # Perform the actual call to the agent with the prepared prompt
-        response = self._call_Agent(prompt=full_prompt)
+        response = self._call_llm(prompt=full_prompt)
 
         # If verbose logging is enabled, format and display/log the prompt and response interaction
         if self.verbose_level >= 1:
@@ -500,7 +500,7 @@ class BaseAgent:
         Examples
         --------
         >>> agent = BaseAgent(name="ExampleAgent")
-        >>> response = agent._call_Agent("Sample prompt")
+        >>> response = agent._call_llm("Sample prompt")
         'Calling ExampleAgent Agent with prompt Sample prompt'
         """
         # Placeholder implementation, to be overridden
@@ -596,12 +596,12 @@ class BaseAgent:
         -----
         - The historical context is used to maintain a continuity in conversations, which can be crucial for 
         applications requiring context-aware responses.
-        - If the `history_context_window_size` is set, this method will ensure that the number of stored interactions 
+        - If the `context_window_size` is set, this method will ensure that the number of stored interactions 
         does not exceed this limit, removing the oldest entries as needed.
 
         Examples
         --------
-        >>> agent = BaseAgent(name="ExampleAgent", remember_context=True, history_context_window_size=3)
+        >>> agent = BaseAgent(name="ExampleAgent", remember_context=True, context_window_size=3)
         >>> agent._update_historical_context("How's the weather?", "It's sunny.")
         >>> agent._update_historical_context("What about tomorrow?", "Partly cloudy.")
         >>> print(agent.historical_context)
@@ -611,5 +611,5 @@ class BaseAgent:
 
         # Check if history context window size is set and enforce the limit
         if self.context_window_size is not None:
-            while len(self.historical_context) > self.history_context_window_size:
+            while len(self.historical_context) > self.context_window_size:
                 self.historical_context.pop(0)  # Remove the oldest entry
