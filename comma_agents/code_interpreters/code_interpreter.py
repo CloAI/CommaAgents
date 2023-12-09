@@ -19,7 +19,7 @@ from .languages.sh_code_agent_language_handler import CodeAgentLanguageHandlerSh
 #   The (.*?) matches the code itself (non-greedy).
 #   The \r?\n makes sure there is a linebreak before ```.
 #   The [ \t]* matches the potential spaces before closing ``` (the spec allows indentation).
-CODE_BLOCK_PATTERN = r"(```)[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
+CODE_BLOCK_PATTERN = r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
 
 def print_code_agent_prompt_format(
     agent_name: str = "Code Interpreter",
@@ -44,8 +44,6 @@ def print_code_agent_prompt_format(
     print("#" * width)
 
 # TODO: Implements a default language to use for the code block or maybe make a detector?
-
-
 class CodeInterpreter(BaseAgent):
     def __init__(
             self,
