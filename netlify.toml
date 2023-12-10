@@ -1,11 +1,8 @@
 [build]
 publish = "docs/build/"
 command = """
-restore_home_cache ".cache" "pip cache" &&
-restore_cwd_cache '.venv' 'python virtualenv' &&
-pip3 install -q poetry &&
-poetry config settings.virtualenvs.in-project true &&
-poetry install --only=docs --no-interaction &&
-cd docs &&
-make html
+pip install -q poetry &&
+poetry export --dev --without-hashes | grep docs > requirements.txt &&
+pip install -r requirements.txt &&
+cd docs && make html
 """
