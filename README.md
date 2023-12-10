@@ -13,6 +13,8 @@ Getting started with Comma Agents is a breeze! Here's how you can get everything
    ```
 3. Voilà! You're all set to begin your adventure with Comma Agents.
 
+Head over to the documentation if you want to learn more about examples and docs [Comma Agents Documentation](https://commaagents.com/)
+
 ## Use Cases for Automated LLM Workflows 🚀
 
 Comma Agents can be used in a myriad of exciting and innovative ways. Here are some of the cool things you can do:
@@ -31,6 +33,8 @@ We love contributions! Whether you're fixing bugs, adding features, or improving
 2. **Make Your Changes:** Implement your brilliant ideas or fixes.
 3. **Submit a Pull Request:** Send us your changes for review.
 4. **Review & Merge:** We'll review your contribution and merge it into the main branch.
+
+Also, feel free to create issues and feature requests! Help Comma Agents support you and the ventures of automation with Agents!
 
 ## Join the Community 🤝
 
