@@ -32,17 +32,9 @@ We love contributions! Whether you're fixing bugs, adding features, or improving
 3. **Submit a Pull Request:** Send us your changes for review.
 4. **Review & Merge:** We'll review your contribution and merge it into the main branch.
 
-You can also submit feature request and report issue!
-Every bit of feedback can help Comma Agents grow into a more robust platform for automation enthusiast!
-<!-- Check out our [Contributing Guidelines](#) for more detailed information. -->
-
 ## Join the Community 🤝
 
 We're more than just a platform; we're a community! We encourage you to join our forums, participate in discussions, share your projects, and collaborate with fellow Comma Agents enthusiasts. Together, we can create something truly amazing.
-
-<!-- - [Community Forum](#)
-- [Discord Channel](#)
-- [GitHub Discussions](#) -->
 
 ## Let's Get Started! 🎉
 
