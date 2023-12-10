@@ -1,0 +1,8 @@
+[build]
+publish = "docs/build/"
+command = """
+pip install -q poetry &&
+poetry export --dev --without-hashes | grep docs > requirements.txt &&
+pip install -r requirements.txt &&
+cd docs && make html
+"""
