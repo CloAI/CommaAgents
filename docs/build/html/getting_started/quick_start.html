@@ -3,10 +3,10 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="prev" title="Welcome to Comma Agents! 🌟" href="../index.html" />
 
     <!-- Generated with Sphinx 7.2.6 and Furo 2023.09.10 -->
-        <title>&lt;no title&gt; - Comma Agents 0.0.1 documentation</title>
+        <title>🚀 Quick Start Guide for Comma Agents - Comma Agents 0.0.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=36a5483c" />
@@ -134,7 +134,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -154,7 +154,11 @@
   <input type="hidden" name="area" value="default">
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
-  
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">🚀 Quick Start Guide for Comma Agents</a></li>
+</ul>
+
 </div>
 </div>
 
@@ -181,98 +185,104 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main">
-          <p># Quick Start Guide for Comma Agents</p>
+          <section id="quick-start-guide-for-comma-agents">
+<h1>🚀 Quick Start Guide for Comma Agents<a class="headerlink" href="#quick-start-guide-for-comma-agents" title="Link to this heading">#</a></h1>
 <p>Hello and a warm welcome to Comma Agents! We’re thrilled to have you aboard. This guide is your first step into a world of automation, where you’ll learn how to set up and use automated agent workflows with ease and efficiency. Let’s dive in!</p>
-<p>## Installation</p>
+<section id="installation">
+<h2>💻 Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
 <p>First things first, let’s get Comma Agents installed on your system. Open your command line interface and type in the following command:</p>
-<p><code class="docutils literal notranslate"><span class="pre">`bash</span>
-<span class="pre">pip</span> <span class="pre">install</span> <span class="pre">comma-agents</span>
-<span class="pre">`</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>comma-agents
+</pre></div>
+</div>
 <p>This simple command fetches and installs the Comma Agents package, setting you up for an exciting journey ahead.</p>
-<p>## Setting Up Local Models</p>
-<p>To give you a smooth start, we’ll initially focus on local models. Our recommendation? The LLaMa models, renowned for their versatility and available in various quantized formats like ‘.gguf’. A big shoutout to “TheBloke” on Hugging Face for making these models accessible. You can grab them right here: [TheBloke on Hugging Face](<a class="reference external" href="https://huggingface.com/TheBloke">https://huggingface.com/TheBloke</a>).</p>
-<p>## Fundamental Concepts</p>
-<p>### Understanding Agents</p>
-<p>Think of agents as the building blocks of the Comma Agents universe. These agents enable you to run Language Learning Models (LLMs) as part of a larger workflow. They are the key to creating complex, automated sequences that do amazing things. To get your feet wet, let’s start by setting up a single LLM locally using the <cite>LLaMaAgent</cite>.</p>
+</section>
+<section id="setting-up-local-models">
+<h2>🛠 Setting Up Local Models<a class="headerlink" href="#setting-up-local-models" title="Link to this heading">#</a></h2>
+<p>To give you a smooth start, we’ll initially focus on local models. Our recommendation? The LLaMa models, renowned for their versatility and available in various quantized formats like ‘.gguf’. A big shoutout to “TheBloke” on Hugging Face for making these models accessible. You can grab them right here: <a class="reference external" href="https://huggingface.com/TheBloke">TheBloke on Hugging Face</a>.</p>
+</section>
+<section id="fundamental-concepts">
+<h2>📚 Fundamental Concepts<a class="headerlink" href="#fundamental-concepts" title="Link to this heading">#</a></h2>
+<section id="understanding-agents">
+<h3>🧠 Understanding Agents<a class="headerlink" href="#understanding-agents" title="Link to this heading">#</a></h3>
+<p>Think of agents as the building blocks of the Comma Agents universe. These agents enable you to run Language Learning Models (LLMs) as part of a larger workflow. They are the key to creating complex, automated sequences that do amazing things. To get your feet wet, let’s start by setting up a single LLM locally using the <code class="docutils literal notranslate"><span class="pre">LLaMaAgent</span></code>.</p>
 <p>Here’s a simple script to kick things off with a local LLaMa model:</p>
-<p><a href="#id1"><span class="problematic" id="id2">``</span></a><a href="#id3"><span class="problematic" id="id4">`</span></a>python
-from comma_agent.agents.llama_agent import LLaMaAgent</p>
-<p># Creating an example agent
-example_agent = LLaMaAgent(</p>
-<blockquote>
-<div><p>name=”Example Agent”,
-prompt=”Hello!”,
-llama_config={</p>
-<blockquote>
-<div><p>“model_path”: “{local_model_path}”,</p>
-</div></blockquote>
-<p>}</p>
-</div></blockquote>
-<p>)</p>
-<p># Let’s see what our agent has to say!
-example_agent.call()
-<a href="#id5"><span class="problematic" id="id6">``</span></a><a href="#id7"><span class="problematic" id="id8">`</span></a></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agent.agents.llama_agent</span> <span class="kn">import</span> <span class="n">LLaMaAgent</span>
+
+<span class="c1"># Creating an example agent</span>
+<span class="n">example_agent</span> <span class="o">=</span> <span class="n">LLaMaAgent</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Example Agent&quot;</span><span class="p">,</span>
+    <span class="n">prompt</span><span class="o">=</span><span class="s2">&quot;Hello!&quot;</span><span class="p">,</span>
+    <span class="n">llama_config</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="s2">&quot;</span><span class="si">{local_model_path}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+<span class="c1"># Let&#39;s see what our agent has to say!</span>
+<span class="n">example_agent</span><span class="o">.</span><span class="n">call</span><span class="p">()</span>
+</pre></div>
+</div>
 <p>Running this script initiates an agent and performs a local run. A heads-up: the model might take a short while to load, but patience pays off with a prompt response from your new digital companion.</p>
-<p>### Exploring Flows</p>
-<p>Now, let’s scale up from single interactions to continuous conversations. This is where the magic of <cite>SequentialFlow</cite> comes into play. It allows you to line up a series of agents for back-to-back interactions. Imagine a relay race where each runner passes the baton to the next. Here’s how you can set it up:</p>
-<p><a href="#id9"><span class="problematic" id="id10">``</span></a><a href="#id11"><span class="problematic" id="id12">`</span></a>python
-from comma_agent.flows import SequentialFlow</p>
-<p># Setting up a sequential flow
-flow = SequentialFlow(</p>
-<blockquote>
-<div><p>name=”Example Flow”,
-flows=[</p>
-<blockquote>
-<div><dl class="simple">
-<dt>UserAgent(</dt><dd><p>name=”User”,
-require_input=true</p>
-</dd>
-</dl>
-<p>),
-example_agent</p>
-</div></blockquote>
-<p>]</p>
-</div></blockquote>
-<p>)</p>
-<p># Time to run our flow!
-flow.run_flow()
-<a href="#id13"><span class="problematic" id="id14">``</span></a><a href="#id15"><span class="problematic" id="id16">`</span></a></p>
-<p>In this setup, you, the user, kickstart the conversation, which then gets picked up by <cite>example_agent</cite>, creating an engaging back-and-forth.</p>
-<p>Craving for a longer chat? Switch to <cite>CycleFlow</cite> for an endless dialogue. It’s like a never-ending story where you decide when to close the book:</p>
-<p><a href="#id17"><span class="problematic" id="id18">``</span></a><a href="#id19"><span class="problematic" id="id20">`</span></a>python
-from comma_agent.flows import CycleFlow</p>
-<p># Creating a cycle flow for ongoing interactions
-flow = CycleFlow( # Changing from SequentialFlow to CycleFlow</p>
-<blockquote>
-<div><p>name=”Example Flow”,
-flows=[</p>
-<blockquote>
-<div><dl class="simple">
-<dt>UserAgent(</dt><dd><p>name=”User”,
-require_input=true</p>
-</dd>
-</dl>
-<p>),
-example_agent</p>
-</div></blockquote>
-<p>]</p>
-</div></blockquote>
-<p>)</p>
-<p># Let the conversation roll!
-flow.run_flow()
-<a href="#id21"><span class="problematic" id="id22">``</span></a><a href="#id23"><span class="problematic" id="id24">`</span></a></p>
-<p>_Note:_ What’s fantastic about CommaAgents is its versatility. You can mix and match agents and flows, plugging them into the flow parameter to design workflows as simple or as complex as you like.</p>
-<p>## Further Exploration</p>
-<p>Ready to dive deeper? There’s a whole ocean of features and capabilities in Comma Agents waiting for you. Check out these resources for more insights and advanced use-cases:
-- [Comprehensive Guide on Agents]
-- [In-Depth Tutorials on Flows]</p>
+</section>
+<section id="exploring-flows">
+<h3>🔀 Exploring Flows<a class="headerlink" href="#exploring-flows" title="Link to this heading">#</a></h3>
+<p>Now, let’s scale up from single interactions to continuous conversations. This is where the magic of <code class="docutils literal notranslate"><span class="pre">SequentialFlow</span></code> comes into play. It allows you to line up a series of agents for back-to-back interactions. Imagine a relay race where each runner passes the baton to the next. Here’s how you can set it up:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agent.flows</span> <span class="kn">import</span> <span class="n">SequentialFlow</span>
+
+<span class="c1"># Setting up a sequential flow</span>
+<span class="n">flow</span> <span class="o">=</span> <span class="n">SequentialFlow</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Example Flow&quot;</span><span class="p">,</span>
+    <span class="n">flows</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">UserAgent</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;User&quot;</span><span class="p">,</span>
+            <span class="n">require_input</span><span class="o">=</span><span class="n">true</span>
+        <span class="p">),</span>
+        <span class="n">example_agent</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+
+<span class="c1"># Time to run our flow!</span>
+<span class="n">flow</span><span class="o">.</span><span class="n">run_flow</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>In this setup, you, the user, kickstart the conversation, which then gets picked up by <code class="docutils literal notranslate"><span class="pre">example_agent</span></code>, creating an engaging back-and-forth.</p>
+<p>Craving for a longer chat? Switch to <code class="docutils literal notranslate"><span class="pre">CycleFlow</span></code> for an endless dialogue. It’s like a never-ending story where you decide when to close the book:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agent.flows</span> <span class="kn">import</span> <span class="n">CycleFlow</span>
+
+<span class="c1"># Creating a cycle flow for ongoing interactions</span>
+<span class="n">flow</span> <span class="o">=</span> <span class="n">CycleFlow</span><span class="p">(</span> <span class="c1"># Changing from SequentialFlow to CycleFlow</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Example Flow&quot;</span><span class="p">,</span>
+    <span class="n">flows</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">UserAgent</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;User&quot;</span><span class="p">,</span>
+            <span class="n">require_input</span><span class="o">=</span><span class="n">true</span>
+        <span class="p">),</span>
+        <span class="n">example_agent</span>
+    <span class="p">]</span>
+<span class="p">)</span>
+
+<span class="c1"># Let the conversation roll!</span>
+<span class="n">flow</span><span class="o">.</span><span class="n">run_flow</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><em>Note:</em> What’s fantastic about CommaAgents is its versatility. You can mix and match agents and flows, plugging them into the flow parameter to design workflows as simple or as complex as you like.</p>
+</section>
+</section>
+<section id="further-exploration">
+<h2>🌟 Further Exploration<a class="headerlink" href="#further-exploration" title="Link to this heading">#</a></h2>
+<p>Ready to dive deeper? There’s a whole ocean of features and capabilities in Comma Agents waiting for you. Check out these resources for more insights and advanced use-cases:</p>
+<ul class="simple">
+<li><p>[Comprehensive Guide on Agents]</p></li>
+<li><p>[In-Depth Tutorials on Flows]</p></li>
+</ul>
 <p>Start your journey with Comma Agents today and unlock the full potential of automated workflows. Happy automating! 🚀🤖</p>
+</section>
+</section>
 
         </article>
       </div>
@@ -280,7 +290,17 @@ flow.run_flow()
         
         <div class="related-pages">
           
-          
+          <a class="prev-page" href="../index.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Home</div>
+                
+              </div>
+            </a>
         </div>
         <div class="bottom-of-page">
           <div class="left-details">
@@ -299,8 +319,34 @@ flow.run_flow()
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">🚀 Quick Start Guide for Comma Agents</a><ul>
+<li><a class="reference internal" href="#installation">💻 Installation</a></li>
+<li><a class="reference internal" href="#setting-up-local-models">🛠 Setting Up Local Models</a></li>
+<li><a class="reference internal" href="#fundamental-concepts">📚 Fundamental Concepts</a><ul>
+<li><a class="reference internal" href="#understanding-agents">🧠 Understanding Agents</a></li>
+<li><a class="reference internal" href="#exploring-flows">🔀 Exploring Flows</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#further-exploration">🌟 Further Exploration</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

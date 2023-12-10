@@ -42,8 +42,6 @@ We love contributions! Whether you're fixing bugs, adding features, or improving
 You can also submit feature requests and report issues!
 Every bit of feedback can help Comma Agents grow into a more robust platform for automation enthusiasts!
 
-
-
 Join the Community 🤝
 ---------------------
 
