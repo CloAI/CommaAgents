@@ -35,7 +35,7 @@ class LLaMaAgent(BaseAgent):
     >>> response = llama_agent._call_llm("What is the capital of France?")
     """
 
-    def __init__(self, name: str, llama_config={}, **kwargs):
+    def __init__(self, name: str, llama_config={}, unload_on_completion: bool = False, **kwargs):
         """
         Initializes a new instance of the LLaMaAgent class.
 
@@ -55,7 +55,12 @@ class LLaMaAgent(BaseAgent):
         if llama_config.get("verbose", None) is None:
             llama_config["verbose"] = False
 
+        # If the user has not manually set the 'last_n_tokens_size' we set it to 0 so that every chat is unique, but also uses the full context as reference.
+        if llama_config.get("last_n_tokens_size", None) is None:
+            llama_config["last_n_tokens_size"] = 0
+
         self.lamma_config = llama_config
+        self.unload_on_completion = unload_on_completion
         self.llm = Llama(**self.lamma_config)
 
     def _call_llm(self, prompt='', *args, **kwargs):
@@ -85,5 +90,14 @@ class LLaMaAgent(BaseAgent):
         >>> response = llama_agent._call_llm("Translate 'Hello' to Spanish.")
         'Hola'
         """
+        # If we are unloading the model after each call, we need to reinitialize it.
+        if self.unload_on_completion is True and not hasattr(self, 'llm'):
+            self.llm = Llama(**self.lamma_config)
+        
         response = self.llm(prompt)
+        
+        # If we are unloading the model after each call, we need to delete the instance after to free up resources.
+        if self.unload_on_completion is True:
+            del self.llm
+        
         return response["choices"][0]["text"]

@@ -1,8 +1,7 @@
+from comma_agents.code_interpreters import CodeInterpreterLanguageHandler
 
-from comma_agents.agents.code_interpreter.code_agent_language_handler import CodeAgentLanguageHandler
 
-
-class CodeAgentLanguageHandlerPython(CodeAgentLanguageHandler):
+class PythonCodeInterpreterLanguageHandler(CodeInterpreterLanguageHandler):
     def __init__(self, **kwargs):
         # TODO: make sure the kwargs are passed in correctly and not overwrite the python interpreter path
         super().__init__(

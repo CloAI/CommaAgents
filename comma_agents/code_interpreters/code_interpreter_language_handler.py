@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 import uuid
 
-class CodeAgentLanguageHandler:
+class CodeInterpreterLanguageHandler:
     def __init__(
             self,
             language,
@@ -39,7 +39,7 @@ class CodeAgentLanguageHandler:
         """
         return inferred_language
     
-    def execute_code_block(self, code_block):
+    def execute_code_block(self, code_block: str):
             """Executes a Python code block safely."""
             try:
                 # Determine file path: use generated_file_directory or a temporary file

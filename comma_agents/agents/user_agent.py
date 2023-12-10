@@ -55,11 +55,6 @@ def print_user_agent_prompt_format(
     print(bust_in_silhouette + Fore.CYAN + "User: " + agent_name + Style.RESET_ALL)
 
     # If a prompt is provided, print it in yellow
-    if prompt:
-        print(speaking_head + Fore.YELLOW + " Prompt: " + prompt + Style.RESET_ALL)
-
-    # If a response is provided, print it. This seems to be a bug in your code, as 'response' is printed as 'Prompt'
-    # Consider changing " Prompt: " to " Response: " if you're printing a response.
     if response:
         print(speaking_head + Fore.YELLOW + " Prompt: " + response + Style.RESET_ALL)
 

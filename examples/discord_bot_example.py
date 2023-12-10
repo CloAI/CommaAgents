@@ -36,7 +36,7 @@ You have a funny random catchphrase at the end of your messages.
         remember_context=True,
         context_window_size=2,
         llama_config={
-            "model_path": "/Users/nateageek/.cache/lm-studio/models/TheBloke/zephyr-7B-beta-GGUF/zephyr-7b-beta.Q6_K.gguf",
+            "model_path": "~/.cache/lm-studio/models/TheBloke/zephyr-7B-beta-GGUF/zephyr-7b-beta.Q6_K.gguf",
         }
 )
 

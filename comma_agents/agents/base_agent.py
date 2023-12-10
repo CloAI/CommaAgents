@@ -2,6 +2,7 @@ import os
 from typing import Callable, Dict, List, Optional, Any, TypedDict
 
 from colorama import Fore, Style
+from comma_agents.code_interpreters.code_interpreter import CodeInterpreter
 from comma_agents.utils.misc import or_one_value_to_array
 
 def print_agent_prompt_format(
@@ -262,6 +263,8 @@ class BaseAgent:
         remember_context: bool = False,
         context_window_size: Optional[int] = None,
         prompt_formats: "BaseAgent.AgentPromptFormats" = {},
+        interpret_code: bool = False,
+        code_interpreter: Optional["CodeInterpreter"] = None,
         verbose_level: int = 1,
         verbose_formats: "BaseAgent.AgentVerboseFormats" = {},
     ) -> None:
@@ -320,6 +323,11 @@ class BaseAgent:
 
         # Flag to indicate if this is the first call to the Agent
         self.first_call = True
+        self.interpret_code = interpret_code
+        self.code_interpreter = code_interpreter
+        
+        if self.interpret_code is True and code_interpreter is None:
+            raise ValueError(f"You must provide a code interpreter if you want to interpret code for {self.name}.")
 
         # Initializing hooks with provided values or default to empty lists
         self.hooks: "BaseAgent.AgentHooks" = {
@@ -393,6 +401,10 @@ class BaseAgent:
         # Perform the actual call to the agent with the prepared prompt
         response = self._call_llm(prompt=full_prompt)
 
+        # If code interpretation is enabled, interpret the code and append the output to the response
+        if self.interpret_code is True:
+            response = response + "\nCode Output: " + self.code_interpreter.interpret_code(response)
+            
         # If verbose logging is enabled, format and display/log the prompt and response interaction
         if self.verbose_level >= 1:
             self.verbose_formats["print_agent_prompt_format"](self.name, prompt, response, self.system_prompt)
@@ -461,6 +473,11 @@ class BaseAgent:
         
 
         response = self._call_llm(prompt=full_prompt + self.prompt_formats["assistant_message_start_token"])
+
+        # TODO: Allow the better prompt base system to format this code output better...2
+        # If code interpretation is enabled, interpret the code and append the output to the response
+        if self.interpret_code is True:
+            response = response + "\nCode Output: " + self.code_interpreter.interpret_code(response)
         
         if self.verbose_level >= 1:
             self.verbose_formats["print_agent_prompt_format"](self.name, prompt, response, self.system_prompt)
