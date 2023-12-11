@@ -76,7 +76,6 @@ def print_agent_prompt_format(
     # Print the separator again
     print("#" * width)
 
-
 class BaseAgent:
     """
     BaseAgent is a foundational class designed for interactions with a Large Language Model (Agent). It facilitates 
@@ -255,6 +254,22 @@ class BaseAgent:
         """
         print_agent_prompt_format: Optional[Callable[[str, Optional[str], Optional[str], Optional[bool], bool], None]]
 
+    class AgentLLMFunctionalCallbacksParams(TypedDict, total=True):
+        name: str
+        description: str
+        type: str
+        
+    class AgentLLMFunctionalCallbacksReturnValue(TypedDict, total=True):
+        type: str
+        description: str
+    class AgentLLMFunctionalCallbacks(TypedDict, total=False):
+        """"""
+        function_name: str
+        function_description: str
+        function: Callable[..., Any]
+        params: List["BaseAgent.AgentLLMFunctionalCallbacksParams"]
+        return_value: List["BaseAgent.AgentLLMFunctionalCallbacksReturnValue"]
+    
     def __init__(
         self,
         name: str,
@@ -267,6 +282,7 @@ class BaseAgent:
         code_interpreter: Optional["CodeInterpreter"] = None,
         verbose_level: int = 1,
         verbose_formats: "BaseAgent.AgentVerboseFormats" = {},
+        llm_functional_callbacks: "BaseAgent.AgentLLMFunctionalCallbacks" = {}
     ) -> None:
         """
         Initializes an instance of the BaseAgent class.
@@ -325,6 +341,7 @@ class BaseAgent:
         self.first_call = True
         self.interpret_code = interpret_code
         self.code_interpreter = code_interpreter
+        self.llm_functional_callbacks = llm_functional_callbacks
         
         if self.interpret_code is True and code_interpreter is None:
             raise ValueError(f"You must provide a code interpreter if you want to interpret code for {self.name}.")
@@ -630,3 +647,5 @@ class BaseAgent:
         if self.context_window_size is not None:
             while len(self.historical_context) > self.context_window_size:
                 self.historical_context.pop(0)  # Remove the oldest entry
+                
+    

@@ -212,19 +212,18 @@
 <h3>🧠 Understanding Agents<a class="headerlink" href="#understanding-agents" title="Link to this heading">#</a></h3>
 <p>Think of agents as the building blocks of the Comma Agents universe. These agents enable you to run Language Learning Models (LLMs) as part of a larger workflow. They are the key to creating complex, automated sequences that do amazing things. To get your feet wet, let’s start by setting up a single LLM locally using the <code class="docutils literal notranslate"><span class="pre">LLaMaAgent</span></code>.</p>
 <p>Here’s a simple script to kick things off with a local LLaMa model:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agent.agents.llama_agent</span> <span class="kn">import</span> <span class="n">LLaMaAgent</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agents.agents.external</span> <span class="kn">import</span> <span class="n">LLaMaAgent</span>
 
 <span class="c1"># Creating an example agent</span>
 <span class="n">example_agent</span> <span class="o">=</span> <span class="n">LLaMaAgent</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Example Agent&quot;</span><span class="p">,</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="s2">&quot;Hello!&quot;</span><span class="p">,</span>
     <span class="n">llama_config</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="s2">&quot;</span><span class="si">{local_model_path}</span><span class="s2">&quot;</span><span class="p">,</span>
     <span class="p">}</span>
 <span class="p">)</span>
 
 <span class="c1"># Let&#39;s see what our agent has to say!</span>
-<span class="n">example_agent</span><span class="o">.</span><span class="n">call</span><span class="p">()</span>
+<span class="n">example_agent</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="s2">&quot;Hello! How are you doing today LLM?&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Running this script initiates an agent and performs a local run. A heads-up: the model might take a short while to load, but patience pays off with a prompt response from your new digital companion.</p>
@@ -232,7 +231,7 @@
 <section id="exploring-flows">
 <h3>🔀 Exploring Flows<a class="headerlink" href="#exploring-flows" title="Link to this heading">#</a></h3>
 <p>Now, let’s scale up from single interactions to continuous conversations. This is where the magic of <code class="docutils literal notranslate"><span class="pre">SequentialFlow</span></code> comes into play. It allows you to line up a series of agents for back-to-back interactions. Imagine a relay race where each runner passes the baton to the next. Here’s how you can set it up:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agent.flows</span> <span class="kn">import</span> <span class="n">SequentialFlow</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agents.flows</span> <span class="kn">import</span> <span class="n">SequentialFlow</span>
 
 <span class="c1"># Setting up a sequential flow</span>
 <span class="n">flow</span> <span class="o">=</span> <span class="n">SequentialFlow</span><span class="p">(</span>
@@ -252,10 +251,10 @@
 </div>
 <p>In this setup, you, the user, kickstart the conversation, which then gets picked up by <code class="docutils literal notranslate"><span class="pre">example_agent</span></code>, creating an engaging back-and-forth.</p>
 <p>Craving for a longer chat? Switch to <code class="docutils literal notranslate"><span class="pre">CycleFlow</span></code> for an endless dialogue. It’s like a never-ending story where you decide when to close the book:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agent.flows</span> <span class="kn">import</span> <span class="n">CycleFlow</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agents.flows</span> <span class="kn">import</span> <span class="n">InfiniteCycleFlow</span>
 
 <span class="c1"># Creating a cycle flow for ongoing interactions</span>
-<span class="n">flow</span> <span class="o">=</span> <span class="n">CycleFlow</span><span class="p">(</span> <span class="c1"># Changing from SequentialFlow to CycleFlow</span>
+<span class="n">flow</span> <span class="o">=</span> <span class="n">InfiniteCycleFlow</span><span class="p">(</span> <span class="c1"># Changing from SequentialFlow to CycleFlow</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Example Flow&quot;</span><span class="p">,</span>
     <span class="n">flows</span><span class="o">=</span><span class="p">[</span>
         <span class="n">UserAgent</span><span class="p">(</span>

@@ -13,6 +13,16 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
+        },
+        {
+            "name": "Examples/MemGPT Agent",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/memgpt_like_agent.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }

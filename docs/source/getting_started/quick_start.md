@@ -69,10 +69,10 @@ In this setup, you, the user, kickstart the conversation, which then gets picked
 Craving for a longer chat? Switch to `CycleFlow` for an endless dialogue. It's like a never-ending story where you decide when to close the book:
 
 ```python
-from comma_agents.flows import CycleFlow
+from comma_agents.flows import InfiniteCycleFlow
 
 # Creating a cycle flow for ongoing interactions
-flow = CycleFlow( # Changing from SequentialFlow to CycleFlow
+flow = InfiniteCycleFlow( # Changing from SequentialFlow to CycleFlow
     name="Example Flow",
     flows=[
         UserAgent(
