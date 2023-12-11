@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "comma-agents"
-version = "0.0.1"
+version = "0.0.2"
 description = "A way to elevate your AI workflow with Comma Agents, a versatile Python library designed for seamless AI model integration and automation. Perfect for developers looking to enhance efficiency in local or remote environments, it offers customizable AI flows and scalable solutions. Streamline your projects with Comma Agents, the ideal tool for Python-based AI automation."
 authors = ["Nathaniel Hatch-Martinez <nhm@cloai.com>"]
 license = "MIT"
