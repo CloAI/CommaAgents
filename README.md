@@ -15,6 +15,49 @@ Getting started with Comma Agents is a breeze! Here's how you can get everything
 
 Head over to the documentation if you want to learn more about examples and docs [Comma Agents Documentation](https://commaagents.com/)
 
+## Quick Start! 
+
+Here's a simple script to kick things off with a local LLaMa model:
+
+```python
+from comma_agents.agents.external import LLaMaAgent
+
+# Creating an example agent
+example_agent = LLaMaAgent(
+    name="Example Agent",
+    llama_config={
+        "model_path": "{local_model_path}",
+    }
+)
+
+# Let's see what our agent has to say!
+example_agent.call("Hello! How are you doing today LLM?")
+```
+
+Want to type in the questions? Try a UserAgent with `require_input=True` and a sequential flow!
+
+```python
+from comma_agents.agents import UserAgent
+from comma_agents.flows import SequentialFlow
+
+# Setting up a sequential flow
+flow = SequentialFlow(
+    flow_name="Example Flow",
+    flows=[
+        UserAgent(
+            name="User",
+            require_input=True
+        ),
+        example_agent
+    ]
+)
+
+# Time to run our flow!
+flow.run_flow()
+```
+
+Head over to the full quick start guide to see how to continuously chat with your agent! [Comma Agents Documentation | Quick Start](https://commaagents.com/getting_started/quick_start)
+
 ## Use Cases for Automated LLM Workflows 🚀
 
 Comma Agents can be used in a myriad of exciting and innovative ways. Here are some of the cool things you can do:

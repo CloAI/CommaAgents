@@ -46,15 +46,16 @@ Running this script initiates an agent and performs a local run. A heads-up: the
 Now, let's scale up from single interactions to continuous conversations. This is where the magic of `SequentialFlow` comes into play. It allows you to line up a series of agents for back-to-back interactions. Imagine a relay race where each runner passes the baton to the next. Here’s how you can set it up:
 
 ```python
+from comma_agents.agents import UserAgent
 from comma_agents.flows import SequentialFlow
 
 # Setting up a sequential flow
 flow = SequentialFlow(
-    name="Example Flow",
+    flow_name="Example Flow",
     flows=[
         UserAgent(
             name="User",
-            require_input=true
+            require_input=True
         ),
         example_agent
     ]
@@ -66,18 +67,18 @@ flow.run_flow()
 
 In this setup, you, the user, kickstart the conversation, which then gets picked up by `example_agent`, creating an engaging back-and-forth.
 
-Craving for a longer chat? Switch to `CycleFlow` for an endless dialogue. It's like a never-ending story where you decide when to close the book:
+Craving for a longer chat? Switch to `InfiniteCycleFlow` for an endless dialogue. It's like a never-ending story where you decide when to close the book:
 
 ```python
 from comma_agents.flows import InfiniteCycleFlow
 
 # Creating a cycle flow for ongoing interactions
-flow = InfiniteCycleFlow( # Changing from SequentialFlow to CycleFlow
-    name="Example Flow",
+flow = InfiniteCycleFlow( # Changing from SequentialFlow to InfiniteCycleFlow
+    flow_name="Example Flow",
     flows=[
         UserAgent(
             name="User",
-            require_input=true
+            require_input=True
         ),
         example_agent
     ]

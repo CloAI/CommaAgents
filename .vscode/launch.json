@@ -23,6 +23,16 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
+        },
+        {
+            "name": "Examples/Full Quick Start",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/full_quick_start.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }
