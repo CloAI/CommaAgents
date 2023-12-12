@@ -7,7 +7,7 @@
 
     <!-- Generated with Sphinx 7.2.6 and Furo 2023.09.10 -->
         <title>🚀 Quick Start Guide for Comma Agents - Comma Agents 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=362ab14a" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=36a5483c" />
     
@@ -231,15 +231,16 @@
 <section id="exploring-flows">
 <h3>🔀 Exploring Flows<a class="headerlink" href="#exploring-flows" title="Link to this heading">#</a></h3>
 <p>Now, let’s scale up from single interactions to continuous conversations. This is where the magic of <code class="docutils literal notranslate"><span class="pre">SequentialFlow</span></code> comes into play. It allows you to line up a series of agents for back-to-back interactions. Imagine a relay race where each runner passes the baton to the next. Here’s how you can set it up:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agents.flows</span> <span class="kn">import</span> <span class="n">SequentialFlow</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agents.agents</span> <span class="kn">import</span> <span class="n">UserAgent</span>
+<span class="kn">from</span> <span class="nn">comma_agents.flows</span> <span class="kn">import</span> <span class="n">SequentialFlow</span>
 
 <span class="c1"># Setting up a sequential flow</span>
 <span class="n">flow</span> <span class="o">=</span> <span class="n">SequentialFlow</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Example Flow&quot;</span><span class="p">,</span>
+    <span class="n">flow_name</span><span class="o">=</span><span class="s2">&quot;Example Flow&quot;</span><span class="p">,</span>
     <span class="n">flows</span><span class="o">=</span><span class="p">[</span>
         <span class="n">UserAgent</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="s2">&quot;User&quot;</span><span class="p">,</span>
-            <span class="n">require_input</span><span class="o">=</span><span class="n">true</span>
+            <span class="n">require_input</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">),</span>
         <span class="n">example_agent</span>
     <span class="p">]</span>
@@ -250,16 +251,16 @@
 </pre></div>
 </div>
 <p>In this setup, you, the user, kickstart the conversation, which then gets picked up by <code class="docutils literal notranslate"><span class="pre">example_agent</span></code>, creating an engaging back-and-forth.</p>
-<p>Craving for a longer chat? Switch to <code class="docutils literal notranslate"><span class="pre">CycleFlow</span></code> for an endless dialogue. It’s like a never-ending story where you decide when to close the book:</p>
+<p>Craving for a longer chat? Switch to <code class="docutils literal notranslate"><span class="pre">InfiniteCycleFlow</span></code> for an endless dialogue. It’s like a never-ending story where you decide when to close the book:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">comma_agents.flows</span> <span class="kn">import</span> <span class="n">InfiniteCycleFlow</span>
 
 <span class="c1"># Creating a cycle flow for ongoing interactions</span>
-<span class="n">flow</span> <span class="o">=</span> <span class="n">InfiniteCycleFlow</span><span class="p">(</span> <span class="c1"># Changing from SequentialFlow to CycleFlow</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Example Flow&quot;</span><span class="p">,</span>
+<span class="n">flow</span> <span class="o">=</span> <span class="n">InfiniteCycleFlow</span><span class="p">(</span> <span class="c1"># Changing from SequentialFlow to InfiniteCycleFlow</span>
+    <span class="n">flow_name</span><span class="o">=</span><span class="s2">&quot;Example Flow&quot;</span><span class="p">,</span>
     <span class="n">flows</span><span class="o">=</span><span class="p">[</span>
         <span class="n">UserAgent</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="s2">&quot;User&quot;</span><span class="p">,</span>
-            <span class="n">require_input</span><span class="o">=</span><span class="n">true</span>
+            <span class="n">require_input</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">),</span>
         <span class="n">example_agent</span>
     <span class="p">]</span>

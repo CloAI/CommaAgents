@@ -15,7 +15,7 @@ Getting started with Comma Agents is a breeze! Here's how you can get everything
 
 Head over to the documentation if you want to learn more about examples and docs [Comma Agents Documentation](https://commaagents.com/)
 
-## Quick Start! 
+## Quick Start! 🔥
 
 Here's a simple script to kick things off with a local LLaMa model:
 
