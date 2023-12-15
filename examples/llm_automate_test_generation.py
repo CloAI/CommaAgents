@@ -27,7 +27,7 @@ deepseek_llm = LLaMaAgent(
     system_prompt=DEEPSEEK_CODER_TEST_GENERATOR_PROMPT,
     llama_config={
         "model_path": "/Users/nateageek/.cache/lm-studio/models/TheBloke/deepseek-coder-6.7B-instruct-GGUF/deepseek-coder-6.7b-instruct.Q6_K.gguf",
-        "n_ctx": 512 * 8,
+        "n_ctx": 512 * 16,
     },
     prompt_formats=deepseek_prompt_format,
 )
@@ -45,4 +45,7 @@ for file in list_all_files("./comma_agents/agents"):
         print(file)
         with open(file, "r") as f:
             file_contents = f.read()
-            deepseek_llm.call(file_contents)
+            response = deepseek_llm.call(file_contents)
+            # Write the response to a ./.temp/test_{file}.py
+            with open(f"./.temp/test_{file.split('/')[-1]}", "w") as f2:
+                f2.write(response)
