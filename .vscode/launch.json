@@ -15,7 +15,7 @@
             }
         },
         {
-            "name": "Examples/MemGPT Agent",
+            "name": "Examples/Memory Agent",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/examples/memgpt_like_agent.py",
@@ -33,6 +33,26 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
-        }
+        },
+        {
+            "name": "Examples/Discord Chat",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/discord_bot_example.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Examples/Generate Test Cases",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/llm_automate_test_generation.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
     ]
 }

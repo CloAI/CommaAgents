@@ -9,4 +9,4 @@
 [] Add OpenAI Agent (ChatGPT Bois!)
 [] Build flow that will allow someone to request a feature for CommaAgents and it will then modify its own source code to implement said feature
 [] Determine if llm_functional_callbacks should be in the base agent or in a different one? 
-[] TODO: Might change MemGPT from an agent into a wrapper
+[] Need to make caching soon for remote LLMs

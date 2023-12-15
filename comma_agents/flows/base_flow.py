@@ -261,3 +261,48 @@ class BaseFlow:
         for hook in self.hooks.get(hook_name, []):
             prompt = hook(prompt)
         return prompt
+    
+    def insert_agent(self, agent: BaseAgent, after: str = None, before: str = None):
+        """
+        Inserts an agent into the flow either before or after a specified agent.
+
+        Parameters:
+        agent (BaseAgent): The agent to be inserted.
+        after (str, optional): The name of the agent after which the new agent should be inserted.
+        before (str, optional): The name of the agent before which the new agent should be inserted.
+        """
+
+        for i, flow in enumerate(self.flows):
+            if isinstance(flow, BaseFlow):
+                flow.insert_agent(agent, after, before)
+            elif isinstance(flow, BaseAgent):
+                if after and flow.name == after:
+                    self.flows.insert(i + 1, agent)
+                    return
+                elif before and flow.name == before:
+                    self.flows.insert(i, agent)
+                    return
+
+        if not after and not before:
+            self.flows.append(agent)
+    
+    def summary(self) -> str:
+        """
+        Returns a string summarizing the flow configuration.
+
+        Returns:
+        str: A string summarizing the flow configuration.
+        """
+        full_model_breakdown = ""
+
+        for flow in self.flows:
+            if isinstance(flow, BaseFlow):
+                flow_summary = str({
+                    "name": flow.flow_name,
+                    "hooks": flow.hooks,
+                })
+                full_model_breakdown = full_model_breakdown + flow_summary
+            elif isinstance(flow, BaseAgent):
+                full_model_breakdown = full_model_breakdown + flow.summary()
+            
+        return full_model_breakdown

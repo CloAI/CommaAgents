@@ -28,23 +28,23 @@ cycle_observer_flow = flows.InfiniteCycleFlow(flows=[
     ),
     LLaMaAgent(
         name="Programming Expert",
-        system_prompt="You are a coding expert, write code, and mark the language used, only write python",
+        # system_prompt="You are a coding expert, write code, and mark the language used, only write python",
         prompt_formats=zypher_prompt_format,
         llama_config={
             "model_path": "/Users/nateageek/.cache/lm-studio/models/TheBloke/zephyr-7B-beta-GGUF/zephyr-7b-beta.Q6_K.gguf",
         },
         unload_on_completion=True,
-        interpret_code=True,
-        code_interpreter=CodeInterpreter(
-            supported_languages={
-                'python': PythonCodeInterpreterLanguageHandler(),
-                'sh': ShCodeAgentLanguageHandler(),
-                'bash': CodeInterpreterLanguageHandler(
-                    language="bash",
-                    interpreter_path="/bin/bash",
-                )
-            }
-        )
+        # interpret_code=True,
+        # code_interpreter=CodeInterpreter(
+        #     supported_languages={
+        #         'python': PythonCodeInterpreterLanguageHandler(),
+        #         'sh': ShCodeAgentLanguageHandler(),
+        #         'bash': CodeInterpreterLanguageHandler(
+        #             language="bash",
+        #             interpreter_path="/bin/bash",
+        #         )
+        #     }
+        # )
     ),
     LLaMaAgent(
         name="Programming Expert",

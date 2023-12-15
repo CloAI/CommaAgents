@@ -168,12 +168,13 @@ class BaseAgent:
         >>> agent_hooks = AgentHooks(before_call=custom_pre_call)
         >>> agent = BaseAgent(name="ExampleAgent", hooks=agent_hooks)
         """
-        before_initial_call: Optional[Callable[..., Any]]
-        alter_initial_prompt: Optional[Callable[..., Any]]
-        after_initial_call: Optional[Callable[..., Any]]
-        before_call: Optional[Callable[..., Any]]
-        alter_call_prompt: Optional[Callable[..., Any]]
-        after_call: Optional[Callable[..., Any]]
+        before_initial_call: Optional[List[Callable[..., Any]]]
+        alter_initial_prompt: Optional[List[Callable[..., Any]]]
+        after_initial_call: Optional[List[Callable[..., Any]]]
+        before_call: Optional[List[Callable[..., Any]]]
+        alter_call_prompt: Optional[List[Callable[..., Any]]]
+        alter_response: Optional[List[Callable[..., Any]]]
+        after_call: Optional[List[Callable[..., Any]]]
 
     class AgentPromptFormats(TypedDict, total=False):
         """
@@ -353,6 +354,7 @@ class BaseAgent:
             "after_initial_call": or_one_value_to_array(hooks.get("after_initial_call")),
             "before_call": or_one_value_to_array(hooks.get("before_call")),
             "alter_call_prompt": or_one_value_to_array(hooks.get("alter_call_prompt")),
+            "alter_response": or_one_value_to_array(hooks.get("alter_response")),
             "after_call": or_one_value_to_array(hooks.get("after_call"))
         }
         
@@ -429,10 +431,12 @@ class BaseAgent:
         # Execute hooks that are set to run after the initial agent call, passing the response
         self._execute_hooks("after_initial_call", response)
 
+        #TODO: Add alter context insert hook here
         # If keeping historical context is enabled, update it with the current prompt and response
         if self.remember_context:
             self._update_historical_context(prompt, response)
 
+        response = self._execute_alter_hooks("alter_response", response)
         # Return the response received from the agent
         return response
 
@@ -486,7 +490,7 @@ class BaseAgent:
                 full_prompt += self.prompt_formats["user_message_start_token"] + historical_prompt + self.prompt_formats["user_message_end_token"]
                 full_prompt += self.prompt_formats["assistant_message_start_token"] + historical_response + self.prompt_formats["assistant_message_end_token"]
             
-            full_prompt += self.prompt_formats["user_message_start_token"] + prompt + self.prompt_formats["user_message_end_token"]
+        full_prompt += self.prompt_formats["user_message_start_token"] + prompt + self.prompt_formats["user_message_end_token"]
         
 
         response = self._call_llm(prompt=full_prompt + self.prompt_formats["assistant_message_start_token"])
@@ -502,12 +506,14 @@ class BaseAgent:
         # Execute 'after' hooks
         self._execute_hooks("after_call", response)
 
+        #TODO: Add alter context insert hook here
         # Update historical context with response
         if self.remember_context:
             if self.verbose_level >= 3:
                 print(f"Updating historical context with prompt {prompt} and response {response}")
             self._update_historical_context(prompt, response)
-
+        
+        response = self._execute_alter_hooks("alter_response", response)
         return response
     
     def _call_llm(self, prompt: str='') -> str:
@@ -647,5 +653,15 @@ class BaseAgent:
         if self.context_window_size is not None:
             while len(self.historical_context) > self.context_window_size:
                 self.historical_context.pop(0)  # Remove the oldest entry
-                
+
+    def summary(self):
+        return str({
+            "name": self.name,
+            "agent_class": self.__class__.__name__,
+            "system_prompt": self.system_prompt,
+            "hooks": self.hooks,
+            "remember_context": self.remember_context,
+            "context_window_size": self.context_window_size,
+            "prompt_formats": self.prompt_formats,
+        })
     
