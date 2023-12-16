@@ -5,6 +5,7 @@ import discord
 import asyncio
 import queue
 from dotenv import load_dotenv
+from comma_agents.prompts import PromptTemplate, ZephyrPromptTemplate, LLaMaPromptTemplate
 
 from comma_agents.strategies.memory_strategy.memory_strategy import MemoryStrategy
 
@@ -12,26 +13,7 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
 intents = discord.Intents.all()
-
 client = discord.Client(intents=intents)
-
-zypher_prompt_format: BaseAgent.AgentPromptFormats = {
-    "system_message_start_token": "<|system|>\n",
-    "system_message_end_token": "\n</s>\n",
-    "user_message_start_token": "<|user|>\n",
-    "user_message_end_token": "\n</s>\n",
-    "assistant_message_start_token": "<|assistant|>\n",
-    "assistant_message_end_token": "\n</s>\n"
-}
-
-llama_prompt_format: BaseAgent.AgentPromptFormats = {
-    "system_message_start_token": "",
-    "system_message_end_token": "\n",
-    "user_message_start_token": "USER: ",
-    "user_message_end_token": "\n",
-    "assistant_message_start_token": "ASSISTANT: ",
-    "assistant_message_end_token": ""
-}
 
 memgpt_agent = MemoryStrategy(
     memory_processor_agent=LLaMaAgent(
@@ -40,7 +22,7 @@ memgpt_agent = MemoryStrategy(
         "model_path": "/Users/nateageek/.cache/lm-studio/models/TheBloke/airoboros-mistral2.2-7B-GGUF/airoboros-mistral2.2-7b.Q5_K_M.gguf",
         "n_ctx": 2048,
     },
-    prompt_formats=llama_prompt_format,
+    prompt_template=LLaMaPromptTemplate(),
     unload_on_completion=True
 ),
     question_extractor_agent=LLaMaAgent(
@@ -49,7 +31,7 @@ memgpt_agent = MemoryStrategy(
         "model_path": "/Users/nateageek/.cache/lm-studio/models/TheBloke/airoboros-mistral2.2-7B-GGUF/airoboros-mistral2.2-7b.Q5_K_M.gguf",
         "n_ctx": 2048,
     },
-    prompt_formats=llama_prompt_format,
+    prompt_template=LLaMaPromptTemplate(),
     unload_on_completion=True
 ),
     statement_extractor_agent=LLaMaAgent(
@@ -58,7 +40,7 @@ memgpt_agent = MemoryStrategy(
         "model_path": "/Users/nateageek/.cache/lm-studio/models/TheBloke/airoboros-mistral2.2-7B-GGUF/airoboros-mistral2.2-7b.Q5_K_M.gguf",
         "n_ctx": 2048,
     },
-    prompt_formats=llama_prompt_format,
+    prompt_template=LLaMaPromptTemplate(),
     unload_on_completion=True
 ),
     context_aggregator_agent=LLaMaAgent(
@@ -67,11 +49,9 @@ memgpt_agent = MemoryStrategy(
         "model_path": "/Users/nateageek/.cache/lm-studio/models/TheBloke/airoboros-mistral2.2-7B-GGUF/airoboros-mistral2.2-7b.Q5_K_M.gguf",
         "n_ctx": 2048,
     },
-    prompt_formats=llama_prompt_format,
+    prompt_template=LLaMaPromptTemplate(),
     unload_on_completion=True
-),
-    max_memory_recall=5
-)
+))
 
 chat_agent = LLaMaAgent(
         name="Discord Chat Agent",
@@ -86,7 +66,7 @@ chat_agent = LLaMaAgent(
 - You have a funny random catchphrase at the end of your messages.
 - Don't mention that you're missing context for a prompt, just respond with something you think is helpful or funny.
 """,
-        prompt_formats=zypher_prompt_format,
+        prompt_template=ZephyrPromptTemplate(),
         remember_context=True,
         context_window_size=2,
         llama_config={
