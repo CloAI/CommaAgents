@@ -19,7 +19,7 @@ memgpt_agent = MemoryStrategy(
         "model_path": "/Users/nateageek/.cache/lm-studio/models/TheBloke/airoboros-mistral2.2-7B-GGUF/airoboros-mistral2.2-7b.Q5_K_M.gguf",
         "n_ctx": 2048,
     },
-    prompt_formats=llama_prompt_format,
+    
     unload_on_completion=True
 ),
     question_extractor_agent=LLaMaAgent(

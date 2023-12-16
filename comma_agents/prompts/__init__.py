@@ -1,1 +1,2 @@
-from .base_prompt import Prompt
+from .base_prompt import PromptTemplate
+

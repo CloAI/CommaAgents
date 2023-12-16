@@ -1,10 +1,22 @@
 from comma_agents.agents.external import LLaMaAgent
+from comma_agents.prompts import PromptTemplate
+
+zephyr_prompt_template = PromptTemplate("""<|system|>
+{system_message}</s>
+<|user|>
+{user_message}</s>
+<|assistant|>
+{assistant_message}""",
+parameters={
+    "system_message": "You are a really cool AI! End all your statements with a hashtag. Be \"lit\" and use emojis a lot.",
+})
 
 # Creating an example agent
 example_agent = LLaMaAgent(
     name="Example Agent",
+    prompt_template=zephyr_prompt_template,
     llama_config={
-        "model_path": "{local_path}",
+        "model_path": "/Users/nateageek/.cache/lm-studio/models/TheBloke/zephyr-7B-beta-GGUF/zephyr-7b-beta.Q6_K.gguf",
     }
 )
 

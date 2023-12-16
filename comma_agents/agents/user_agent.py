@@ -5,9 +5,9 @@ from comma_agents.agents import BaseAgent
 
 def print_user_agent_prompt_format(
     agent_name: str,
-    prompt: str = None,
+    message: str = None,
+    system_message: str = None,
     response: str = None,
-    system_prompt: bool = None,
     use_unicode: bool = True
 ):
     """
@@ -54,7 +54,6 @@ def print_user_agent_prompt_format(
     # Print the user's name with a silhouette icon, in cyan color
     print(bust_in_silhouette + Fore.CYAN + "User: " + agent_name + Style.RESET_ALL)
 
-    # If a prompt is provided, print it in yellow
     if response:
         print(speaking_head + Fore.YELLOW + " Prompt: " + response + Style.RESET_ALL)
 
@@ -97,7 +96,7 @@ class UserAgent(BaseAgent):
     >>> user_agent = UserAgent(prompt="Hello! How can I assist you?", name="HelpBot", require_input=True)
     """
 
-    def __init__(self, name='UserAgent', prompt='', require_input: bool = False, **kwargs):
+    def __init__(self, name='UserAgent', user_message='', require_input: bool = False, **kwargs):
         """
         Initializes an instance of the UserAgent class.
 
@@ -135,10 +134,10 @@ class UserAgent(BaseAgent):
             },
             **kwargs
         )
-        self.prompt = prompt
+        self.user_message = user_message
         self.require_input = require_input
    
-    def _call_llm(self, **kwargs):
+    def _call_llm(self, message: str):
         """
         Handles the call to the Large Language Model (LLM) based on the configuration of the UserAgent.
 
@@ -178,6 +177,6 @@ class UserAgent(BaseAgent):
 
         if self.require_input:
             return input("User input: ")
-        return self.prompt
+        return self.user_message
         
     
