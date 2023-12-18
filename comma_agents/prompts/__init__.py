@@ -17,3 +17,13 @@ ASSISTANT: {assistant_message}
 """
     def __init__(self, **kwargs):
         super().__init__(self.llama_prompt_template_format, **kwargs)
+
+class DeepSeekPromptTemplate(PromptTemplate):
+    deepseek_prompt_template_format = """
+{system_message}
+### Instruction:
+{user_message}
+### Response:
+{assistant_message}"""
+    def __init__(self, **kwargs):
+        super().__init__(self.deepseek_prompt_template_format, **kwargs)

@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import TypedDict, Optional
 from comma_agents.agents.base_agent import BaseAgent
 from openai import OpenAI
 
@@ -7,28 +7,42 @@ class OpenAIAPIAgent(BaseAgent):
     class OpenAIAPIAgentConfig(TypedDict, total=True):
         """Configuration for OpenAI API Model Compatible Agent
         """
-        model_name: str
-        base_url: str
-        api_key: str
+        model_name: Optional[str]
+        base_url: Optional[str]
+        api_key: Optional[str]
         
-        
-    def __init__(self, name: str, config: OpenAIAPIAgentConfig):
-        
-        # Crate the OpenAI API Model Compatible Agent Config and set the defaults
-        self.config: OpenAIAPIAgent.OpenAIAPIAgentConfig = {
-            "base_url": config.get("base_url", OpenAI.base_url),   
-            "api_key": config.get("api_key", OpenAI.api_key),
-            "model_name": config.get("model_name", "gpt-3.5-turbo"),
-        }
-        self.openai_api_client = OpenAI()
-        
-    def _call_llm(self, prompt='', *args, **kwargs):
-        # 
-        return self.openai_api_client.chat.completions.create(messages=[
-            {
-                "role": "user",
-                "content": prompt,
-            }
-        ],
-        model="gpt-3.5-turbo",
+    def __init__(self, name: str, config: OpenAIAPIAgentConfig, **kwargs):
+        super().__init__(name, **kwargs)
+        self.openai_api_client = OpenAI(
+            api_key=config.get("api_key", None),
+            base_url=config.get("base_url", None)
         )
+        self.config = config
+        
+    def _call_llm(self, message: str):
+        # Put the system message
+        messages = [{
+            "role": "system",
+            "content": self.prompt_template.parameters["system_message"],
+        }]
+        
+        # Put the historical context messages if there are any
+        for historical_context_item in self.prompt_template.historical_context:
+            messages.append({
+                "role": "user",
+                "content": historical_context_item["user_message"],
+            })
+            messages.append({
+                "role": "assistant",
+                "content": historical_context_item["assistant_message"],
+            })
+        
+        # Put the user message for the api to return
+        messages.append({
+            "role": "user",
+            "content": message,
+        })
+        
+        model_response = self.openai_api_client.chat.completions.create(messages=messages, model=self.config["model_name"])
+        
+        return model_response.choices[0].message.content

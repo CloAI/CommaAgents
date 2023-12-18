@@ -6,7 +6,7 @@ class PromptTemplate():
 
     def __init__(
             self,
-            format: str,
+            format: str = "{system_message}\n{user_message}\n{assistant_message}",
             parameters: "PromptTemplate.PromptParameters" = {
                 "system_message": ""
             },
