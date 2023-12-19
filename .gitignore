@@ -5,7 +5,8 @@ dist/**/*
 __pycache__/
 *.py[cod]
 *$py.class
-.temp
+.temp/**/*
+.temp/*
 # C extensions
 *.so
 
