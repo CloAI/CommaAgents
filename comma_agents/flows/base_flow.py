@@ -33,20 +33,20 @@ class BaseFlow:
 
     Methods
     -------
-    run_flow(prompt='')
-        Executes the flow with an optional initial prompt.
-    _run_flow(prompt='')
+    run_flow(message='')
+        Executes the flow with an optional initial message.
+    _run_flow(message='')
         A placeholder method for the actual flow execution logic.
     _execute_hooks(hook_name, *args, **kwargs)
         Executes a set of hooks based on the provided hook name.
-    _execute_alter_hooks(hook_name, prompt)
-        Modifies the given prompt using specified 'alter' hooks.
+    _execute_alter_hooks(hook_name, message)
+        Modifies the given message using specified 'alter' hooks.
 
     Examples
     --------
     >>> agent = BaseAgent(name="ExampleAgent")
     >>> flow = BaseFlow(flows=[agent], flow_name="ExampleFlow")
-    >>> response = flow.run_flow(prompt="Hello")
+    >>> response = flow.run_flow(message="Hello")
     """
 
     class FlowHooks(TypedDict, total=False):
@@ -57,24 +57,25 @@ class BaseFlow:
         ----------
         before_flow : Optional[Callable[..., Any]]
             Hook to be executed before the flow starts.
-        alter_prompt_before_flow : Optional[Callable[..., Any]]
-            Hook to modify the initial prompt before the flow starts.
+        alter_message_before_flow : Optional[Callable[..., Any]]
+            Hook to modify the initial message before the flow starts.
         after_flow : Optional[Callable[..., Any]]
             Hook to be executed after the flow ends.
-        alter_prompt_after_flow : Optional[Callable[..., Any]]
+        alter_message_after_flow : Optional[Callable[..., Any]]
             Hook to modify the final response after the flow ends.
         """
         before_flow: Optional[Callable[..., Any]]
-        alter_prompt_before_flow: Optional[Callable[..., Any]]
+        alter_message_before_flow: Optional[Callable[..., Any]]
         after_flow: Optional[Callable[..., Any]]
-        alter_prompt_after_flow: Optional[Callable[..., Any]]
+        alter_message_after_flow: Optional[Callable[..., Any]]
 
     def __init__(
             self,
             flows: Union[BaseAgent, 'BaseFlow', List[Union[BaseAgent, 'BaseFlow']]] = [],
             verbose_level: int = 1,
             flow_name: str = "",
-            hooks: "BaseFlow.FlowHooks" = {},):
+            hooks: "BaseFlow.FlowHooks" = {}
+        ):
         """
         Initializes a new instance of the BaseFlow class.
 
@@ -107,9 +108,9 @@ class BaseFlow:
         # Initializing hooks with provided values or default to empty lists
         self.hooks: Dict[str, List[Callable[..., Any]]] = {
             "before_flow": or_one_value_to_array(hooks.get("before_flow")),
-            "alter_prompt_before_flow": or_one_value_to_array(hooks.get("alter_prompt_before_flow")),
+            "alter_message_before_flow": or_one_value_to_array(hooks.get("alter_message_before_flow")),
             "after_flow": or_one_value_to_array(hooks.get("after_flow")),
-            "alter_prompt_after_flow": or_one_value_to_array(hooks.get("alter_prompt_after_flow")),
+            "alter_message_after_flow": or_one_value_to_array(hooks.get("alter_message_after_flow")),
         }
 
         if verbose_level > 0:
@@ -117,17 +118,17 @@ class BaseFlow:
                 if isinstance(flow, BaseAgent):
                     flow.verbose_level = verbose_level
 
-    def run_flow(self, prompt=""):
+    def run_flow(self, message=""):
         """
-        Executes the entire flow, starting with an optional initial prompt.
+        Executes the entire flow, starting with an optional initial message.
 
         This method orchestrates the execution of the flow, applying hooks and managing the sequence 
         of interactions defined in the `flows` attribute.
 
         Parameters
         ----------
-        prompt : str, optional
-            An initial prompt to start the flow. Default is an empty string.
+        message : str, optional
+            An initial message to start the flow. Default is an empty string.
 
         Returns
         -------
@@ -137,35 +138,35 @@ class BaseFlow:
         Examples
         --------
         >>> flow = BaseFlow(flows=[BaseAgent(name="Agent1")], flow_name="MyFlow")
-        >>> response = flow.run_flow(prompt="Start the flow")
+        >>> response = flow.run_flow(message="Start the flow")
         """
         self._execute_hooks("before_flow")
-        prompt = self._execute_alter_hooks("alter_prompt_before_flow", prompt=prompt)
-        response = self._run_flow(prompt)
+        message = self._execute_alter_hooks("alter_message_before_flow", message=message)
+        response = self._run_flow(message)
         self._execute_hooks("after_flow")
-        response = self._execute_alter_hooks("alter_prompt_after_flow", prompt=response)
+        response = self._execute_alter_hooks("alter_message_after_flow", message=response)
         return response
 
-    def _run_flow(self, prompt=""):
+    def _run_flow(self, message=""):
         """
         A placeholder method designed to be overridden by subclasses to implement the specific logic of 
-        running the flow with the given prompt.
+        running the flow with the given message.
 
-        This method is intended to encapsulate the core logic of how the flow processes a prompt. In its 
+        This method is intended to encapsulate the core logic of how the flow processes a message. In its 
         base form, it returns a simple string indicating that the flow has been called with the provided 
-        prompt. Subclasses should override this method to provide the actual implementation of the flow's 
+        message. Subclasses should override this method to provide the actual implementation of the flow's 
         behavior with the LLM or other components.
 
         Parameters
         ----------
-        prompt : str, optional
-            The prompt or input message to the flow. Default is an empty string.
+        message : str, optional
+            The message or input message to the flow. Default is an empty string.
 
         Returns
         -------
         str
-            The result of processing the prompt within the flow. In this placeholder implementation, it 
-            simply returns a formatted string indicating the flow name and the prompt.
+            The result of processing the message within the flow. In this placeholder implementation, it 
+            simply returns a formatted string indicating the flow name and the message.
 
         Notes
         -----
@@ -178,15 +179,15 @@ class BaseFlow:
         In a subclass:
 
         >>> class CustomFlow(BaseFlow):
-        ...     def _run_flow(self, prompt=""):
-        ...         # Custom logic for handling the prompt
-        ...         return "Processed prompt: " + prompt
+        ...     def _run_flow(self, message=""):
+        ...         # Custom logic for handling the message
+        ...         return "Processed message: " + message
 
         >>> custom_flow = CustomFlow(flow_name="CustomFlow")
-        >>> response = custom_flow._run_flow("Test prompt")
-        'Processed prompt: Test prompt'
+        >>> response = custom_flow._run_flow("Test message")
+        'Processed message: Test message'
         """
-        return f"Calling {self.flow_name} LLM with prompt {prompt}"
+        return f"Calling {self.flow_name} LLM with message {message}"
 
     def _execute_hooks(self, hook_name, *args, **kwargs):
         """
@@ -228,39 +229,39 @@ class BaseFlow:
         for hook in self.hooks.get(hook_name, []):
             hook(*args, **kwargs)
 
-    def _execute_alter_hooks(self, hook_name: str, prompt: str) -> str:
+    def _execute_alter_hooks(self, hook_name: str, message: str) -> str:
         """
-        Executes 'alter' hooks associated with the given hook_name to potentially modify the prompt.
+        Executes 'alter' hooks associated with the given hook_name to potentially modify the message.
 
         This method iterates through all the hooks registered under the specified hook_name. Each hook is a function 
-        that takes the current prompt as an argument and returns a modified version of it. The method applies these 
-        modifications sequentially, allowing for cumulative changes to the prompt.
+        that takes the current message as an argument and returns a modified version of it. The method applies these 
+        modifications sequentially, allowing for cumulative changes to the message.
 
         Parameters
         ----------
         hook_name : str
             The name of the 'alter' hook stage to execute. This identifies the specific group of hooks to be applied.
-        prompt : str
-            The current prompt text that may be modified by the hooks.
+        message : str
+            The current message text that may be modified by the hooks.
 
         Returns
         -------
         str
-            The modified prompt after all applicable 'alter' hooks have been executed.
+            The modified message after all applicable 'alter' hooks have been executed.
 
         Examples
         --------
-        >>> def add_greeting_to_prompt(prompt):
-        ...     return "Hello! " + prompt
-        >>> flow = BaseFlow(hooks={"alter_prompt_before_flow": [add_greeting_to_prompt]})
-        >>> modified_prompt = flow._execute_alter_hooks("alter_prompt_before_flow", "What's the weather like?")
-        >>> print(modified_prompt)
+        >>> def add_greeting_to_message(message):
+        ...     return "Hello! " + message
+        >>> flow = BaseFlow(hooks={"alter_message_before_flow": [add_greeting_to_message]})
+        >>> modified_message = flow._execute_alter_hooks("alter_message_before_flow", "What's the weather like?")
+        >>> print(modified_message)
         Hello! What's the weather like?
         """
 
         for hook in self.hooks.get(hook_name, []):
-            prompt = hook(prompt)
-        return prompt
+            message = hook(message)
+        return message
     
     def insert_agent(self, agent: BaseAgent, after: str = None, before: str = None):
         """

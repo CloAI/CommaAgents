@@ -16,7 +16,7 @@ class SequentialFlow(BaseFlow):
 
     Methods
     -------
-    _run_flow(prompt=None)
+    _run_flow(message=None)
         Executes the flows in the sequence, passing the output of one as the input to the next.
 
     Examples
@@ -24,7 +24,7 @@ class SequentialFlow(BaseFlow):
     >>> agent1 = BaseAgent(name="Agent1")
     >>> agent2 = BaseAgent(name="Agent2")
     >>> sequential_flow = SequentialFlow(flows=[agent1, agent2])
-    >>> response = sequential_flow.run_flow(prompt="Start")
+    >>> response = sequential_flow.run_flow(message="Start")
     """
 
     def __init__(self, **kwargs):
@@ -40,7 +40,7 @@ class SequentialFlow(BaseFlow):
         """
         super().__init__(**kwargs)
 
-    def _run_flow(self, prompt=None):
+    def _run_flow(self, message=None):
         """
         Executes each flow or agent in the `flows` list sequentially.
 
@@ -49,8 +49,8 @@ class SequentialFlow(BaseFlow):
 
         Parameters
         ----------
-        prompt : str, optional
-            The initial prompt to start the sequential flow. Default is None.
+        message : str, optional
+            The initial message to start the sequential flow. Default is None.
 
         Returns
         -------
@@ -67,10 +67,10 @@ class SequentialFlow(BaseFlow):
         >>> agent1 = BaseAgent(name="EchoAgent")
         >>> agent2 = BaseAgent(name="ResponseAgent")
         >>> sequential_flow = SequentialFlow(flows=[agent1, agent2])
-        >>> response = sequential_flow._run_flow(prompt="Hello")
+        >>> response = sequential_flow._run_flow(message="Hello")
         'Final response from ResponseAgent'
         """
-        previous_response = prompt
+        previous_response = message
         for flow in self.flows:
             # Check if the element is an agent or another flow
             if isinstance(flow, BaseAgent):
@@ -80,6 +80,6 @@ class SequentialFlow(BaseFlow):
             else:
                 raise TypeError("Unsupported flow type")
 
-            previous_response = response  # Update the prompt for the next agent/flow
+            previous_response = response  # Update the message for the next agent/flow
 
         return response

@@ -23,8 +23,8 @@ class CycleObserverFlow(CycleFlow):
 
     Methods
     -------
-    alter_prompt_after_cycle(prompt='')
-        Modifies the prompt after each cycle using the observer agent.
+    alter_message_after_cycle(message='')
+        Modifies the message after each cycle using the observer agent.
 
     Raises
     ------
@@ -35,7 +35,7 @@ class CycleObserverFlow(CycleFlow):
     --------
     >>> observer = BaseAgent(name="ObserverAgent")
     >>> cycle_observer_flow = CycleObserverFlow(observer_agent=observer, cycles=2)
-    >>> response = cycle_observer_flow.run_flow(prompt="Initial prompt")
+    >>> response = cycle_observer_flow.run_flow(message="Initial message")
     """
 
     def __init__(self, observer_agent=None, **kwargs):
@@ -56,19 +56,19 @@ class CycleObserverFlow(CycleFlow):
             raise ValueError("observer_agent must be an instance of BaseAgent")
         super().__init__(**kwargs)
         self.observer_agent = observer_agent
-        self.hooks["alter_prompt_after_cycle"].insert(0, self.alter_prompt_after_cycle)
+        self.hooks["alter_message_after_cycle"].insert(0, self.alter_message_after_cycle)
 
-    def alter_prompt_after_cycle(self, prompt=""):
+    def alter_message_after_cycle(self, message=""):
         """
-        Executes the observer agent on the given prompt and returns its response.
+        Executes the observer agent on the given message and returns its response.
 
-        This method overrides the 'alter_prompt_after_cycle' hook of CycleFlow. It is called after each 
-        cycle of the flow, allowing the observer agent to analyze or modify the prompt.
+        This method overrides the 'alter_message_after_cycle' hook of CycleFlow. It is called after each 
+        cycle of the flow, allowing the observer agent to analyze or modify the message.
 
         Parameters
         ----------
-        prompt : str, optional
-            The prompt or output from the current cycle. Default is an empty string.
+        message : str, optional
+            The message or output from the current cycle. Default is an empty string.
 
         Returns
         -------
@@ -79,7 +79,7 @@ class CycleObserverFlow(CycleFlow):
         --------
         >>> observer = BaseAgent(name="ObserverAgent")
         >>> cycle_observer_flow = CycleObserverFlow(observer_agent=observer)
-        >>> modified_prompt = cycle_observer_flow.alter_prompt_after_cycle(prompt="Test prompt")
+        >>> modified_message = cycle_observer_flow.alter_message_after_cycle(message="Test message")
         """
-        response = self.observer_agent.call(prompt)
+        response = self.observer_agent.call(message)
         return response

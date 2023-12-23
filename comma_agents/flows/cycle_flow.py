@@ -54,7 +54,7 @@ class CycleFlow(BaseFlow):
 
     Methods
     -------
-    _run_flow(prompt='')
+    _run_flow(message='')
         Executes the flows in a cycle for the specified number of times.
 
     Examples
@@ -62,7 +62,7 @@ class CycleFlow(BaseFlow):
     >>> agent1 = BaseAgent(name="Agent1")
     >>> agent2 = BaseAgent(name="Agent2")
     >>> cycle_flow = CycleFlow(flows=[agent1, agent2], cycles=2)
-    >>> response = cycle_flow.run_flow(prompt="Start")
+    >>> response = cycle_flow.run_flow(message="Start")
     """
 
     class CycleFlowHooks(BaseFlow.FlowHooks):
@@ -71,13 +71,13 @@ class CycleFlow(BaseFlow):
 
         Attributes
         ----------
-        alter_prompt_before_cycle : Optional[Callable[..., Any]]
-            Hook to modify the prompt before each cycle begins.
-        alter_prompt_after_cycle : Optional[Callable[..., Any]]
-            Hook to modify the prompt after each cycle ends.
+        alter_message_before_cycle : Optional[Callable[..., Any]]
+            Hook to modify the message before each cycle begins.
+        alter_message_after_cycle : Optional[Callable[..., Any]]
+            Hook to modify the message after each cycle ends.
         """
-        alter_prompt_before_cycle: Optional[Callable[..., Any]]
-        alter_prompt_after_cycle: Optional[Callable[..., Any]]
+        alter_message_before_cycle: Optional[Callable[..., Any]]
+        alter_message_after_cycle: Optional[Callable[..., Any]]
 
 
     def __init__(
@@ -108,20 +108,20 @@ class CycleFlow(BaseFlow):
         self.cycles = cycles
 
         # Set up the cycle-specific hooks
-        self.hooks["alter_prompt_before_cycle"] = or_one_value_to_array(hooks.get("alter_prompt_before_cycle"))
-        self.hooks["alter_prompt_after_cycle"] = or_one_value_to_array(hooks.get("alter_prompt_after_cycle"))
+        self.hooks["alter_message_before_cycle"] = or_one_value_to_array(hooks.get("alter_message_before_cycle"))
+        self.hooks["alter_message_after_cycle"] = or_one_value_to_array(hooks.get("alter_message_after_cycle"))
 
-    def _run_flow(self, prompt=""):
+    def _run_flow(self, message=""):
         """
         Executes the defined flows in cycles for the given number of iterations.
 
-        Each cycle runs the sequence of flows with the input prompt, potentially modified by the 
-        'alter_prompt_before_cycle' and 'alter_prompt_after_cycle' hooks.
+        Each cycle runs the sequence of flows with the input message, potentially modified by the 
+        'alter_message_before_cycle' and 'alter_message_after_cycle' hooks.
 
         Parameters
         ----------
-        prompt : str, optional
-            The initial prompt to start the cycle flow. Default is an empty string.
+        message : str, optional
+            The initial message to start the cycle flow. Default is an empty string.
 
         Returns
         -------
@@ -131,10 +131,10 @@ class CycleFlow(BaseFlow):
         Examples
         --------
         >>> cycle_flow = CycleFlow(flows=[BaseAgent(name="EchoAgent")], cycles=2)
-        >>> response = cycle_flow._run_flow(prompt="Hello")
+        >>> response = cycle_flow._run_flow(message="Hello")
         'Hello'
         """
-        response = prompt  # Initialize the response with the provided prompt
+        response = message  # Initialize the response with the provided message
 
         # Iterate through each cycle as defined by self.cycles
         for cycle in range(self.cycles):
@@ -142,16 +142,16 @@ class CycleFlow(BaseFlow):
             if self.verbose_level >= 1:
                 print_cycle_flow_format(self.flow_name, self.cycles, cycle + 1)
 
-            # Execute any hooks that may alter the prompt before the cycle starts
-            response = self._execute_alter_hooks("alter_prompt_before_cycle", prompt=response)
+            # Execute any hooks that may alter the message before the cycle starts
+            response = self._execute_alter_hooks("alter_message_before_cycle", message=response)
 
             # Iterate through all the flows defined in self.flows
             for flow in self.flows:
                 # If the flow is an instance of BaseAgent, use its 'call' method, else use 'run_flow' for BaseFlow instances
                 response = flow.call(response) if isinstance(flow, BaseAgent) else flow.run_flow(response)
 
-            # Execute any hooks that may alter the prompt after the cycle is completed
-            response = self._execute_alter_hooks("alter_prompt_after_cycle", prompt=response)
+            # Execute any hooks that may alter the message after the cycle is completed
+            response = self._execute_alter_hooks("alter_message_after_cycle", message=response)
 
         # Return the final response after all cycles have been executed
         return response

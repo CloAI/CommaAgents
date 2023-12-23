@@ -23,17 +23,17 @@ class InfiniteCycleFlow(CycleFlow):
         """
         super().__init__(cycles=1, **kwargs)
     
-    def _run_flow(self, prompt=""):
+    def _run_flow(self, message=""):
         """
         Executes the defined flows in cycles for the given number of iterations.
 
-        Each cycle runs the sequence of flows with the input prompt, potentially modified by the 
-        'alter_prompt_before_cycle' and 'alter_prompt_after_cycle' hooks.
+        Each cycle runs the sequence of flows with the input message, potentially modified by the 
+        'alter_message_before_cycle' and 'alter_message_after_cycle' hooks.
 
         Parameters
         ----------
-        prompt : str, optional
-            The initial prompt to start the cycle flow. Default is an empty string.
+        message : str, optional
+            The initial message to start the cycle flow. Default is an empty string.
 
         Returns
         -------
@@ -43,10 +43,10 @@ class InfiniteCycleFlow(CycleFlow):
         Examples
         --------
         >>> cycle_flow = CycleFlow(flows=[BaseAgent(name="EchoAgent")], cycles=2)
-        >>> response = cycle_flow._run_flow(prompt="Hello")
+        >>> response = cycle_flow._run_flow(message="Hello")
         'Hello'
         """
-        response = prompt  # Initialize the response with the provided prompt
+        response = message  # Initialize the response with the provided message
 
         # Iterate through each cycle as defined by self.cycles
         while True:

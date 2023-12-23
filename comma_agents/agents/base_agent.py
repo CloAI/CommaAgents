@@ -233,50 +233,52 @@ class BaseAgent:
         interpret_code: bool = False,
         code_interpreter: Optional["CodeInterpreter"] = None,
         verbose_level: int = 1,
-        verbose_formats: "BaseAgent.AgentVerboseFormats" = {},
-        llm_functional_callbacks: "BaseAgent.AgentLLMFunctionalCallbacks" = {}
+        verbose_formats: Optional["BaseAgent.AgentVerboseFormats"] = None,
+        # llm_functional_callbacks: "BaseAgent.AgentLLMFunctionalCallbacks" = {} TODO: This will provide some way to have functional callbacks... Might move it to the coder interpreter... still designing in mind
     ) -> None:
         """
         Initializes an instance of the BaseAgent class.
 
-        This constructor sets up the initial configuration of the agent, including its name, system prompts, hooks,
-        context management settings, prompt formats, verbosity level, and verbose formats.
+        This constructor sets up the initial configuration of the agent, including its name, prompt template, hooks, 
+        code interpretation settings, verbosity level, and verbose formats.
 
         Parameters
         ----------
         name : str
             The name of the agent, used for identification purposes.
-        system_prompt : Optional[str], optional
-            The initial system prompt or message to be used, by default an empty string.
+        prompt_template : PromptTemplate, optional
+            The template for formatting prompts, by default a basic template with system, user, and assistant messages.
         hooks : BaseAgent.AgentHooks, optional
             A set of user-defined functions (hooks) for different stages of the agent's operation, by default an empty dict.
-        remember_context : bool, optional
-            Whether to retain a history of previous interactions for context, by default False.
-        context_window_size : Optional[int], optional
-            The number of past interactions to consider for context, by default None (all history is used).
-        prompt_formats : BaseAgent.AgentPromptFormats, optional
-            Format settings for various types of messages with start and end tokens, by default with empty tokens.
+        interpret_code : bool, optional
+            Flag indicating whether to interpret code segments in the inputs, by default False.
+        code_interpreter : Optional[CodeInterpreter], optional
+            The code interpreter to be used if code interpretation is enabled, by default None.
         verbose_level : int, optional
-            The level of verbose output the agent provides, ranging from 0 (no output) to 3 (maximum detail), by default 1.
-        verbose_formats : BaseAgent.AgentVerboseFormats, optional
-            Formatting options for verbose output, by default an empty dict.
+            The level of verbose output the agent provides, ranging from 0 (no output) to higher levels for more detail, by default 1.
+        verbose_formats : Optional[BaseAgent.AgentVerboseFormats], optional
+            Formatting options for verbose output, by default None.
 
         Notes
         -----
-        - The `hooks` parameter allows customization of the agent's behavior at various stages, such as before or after 
-        an agent call, or for altering prompts.
-        - The `prompt_formats` parameter is used to define how different types of messages (system, user, assistant) 
-        are formatted.
-        - The verbosity level (`verbose_level`) controls the amount of detail in the agent's output, useful for 
-        debugging or monitoring purposes.
+        - The `hooks` parameter allows customization of the agent's behavior at various stages.
+        - The `prompt_template` defines the format for prompts including system, user, and assistant messages.
+        - The `interpret_code` and `code_interpreter` are used to handle code segments in the inputs, if enabled.
+        - The verbosity level (`verbose_level`) and formats (`verbose_formats`) control the detail and presentation of the agent's output.
+
+        Raises
+        ------
+        ValueError
+            If `interpret_code` is True but no `code_interpreter` is provided.
 
         Examples
         --------
         >>> agent = BaseAgent(
         ...     name="ExampleAgent",
         ...     verbose_level=2,
-        ...     remember_context=True,
-        ...     context_window_size=5
+        ...     prompt_template=PromptTemplate(format="{user_message}\n{assistant_message}\n"),
+        ...     interpret_code=True,
+        ...     code_interpreter=CustomCodeInterpreter()
         ... )
         """
         # Initializing attributes with provided values or default to empty values
@@ -288,19 +290,19 @@ class BaseAgent:
         self.first_call = True
         self.interpret_code = interpret_code
         self.code_interpreter = code_interpreter
-        self.llm_functional_callbacks = llm_functional_callbacks
+        # self.llm_functional_callbacks = llm_functional_callbacks
         
         if self.interpret_code is True and code_interpreter is None:
             raise ValueError(f"You must provide a code interpreter if you want to interpret code for {self.name}.")
-
-        # Initializing hooks with provided values or default to empty lists
+            # Initializing hooks with provided values or default to empty lists
+            
         self.hooks: "BaseAgent.AgentHooks" = {
             # Initial call hooks, if there is not any present, use the normal call hooks for initial call hooks
-            "before_initial_call": or_one_value_to_array(hooks.get("before_initial_call") if hooks.get("before_initial_call") is not None else hooks.get("before_call")),
-            "alter_initial_call_message": or_one_value_to_array(hooks.get("alter_initial_call_message") if hooks.get("alter_initial_call_message") is not None else hooks.get("alter_call_message")),
-            "alter_initial_response": or_one_value_to_array(hooks.get("alter_initial_response") if hooks.get("alter_initial_response") is not None else hooks.get("alter_response")),
-            "after_initial_call": or_one_value_to_array(hooks.get("after_initial_call") if hooks.get("after_initial_call") is not None else hooks.get("after_call")),
-            
+            "before_initial_call": or_one_value_to_array(hooks.get("before_initial_call") if hooks.get("before_initial_call", None) is not None else hooks.get("before_call")),
+            "alter_initial_call_message": or_one_value_to_array(hooks.get("alter_initial_call_message") if hooks.get("alter_initial_call_message", None) is not None else hooks.get("alter_call_message")),
+            "alter_initial_response": or_one_value_to_array(hooks.get("alter_initial_response") if hooks.get("alter_initial_response", None) is not None else hooks.get("alter_response")),
+            "after_initial_call": or_one_value_to_array(hooks.get("after_initial_call") if hooks.get("after_initial_call", None) is not None else hooks.get("after_call")),
+        
             "before_call": or_one_value_to_array(hooks.get("before_call")),
             "alter_call_message": or_one_value_to_array(hooks.get("alter_call_message")),
             "alter_response": or_one_value_to_array(hooks.get("alter_response")),
@@ -309,43 +311,45 @@ class BaseAgent:
         
         # Initializing verbose formats with provided values or default to the print_agent_prompt_format function
         self.verbose_formats: "BaseAgent.AgentVerboseFormats" = {
-            "print_agent_prompt_format": verbose_formats.get("print_agent_prompt_format", print_agent_prompt_format)
+            "print_agent_prompt_format": verbose_formats.get("print_agent_prompt_format", print_agent_prompt_format) if verbose_formats is not None else print_agent_prompt_format
         }
 
     def call(self, message: str) -> str:
         """
-        Makes a subsequent call to the Large Language Model (Agent), incorporating historical context if enabled. 
-        This method is used for all calls to the Agent after the initial one.
+        Processes the given message by calling the Large Language Model (Agent), and potentially applies code interpretation. 
+        This method is used for all subsequent calls to the Agent after the initial one.
 
         Parameters
         ----------
-        prompt : str
+        message : str
             The input or query provided to the Agent for this call.
 
         Returns
         -------
         str
-            The response from the Agent based on the processed prompt.
+            The response from the Agent, which may include the output of code interpretation if enabled.
 
         Notes
         -----
-        - If this is the first call, `initial_call` method is invoked instead.
-        - The method modifies the prompt using 'alter_call_message' hooks, if any.
-        - Executes 'before_call' hooks before making the call to the Agent.
-        - Constructs the full prompt with historical context and formatting tokens.
-        - Makes the actual call to the Agent and processes the response.
+        - This method checks if it's the first call to the Agent; if so, it modifies its behavior accordingly.
+        - It applies any 'alter_call_message' hooks to modify the message before the call.
+        - Executes 'before_call' hooks prior to making the actual call.
+        - Constructs the complete prompt, incorporating historical context and formatting.
+        - If code interpretation is enabled and relevant, it processes the code found in the response.
         - Executes 'after_call' hooks and updates the historical context with the new interaction.
+        - The verbose level controls the level of detail in logging the call process.
 
         Examples
         --------
         >>> agent = BaseAgent(name="ExampleAgent")
         >>> response = agent.call("What is the weather like today?")
         """
-        alter_type = "initial_" if self.first_call else ""
-        message = self._execute_alter_hooks(f"alter_{alter_type}call_message", message)
+        hook_type = "initial_" if self.first_call else ""
+        
+        message = self._execute_alter_hooks(f"alter_{hook_type}call_message", message)
 
         # Execute 'before' hooks
-        self._execute_hooks(f"before_{alter_type}call")
+        self._execute_hooks(f"before_{hook_type}call")
 
         if self.verbose_level >= 2:
             print(f"Calling {self.name} Agent with message {message}")
@@ -361,9 +365,9 @@ class BaseAgent:
             self.verbose_formats["print_agent_prompt_format"](self.name, message, self.prompt_template.parameters["system_message"], response)
 
         # Execute 'after' hooks
-        self._execute_hooks(f"after_{alter_type}call", response)
+        self._execute_hooks(f"after_{hook_type}call", response)
         
-        response = self._execute_alter_hooks(f"alter_{alter_type}response", response)
+        response = self._execute_alter_hooks(f"alter_{hook_type}response", response)
         
         self.prompt_template.append_history(message, response)
         
@@ -375,30 +379,30 @@ class BaseAgent:
     
     def _call_llm(self, message: str) -> str:
         """
-        Placeholder method for the actual Large Language Model (Agent) interaction. 
-        This method is intended to be overridden in subclasses to implement the specific Agent calling mechanism.
+        Acts as a placeholder for the actual interaction with the Large Language Model (Agent). 
+        This method is designed to be overridden in subclasses to implement the specific mechanism for calling the Agent.
 
         Parameters
         ----------
-        prompt : str, optional
-            The input or query provided to the Agent for this call. Default is an empty string.
+        message : str
+            The input or query provided to the Agent for this call.
 
         Returns
         -------
         str
-            A mock response string indicating the details of the call. In an actual implementation, this method 
-            should return the response from the Agent.
+            A placeholder response string that indicates the details of the call. In a complete implementation, 
+            this method should return the actual response from the Agent.
 
         Notes
         -----
-        - This method serves as a template and should be overridden in a subclass that connects to an actual Agent.
-        - In its current form, it returns a string that mimics the response format, showing the provided prompt.
-        
+        - This method is a template and is expected to be overridden in a subclass that connects to a real Agent.
+        - In its current state, it returns a mock response, showing the provided message to demonstrate how it should be used.
+
         Examples
         --------
         >>> agent = BaseAgent(name="ExampleAgent")
         >>> response = agent._call_llm("Sample prompt")
-        'Calling ExampleAgent Agent with prompt Sample prompt'
+        'Calling ExampleAgent Agent with message Sample prompt'
         """
         # Placeholder implementation, to be overridden
         return f"Calling {self.name} Agent with prompt {message}"
@@ -432,6 +436,9 @@ class BaseAgent:
         >>> agent._execute_hooks('before_call', arg1, kwarg1='value')
         Executing hooks for before_call with args (arg1,) and kwargs {'kwarg1': 'value'}
         """
+        if self.hooks is None:
+            return
+
         if self.verbose_level >= 3:
             print(f"Executing hooks for {hook_name} with args {args} and kwargs {kwargs}")
         elif self.verbose_level == 2:
@@ -440,7 +447,7 @@ class BaseAgent:
         for hook in self.hooks.get(hook_name, []):
             hook(*args, **kwargs)
 
-    def _execute_alter_hooks(self, hook_name: str, prompt: str) -> str:
+    def _execute_alter_hooks(self, hook_name: str, message: str) -> str:
         """
         Executes 'alter' hooks associated with the given hook_name to potentially modify the prompt.
 
@@ -452,7 +459,7 @@ class BaseAgent:
         ----------
         hook_name : str
             The name of the 'alter' hook stage to execute. This identifies the specific group of hooks to be applied.
-        prompt : str
+        message : str
             The current prompt text that may be modified by the hooks.
 
         Returns
@@ -469,9 +476,13 @@ class BaseAgent:
         >>> print(modified_prompt)
         Hello! What is the weather like?
         """
+        
+        if self.hooks is None:
+            return message
+        
         for hook in self.hooks.get(hook_name, []):
-            prompt = hook(prompt)
-        return prompt
+            message = hook(message)
+        return message
 
     def summary(self):
         return str({
@@ -480,4 +491,3 @@ class BaseAgent:
             "hooks": self.hooks,
             "prompt": self.prompt_template.summary(),
         })
-    
