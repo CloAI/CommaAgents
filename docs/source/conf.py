@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath("../"))
 project = 'Comma Agents'
 copyright = '2023, Nathaniel Hatch-Martinez'
 author = 'Nathaniel Hatch-Martinez'
-release = '0.0.1'
+release = '0.0.3'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -34,3 +34,18 @@ exclude_patterns = []
 
 html_theme = 'furo'
 html_static_path = ['_static']
+# html_logo = "_static/logo.png"
+
+html_theme_options = {
+    "source_repository": "https://github.com/CloAI/CommaAgents/",
+    "source_branch": "main",
+    "source_directory": "docs/source/",
+}
+
+html_context = {
+    "display_github": True, # Integrate GitHub
+    "github_user": "CloAI", # Username
+    "github_repo": "CommaAgents", # Repo name
+    "github_version": "main", # Version
+    "conf_py_path": "/", # Path in the checkout to the docs root
+}

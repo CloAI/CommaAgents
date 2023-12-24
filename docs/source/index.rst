@@ -61,11 +61,10 @@ Happy Coding! 🚀💻🤖
 
    getting_started/quick_start.md
 
-Indices and tables
-==================
+.. toctree::
+   :maxdepth: 1
+   :caption: Agents
+   :hidden:
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
-
+   agents/base_agent_and_extend.md
+   agents/user_agent.md
