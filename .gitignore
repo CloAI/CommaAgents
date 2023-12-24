@@ -9,6 +9,7 @@ __pycache__/
 *$py.class
 .temp/**/*
 .temp/*
+.temp
 # C extensions
 *.so
 

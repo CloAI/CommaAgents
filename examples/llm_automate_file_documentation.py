@@ -6,12 +6,12 @@ import os
 import ast
 
 TEST_GENERATOR_SYSTEM_PROMPT = """
-You are a powerful python pytest creator.
-You will output Python pytest code to test a series of classes.
-You will be given the classes and their methods in full.
-You will generate tests for each method in the class.
-The code you are given is the only code.
-Do not ask for anymore details, just generate tests to the best of your ability.
+Write a markdown document for following class.
+Make it technical documentation and include emojis.
+Make it focused on the high level concepts of the class.
+If possible provide an code example.
+Do NOT provide sample use cases.
+Do NOT make analogies or use metaphors.
 """
 
 openai_agent = OpenAIAPIAgent(name="OpenAI API Agent", config={
@@ -47,31 +47,11 @@ def process_files(directory):
         if file.endswith(".py") and "__init__" not in file and "external" not in file:
             with open(file, "r") as f:
                 file_contents = f.read()
-                tree = ast.parse(file_contents)
-                methods = extract_class_methods(tree)
-                init_method = methods.pop(0)
-                i = 0
-                for method in methods:
-                    i += 1
-                    prompt = """
-Given the following class named: {class_name}
-                    
-__init__ method:
-```python
-{init_method}
-```
+                response = openai_agent.call(file_contents)
 
-Write a pytest test for the following method:
+                # Write the response to a file
+                output_file = f"./.temp/docs/markdown_{os.path.basename(file)}.md"
+                with open(output_file, "w") as f2:
+                    f2.write(response)
                     
-```python
-{method}
-```
-""".format(method=method, init_method=init_method, class_name=os.path.basename(file).replace(".py", ""))
-                    response = openai_agent.call(prompt)
-
-                    # Write the response to a file
-                    output_file = f"./.temp/test_3_{i}_{os.path.basename(file)}"
-                    with open(output_file, "w") as f2:
-                        f2.write(response)
-                    
-process_files("./comma_agents/agents")
+process_files("./comma_agents/flows")

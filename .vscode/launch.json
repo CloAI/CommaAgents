@@ -54,5 +54,15 @@
                 "PYTHONPATH": "${workspaceFolder}"
             }
         },
+        {
+            "name": "Examples/Generate Fun Documentation for Classes",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/llm_automate_file_documentation.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
     ]
 }

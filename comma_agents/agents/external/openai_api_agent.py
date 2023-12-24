@@ -1,7 +1,8 @@
 from typing import TypedDict, Optional
 from comma_agents.agents.base_agent import BaseAgent
-from openai import OpenAI
-
+from openai import OpenAI, RateLimitError
+import time
+import re
 class OpenAIAPIAgent(BaseAgent):
     
     class OpenAIAPIAgentConfig(TypedDict, total=True):
@@ -42,7 +43,18 @@ class OpenAIAPIAgent(BaseAgent):
             "role": "user",
             "content": message,
         })
+        try: 
+            model_response = self.openai_api_client.chat.completions.create(messages=messages, model=self.config["model_name"])
+            return model_response.choices[0].message.content
+        except RateLimitError as rle:
+            match = re.match(r'(\d+\.\d+)s', rle.response.headers["x-ratelimit-reset-tokens"])
+            seconds = round(float(match.group(1)))
+            print("OpenAI API Rate Limit Exceeded. Waiting for reset... Will try again in {} seconds".format(seconds + 5.0))
+            time.sleep(seconds + 5.0)
+            model_response = self.openai_api_client.chat.completions.create(messages=messages, model=self.config["model_name"])
+            return model_response.choices[0].message.content
+        except Exception as e:
+            print(e)
+            return "An error occurred while calling the OpenAI API."
+
         
-        model_response = self.openai_api_client.chat.completions.create(messages=messages, model=self.config["model_name"])
-        
-        return model_response.choices[0].message.content
