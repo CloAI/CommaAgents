@@ -16,7 +16,7 @@ class CommaAgentsHubProxyModule(types.ModuleType):
         super().__init__(name)
         self.__path__ = []  # Set a default __path__
 
-COMMA_AGENTS_HUB_DIRECTORY = ".comma_agents_hub"
+COMMA_AGENTS_HUB_DIRECTORY = "./.comma_agents_hub"
 
 class CommaAgentsRemoteHubModuleLoader(importlib.abc.Loader):
     def __init__(self, repo_link) -> None:
@@ -33,7 +33,6 @@ class CommaAgentsRemoteHubModuleLoader(importlib.abc.Loader):
             # if repo.remotes.origin.url != self.repo_link:
                 # TODO: Add a warning that the repo is not set to the correct link and maybe some other stuff really should happen here
             repo.git.config('core.sparseCheckout', 'true')
-            
             return repo
         # Otherwise clone the repo
         else:
@@ -46,31 +45,45 @@ class CommaAgentsRemoteHubModuleLoader(importlib.abc.Loader):
         # Magic, Magic, Magic
         return CommaAgentsHubProxyModule(spec.name)
 
-    def add_remote_sub_directory(self, module_type, username):
+    def add_remote_sub_directory_and_fetch(self, module_type, username):
         sparse_checkout_file = f"{COMMA_AGENTS_HUB_DIRECTORY}/.git/info/sparse-checkout"
-        with open(sparse_checkout_file, "a") as f:
-            # Check if the file path is already in the sparse checkout file
-            if f"/{module_type}/{username}" not in f.read():
-                f.write(f"/{module_type}/{username}/\n")
-            
+    
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(sparse_checkout_file), exist_ok=True)
+    
+        # Check if the file path is already in the sparse checkout file
+        if os.path.exists(sparse_checkout_file):
+            with open(sparse_checkout_file, "r") as f:
+                if f"hub/{module_type}/{username}" in f.read():
+                    return  # Path already exists in the file
 
+        # Add the submodule to the sparse checkout file
+        with open(sparse_checkout_file, "a") as f:
+            f.write(f"hub/{module_type}/{username}/\n")
+    
+        self.repo.remotes.origin.fetch()
+        self.repo.git.checkout('HEAD')
+    
+    def load_module_from_path(self, full_path, module_name):
+        spec = importlib.util.spec_from_file_location(module_name, full_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    
     def exec_module(self, module):
         if module.__name__.startswith("comma_agents.hub.agents."):
             module_split = module.__name__.split(".")
-            if len(module_split) == 3:
+            if len(module_split) == 4:
                 username = module_split[3]
                 module_type = module_split[2]
-                self.add_remote_sub_directory(module_type, username)
-                self.repo.git.checkout('HEAD')
-                # Load the module from the repo
-                module.__path__ = [COMMA_AGENTS_HUB_DIRECTORY]
-                module.__file__ = f"{COMMA_AGENTS_HUB_DIRECTORY}/{module_type}/{username}/__init__.py"
-                module.__package__ = ".".join(module.__name__.split(".")[:-1])
-                module.__loader__ = self
-                module.__spec__ = importlib.machinery.ModuleSpec(module.__name__, self)
-                with open(module.__file__, "r") as f:
-                    exec(f.read(), module.__dict__)
-            return module
+                self.add_remote_sub_directory_and_fetch(module_type, username)
+                        # Directory where the module is located
+                module_directory = f"{COMMA_AGENTS_HUB_DIRECTORY}/hub/{module_type}/{username}/"
+                loaded_module = self.load_module_from_path(module_directory + '__init__.py', module.__name__)
+
+                # Update the original module object with the loaded module's attributes
+                module.__dict__.update(loaded_module.__dict__)
+
         # Custom code to load the module, e.g., fetch from remote
         print("This ran?")
         pass  # For demonstration purposes
