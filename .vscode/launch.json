@@ -54,5 +54,15 @@
                 "PYTHONPATH": "${workspaceFolder}"
             }
         },
+        {
+            "name": "Examples/Test Hub",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/hub_test.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
     ]
 }

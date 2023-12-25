@@ -3,6 +3,12 @@ dist/*
 dist/**/*
 docs/build/*
 docs/build/**/*
+
+# This is to remote remote comma agents
+.comma_agents_hub/
+.comma_agents_hub/*
+.comma_agents_hub/**/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
