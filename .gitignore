@@ -4,6 +4,9 @@ dist/**/*
 docs/build/*
 docs/build/**/*
 
+comma_agents/hub/**/*
+comma_agents/hub/*
+
 # This is to remote remote comma agents
 .comma_agents_hub/
 .comma_agents_hub/*
