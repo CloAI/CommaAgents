@@ -1,7 +1,7 @@
 import os
-from comma_agents.hub.agents.nateageek import openai_agent
+from comma_agents.hub.agents.cloai.openai_agent import OpenAIAPIAgent
 
-agent = openai_agent.OpenAIAPIAgent("Open AI Agent", config={
+agent = OpenAIAPIAgent("Open AI Agent", config={
     "model_name": "gpt-4",
 })
 

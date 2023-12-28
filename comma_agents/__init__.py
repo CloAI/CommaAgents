@@ -246,7 +246,8 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
                     module.__file__ = module_file_path
                     module.__loader__ = self
                 else:
-                    raise ImportError(f"Module or package '{module.__name__}' not found")
+                    # raise ImportError(f"Module or package '{module.__name__}' not found")
+                    return
 
             # Execute the module/package
             with open(file_to_exec, 'rb') as file:
