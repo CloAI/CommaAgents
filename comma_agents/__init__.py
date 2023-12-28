@@ -6,7 +6,7 @@ import git
 import types
 
 REPO_LINK = "https://github.com/CloAI/CommaAgentsHub.git"
-COMMA_AGENTS_HUB_DIRECTORY = os.path.expanduser("~/.cache/comma_agents_hub")
+
 class CommaAgentsHubProxyModule(types.ModuleType):
     """
     This is a proxy module that will be used to replace modules that are being loaded from the hub.
@@ -235,7 +235,7 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
             else:
                 # Module/package not found; handle accordingly
                 # For example, perform sparse checkout or raise an error
-                self._sparse_checkout('/'.join(module_name_parts[2:]))
+                self._sparse_checkout('/'.join(module_name_parts[3:]))
                 # Re-check if the file exists after sparse checkout
                 if os.path.exists(init_file_path):
                     file_to_exec = init_file_path
@@ -297,7 +297,7 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
 
         # Construct the relative path for the module/package
         relative_path = os.path.join(*module_name_parts[2:])  # Skip 'comma_agents.hub'
-        full_path = os.path.join(self.hub_source_directory, 'hub', relative_path)
+        full_path = os.path.join(self.hub_source_directory, relative_path)
 
         # Check if the path is a directory (i.e., a package)
         if os.path.isdir(full_path):
