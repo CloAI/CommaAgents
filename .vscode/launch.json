@@ -58,7 +58,7 @@
             "name": "Examples/Test Hub",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/examples/hub_test.py",
+            "program": "${workspaceFolder}/examples/hub_example.py",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"

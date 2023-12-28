@@ -8,5 +8,5 @@ class TestBaseFlowInit:
         """
         flow = BaseFlow("TestFlow")
         assert isinstance(flow, BaseFlow)
-        assert flow.name == 'TestFlow'
+        assert flow.flow_name == 'TestFlow'
         
