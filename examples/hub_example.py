@@ -1,5 +1,5 @@
 import os
-from comma_agents.hub.agents.cloai.openai_agent import OpenAIAPIAgent
+from comma_agents.hub.agents.cloai.openai import OpenAIAPIAgent
 
 agent = OpenAIAPIAgent("Open AI Agent", config={
     "model_name": "gpt-4",

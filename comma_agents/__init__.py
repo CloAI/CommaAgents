@@ -4,6 +4,7 @@ import importlib.abc
 import importlib.util
 import git
 import types
+import subprocess
 
 REPO_LINK = "https://github.com/CloAI/CommaAgentsHub.git"
 
@@ -179,6 +180,19 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
         else:
             return super().create_module(spec)
 
+    def install_requirements(requirements_path):
+        """
+        Install packages from the given requirements.txt file.
+        
+        Parameters:
+        requirements_path (str): The path to the requirements.txt file.
+        """
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', requirements_path])
+            print("Dependencies installed successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred while installing dependencies: {e}")
+
     def exec_module(self, module):
         """
         Execute the given module.
@@ -236,6 +250,9 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
                 # Module/package not found; handle accordingly
                 # For example, perform sparse checkout or raise an error
                 self._sparse_checkout('/'.join(module_name_parts[3:]))
+                requirements_path = os.path.join(self.hub_source_directory, module_path, 'requirements.txt')
+                if os.path.exists(requirements_path):
+                    self.install_requirements(requirements_path)
                 # Re-check if the file exists after sparse checkout
                 if os.path.exists(init_file_path):
                     file_to_exec = init_file_path
