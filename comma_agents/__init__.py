@@ -133,9 +133,12 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
         repo_dir = os.path.join(self.hub_source_directory, 'hub')
         self.repo.git.config('core.sparseCheckout', 'true')
         sparse_checkout_file = os.path.join(repo_dir, '.git', 'info', 'sparse-checkout')
-        with open(sparse_checkout_file, 'w') as f:
-            f.write(module_path + '\n')
-        self.repo.remotes.origin.fetch()
+        
+        with open(sparse_checkout_file, 'a+') as f:
+            if module_path not in f.read():
+                f.write(module_path + '\n')
+        
+        self.repo.remotes.origin.pull()
         self.repo.git.checkout('HEAD')
 
     def create_module(self, spec):
@@ -247,13 +250,26 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
                 module.__file__ = module_file_path
                 module.__loader__ = self
             elif len(module_name_parts) > 4:
+                # Check if files are already there before we sparse checkout...
+                if os.path.exists(init_file_path):
+                    file_to_exec = init_file_path
+                    module.__path__ = [os.path.dirname(init_file_path)]
+                    module.__package__ = module.__name__
+                elif os.path.exists(module_file_path):
+                    file_to_exec = module_file_path
+                    module.__file__ = module_file_path
+                    module.__loader__ = self
+                
                 # Module/package not found; handle accordingly
                 # For example, perform sparse checkout or raise an error
                 repo_module_dir = '/'.join(module_name_parts[2:]) 
                 self._sparse_checkout(repo_module_dir)
+                
+                # After sparse checkout, check if requirements.txt exists and install dependencies
                 requirements_path = os.path.join(self.hub_source_directory, 'hub', repo_module_dir, 'requirements.txt')
                 if os.path.exists(requirements_path):
                     self.install_requirements(requirements_path)
+                
                 # Re-check if the file exists after sparse checkout
                 if os.path.exists(init_file_path):
                     file_to_exec = init_file_path
@@ -267,6 +283,8 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
                     # raise ImportError(f"Module or package '{module.__name__}' not found")
                     return
             else:
+                # If we are just checking out a submodule, and there is not any package or module there,
+                # we need to create a proxy module temporarily
                 module.__path__ = []
                 module.__package__ = module.__name__ 
                 return

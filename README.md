@@ -20,7 +20,8 @@ Head over to the documentation if you want to learn more about examples and docs
 Here's a simple script to kick things off with a local LLaMa model:
 
 ```python
-from comma_agents.agents.external import LLaMaAgent
+# This will fetch the cloai llama_cpp agent from the Comma Agent Hub
+from comma_agents.hub.cloai.llama_cpp import LLaMaAgent
 
 # Creating an example agent
 example_agent = LLaMaAgent(
@@ -67,6 +68,29 @@ Comma Agents can be used in a myriad of exciting and innovative ways. Here are s
 - **Data Analysis:** Automate the processing and interpretation of large datasets.
 - **Educational Tools:** Create interactive learning experiences for students in various subjects.
 - **Personal Assistants:** Develop your own digital assistant to help with daily tasks and reminders.
+
+## Comma Agents Hub 🌍
+
+The heart of our platform is the Comma Agents Hub, a central repository where you can discover a wide variety of pre-built agents and tools. It's like a treasure trove for automation enthusiasts! [Repo Link](https://github.com/CloAI/CommaAgentsHub) Here's what the Hub offers:
+
+- **Diverse Agents**: From language models to specialized AI tools, the Hub hosts a range of agents ready to be integrated into your projects.
+- **Ease of Access**: Easily fetch and deploy agents with simple import statements in your Python environment.
+- **Community Contributions**: Explore agents developed by our vibrant community, showcasing creativity and innovation.
+- **Regular Updates**: The Hub is continuously updated with the latest agents and tools, ensuring you have access to cutting-edge technology.
+
+### Exploring the Hub
+
+To explore the Hub and start using its agents:
+
+```python
+# Example of fetching an agent from the Comma Agents Hub
+from comma_agents.hub.<hub_category>.<hub_username>.<module_name> import <AgentClass>
+
+# Initialize the agent
+my_agent = <AgentClass>(...)
+```
+
+Replace `<hub_category| "agents", "flows", "strategies">`, `<hub_username>`, `<module_name>`, and `<AgentClass>` with the appropriate values from the Hub
 
 ## Contribution Guide 👨‍💻👩‍💻
 
