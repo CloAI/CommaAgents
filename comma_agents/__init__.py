@@ -180,7 +180,7 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
         else:
             return super().create_module(spec)
 
-    def install_requirements(requirements_path):
+    def install_requirements(self, requirements_path):
         """
         Install packages from the given requirements.txt file.
         
@@ -246,11 +246,12 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
                 file_to_exec = module_file_path
                 module.__file__ = module_file_path
                 module.__loader__ = self
-            else:
+            elif len(module_name_parts) > 4:
                 # Module/package not found; handle accordingly
                 # For example, perform sparse checkout or raise an error
-                self._sparse_checkout('/'.join(module_name_parts[3:]))
-                requirements_path = os.path.join(self.hub_source_directory, module_path, 'requirements.txt')
+                repo_module_dir = '/'.join(module_name_parts[2:]) 
+                self._sparse_checkout(repo_module_dir)
+                requirements_path = os.path.join(self.hub_source_directory, 'hub', repo_module_dir, 'requirements.txt')
                 if os.path.exists(requirements_path):
                     self.install_requirements(requirements_path)
                 # Re-check if the file exists after sparse checkout
@@ -265,6 +266,10 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
                 else:
                     # raise ImportError(f"Module or package '{module.__name__}' not found")
                     return
+            else:
+                module.__path__ = []
+                module.__package__ = module.__name__ 
+                return
 
             # Execute the module/package
             with open(file_to_exec, 'rb') as file:
