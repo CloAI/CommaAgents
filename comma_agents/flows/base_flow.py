@@ -71,9 +71,9 @@ class BaseFlow:
 
     def __init__(
             self,
+            flow_name: str = "",
             flows: Union[BaseAgent, 'BaseFlow', List[Union[BaseAgent, 'BaseFlow']]] = [],
             verbose_level: int = 1,
-            flow_name: str = "",
             hooks: "BaseFlow.FlowHooks" = {}
         ):
         """
@@ -84,12 +84,12 @@ class BaseFlow:
 
         Parameters
         ----------
+        flow_name : str, optional
+            The name of the flow. Default is an empty string.
         flows : Union[BaseAgent, BaseFlow, List[Union[BaseAgent, BaseFlow]]], optional
             The flows to include in this BaseFlow instance. Default is an empty list.
         verbose_level : int, optional
             The verbosity level for output logging. Default is 1.
-        flow_name : str, optional
-            The name of the flow. Default is an empty string.
         hooks : BaseFlow.FlowHooks, optional
             The custom hooks for different stages of the flow. Default is an empty dictionary.
         """

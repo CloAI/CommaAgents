@@ -55,6 +55,16 @@
             }
         },
         {
+            "name": "Examples/Test Hub",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/hub_example.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
             "name": "Examples/Generate Fun Documentation for Classes",
             "type": "python",
             "request": "launch",
