@@ -68,3 +68,15 @@ Happy Coding! 🚀💻🤖
 
    agents/base_agent_and_extend.md
    agents/user_agent.md
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Flows
+   :hidden:
+
+   flows/base_flow.md
+   flows/sequential_flow.md
+   flows/cycle_flow.md
+   flows/cycle_observer_flow.md
+   flows/broadcast_flow.md
+   flows/infinite_cycle_flow.md

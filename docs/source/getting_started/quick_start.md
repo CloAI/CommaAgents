@@ -14,7 +14,7 @@ This simple command fetches and installs the Comma Agents package, setting you u
 
 ## 🛠 Setting Up Local Models
 
-To give you a smooth start, we'll initially focus on local models. Our recommendation? The LLaMa models, renowned for their versatility and available in various quantized formats like '.gguf'. A big shoutout to "TheBloke" on Hugging Face for making these models accessible. You can grab them right here: [TheBloke on Hugging Face](https://huggingface.com/TheBloke).
+To give you a smooth start, we'll initially focus on local models. Our recommendation? The LLaMa models, renowned for their versatility and available in various quantized formats like '.gguf'. A big shoutout to "TheBloke" on Hugging Face for making these models accessible. You can grab them right here: [TheBloke on Hugging Face](https://huggingface.co/TheBloke).
 
 ## 📚 Fundamental Concepts
 
