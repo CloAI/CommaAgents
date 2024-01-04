@@ -25,7 +25,7 @@ Think of agents as the building blocks of the Comma Agents universe. These agent
 Here's a simple script to kick things off with a local LLaMa model:
 
 ```python
-from comma_agents.agents.external import LLaMaAgent
+from comma_agents.hub.cloai.llama_cpp import LLaMaAgent
 
 # Creating an example agent
 example_agent = LLaMaAgent(

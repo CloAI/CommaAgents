@@ -92,6 +92,8 @@ my_agent = <AgentClass>(...)
 
 Replace `<hub_category| "agents", "flows", "strategies">`, `<hub_username>`, `<module_name>`, and `<AgentClass>` with the appropriate values from the Hub
 
+Find more details and contribute to the Hub here [Comma Agents Hub](https://github.com/CloAI/CommaAgentsHub)
+
 ## Contribution Guide 👨‍💻👩‍💻
 
 We love contributions! Whether you're fixing bugs, adding features, or improving documentation, your help makes Comma Agents better for everyone. Here’s how you can contribute:

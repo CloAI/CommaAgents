@@ -11,6 +11,6 @@ To access hub services we've altered the python import to support remote fetchin
 ### Note about editors
 You might not have any of the typing or get in editor errors that the import is not available. You will need to run the python script at least once for the runtime fetching to happen. However, once that is done, most IDEs should dynamically pick up the typing and source.
 
-## Offline use
+## Offline use (TODO! NOT YET AVAILABLE)
 If you are not connected to the internet you can prefetch the modules you need before you go offline. However, you can also install the whole comma_agents hub. We provide also a PyPi(pip) install option `pip install comma_agents_hub` that will allow you to install all of the hub, and be able to access everything.
 
