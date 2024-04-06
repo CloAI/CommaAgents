@@ -21,7 +21,7 @@ def print_cycle_flow_format(
 
     # Print the separator
     print("#" * width)
-    print(water_wave + Fore.CYAN + "Cycle Name: " + flow_name + Style.RESET_ALL)
+    print(water_wave + Fore.CYAN + "Cycle Name: " + str(flow_name) + Style.RESET_ALL)
     print(clockwise_vertical_arrows + Fore.GREEN + "Cycle: " + str(cycle) + "/" + str(cycles) + Style.RESET_ALL)
 
     # Print the separator again
@@ -82,6 +82,7 @@ class CycleFlow(BaseFlow):
 
     def __init__(
             self,
+            flow_name: str,
             flows: Union[List[Union[BaseAgent, BaseFlow]], BaseFlow] = [],
             cycles: int = 1,
             hooks: "CycleFlow.CycleFlowHooks" = {},
@@ -104,7 +105,7 @@ class CycleFlow(BaseFlow):
         **kwargs
             Additional keyword arguments for BaseFlow configuration.
         """
-        super().__init__(flows, hooks=hooks, **kwargs)
+        super().__init__(flow_name=flow_name, flows=flows, hooks=hooks, **kwargs)
         self.cycles = cycles
 
         # Set up the cycle-specific hooks

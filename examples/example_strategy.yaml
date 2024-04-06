@@ -1,0 +1,57 @@
+name: Example Strategy
+description: This is an example strategy
+author: Example Author
+version: 1.0
+
+# TODO: Thinking about how to support multiple repositories and dependencies in the future...
+
+# Define Repositories if additional repositories are needed
+# Here is the default comma-agents-hub (shorten as "hub") repository
+# repositories:
+#   - name: hub
+#     url: https://github.com/CloAI/CommaAgentsHub.git
+
+# # Define Dependencies
+# dependencies:
+#   - hub:agents.cloai.llama
+
+# Define the Strategy
+strategy:
+  - name: "Initial Q&A Flow"
+    description: "Flow for the Q&A process"
+    type: "comma_agents.flows.SequentialFlow"
+    parameters:
+      flows:
+        - name: "User Input"
+          description: "Get question from user to ask the agent."
+          type: "comma_agents.agents.UserAgent"
+          parameters:
+            name: "User Input"
+            require_input: true
+        - name: "MLX Llama"
+          description: "Ask MLX Llama for the answer"
+          type: "comma_agents.hub.agents.cloai.mlx.MLXAgent"
+          parameters:
+            name: "MLX Llama Agent"
+            config:
+              model_path: "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
+              max_tokens: 256
+              seed: 42
+              temp: 0.5
+        - name: "Nested flow"
+          description: "Nested flow for the Q&A process"
+          type: "comma_agents.flows.InfiniteCycleFlow"
+          parameters:
+            flows:
+              - name: "MLX Llama"
+                description: "Ask MLX Llama for the answer"
+                type: "comma_agents.hub.agents.cloai.mlx.MLXAgent"
+                parameters:
+                  name: "MLX Llama Agent"
+                  config:
+                    model_path: "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit"
+                    max_tokens: 256
+                    seed: 55
+                    temp: 0.5
+            
+      

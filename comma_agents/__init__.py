@@ -6,8 +6,6 @@ import git
 import types
 import subprocess
 
-REPO_LINK = "https://github.com/CloAI/CommaAgentsHub.git"
-
 class CommaAgentsHubProxyModule(types.ModuleType):
     """
     This is a proxy module that will be used to replace modules that are being loaded from the hub.
@@ -350,18 +348,22 @@ class CommaAgentsHubSparseCheckoutLoader(importlib.abc.SourceLoader):
         return full_path + '.py'
 
 class CommaAgentsHubSparseCheckoutFinder(importlib.abc.MetaPathFinder):
-    def __init__(self, loader):
+    def __init__(self, loader, prefix="comma_agents.hub."):
         self.loader = loader
+        self.prefix = prefix
 
     def find_spec(self, fullname, path, target=None):
-        if fullname.startswith("comma_agents.hub."):
+        if fullname.startswith(self.prefix):
             return importlib.machinery.ModuleSpec(fullname, self.loader)
         return None
 
+
+# Add the CommaAgentsHubSparseCheckoutFinder to the meta path to allow importing of the hub github repo
 import comma_agents
+
 # Usage
-repo_url = REPO_LINK
+HUB_REPO_LINK = "https://github.com/CloAI/CommaAgentsHub.git"
 base_path = os.path.join(comma_agents.__path__[0]) 
-sys.meta_path.insert(0, CommaAgentsHubSparseCheckoutFinder(CommaAgentsHubSparseCheckoutLoader(base_path, repo_url)))
+sys.meta_path.insert(0, CommaAgentsHubSparseCheckoutFinder(CommaAgentsHubSparseCheckoutLoader(base_path, HUB_REPO_LINK)))
 
     
