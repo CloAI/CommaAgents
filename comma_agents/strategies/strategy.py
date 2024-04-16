@@ -23,7 +23,7 @@ class StrategyModel(BaseModel):
 
 # Define the Strategy class, extending SequentialFlow
 class Strategy(SequentialFlow):
-    def __init__(self, strategy_name: str, strategy_params: dict = {}):
+    def __init__(self, strategy_name: str, strategy_params: dict = {}, flows: List[BaseFlow] = []):
         """
         Initialize the strategy with a name and parameters.
 
@@ -32,7 +32,7 @@ class Strategy(SequentialFlow):
         - strategy_params (dict): Parameters for defining the strategy, if any.
         """
         # Initialize the parent class with the strategy name and an empty list of flows
-        super().__init__(flow_name=strategy_name, flows=[])
+        super().__init__(flow_name=strategy_name, flows=flows)
         self.strategy_params = strategy_params  # Store strategy parameters
 
     def load_from_file(self, file_path: str):
@@ -47,7 +47,7 @@ class Strategy(SequentialFlow):
         
         try:
             # Validate the strategy data against the Pydantic model
-            strategy_model = StrategyModel(**strategy_data)
+            StrategyModel(**strategy_data)
         except ValidationError as e:
             print("Validation error:", e.json())
             raise
@@ -77,6 +77,68 @@ class Strategy(SequentialFlow):
             parsed_flows.append(flow_or_agent_instance)
 
         return parsed_flows
+
+    def _serialize_flow(self, flow):
+        """
+        Recursively serialize a flow and its subflows to a dictionary format suitable for YAML output.
+
+        Parameters:
+        flow (BaseFlow or BaseAgent): The flow to serialize.
+
+        Returns:
+        dict: A dictionary representation of the flow and its subflows.
+        """
+        # Handle different types of flow objects
+        if hasattr(flow, 'flow_name'):
+            flow_name = flow.flow_name
+        elif hasattr(flow, 'name'):
+            flow_name = flow.name
+        else:
+            flow_name = 'Unnamed Flow'
+
+        flow_data = {
+            'name': flow_name,
+            'description': getattr(flow, 'description', 'No description provided'),
+            'type': f"{flow.__module__}.{flow.__class__.__name__}",
+            'parameters': getattr(flow, 'parameters', {})
+        }
+
+        # Check if the flow has subflows and serialize them
+        if hasattr(flow, 'flows') and flow.flows:
+            flow_data['flows'] = [self._serialize_flow(subflow) for subflow in flow.flows]
+
+        return flow_data
+
+
+    def export_to_file(self, file_path: str):
+        """
+        Exports the current strategy configuration to a YAML file.
+
+        Parameters:
+        file_path (str): The file path where the strategy configuration will be saved.
+        """
+        strategy_data = {
+            'name': self.flow_name,
+            'description': 'Exported strategy configuration',
+            'author': 'Export function',
+            'version': '1.0',
+            'strategy': []
+        }
+
+        # Serialize each flow in the strategy
+        for flow in self.flows:
+            flow_data = self._serialize_flow(flow)
+            strategy_data['strategy'].append(flow_data)
+
+        # Write the dictionary to a YAML file
+        try:
+            with open(file_path, 'w') as file:
+                data = yaml.dump(strategy_data, default_flow_style=False)
+                file.write(data)
+            print(f"Strategy exported successfully to {file_path}")
+        except IOError as e:
+            print(f"An error occurred while writing to the file: {e}")
+
 
 def dynamic_import_and_instantiate(class_path: str, **params):
     """
