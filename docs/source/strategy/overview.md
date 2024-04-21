@@ -35,6 +35,7 @@ strategy:
   - `description`: A brief description of the flow.
   - `type`: The fully qualified class name of the flow or agent.
   - `parameters`: A dictionary of parameters to configure the flow or agent.
+  - `flows`: (Optional if type is a BaseFlow) A list of nested flows within the current flow. These can also be agents.
 
 ## CLI Command Overview
 
@@ -51,6 +52,55 @@ comma-agents-cli strategy run --file /path/to/strategy.yaml
 - `--file`: Specifies the path to the YAML file containing the strategy definition.
 
 This command loads the strategy defined in the given YAML file, validates its structure against the expected schema, dynamically imports and instantiates the flows and agents specified in the strategy, and then executes the strategy according to the defined sequence of flows.
+
+## Exporting a Strategy Configuration to YAML
+
+In the Strategy Framework, strategies can be programmatically exported to YAML files using a dedicated function. This function is designed to serialize and save the strategy configuration in a structured and readable YAML format.
+
+### Export Function Overview
+
+The `export_to_file` function allows users to save their strategy configurations to a file. This makes it possible to persist dynamically created or modified strategies, facilitating easy sharing and versioning.
+
+### Example Code
+
+Below is an example demonstrating how this functionality can be implemented within a `Strategy` class. The example includes a `StrategyTestModel` class, which is initialized with a specific strategy configuration. This strategy is then exported to a YAML file using the `export_to_file` function.
+
+```python
+from comma_agents.agents.user_agent import UserAgent
+from comma_agents.flows.infinite_cycle_flow import InfiniteCycleFlow
+from comma_agents.flows.sequential_flow import SequentialFlow
+from comma_agents.hub.agents.cloai.mlx.agent import MLXAgent # For MacOS MLX devices
+from comma_agents.strategies.strategy import Strategy
+
+class StrategyTestModel(Strategy):
+    def __init__(self, strategy_params: dict = {}):
+        super().__init__("Test Strategy Model", strategy_params, [
+            SequentialFlow(flow_name="Flow 1", flows=[
+                UserAgent(require_input=True),
+                MLXAgent("MLX Llama Agent", config={
+                    "model_path": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+                    "max_tokens": 256,
+                    "seed": 42,
+                    "temp": 0.5,
+                }),
+                InfiniteCycleFlow(flows=[
+                    MLXAgent("MLX Llama Agent", again_config={
+                        "model_path": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
+                        "max_tokens": 256,
+                        "seed": 42,
+                        "temp": 0.5,
+                    }),
+                ])
+            ]),
+        ])
+
+test_strategy = StrategyTestModel()
+test_strategy.export_to_file("test_strategy.yaml")
+```
+
+### Usage
+
+To use this functionality, instantiate the strategy model and call `export_to_file` with the desired file path. This function serializes the current strategy configuration and saves it to the specified YAML file.
 
 # Summary
 
