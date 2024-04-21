@@ -71,6 +71,8 @@ class SequentialFlow(BaseFlow):
         'Final response from ResponseAgent'
         """
         previous_response = message
+        print("Running Sequential Flow...")
+        print(self.flows)
         for flow in self.flows:
             # Check if the element is an agent or another flow
             if isinstance(flow, BaseAgent):

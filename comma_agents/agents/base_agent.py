@@ -225,15 +225,17 @@ class BaseAgent:
     
     def __init__(
         self,
-        name: str,
-        prompt_template: PromptTemplate = PromptTemplate(
-            format="{system_message}\n{user_message}\n{assistant_message}\n",
-        ),
-        hooks: "BaseAgent.AgentHooks" = {},
-        interpret_code: bool = False,
-        code_interpreter: Optional["CodeInterpreter"] = None,
-        verbose_level: int = 1,
-        verbose_formats: Optional["BaseAgent.AgentVerboseFormats"] = None,
+        *args,
+        **kwargs
+        # name: str,
+        # prompt_template: PromptTemplate = PromptTemplate(
+        #     format="{system_message}\n{user_message}\n{assistant_message}\n",
+        # ),
+        # hooks: "BaseAgent.AgentHooks" = {},
+        # interpret_code: bool = False,
+        # code_interpreter: Optional["CodeInterpreter"] = None,
+        # verbose_level: int = 1,
+        # verbose_formats: Optional["BaseAgent.AgentVerboseFormats"] = None,
         # llm_functional_callbacks: "BaseAgent.AgentLLMFunctionalCallbacks" = {} TODO: This will provide some way to have functional callbacks... Might move it to the coder interpreter... still designing in mind
     ) -> None:
         """
@@ -281,6 +283,19 @@ class BaseAgent:
         ...     code_interpreter=CustomCodeInterpreter()
         ... )
         """
+        # Unpacking the arguments
+        name = args[0] if len(args) > 0 else kwargs.get("name", "BaseAgent")
+        prompt_template = args[1] if len(args) > 1 else kwargs.get("prompt_template", PromptTemplate(format="{system_message}\n{user_message}\n{assistant_message}\n"))
+        hooks = args[2] if len(args) > 2 else kwargs.get("hooks", {})
+        interpret_code = args[3] if len(args) > 3 else kwargs.get("interpret_code", False)
+        code_interpreter = args[4] if len(args) > 4 else kwargs.get("code_interpreter", None)
+        verbose_level = args[5] if len(args) > 5 else kwargs.get("verbose_level", 1)
+        verbose_formats = args[6] if len(args) > 6 else kwargs.get("verbose_formats", None)
+        llm_functional_callbacks = args[7] if len(args) > 7 else kwargs.get("llm_functional_callbacks", {})
+
+        self.parameters = kwargs
+        print(f"Agent Parameters: {self.parameters}")
+
         # Initializing attributes with provided values or default to empty values
         self.name = name
         self.verbose_level = verbose_level

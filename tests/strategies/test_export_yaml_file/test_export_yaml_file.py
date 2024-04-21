@@ -37,8 +37,8 @@ class TestStrategyExportYamlFile:
         test_strategy = StrategyTestModel()
 
         # Hook into the file save content for the test and assert the content
-        with patch('builtins.open', create=True) as mock_open:
-            test_strategy.export_to_file("test_strategy.yaml")
+        # with patch('builtins.open', create=True) as mock_open:
+        test_strategy.export_to_file("test_strategy.yaml")
             # mock_open.assert_called_once_with("test_strategy.yaml", 'w')
             # handle = mock_open()
             # handle.write.assert_called_once_with(
@@ -81,7 +81,7 @@ class TestStrategyExportYamlFile:
             # )
             # handle.close.assert_called_once()
 
-            print("Strategy exported successfully to test_strategy.yaml")
+        print("Strategy exported successfully to test_strategy.yaml")
             
         
 
@@ -91,14 +91,14 @@ class StrategyTestModel(Strategy):
         super().__init__("Test Strategy Model", strategy_params, [
             SequentialFlow(flow_name="Flow 1", flows=[
                 UserAgent(require_input=True),
-                MLXAgent("MLX Llama Agent", {
+                MLXAgent("MLX Llama Agent", config={
                     "model_path": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
                     "max_tokens": 256,
                     "seed": 42,
                     "temp": 0.5,
                 }),
                 InfiniteCycleFlow(flows=[
-                    MLXAgent("MLX Llama Agent", {
+                    MLXAgent("MLX Llama Agent", config={
                         "model_path": "mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit",
                         "max_tokens": 256,
                         "seed": 42,
@@ -110,8 +110,8 @@ class StrategyTestModel(Strategy):
 
 test_strategy = StrategyTestModel()
 # Hook into the file save content for the test and assert the content
-with patch('builtins.open', create=True) as mock_open:
-    test_strategy.export_to_file("test_strategy.yaml")
+# with patch('builtins.open', create=True) as mock_open:
+test_strategy.export_to_file("test_strategy.yaml")
     # mock_open.assert_called_once_with("test_strategy.yaml", 'w')
     # handle = mock_open()
     # handle.write.assert_called_once_with(
@@ -154,4 +154,4 @@ with patch('builtins.open', create=True) as mock_open:
     # )
     # handle.close.assert_called_once()
     
-    print("Strategy exported successfully to test_strategy.yaml")
+print("Strategy exported successfully to test_strategy.yaml")

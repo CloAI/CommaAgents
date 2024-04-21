@@ -100,12 +100,17 @@ class Strategy(SequentialFlow):
             'name': flow_name,
             'description': getattr(flow, 'description', 'No description provided'),
             'type': f"{flow.__module__}.{flow.__class__.__name__}",
-            'parameters': getattr(flow, 'parameters', {})
+            # Get parameters but filter out objects that are not serializable
+            'parameters': {k: v for k, v in getattr(flow, 'parameters', {}).items() if is_jsonable(v)}
         }
 
+        if 'flow_name' in flow_data['parameters']:
+            del flow_data['parameters']['flow_name']
+
+        flow_data['parameters']['name'] = flow_name
         # Check if the flow has subflows and serialize them
         if hasattr(flow, 'flows') and flow.flows:
-            flow_data['flows'] = [self._serialize_flow(subflow) for subflow in flow.flows]
+            flow_data['parameters']['flows'] = [self._serialize_flow(subflow) for subflow in flow.flows]
 
         return flow_data
 
@@ -133,8 +138,9 @@ class Strategy(SequentialFlow):
         # Write the dictionary to a YAML file
         try:
             with open(file_path, 'w') as file:
-                data = yaml.dump(strategy_data, default_flow_style=False)
-                file.write(data)
+                strategy_yaml = yaml.dump(strategy_data, default_flow_style=False, sort_keys=False)
+                file.write(strategy_yaml)
+                file.close()
             print(f"Strategy exported successfully to {file_path}")
         except IOError as e:
             print(f"An error occurred while writing to the file: {e}")
@@ -164,3 +170,12 @@ def dynamic_import_and_instantiate(class_path: str, **params):
     cls = getattr(module, class_name)  # Get the class from the module
     instance = cls(**params)  # Instantiate the class with the provided parameters
     return instance
+
+import json
+
+def is_jsonable(x):
+    try:
+        json.dumps(x)
+        return True
+    except (TypeError, OverflowError):
+        return False
