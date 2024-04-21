@@ -71,10 +71,8 @@ class BaseFlow:
 
     def __init__(
             self,
-            flow_name: str = "",
-            flows: Union[BaseAgent, 'BaseFlow', List[Union[BaseAgent, 'BaseFlow']]] = [],
-            verbose_level: int = 1,
-            hooks: "BaseFlow.FlowHooks" = {}
+            *args,
+            **kwargs
         ):
         """
         Initializes a new instance of the BaseFlow class.
@@ -93,6 +91,17 @@ class BaseFlow:
         hooks : BaseFlow.FlowHooks, optional
             The custom hooks for different stages of the flow. Default is an empty dictionary.
         """
+        flow_name = kwargs.get("flow_name", "")
+        flows = kwargs.get("flows", [])
+        verbose_level = kwargs.get("verbose_level", 1)
+        hooks = kwargs.get("hooks", {})
+
+        #Get Parameters but remove flows
+        self.parameters = kwargs
+        if "flows" in self.parameters:
+            self.parameters.pop("flows")
+
+        print(self.parameters)
         # If a single flow or agent is passed, convert it to a list
         if isinstance(flows, (BaseAgent, BaseFlow)):
             flows = [flows]

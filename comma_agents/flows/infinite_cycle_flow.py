@@ -21,7 +21,7 @@ class InfiniteCycleFlow(CycleFlow):
         **kwargs
             Additional keyword arguments for BaseFlow configuration.
         """
-        super().__init__(cycles=1, **kwargs)
+        super().__init__(flow_name="Infinite Cycle Flow", cycles=1, **kwargs)
     
     def _run_flow(self, message=""):
         """

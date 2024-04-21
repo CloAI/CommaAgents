@@ -97,7 +97,7 @@ class UserAgent(BaseAgent):
     >>> user_agent = UserAgent(name="HelpBot", user_message="Hello! How can I assist you?", require_input=True)
     """
 
-    def __init__(self, name='UserAgent', user_message='', require_input: bool = False, **kwargs):
+    def __init__(self, name='UserAgent', **kwargs):
         """
         Initializes an instance of the UserAgent class.
 
@@ -133,8 +133,8 @@ class UserAgent(BaseAgent):
             },
             **kwargs
         )
-        self.user_message = user_message
-        self.require_input = require_input
+        self.user_message = kwargs.get('user_message', '')
+        self.require_input = kwargs.get('require_input', False)
 
     def _call_llm(self, message: str = '', **kwargs):
         """
