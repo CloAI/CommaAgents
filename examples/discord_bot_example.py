@@ -1,7 +1,9 @@
 import os
+import sys
+sys.path.insert(0, './') # Set this as to access the strategies package... TODO: Fix this
 from comma_agents.hub.agents.cloai.llama_cpp import LLaMaAgent
 from comma_agents.prompts import ZephyrPromptTemplate, LLaMaPromptTemplate
-from .strategies.memory_strategy.memory_strategy import MemoryStrategy
+from strategies.memory_strategy.memory_strategy import MemoryStrategy
 import discord
 import queue
 from dotenv import load_dotenv

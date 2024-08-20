@@ -19,11 +19,6 @@ strategy:
       description: No description provided
       type: comma_agents.hub.agents.cloai.mlx.agent.MLXAgent
       parameters:
-        config:
-          model_path: mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit
-          max_tokens: 256
-          seed: 42
-          temp: 0.5
         name: MLX Llama Agent
     - name: Infinite Cycle Flow
       description: No description provided
@@ -36,9 +31,4 @@ strategy:
           description: No description provided
           type: comma_agents.hub.agents.cloai.mlx.agent.MLXAgent
           parameters:
-            config:
-              model_path: mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit
-              max_tokens: 256
-              seed: 42
-              temp: 0.5
             name: MLX Llama Agent
