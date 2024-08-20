@@ -1,4 +1,4 @@
-from comma_agents.agents.external.llama_cpp_agent import LLaMaAgent
+from comma_agents.hub.agents.cloai.llama_cpp import LLaMaAgent
 from comma_agents.strategies.memory_strategy import MemoryStrategy
 from comma_agents.prompts import PromptTemplate, ZephyrPromptTemplate, LLaMaPromptTemplate
 

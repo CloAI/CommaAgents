@@ -1,13 +1,11 @@
 import os
-from comma_agents.agents.base_agent import BaseAgent
-from comma_agents.agents.external.llama_cpp_agent import LLaMaAgent
+from comma_agents.hub.agents.cloai.llama_cpp import LLaMaAgent
+from comma_agents.prompts import ZephyrPromptTemplate, LLaMaPromptTemplate
+from .strategies.memory_strategy.memory_strategy import MemoryStrategy
 import discord
-import asyncio
 import queue
 from dotenv import load_dotenv
-from comma_agents.prompts import PromptTemplate, ZephyrPromptTemplate, LLaMaPromptTemplate
 
-from comma_agents.strategies.memory_strategy.memory_strategy import MemoryStrategy
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')

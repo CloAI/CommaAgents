@@ -1,5 +1,4 @@
-from comma_agents.agents.external import LLaMaAgent
-from comma_agents.prompts import PromptTemplate
+from comma_agents.hub.agents.cloai.llama_cpp import LLaMaAgent
 
 # Creating an example agent
 example_agent = LLaMaAgent(

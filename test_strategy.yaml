@@ -1,0 +1,44 @@
+name: Test Strategy Model
+description: Exported strategy configuration
+author: Export function
+version: '1.0'
+strategy:
+- name: Flow 1
+  description: No description provided
+  type: comma_agents.flows.sequential_flow.SequentialFlow
+  parameters:
+    name: Flow 1
+    flows:
+    - name: UserAgent
+      description: No description provided
+      type: comma_agents.agents.user_agent.UserAgent
+      parameters:
+        name: UserAgent
+        require_input: true
+    - name: MLX Llama Agent
+      description: No description provided
+      type: comma_agents.hub.agents.cloai.mlx.agent.MLXAgent
+      parameters:
+        config:
+          model_path: mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit
+          max_tokens: 256
+          seed: 42
+          temp: 0.5
+        name: MLX Llama Agent
+    - name: Infinite Cycle Flow
+      description: No description provided
+      type: comma_agents.flows.infinite_cycle_flow.InfiniteCycleFlow
+      parameters:
+        hooks: {}
+        name: Infinite Cycle Flow
+        flows:
+        - name: MLX Llama Agent
+          description: No description provided
+          type: comma_agents.hub.agents.cloai.mlx.agent.MLXAgent
+          parameters:
+            config:
+              model_path: mlx-community/TinyLlama-1.1B-Chat-v1.0-4bit
+              max_tokens: 256
+              seed: 42
+              temp: 0.5
+            name: MLX Llama Agent

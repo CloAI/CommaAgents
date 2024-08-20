@@ -4,7 +4,7 @@ from comma_agents.code_interpreters.code_interpreter_language_handler import Cod
 print(os.getcwd())
 
 import comma_agents.flows as flows
-from comma_agents.agents.external.llama_cpp_agent import LLaMaAgent
+from comma_agents.hub.agents.cloai.llama_cpp import LLaMaAgent
 from comma_agents.agents import UserAgent
 from comma_agents.code_interpreters.code_interpreter import CodeInterpreter
 from comma_agents.code_interpreters.languages import PythonCodeInterpreterLanguageHandler, ShCodeAgentLanguageHandler
