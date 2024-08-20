@@ -80,3 +80,17 @@ Happy Coding! 🚀💻🤖
    flows/cycle_observer_flow.md
    flows/broadcast_flow.md
    flows/infinite_cycle_flow.md
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Hub
+   :hidden:
+
+   hub/overview.md
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Strategy
+   :hidden:
+
+   strategy/overview.md
