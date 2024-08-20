@@ -99,9 +99,13 @@ Find more details and contribute to the Hub here [Comma Agents Hub](https://gith
 We love contributions! Whether you're fixing bugs, adding features, or improving documentation, your help makes Comma Agents better for everyone. Here’s how you can contribute:
 
 1. **Fork the Repository:** Create your own copy of our repository to make your changes.
-2. **Make Your Changes:** Implement your brilliant ideas or fixes.
-3. **Submit a Pull Request:** Send us your changes for review.
-4. **Review & Merge:** We'll review your contribution and merge it into the main branch.
+2. **Setup Your Environment:** Install the necessary dependencies and tools to start coding. The project uses [Poetry](https://python-poetry.org/) to manage dependencies for the project.
+```bash
+poetry install
+```
+3. **Make Your Changes:** Implement your brilliant ideas or fixes.
+4. **Submit a Pull Request:** Send us your changes for review.
+5. **Review & Merge:** We'll review your contribution and merge it into the main branch.
 
 Also, feel free to create issues and feature requests! Help Comma Agents support you and the ventures of automation with Agents!
 
