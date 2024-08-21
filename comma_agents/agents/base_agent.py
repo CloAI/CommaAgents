@@ -371,17 +371,20 @@ class BaseAgent:
 
         if self.verbose_level >= 2:
             print(f"Calling {self.name} Agent with message {message}")
+        
+        built_prompt = self.prompt_template.build_prompt_str(message)
         # Actual call to the Agent
         if self.allow_cache:
-            response = check_cache_for_response(message, self.parameters) # TODO: Confirm that params are the only thing that needs to be checked
+            response = check_cache_for_response(built_prompt, self.parameters) # TODO: Confirm that params are the only thing that needs to be checked
         else:
             response = None
         
         if response is None:
-            response = self._call_llm(self.prompt_template.build_prompt_str(message))
+            
+            response = self._call_llm(built_prompt)
             
             if self.allow_cache:
-                save_response_to_cache(message, self.parameters, response)
+                save_response_to_cache(built_prompt, self.parameters, response)
 
         # If code interpretation is enabled, interpret the code and append the output to the response
         if self.interpret_code is True:
@@ -471,7 +474,7 @@ class BaseAgent:
             print(f"Executing hooks for {hook_name}")
 
         for hook in self.hooks.get(hook_name, []):
-            hook(*args, **kwargs)
+            hook(agent=self, *args, **kwargs)
 
     def _execute_alter_hooks(self, hook_name: str, message: str) -> str:
         """
@@ -509,6 +512,32 @@ class BaseAgent:
         for hook in self.hooks.get(hook_name, []):
             message = hook(message)
         return message
+
+    def add_hook(self, hook_name: str, hook_function: Callable[..., Any]) -> None:
+        """
+        Adds a custom hook to the agent for a specific stage of interaction.
+
+        Parameters
+        ----------
+        hook_name : str
+            The name of the hook stage to which the function should be added.
+        hook_function : Callable[..., Any]
+            The function to be executed as a hook at the specified stage.
+
+        Notes
+        -----
+        - This method allows users to add custom hooks to the agent for various stages of interaction.
+        - The hook function should accept the agent instance as the first argument, followed by any additional arguments.
+        - The hook function can modify the agent's behavior, data, or responses at the specified stage.
+
+        Examples
+        --------
+        >>> def custom_pre_call(agent, message):
+        ...     print("Pre-call hook executed")
+        >>> agent = BaseAgent(name="ExampleAgent")
+        >>> agent.add_hook("before_call", custom_pre_call)
+        """
+        self.hooks[hook_name].append(hook_function)
 
     def summary(self):
         return str({

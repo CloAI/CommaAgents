@@ -1,31 +1,9 @@
 from typing import Callable, List, Union, Optional, Any
 
-import os
-from colorama import Fore, Style
-
+from comma_agents.utils.print_formats import print_cycle_flow_format
 from comma_agents.flows.base_flow import BaseFlow
 from comma_agents.agents.base_agent import BaseAgent
 from comma_agents.utils.misc.or_one_value_to_array import or_one_value_to_array
-
-def print_cycle_flow_format(
-    flow_name: str,
-    cycles: int,
-    cycle: int,
-    use_unicode: bool = True
-):
-    water_wave = '\U0001F30A' if use_unicode else '[:water_wave:]'
-    clockwise_vertical_arrows = '\U0001F503' if use_unicode else '[:clockwise_vertical_arrows:]'
-    
-    # Get the width of the terminal
-    width = os.get_terminal_size().columns
-
-    # Print the separator
-    print("#" * width)
-    print(water_wave + Fore.CYAN + "Cycle Name: " + str(flow_name) + Style.RESET_ALL)
-    print(clockwise_vertical_arrows + Fore.GREEN + "Cycle: " + str(cycle) + "/" + str(cycles) + Style.RESET_ALL)
-
-    # Print the separator again
-    print("#" * width)
 
 class CycleFlow(BaseFlow):
     """

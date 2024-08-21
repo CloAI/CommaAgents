@@ -114,7 +114,6 @@ class Strategy(SequentialFlow):
 
         return flow_data
 
-
     def export_to_file(self, file_path: str):
         """
         Exports the current strategy configuration to a YAML file.
