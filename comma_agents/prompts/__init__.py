@@ -27,3 +27,14 @@ class DeepSeekPromptTemplate(PromptTemplate):
 {assistant_message}"""
     def __init__(self, **kwargs):
         super().__init__(self.deepseek_prompt_template_format, **kwargs)
+
+class Llama31PromptTemplate(PromptTemplate):
+    llama31_prompt_template_format = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+{system_message}<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+{user_message}<|eot_id|>
+<|start_header_id|>assistant<|end_header_id|>
+{assistant_message}"""
+    def __init__(self, **kwargs):
+        super().__init__(self.llama31_prompt_template_format, **kwargs)

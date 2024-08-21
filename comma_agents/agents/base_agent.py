@@ -5,6 +5,7 @@ from colorama import Fore, Style
 from comma_agents.code_interpreters.code_interpreter import CodeInterpreter
 from comma_agents.prompts import PromptTemplate
 from comma_agents.utils.misc import or_one_value_to_array
+from comma_agents.utils.cache import check_cache_for_response, save_response_to_cache
 
 def print_agent_prompt_format(
     agent_name: str,
@@ -292,6 +293,7 @@ class BaseAgent:
         verbose_level = args[5] if len(args) > 5 else kwargs.get("verbose_level", 1)
         verbose_formats = args[6] if len(args) > 6 else kwargs.get("verbose_formats", None)
         llm_functional_callbacks = args[7] if len(args) > 7 else kwargs.get("llm_functional_callbacks", {})
+        allow_cache = args[8] if len(args) > 8 else kwargs.get("allow_cache", True)
 
         self.parameters = kwargs
         print(f"Agent Parameters: {self.parameters}")
@@ -305,6 +307,7 @@ class BaseAgent:
         self.first_call = True
         self.interpret_code = interpret_code
         self.code_interpreter = code_interpreter
+        self.allow_cache = allow_cache
         # self.llm_functional_callbacks = llm_functional_callbacks
         
         if self.interpret_code is True and code_interpreter is None:
@@ -369,8 +372,16 @@ class BaseAgent:
         if self.verbose_level >= 2:
             print(f"Calling {self.name} Agent with message {message}")
         # Actual call to the Agent
-
-        response = self._call_llm(self.prompt_template.build_prompt_str(message))
+        if self.allow_cache:
+            response = check_cache_for_response(message, self.parameters) # TODO: Confirm that params are the only thing that needs to be checked
+        else:
+            response = None
+        
+        if response is None:
+            response = self._call_llm(self.prompt_template.build_prompt_str(message))
+            
+            if self.allow_cache:
+                save_response_to_cache(message, self.parameters, response)
 
         # If code interpretation is enabled, interpret the code and append the output to the response
         if self.interpret_code is True:
