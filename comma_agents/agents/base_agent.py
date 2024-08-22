@@ -1,5 +1,5 @@
 import os
-from typing import Callable, Dict, List, Optional, Any, TypedDict, Union
+from typing import Callable, Dict, Generator, List, Optional, Any, TypedDict, Union
 
 from colorama import Fore, Style
 from comma_agents.code_interpreters.code_interpreter import CodeInterpreter
@@ -7,50 +7,60 @@ from comma_agents.prompts import PromptTemplate
 from comma_agents.utils.misc import or_one_value_to_array
 from comma_agents.utils.cache import check_cache_for_response, save_response_to_cache
 
+def count_lines(text: str, width: int) -> int:
+    """
+    Helper function to count the number of terminal lines a given text will occupy.
+    
+    Parameters
+    ----------
+    text : str
+        The text to count lines for.
+    width : int
+        The width of the terminal.
+    
+    Returns
+    -------
+    int
+        The number of lines the text will occupy in the terminal.
+    """
+    if not text:
+        return 0
+    lines = text.splitlines()
+    return sum((len(line) + width - 1) // width for line in lines)
+
 def print_agent_prompt_format(
     agent_name: str,
     message: str = None,
     system_message: str = None,
     response: str = None,
-    use_unicode: bool = True
-) -> str:
+    use_unicode: bool = True,
+    print_from: int = 0
+) -> int:
     """
-    Prints a formatted output for an agent's prompt and response in the console, 
-    using distinct emojis and colors for different components of the interaction.
-
-    This function is designed to enhance the readability of agent interactions by visually 
-    differentiating between the agent name, system prompt, user prompt, and agent response.
+    TODO: Make print from actually work and clear the previous output
+    
+    Prints a formatted output for an agent's prompt and response in the console,
+    and optionally clears the previous output before reprinting.
 
     Parameters
     ----------
     agent_name : str
         The name of the agent.
-    prompt : str, optional
+    message : str, optional
         The user's prompt or input. Default is None.
+    system_message : str, optional
+        A system-generated prompt or message, if applicable. Default is None.
     response : str, optional
         The agent's response to the prompt. Default is None.
-    system_prompt : bool, optional
-        A system-generated prompt or message, if applicable. Default is None.
     use_unicode : bool, optional
         Flag to indicate whether Unicode characters (emojis) should be used. Default is True.
+    print_from : int, optional
+        The number of lines printed in the previous output to clear. Default is 0.
 
-    Notes
-    -----
-    - The function uses different emojis to represent the agent, system prompt, user prompt, 
-      and agent response for clear visual distinction.
-    - Colors are also applied for further differentiation: Cyan for the agent name, Blue for the system prompt, 
-      Yellow for the user prompt, and Green for the agent response.
-    - This function assumes that the terminal supports color output via the `colorama` module.
-
-    Examples
-    --------
-    >>> print_agent_prompt_format(
-    ...     "ExampleBot",
-    ...     prompt="What's the weather like?",
-    ...     response="It's sunny.",
-    ...     use_unicode=True
-    ... )
-    # Output will include formatted texts with emojis and colors for the agent name, user prompt, and agent response.
+    Returns
+    -------
+    int
+        The number of lines printed by the function.
     """
 
     robot_emoji = '\U0001F916' if use_unicode else '[:robot:]'
@@ -61,22 +71,36 @@ def print_agent_prompt_format(
     # Get the width of the terminal
     width = os.get_terminal_size().columns
 
-    # Print the separator
+    # Calculate the number of lines occupied by the previous output
+    if print_from > 0:
+        for _ in range(print_from):
+            # Move cursor up one line
+            print("\033[F", end="")
+            # Clear the line
+            print("\033[K", end="")
+
+    # Print the new content
     print("#" * width)
     print(robot_emoji + Fore.CYAN + "Agent Name: " + agent_name + Style.RESET_ALL)
 
+    printed_lines = 2  # Two lines for the separator and agent name
+
     if system_message is not None and system_message != "":
-        # Print the prompt in blue
         print(settings_emoji + Fore.BLUE + "System Prompt: " + system_message + Style.RESET_ALL)
+        printed_lines += count_lines(system_message, width)
 
-    # Print the prompt in yellow
-    print(thought_balloon_emoji + Fore.YELLOW + "Prompt: " + message + Style.RESET_ALL)
+    if message is not None:
+        print(thought_balloon_emoji + Fore.YELLOW + "Prompt: " + message + Style.RESET_ALL)
+        printed_lines += count_lines(message, width)
 
-    # Print the response in green
-    print(brain_emoji + Fore.GREEN + "Response: " + response + Style.RESET_ALL)
+    if response is not None:
+        print(brain_emoji + Fore.GREEN + "Response: " + response + Style.RESET_ALL)
+        printed_lines += count_lines(response, width)
 
-    # Print the separator again
     print("#" * width)
+    printed_lines += 1
+
+    return printed_lines
 
 class BaseAgent:
     """
@@ -380,9 +404,24 @@ class BaseAgent:
             response = None
         
         if response is None:
-            
-            response = self._call_llm(built_prompt)
-            
+            llm_response = self._call_llm(built_prompt)
+            if isinstance(llm_response, Generator):
+                response = ""
+                printed_lines = 0
+                for token in llm_response:
+                   response += token
+                   if self.interpret_code is True:
+                       code_output = self.code_interpreter.interpret_code(response)
+                       if code_output is not None:
+                           # Need to really think about if I should do this recursively or not... Since I am just retriggerring the same thing over and over...
+                           built_prompt = self.prompt_template.build_prompt_str(message + response + code_output)
+                           llm_response = self._call_llm(built_prompt)
+                           
+                           
+                   if self.verbose_level >= 1:
+                        printed_lines = self.verbose_formats["print_agent_prompt_format"](self.name, message, self.prompt_template.parameters["system_message"], response, print_from=printed_lines)
+            else:
+                response = llm_response
             if self.allow_cache:
                 save_response_to_cache(built_prompt, self.parameters, response)
 
@@ -406,7 +445,7 @@ class BaseAgent:
             
         return response
     
-    def _call_llm(self, message: str) -> str:
+    def _call_llm(self, message: str) -> Union[str, Generator[str, None, None]]:
         """
         Acts as a placeholder for the actual interaction with the Large Language Model (Agent). 
         This method is designed to be overridden in subclasses to implement the specific mechanism for calling the Agent.

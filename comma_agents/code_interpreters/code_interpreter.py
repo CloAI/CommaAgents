@@ -6,6 +6,33 @@ from colorama import Fore, Style
 from comma_agents.code_interpreters import CodeInterpreterLanguageHandler
 from comma_agents.code_interpreters.languages import PythonCodeInterpreterLanguageHandler, ShCodeAgentLanguageHandler
 from comma_agents.utils.misc import or_one_value_to_array
+import xxhash
+
+def fast_hash_to_string(data: str) -> str:
+    """
+    Hashes the input data using xxhash and returns the hash as a hexadecimal string.
+
+    Parameters
+    ----------
+    data : str
+        The data to hash.
+
+    Returns
+    -------
+    str
+        The hexadecimal string representation of the hash.
+    """
+    # Encode the data to bytes
+    encoded_data = data.encode('utf-8')
+    
+    # Create an xxhash object and update it with the encoded data
+    hash_obj = xxhash.xxh64()
+    hash_obj.update(encoded_data)
+    
+    # Get the hexadecimal representation of the hash
+    hash_string = hash_obj.hexdigest()
+    
+    return hash_string
 
 
 # Need to make a better code block extractor... ngl I looked at AutoGen to see what pattern they use...
@@ -22,7 +49,7 @@ from comma_agents.utils.misc import or_one_value_to_array
 #   The (.*?) matches the code itself (non-greedy).
 #   The \r?\n makes sure there is a linebreak before ```.
 #   The [ \t]* matches the potential spaces before closing ``` (the spec allows indentation).
-CODE_BLOCK_PATTERN = r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)\r?\n[ \t]*```"
+CODE_BLOCK_PATTERN = r"(?:```[ \t]*|\<\|)(\w+|python_tag)?(?:[ \t]*\r?\n|\|\>)(.*?)(\r?\n[ \t]*```|<\|eom_id\|>)"
 
 def print_code_agent_prompt_format(
     agent_name: str = "Code Interpreter",
@@ -56,15 +83,21 @@ class CodeInterpreter():
             use_docker: bool = False,
             supported_languages: Dict[str, CodeInterpreterLanguageHandler] = { #TODO: Make this manually configurable rather than hard-coded python and sh
                 'python': PythonCodeInterpreterLanguageHandler(),
+                'python_tag': PythonCodeInterpreterLanguageHandler(),
                 'sh': ShCodeAgentLanguageHandler()
             },
             code_block_pattern: str = CODE_BLOCK_PATTERN,
-            code_interpreter_hooks = {}
+            code_interpreter_hooks = {},
+            execution_directory: str = None,
+            output_format: str = "{code_output}"
         ):
         
         self.use_docker = use_docker
         self.code_block_pattern = code_block_pattern
         self.supported_languages = supported_languages
+        self.execution_directory = os.path.abspath(execution_directory) if execution_directory else None
+        self.output_format = output_format
+        self.executed_code_lookup = {}
         
         self.code_interpreter_hooks: "CodeInterpreter.CodeInterpreterHooks" = {
             "before_code_interpretation": or_one_value_to_array(code_interpreter_hooks.get("before_code_interpretation")),
@@ -98,6 +131,7 @@ class CodeInterpreter():
 
         responses = []
         for language, code_segment in combined_code_blocks.items():
+            
             # Get the language handler for the current language
             language_handler = self.supported_languages.get(language, None)
 
@@ -106,9 +140,18 @@ class CodeInterpreter():
                 print(f"Language {language} is not supported yet.")
                 continue
             
+            code_exe_hash = fast_hash_to_string(code_segment)
+            if self.executed_code_lookup.get(code_exe_hash, False):
+                # print(f"Code block with hash {code_exe_hash} has already been executed. Skipping...")
+                continue
+            
             self._execute_hooks("before_code_interpretation", language, code_segment)
             
-            code_output = language_handler.execute_code_block(code_segment)
+            code_output = self.output_format.format(
+                code_output=language_handler.execute_code_block(code_segment, self.execution_directory)
+            )
+            # Make a hash of the code that was executed
+            self.executed_code_lookup[code_exe_hash] = True
             
             self._execute_hooks("after_code_interpretation", language, code_output)
             
@@ -117,7 +160,7 @@ class CodeInterpreter():
 
         # TODO: Figure out some formatting system for the code interpreter?
         # Join the responses with newlines and return the result
-        return "\n".join(responses)
+        return "\n".join(responses) if len(responses) > 0 else None
         
     def _extract_code_blocks(self, content):
         """Extracts code blocks from a prompt.
@@ -127,7 +170,7 @@ class CodeInterpreter():
         """
         code_blocks = []
         for match in re.finditer(self.code_block_pattern, content, re.DOTALL):
-            code_blocks.append((match.group(1), match.group(2)))
+            code_blocks.append((match.group(1), match.group(2), match.group(3)))
 
         return code_blocks
     
@@ -138,7 +181,7 @@ class CodeInterpreter():
         :return: A combined code block.
         """
         languages_blocks = {}
-        for language, code_block in code_blocks:
+        for language, code_block, end_marker in code_blocks:
             languages_blocks[language] = languages_blocks.get(language, "") + "\n" + code_block
 
         return languages_blocks
