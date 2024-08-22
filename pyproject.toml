@@ -10,7 +10,7 @@ repository = "https://github.com/CloAI/CommaAgents"
 documentation = "https://commaagents.com/docs"
 
 [tool.poetry.scripts]
-comma-agents-cli = "comma_agents.cli.main:cli"
+comma = "comma_agents.cli.main:cli"
 
 [tool.poetry.dependencies]
 python = "^3.9"
