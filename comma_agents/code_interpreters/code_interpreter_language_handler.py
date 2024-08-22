@@ -39,7 +39,7 @@ class CodeInterpreterLanguageHandler:
         """
         return inferred_language
     
-    def execute_code_block(self, code_block: str):
+    def execute_code_block(self, code_block: str, execution_directory: str = None):
             """Executes a Python code block safely."""
             try:
                 # Determine file path: use generated_file_directory or a temporary file
@@ -54,7 +54,7 @@ class CodeInterpreterLanguageHandler:
                     temp_file.close()
 
                 # Execute the Python code in a subprocess
-                result = subprocess.run([self.interpreter_path, file_path], capture_output=True, text=True, timeout=30)
+                result = subprocess.run([self.interpreter_path, file_path], capture_output=True, text=True, timeout=30, cwd=execution_directory)
 
                 # Handle output and errors
                 if result.returncode == 0:
