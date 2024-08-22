@@ -414,10 +414,11 @@ class BaseAgent:
                        code_output = self.code_interpreter.interpret_code(response)
                        if code_output is not None:
                            # Need to really think about if I should do this recursively or not... Since I am just retriggerring the same thing over and over...
-                           built_prompt = self.prompt_template.build_prompt_str(message + response + code_output)
+                           message = built_prompt + response + code_output
+                           built_prompt = message
                            llm_response = self._call_llm(built_prompt)
-                           
-                           
+                           response = ""
+                            
                    if self.verbose_level >= 1:
                         printed_lines = self.verbose_formats["print_agent_prompt_format"](self.name, message, self.prompt_template.parameters["system_message"], response, print_from=printed_lines)
             else:
@@ -427,7 +428,9 @@ class BaseAgent:
 
         # If code interpretation is enabled, interpret the code and append the output to the response
         if self.interpret_code is True:
-            response = response + "\nCode Output: " + self.code_interpreter.interpret_code(response)
+            code_output = self.code_interpreter.interpret_code(response)
+            if code_output is not None:
+                response = response + code_output
         
         if self.verbose_level >= 1:
             self.verbose_formats["print_agent_prompt_format"](self.name, message, self.prompt_template.parameters["system_message"], response)
