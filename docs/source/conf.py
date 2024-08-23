@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath("../"))
 project = 'Comma Agents'
 copyright = '2023, Nathaniel Hatch-Martinez'
 author = 'Nathaniel Hatch-Martinez'
-release = '0.0.8'
+release = '0.0.9'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
