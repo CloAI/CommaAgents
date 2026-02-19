@@ -1,0 +1,18 @@
+{
+  "name": "@comma-agents/core",
+  "version": "2.0.0",
+  "description": "Core agent orchestration framework — agents, flows, hooks, providers",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "yaml": "2.7.0",
+    "zod": "3.24.1"
+  },
+  "author": "CloAI",
+  "license": "MIT"
+}
