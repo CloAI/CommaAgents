@@ -13,7 +13,8 @@
     "lint:fix": "bunx @biomejs/biome check --write .",
     "format": "bunx @biomejs/biome format --write .",
     "daemon": "bun run --filter @comma-agents/daemon start",
-    "tui": "bun run --filter @comma-agents/tui start"
+    "tui": "bun run --filter @comma-agents/tui start",
+    "example": "bun run examples/core/run.ts"
   },
   "author": "CloAI",
   "license": "MIT",
