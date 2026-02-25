@@ -1,0 +1,28 @@
+{
+  "name": "Simple Q&A",
+  "version": "1.0",
+  "description": "A minimal strategy: user asks a question, an LLM agent answers.",
+  "agents": {
+    "user": {
+      "type": "user",
+      "description": "Collects the user's question.",
+      "config": {
+        "requireInput": true
+      }
+    },
+    "assistant": {
+      "description": "Answers the user's question concisely.",
+      "model": "openai/gpt-4o",
+      "systemPrompt": "You are a helpful assistant. Answer the user's question concisely."
+    }
+  },
+  "flow": {
+    "name": "Q&A Flow",
+    "type": "sequential",
+    "description": "User asks a question, assistant answers.",
+    "steps": [
+      { "agent": "user" },
+      { "agent": "assistant" }
+    ]
+  }
+}

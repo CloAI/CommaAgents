@@ -5,13 +5,19 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "bin": {
+    "comma-agents-daemon": "src/cli.ts"
+  },
   "scripts": {
-    "start": "bun run src/index.ts",
+    "start": "bun run src/cli.ts start --foreground",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "test": "bun test"
   },
   "dependencies": {
-    "@comma-agents/core": "workspace:*"
+    "@ai-sdk/openai-compatible": "2.0.30",
+    "@comma-agents/core": "workspace:*",
+    "yaml": "2.7.0",
+    "zod": "3.25.76"
   },
   "author": "CloAI",
   "license": "MIT"

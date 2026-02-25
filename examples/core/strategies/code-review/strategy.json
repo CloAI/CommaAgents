@@ -1,0 +1,27 @@
+{
+  "name": "Code Review Pipeline",
+  "version": "1.0",
+  "description": "A sequential pipeline where an analyzer identifies issues, then a reviewer suggests improvements.",
+  "defaults": {
+    "model": "openai/gpt-4o"
+  },
+  "agents": {
+    "analyzer": {
+      "description": "Analyzes code for potential issues.",
+      "systemPrompt": "You are a code analyzer. Examine the given code and identify potential bugs, code smells, and security issues. Output a numbered list of findings (max 5)."
+    },
+    "reviewer": {
+      "description": "Reviews the analysis and suggests concrete improvements.",
+      "systemPrompt": "You are a senior code reviewer. Read the analysis of the code and provide specific, actionable suggestions to fix each issue. Be concise and practical."
+    }
+  },
+  "flow": {
+    "name": "Review Pipeline",
+    "type": "sequential",
+    "description": "Analyzer identifies issues, reviewer suggests fixes.",
+    "steps": [
+      { "agent": "analyzer" },
+      { "agent": "reviewer" }
+    ]
+  }
+}

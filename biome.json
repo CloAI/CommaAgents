@@ -38,6 +38,13 @@
     }
   },
   "files": {
-    "includes": ["packages/**/*.ts", "packages/**/*.tsx", "!!**/node_modules", "!!**/dist"]
+    "includes": [
+      "packages/**/*.ts",
+      "packages/**/*.tsx",
+      "examples/**/*.ts",
+      "examples/**/*.tsx",
+      "!!**/node_modules",
+      "!!**/dist"
+    ]
   }
 }

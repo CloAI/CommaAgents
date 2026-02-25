@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "jsx": "react-jsx",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["auth/**/*.ts", "core/**/*.ts", "daemon/**/*.ts", "tui/**/*.tsx", "tui/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

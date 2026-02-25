@@ -1,0 +1,39 @@
+name: Research Team
+version: "1.0"
+description: >
+  A broadcast strategy where multiple researchers analyze a topic
+  from different angles simultaneously.
+
+agents:
+  technical:
+    model: openai/gpt-4o
+    description: Technical researcher focusing on implementation details.
+    systemPrompt: >
+      You are a technical researcher. Analyze the given topic from a
+      technical implementation perspective. Cover architecture, tools,
+      and best practices. Keep it to 3-4 bullet points.
+
+  business:
+    model: openai/gpt-4o
+    description: Business researcher focusing on market and strategy.
+    systemPrompt: >
+      You are a business analyst. Analyze the given topic from a business
+      perspective. Cover market opportunities, competition, and ROI.
+      Keep it to 3-4 bullet points.
+
+  risk:
+    model: openai/gpt-4o
+    description: Risk analyst focusing on potential problems.
+    systemPrompt: >
+      You are a risk analyst. Analyze the given topic for potential risks,
+      challenges, and failure modes. Cover technical risk, market risk,
+      and operational risk. Keep it to 3-4 bullet points.
+
+flow:
+  name: Parallel Research
+  type: broadcast
+  description: All researchers analyze the topic simultaneously.
+  steps:
+    - agent: technical
+    - agent: business
+    - agent: risk

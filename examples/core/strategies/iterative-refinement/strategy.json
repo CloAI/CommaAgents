@@ -1,0 +1,29 @@
+{
+  "name": "Iterative Refinement",
+  "version": "1.0",
+  "description": "A cycle flow where a writer produces content and a critic evaluates it, repeating until the critic approves or max iterations are reached.",
+  "defaults": {
+    "model": "openai/gpt-4o"
+  },
+  "agents": {
+    "writer": {
+      "description": "Writes or refines content based on feedback.",
+      "systemPrompt": "You are a skilled writer. Write or revise content based on the given topic or feedback. Output only the content, no meta-commentary."
+    },
+    "critic": {
+      "description": "Evaluates content quality. Says APPROVED when satisfied.",
+      "systemPrompt": "You are a literary critic. Evaluate the content for clarity, engagement, and correctness. If the content is excellent, respond with exactly: APPROVED. Otherwise, provide specific feedback for improvement."
+    }
+  },
+  "flow": {
+    "name": "Refinement Loop",
+    "type": "cycle",
+    "description": "Writer and critic iterate until the content is approved.",
+    "steps": [
+      { "agent": "writer" },
+      { "agent": "critic" }
+    ],
+    "maxIterations": 3,
+    "stopPhrase": "APPROVED"
+  }
+}

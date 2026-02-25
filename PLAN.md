@@ -505,8 +505,8 @@ CommaAgents2/
 | 4  | **Core: Flows**                  | Sequential, Cycle, InfiniteCycle, CycleObserver, Broadcast               | ✅     |
 | 5  | **Core: Prompts**                | Message building, system prompts, conversation history management        | ✅     |
 | 6  | **Core: Built-in Tools**         | Standard tool set — bash, read, write, edit, glob, grep, createDefaultTools()  | ✅     |
-| 7  | **Core: Strategy**               | JSON loader (primary), Zod schema, env/file interpolation, YAML (optional) |        |
-| 8  | **Daemon**                       | WebSocket server, flow executor, dynamic provider install, state mgmt    |        |
+| 7  | **Core: Strategy**               | JSON loader (primary), Zod schema, env/file interpolation, YAML (optional) | ✅     |
+| 8  | **Daemon**                       | WebSocket server, flow executor, dynamic provider install, state mgmt    | ✅     |
 | 9  | **TUI**                          | Ink app, WS client, dashboard, setup wizard, model browser               |        |
 | 10 | **Hub & Plugins**                | Plugin loading system, hub integration (deferred from v1)                |        |
 | 11 | **Testing & Polish**             | Tests, CLI entry points, error handling, docs                            |        |

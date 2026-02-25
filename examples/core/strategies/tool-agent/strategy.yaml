@@ -1,0 +1,25 @@
+name: Tool Agent
+version: "1.0"
+description: >
+  A single agent equipped with built-in tools (read, glob, grep)
+  for exploring and answering questions about a codebase.
+
+agents:
+  explorer:
+    model: openai/gpt-4o
+    description: A coding assistant with filesystem tools.
+    systemPrompt: >
+      You are a helpful coding assistant. Use the available tools to explore
+      the codebase and answer questions about it. Be specific and reference
+      file paths in your answers.
+    tools:
+      - read
+      - glob
+      - grep
+
+flow:
+  name: Explore
+  type: sequential
+  description: Single-step flow where the tool agent explores the codebase.
+  steps:
+    - agent: explorer

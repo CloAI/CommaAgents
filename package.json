@@ -4,7 +4,8 @@
   "version": "2.0.0",
   "description": "Composable agent orchestration framework",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples"
   ],
   "scripts": {
     "build": "bun run --filter '*' build",
@@ -14,7 +15,8 @@
     "format": "bunx @biomejs/biome format --write .",
     "daemon": "bun run --filter @comma-agents/daemon start",
     "tui": "bun run --filter @comma-agents/tui start",
-    "example": "bun run examples/core/run.ts"
+    "example": "bun run examples/core/strategies/run.ts",
+    "example:tui": "bun run --cwd examples tui"
   },
   "author": "CloAI",
   "license": "MIT",
