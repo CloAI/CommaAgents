@@ -5,9 +5,7 @@
 
 import { ModelResolutionError } from "../errors/index";
 
-// ---------------------------------------------------------------------------
 // Known Providers — maps providerID to npm package name
-// ---------------------------------------------------------------------------
 
 /**
  * Maps short provider identifiers to their AI SDK npm package names.
@@ -54,9 +52,7 @@ export const PROVIDER_ENV_KEYS: Readonly<Record<string, string>> = {
   // Ollama typically doesn't need an API key
 } as const;
 
-// ---------------------------------------------------------------------------
 // Parsed Model
-// ---------------------------------------------------------------------------
 
 /** Result of parsing a model string like "openai/gpt-4o". */
 export interface ParsedModel {
@@ -70,9 +66,7 @@ export interface ParsedModel {
   readonly envKey: string | undefined;
 }
 
-// ---------------------------------------------------------------------------
 // parseModel()
-// ---------------------------------------------------------------------------
 
 /**
  * Parse a model string in the format `providerID/modelID`.
@@ -131,9 +125,7 @@ export function parseModel(modelString: string): ParsedModel {
   };
 }
 
-// ---------------------------------------------------------------------------
 // resolveKey() — API key resolution
-// ---------------------------------------------------------------------------
 
 /** Options for key resolution. */
 export interface ResolveKeyOptions {
@@ -202,9 +194,7 @@ export async function resolveKey(
   return undefined;
 }
 
-// ---------------------------------------------------------------------------
 // Config Interpolation
-// ---------------------------------------------------------------------------
 
 /**
  * Resolve config interpolation patterns:
@@ -221,8 +211,7 @@ export async function resolveInterpolation(value: string): Promise<string | unde
   if (envMatch) {
     const varName = envMatch[1];
     if (!varName) return undefined;
-    const envValue = process.env[varName];
-    return envValue ?? undefined;
+    return process.env[varName];
   }
 
   // Pattern: {file:/path/to/key}
@@ -233,11 +222,8 @@ export async function resolveInterpolation(value: string): Promise<string | unde
     try {
       const { readFile } = await import("node:fs/promises");
       const content = await readFile(filePath, "utf-8");
-      // Return first line, trimmed
-      const firstLine = content.split("\n")[0];
-      return firstLine?.trim();
+      return content.split("\n")[0]?.trim();
     } catch {
-      // File not found or unreadable — return undefined, not an error
       return undefined;
     }
   }
@@ -246,9 +232,7 @@ export async function resolveInterpolation(value: string): Promise<string | unde
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-// ---------------------------------------------------------------------------
 // isKnownProvider()
-// ---------------------------------------------------------------------------
 
 /** Check if a provider ID is in the known providers map. */
 export function isKnownProvider(providerID: string): boolean {

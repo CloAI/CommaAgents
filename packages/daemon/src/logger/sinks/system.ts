@@ -29,9 +29,7 @@
 import type { LogEntry, LogLevel, LogSink } from "../types";
 import { formatJsonLine } from "./stderr";
 
-// ---------------------------------------------------------------------------
 // Syslog severity mapping (RFC 5424)
-// ---------------------------------------------------------------------------
 
 const SYSLOG_SEVERITY: Record<LogLevel, number> = {
   error: 3, // Error
@@ -40,9 +38,7 @@ const SYSLOG_SEVERITY: Record<LogLevel, number> = {
   debug: 7, // Debug
 };
 
-// ---------------------------------------------------------------------------
 // Platform detection
-// ---------------------------------------------------------------------------
 
 /** Check if we're running under systemd (journald captures stderr). */
 function isSystemd(): boolean {
@@ -54,9 +50,7 @@ function isLinux(): boolean {
   return process.platform === "linux";
 }
 
-// ---------------------------------------------------------------------------
 // SystemSink
-// ---------------------------------------------------------------------------
 
 /**
  * Create a platform-aware system logging sink.

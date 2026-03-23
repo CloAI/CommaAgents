@@ -1,206 +1,85 @@
-// PromptTemplate — Variable interpolation for system prompts and message templates.
+// PromptTemplate — LiquidJS-backed template engine for system prompts and messages.
 //
-// Supports three kinds of placeholders:
-// - {name}       — resolved from the variables map
-// - {env:VAR}    — resolved from process.env
-// - {file:/path} — resolved from file contents (first line, trimmed)
-//
-// This is a factory function (not a class) because prompt templates are
-// stateless — they just hold a template string and default variables.
+// Custom filters:
+//   {{ "VAR_NAME" | env }}       — resolve from process.env
+//   {{ "/path/to/file" | file }} — read first line of file
+//   {{ "command" | exec }}       — execute shell command, return stdout
 
-import type {
-  PromptTemplate,
-  PromptTemplateConfig,
-  TemplateValue,
-  TemplateVariables,
-} from "../types";
+import { readFile } from "node:fs/promises";
+import { Liquid } from "liquidjs";
+import type { PromptTemplate, PromptTemplateConfig, TemplateVariables } from "../types";
 
-// ---------------------------------------------------------------------------
-// Placeholder regex
-// ---------------------------------------------------------------------------
+// Liquid engine singleton
 
-/**
- * Matches all `{...}` placeholders in a template string.
- * Captures the content between braces (non-greedy).
- *
- * Matches:
- * - `{name}`       — variable reference
- * - `{env:VAR}`    — environment variable
- * - `{file:/path}` — file contents
- *
- * Does NOT match:
- * - `{{escaped}}` — double braces are treated as literal braces
- */
-const PLACEHOLDER_RE = /\{([^{}]+)\}/g;
+const engine = new Liquid({
+  strictVariables: false,
+  strictFilters: true,
+  outputEscape: (v) => (v === undefined || v === null ? "" : String(v)),
+});
 
-/**
- * Matches the `{env:VAR_NAME}` pattern.
- * Captures the variable name after `env:`.
- */
-const ENV_RE = /^env:(.+)$/;
+// -- env filter --
+engine.registerFilter("env", (varName: unknown) => {
+  const name = String(varName ?? "");
+  if (!name) throw new Error('{{ "VAR" | env }} requires a variable name');
+  const value = process.env[name];
+  if (value === undefined) throw new Error(`env filter: "${name}" is not set`);
+  return value;
+});
 
-/**
- * Matches the `{file:/path/to/file}` pattern.
- * Captures the file path after `file:`.
- */
-const FILE_RE = /^file:(.+)$/;
-
-// ---------------------------------------------------------------------------
-// Resolve a single placeholder
-// ---------------------------------------------------------------------------
-
-/**
- * Resolve a single placeholder value.
- *
- * Resolution order:
- * 1. Check override variables
- * 2. Check default variables
- * 3. Check for `env:` prefix → process.env
- * 4. Check for `file:` prefix → file contents
- * 5. Throw if unresolved
- */
-async function resolvePlaceholder(
-  key: string,
-  overrides: TemplateVariables | undefined,
-  defaults: TemplateVariables,
-): Promise<string> {
-  // Check override variables first
-  if (overrides && key in overrides) {
-    return resolveValue(overrides[key]!);
+// -- file filter (async) --
+engine.registerFilter("file", async (filePath: unknown) => {
+  const p = String(filePath ?? "");
+  if (!p) throw new Error('{{ "/path" | file }} requires a file path');
+  try {
+    const content = await readFile(p, "utf-8");
+    return content.split("\n")[0]?.trim() ?? "";
+  } catch {
+    throw new Error(`file filter: could not read "${p}"`);
   }
+});
 
-  // Check default variables
-  if (key in defaults) {
-    return resolveValue(defaults[key]!);
-  }
-
-  // Check for env: prefix
-  const envMatch = key.match(ENV_RE);
-  if (envMatch) {
-    const varName = envMatch[1]!;
-    const value = process.env[varName];
-    if (value !== undefined) {
-      return value;
+// -- exec filter (async) --
+engine.registerFilter("exec", async (command: unknown) => {
+  const cmd = String(command ?? "");
+  if (!cmd) throw new Error('{{ "cmd" | exec }} requires a command');
+  try {
+    if (typeof globalThis.Bun !== "undefined") {
+      const proc = Bun.spawn(["sh", "-c", cmd], { stdout: "pipe", stderr: "pipe" });
+      const output = await new Response(proc.stdout).text();
+      await proc.exited;
+      const trimmed = output.trim();
+      if (!trimmed) throw new Error("empty output");
+      return trimmed;
     }
-    throw new Error(
-      `Prompt template variable "{env:${varName}}": environment variable "${varName}" is not set`,
-    );
+    const { execSync } = await import("node:child_process");
+    const output = execSync(cmd, { encoding: "utf-8", timeout: 10_000 }).trim();
+    if (!output) throw new Error("empty output");
+    return output;
+  } catch (err) {
+    throw new Error(`exec filter: "${cmd}" failed — ${err instanceof Error ? err.message : err}`);
   }
+});
 
-  // Check for file: prefix
-  const fileMatch = key.match(FILE_RE);
-  if (fileMatch) {
-    const filePath = fileMatch[1]!;
-    try {
-      const { readFile } = await import("node:fs/promises");
-      const content = await readFile(filePath, "utf-8");
-      const firstLine = content.split("\n")[0];
-      return firstLine?.trim() ?? "";
-    } catch (err) {
-      throw new Error(
-        `Prompt template variable "{file:${filePath}}": ${err instanceof Error ? err.message : "file not readable"}`,
-      );
-    }
-  }
-
-  // Unresolved
-  throw new Error(
-    `Prompt template variable "{${key}}" has no value. ` +
-      "Provide it in the variables map or as an override.",
-  );
-}
-
-/**
- * Resolve a `TemplateValue` (string, sync function, or async function) to a string.
- */
-async function resolveValue(value: TemplateValue): Promise<string> {
-  if (typeof value === "string") {
-    return value;
-  }
-  return await value();
-}
-
-// ---------------------------------------------------------------------------
-// Build template
-// ---------------------------------------------------------------------------
-
-/**
- * Process a template string, resolving all placeholders.
- * Handles `{{escaped}}` double-brace literals.
- */
-async function buildTemplate(
-  template: string,
-  overrides: TemplateVariables | undefined,
-  defaults: TemplateVariables,
-): Promise<string> {
-  // First, replace escaped double-braces with a sentinel
-  const SENTINEL = "\0BRACE\0";
-  const escaped = template.replace(/\{\{/g, SENTINEL + "L").replace(/\}\}/g, SENTINEL + "R");
-
-  // Collect all placeholder matches and resolve them
-  const matches: Array<{ full: string; key: string }> = [];
-  let match: RegExpExecArray | null;
-
-  // Reset regex state
-  const re = new RegExp(PLACEHOLDER_RE.source, PLACEHOLDER_RE.flags);
-  match = re.exec(escaped);
-  while (match !== null) {
-    matches.push({ full: match[0], key: match[1]! });
-    match = re.exec(escaped);
-  }
-
-  // Resolve all placeholders (could be async, so gather promises)
-  let result = escaped;
-  for (const { full, key } of matches) {
-    const resolved = await resolvePlaceholder(key, overrides, defaults);
-    result = result.replace(full, resolved);
-  }
-
-  // Restore escaped braces
-  return result
-    .replace(new RegExp(`${SENTINEL.replace(/\0/g, "\\0")}L`, "g"), "{")
-    .replace(new RegExp(`${SENTINEL.replace(/\0/g, "\\0")}R`, "g"), "}");
-}
-
-// ---------------------------------------------------------------------------
 // createPromptTemplate
-// ---------------------------------------------------------------------------
 
 /**
- * Create a prompt template with variable interpolation.
+ * Create a prompt template backed by LiquidJS.
+ *
+ * Templates use the full Liquid syntax — `{{ variable }}` interpolation,
+ * `{% if %}` / `{% for %}` control flow, filters, and the custom
+ * `env`, `file`, `exec` filters.
+ *
+ * Function-typed variable values are resolved to strings before the
+ * Liquid render pass, so `() => string | Promise<string>` still works.
  *
  * @example
  * ```ts
- * const template = createPromptTemplate({
- *   template: "You are {role}, an expert in {language}.",
+ * const tpl = createPromptTemplate({
+ *   template: "You are {{ role }}, an expert in {{ language }}.",
  *   variables: { role: "a code reviewer", language: "TypeScript" },
  * });
- *
- * const prompt = await template.build();
- * // => "You are a code reviewer, an expert in TypeScript."
- *
- * // Override at build time:
- * const prompt2 = await template.build({ language: "Rust" });
- * // => "You are a code reviewer, an expert in Rust."
- * ```
- *
- * @example
- * ```ts
- * // Dynamic values and env variables
- * const template = createPromptTemplate({
- *   template: "API key: {env:MY_KEY}. Today is {date}.",
- *   variables: { date: () => new Date().toISOString().split("T")[0]! },
- * });
- * ```
- *
- * @example
- * ```ts
- * // Escaped braces (literal { and } in output)
- * const template = createPromptTemplate({
- *   template: "Output JSON like {{\"key\": \"value\"}}",
- * });
- * const prompt = await template.build();
- * // => 'Output JSON like {"key": "value"}'
+ * await tpl.render();               // "You are a code reviewer, an expert in TypeScript."
+ * await tpl.render({ language: "Rust" }); // "You are a code reviewer, an expert in Rust."
  * ```
  */
 export function createPromptTemplate(config: PromptTemplateConfig): PromptTemplate {
@@ -209,30 +88,24 @@ export function createPromptTemplate(config: PromptTemplateConfig): PromptTempla
   return {
     template: config.template,
     defaults,
-    build: (overrides?: TemplateVariables) => buildTemplate(config.template, overrides, defaults),
-  };
-}
+    async render(overrides?: TemplateVariables) {
+      // Resolve function values → plain values (parallel)
+      const resolve = async (vars: TemplateVariables) => {
+        const out: Record<string, unknown> = {};
+        await Promise.all(
+          Object.entries(vars).map(async ([k, v]) => {
+            out[k] = typeof v === "function" ? await v() : v;
+          }),
+        );
+        return out;
+      };
 
-/**
- * Extract all variable names referenced in a template string.
- * Useful for validation or documentation.
- *
- * @example
- * ```ts
- * extractVariables("Hello {name}, you are {role}.")
- * // => ["name", "role"]
- *
- * extractVariables("Key: {env:API_KEY}, file: {file:/tmp/x}")
- * // => ["env:API_KEY", "file:/tmp/x"]
- * ```
- */
-export function extractVariables(template: string): readonly string[] {
-  const vars: string[] = [];
-  const re = new RegExp(PLACEHOLDER_RE.source, PLACEHOLDER_RE.flags);
-  let match = re.exec(template);
-  while (match !== null) {
-    vars.push(match[1]!);
-    match = re.exec(template);
-  }
-  return vars;
+      const [base, over] = await Promise.all([
+        resolve(defaults),
+        overrides ? resolve(overrides) : {},
+      ]);
+
+      return engine.parseAndRender(config.template, { ...base, ...over });
+    },
+  };
 }

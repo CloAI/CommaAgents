@@ -86,7 +86,7 @@ async function main() {
 
   const pipeline = createSequentialFlow({
     name: "doc-pipeline",
-    steps: [{ agent: writer }, { agent: reviewer }],
+    steps: [writer, reviewer],
   });
 
   // Cancel after the first agent completes (during reviewer execution)

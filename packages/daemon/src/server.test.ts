@@ -17,9 +17,7 @@ import type { Credential } from "./protocol/shared";
 import type { Daemon } from "./server";
 import { createDaemon } from "./server";
 
-// ---------------------------------------------------------------------------
 // Helpers — mock model, provider, credentials, logger
-// ---------------------------------------------------------------------------
 
 /** Create a mock LanguageModel that returns a fixed response. */
 function createMockModel(id: string): LanguageModel {
@@ -102,9 +100,7 @@ function mockLogger(): Logger {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Helpers — strategy files
-// ---------------------------------------------------------------------------
 
 /** Write a strategy JSON string to a temp file and return the path. */
 async function writeTempStrategy(content: string, ext = "json"): Promise<string> {
@@ -161,9 +157,7 @@ const USER_AGENT_STRATEGY = JSON.stringify({
 
 const tempFiles: string[] = [];
 
-// ---------------------------------------------------------------------------
 // Helpers — daemon + WebSocket lifecycle
-// ---------------------------------------------------------------------------
 
 /** Create and start a daemon on a random port. */
 async function startDaemon(overrides?: { bridgeTimeout?: number }): Promise<Daemon> {
@@ -272,9 +266,7 @@ function settle(ms = 50): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// ---------------------------------------------------------------------------
 // Test lifecycle
-// ---------------------------------------------------------------------------
 
 const activeDaemons: Daemon[] = [];
 
@@ -307,9 +299,7 @@ afterAll(async () => {
 // Tests
 // ===========================================================================
 
-// ---------------------------------------------------------------------------
 // Connection lifecycle
-// ---------------------------------------------------------------------------
 
 describe("Connection lifecycle", () => {
   it("client connects successfully", async () => {
@@ -342,9 +332,7 @@ describe("Connection lifecycle", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Health check
-// ---------------------------------------------------------------------------
 
 describe("Health check", () => {
   it("GET /health returns 200 with correct shape", async () => {
@@ -379,9 +367,7 @@ describe("Health check", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // HTTP routing
-// ---------------------------------------------------------------------------
 
 describe("HTTP routing", () => {
   it("non-upgrade request to /ws returns 400", async () => {
@@ -398,9 +384,7 @@ describe("HTTP routing", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Ping/pong
-// ---------------------------------------------------------------------------
 
 describe("Ping/pong", () => {
   it("send ping → receive pong with ts", async () => {
@@ -428,9 +412,7 @@ describe("Ping/pong", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Invalid messages
-// ---------------------------------------------------------------------------
 
 describe("Invalid messages", () => {
   it("non-JSON text → error with PARSE_ERROR", async () => {
@@ -471,9 +453,7 @@ describe("Invalid messages", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // list_flows
-// ---------------------------------------------------------------------------
 
 describe("list_flows", () => {
   it("empty state → flow_list with empty runs", async () => {
@@ -509,9 +489,7 @@ describe("list_flows", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // subscribe / unsubscribe
-// ---------------------------------------------------------------------------
 
 describe("subscribe / unsubscribe", () => {
   it("subscribe to existing run → no error", async () => {
@@ -575,9 +553,7 @@ describe("subscribe / unsubscribe", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // start_flow end-to-end
-// ---------------------------------------------------------------------------
 
 describe("start_flow end-to-end", () => {
   it("start flow with valid single-agent strategy → flow_started + flow_completed", async () => {
@@ -655,9 +631,7 @@ describe("start_flow end-to-end", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // stop_flow
-// ---------------------------------------------------------------------------
 
 describe("stop_flow", () => {
   it("start flow → immediately stop → receive flow_error with CANCELLED", async () => {
@@ -693,9 +667,7 @@ describe("stop_flow", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // user_input / provide_auth error cases
-// ---------------------------------------------------------------------------
 
 describe("user_input / provide_auth error cases", () => {
   it("user_input for unknown run → error response", async () => {
@@ -736,9 +708,7 @@ describe("user_input / provide_auth error cases", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // EventSink broadcast routing
-// ---------------------------------------------------------------------------
 
 describe("EventSink broadcast routing", () => {
   it("two clients subscribed to same run → both receive flow_started and flow_completed", async () => {
@@ -843,9 +813,7 @@ describe("EventSink broadcast routing", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Edge cases
-// ---------------------------------------------------------------------------
 
 describe("Edge cases", () => {
   it("rapid fire multiple start_flow requests → each gets its own run", async () => {

@@ -11,9 +11,7 @@ import type { InputCollector, InputRequest } from "@comma-agents/core";
 
 import type { EventSink } from "./event-sink";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /** Options for creating an input bridge. */
 export interface CreateInputBridgeOptions {
@@ -59,9 +57,7 @@ export interface InputBridge {
   destroy(): void;
 }
 
-// ---------------------------------------------------------------------------
 // createInputBridge()
-// ---------------------------------------------------------------------------
 
 /**
  * Create an input bridge for a single run.
@@ -80,9 +76,7 @@ export function createInputBridge(options: CreateInputBridgeOptions): InputBridg
   /** Once destroyed, reject all new requests immediately. */
   let destroyed = false;
 
-  // -----------------------------------------------------------------------
-  // InputCollector implementation
-  // -----------------------------------------------------------------------
+  // -- InputCollector implementation --
 
   const collector: InputCollector = (request: InputRequest): Promise<string> => {
     if (destroyed) {
@@ -131,9 +125,7 @@ export function createInputBridge(options: CreateInputBridgeOptions): InputBridg
     });
   };
 
-  // -----------------------------------------------------------------------
-  // resolveInput()
-  // -----------------------------------------------------------------------
+  // -- resolveInput() --
 
   function resolveInput(agentName: string, text: string): boolean {
     const entry = pending.get(agentName);
@@ -150,9 +142,7 @@ export function createInputBridge(options: CreateInputBridgeOptions): InputBridg
     return true;
   }
 
-  // -----------------------------------------------------------------------
-  // destroy()
-  // -----------------------------------------------------------------------
+  // -- destroy() --
 
   function destroy(): void {
     destroyed = true;

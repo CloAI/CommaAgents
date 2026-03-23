@@ -1,0 +1,52 @@
+---
+title: Server
+description: Daemon server creation and configuration.
+---
+
+# Server
+
+The daemon is a WebSocket server that hosts strategy execution, manages state, and communicates with clients via a typed protocol.
+
+## Daemon
+
+The daemon instance interface.
+
+<AutoTypeTable path="../packages/daemon/src/server.ts" name="Daemon" />
+
+## CreateDaemonOptions
+
+Options for `createDaemon`.
+
+<AutoTypeTable path="../packages/daemon/src/server.ts" name="CreateDaemonOptions" />
+
+## DaemonConfig
+
+Resolved daemon configuration.
+
+<AutoTypeTable path="../packages/daemon/src/config/config.ts" name="DaemonConfig" />
+
+## DaemonConfigFile
+
+The on-disk config file shape (Zod-inferred).
+
+<AutoTypeTable path="../packages/daemon/src/config/config.ts" name="DaemonConfigFile" />
+
+## LoadConfigOptions
+
+Options for `loadDaemonConfig`.
+
+<AutoTypeTable path="../packages/daemon/src/config/config.ts" name="LoadConfigOptions" />
+
+## State
+
+### DaemonState
+
+<AutoTypeTable path="../packages/daemon/src/state/types.ts" name="DaemonState" />
+
+### RunState
+
+<AutoTypeTable path="../packages/daemon/src/state/types.ts" name="RunState" />
+
+### RunUpdate
+
+<AutoTypeTable path="../packages/daemon/src/state/types.ts" name="RunUpdate" />

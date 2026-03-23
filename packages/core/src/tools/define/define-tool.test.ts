@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import type { ToolContext } from "../tool";
+import type { ToolContext } from "../tool.types";
 import { defineTool } from "./define-tool";
 
 describe("defineTool", () => {

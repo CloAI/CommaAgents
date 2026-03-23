@@ -12,9 +12,7 @@ import type { CredentialStore } from "../credentials/types";
 import type { Credential } from "../protocol/shared";
 import type { EventSink } from "./event-sink";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /** Options for creating an auth bridge. */
 export interface CreateAuthBridgeOptions {
@@ -80,9 +78,7 @@ export interface AuthBridge {
   destroy(): void;
 }
 
-// ---------------------------------------------------------------------------
 // createAuthBridge()
-// ---------------------------------------------------------------------------
 
 /**
  * Create an auth bridge for a single run.
@@ -100,9 +96,7 @@ export function createAuthBridge(options: CreateAuthBridgeOptions): AuthBridge {
   /** Once destroyed, reject all new requests immediately. */
   let destroyed = false;
 
-  // -----------------------------------------------------------------------
-  // requestAuth()
-  // -----------------------------------------------------------------------
+  // -- requestAuth() --
 
   function requestAuth(providerId: string, envVar?: string): Promise<Credential> {
     if (destroyed) {
@@ -150,9 +144,7 @@ export function createAuthBridge(options: CreateAuthBridgeOptions): AuthBridge {
     });
   }
 
-  // -----------------------------------------------------------------------
-  // resolveAuth()
-  // -----------------------------------------------------------------------
+  // -- resolveAuth() --
 
   async function resolveAuth(
     providerId: string,
@@ -179,9 +171,7 @@ export function createAuthBridge(options: CreateAuthBridgeOptions): AuthBridge {
     return true;
   }
 
-  // -----------------------------------------------------------------------
-  // destroy()
-  // -----------------------------------------------------------------------
+  // -- destroy() --
 
   function destroy(): void {
     destroyed = true;

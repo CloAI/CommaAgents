@@ -1,0 +1,26 @@
+---
+title: Prompts
+description: Message building, conversation history, and prompt templates.
+---
+
+# Prompts
+
+The prompts module handles conversation history management, message construction, and template-based system prompts.
+
+## ConversationHistory
+
+Interface for managing multi-turn conversation state.
+
+<AutoTypeTable path="../packages/core/src/prompts/history/conversation-history.ts" name="ConversationHistory" />
+
+## BuildMessagesOptions
+
+Options for assembling the full message array for an LLM call.
+
+<AutoTypeTable path="../packages/core/src/prompts/message-builder.ts" name="BuildMessagesOptions" />
+
+## SystemPromptOptions
+
+Options for resolving the system prompt, supporting LiquidJS templates.
+
+<AutoTypeTable path="../packages/core/src/prompts/message-builder.ts" name="SystemPromptOptions" />

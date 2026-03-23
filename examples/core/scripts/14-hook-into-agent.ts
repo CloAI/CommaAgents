@@ -1,0 +1,153 @@
+/**
+ * 14 — hookIntoAgent (Post-Creation Hook Injection)
+ *
+ * Demonstrates attaching hooks to an agent AFTER creation using
+ * `hookIntoAgent` and the lower-level `appendHook` method.
+ *
+ * Compare with example 05 which passes hooks at agent creation time.
+ * This approach is useful when:
+ *   - You want to compose hooks from separate modules / plugins
+ *   - You need to conditionally add hooks based on runtime configuration
+ *   - You're building middleware that decorates agents it doesn't own
+ *
+ * This example shows:
+ *   - hookIntoAgent(agent, hooks) — bulk-append hooks from an AgentHooks object
+ *   - appendHook(hookName, callback) — append a single hook callback
+ *   - Hooks added post-creation stack with any hooks set at creation time
+ *   - hookIntoAgent returns the same agent reference (enables chaining)
+ *
+ * Run:
+ *   MODEL=openai/gpt-4o bun run examples/14-hook-into-agent.ts
+ *
+ * Concepts:
+ *   - Post-creation hook injection vs config-time hooks
+ *   - hookIntoAgent for bulk hook attachment
+ *   - appendHook for single hook attachment
+ *   - Hook stacking — multiple callbacks on the same hook point
+ */
+
+import type { AgentHooks } from "@comma-agents/core";
+import { createAgent, hookIntoAgent } from "@comma-agents/core";
+import { getModel } from "./helpers";
+
+// ---------------------------------------------------------------------------
+// Logging plugin — a reusable set of hooks
+// ---------------------------------------------------------------------------
+
+/** A reusable hooks object that logs call lifecycle events. */
+const loggingHooks: AgentHooks = {
+  beforeCall: [
+    async (message) => {
+      console.log(`  [log] beforeCall — "${message.slice(0, 60)}..."`);
+    },
+  ],
+  afterCall: [
+    async (response) => {
+      console.log(`  [log] afterCall — ${response.length} chars`);
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Metrics plugin — another reusable set of hooks
+// ---------------------------------------------------------------------------
+
+/** Tracks call timing as a side-effect hook. */
+const metricsHooks: AgentHooks = {
+  beforeCall: [
+    async () => {
+      console.time("  [metrics] call duration");
+    },
+  ],
+  afterCall: [
+    async () => {
+      console.timeEnd("  [metrics] call duration");
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+async function main() {
+  const model = await getModel();
+
+  // -------------------------------------------------------------------------
+  // 1. Create a plain agent with a hook set at creation time
+  // -------------------------------------------------------------------------
+
+  console.log("\n=== Step 1: Create agent with one config-time hook ===\n");
+
+  const agent = createAgent({
+    name: "demo-agent",
+    model,
+    systemPrompt: "You are a concise assistant. Reply in one sentence.",
+    hooks: {
+      alterResponse: [
+        async (text) => {
+          console.log("  [config hook] alterResponse — trimming whitespace");
+          return text.trim();
+        },
+      ],
+    },
+  });
+
+  // -------------------------------------------------------------------------
+  // 2. Use hookIntoAgent to attach the logging plugin
+  // -------------------------------------------------------------------------
+
+  console.log("=== Step 2: Attach logging hooks via hookIntoAgent ===\n");
+
+  hookIntoAgent(agent, loggingHooks);
+  console.log("  Logging hooks attached.\n");
+
+  // -------------------------------------------------------------------------
+  // 3. Chain another hookIntoAgent call to attach metrics
+  // -------------------------------------------------------------------------
+
+  console.log("=== Step 3: Chain metrics hooks (hookIntoAgent returns same ref) ===\n");
+
+  const sameAgent = hookIntoAgent(agent, metricsHooks);
+  console.log(`  Same reference? ${sameAgent === agent}`); // true
+  console.log();
+
+  // -------------------------------------------------------------------------
+  // 4. Use appendHook directly for a one-off hook
+  // -------------------------------------------------------------------------
+
+  console.log("=== Step 4: Append a single hook via appendHook ===\n");
+
+  // appendHook is on the concrete object (not the Agent interface)
+  // so we cast to access it. hookIntoAgent uses it internally.
+  (agent as any).appendHook("alterResponse", async (text: string) => {
+    console.log("  [appendHook] alterResponse — appending signature");
+    return `${text}\n— demo-agent`;
+  });
+
+  console.log("  Single alterResponse hook appended.\n");
+
+  // -------------------------------------------------------------------------
+  // 5. Make a call — all hooks fire in order
+  // -------------------------------------------------------------------------
+
+  console.log("=== Step 5: Call the agent (all hooks fire) ===\n");
+
+  const result = await agent.call("What is the capital of France?");
+
+  console.log(`\n--- Final response ---`);
+  console.log(result.text);
+
+  // -------------------------------------------------------------------------
+  // 6. Second call — hooks fire again, demonstrating persistence
+  // -------------------------------------------------------------------------
+
+  console.log("\n=== Step 6: Second call (hooks persist across calls) ===\n");
+
+  const result2 = await agent.call("And what about Germany?");
+
+  console.log(`\n--- Final response ---`);
+  console.log(result2.text);
+}
+
+main().catch(console.error);

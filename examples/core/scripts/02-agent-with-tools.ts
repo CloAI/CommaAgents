@@ -15,7 +15,7 @@
  *   - Tool results are fed back to the LLM for the final answer
  */
 
-import { createAgent, createDefaultTools } from "@comma-agents/core";
+import { createAgent, createDefaultTools, type LLMCallResult } from "@comma-agents/core";
 import { getModel } from "./helpers";
 
 async function main() {
@@ -43,9 +43,9 @@ async function main() {
 
   // Ask the agent something that requires tool use.
   // It will autonomously call glob/read/grep to find the answer.
-  const result = await agent.call(
+  const result = (await agent.call(
     "What is the name and version of this project? Look at the package.json file in the project root (two levels up from this examples directory).",
-  );
+  )) as LLMCallResult;
 
   console.log("\n--- Response ---");
   console.log(result.text);

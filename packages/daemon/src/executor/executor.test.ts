@@ -19,9 +19,7 @@ import type { EventSink } from "./event-sink";
 import type { ProviderResolver } from "./executor";
 import { createStrategyExecutor, extractProviderIds } from "./executor";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Create a mock LanguageModel that returns a fixed response. */
 function createMockModel(id: string): LanguageModel {
@@ -215,9 +213,7 @@ afterEach(async () => {
   tempFiles.length = 0;
 });
 
-// ---------------------------------------------------------------------------
 // extractProviderIds tests
-// ---------------------------------------------------------------------------
 
 describe("extractProviderIds", () => {
   it("extracts provider IDs from agent model strings", () => {
@@ -274,9 +270,7 @@ describe("extractProviderIds", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // createStrategyExecutor tests
-// ---------------------------------------------------------------------------
 
 describe("createStrategyExecutor", () => {
   it("startRun creates a run in state, subscribes client, and returns runId", async () => {

@@ -125,11 +125,12 @@ flow:
   // -----------------------------------------------------------------------
 
   console.log("\n--- Exporting strategy back to JSON ---");
-  const exported = exportStrategy(loaded);
-  console.log(JSON.stringify(JSON.parse(exported.json), null, 2));
+  const exportedJson = exportStrategy(loaded);
+  console.log(JSON.stringify(JSON.parse(exportedJson), null, 2));
 
   console.log("\n--- Exporting strategy to YAML ---");
-  console.log(exported.yaml);
+  const exportedYaml = exportStrategy(loaded, { format: "yaml" });
+  console.log(exportedYaml);
 }
 
 main().catch(console.error);

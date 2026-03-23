@@ -1,0 +1,34 @@
+---
+title: Hooks
+description: Agent and tool hook types for the lifecycle system.
+---
+
+# Hooks
+
+Hooks allow you to intercept and transform agent and tool behavior at various lifecycle points. There are two kinds of hooks: side-effect hooks (observe without modifying) and transform hooks (modify values in the pipeline).
+
+## AgentHooks
+
+Hooks available on agents, covering the full call lifecycle.
+
+<AutoTypeTable path="../packages/core/src/agents/hooks.ts" name="AgentHooks" />
+
+## ToolHooks
+
+Hooks available on tool executions.
+
+<AutoTypeTable path="../packages/core/src/agents/hooks.ts" name="ToolHooks" />
+
+## Hook Primitives
+
+### SideEffectHook
+
+A hook that observes a value without modifying it. Multiple side-effect hooks run in parallel.
+
+<AutoTypeTable path="../packages/core/src/hooks/types.ts" name="SideEffectHook" />
+
+### TransformHook
+
+A hook that can transform a value. Multiple transform hooks are chained sequentially.
+
+<AutoTypeTable path="../packages/core/src/hooks/types.ts" name="TransformHook" />

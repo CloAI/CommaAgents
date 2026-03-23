@@ -7,9 +7,7 @@ import type { Credential } from "../protocol/shared";
 import { createAuthBridge } from "./auth-bridge";
 import type { EventSink } from "./event-sink";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Create a mock EventSink that records all calls. */
 function mockSink(): EventSink & {
@@ -63,9 +61,7 @@ function mockCredentialStore(): CredentialStore & {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 describe("createAuthBridge", () => {
   it("sends request_auth to the specific client when requestAuth is called", async () => {

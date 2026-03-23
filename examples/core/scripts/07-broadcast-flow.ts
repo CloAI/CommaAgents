@@ -2,7 +2,7 @@
  * Example 07 — Broadcast Flow
  *
  * Demonstrates createBroadcastFlow() which sends the same input to
- * multiple agents in parallel and collects all results.
+ * multiple agents and collects all results.
  *
  * This is useful for:
  *   - Getting multiple perspectives on the same question
@@ -15,12 +15,12 @@
  * Concepts:
  *   - createBroadcastFlow() for parallel agent execution
  *   - All agents receive the same input simultaneously
- *   - The flow result is the combined output (last agent's text by default)
- *   - FlowHooks for observing each parallel step
+ *   - The flow result is the combined output (joined with separator)
+ *   - debugAgent() / debugFlow() from @comma-agents/debug for verbose logging
  */
 
-import type { FlowHooks } from "@comma-agents/core";
 import { createAgent, createBroadcastFlow } from "@comma-agents/core";
+import { debugAgent, debugFlow } from "@comma-agents/debug";
 import { getModel } from "./helpers";
 
 async function main() {
@@ -33,6 +33,7 @@ async function main() {
     systemPrompt:
       "You are a historian. Answer the question from a historical perspective in 2-3 sentences.",
   });
+  debugAgent(historian);
 
   const scientist = createAgent({
     name: "scientist",
@@ -40,6 +41,7 @@ async function main() {
     systemPrompt:
       "You are a scientist. Answer the question from a scientific perspective in 2-3 sentences.",
   });
+  debugAgent(scientist);
 
   const philosopher = createAgent({
     name: "philosopher",
@@ -47,31 +49,20 @@ async function main() {
     systemPrompt:
       "You are a philosopher. Answer the question from a philosophical perspective in 2-3 sentences.",
   });
-
-  // --- Flow hooks for observing parallel execution ---
-  const flowHooks: FlowHooks = {
-    beforeStep: [
-      (ctx) => {
-        console.log(`  [Broadcast] Starting: ${ctx.stepName}`);
-      },
-    ],
-    afterStep: [
-      (ctx) => {
-        console.log(`  [Broadcast] Completed: ${ctx.stepName} (${ctx.result.text.length} chars)`);
-      },
-    ],
-  };
+  debugAgent(philosopher);
 
   // --- Create the broadcast flow ---
+  // debugFlow replaces the manual FlowHooks — it hooks beforeStep/afterStep
+  // automatically and logs step names, previews, and token usage.
   const multiPerspective = createBroadcastFlow({
     name: "multi-perspective",
-    steps: [{ agent: historian }, { agent: scientist }, { agent: philosopher }],
-    hooks: flowHooks,
+    steps: [historian, scientist, philosopher],
   });
+  debugFlow(multiPerspective);
 
   const question = "Why do humans explore space?";
   console.log(`Question: ${question}\n`);
-  console.log("Broadcasting to all agents in parallel...\n");
+  console.log("Broadcasting to all agents...\n");
 
   const result = await multiPerspective.call(question);
 

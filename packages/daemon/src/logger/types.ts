@@ -3,9 +3,7 @@
 // The logger uses a sink-based architecture so output can be directed to
 // multiple destinations simultaneously (stderr, file, OS logging system).
 
-// ---------------------------------------------------------------------------
 // LogLevel — severity levels, ordered from most to least verbose
-// ---------------------------------------------------------------------------
 
 /** Log severity levels. Numeric values used for filtering. */
 export const LOG_LEVELS = {
@@ -17,9 +15,7 @@ export const LOG_LEVELS = {
 
 export type LogLevel = keyof typeof LOG_LEVELS;
 
-// ---------------------------------------------------------------------------
 // LogEntry — a single structured log record
-// ---------------------------------------------------------------------------
 
 /** A structured log entry passed to sinks. */
 export interface LogEntry {
@@ -35,9 +31,7 @@ export interface LogEntry {
   readonly component?: string;
 }
 
-// ---------------------------------------------------------------------------
 // LogSink — destination for log entries
-// ---------------------------------------------------------------------------
 
 /**
  * A log sink receives formatted entries and writes them to a destination.
@@ -52,9 +46,7 @@ export interface LogSink {
   close?(): void;
 }
 
-// ---------------------------------------------------------------------------
 // Logger — the public API
-// ---------------------------------------------------------------------------
 
 /** Structured logger with level filtering and child logger support. */
 export interface Logger {
@@ -80,9 +72,7 @@ export interface Logger {
   close(): void;
 }
 
-// ---------------------------------------------------------------------------
 // CreateLoggerOptions — configuration for createLogger()
-// ---------------------------------------------------------------------------
 
 /** Options for creating a logger instance. */
 export interface CreateLoggerOptions {

@@ -104,7 +104,7 @@ You can use GitHub Copilot as a provider if you have a Copilot subscription. Cop
 - `createSequentialFlow({ name, steps })` — chain agents into a pipeline flow
 - `createCycleFlow({ name, steps, maxIterations, stopPhrase })` — iterative agent loop
 - `createBroadcastFlow({ name, steps })` — parallel agent execution
-- `createPromptTemplate({ template })` — parameterized prompt with `{{variable}}` placeholders
+- `createPromptTemplate({ template })` — parameterized prompt with LiquidJS `{{ variable }}` syntax, conditionals, loops, and filters
 - `loadStrategy(path, options)` / `loadStrategyFromString(content, format, options)` — load strategy files
 - `exportStrategy(strategy)` — serialize strategy back to JSON/YAML
 - `parseModel(string)` — parse a `"provider/model"` string into provider metadata

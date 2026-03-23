@@ -87,6 +87,11 @@ export const CORE_EXAMPLES: ExampleEntry[] = [
     value: "core/scripts/13-abort-cancellation.ts",
     category: "core",
   },
+  {
+    label: "14 — hookIntoAgent",
+    value: "core/scripts/14-hook-into-agent.ts",
+    category: "core",
+  },
 ];
 
 export const DAEMON_EXAMPLES: ExampleEntry[] = [

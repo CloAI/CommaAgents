@@ -16,9 +16,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { LogLevel } from "../logger/types";
 
-// ---------------------------------------------------------------------------
 // Platform-aware data directory
-// ---------------------------------------------------------------------------
 
 /**
  * Resolve the base data directory for comma-agents.
@@ -45,9 +43,7 @@ export function resolveDataDir(): string {
   return join(base, "comma-agents");
 }
 
-// ---------------------------------------------------------------------------
 // Config Zod schema
-// ---------------------------------------------------------------------------
 
 const LogLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 
@@ -69,9 +65,7 @@ export const DaemonConfigFileSchema = z
 
 export type DaemonConfigFile = z.infer<typeof DaemonConfigFileSchema>;
 
-// ---------------------------------------------------------------------------
 // Resolved config — all fields are required (defaults filled in)
-// ---------------------------------------------------------------------------
 
 /** Fully resolved daemon configuration. Every field has a value. */
 export interface DaemonConfig {
@@ -91,9 +85,7 @@ export interface DaemonConfig {
   readonly configFile: string;
 }
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 function buildDefaults(): DaemonConfig {
   const dataDir = resolveDataDir();
@@ -108,9 +100,7 @@ function buildDefaults(): DaemonConfig {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Environment variable overrides
-// ---------------------------------------------------------------------------
 
 /** Map of env var names → config keys + parsers. */
 const ENV_MAP: Array<{
@@ -137,9 +127,7 @@ function readEnvOverrides(env: Record<string, string | undefined>): Partial<Daem
   return overrides as Partial<DaemonConfig>;
 }
 
-// ---------------------------------------------------------------------------
 // JSON config file loader
-// ---------------------------------------------------------------------------
 
 function readConfigFile(filePath: string): Partial<DaemonConfig> {
   if (!existsSync(filePath)) {
@@ -160,9 +148,7 @@ function readConfigFile(filePath: string): Partial<DaemonConfig> {
   return result as Partial<DaemonConfig>;
 }
 
-// ---------------------------------------------------------------------------
 // loadDaemonConfig() — the public API
-// ---------------------------------------------------------------------------
 
 /** Options for loadDaemonConfig. Mostly for testing. */
 export interface LoadConfigOptions {

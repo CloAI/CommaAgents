@@ -1,7 +1,7 @@
 // defineTool — helper to create ToolDef instances with type inference
 
 import type { z } from "zod";
-import type { ToolContext, ToolDef, ToolResult } from "../tool";
+import type { ToolContext, ToolDef, ToolResult } from "../tool.types";
 
 /**
  * Creates a typed ToolDef with full parameter inference from the Zod schema.

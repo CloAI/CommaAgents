@@ -11,18 +11,11 @@
 
 import { z } from "zod";
 
-// ---------------------------------------------------------------------------
-// Built-in tool names (the string values valid in "tools" arrays)
-// ---------------------------------------------------------------------------
-
-/** The set of tool names recognized as built-in. */
-export const BUILT_IN_TOOL_NAMES = ["bash", "read", "write", "edit", "glob", "grep"] as const;
+import type { BUILT_IN_TOOL_NAMES } from "./strategy.constants";
 
 export type BuiltInToolName = (typeof BUILT_IN_TOOL_NAMES)[number];
 
-// ---------------------------------------------------------------------------
 // Defaults
-// ---------------------------------------------------------------------------
 
 export const StrategyDefaultsSchema = z
   .object({
@@ -32,9 +25,7 @@ export const StrategyDefaultsSchema = z
   })
   .strict();
 
-// ---------------------------------------------------------------------------
 // Agent definitions
-// ---------------------------------------------------------------------------
 
 /** User agent — collects human input. */
 export const UserAgentDefSchema = z
@@ -61,7 +52,17 @@ export const LLMAgentDefSchema = z
     systemPromptTemplate: z
       .object({
         template: z.string(),
-        variables: z.record(z.string()).optional(),
+        variables: z
+          .record(
+            z.union([
+              z.string(),
+              z.number(),
+              z.boolean(),
+              z.array(z.string()),
+              z.record(z.string()),
+            ]),
+          )
+          .optional(),
       })
       .strict()
       .optional(),
@@ -80,9 +81,7 @@ export const LLMAgentDefSchema = z
  */
 export const AgentDefSchema = z.union([UserAgentDefSchema, LLMAgentDefSchema]);
 
-// ---------------------------------------------------------------------------
 // Flow steps (recursive)
-// ---------------------------------------------------------------------------
 
 /** A step that references a named agent from the registry. */
 export const AgentStepSchema = z
@@ -98,9 +97,7 @@ export const AgentStepSchema = z
  */
 export const FlowStepSchema: z.ZodType = z.lazy(() => z.union([AgentStepSchema, FlowDefSchema]));
 
-// ---------------------------------------------------------------------------
 // Flow definitions (recursive via FlowStepSchema)
-// ---------------------------------------------------------------------------
 
 const BaseFlowFields = {
   name: z.string(),
@@ -139,9 +136,7 @@ export const FlowDefSchema = z.discriminatedUnion("type", [
   BroadcastFlowDefSchema,
 ]);
 
-// ---------------------------------------------------------------------------
 // Top-level strategy
-// ---------------------------------------------------------------------------
 
 export const StrategySchema = z
   .object({
@@ -154,9 +149,7 @@ export const StrategySchema = z
   })
   .strict();
 
-// ---------------------------------------------------------------------------
 // Inferred TypeScript types
-// ---------------------------------------------------------------------------
 
 export type StrategyDefaults = z.infer<typeof StrategyDefaultsSchema>;
 export type UserAgentDef = z.infer<typeof UserAgentDefSchema>;
@@ -169,9 +162,7 @@ export type BroadcastFlowDef = z.infer<typeof BroadcastFlowDefSchema>;
 export type FlowDef = z.infer<typeof FlowDefSchema>;
 export type Strategy = z.infer<typeof StrategySchema>;
 
-// ---------------------------------------------------------------------------
 // Type guards
-// ---------------------------------------------------------------------------
 
 /** Check if an agent definition is a user agent. */
 export function isUserAgentDef(def: AgentDef): def is UserAgentDef {

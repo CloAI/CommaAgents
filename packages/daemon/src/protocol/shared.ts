@@ -2,9 +2,7 @@
 
 import { z } from "zod";
 
-// ---------------------------------------------------------------------------
 // Base envelopes
-// ---------------------------------------------------------------------------
 
 /**
  * Fields present on every client → daemon message.
@@ -25,9 +23,7 @@ export const DaemonBase = z.object({
   ts: z.string().datetime(),
 });
 
-// ---------------------------------------------------------------------------
 // Reusable schemas
-// ---------------------------------------------------------------------------
 
 /** Token usage summary. Mirrors core AgentCallResult.usage. */
 export const UsageSchema = z.object({
@@ -65,9 +61,7 @@ export const RunSummarySchema = z.object({
 });
 export type RunSummary = z.infer<typeof RunSummarySchema>;
 
-// ---------------------------------------------------------------------------
 // AgentStreamEvent — mirrors core AgentStreamEvent discriminated union
-// ---------------------------------------------------------------------------
 
 export const AgentStreamEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), text: z.string() }),
@@ -89,9 +83,7 @@ export const AgentStreamEventSchema = z.discriminatedUnion("type", [
 ]);
 export type AgentStreamEventWire = z.infer<typeof AgentStreamEventSchema>;
 
-// ---------------------------------------------------------------------------
 // Credential — discriminated union for auth credential types
-// ---------------------------------------------------------------------------
 
 /** API key credential — simple secret string. */
 export const ApiCredentialSchema = z.object({

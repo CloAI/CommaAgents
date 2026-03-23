@@ -29,9 +29,7 @@ import type { EventSink } from "./event-sink";
 import type { InputBridge } from "./input-bridge";
 import { createInputBridge } from "./input-bridge";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /**
  * A function that translates a (providerId, credential) pair into an
@@ -124,9 +122,7 @@ export interface StrategyExecutor {
   ): Promise<boolean>;
 }
 
-// ---------------------------------------------------------------------------
 // extractProviderIds() — pre-parse strategy to find required providers
-// ---------------------------------------------------------------------------
 
 /**
  * Extract unique provider IDs from a raw (already-parsed) strategy object.
@@ -163,9 +159,7 @@ export function extractProviderIds(raw: Record<string, unknown>): Set<string> {
   return ids;
 }
 
-// ---------------------------------------------------------------------------
 // parseStrategyFile() — read and JSON/YAML parse a strategy file
-// ---------------------------------------------------------------------------
 
 /**
  * Read a strategy file and return the raw parsed object + format.
@@ -196,9 +190,7 @@ async function parseStrategyFile(
   return { raw, content, format };
 }
 
-// ---------------------------------------------------------------------------
 // Helper: serialize AgentCallResult for wire
-// ---------------------------------------------------------------------------
 
 function toWireResult(result: AgentCallResult): {
   text: string;
@@ -224,9 +216,7 @@ function toWireStreamEvent(event: AgentStreamEvent): Record<string, unknown> {
   return { ...event };
 }
 
-// ---------------------------------------------------------------------------
 // createStrategyExecutor()
-// ---------------------------------------------------------------------------
 
 /**
  * Create a strategy executor.
@@ -250,9 +240,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
   /** runId → per-run context (bridges, client). */
   const runContexts = new Map<string, RunContext>();
 
-  // -----------------------------------------------------------------------
-  // Private: build hooks that forward events to subscribers
-  // -----------------------------------------------------------------------
+  // -- Private: build hooks that forward events to subscribers --
 
   function buildFlowHooks(runId: string): FlowHooks {
     return {
@@ -322,9 +310,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     };
   }
 
-  // -----------------------------------------------------------------------
-  // Private: resolve providers for a strategy
-  // -----------------------------------------------------------------------
+  // -- Private: resolve providers for a strategy --
 
   async function resolveProviders(
     providerIds: Set<string>,
@@ -351,9 +337,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     return providers;
   }
 
-  // -----------------------------------------------------------------------
-  // Private: executeRun — the async background task
-  // -----------------------------------------------------------------------
+  // -- Private: executeRun — the async background task --
 
   async function executeRun(
     run: RunState,
@@ -473,9 +457,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Public API
-  // -----------------------------------------------------------------------
+  // -- Public API --
 
   return {
     startRun(clientId: string, strategyPath: string, input?: string, requestId?: string): string {

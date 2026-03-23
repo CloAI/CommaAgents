@@ -23,9 +23,7 @@ import type { DaemonMessage } from "./protocol/daemon";
 import { createDaemonState } from "./state/state";
 import type { RunState } from "./state/types";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /** Per-WebSocket connection data (attached during upgrade). */
 interface WsData {
@@ -63,9 +61,7 @@ export interface Daemon {
   readonly url: string;
 }
 
-// ---------------------------------------------------------------------------
 // Helper: convert RunState → wire RunSummary
-// ---------------------------------------------------------------------------
 
 function toRunSummary(run: RunState): Record<string, unknown> {
   return {
@@ -77,9 +73,7 @@ function toRunSummary(run: RunState): Record<string, unknown> {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Helper: build a timestamped daemon error message
-// ---------------------------------------------------------------------------
 
 function errorMessage(code: string, message: string, requestId?: string): DaemonMessage {
   return {
@@ -91,9 +85,7 @@ function errorMessage(code: string, message: string, requestId?: string): Daemon
   };
 }
 
-// ---------------------------------------------------------------------------
 // createDaemon()
-// ---------------------------------------------------------------------------
 
 /**
  * Create a daemon instance.

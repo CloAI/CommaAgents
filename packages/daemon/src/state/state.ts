@@ -5,9 +5,7 @@
 
 import type { DaemonState, RunState, RunUpdate } from "./types";
 
-// ---------------------------------------------------------------------------
 // createDaemonState()
-// ---------------------------------------------------------------------------
 
 /**
  * Create a new in-memory daemon state instance.
@@ -24,9 +22,7 @@ export function createDaemonState(): DaemonState {
   const subscriptions = new Map<string, Set<string>>();
 
   return {
-    // -----------------------------------------------------------------
-    // Runs
-    // -----------------------------------------------------------------
+    // -- Runs --
 
     createRun(strategyPath: string, strategyName: string): RunState {
       const id = crypto.randomUUID();
@@ -70,9 +66,7 @@ export function createDaemonState(): DaemonState {
       return true;
     },
 
-    // -----------------------------------------------------------------
-    // Clients
-    // -----------------------------------------------------------------
+    // -- Clients --
 
     addClient(clientId: string): void {
       clients.add(clientId);
@@ -91,9 +85,7 @@ export function createDaemonState(): DaemonState {
       return Array.from(clients);
     },
 
-    // -----------------------------------------------------------------
-    // Subscriptions
-    // -----------------------------------------------------------------
+    // -- Subscriptions --
 
     subscribe(clientId: string, runId: string): void {
       if (!clients.has(clientId)) {

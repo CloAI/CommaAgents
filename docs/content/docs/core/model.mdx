@@ -1,0 +1,38 @@
+---
+title: Model
+description: Model registry, provider resolution, and credential management.
+---
+
+# Model
+
+The model module handles parsing model identifiers (e.g. `openai/gpt-4o`), resolving API keys, and managing credential storage.
+
+## ParsedModel
+
+The result of parsing a `provider/model` string.
+
+<AutoTypeTable path="../packages/core/src/model/registry.ts" name="ParsedModel" />
+
+## ResolveKeyOptions
+
+Options for resolving an API key for a provider.
+
+<AutoTypeTable path="../packages/core/src/model/registry.ts" name="ResolveKeyOptions" />
+
+## CredentialEntry
+
+A single credential entry in the credential store.
+
+<AutoTypeTable path="../packages/core/src/model/auth/auth.ts" name="CredentialEntry" />
+
+## BuildMessagesOptions
+
+Options for building the message array sent to the LLM.
+
+<AutoTypeTable path="../packages/core/src/prompts/message-builder.ts" name="BuildMessagesOptions" />
+
+## SystemPromptOptions
+
+Options for resolving the system prompt (supports templates).
+
+<AutoTypeTable path="../packages/core/src/prompts/message-builder.ts" name="SystemPromptOptions" />

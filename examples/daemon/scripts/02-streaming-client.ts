@@ -15,6 +15,7 @@
  *
  * Run:
  *   bun run examples/02-streaming-client.ts [strategy-path]
+ *   bun run examples/02-streaming-client.ts --daemon-url ws://localhost:8080/ws
  *
  * Concepts:
  *   - agent_streaming message with text / tool-call / tool-result / done events
@@ -23,15 +24,41 @@
  *   - Correlating streaming events with step lifecycle events
  */
 
-const DAEMON_URL = process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws";
-
 import path from "node:path";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
 
 const DEFAULT_STRATEGY = path.resolve(
   import.meta.dir,
   "../../core/strategies/simple/strategy.json",
 );
-const STRATEGY_PATH = process.argv[2] ?? DEFAULT_STRATEGY;
+
+const argv = yargs(hideBin(process.argv))
+  .scriptName("02-streaming-client")
+  .usage("$0 [strategy-path]")
+  .command("$0 [strategy-path]", "Stream tokens from a daemon strategy execution", (y) =>
+    y.positional("strategy-path", {
+      type: "string",
+      describe: "Path to the strategy file",
+      default: DEFAULT_STRATEGY,
+    }),
+  )
+  .option("daemon-url", {
+    alias: "d",
+    type: "string",
+    default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
+    describe: "WebSocket URL of the daemon",
+  })
+  .example("$0", "Stream with default strategy")
+  .example("$0 path/to/strategy.json", "Stream a specific strategy")
+  .strict()
+  .help()
+  .alias("h", "help")
+  .version(false)
+  .parseSync();
+
+const DAEMON_URL = argv.daemonUrl as string;
+const STRATEGY_PATH = argv.strategyPath as string;
 
 async function main() {
   const strategyPath = path.resolve(STRATEGY_PATH);

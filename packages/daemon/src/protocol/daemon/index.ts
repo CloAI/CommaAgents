@@ -28,9 +28,7 @@ import { RequestInputMessage } from "./request-input";
 import { StepCompletedMessage } from "./step-completed";
 import { StepStartedMessage } from "./step-started";
 
-// ---------------------------------------------------------------------------
 // Discriminated union of all daemon → client messages
-// ---------------------------------------------------------------------------
 
 export const DaemonMessage = z.discriminatedUnion("type", [
   FlowStartedMessage,
@@ -49,9 +47,7 @@ export const DaemonMessage = z.discriminatedUnion("type", [
 
 export type DaemonMessage = z.infer<typeof DaemonMessage>;
 
-// ---------------------------------------------------------------------------
 // Parse helper — validates raw JSON from the WebSocket
-// ---------------------------------------------------------------------------
 
 /**
  * Safely parse an unknown value as a DaemonMessage.

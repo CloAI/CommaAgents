@@ -1,21 +1,21 @@
 /**
- * Example 09 — Prompt Templates
+ * Example 09 — Prompt Templates (LiquidJS)
  *
  * Demonstrates createPromptTemplate() for building reusable prompt
- * templates with typed variable substitution.
+ * templates with the full Liquid template language.
  *
- * Prompt templates let you define a template string with {{variable}}
- * placeholders, then fill them in at call time. This is useful for:
- *   - Reusable system prompts across agents
- *   - Dynamic context injection (e.g., user name, date, project info)
- *   - Parameterized agent configurations
+ * Prompt templates use LiquidJS syntax — {{ variable }} for interpolation,
+ * {% if %} for conditionals, {% for %} for loops, and filters like
+ * | upcase, | env, | exec for transformations.
  *
  * Run:
  *   MODEL=openai/gpt-4o bun run examples/09-prompt-templates.ts
  *
  * Concepts:
  *   - createPromptTemplate() for parameterized prompts
- *   - template.format() to fill in variables
+ *   - template.render() to fill in variables
+ *   - Liquid conditionals, loops, and filters
+ *   - Custom filters: env, file, exec
  *   - Using templates with createAgent() system prompts
  */
 
@@ -25,28 +25,31 @@ import { getModel } from "./helpers";
 async function main() {
   const model = await getModel();
 
-  // --- Create a reusable prompt template ---
+  // --- Create a reusable prompt template with Liquid syntax ---
   const codeReviewTemplate = createPromptTemplate({
     template:
-      "You are a {{role}} specializing in {{language}}. " +
-      "Review the following code for {{focus}}. " +
-      "Be constructive and specific in your feedback.",
+      "You are a {{ role }} specializing in {{ language }}. " +
+      "Review the following code for {{ focus }}. " +
+      "Be constructive and specific in your feedback." +
+      "{% if tools.size > 0 %}\n\nAvailable tools:\n{% for tool in tools %}- {{ tool }}\n{% endfor %}{% endif %}",
   });
 
   // --- Fill in the template with different configurations ---
 
   // Security-focused review
-  const securityPrompt = codeReviewTemplate.format({
+  const securityPrompt = await codeReviewTemplate.render({
     role: "security auditor",
     language: "TypeScript",
     focus: "security vulnerabilities, input validation, and injection risks",
+    tools: ["bash", "read"],
   });
 
   // Performance-focused review
-  const performancePrompt = codeReviewTemplate.format({
+  const performancePrompt = await codeReviewTemplate.render({
     role: "performance engineer",
     language: "TypeScript",
     focus: "performance bottlenecks, unnecessary allocations, and algorithmic complexity",
+    tools: [],
   });
 
   console.log("--- Security Review Prompt ---");

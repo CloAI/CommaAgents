@@ -6,9 +6,7 @@
 
 import type { AgentCallResult } from "@comma-agents/core";
 
-// ---------------------------------------------------------------------------
 // Run status
-// ---------------------------------------------------------------------------
 
 /**
  * Lifecycle status of a flow run.
@@ -18,9 +16,7 @@ import type { AgentCallResult } from "@comma-agents/core";
  */
 export type RunStatus = "pending" | "running" | "completed" | "error" | "cancelled";
 
-// ---------------------------------------------------------------------------
 // Run state
-// ---------------------------------------------------------------------------
 
 /**
  * Internal state of a single flow run.
@@ -52,9 +48,7 @@ export interface RunState {
   error?: { readonly code: string; readonly message: string };
 }
 
-// ---------------------------------------------------------------------------
 // Run update — only mutable fields
-// ---------------------------------------------------------------------------
 
 /**
  * Mutable fields that can be changed via `DaemonState.updateRun()`.
@@ -67,9 +61,7 @@ export interface RunUpdate {
   error?: { readonly code: string; readonly message: string };
 }
 
-// ---------------------------------------------------------------------------
 // DaemonState interface
-// ---------------------------------------------------------------------------
 
 /**
  * Centralized daemon state — tracks active runs, connected clients,

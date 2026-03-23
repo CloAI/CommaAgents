@@ -41,7 +41,7 @@ async function main() {
   console.log("Streaming response:");
   process.stdout.write("  ");
 
-  const stream = agent.stream("Describe a sunset over the ocean in 3 sentences.");
+  const stream = agent.stream!("Describe a sunset over the ocean in 3 sentences.");
 
   let finalResult: any = null;
   for await (const event of stream) {
@@ -65,7 +65,7 @@ async function main() {
   // --- Streaming with tools ---
   console.log("\n--- 2. Streaming with Tools ---\n");
 
-  const tools = createDefaultTools({ allowedDirectories: [process.cwd()] });
+  const tools = createDefaultTools();
   const toolAgent = createAgent({
     name: "explorer",
     model,
@@ -75,7 +75,9 @@ async function main() {
   });
 
   console.log("Streaming response with tool calls:");
-  const toolStream = toolAgent.stream("What files are in the current directory? List the first 5.");
+  const toolStream = toolAgent.stream!(
+    "What files are in the current directory? List the first 5.",
+  );
 
   for await (const event of toolStream) {
     switch (event.type) {

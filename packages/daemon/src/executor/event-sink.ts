@@ -5,9 +5,7 @@
 
 import type { DaemonMessage } from "../protocol/daemon";
 
-// ---------------------------------------------------------------------------
 // EventSink interface
-// ---------------------------------------------------------------------------
 
 /**
  * Abstraction for delivering daemon messages to connected clients.

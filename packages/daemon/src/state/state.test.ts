@@ -4,21 +4,16 @@ import { describe, expect, test } from "bun:test";
 import type { AgentCallResult } from "@comma-agents/core";
 import { createDaemonState } from "./state";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Minimal AgentCallResult for testing. */
 const mockResult: AgentCallResult = {
   text: "done",
-  steps: [],
   usage: { promptTokens: 10, completionTokens: 5 },
   finishReason: "stop",
 };
 
-// ---------------------------------------------------------------------------
 // Run lifecycle
-// ---------------------------------------------------------------------------
 
 describe("DaemonState — runs", () => {
   test("createRun returns a run with pending status", () => {
@@ -191,9 +186,7 @@ describe("DaemonState — runs", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Client tracking
-// ---------------------------------------------------------------------------
 
 describe("DaemonState — clients", () => {
   test("addClient registers a client", () => {
@@ -239,9 +232,7 @@ describe("DaemonState — clients", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Subscriptions
-// ---------------------------------------------------------------------------
 
 describe("DaemonState — subscriptions", () => {
   test("subscribe registers a subscription", () => {
@@ -344,9 +335,7 @@ describe("DaemonState — subscriptions", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Cleanup — cascading deletes
-// ---------------------------------------------------------------------------
 
 describe("DaemonState — cleanup", () => {
   test("removeClient cleans up all subscriptions for that client", () => {

@@ -4,12 +4,11 @@
 // the format expected by `generateText()` / `streamText()`.
 // This is the function that replaces BaseAgent's inline _buildMessages().
 
+import type { ModelMessage } from "ai";
 import type { ConversationHistory } from "./history/conversation-history";
-import type { ChatMessage, PromptTemplate, TemplateVariables } from "./types";
+import type { PromptTemplate, TemplateVariables } from "./types";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /**
  * Options for building a message array.
@@ -28,13 +27,7 @@ export interface BuildMessagesOptions {
    * Additional context messages to prepend before history.
    * Useful for injecting few-shot examples or other context.
    */
-  readonly prefix?: readonly ChatMessage[];
-
-  /**
-   * Additional messages to append after history but before the current message.
-   * Useful for injecting retrieval results or context summaries.
-   */
-  readonly suffix?: readonly ChatMessage[];
+  readonly prefix?: readonly ModelMessage[];
 }
 
 /**
@@ -55,9 +48,7 @@ export interface SystemPromptOptions {
   readonly templateOverrides?: TemplateVariables;
 }
 
-// ---------------------------------------------------------------------------
 // buildMessages
-// ---------------------------------------------------------------------------
 
 /**
  * Build a message array for the Vercel AI SDK.
@@ -65,8 +56,11 @@ export interface SystemPromptOptions {
  * Composes messages in this order:
  * 1. `prefix` messages (e.g., few-shot examples)
  * 2. Conversation history (from `ConversationHistory`)
- * 3. `suffix` messages (e.g., retrieval context)
- * 4. Current user message
+ * 3. Current user message
+ *
+ * Returns native AI SDK `ModelMessage[]` that can be passed directly to
+ * `generateText()` / `streamText()`. Preserves tool calls, tool results,
+ * reasoning, and multi-modal content from the conversation history.
  *
  * Note: The system prompt is NOT included in the message array — it should
  * be passed via the `system` parameter of `generateText`/`streamText`.
@@ -89,13 +83,13 @@ export interface SystemPromptOptions {
  * });
  * ```
  */
-export function buildMessages(options: BuildMessagesOptions): readonly ChatMessage[] {
-  const messages: ChatMessage[] = [];
+export function buildMessages(options: BuildMessagesOptions): readonly ModelMessage[] {
+  const messages: ModelMessage[] = [];
 
   // 1. Prefix messages
   if (options.prefix) {
     for (const msg of options.prefix) {
-      messages.push({ role: msg.role, content: msg.content });
+      messages.push(msg);
     }
   }
 
@@ -103,26 +97,17 @@ export function buildMessages(options: BuildMessagesOptions): readonly ChatMessa
   if (options.history && !options.history.isEmpty) {
     const historyMessages = options.history.toMessages();
     for (const msg of historyMessages) {
-      messages.push({ role: msg.role, content: msg.content });
+      messages.push(msg);
     }
   }
 
-  // 3. Suffix messages
-  if (options.suffix) {
-    for (const msg of options.suffix) {
-      messages.push({ role: msg.role, content: msg.content });
-    }
-  }
-
-  // 4. Current user message
+  // 3. Current user message
   messages.push({ role: "user", content: options.message });
 
   return messages;
 }
 
-// ---------------------------------------------------------------------------
 // resolveSystemPrompt
-// ---------------------------------------------------------------------------
 
 /**
  * Resolve a system prompt from either a static string or a dynamic template.
@@ -140,7 +125,7 @@ export function buildMessages(options: BuildMessagesOptions): readonly ChatMessa
  *
  * // Dynamic template
  * const template = createPromptTemplate({
- *   template: "You are {role}, an expert in {language}.",
+ *   template: "You are {{ role }}, an expert in {{ language }}.",
  *   variables: { role: "a reviewer", language: "TypeScript" },
  * });
  * const prompt = await resolveSystemPrompt({
@@ -154,7 +139,7 @@ export async function resolveSystemPrompt(
   options: SystemPromptOptions,
 ): Promise<string | undefined> {
   if (options.systemPromptTemplate) {
-    return options.systemPromptTemplate.build(options.templateOverrides);
+    return options.systemPromptTemplate.render(options.templateOverrides);
   }
   return options.systemPrompt;
 }

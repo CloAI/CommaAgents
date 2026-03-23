@@ -11,6 +11,7 @@
  *
  * Run:
  *   bun run examples/01-basic-client.ts [strategy-path]
+ *   bun run examples/01-basic-client.ts --daemon-url ws://localhost:8080/ws
  *
  * Concepts:
  *   - WebSocket connection to the daemon
@@ -20,15 +21,42 @@
  *   - ping/pong keepalive
  */
 
-const DAEMON_URL = process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws";
-
 import path from "node:path";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
 
 const DEFAULT_STRATEGY = path.resolve(
   import.meta.dir,
   "../../core/strategies/simple/strategy.json",
 );
-const STRATEGY_PATH = process.argv[2] ?? DEFAULT_STRATEGY;
+
+const argv = yargs(hideBin(process.argv))
+  .scriptName("01-basic-client")
+  .usage("$0 [strategy-path]")
+  .command("$0 [strategy-path]", "Connect to the daemon and run a strategy", (y) =>
+    y.positional("strategy-path", {
+      type: "string",
+      describe: "Path to the strategy file",
+      default: DEFAULT_STRATEGY,
+    }),
+  )
+  .option("daemon-url", {
+    alias: "d",
+    type: "string",
+    default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
+    describe: "WebSocket URL of the daemon",
+  })
+  .example("$0", "Run with default strategy")
+  .example("$0 path/to/strategy.json", "Run a specific strategy")
+  .example("$0 --daemon-url ws://localhost:8080/ws", "Connect to a custom daemon")
+  .strict()
+  .help()
+  .alias("h", "help")
+  .version(false)
+  .parseSync();
+
+const DAEMON_URL = argv.daemonUrl as string;
+const STRATEGY_PATH = argv.strategyPath as string;
 
 async function main() {
   const strategyPath = path.resolve(STRATEGY_PATH);

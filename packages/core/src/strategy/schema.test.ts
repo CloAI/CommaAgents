@@ -3,7 +3,6 @@
 import { describe, expect, it } from "bun:test";
 import {
   AgentDefSchema,
-  BUILT_IN_TOOL_NAMES,
   FlowDefSchema,
   FlowStepSchema,
   isAgentStep,
@@ -12,10 +11,9 @@ import {
   isUserAgentDef,
   StrategySchema,
 } from "./schema";
+import { BUILT_IN_TOOL_NAMES } from "./strategy.constants";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Minimal valid strategy for baseline tests. */
 function minimalStrategy() {
@@ -33,9 +31,7 @@ function minimalStrategy() {
   };
 }
 
-// ---------------------------------------------------------------------------
 // StrategySchema — top-level
-// ---------------------------------------------------------------------------
 
 describe("StrategySchema", () => {
   it("accepts a minimal valid strategy", () => {
@@ -93,9 +89,7 @@ describe("StrategySchema", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // AgentDefSchema
-// ---------------------------------------------------------------------------
 
 describe("AgentDefSchema", () => {
   describe("user agents", () => {
@@ -163,7 +157,7 @@ describe("AgentDefSchema", () => {
       const result = AgentDefSchema.safeParse({
         model: "openai/gpt-4o",
         systemPromptTemplate: {
-          template: "You are {role}.",
+          template: "You are {{ role }}.",
           variables: { role: "a writer" },
         },
       });
@@ -228,9 +222,7 @@ describe("AgentDefSchema", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // FlowDefSchema — sequential, cycle, broadcast
-// ---------------------------------------------------------------------------
 
 describe("FlowDefSchema", () => {
   describe("sequential", () => {
@@ -358,9 +350,7 @@ describe("FlowDefSchema", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // FlowStepSchema — recursive nesting
-// ---------------------------------------------------------------------------
 
 describe("FlowStepSchema", () => {
   it("accepts an agent reference step", () => {
@@ -408,9 +398,7 @@ describe("FlowStepSchema", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Full strategy with nesting
-// ---------------------------------------------------------------------------
 
 describe("StrategySchema — complex strategies", () => {
   it("accepts PLAN.md Code Review Pipeline schema", () => {
@@ -506,9 +494,7 @@ describe("StrategySchema — complex strategies", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Type guards
-// ---------------------------------------------------------------------------
 
 describe("type guards", () => {
   describe("isUserAgentDef", () => {
@@ -580,9 +566,7 @@ describe("type guards", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // BUILT_IN_TOOL_NAMES
-// ---------------------------------------------------------------------------
 
 describe("BUILT_IN_TOOL_NAMES", () => {
   it("contains exactly the expected tool names", () => {

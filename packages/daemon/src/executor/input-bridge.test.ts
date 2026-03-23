@@ -6,9 +6,7 @@ import type { DaemonMessage } from "../protocol/daemon";
 import type { EventSink } from "./event-sink";
 import { createInputBridge } from "./input-bridge";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Create a mock EventSink that records all calls. */
 function mockSink(): EventSink & {
@@ -29,9 +27,7 @@ function mockSink(): EventSink & {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 describe("createInputBridge", () => {
   it("broadcasts request_input when collector is called", async () => {

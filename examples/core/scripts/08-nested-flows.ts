@@ -18,9 +18,11 @@
  *   - Flows implement the Agent interface (composable)
  *   - Using a flow as a step in another flow
  *   - Building hierarchical agent pipelines
+ *   - debugAgent() / debugFlow() from @comma-agents/debug for verbose logging
  */
 
 import { createAgent, createSequentialFlow } from "@comma-agents/core";
+import { debugAgent, debugFlow } from "@comma-agents/debug";
 import { getModel } from "./helpers";
 
 async function main() {
@@ -33,6 +35,7 @@ async function main() {
     systemPrompt:
       "You are a technical writer. Write a clear, concise explanation of the given topic in 3-4 sentences.",
   });
+  debugAgent(writer);
 
   const reviewer = createAgent({
     name: "reviewer",
@@ -41,12 +44,14 @@ async function main() {
       "You are a technical reviewer. Read the explanation and provide a revised version " +
       "that improves clarity and accuracy. Output only the revised text.",
   });
+  debugAgent(reviewer);
 
   // --- Inner flow: write + review ---
   const writeAndReview = createSequentialFlow({
     name: "write-and-review",
-    steps: [{ agent: writer }, { agent: reviewer }],
+    steps: [writer, reviewer],
   });
+  debugFlow(writeAndReview);
 
   // --- Outer flow agent ---
   const editor = createAgent({
@@ -57,14 +62,16 @@ async function main() {
       "then format it nicely. Output the title on the first line, then a blank line, " +
       "then the polished text.",
   });
+  debugAgent(editor);
 
   // --- Outer flow: (write+review) → edit ---
   // Note: writeAndReview is a flow, but it satisfies the Agent interface,
   // so it can be used as a step just like any agent.
   const fullPipeline = createSequentialFlow({
     name: "full-pipeline",
-    steps: [{ agent: writeAndReview }, { agent: editor }],
+    steps: [writeAndReview, editor],
   });
+  debugFlow(fullPipeline);
 
   console.log("Running nested pipeline: (writer → reviewer) → editor\n");
 

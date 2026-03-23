@@ -17,6 +17,7 @@
  *
  * Run:
  *   bun run examples/03-interactive-flow.ts [strategy-path]
+ *   bun run examples/03-interactive-flow.ts --daemon-url ws://localhost:8080/ws
  *
  * If no strategy-path is given, this example writes a temporary strategy
  * to /tmp and uses it automatically.
@@ -28,12 +29,37 @@
  *   - Readline integration for terminal input
  */
 
-const DAEMON_URL = process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws";
-
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as readline from "node:readline";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
+
+const argv = yargs(hideBin(process.argv))
+  .scriptName("03-interactive-flow")
+  .usage("$0 [strategy-path]")
+  .command("$0 [strategy-path]", "Run an interactive flow with user input via the daemon", (y) =>
+    y.positional("strategy-path", {
+      type: "string",
+      describe: "Path to a strategy file (writes a temp one if omitted)",
+    }),
+  )
+  .option("daemon-url", {
+    alias: "d",
+    type: "string",
+    default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
+    describe: "WebSocket URL of the daemon",
+  })
+  .example("$0", "Run with auto-generated interactive strategy")
+  .example("$0 path/to/strategy.json", "Run a specific interactive strategy")
+  .strict()
+  .help()
+  .alias("h", "help")
+  .version(false)
+  .parseSync();
+
+const DAEMON_URL = argv.daemonUrl as string;
 
 // -- Temporary strategy with a UserAgent ------------------------------------
 
@@ -65,7 +91,7 @@ const INTERACTIVE_STRATEGY = {
 };
 
 function getStrategyPath(): string {
-  const explicit = process.argv[2];
+  const explicit = argv.strategyPath as string | undefined;
   if (explicit) return path.resolve(explicit);
 
   // Write a temporary strategy file

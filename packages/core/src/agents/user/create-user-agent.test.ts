@@ -4,9 +4,7 @@ import { describe, expect, it } from "bun:test";
 import type { InputCollector, InputRequest } from "./create-user-agent";
 import { createUserAgent } from "./create-user-agent";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Creates a mock InputCollector that returns predetermined responses. */
 function createMockCollector(responses: string[]): InputCollector {
@@ -18,9 +16,7 @@ function createMockCollector(responses: string[]): InputCollector {
   };
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 describe("createUserAgent", () => {
   describe("basic properties", () => {
@@ -157,7 +153,7 @@ describe("createUserAgent", () => {
   });
 
   describe("result shape", () => {
-    it("should return empty steps array", async () => {
+    it("should include synthetic LLM-shaped fields (steps, responseMessages)", async () => {
       const agent = createUserAgent({
         name: "user",
         requireInput: false,
@@ -165,7 +161,12 @@ describe("createUserAgent", () => {
       });
 
       const result = await agent.call("test");
-      expect(result.steps).toEqual([]);
+      expect("steps" in result).toBe(true);
+      expect("responseMessages" in result).toBe(true);
+      // steps is empty — no LLM round-trips occurred
+      expect((result as any).steps).toEqual([]);
+      // responseMessages contains the synthetic assistant message
+      expect((result as any).responseMessages).toEqual([{ role: "assistant", content: "msg" }]);
     });
 
     it("should return zero token usage", async () => {

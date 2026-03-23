@@ -7,9 +7,7 @@ import { createStderrSink } from "./sinks/stderr";
 import type { CreateLoggerOptions, LogEntry, Logger, LogLevel, LogSink } from "./types";
 import { LOG_LEVELS } from "./types";
 
-// ---------------------------------------------------------------------------
 // Internal helpers
-// ---------------------------------------------------------------------------
 
 function shouldLog(entryLevel: LogLevel, minLevel: LogLevel): boolean {
   return LOG_LEVELS[entryLevel] >= LOG_LEVELS[minLevel];
@@ -19,9 +17,7 @@ function now(): string {
   return new Date().toISOString();
 }
 
-// ---------------------------------------------------------------------------
 // Logger implementation
-// ---------------------------------------------------------------------------
 
 function createLoggerImpl(sinks: LogSink[], minLevel: LogLevel, component?: string): Logger {
   function emit(level: LogLevel, msg: string, meta?: Record<string, unknown>): void {
@@ -85,9 +81,7 @@ function createLoggerImpl(sinks: LogSink[], minLevel: LogLevel, component?: stri
   };
 }
 
-// ---------------------------------------------------------------------------
 // Public factory
-// ---------------------------------------------------------------------------
 
 /**
  * Create a structured logger.

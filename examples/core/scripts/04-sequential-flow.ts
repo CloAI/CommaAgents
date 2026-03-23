@@ -17,9 +17,12 @@
  *   - FlowConfig              — name + steps (array of Agent instances)
  *   - A flow implements the Agent interface, so it has .call() and .reset()
  *   - Flows are composable — you can nest flows as steps in other flows
+ *   - debugAgent() / debugFlow() from @comma-agents/debug add verbose logging
  */
 
+import type { FlowResult } from "@comma-agents/core";
 import { createAgent, createSequentialFlow } from "@comma-agents/core";
+import { debugAgent, debugFlow } from "@comma-agents/debug";
 import { getModel } from "./helpers";
 
 async function main() {
@@ -36,6 +39,7 @@ async function main() {
       "Output ONLY the code — no explanations, no markdown fences.",
     ].join(" "),
   });
+  debugAgent(writer);
 
   // --- Step 2: Reviewer agent ---
   // Receives the writer's code and provides a critique.
@@ -48,6 +52,7 @@ async function main() {
       "List specific, actionable improvements. Be concise.",
     ].join(" "),
   });
+  debugAgent(reviewer);
 
   // --- Step 3: Editor agent ---
   // Receives the reviewer's feedback (which includes the original code)
@@ -61,6 +66,7 @@ async function main() {
       "Output ONLY the improved code — no explanations, no markdown fences.",
     ].join(" "),
   });
+  debugAgent(editor);
 
   // --- Create the sequential flow ---
   // The flow chains: writer → reviewer → editor.
@@ -69,6 +75,7 @@ async function main() {
     name: "code-review-pipeline",
     steps: [writer, reviewer, editor],
   });
+  debugFlow(pipeline);
 
   // A flow implements the Agent interface, so you call it the same way.
   console.log("Running pipeline: writer → reviewer → editor\n");
@@ -79,8 +86,10 @@ async function main() {
   console.log("--- Final output (from editor) ---");
   console.log(result.text);
 
+  // Cast to FlowResult to access per-step details.
+  const flowResult = result as FlowResult;
   console.log("\n--- Pipeline stats ---");
-  console.log(`Total steps: ${result.steps.length}`);
+  console.log(`Total steps: ${flowResult.stepResults.length}`);
   console.log(`Prompt tokens:     ${result.usage.promptTokens}`);
   console.log(`Completion tokens: ${result.usage.completionTokens}`);
 }

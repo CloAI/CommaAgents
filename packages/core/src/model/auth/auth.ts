@@ -11,9 +11,7 @@
 
 import { join } from "node:path";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /** A single credential entry. */
 export interface CredentialEntry {
@@ -23,9 +21,7 @@ export interface CredentialEntry {
 /** The full credential store schema. */
 export type CredentialStore = Record<string, CredentialEntry>;
 
-// ---------------------------------------------------------------------------
 // Paths
-// ---------------------------------------------------------------------------
 
 /**
  * Get the default credential store directory.
@@ -61,16 +57,12 @@ export function getCredentialStorePath(): string {
   return join(getDataDir(), "auth.json");
 }
 
-// ---------------------------------------------------------------------------
 // File permissions constant
-// ---------------------------------------------------------------------------
 
 /** File permissions for the credential store: owner read/write only. */
 const CREDENTIAL_FILE_MODE = 0o600;
 
-// ---------------------------------------------------------------------------
 // Read / Write helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Read the credential store from disk.
@@ -120,9 +112,7 @@ export async function writeCredentialStore(store: CredentialStore, path?: string
   }
 }
 
-// ---------------------------------------------------------------------------
 // CRUD operations
-// ---------------------------------------------------------------------------
 
 /**
  * Get the API key for a provider from the credential store.

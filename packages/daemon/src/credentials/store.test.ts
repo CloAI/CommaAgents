@@ -9,9 +9,7 @@ import { createCredentialStore } from "./store";
 import type { CredentialBackend, CredentialStoreData } from "./types";
 import { WELL_KNOWN_ENV_VARS } from "./types";
 
-// ---------------------------------------------------------------------------
 // Test helpers
-// ---------------------------------------------------------------------------
 
 const TEST_DIR = join(import.meta.dir, "__test_credentials__");
 const TEST_FILE = join(TEST_DIR, "credentials.json");
@@ -47,9 +45,7 @@ function createMemoryBackend(initial: CredentialStoreData = {}): CredentialBacke
   };
 }
 
-// ---------------------------------------------------------------------------
 // JsonFileBackend
-// ---------------------------------------------------------------------------
 
 describe("JsonFileBackend", () => {
   beforeEach(cleanup);
@@ -151,9 +147,7 @@ describe("JsonFileBackend", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // CredentialStore — basic operations
-// ---------------------------------------------------------------------------
 
 describe("CredentialStore", () => {
   describe("get / set", () => {
@@ -254,9 +248,7 @@ describe("CredentialStore", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // CredentialStore — resolution chain
-// ---------------------------------------------------------------------------
 
 describe("CredentialStore resolution", () => {
   test("resolve returns strategy-scoped credential first", async () => {
@@ -391,9 +383,7 @@ describe("CredentialStore resolution", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // WELL_KNOWN_ENV_VARS sanity checks
-// ---------------------------------------------------------------------------
 
 describe("WELL_KNOWN_ENV_VARS", () => {
   test("contains expected providers", () => {

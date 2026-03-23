@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.30",
     "ai": "6.0.91",
+    "liquidjs": "10.25.0",
     "yaml": "2.7.0",
     "zod": "3.25.76"
   },

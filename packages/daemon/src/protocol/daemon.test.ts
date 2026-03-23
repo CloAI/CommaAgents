@@ -22,9 +22,7 @@ const ts = "2026-03-01T12:00:00.000Z";
 const usage = { promptTokens: 10, completionTokens: 5 };
 const agentResult = { text: "done", usage, finishReason: "stop" };
 
-// ---------------------------------------------------------------------------
 // Individual message schemas
-// ---------------------------------------------------------------------------
 
 describe("FlowStartedMessage", () => {
   test("parses valid message", () => {
@@ -390,9 +388,7 @@ describe("ErrorMessage", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // DaemonMessage discriminated union
-// ---------------------------------------------------------------------------
 
 describe("DaemonMessage union", () => {
   test("routes flow_started correctly", () => {
@@ -530,9 +526,7 @@ describe("DaemonMessage union", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // parseDaemonMessage helper
-// ---------------------------------------------------------------------------
 
 describe("parseDaemonMessage", () => {
   test("returns success for valid message", () => {

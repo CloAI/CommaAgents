@@ -15,9 +15,7 @@ import {
   writeCredentialStore,
 } from "./auth";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Create a temporary directory for test credential stores. */
 async function createTempDir(): Promise<string> {
@@ -29,9 +27,7 @@ async function cleanupTempDir(dir: string): Promise<void> {
   await rm(dir, { recursive: true, force: true });
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 describe("getDataDir", () => {
   const originalEnv: Record<string, string | undefined> = {};

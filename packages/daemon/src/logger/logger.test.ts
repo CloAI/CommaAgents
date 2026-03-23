@@ -12,9 +12,7 @@ import { createSystemSink, describeSystemLogging } from "./sinks/system";
 import type { LogEntry, LogLevel, LogSink } from "./types";
 import { LOG_LEVELS } from "./types";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** A test sink that captures entries in an array. */
 function createCaptureSink(): LogSink & { entries: LogEntry[] } {
@@ -39,9 +37,7 @@ function createTempDir(): string {
   return dir;
 }
 
-// ---------------------------------------------------------------------------
 // LOG_LEVELS
-// ---------------------------------------------------------------------------
 
 describe("LOG_LEVELS", () => {
   test("debug < info < warn < error", () => {
@@ -51,9 +47,7 @@ describe("LOG_LEVELS", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // formatJsonLine
-// ---------------------------------------------------------------------------
 
 describe("formatJsonLine", () => {
   test("formats basic entry", () => {
@@ -107,9 +101,7 @@ describe("formatJsonLine", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // createLogger — level filtering
-// ---------------------------------------------------------------------------
 
 describe("createLogger level filtering", () => {
   test("default level is info — filters out debug", () => {
@@ -164,9 +156,7 @@ describe("createLogger level filtering", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // createLogger — entry structure
-// ---------------------------------------------------------------------------
 
 describe("createLogger entry structure", () => {
   test("entries have ts, level, msg", () => {
@@ -209,9 +199,7 @@ describe("createLogger entry structure", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // createLogger — child loggers
-// ---------------------------------------------------------------------------
 
 describe("createLogger child loggers", () => {
   test("child adds component to entries", () => {
@@ -261,9 +249,7 @@ describe("createLogger child loggers", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // createLogger — multiple sinks
-// ---------------------------------------------------------------------------
 
 describe("createLogger multiple sinks", () => {
   test("writes to all sinks", () => {
@@ -295,9 +281,7 @@ describe("createLogger multiple sinks", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // createLogger — flush and close
-// ---------------------------------------------------------------------------
 
 describe("createLogger flush and close", () => {
   test("flush calls flush on all sinks", () => {
@@ -350,9 +334,7 @@ describe("createLogger flush and close", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // createLogger — default sink (stderr)
-// ---------------------------------------------------------------------------
 
 describe("createLogger default sink", () => {
   test("writes to stderr when no sinks specified", () => {
@@ -373,9 +355,7 @@ describe("createLogger default sink", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // StderrSink
-// ---------------------------------------------------------------------------
 
 describe("createStderrSink", () => {
   test("writes JSON lines to stderr", () => {
@@ -397,9 +377,7 @@ describe("createStderrSink", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // FileSink
-// ---------------------------------------------------------------------------
 
 describe("createFileSink", () => {
   let tempDir: string;
@@ -466,9 +444,7 @@ describe("createFileSink", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // SystemSink
-// ---------------------------------------------------------------------------
 
 describe("createSystemSink", () => {
   test("without forcePrefix writes plain JSON to stderr", () => {
@@ -532,9 +508,7 @@ describe("createSystemSink", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // describeSystemLogging
-// ---------------------------------------------------------------------------
 
 describe("describeSystemLogging", () => {
   test("returns a non-empty description", () => {
@@ -549,9 +523,7 @@ describe("describeSystemLogging", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Integration: createLogger + FileSink
-// ---------------------------------------------------------------------------
 
 describe("createLogger with FileSink integration", () => {
   let tempDir: string;
@@ -624,9 +596,7 @@ describe("createLogger with FileSink integration", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Integration: createLogger + SystemSink
-// ---------------------------------------------------------------------------
 
 describe("createLogger with SystemSink integration", () => {
   test("system sink with forced prefix through logger", () => {

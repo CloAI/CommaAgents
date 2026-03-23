@@ -1,0 +1,32 @@
+---
+title: Logger
+description: Logger types, sinks, and configuration.
+---
+
+# Logger
+
+The daemon's structured logging system supports multiple output sinks and configurable log levels.
+
+## Logger
+
+The logger interface.
+
+<AutoTypeTable path="../packages/daemon/src/logger/types.ts" name="Logger" />
+
+## LogEntry
+
+A single log entry.
+
+<AutoTypeTable path="../packages/daemon/src/logger/types.ts" name="LogEntry" />
+
+## LogSink
+
+Interface for log output destinations (stderr, file, system log).
+
+<AutoTypeTable path="../packages/daemon/src/logger/types.ts" name="LogSink" />
+
+## CreateLoggerOptions
+
+Options for `createLogger`.
+
+<AutoTypeTable path="../packages/daemon/src/logger/types.ts" name="CreateLoggerOptions" />

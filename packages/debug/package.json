@@ -1,0 +1,17 @@
+{
+  "name": "@comma-agents/debug",
+  "version": "2.0.0",
+  "description": "Opt-in debug logging for comma-agents — hook verbose output into agents and flows",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@comma-agents/core": "workspace:*"
+  },
+  "author": "CloAI",
+  "license": "MIT"
+}

@@ -1,0 +1,22 @@
+---
+title: Errors
+description: Error classes for the Comma Agents framework.
+---
+
+# Errors
+
+All errors in Comma Agents extend `CommaAgentsError`, which itself extends the native `Error` class. Each error type includes a `code` property for programmatic handling.
+
+## Error Hierarchy
+
+| Error Class | Code | Thrown When |
+|---|---|---|
+| `CommaAgentsError` | `COMMA_AGENTS_ERROR` | Base class for all framework errors |
+| `AgentCallError` | `AGENT_CALL_ERROR` | Agent call fails (LLM error, hook error) |
+| `FlowExecutionError` | `FLOW_EXECUTION_ERROR` | Flow orchestration fails |
+| `HookExecutionError` | `HOOK_EXECUTION_ERROR` | A hook throws during execution |
+| `ModelResolutionError` | `MODEL_RESOLUTION_ERROR` | Model/provider cannot be resolved |
+| `StrategyValidationError` | `STRATEGY_VALIDATION_ERROR` | Strategy file fails schema validation |
+| `ToolExecutionError` | `TOOL_EXECUTION_ERROR` | A tool's execute function throws |
+
+All error classes are exported from `@comma-agents/core` and can be used for `instanceof` checks or caught by their `code` property.

@@ -14,9 +14,7 @@ import {
   UserInputMessage,
 } from "./client";
 
-// ---------------------------------------------------------------------------
 // Individual message schemas
-// ---------------------------------------------------------------------------
 
 describe("StartFlowMessage", () => {
   test("parses valid message", () => {
@@ -265,9 +263,7 @@ describe("PingMessage", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // ClientMessage discriminated union
-// ---------------------------------------------------------------------------
 
 describe("ClientMessage union", () => {
   test("routes start_flow correctly", () => {
@@ -333,9 +329,7 @@ describe("ClientMessage union", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // parseClientMessage helper
-// ---------------------------------------------------------------------------
 
 describe("parseClientMessage", () => {
   test("returns success for valid message", () => {

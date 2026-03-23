@@ -1,45 +1,44 @@
 // Prompt system types — message formats, conversation history config, and template types.
 //
-// These types align with the Vercel AI SDK's message format while providing
-// CommaAgents-specific abstractions for conversation management and prompt templating.
+// These types align with the Vercel AI SDK's message format. ConversationTurn
+// stores native AI SDK ModelMessage objects to preserve tool calls, reasoning,
+// multi-modal content, and proper multi-turn context.
 
-// ---------------------------------------------------------------------------
-// Chat Messages
-// ---------------------------------------------------------------------------
+import type { AssistantModelMessage, ToolModelMessage, UserModelMessage } from "ai";
 
-/**
- * A chat message role. Matches the Vercel AI SDK's supported roles.
- * - `"user"` — human/caller message
- * - `"assistant"` — LLM response
- * - `"system"` — system-level instruction (rarely used in message arrays;
- *   prefer the `system` parameter on `generateText`/`streamText`)
- */
-export type ChatRole = "user" | "assistant" | "system";
+// Re-export AI SDK message types for consumer convenience
+export type { AssistantModelMessage, ModelMessage, ToolModelMessage, UserModelMessage } from "ai";
 
 /**
- * A single chat message in the conversation.
+ * A message generated during an AI SDK call — either an assistant message
+ * (possibly containing tool call parts) or a tool message (with tool results).
  *
- * Intentionally kept simple (string content only). The AI SDK handles
- * multi-part content (images, etc.) at its own layer; CommaAgents passes
- * through string messages between agents in flows.
+ * This is the type returned by `result.response.messages` from the AI SDK's
+ * `generateText()` / `streamText()`. The AI SDK defines this internally but
+ * does not export it, so we define it here.
  */
-export interface ChatMessage {
-  readonly role: ChatRole;
-  readonly content: string;
-}
+export type ResponseMessage = AssistantModelMessage | ToolModelMessage;
+
+// Conversation Turn
 
 /**
- * A complete conversation turn: user message paired with assistant response.
- * Used internally by `ConversationHistory` for windowing/truncation.
+ * A complete conversation turn: user message paired with the model's response.
+ *
+ * Stores native AI SDK message types to preserve tool calls, tool results,
+ * reasoning, multi-modal content, and proper multi-turn context.
+ *
+ * - `userMessage` is the user's input as a `UserModelMessage`
+ * - `responseMessages` is the full response chain from the AI SDK, which
+ *   includes `AssistantModelMessage` (possibly with tool call parts) and
+ *   `ToolModelMessage` (tool results). This is exactly what the AI SDK
+ *   returns via `result.response.messages`.
  */
 export interface ConversationTurn {
-  readonly userMessage: string;
-  readonly assistantMessage: string;
+  readonly userMessage: UserModelMessage;
+  readonly responseMessages: readonly ResponseMessage[];
 }
 
-// ---------------------------------------------------------------------------
 // Conversation History Configuration
-// ---------------------------------------------------------------------------
 
 /**
  * Strategy for truncating conversation history when it grows too large.
@@ -81,27 +80,39 @@ export interface ConversationHistoryConfig {
   readonly maxTokens?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Prompt Template Types
-// ---------------------------------------------------------------------------
+// Prompt Template Types (LiquidJS-backed)
 
 /**
  * A value that can be used to fill a prompt template variable.
- * - `string` — static value
- * - `() => string` — dynamic value resolved at build time
- * - `() => Promise<string>` — async dynamic value (e.g., reading from env/file)
+ *
+ * - Primitives (`string`, `number`, `boolean`, `null`) are passed directly to Liquid.
+ * - Arrays and objects enable `{% for %}` loops and dot-access in templates.
+ * - Functions (`() => string | Promise<string>`) are resolved to strings before
+ *   the Liquid render pass — this preserves the async-first design.
  */
-export type TemplateValue = string | (() => string | Promise<string>);
+export type TemplateValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | readonly TemplateValue[]
+  | { readonly [key: string]: TemplateValue }
+  | (() => string | Promise<string>);
 
 /**
  * A map of variable names to their values for prompt template interpolation.
+ *
+ * Values can be primitives, arrays, objects, or async functions.
+ * Functions are resolved to strings before the Liquid render pass.
  *
  * @example
  * ```ts
  * const vars: TemplateVariables = {
  *   role: "code reviewer",
  *   language: "TypeScript",
- *   style: () => loadStyleGuide(), // async
+ *   tools: ["bash", "read", "write"],
+ *   style: () => loadStyleGuide(), // async function → resolved to string
  * };
  * ```
  */
@@ -112,28 +123,32 @@ export type TemplateVariables = Readonly<Record<string, TemplateValue>>;
  */
 export interface PromptTemplateConfig {
   /**
-   * The template string with `{variable}` placeholders.
+   * The template string using Liquid syntax.
    *
-   * Supports:
-   * - `{name}` — replaced with the value from `variables`
-   * - `{env:VAR_NAME}` — replaced with `process.env.VAR_NAME`
-   * - `{file:/path/to/file}` — replaced with file contents (via `resolveInterpolation`)
+   * Supports the full LiquidJS template language:
+   * - `{{ name }}` — variable interpolation
+   * - `{{ "VAR" | env }}` — environment variable via custom filter
+   * - `{{ "/path" | file }}` — file contents (first line) via custom filter
+   * - `{{ "command" | exec }}` — shell command output via custom filter
+   * - `{% if condition %}...{% endif %}` — conditionals
+   * - `{% for item in items %}...{% endfor %}` — loops
+   * - `{{ text | upcase }}` — built-in Liquid filters
    *
    * @example
    * ```ts
-   * "You are {role}, an expert in {language}. API key: {env:MY_API_KEY}"
+   * "You are {{ role }}, an expert in {{ language }}."
    * ```
    */
   readonly template: string;
 
   /**
-   * Default variable values. Can be overridden at build time.
+   * Default variable values. Can be overridden at render time.
    */
   readonly variables?: TemplateVariables;
 }
 
 /**
- * A compiled prompt template that can be built with variable substitution.
+ * A compiled prompt template backed by LiquidJS.
  */
 export interface PromptTemplate {
   /** The original template string. */
@@ -143,10 +158,10 @@ export interface PromptTemplate {
   readonly defaults: TemplateVariables;
 
   /**
-   * Build the prompt by resolving all variables.
+   * Render the prompt by resolving all variables through LiquidJS.
    * Override variables take precedence over defaults.
    *
-   * @throws {Error} if a variable in the template has no value
+   * @throws {Error} if a required variable is missing or a filter fails
    */
-  build(overrides?: TemplateVariables): Promise<string>;
+  render(overrides?: TemplateVariables): Promise<string>;
 }

@@ -1,0 +1,24 @@
+---
+title: Debug
+description: Debug logging hooks for agents and flows.
+---
+
+# @comma-agents/debug
+
+The debug package provides opt-in logging hooks that attach to agents and flows, printing detailed lifecycle information to the console.
+
+## DebugOptions
+
+Options for `debugAgent` and `debugFlow`.
+
+<AutoTypeTable path="../packages/debug/src/debug.types.ts" name="DebugOptions" />
+
+## Functions
+
+### `debugAgent(agent, options?)`
+
+Attaches debug logging hooks to an agent. Returns the same agent for chaining.
+
+### `debugFlow(flow, options?)`
+
+Attaches debug logging hooks to a flow agent. Returns the same agent for chaining.

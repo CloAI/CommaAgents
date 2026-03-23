@@ -1,26 +1,28 @@
 // @comma-agents/core
 // Composable agent orchestration framework
 
+// -- Agent composition --
+export { createAgent } from "./agents/agent/agent";
 // -- Agents --
-export type { AgentConfig } from "./agents/base-agent";
-export { BaseAgent, createAgent } from "./agents/base-agent";
-// -- Agent hook middleware --
-export {
-  resolveHook,
-  runAfterCallHooks,
-  runAlterMessageHooks,
-  runAlterResponseHooks,
-  runBeforeCallHooks,
-  withAgentHooks,
-} from "./agents/hooks";
 // -- Agent types (the core contracts) --
-export type { Agent, AgentCallResult, AgentStreamEvent, HookedCallResult } from "./agents/types";
+export type {
+  Agent,
+  AgentCallResult,
+  AgentConfig,
+  AgentStreamEvent,
+  LLMCallResult,
+} from "./agents/agent/agent.types";
+export { hookIntoAgent } from "./agents/hook-into-agent/hook-into-agent";
+// -- Hooks --
+// Agent-specific hook types (co-located with agent code)
+export type { AgentHooks, ToolHooks } from "./agents/hooks/hooks";
+// -- Agent hook middleware --
+export { createUserAgent } from "./agents/user/create-user-agent";
 export type {
   InputCollector,
   InputRequest,
   UserAgentConfig,
-} from "./agents/user/create-user-agent";
-export { createUserAgent } from "./agents/user/create-user-agent";
+} from "./agents/user/create-user-agent.types";
 // -- Errors --
 export {
   AgentCallError,
@@ -31,31 +33,28 @@ export {
   StrategyValidationError,
   ToolExecutionError,
 } from "./errors/index";
-// -- Flows (Phase 4) --
-export { createBroadcastFlow } from "./flows/broadcast/broadcast-flow";
-export { createCycleFlow } from "./flows/cycle/cycle-flow";
-export { buildFlowResult, createFlow, createFlowContext, defineFlow } from "./flows/define-flow";
-export { withFlowHooks } from "./flows/flow-hooks";
-export { createSequentialFlow } from "./flows/sequential/sequential-flow";
 export type {
   BroadcastFlowConfig,
   CustomFlowConfig,
   CycleFlowConfig,
+  CycleHooks,
   FlowConfig,
   FlowContext,
   FlowExecutor,
-  FlowResult,
-  FlowStep,
-} from "./flows/types";
-// -- Hooks --
-export type {
-  AgentHooks,
-  CycleHooks,
   FlowHooks,
-  SideEffectHook,
-  ToolHooks,
-  TransformHook,
-} from "./hooks/types";
+  FlowResult,
+} from "./flows/index";
+// -- Flows (Phase 4) --
+export {
+  buildFlowAgent,
+  createBroadcastFlow,
+  createCycleFlow,
+  createFlow,
+  createSequentialFlow,
+  hookIntoFlow,
+} from "./flows/index";
+// Shared hook infrastructure
+export type { SideEffectHook, TransformHook } from "./hooks/types";
 export { runSideEffectHooks, runTransformHooks } from "./hooks/types";
 // -- Model Registry & Auth (Phase 3) --
 export type { CredentialEntry, CredentialStore } from "./model/auth/auth";
@@ -80,54 +79,51 @@ export {
   resolveInterpolation,
   resolveKey,
 } from "./model/registry";
+export type { ConversationHistory } from "./prompts/history/conversation-history";
 // -- Prompts (Phase 5) --
-export {
-  ConversationHistory,
-  createConversationHistory,
-} from "./prompts/history/conversation-history";
-export type { BuildMessagesOptions, SystemPromptOptions } from "./prompts/message-builder";
-export {
-  buildMessages,
-  resolveSystemPrompt,
-} from "./prompts/message-builder";
-export { createPromptTemplate, extractVariables } from "./prompts/template/prompt-template";
+export { createConversationHistory } from "./prompts/history/conversation-history";
 export type {
-  ChatMessage,
-  ChatRole,
-  ConversationHistoryConfig,
-  ConversationTurn,
-  PromptTemplate,
-  PromptTemplateConfig,
-  TemplateValue,
-  TemplateVariables,
-  TruncationStrategy,
+  BuildMessagesOptions,
+  SystemPromptOptions,
+} from "./prompts/message-builder";
+export { buildMessages, resolveSystemPrompt } from "./prompts/message-builder";
+export { createPromptTemplate } from "./prompts/template/prompt-template";
+// Re-export AI SDK message types and our ResponseMessage alias for consumer convenience
+export type {
+  AssistantModelMessage,
+  ModelMessage,
+  ResponseMessage,
+  ToolModelMessage,
+  UserModelMessage,
 } from "./prompts/types";
-export type { ExportStrategyOptions } from "./strategy/exporter";
-// -- Strategy (Phase 7) --
-export { exportStrategy } from "./strategy/exporter";
-export type { LoadedStrategy, LoadStrategyOptions, ProviderFactory } from "./strategy/loader";
-export { loadStrategy, loadStrategyFromString } from "./strategy/loader";
 export type {
   AgentDef,
   AgentStep,
   BroadcastFlowDef,
   BuiltInToolName,
   CycleFlowDef,
+  ExportStrategyOptions,
   FlowDef,
   LLMAgentDef,
+  LoadedStrategy,
+  LoadStrategyOptions,
+  ProviderFactory,
   SequentialFlowDef,
   Strategy,
   StrategyDefaults,
   UserAgentDef,
-} from "./strategy/schema";
+} from "./strategy/index";
+// -- Strategy (Phase 7) --
 export {
-  BUILT_IN_TOOL_NAMES,
+  exportStrategy,
   isAgentStep,
   isFlowDef,
   isLLMAgentDef,
   isUserAgentDef,
+  loadStrategy,
+  loadStrategyFromString,
   StrategySchema,
-} from "./strategy/schema";
+} from "./strategy/index";
 export type {
   BashToolConfig,
   DefaultToolsConfig,
@@ -147,4 +143,4 @@ export {
 } from "./tools/built-in/index";
 // -- Tools --
 export { defineTool } from "./tools/define/define-tool";
-export type { ToolContext, ToolDef, ToolResult } from "./tools/tool";
+export type { ToolContext, ToolDef, ToolResult } from "./tools/tool.types";

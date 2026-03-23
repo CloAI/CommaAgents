@@ -7,9 +7,7 @@ import { join } from "node:path";
 
 import { DaemonConfigFileSchema, loadDaemonConfig, resolveDataDir } from "./config";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 function createTempDir(): string {
   const dir = join(
@@ -31,9 +29,7 @@ function cleanEnv(): Record<string, string | undefined> {
   return {};
 }
 
-// ---------------------------------------------------------------------------
 // resolveDataDir
-// ---------------------------------------------------------------------------
 
 describe("resolveDataDir", () => {
   test("returns a path containing comma-agents", () => {
@@ -54,9 +50,7 @@ describe("resolveDataDir", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // DaemonConfigFileSchema
-// ---------------------------------------------------------------------------
 
 describe("DaemonConfigFileSchema", () => {
   test("accepts empty object (all optional)", () => {
@@ -100,9 +94,7 @@ describe("DaemonConfigFileSchema", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // loadDaemonConfig — defaults
-// ---------------------------------------------------------------------------
 
 describe("loadDaemonConfig defaults", () => {
   test("returns defaults when no config file and no env vars", () => {
@@ -152,9 +144,7 @@ describe("loadDaemonConfig defaults", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // loadDaemonConfig — JSON config file overrides
-// ---------------------------------------------------------------------------
 
 describe("loadDaemonConfig JSON file overrides", () => {
   let tempDir: string;
@@ -228,9 +218,7 @@ describe("loadDaemonConfig JSON file overrides", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // loadDaemonConfig — env var overrides
-// ---------------------------------------------------------------------------
 
 describe("loadDaemonConfig env var overrides", () => {
   let tempDir: string;
@@ -300,9 +288,7 @@ describe("loadDaemonConfig env var overrides", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // loadDaemonConfig — priority (env > file > defaults)
-// ---------------------------------------------------------------------------
 
 describe("loadDaemonConfig priority", () => {
   let tempDir: string;
@@ -352,9 +338,7 @@ describe("loadDaemonConfig priority", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // loadDaemonConfig — validation
-// ---------------------------------------------------------------------------
 
 describe("loadDaemonConfig validation", () => {
   let tempDir: string;
@@ -395,9 +379,7 @@ describe("loadDaemonConfig validation", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // loadDaemonConfig — COMMA_DAEMON_CONFIG_FILE env var
-// ---------------------------------------------------------------------------
 
 describe("loadDaemonConfig config file path resolution", () => {
   let tempDir: string;

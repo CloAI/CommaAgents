@@ -10,9 +10,7 @@ export type {
   OAuthCredential,
 } from "../protocol/shared";
 
-// ---------------------------------------------------------------------------
 // Storage data shape
-// ---------------------------------------------------------------------------
 
 /**
  * Persisted credential data.
@@ -33,9 +31,7 @@ export type {
  */
 export type CredentialStoreData = Record<string, Record<string, Credential>>;
 
-// ---------------------------------------------------------------------------
 // Backend interface (storage abstraction)
-// ---------------------------------------------------------------------------
 
 /**
  * Low-level storage backend for credential data.
@@ -50,9 +46,7 @@ export interface CredentialBackend {
   writeAll(data: CredentialStoreData): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
 // Store interface (public API)
-// ---------------------------------------------------------------------------
 
 /**
  * Credential store — resolves, gets, sets, and removes credentials.
@@ -101,9 +95,7 @@ export interface CredentialStore {
   listScopes(): Promise<string[]>;
 }
 
-// ---------------------------------------------------------------------------
 // Environment variable mapping
-// ---------------------------------------------------------------------------
 
 /**
  * Maps a provider ID to the environment variable name(s) that
@@ -138,9 +130,7 @@ export const WELL_KNOWN_ENV_VARS: EnvVarMap = {
   openrouter: ["OPENROUTER_API_KEY"],
 };
 
-// ---------------------------------------------------------------------------
 // Store factory options
-// ---------------------------------------------------------------------------
 
 /** Options for creating a credential store. */
 export interface CreateCredentialStoreOptions {

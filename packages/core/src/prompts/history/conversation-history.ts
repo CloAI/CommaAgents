@@ -1,206 +1,206 @@
-// ConversationHistory — Manages conversation turns with windowing and truncation.
+// ConversationHistory — closure-based conversation turn management.
 //
-// This is a class (justified by mutable state: accumulating conversation turns).
-// Extracted from BaseAgent's inline _history array to be reusable across
-// different agent types and testable independently.
+// Manages conversation turns with optional truncation (sliding window
+// by count and/or estimated token budget). Returns AI SDK ModelMessage
+// arrays for use with generateText()/streamText().
+
+import type { ModelMessage, UserModelMessage } from "ai";
 
 import type {
-  ChatMessage,
   ConversationHistoryConfig,
   ConversationTurn,
+  ResponseMessage,
   TruncationStrategy,
 } from "../types";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 /** Default tokens-per-character ratio for English text. ~4 chars per token. */
 const DEFAULT_TOKENS_PER_CHAR = 0.25;
 
-// ---------------------------------------------------------------------------
-// ConversationHistory
-// ---------------------------------------------------------------------------
+// Internal state type
 
-/**
- * Manages a conversation's message history with configurable truncation.
- *
- * Supports:
- * - **Sliding window**: Keep the most recent N turns
- * - **Token-based truncation**: Drop oldest turns when estimated token count exceeds a limit
- * - **Snapshot/restore**: Save and restore history state
- * - **Iteration**: Access turns as an iterable
- *
- * @example
- * ```ts
- * const history = new ConversationHistory({ maxTurns: 10 });
- *
- * history.append("What is TypeScript?", "TypeScript is a typed superset of JavaScript.");
- * history.append("How do I use generics?", "Generics allow you to write reusable...");
- *
- * // Get messages for the AI SDK
- * const messages = history.toMessages();
- * // => [{ role: "user", content: "What is..." }, { role: "assistant", content: "TypeScript is..." }, ...]
- * ```
- */
-export class ConversationHistory {
-  private readonly _turns: ConversationTurn[] = [];
-  private readonly _maxTurns: number;
-  private readonly _maxTokens: number | undefined;
-  private readonly _tokensPerChar: number;
-  private readonly _truncation: TruncationStrategy;
-
-  constructor(config: ConversationHistoryConfig = {}) {
-    this._maxTurns = config.maxTurns ?? Number.POSITIVE_INFINITY;
-    this._maxTokens = config.maxTokens;
-    this._tokensPerChar = config.tokensPerChar ?? DEFAULT_TOKENS_PER_CHAR;
-
-    // Default truncation: sliding-window if maxTurns or maxTokens is set, otherwise none
-    if (config.truncation) {
-      this._truncation = config.truncation;
-    } else if (config.maxTurns !== undefined || config.maxTokens !== undefined) {
-      this._truncation = "sliding-window";
-    } else {
-      this._truncation = "none";
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Public API
-  // ---------------------------------------------------------------------------
-
-  /** Number of conversation turns currently stored. */
-  get length(): number {
-    return this._turns.length;
-  }
-
-  /** Whether the history is empty. */
-  get isEmpty(): boolean {
-    return this._turns.length === 0;
-  }
-
-  /**
-   * Append a completed conversation turn (user message + assistant response).
-   * If truncation is enabled, oldest turns may be dropped.
-   */
-  append(userMessage: string, assistantMessage: string): void {
-    this._turns.push({ userMessage, assistantMessage });
-    this._truncate();
-  }
-
-  /**
-   * Convert the history to an array of `ChatMessage` objects suitable for
-   * the Vercel AI SDK's `messages` parameter.
-   *
-   * Each turn produces two messages: `{ role: "user", ... }` and `{ role: "assistant", ... }`.
-   */
-  toMessages(): readonly ChatMessage[] {
-    const messages: ChatMessage[] = [];
-    for (const turn of this._turns) {
-      messages.push({ role: "user", content: turn.userMessage });
-      messages.push({ role: "assistant", content: turn.assistantMessage });
-    }
-    return messages;
-  }
-
-  /**
-   * Get a copy of all turns.
-   */
-  getTurns(): readonly ConversationTurn[] {
-    return [...this._turns];
-  }
-
-  /**
-   * Get the most recent turn, or `undefined` if history is empty.
-   */
-  getLastTurn(): ConversationTurn | undefined {
-    return this._turns.length > 0 ? this._turns[this._turns.length - 1] : undefined;
-  }
-
-  /**
-   * Estimate the total token count of the history.
-   * Uses the configured `tokensPerChar` ratio (approximate).
-   */
-  estimateTokens(): number {
-    let totalChars = 0;
-    for (const turn of this._turns) {
-      totalChars += turn.userMessage.length + turn.assistantMessage.length;
-    }
-    return Math.ceil(totalChars * this._tokensPerChar);
-  }
-
-  /**
-   * Take a snapshot of the current history state.
-   * Returns a frozen copy that can be passed to `restore()`.
-   */
-  snapshot(): readonly ConversationTurn[] {
-    return Object.freeze([...this._turns]);
-  }
-
-  /**
-   * Restore the history from a previous snapshot.
-   * Replaces the current history entirely, then applies truncation.
-   */
-  restore(turns: readonly ConversationTurn[]): void {
-    this._turns.length = 0;
-    for (const turn of turns) {
-      this._turns.push({ ...turn });
-    }
-    this._truncate();
-  }
-
-  /** Clear all conversation history. */
-  clear(): void {
-    this._turns.length = 0;
-  }
-
-  /** Iterate over conversation turns. */
-  [Symbol.iterator](): Iterator<ConversationTurn> {
-    let index = 0;
-    const turns = this._turns;
-    return {
-      next(): IteratorResult<ConversationTurn> {
-        if (index < turns.length) {
-          return { value: turns[index++], done: false };
-        }
-        return { value: undefined as unknown as ConversationTurn, done: true };
-      },
-    };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Private: Truncation
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Apply truncation strategy after appending a turn.
-   * Drops oldest turns until within limits.
-   */
-  private _truncate(): void {
-    if (this._truncation === "none") {
-      return;
-    }
-
-    // Sliding window: enforce maxTurns
-    while (this._turns.length > this._maxTurns) {
-      this._turns.shift();
-    }
-
-    // Token-based: enforce maxTokens
-    if (this._maxTokens !== undefined) {
-      while (this._turns.length > 0 && this.estimateTokens() > this._maxTokens) {
-        this._turns.shift();
-      }
-    }
-  }
+interface HistoryState {
+  readonly turns: readonly ConversationTurn[];
 }
 
-// ---------------------------------------------------------------------------
-// Factory function
-// ---------------------------------------------------------------------------
+// Resolved config (internal)
+
+interface ResolvedConfig {
+  readonly maxTurns: number;
+  readonly maxTokens: number | undefined;
+  readonly tokensPerChar: number;
+  readonly truncation: TruncationStrategy;
+}
+
+function resolveConfig(config: ConversationHistoryConfig = {}): ResolvedConfig {
+  const maxTurns = config.maxTurns ?? Number.POSITIVE_INFINITY;
+  const maxTokens = config.maxTokens;
+  const tokensPerChar = config.tokensPerChar ?? DEFAULT_TOKENS_PER_CHAR;
+
+  let truncation: TruncationStrategy;
+  if (config.truncation) {
+    truncation = config.truncation;
+  } else if (config.maxTurns !== undefined || config.maxTokens !== undefined) {
+    truncation = "sliding-window";
+  } else {
+    truncation = "none";
+  }
+
+  return { maxTurns, maxTokens, tokensPerChar, truncation };
+}
+
+// Helpers
 
 /**
- * Create a new `ConversationHistory` instance.
+ * Extract the total character count from a ModelMessage's content.
+ * Handles both `string` and `Array<Part>` content formats.
+ */
+function getMessageTextLength(message: ModelMessage): number {
+  const content = message.content;
+  if (typeof content === "string") {
+    return content.length;
+  }
+  if (Array.isArray(content)) {
+    let length = 0;
+    for (const part of content) {
+      if ("text" in part && typeof part.text === "string") {
+        length += part.text.length;
+      }
+      if ("input" in part) {
+        length += JSON.stringify(part.input).length;
+      }
+      if ("output" in part) {
+        length += JSON.stringify(part.output).length;
+      }
+    }
+    return length;
+  }
+  return 0;
+}
+
+/** Wrap a plain string as a UserModelMessage. */
+function toUserMessage(text: string): UserModelMessage {
+  return { role: "user", content: text };
+}
+
+// Internal pure functions
+
+function estimateTokensForTurns(
+  turns: readonly ConversationTurn[],
+  tokensPerChar: number = DEFAULT_TOKENS_PER_CHAR,
+): number {
+  let totalChars = 0;
+  for (const turn of turns) {
+    totalChars += getMessageTextLength(turn.userMessage);
+    for (const msg of turn.responseMessages) {
+      totalChars += getMessageTextLength(msg);
+    }
+  }
+  return Math.ceil(totalChars * tokensPerChar);
+}
+
+function truncateTurns(
+  state: HistoryState,
+  config: ConversationHistoryConfig | undefined,
+): HistoryState {
+  const resolved = resolveConfig(config);
+
+  if (resolved.truncation === "none") {
+    return state;
+  }
+
+  let turns = [...state.turns];
+
+  // Sliding window: enforce maxTurns
+  while (turns.length > resolved.maxTurns) {
+    turns = turns.slice(1);
+  }
+
+  // Token-based: enforce maxTokens
+  if (resolved.maxTokens !== undefined) {
+    while (
+      turns.length > 0 &&
+      estimateTokensForTurns(turns, resolved.tokensPerChar) > resolved.maxTokens
+    ) {
+      turns = turns.slice(1);
+    }
+  }
+
+  return { turns };
+}
+
+function appendTurn(
+  state: HistoryState,
+  config: ConversationHistoryConfig | undefined,
+  userMessage: string | UserModelMessage,
+  responseMessages: readonly ResponseMessage[],
+): HistoryState {
+  const user: UserModelMessage =
+    typeof userMessage === "string" ? toUserMessage(userMessage) : userMessage;
+
+  const newTurns = [...state.turns, { userMessage: user, responseMessages: [...responseMessages] }];
+
+  return truncateTurns({ turns: newTurns }, config);
+}
+
+function turnsToMessages(turns: readonly ConversationTurn[]): readonly ModelMessage[] {
+  const messages: ModelMessage[] = [];
+  for (const turn of turns) {
+    messages.push(turn.userMessage);
+    for (const msg of turn.responseMessages) {
+      messages.push(msg);
+    }
+  }
+  return messages;
+}
+
+function getLastTurn(state: HistoryState): ConversationTurn | undefined {
+  const { turns } = state;
+  return turns.length > 0 ? turns[turns.length - 1] : undefined;
+}
+
+// ConversationHistory — the public interface
+
+/**
+ * The ConversationHistory interface — the contract that message-builder.ts
+ * and agent.utils.ts depend on.
+ */
+export interface ConversationHistory {
+  /** Number of conversation turns currently stored. */
+  readonly length: number;
+  /** Whether the history is empty. */
+  readonly isEmpty: boolean;
+  /** Append a completed conversation turn. */
+  append(
+    userMessage: string | UserModelMessage,
+    responseMessages: readonly ResponseMessage[],
+  ): void;
+  /** Convert to AI SDK ModelMessage array. */
+  toMessages(): readonly ModelMessage[];
+  /** Get a copy of all turns. */
+  getTurns(): readonly ConversationTurn[];
+  /** Get the most recent turn. */
+  getLastTurn(): ConversationTurn | undefined;
+  /** Estimate total token count. */
+  estimateTokens(): number;
+  /** Take a snapshot. */
+  snapshot(): readonly ConversationTurn[];
+  /** Restore from a snapshot. */
+  restore(turns: readonly ConversationTurn[]): void;
+  /** Clear all history. */
+  clear(): void;
+  /** Iterate over turns. */
+  [Symbol.iterator](): Iterator<ConversationTurn>;
+}
+
+/**
+ * Create a new ConversationHistory with closure-captured state.
+ *
+ * Manages conversation turns with optional truncation:
+ * - `maxTurns` — sliding window by turn count
+ * - `maxTokens` — sliding window by estimated token budget
+ * - Both can be combined (whichever is stricter wins)
  *
  * @example
  * ```ts
@@ -215,5 +215,64 @@ export class ConversationHistory {
  * ```
  */
 export function createConversationHistory(config?: ConversationHistoryConfig): ConversationHistory {
-  return new ConversationHistory(config);
+  const resolved = resolveConfig(config);
+  let state: HistoryState = { turns: [] };
+
+  return {
+    get length() {
+      return state.turns.length;
+    },
+
+    get isEmpty() {
+      return state.turns.length === 0;
+    },
+
+    append(
+      userMessage: string | UserModelMessage,
+      responseMessages: readonly ResponseMessage[],
+    ): void {
+      state = appendTurn(state, config, userMessage, responseMessages);
+    },
+
+    toMessages(): readonly ModelMessage[] {
+      return turnsToMessages(state.turns);
+    },
+
+    getTurns(): readonly ConversationTurn[] {
+      return [...state.turns];
+    },
+
+    getLastTurn(): ConversationTurn | undefined {
+      return getLastTurn(state);
+    },
+
+    estimateTokens(): number {
+      return estimateTokensForTurns(state.turns, resolved.tokensPerChar);
+    },
+
+    snapshot(): readonly ConversationTurn[] {
+      return Object.freeze([...state.turns]);
+    },
+
+    restore(turns: readonly ConversationTurn[]): void {
+      state = truncateTurns({ turns: [...turns] }, config);
+    },
+
+    clear(): void {
+      state = { turns: [] };
+    },
+
+    [Symbol.iterator](): Iterator<ConversationTurn> {
+      let index = 0;
+      const turns = state.turns;
+      return {
+        next(): IteratorResult<ConversationTurn> {
+          if (index < turns.length) {
+            return { value: turns[index++]!, done: false } as IteratorYieldResult<ConversationTurn>;
+          }
+          return { value: undefined, done: true } as IteratorReturnResult<undefined>;
+        },
+      };
+    },
+  };
 }

@@ -14,9 +14,7 @@ import { z } from "zod";
 import { CredentialSchema } from "../../protocol/shared";
 import type { CredentialBackend, CredentialStoreData } from "../types";
 
-// ---------------------------------------------------------------------------
 // Validation schema for the persisted file
-// ---------------------------------------------------------------------------
 
 /**
  * Schema for the credentials file.
@@ -25,9 +23,7 @@ import type { CredentialBackend, CredentialStoreData } from "../types";
  */
 const CredentialFileSchema = z.record(z.record(CredentialSchema));
 
-// ---------------------------------------------------------------------------
 // JsonFileBackend
-// ---------------------------------------------------------------------------
 
 export interface JsonFileBackendOptions {
   /** Absolute path to the credentials JSON file. */

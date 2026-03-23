@@ -16,7 +16,8 @@
  *   3. Set up provider API keys (e.g., OPENAI_API_KEY)
  *
  * Run:
- *   bun run examples/04-multi-flow.ts
+ *   bun run examples/04-multi-flow.ts [strategy-path]
+ *   bun run examples/04-multi-flow.ts --daemon-url ws://localhost:8080/ws
  *
  * Concepts:
  *   - Concurrent flow execution
@@ -26,15 +27,41 @@
  *   - Tracking per-flow state on the client side
  */
 
-const DAEMON_URL = process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws";
-
 import path from "node:path";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
 
 const DEFAULT_STRATEGY = path.resolve(
   import.meta.dir,
   "../../core/strategies/simple/strategy.json",
 );
-const STRATEGY_PATH = process.argv[2] ?? DEFAULT_STRATEGY;
+
+const argv = yargs(hideBin(process.argv))
+  .scriptName("04-multi-flow")
+  .usage("$0 [strategy-path]")
+  .command("$0 [strategy-path]", "Run multiple flows concurrently through the daemon", (y) =>
+    y.positional("strategy-path", {
+      type: "string",
+      describe: "Path to the strategy file",
+      default: DEFAULT_STRATEGY,
+    }),
+  )
+  .option("daemon-url", {
+    alias: "d",
+    type: "string",
+    default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
+    describe: "WebSocket URL of the daemon",
+  })
+  .example("$0", "Run 3 parallel flows with default strategy")
+  .example("$0 path/to/strategy.json", "Run with a specific strategy")
+  .strict()
+  .help()
+  .alias("h", "help")
+  .version(false)
+  .parseSync();
+
+const DAEMON_URL = argv.daemonUrl as string;
+const STRATEGY_PATH = argv.strategyPath as string;
 
 // -- Per-flow tracking ------------------------------------------------------
 

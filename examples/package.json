@@ -14,15 +14,18 @@
     "@ai-sdk/openai-compatible": "2.0.33",
     "@comma-agents/core": "workspace:*",
     "@comma-agents/daemon": "workspace:*",
+    "@comma-agents/debug": "workspace:*",
     "ai": "6.0.91",
     "ink": "5.1.0",
     "ink-select-input": "6.0.0",
     "ink-spinner": "5.0.0",
     "ink-text-input": "6.0.0",
     "react": "18.3.1",
+    "yargs": "17.7.2",
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@types/react": "18.3.18"
+    "@types/react": "18.3.18",
+    "@types/yargs": "17.0.33"
   }
 }

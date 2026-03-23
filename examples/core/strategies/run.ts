@@ -18,7 +18,9 @@
 import path from "node:path";
 import * as readline from "node:readline";
 
-import { loadStrategy } from "@comma-agents/core";
+import { type InputRequest, loadStrategy } from "@comma-agents/core";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
 
 const EXAMPLES_DIR = path.dirname(new URL(import.meta.url).pathname);
 
@@ -50,22 +52,44 @@ const EXAMPLES: Record<string, { path: string; description: string }> = {
 };
 
 // ---------------------------------------------------------------------------
-// CLI argument handling
+// CLI argument handling via yargs
 // ---------------------------------------------------------------------------
 
-const alias = process.argv[2];
+const argv = yargs(hideBin(process.argv))
+  .scriptName("example")
+  .usage("$0 <alias>")
+  .command("$0 [alias]", "Run an example strategy", (y) =>
+    y.positional("alias", {
+      type: "string",
+      describe: "Example alias to run",
+    }),
+  )
+  .option("list", {
+    alias: "l",
+    type: "boolean",
+    default: false,
+    describe: "List available examples",
+  })
+  .example("$0 q_a_strategy", "Run the Q&A strategy example")
+  .example("$0 --list", "List all available examples")
+  .strict()
+  .help()
+  .alias("h", "help")
+  .version(false)
+  .parseSync();
 
-if (!alias || alias === "--list") {
+if (argv.list || !argv.alias) {
   console.log("Available examples:\n");
   for (const [name, entry] of Object.entries(EXAMPLES)) {
     console.log(`  ${name}`);
     console.log(`    ${entry.description}\n`);
   }
   console.log("Usage: bun run example <alias>");
-  if (!alias) process.exit(1);
+  if (!argv.alias) process.exit(1);
   process.exit(0);
 }
 
+const alias = argv.alias as string;
 const entry = EXAMPLES[alias];
 
 if (!entry) {
@@ -100,10 +124,7 @@ if (!(await file.exists())) {
 async function resolveProviders(): Promise<
   Record<string, (modelID: string) => import("ai").LanguageModel>
 > {
-  const providers: Record<
-    string,
-    (modelID: string) => import("ai").LanguageModel
-  > = {};
+  const providers: Record<string, (modelID: string) => import("ai").LanguageModel> = {};
 
   // Try loading common providers — failures are fine, the loader will
   // throw a clear error if the strategy references a missing provider.
@@ -128,15 +149,15 @@ async function resolveProviders(): Promise<
 // Simple terminal input collector for user agents
 // ---------------------------------------------------------------------------
 
-function createTerminalInputCollector(): (prompt?: string) => Promise<string> {
+function createTerminalInputCollector(): (request: InputRequest) => Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
-  return (prompt?: string) =>
+  return (request: InputRequest) =>
     new Promise<string>((resolve) => {
-      rl.question(prompt ?? "> ", (answer) => {
+      rl.question(request.prompt ?? "> ", (answer) => {
         resolve(answer);
       });
     });

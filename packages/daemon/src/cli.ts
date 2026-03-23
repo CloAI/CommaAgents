@@ -11,6 +11,9 @@
 
 import { join } from "node:path";
 
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
+
 import { loadDaemonConfig, resolveDataDir } from "./config";
 import { createJsonFileBackend } from "./credentials/backends/json-file";
 import { createCredentialStore } from "./credentials/store";
@@ -23,69 +26,15 @@ import { isRunning, readPid, removePid, writePid } from "./pid";
 import type { Credential } from "./protocol/shared";
 import { createDaemon } from "./server";
 
-// ---------------------------------------------------------------------------
-// Argument parsing
-// ---------------------------------------------------------------------------
+// Argument parsing via yargs
 
-interface ParsedArgs {
-  command: "start" | "stop" | "status" | "help";
+interface StartArgs {
   foreground: boolean;
   port?: number;
   modelOverride?: string;
 }
 
-function parseArgs(argv: string[]): ParsedArgs {
-  const args = argv.slice(2); // Skip "bun" and script path
-
-  if (args.length === 0 || args[0] === "help" || args[0] === "--help" || args[0] === "-h") {
-    return { command: "help", foreground: false };
-  }
-
-  const command = args[0] as ParsedArgs["command"];
-  if (!["start", "stop", "status"].includes(command)) {
-    console.error(`Unknown command: ${command}`);
-    console.error("Usage: comma-agents-daemon <start|stop|status> [options]");
-    process.exit(1);
-  }
-
-  let foreground = false;
-  let port: number | undefined;
-  let modelOverride: string | undefined;
-
-  for (let i = 1; i < args.length; i++) {
-    if (args[i] === "--foreground" || args[i] === "-f") {
-      foreground = true;
-    } else if (args[i] === "--port" || args[i] === "-p") {
-      const val = args[++i];
-      if (!val) {
-        console.error("--port requires a value");
-        process.exit(1);
-      }
-      port = parseInt(val, 10);
-      if (Number.isNaN(port) || port < 1 || port > 65535) {
-        console.error(`Invalid port: ${val}`);
-        process.exit(1);
-      }
-    } else if (args[i] === "--model-override") {
-      const val = args[++i];
-      if (!val) {
-        console.error("--model-override requires a value (e.g., github-copilot/gpt-4o)");
-        process.exit(1);
-      }
-      if (!val.includes("/")) {
-        console.error(`Invalid model override: "${val}". Expected format: providerID/modelID`);
-        process.exit(1);
-      }
-      modelOverride = val;
-    }
-  }
-
-  return { command, foreground, port, modelOverride };
-}
-
-// ---------------------------------------------------------------------------
 // Provider resolver — dynamic import with Bun auto-install
-// ---------------------------------------------------------------------------
 
 /**
  * Capitalize the first letter of a string.
@@ -230,15 +179,13 @@ async function buildCopilotProvider(apiKey: string | undefined): Promise<(modelI
   return provider as (modelID: string) => any;
 }
 
-// ---------------------------------------------------------------------------
 // Command: start
-// ---------------------------------------------------------------------------
 
-async function commandStart(parsed: ParsedArgs): Promise<void> {
+async function commandStart(args: StartArgs): Promise<void> {
   // Load config with optional port override
   const envOverrides: Record<string, string | undefined> = { ...process.env };
-  if (parsed.port !== undefined) {
-    envOverrides.COMMA_DAEMON_PORT = String(parsed.port);
+  if (args.port !== undefined) {
+    envOverrides.COMMA_DAEMON_PORT = String(args.port);
   }
   const config = loadDaemonConfig({ env: envOverrides });
 
@@ -255,16 +202,16 @@ async function commandStart(parsed: ParsedArgs): Promise<void> {
   }
 
   // Background mode: spawn a detached child and exit
-  if (!parsed.foreground) {
-    const args = ["bun", "-i", "run", import.meta.path, "start", "--foreground"];
-    if (parsed.port !== undefined) {
-      args.push("--port", String(parsed.port));
+  if (!args.foreground) {
+    const spawnArgs = ["bun", "-i", "run", import.meta.path, "start", "--foreground"];
+    if (args.port !== undefined) {
+      spawnArgs.push("--port", String(args.port));
     }
-    if (parsed.modelOverride !== undefined) {
-      args.push("--model-override", parsed.modelOverride);
+    if (args.modelOverride !== undefined) {
+      spawnArgs.push("--model-override", args.modelOverride);
     }
 
-    const child = Bun.spawn(args, {
+    const child = Bun.spawn(spawnArgs, {
       stdio: ["ignore", "ignore", "ignore"],
       detached: true,
     });
@@ -314,7 +261,7 @@ async function commandStart(parsed: ParsedArgs): Promise<void> {
     credentialStore,
     providerResolver,
     logger,
-    modelOverride: parsed.modelOverride,
+    modelOverride: args.modelOverride,
   });
 
   try {
@@ -329,8 +276,8 @@ async function commandStart(parsed: ParsedArgs): Promise<void> {
   writePid(config.pidFile);
 
   console.log(`Daemon listening on ${config.host}:${daemon.port} (PID: ${process.pid})`);
-  if (parsed.modelOverride) {
-    console.log(`  Model override: ${parsed.modelOverride}`);
+  if (args.modelOverride) {
+    console.log(`  Model override: ${args.modelOverride}`);
   }
   // 6. Signal handlers for graceful shutdown
   const shutdown = async () => {
@@ -345,9 +292,7 @@ async function commandStart(parsed: ParsedArgs): Promise<void> {
   process.on("SIGTERM", shutdown);
 }
 
-// ---------------------------------------------------------------------------
 // Command: stop
-// ---------------------------------------------------------------------------
 
 async function commandStop(): Promise<void> {
   const config = loadDaemonConfig();
@@ -389,9 +334,7 @@ async function commandStop(): Promise<void> {
   process.exit(1);
 }
 
-// ---------------------------------------------------------------------------
 // Command: status
-// ---------------------------------------------------------------------------
 
 function commandStatus(): void {
   const config = loadDaemonConfig();
@@ -415,64 +358,79 @@ function commandStatus(): void {
   console.log(`  Host: ${config.host}`);
 }
 
-// ---------------------------------------------------------------------------
-// Command: help
-// ---------------------------------------------------------------------------
+// Command: help — now handled by yargs --help
 
-function commandHelp(): void {
-  console.log(
-    `
-comma-agents-daemon — manage the comma-agents daemon process
+// Main — yargs command routing
 
-Usage:
-  comma-agents-daemon <command> [options]
-
-Commands:
-  start     Start the daemon
-  stop      Stop the daemon
-  status    Show daemon status
-  help      Show this help message
-
-Options for 'start':
-  --foreground, -f              Run in foreground (don't daemonize)
-  --port, -p <PORT>             Override the listening port
-  --model-override <P/M>        Override model for all agents (e.g., github-copilot/gpt-4o)
-
-Examples:
-  comma-agents-daemon start                  # Start in background
-  comma-agents-daemon start --foreground     # Start in foreground
-  comma-agents-daemon start --port 8080      # Start on port 8080
-  comma-agents-daemon start --foreground --model-override github-copilot/gpt-4o
-  comma-agents-daemon stop                   # Stop the daemon
-  comma-agents-daemon status                 # Check if running
-`.trim(),
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
-async function main(): Promise<void> {
-  const parsed = parseArgs(process.argv);
-
-  switch (parsed.command) {
-    case "start":
-      await commandStart(parsed);
-      break;
-    case "stop":
-      await commandStop();
-      break;
-    case "status":
-      commandStatus();
-      break;
-    case "help":
-      commandHelp();
-      break;
-  }
-}
-
-main().catch((err) => {
-  console.error(`Fatal error: ${err instanceof Error ? err.message : err}`);
-  process.exit(1);
-});
+yargs(hideBin(process.argv))
+  .scriptName("comma-agents-daemon")
+  .usage("$0 <command> [options]")
+  .command(
+    "start",
+    "Start the daemon",
+    (y) =>
+      y
+        .option("foreground", {
+          alias: "f",
+          type: "boolean",
+          default: false,
+          describe: "Run in foreground (don't daemonize)",
+        })
+        .option("port", {
+          alias: "p",
+          type: "number",
+          describe: "Override the listening port",
+          coerce: (val: number) => {
+            if (val < 1 || val > 65535) {
+              throw new Error(`Invalid port: ${val}. Must be between 1 and 65535.`);
+            }
+            return val;
+          },
+        })
+        .option("model-override", {
+          type: "string",
+          describe: "Override model for all agents (e.g., github-copilot/gpt-4o)",
+          coerce: (val: string) => {
+            if (!val.includes("/")) {
+              throw new Error(
+                `Invalid model override: "${val}". Expected format: providerID/modelID`,
+              );
+            }
+            return val;
+          },
+        })
+        .example("$0 start", "Start in background")
+        .example("$0 start --foreground", "Start in foreground")
+        .example("$0 start --port 8080", "Start on port 8080")
+        .example(
+          "$0 start --foreground --model-override github-copilot/gpt-4o",
+          "Start with model override",
+        ),
+    async (argv) => {
+      await commandStart({
+        foreground: argv.foreground,
+        port: argv.port,
+        modelOverride: argv.modelOverride as string | undefined,
+      });
+    },
+  )
+  .command("stop", "Stop the daemon", {}, async () => {
+    await commandStop();
+  })
+  .command("status", "Show daemon status", {}, () => {
+    commandStatus();
+  })
+  .demandCommand(1, "Please specify a command: start, stop, or status")
+  .strict()
+  .help()
+  .alias("h", "help")
+  .version(false)
+  .fail((msg, err) => {
+    if (err) {
+      console.error(`Fatal error: ${err.message}`);
+    } else if (msg) {
+      console.error(msg);
+    }
+    process.exit(1);
+  })
+  .parse();

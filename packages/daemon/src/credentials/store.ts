@@ -14,9 +14,7 @@ import type {
 } from "./types";
 import { WELL_KNOWN_ENV_VARS } from "./types";
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /** Merge well-known env vars with user overrides (overrides win). */
 function buildEnvVarMap(overrides?: EnvVarMap): EnvVarMap {
@@ -47,9 +45,7 @@ function resolveFromEnv(
   return undefined;
 }
 
-// ---------------------------------------------------------------------------
 // createCredentialStore()
-// ---------------------------------------------------------------------------
 
 /**
  * Create a credential store backed by the given storage backend.

@@ -1,0 +1,80 @@
+---
+title: Strategy
+description: Strategy schema, loading, and export types.
+---
+
+# Strategy
+
+Strategies define agent orchestration graphs declaratively in YAML or JSON. They describe agents, flows, tools, and their wiring.
+
+## Strategy
+
+The top-level strategy type (Zod-inferred from `StrategySchema`).
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="Strategy" />
+
+## StrategyDefaults
+
+Default configuration applied across all agents in a strategy.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="StrategyDefaults" />
+
+## Agent Definitions
+
+### LLMAgentDef
+
+Definition for an LLM-backed agent in a strategy file.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="LLMAgentDef" />
+
+### UserAgentDef
+
+Definition for a user-input agent in a strategy file.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="UserAgentDef" />
+
+### AgentDef
+
+Union of all agent definition types.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="AgentDef" />
+
+## Flow Definitions
+
+### FlowDef
+
+Union of all flow definition types.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="FlowDef" />
+
+### SequentialFlowDef
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="SequentialFlowDef" />
+
+### BroadcastFlowDef
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="BroadcastFlowDef" />
+
+### CycleFlowDef
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="CycleFlowDef" />
+
+## Loading and Export
+
+### LoadStrategyOptions
+
+Options for `loadStrategy` and `loadStrategyFromString`.
+
+<AutoTypeTable path="../packages/core/src/strategy/loader.types.ts" name="LoadStrategyOptions" />
+
+### LoadedStrategy
+
+The result of loading a strategy, containing the built agent graph.
+
+<AutoTypeTable path="../packages/core/src/strategy/loader.types.ts" name="LoadedStrategy" />
+
+### ExportStrategyOptions
+
+Options for `exportStrategy`.
+
+<AutoTypeTable path="../packages/core/src/strategy/exporter.types.ts" name="ExportStrategyOptions" />

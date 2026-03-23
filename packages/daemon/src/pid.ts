@@ -7,9 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
-// ---------------------------------------------------------------------------
 // writePid
-// ---------------------------------------------------------------------------
 
 /**
  * Write the current process PID to a file.
@@ -26,9 +24,7 @@ export function writePid(pidFile: string): void {
   writeFileSync(pidFile, String(process.pid), { mode: 0o644 });
 }
 
-// ---------------------------------------------------------------------------
 // readPid
-// ---------------------------------------------------------------------------
 
 /**
  * Read a PID from a file.
@@ -50,9 +46,7 @@ export function readPid(pidFile: string): number | undefined {
   }
 }
 
-// ---------------------------------------------------------------------------
 // removePid
-// ---------------------------------------------------------------------------
 
 /**
  * Remove a PID file.
@@ -69,9 +63,7 @@ export function removePid(pidFile: string): void {
   }
 }
 
-// ---------------------------------------------------------------------------
 // isRunning
-// ---------------------------------------------------------------------------
 
 /**
  * Check if a process with the given PID is currently alive.

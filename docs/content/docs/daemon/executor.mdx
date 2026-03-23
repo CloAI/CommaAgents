@@ -1,0 +1,46 @@
+---
+title: Executor
+description: Strategy executor, auth bridge, and input bridge types.
+---
+
+# Executor
+
+The executor module runs strategy-defined agent graphs, bridging authentication and user input between the daemon and the core framework.
+
+## StrategyExecutor
+
+The executor interface for running loaded strategies.
+
+<AutoTypeTable path="../packages/daemon/src/executor/executor.ts" name="StrategyExecutor" />
+
+## CreateStrategyExecutorOptions
+
+Options for `createStrategyExecutor`.
+
+<AutoTypeTable path="../packages/daemon/src/executor/executor.ts" name="CreateStrategyExecutorOptions" />
+
+## EventSink
+
+Interface for publishing execution events to connected clients.
+
+<AutoTypeTable path="../packages/daemon/src/executor/event-sink.ts" name="EventSink" />
+
+## AuthBridge
+
+Bridges credential resolution between the daemon and strategy execution.
+
+<AutoTypeTable path="../packages/daemon/src/executor/auth-bridge.ts" name="AuthBridge" />
+
+## CreateAuthBridgeOptions
+
+<AutoTypeTable path="../packages/daemon/src/executor/auth-bridge.ts" name="CreateAuthBridgeOptions" />
+
+## InputBridge
+
+Bridges user input requests between agents and connected clients.
+
+<AutoTypeTable path="../packages/daemon/src/executor/input-bridge.ts" name="InputBridge" />
+
+## CreateInputBridgeOptions
+
+<AutoTypeTable path="../packages/daemon/src/executor/input-bridge.ts" name="CreateInputBridgeOptions" />

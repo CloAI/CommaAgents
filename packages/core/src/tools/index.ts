@@ -19,4 +19,4 @@ export {
 } from "./built-in/index";
 // -- Core types and factory --
 export { defineTool } from "./define/define-tool";
-export type { ToolContext, ToolDef, ToolResult } from "./tool";
+export type { ToolContext, ToolDef, ToolResult } from "./tool.types";

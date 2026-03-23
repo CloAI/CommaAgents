@@ -12,9 +12,7 @@ import {
   resolveKey,
 } from "./registry";
 
-// ---------------------------------------------------------------------------
 // parseModel
-// ---------------------------------------------------------------------------
 
 describe("parseModel", () => {
   it("should parse a simple provider/model string", () => {
@@ -85,9 +83,7 @@ describe("parseModel", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // KNOWN_PROVIDERS
-// ---------------------------------------------------------------------------
 
 describe("KNOWN_PROVIDERS", () => {
   it("should contain openai", () => {
@@ -111,9 +107,7 @@ describe("KNOWN_PROVIDERS", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // PROVIDER_ENV_KEYS
-// ---------------------------------------------------------------------------
 
 describe("PROVIDER_ENV_KEYS", () => {
   it("should map openai to OPENAI_API_KEY", () => {
@@ -129,9 +123,7 @@ describe("PROVIDER_ENV_KEYS", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // isKnownProvider / getProviderPackage
-// ---------------------------------------------------------------------------
 
 describe("isKnownProvider", () => {
   it("should return true for known providers", () => {
@@ -156,9 +148,7 @@ describe("getProviderPackage", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // resolveKey
-// ---------------------------------------------------------------------------
 
 describe("resolveKey", () => {
   // Save and restore env vars around tests
@@ -251,9 +241,7 @@ describe("resolveKey", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // resolveInterpolation
-// ---------------------------------------------------------------------------
 
 describe("resolveInterpolation", () => {
   const originalEnv: Record<string, string | undefined> = {};

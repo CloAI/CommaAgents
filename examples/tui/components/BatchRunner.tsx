@@ -477,8 +477,8 @@ function runExample(
       }
     };
 
-    child.stdout.on("data", handleData);
-    child.stderr.on("data", handleData);
+    child.stdout!.on("data", handleData);
+    child.stderr!.on("data", handleData);
 
     // Timeout: kill the subprocess if it runs too long
     const timer = setTimeout(() => {

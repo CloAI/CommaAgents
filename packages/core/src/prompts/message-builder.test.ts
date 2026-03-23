@@ -1,13 +1,19 @@
 // Tests for message builder — buildMessages and resolveSystemPrompt
 
 import { describe, expect, it } from "bun:test";
-import { ConversationHistory } from "./history/conversation-history";
+import { createConversationHistory } from "./history/conversation-history";
 import { buildMessages, resolveSystemPrompt } from "./message-builder";
 import { createPromptTemplate } from "./template/prompt-template";
+import type { ResponseMessage } from "./types";
 
-// ---------------------------------------------------------------------------
+// Helpers
+
+/** Create a ResponseMessage[] containing a single assistant text message. */
+function assistantResponse(text: string): ResponseMessage[] {
+  return [{ role: "assistant", content: [{ type: "text", text }] }];
+}
+
 // buildMessages
-// ---------------------------------------------------------------------------
 
 describe("buildMessages", () => {
   describe("basic usage", () => {
@@ -18,36 +24,36 @@ describe("buildMessages", () => {
     });
 
     it("prepends history before the current message", () => {
-      const history = new ConversationHistory();
-      history.append("Q1", "A1");
+      const history = createConversationHistory();
+      history.append("Q1", assistantResponse("A1"));
 
       const messages = buildMessages({ message: "Q2", history });
 
       expect(messages).toEqual([
         { role: "user", content: "Q1" },
-        { role: "assistant", content: "A1" },
+        { role: "assistant", content: [{ type: "text", text: "A1" }] },
         { role: "user", content: "Q2" },
       ]);
     });
 
     it("handles multi-turn history", () => {
-      const history = new ConversationHistory();
-      history.append("Q1", "A1");
-      history.append("Q2", "A2");
+      const history = createConversationHistory();
+      history.append("Q1", assistantResponse("A1"));
+      history.append("Q2", assistantResponse("A2"));
 
       const messages = buildMessages({ message: "Q3", history });
 
       expect(messages).toEqual([
         { role: "user", content: "Q1" },
-        { role: "assistant", content: "A1" },
+        { role: "assistant", content: [{ type: "text", text: "A1" }] },
         { role: "user", content: "Q2" },
-        { role: "assistant", content: "A2" },
+        { role: "assistant", content: [{ type: "text", text: "A2" }] },
         { role: "user", content: "Q3" },
       ]);
     });
 
     it("handles empty history", () => {
-      const history = new ConversationHistory();
+      const history = createConversationHistory();
       const messages = buildMessages({ message: "Hello", history });
 
       expect(messages).toEqual([{ role: "user", content: "Hello" }]);
@@ -60,8 +66,8 @@ describe("buildMessages", () => {
 
   describe("prefix messages", () => {
     it("prepends prefix before history", () => {
-      const history = new ConversationHistory();
-      history.append("Q1", "A1");
+      const history = createConversationHistory();
+      history.append("Q1", assistantResponse("A1"));
 
       const messages = buildMessages({
         message: "Q2",
@@ -76,7 +82,7 @@ describe("buildMessages", () => {
         { role: "user", content: "Example Q" },
         { role: "assistant", content: "Example A" },
         { role: "user", content: "Q1" },
-        { role: "assistant", content: "A1" },
+        { role: "assistant", content: [{ type: "text", text: "A1" }] },
         { role: "user", content: "Q2" },
       ]);
     });
@@ -95,37 +101,13 @@ describe("buildMessages", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Suffix messages
-  // ---------------------------------------------------------------------------
-
-  describe("suffix messages", () => {
-    it("inserts suffix after history but before current message", () => {
-      const history = new ConversationHistory();
-      history.append("Q1", "A1");
-
-      const messages = buildMessages({
-        message: "Q2",
-        history,
-        suffix: [{ role: "user", content: "Retrieved context: ..." }],
-      });
-
-      expect(messages).toEqual([
-        { role: "user", content: "Q1" },
-        { role: "assistant", content: "A1" },
-        { role: "user", content: "Retrieved context: ..." },
-        { role: "user", content: "Q2" },
-      ]);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Full composition: prefix + history + suffix + message
+  // Full composition: prefix + history + message
   // ---------------------------------------------------------------------------
 
   describe("full composition", () => {
     it("composes all parts in correct order", () => {
-      const history = new ConversationHistory();
-      history.append("H1", "R1");
+      const history = createConversationHistory();
+      history.append("H1", assistantResponse("R1"));
 
       const messages = buildMessages({
         message: "Current question",
@@ -134,24 +116,20 @@ describe("buildMessages", () => {
           { role: "user", content: "Few-shot Q" },
           { role: "assistant", content: "Few-shot A" },
         ],
-        suffix: [{ role: "user", content: "RAG context" }],
       });
 
       expect(messages).toEqual([
         { role: "user", content: "Few-shot Q" },
         { role: "assistant", content: "Few-shot A" },
         { role: "user", content: "H1" },
-        { role: "assistant", content: "R1" },
-        { role: "user", content: "RAG context" },
+        { role: "assistant", content: [{ type: "text", text: "R1" }] },
         { role: "user", content: "Current question" },
       ]);
     });
   });
 });
 
-// ---------------------------------------------------------------------------
 // resolveSystemPrompt
-// ---------------------------------------------------------------------------
 
 describe("resolveSystemPrompt", () => {
   it("returns undefined when no prompt configured", async () => {
@@ -168,7 +146,7 @@ describe("resolveSystemPrompt", () => {
 
   it("resolves a prompt template", async () => {
     const template = createPromptTemplate({
-      template: "You are {role}, an expert in {lang}.",
+      template: "You are {{ role }}, an expert in {{ lang }}.",
       variables: { role: "a reviewer", lang: "TypeScript" },
     });
 
@@ -180,7 +158,7 @@ describe("resolveSystemPrompt", () => {
 
   it("template overrides work", async () => {
     const template = createPromptTemplate({
-      template: "Expert in {lang}.",
+      template: "Expert in {{ lang }}.",
       variables: { lang: "TypeScript" },
     });
 
@@ -193,7 +171,7 @@ describe("resolveSystemPrompt", () => {
 
   it("template takes precedence over static systemPrompt", async () => {
     const template = createPromptTemplate({
-      template: "From template: {role}",
+      template: "From template: {{ role }}",
       variables: { role: "dynamic" },
     });
 

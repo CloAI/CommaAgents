@@ -1,0 +1,54 @@
+---
+title: Protocol
+description: WebSocket protocol message types for client-daemon communication.
+---
+
+# Protocol
+
+The daemon communicates with clients over WebSocket using a typed, Zod-validated message protocol. Messages are divided into client-to-daemon and daemon-to-client categories.
+
+## Shared Types
+
+### AgentCallResultWire
+
+Wire format for agent call results.
+
+<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="AgentCallResultWire" />
+
+### AgentStreamEventWire
+
+Wire format for agent streaming events.
+
+<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="AgentStreamEventWire" />
+
+### RunSummary
+
+Summary of a completed or in-progress run.
+
+<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="RunSummary" />
+
+### ErrorInfo
+
+Structured error information sent over the wire.
+
+<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="ErrorInfo" />
+
+### Usage
+
+Token usage statistics.
+
+<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="Usage" />
+
+## Credential Types
+
+### ApiCredential
+
+<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="ApiCredential" />
+
+### OAuthCredential
+
+<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="OAuthCredential" />
+
+### CustomCredential
+
+<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="CustomCredential" />

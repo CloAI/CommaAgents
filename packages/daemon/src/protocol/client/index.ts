@@ -20,9 +20,7 @@ import { SubscribeMessage } from "./subscribe";
 import { UnsubscribeMessage } from "./unsubscribe";
 import { UserInputMessage } from "./user-input";
 
-// ---------------------------------------------------------------------------
 // Discriminated union of all client → daemon messages
-// ---------------------------------------------------------------------------
 
 export const ClientMessage = z.discriminatedUnion("type", [
   StartFlowMessage,
@@ -37,9 +35,7 @@ export const ClientMessage = z.discriminatedUnion("type", [
 
 export type ClientMessage = z.infer<typeof ClientMessage>;
 
-// ---------------------------------------------------------------------------
 // Parse helper — validates raw JSON from the WebSocket
-// ---------------------------------------------------------------------------
 
 /**
  * Safely parse an unknown value as a ClientMessage.

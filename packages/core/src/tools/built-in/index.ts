@@ -1,29 +1,29 @@
 // Built-in tools barrel export
 
-export type { BashToolConfig } from "./bash";
-export { createBashTool } from "./bash";
-export { createEditTool } from "./edit";
-export type { GlobToolConfig } from "./glob";
-export { createGlobTool } from "./glob";
-export type { GrepToolConfig } from "./grep";
-export { createGrepTool } from "./grep";
-export type { ReadToolConfig } from "./read";
-export { createReadTool } from "./read";
-export { createWriteTool } from "./write";
+export type { BashToolConfig } from "./bash/bash";
+export { createBashTool } from "./bash/bash";
+export { createEditTool } from "./edit/edit";
+export type { GlobToolConfig } from "./glob/glob";
+export { createGlobTool } from "./glob/glob";
+export type { GrepToolConfig } from "./grep/grep";
+export { createGrepTool } from "./grep/grep";
+export type { ReadToolConfig } from "./read/read";
+export { createReadTool } from "./read/read";
+export { createWriteTool } from "./write/write";
 
 // -- Convenience: create all default tools at once --
 
-import type { ToolDef } from "../tool";
-import type { BashToolConfig } from "./bash";
-import { createBashTool } from "./bash";
-import { createEditTool } from "./edit";
-import type { GlobToolConfig } from "./glob";
-import { createGlobTool } from "./glob";
-import type { GrepToolConfig } from "./grep";
-import { createGrepTool } from "./grep";
-import type { ReadToolConfig } from "./read";
-import { createReadTool } from "./read";
-import { createWriteTool } from "./write";
+import type { ToolDef } from "../tool.types";
+import type { BashToolConfig } from "./bash/bash";
+import { createBashTool } from "./bash/bash";
+import { createEditTool } from "./edit/edit";
+import type { GlobToolConfig } from "./glob/glob";
+import { createGlobTool } from "./glob/glob";
+import type { GrepToolConfig } from "./grep/grep";
+import { createGrepTool } from "./grep/grep";
+import type { ReadToolConfig } from "./read/read";
+import { createReadTool } from "./read/read";
+import { createWriteTool } from "./write/write";
 
 /**
  * Configuration for the default tool set.

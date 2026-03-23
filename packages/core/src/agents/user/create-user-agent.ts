@@ -1,125 +1,28 @@
-// createUserAgent — factory function for human-in-the-loop agents.
+// UserAgent — human-in-the-loop agent.
 //
-// No class needed. Returns an Agent backed by closure state.
-// Uses withAgentHooks() for the shared hook lifecycle.
+// Delegates to createAgent with a custom `execute` override that collects
+// input from the user (interactive or preset) instead of calling an LLM.
 
-import type { AgentHooks } from "../../hooks/types";
-import { withAgentHooks } from "../hooks";
-import type { Agent, AgentCallResult } from "../types";
+import { createAgent } from "../agent/agent";
+import type { Agent } from "../agent/agent.types";
+import type { InputCollector, UserAgentConfig } from "./create-user-agent.types";
+import { defaultInputCollector } from "./create-user-agent.utils";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// Re-export types so existing deep imports continue to work.
+export type {
+  InputCollector,
+  InputRequest,
+  UserAgentConfig,
+} from "./create-user-agent.types";
 
-/**
- * Context passed to the InputCollector when requesting user input.
- * Richer than a bare string — provides agent identity and cancellation.
- */
-export interface InputRequest {
-  /** Name of the agent requesting input. */
-  readonly agentName: string;
-  /** The prompt message to display to the user. */
-  readonly prompt: string;
-  /** Signal for cancellation (e.g., flow was stopped). */
-  readonly signal?: AbortSignal;
-}
-
-/**
- * Function that collects input from the user.
- * The daemon/TUI provides an implementation that bridges to the UI.
- *
- * @example
- * ```ts
- * // Simple CLI collector
- * const collector: InputCollector = async ({ prompt }) => {
- *   return prompt(prompt) ?? "";
- * };
- *
- * // Daemon collector (bridges to WebSocket)
- * const collector: InputCollector = async ({ agentName, prompt, signal }) => {
- *   return wsRequestInput(agentName, prompt, signal);
- * };
- * ```
- */
-export type InputCollector = (request: InputRequest) => Promise<string>;
-
-/** Configuration for creating a user agent. */
-export interface UserAgentConfig {
-  /** Unique name for this agent. */
-  readonly name: string;
-  /**
-   * When true, the agent calls the inputCollector to get user input.
-   * When false, returns `presetMessage` or passes the incoming message through.
-   * @default true
-   */
-  readonly requireInput?: boolean;
-  /**
-   * A preset message to return when `requireInput` is false.
-   * If not set and `requireInput` is false, the incoming message is passed through.
-   */
-  readonly presetMessage?: string;
-  /**
-   * Function that collects input from the user.
-   * Required when `requireInput` is true.
-   * Defaults to reading from stdin via `prompt()`.
-   */
-  readonly inputCollector?: InputCollector;
-  /** Agent lifecycle hooks. */
-  readonly hooks?: AgentHooks;
-  /** AbortSignal for cancellation. */
-  readonly abort?: AbortSignal;
-}
-
-// ---------------------------------------------------------------------------
-// Default input collector — uses Bun/Node prompt (stdin)
-// ---------------------------------------------------------------------------
-
-const defaultInputCollector: InputCollector = async (request: InputRequest): Promise<string> => {
-  // In Bun, `prompt()` is a global that reads from stdin
-  if (typeof globalThis.prompt === "function") {
-    return globalThis.prompt(request.prompt) ?? "";
-  }
-
-  // Fallback: use Node.js readline
-  const { createInterface } = await import("node:readline");
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise<string>((resolve, reject) => {
-    // Support cancellation via AbortSignal
-    if (request.signal?.aborted) {
-      rl.close();
-      reject(new DOMException("Input collection aborted", "AbortError"));
-      return;
-    }
-
-    const onAbort = (): void => {
-      rl.close();
-      reject(new DOMException("Input collection aborted", "AbortError"));
-    };
-
-    request.signal?.addEventListener("abort", onAbort, { once: true });
-
-    rl.question(`${request.prompt}\n> `, (answer) => {
-      request.signal?.removeEventListener("abort", onAbort);
-      rl.close();
-      resolve(answer);
-    });
-  });
-};
-
-// ---------------------------------------------------------------------------
 // createUserAgent
-// ---------------------------------------------------------------------------
 
 /**
  * Create a human-in-the-loop agent.
  *
- * Returns an `Agent` that collects input from the user (or returns a preset
- * message) instead of calling an LLM. Uses the same hook lifecycle as
- * LLM-backed agents via `withAgentHooks()`.
+ * Returns an Agent that collects input from the user (or returns a preset
+ * message) instead of calling an LLM. Supports the full hook lifecycle
+ * by delegating to `createAgent` with a custom `execute` override.
  *
  * @example
  * ```ts
@@ -143,49 +46,22 @@ const defaultInputCollector: InputCollector = async (request: InputRequest): Pro
  * ```
  */
 export function createUserAgent(config: UserAgentConfig): Agent {
-  let firstCall = true;
-
   const requireInput = config.requireInput ?? true;
-  const collector = config.inputCollector ?? defaultInputCollector;
+  const collector: InputCollector = config.inputCollector ?? defaultInputCollector;
 
-  // Core execute function — wrapped by withAgentHooks
-  const execute = async (message: string): Promise<AgentCallResult> => {
-    let response: string;
-
-    if (requireInput) {
-      response = await collector({
-        agentName: config.name,
-        prompt: message,
-        signal: config.abort,
-      });
-    } else {
-      response = config.presetMessage ?? message;
-    }
-
-    return {
-      text: response,
-      steps: [],
-      usage: { promptTokens: 0, completionTokens: 0 },
-      finishReason: "stop",
-    };
-  };
-
-  const hookedCall = withAgentHooks(config.hooks, execute);
-
-  return {
+  return createAgent({
     name: config.name,
-
-    async call(message: string): Promise<AgentCallResult> {
-      const isFirst = firstCall;
-      if (isFirst) {
-        firstCall = false;
+    hooks: config.hooks,
+    abort: config.abort,
+    execute: async (message: string): Promise<string> => {
+      if (requireInput) {
+        return collector({
+          agentName: config.name,
+          prompt: message,
+          signal: config.abort,
+        });
       }
-      const { result } = await hookedCall(message, isFirst);
-      return result;
+      return config.presetMessage ?? message;
     },
-
-    reset(): void {
-      firstCall = true;
-    },
-  };
+  });
 }

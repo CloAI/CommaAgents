@@ -1,0 +1,52 @@
+---
+title: Tools
+description: Tool definition, context, and built-in tools.
+---
+
+# Tools
+
+Tools give agents the ability to interact with the outside world. Each tool is defined with a Zod schema for its parameters and an execute function.
+
+## ToolDef
+
+The interface for defining a tool. Use `defineTool` to create instances.
+
+<AutoTypeTable path="../packages/core/src/tools/tool.ts" name="ToolDef" />
+
+## ToolContext
+
+Context passed to tool execute functions, providing access to the agent and abort signal.
+
+<AutoTypeTable path="../packages/core/src/tools/tool.ts" name="ToolContext" />
+
+## ToolResult
+
+The result returned from a tool execution.
+
+<AutoTypeTable path="../packages/core/src/tools/tool.ts" name="ToolResult" />
+
+## Built-in Tools
+
+Comma Agents ships with a set of built-in tools for common operations.
+
+### DefaultToolsConfig
+
+Configuration for the built-in tool suite.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/index.ts" name="DefaultToolsConfig" />
+
+### BashToolConfig
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/bash.ts" name="BashToolConfig" />
+
+### ReadToolConfig
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/read.ts" name="ReadToolConfig" />
+
+### GlobToolConfig
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/glob.ts" name="GlobToolConfig" />
+
+### GrepToolConfig
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/grep.ts" name="GrepToolConfig" />
