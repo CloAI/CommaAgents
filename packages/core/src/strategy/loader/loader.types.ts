@@ -2,11 +2,26 @@
 
 import type { LanguageModel } from "ai";
 import type { Agent } from "../../agents/agent/agent.types";
-import type { AgentHooks } from "../../agents/hooks/hooks";
-import type { InputCollector } from "../../agents/user/create-user-agent.types";
+import type { InputCollector } from "../../agents/built-in/user/user-agent.types";
+import type { AgentHooks } from "../../agents/hooks/hooks.types";
+import type { Credential, CredentialStore } from "../../credentials/credentials.types";
 import type { FlowHooks } from "../../flows/flow/flow.types";
-import type { ToolDef } from "../../tools/tool.types";
+import type { ToolDefinition } from "../../tools/tool.types";
 import type { Strategy } from "../schema";
+
+// Parsed Model
+
+/** Result of parsing a model string like "openai/gpt-4o". */
+export interface ParsedModel {
+  /** The provider identifier (e.g., "openai", "anthropic"). */
+  readonly providerID: string;
+  /** The model identifier (e.g., "gpt-4o", "claude-sonnet-4-5"). */
+  readonly modelID: string;
+  /** The npm package for the provider, if known. Undefined for custom providers. */
+  readonly packageName: string | undefined;
+}
+
+// Provider Factory
 
 /**
  * A function that creates a LanguageModel from a model ID.
@@ -20,6 +35,30 @@ import type { Strategy } from "../schema";
  */
 export type ProviderFactory = (modelID: string) => LanguageModel;
 
+// Provider Resolver
+
+/**
+ * A function that translates a (providerId, credential) pair into a
+ * ProviderFactory. Allows the strategy loader to auto-resolve credentials
+ * from a CredentialStore and create provider instances on demand.
+ *
+ * Implementations are supplied by the consuming layer (daemon, CLI, examples)
+ * to keep `@ai-sdk/*` imports out of core.
+ *
+ * @example
+ * ```ts
+ * const resolver: ProviderResolver = async (providerId, credential) => {
+ *   if (credential.type !== "api") throw new Error("Only API keys supported");
+ *   const mod = await import(`@ai-sdk/${providerId}`);
+ *   return (modelId) => mod.default({ apiKey: credential.key })(modelId);
+ * };
+ * ```
+ */
+export type ProviderResolver = (
+  providerId: string,
+  credential: Credential,
+) => ProviderFactory | Promise<ProviderFactory>;
+
 /**
  * Options for loading a strategy.
  */
@@ -27,14 +66,37 @@ export interface LoadStrategyOptions {
   /**
    * Map of providerID to factory function.
    * Keys must match the provider portion of model strings (e.g., "openai" for "openai/gpt-4o").
+   *
+   * Optional when `credentialStore` + `providerResolver` are provided —
+   * the loader will auto-resolve credentials and build factories on demand.
+   * When both `providers` and credential-based resolution are available,
+   * explicit `providers` entries take precedence.
    */
-  readonly providers: Readonly<Record<string, ProviderFactory>>;
+  readonly providers?: Readonly<Record<string, ProviderFactory>>;
+
+  /**
+   * Credential store for auto-resolving provider credentials at load time.
+   *
+   * When set alongside `providerResolver`, the loader will:
+   * 1. Extract provider IDs from the strategy's model strings.
+   * 2. Resolve credentials from the store for each provider.
+   * 3. Pass each (providerId, credential) to `providerResolver` to get a factory.
+   *
+   * Providers already present in `providers` are skipped (explicit wins).
+   */
+  readonly credentialStore?: CredentialStore;
+
+  /**
+   * Translates a (providerId, credential) pair into a ProviderFactory.
+   * Required when `credentialStore` is set. Ignored without `credentialStore`.
+   */
+  readonly providerResolver?: ProviderResolver;
 
   /**
    * Custom tools available beyond the built-in set.
    * Keys are tool names that can be referenced in agent definitions.
    */
-  readonly customTools?: Readonly<Record<string, ToolDef>>;
+  readonly customTools?: Readonly<Record<string, ToolDefinition>>;
 
   /**
    * Input collector function for user agents.

@@ -26,7 +26,8 @@
 // systemd, and acts as a plain stderr sink otherwise (but with the prefix
 // format for any syslog-aware collector).
 
-import type { LogEntry, LogLevel, LogSink } from "../types";
+import { isLinux, isSystemd } from "@comma-agents/utils";
+import type { LogEntry, LogLevel, LogSink } from "../logger.types";
 import { formatJsonLine } from "./stderr";
 
 // Syslog severity mapping (RFC 5424)
@@ -37,18 +38,6 @@ const SYSLOG_SEVERITY: Record<LogLevel, number> = {
   info: 6, // Informational
   debug: 7, // Debug
 };
-
-// Platform detection
-
-/** Check if we're running under systemd (journald captures stderr). */
-function isSystemd(): boolean {
-  return !!(process.env.JOURNAL_STREAM || process.env.INVOCATION_ID);
-}
-
-/** Check if we're on Linux. */
-function isLinux(): boolean {
-  return process.platform === "linux";
-}
 
 // SystemSink
 
@@ -77,7 +66,7 @@ export function createSystemSink(options?: { forcePrefix?: boolean }): LogSink {
         const severity = SYSLOG_SEVERITY[entry.level];
         process.stderr.write(`<${severity}>${json}\n`);
       } else {
-        process.stderr.write(json + "\n");
+        process.stderr.write(`${json}\n`);
       }
     },
     flush(): void {

@@ -147,7 +147,7 @@ describe("AgentDefSchema", () => {
         tools: ["bash", "write"],
         useDefaults: true,
         temperature: 0.7,
-        topP: 0.9,
+        topProbability: 0.9,
         maxSteps: 15,
       });
       expect(result.success).toBe(true);
@@ -188,10 +188,10 @@ describe("AgentDefSchema", () => {
       expect(result.success).toBe(false);
     });
 
-    it("rejects topP > 1", () => {
+    it("rejects topProbability > 1", () => {
       const result = AgentDefSchema.safeParse({
         model: "openai/gpt-4o",
-        topP: 1.5,
+        topProbability: 1.5,
       });
       expect(result.success).toBe(false);
     });

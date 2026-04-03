@@ -7,7 +7,7 @@
 // - Windows NSSM routes stderr to a file
 // - Foreground mode → visible in terminal
 
-import type { LogEntry, LogSink } from "../types";
+import type { LogEntry, LogSink } from "../logger.types";
 
 /** Serialize a LogEntry to a single JSON line. */
 function formatJsonLine(entry: LogEntry): string {
@@ -42,7 +42,7 @@ export function createStderrSink(): LogSink {
   return {
     write(entry: LogEntry): void {
       // process.stderr.write is synchronous in Node/Bun — no lost logs on crash
-      process.stderr.write(formatJsonLine(entry) + "\n");
+      process.stderr.write(`${formatJsonLine(entry)}\n`);
     },
     flush(): void {
       // stderr is unbuffered — nothing to flush

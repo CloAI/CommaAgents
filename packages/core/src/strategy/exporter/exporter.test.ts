@@ -3,10 +3,10 @@
 import { describe, expect, it } from "bun:test";
 import type { LanguageModel } from "ai";
 import YAML from "yaml";
-import { exportStrategy } from "./exporter";
 import { loadStrategyFromString } from "../loader/loader";
 import type { LoadStrategyOptions } from "../loader/loader.types";
 import { StrategySchema } from "../schema";
+import { exportStrategy } from "./exporter";
 
 // Mock provider
 
@@ -105,8 +105,8 @@ const COMPLEX_STRATEGY = {
 
 describe("exportStrategy", () => {
   describe("JSON export", () => {
-    it("exports a minimal strategy as valid JSON", () => {
-      const loaded = loadStrategyFromString(
+    it("exports a minimal strategy as valid JSON", async () => {
+      const loaded = await loadStrategyFromString(
         JSON.stringify(MINIMAL_STRATEGY),
         "json",
         defaultOptions(),
@@ -121,8 +121,8 @@ describe("exportStrategy", () => {
       expect(parsed.flow.type).toBe("sequential");
     });
 
-    it("exports a complex strategy as valid JSON", () => {
-      const loaded = loadStrategyFromString(
+    it("exports a complex strategy as valid JSON", async () => {
+      const loaded = await loadStrategyFromString(
         JSON.stringify(COMPLEX_STRATEGY),
         "json",
         defaultOptions(),
@@ -138,8 +138,8 @@ describe("exportStrategy", () => {
       expect(parsed.agents.writer.tools).toEqual(["bash", "write", "edit"]);
     });
 
-    it("uses default format (JSON) when no format specified", () => {
-      const loaded = loadStrategyFromString(
+    it("uses default format (JSON) when no format specified", async () => {
+      const loaded = await loadStrategyFromString(
         JSON.stringify(MINIMAL_STRATEGY),
         "json",
         defaultOptions(),
@@ -150,8 +150,8 @@ describe("exportStrategy", () => {
       expect(() => JSON.parse(output)).not.toThrow();
     });
 
-    it("respects custom indent", () => {
-      const loaded = loadStrategyFromString(
+    it("respects custom indent", async () => {
+      const loaded = await loadStrategyFromString(
         JSON.stringify(MINIMAL_STRATEGY),
         "json",
         defaultOptions(),
@@ -170,8 +170,8 @@ describe("exportStrategy", () => {
   });
 
   describe("YAML export", () => {
-    it("exports a strategy as valid YAML", () => {
-      const loaded = loadStrategyFromString(
+    it("exports a strategy as valid YAML", async () => {
+      const loaded = await loadStrategyFromString(
         JSON.stringify(MINIMAL_STRATEGY),
         "json",
         defaultOptions(),
@@ -185,8 +185,8 @@ describe("exportStrategy", () => {
       expect(parsed.agents.assistant).toBeDefined();
     });
 
-    it("exports a complex strategy as valid YAML", () => {
-      const loaded = loadStrategyFromString(
+    it("exports a complex strategy as valid YAML", async () => {
+      const loaded = await loadStrategyFromString(
         JSON.stringify(COMPLEX_STRATEGY),
         "json",
         defaultOptions(),
@@ -201,9 +201,9 @@ describe("exportStrategy", () => {
   });
 
   describe("round-trip fidelity", () => {
-    it("JSON -> load -> export -> validates against schema", () => {
+    it("JSON -> load -> export -> validates against schema", async () => {
       const original = JSON.stringify(COMPLEX_STRATEGY);
-      const loaded = loadStrategyFromString(original, "json", defaultOptions());
+      const loaded = await loadStrategyFromString(original, "json", defaultOptions());
       const exported = exportStrategy(loaded);
       const reparsed = JSON.parse(exported);
 
@@ -211,11 +211,11 @@ describe("exportStrategy", () => {
       expect(result.success).toBe(true);
     });
 
-    it("JSON -> load -> export JSON -> load again produces same structure", () => {
+    it("JSON -> load -> export JSON -> load again produces same structure", async () => {
       const original = JSON.stringify(COMPLEX_STRATEGY);
-      const loaded1 = loadStrategyFromString(original, "json", defaultOptions());
+      const loaded1 = await loadStrategyFromString(original, "json", defaultOptions());
       const exported = exportStrategy(loaded1);
-      const loaded2 = loadStrategyFromString(exported, "json", defaultOptions());
+      const loaded2 = await loadStrategyFromString(exported, "json", defaultOptions());
 
       expect(loaded2.name).toBe(loaded1.name);
       expect(loaded2.version).toBe(loaded1.version);
@@ -224,11 +224,11 @@ describe("exportStrategy", () => {
       expect(loaded2.flow.name).toBe(loaded1.flow.name);
     });
 
-    it("JSON -> load -> export YAML -> load produces same structure", () => {
+    it("JSON -> load -> export YAML -> load produces same structure", async () => {
       const original = JSON.stringify(COMPLEX_STRATEGY);
-      const loaded1 = loadStrategyFromString(original, "json", defaultOptions());
+      const loaded1 = await loadStrategyFromString(original, "json", defaultOptions());
       const yamlStr = exportStrategy(loaded1, { format: "yaml" });
-      const loaded2 = loadStrategyFromString(yamlStr, "yaml", defaultOptions());
+      const loaded2 = await loadStrategyFromString(yamlStr, "yaml", defaultOptions());
 
       expect(loaded2.name).toBe(loaded1.name);
       expect(loaded2.version).toBe(loaded1.version);
@@ -236,7 +236,7 @@ describe("exportStrategy", () => {
       expect(loaded2.flow.name).toBe(loaded1.flow.name);
     });
 
-    it("YAML -> load -> export JSON -> validates", () => {
+    it("YAML -> load -> export JSON -> validates", async () => {
       const yaml = `
 name: YAML Test
 version: "1.0"
@@ -250,7 +250,7 @@ flow:
   steps:
     - agent: assistant
 `;
-      const loaded = loadStrategyFromString(yaml, "yaml", defaultOptions());
+      const loaded = await loadStrategyFromString(yaml, "yaml", defaultOptions());
       const json = exportStrategy(loaded, { format: "json" });
       const reparsed = JSON.parse(json);
 
@@ -258,7 +258,7 @@ flow:
       expect(result.success).toBe(true);
     });
 
-    it("preserves nested flow structures through round-trip", () => {
+    it("preserves nested flow structures through round-trip", async () => {
       const strategy = {
         name: "Nested",
         version: "1.0",
@@ -281,7 +281,11 @@ flow:
         },
       };
 
-      const loaded = loadStrategyFromString(JSON.stringify(strategy), "json", defaultOptions());
+      const loaded = await loadStrategyFromString(
+        JSON.stringify(strategy),
+        "json",
+        defaultOptions(),
+      );
       const exported = exportStrategy(loaded);
       const reparsed = JSON.parse(exported);
 

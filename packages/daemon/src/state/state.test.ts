@@ -77,7 +77,7 @@ describe("DaemonState — runs", () => {
     const state = createDaemonState();
     const run = state.createRun("/p.json", "s");
     state.updateRun(run.id, { status: "running" });
-    expect(state.getRun(run.id)!.status).toBe("running");
+    expect(state.getRun(run.id)?.status).toBe("running");
   });
 
   test("updateRun sets completedAt", () => {
@@ -85,14 +85,14 @@ describe("DaemonState — runs", () => {
     const run = state.createRun("/p.json", "s");
     const now = new Date();
     state.updateRun(run.id, { status: "completed", completedAt: now });
-    expect(state.getRun(run.id)!.completedAt).toBe(now);
+    expect(state.getRun(run.id)?.completedAt).toBe(now);
   });
 
   test("updateRun sets result", () => {
     const state = createDaemonState();
     const run = state.createRun("/p.json", "s");
     state.updateRun(run.id, { status: "completed", result: mockResult });
-    expect(state.getRun(run.id)!.result).toBe(mockResult);
+    expect(state.getRun(run.id)?.result).toBe(mockResult);
   });
 
   test("updateRun sets error", () => {
@@ -100,7 +100,7 @@ describe("DaemonState — runs", () => {
     const run = state.createRun("/p.json", "s");
     const error = { code: "EXEC_FAILED", message: "Agent crashed" };
     state.updateRun(run.id, { status: "error", error });
-    expect(state.getRun(run.id)!.error).toEqual(error);
+    expect(state.getRun(run.id)?.error).toEqual(error);
   });
 
   test("updateRun can update multiple fields at once", () => {
@@ -123,8 +123,8 @@ describe("DaemonState — runs", () => {
     const run = state.createRun("/p.json", "s");
     state.updateRun(run.id, { status: "running" });
     // completedAt and result should still be undefined
-    expect(state.getRun(run.id)!.completedAt).toBeUndefined();
-    expect(state.getRun(run.id)!.result).toBeUndefined();
+    expect(state.getRun(run.id)?.completedAt).toBeUndefined();
+    expect(state.getRun(run.id)?.result).toBeUndefined();
   });
 
   test("updateRun throws for nonexistent run", () => {
@@ -153,15 +153,15 @@ describe("DaemonState — runs", () => {
     expect(run.status).toBe("pending");
 
     state.updateRun(run.id, { status: "running" });
-    expect(state.getRun(run.id)!.status).toBe("running");
+    expect(state.getRun(run.id)?.status).toBe("running");
 
     state.updateRun(run.id, {
       status: "completed",
       completedAt: new Date(),
       result: mockResult,
     });
-    expect(state.getRun(run.id)!.status).toBe("completed");
-    expect(state.getRun(run.id)!.result).toBe(mockResult);
+    expect(state.getRun(run.id)?.status).toBe("completed");
+    expect(state.getRun(run.id)?.result).toBe(mockResult);
   });
 
   test("full run lifecycle: pending → running → error", () => {
@@ -173,8 +173,8 @@ describe("DaemonState — runs", () => {
       completedAt: new Date(),
       error: { code: "TIMEOUT", message: "Timed out" },
     });
-    expect(state.getRun(run.id)!.status).toBe("error");
-    expect(state.getRun(run.id)!.error!.code).toBe("TIMEOUT");
+    expect(state.getRun(run.id)?.status).toBe("error");
+    expect(state.getRun(run.id)?.error?.code).toBe("TIMEOUT");
   });
 
   test("full run lifecycle: pending → running → cancelled", () => {
@@ -182,7 +182,7 @@ describe("DaemonState — runs", () => {
     const run = state.createRun("/p.json", "s");
     state.updateRun(run.id, { status: "running" });
     state.updateRun(run.id, { status: "cancelled", completedAt: new Date() });
-    expect(state.getRun(run.id)!.status).toBe("cancelled");
+    expect(state.getRun(run.id)?.status).toBe("cancelled");
   });
 });
 

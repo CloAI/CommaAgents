@@ -10,8 +10,8 @@
 
 import type { Agent } from "../../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../../errors/index";
-import type { TransformHook } from "../../../hooks/types";
-import { runTransformHooks } from "../../../hooks/types";
+import type { TransformHook } from "../../../hooks";
+import { runTransformHooks } from "../../../hooks";
 import type { HookStore } from "../../flow/flow";
 import { buildFlowAgent } from "../../flow/flow";
 import type { CycleFlowConfig, CycleHooks } from "../../flow/flow.types";
@@ -78,6 +78,7 @@ export function createCycleFlow(config: CycleFlowConfig): Agent {
   // If observer is provided, prepend it as the first alterMessageAfterCycle hook.
   if (config.observer) {
     const observerHook: TransformHook<string> = async (message: string): Promise<string> => {
+      // Observer is guaranteed non-null by the enclosing `if` guard.
       const result = await config.observer!.call(message);
       return result.text;
     };
@@ -89,14 +90,14 @@ export function createCycleFlow(config: CycleFlowConfig): Agent {
     config,
     "cycle",
     store,
-    async (steps, message, ctx) => {
+    async (steps, message, flowContext) => {
       let current = message;
 
       for (let cycle = 0; cycle < cycles; cycle++) {
         // Yield to the event loop between cycles so that abort signals
         // scheduled via setTimeout (or other macrotasks) get a chance to fire.
         if (cycle > 0) {
-          await new Promise<void>((r) => setTimeout(r, 0));
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
         }
 
         // Check abort before each cycle
@@ -109,7 +110,7 @@ export function createCycleFlow(config: CycleFlowConfig): Agent {
 
         // Run all steps sequentially within this cycle
         for (const step of steps) {
-          const result = await ctx.runStep(step, current);
+          const result = await flowContext.runStep(step, current);
           current = result.text;
         }
 

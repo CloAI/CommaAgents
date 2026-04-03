@@ -5,7 +5,7 @@
 
 import type { Agent } from "../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../errors/index";
-import { runSideEffectHooks, runTransformHooks } from "../../hooks/types";
+import { runSideEffectHooks, runTransformHooks } from "../../hooks";
 import type {
   CustomFlowConfig,
   FlowConfig,
@@ -29,7 +29,9 @@ import { buildFlowResult, createFlowContext } from "./flow.utils";
  * // store.beforeFlow = [...(store.beforeFlow ?? []), newHook]; — assignable
  * ```
  */
-export type HookStore<H extends FlowHooks = FlowHooks> = { -readonly [K in keyof H]: H[K] };
+export type HookStore<HookType extends FlowHooks = FlowHooks> = {
+  -readonly [HookKey in keyof HookType]: HookType[HookKey];
+};
 
 // buildFlowAgent — the workhorse
 
@@ -58,21 +60,21 @@ export type HookStore<H extends FlowHooks = FlowHooks> = { -readonly [K in keyof
  *   config,
  *   "pipeline",
  *   { ...config.hooks },
- *   async (steps, message, ctx) => {
+ *   async (steps, message, context) => {
  *     let current = message;
  *     for (const step of steps) {
- *       const r = await ctx.runStep(step, current);
- *       current = r.text;
+ *       const result = await context.runStep(step, current);
+ *       current = result.text;
  *     }
  *     return current;
  *   },
  * );
  * ```
  */
-export function buildFlowAgent<H extends FlowHooks = FlowHooks>(
+export function buildFlowAgent<HookType extends FlowHooks = FlowHooks>(
   config: FlowConfig,
   typeName: string,
-  store: HookStore<H>,
+  store: HookStore<HookType>,
   executor: FlowExecutor,
   onReset?: () => void,
 ): Agent {
@@ -84,7 +86,7 @@ export function buildFlowAgent<H extends FlowHooks = FlowHooks>(
   // flow-level hooks (beforeFlow, afterFlow, etc.) are accessible directly.
   // For sub-type hooks (e.g. CycleHooks' alterMessageBeforeCycle), the
   // executor reads from the store directly with full type safety.
-  const hooks: HookStore<H> = store;
+  const hooks: HookStore<HookType> = store;
 
   const agent = {
     name: config.name,
@@ -97,9 +99,9 @@ export function buildFlowAgent<H extends FlowHooks = FlowHooks>(
       await runSideEffectHooks(hooks.beforeFlow, alteredMessage);
 
       // 3. Execute the flow
-      const ctx = createFlowContext(config.name, config.abort, hooks);
-      const text = await executor(config.steps, alteredMessage, ctx);
-      const result = buildFlowResult(text, ctx.results);
+      const flowContext = createFlowContext(config.name, config.abort, hooks);
+      const text = await executor(config.steps, alteredMessage, flowContext);
+      const result = buildFlowResult(text, flowContext.results);
 
       // 4. After flow (side-effect)
       await runSideEffectHooks(hooks.afterFlow, result.text);
@@ -119,7 +121,7 @@ export function buildFlowAgent<H extends FlowHooks = FlowHooks>(
 
     /** Append a hook callback to this flow's lifecycle. */
     appendHook(hookName: string, callback: unknown): void {
-      const key = hookName as keyof H;
+      const key = hookName as keyof HookType;
       const existing = (store[key] ?? []) as readonly unknown[];
       (store as Record<string, unknown>)[hookName] = [...existing, callback];
     },
@@ -143,11 +145,11 @@ export function buildFlowAgent<H extends FlowHooks = FlowHooks>(
  * const flow = createFlow({
  *   name: "my-custom",
  *   steps: [agentA, agentB],
- *   execute: async (steps, message, ctx) => {
- *     const r1 = await ctx.runStep(steps[0], message);
- *     if (r1.text.includes("DONE")) return r1.text;
- *     const r2 = await ctx.runStep(steps[1], r1.text);
- *     return r2.text;
+ *   execute: async (steps, message, context) => {
+ *     const firstResult = await context.runStep(steps[0], message);
+ *     if (firstResult.text.includes("DONE")) return firstResult.text;
+ *     const secondResult = await context.runStep(steps[1], firstResult.text);
+ *     return secondResult.text;
  *   },
  * });
  * ```

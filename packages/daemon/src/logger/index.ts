@@ -13,5 +13,5 @@ export type {
   Logger,
   LogLevel,
   LogSink,
-} from "./types";
-export { LOG_LEVELS } from "./types";
+} from "./logger.types";
+export { LOG_LEVELS } from "./logger.types";

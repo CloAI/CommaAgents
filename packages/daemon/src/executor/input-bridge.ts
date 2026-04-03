@@ -148,7 +148,7 @@ export function createInputBridge(options: CreateInputBridgeOptions): InputBridg
     destroyed = true;
     const error = new DOMException("Input bridge destroyed", "AbortError");
 
-    for (const [agentName, entry] of pending) {
+    for (const [_agentName, entry] of pending) {
       if (entry.timer) clearTimeout(entry.timer);
       if (entry.abortHandler && abort) {
         abort.removeEventListener("abort", entry.abortHandler);

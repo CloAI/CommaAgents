@@ -6,7 +6,7 @@
 // Supports both AgentHooks (lifecycle) and ToolHooks (tool execution).
 
 import type { Agent } from "../agent/agent.types";
-import type { AgentHooks, ToolHooks } from "../hooks/hooks";
+import type { AgentHooks, ToolHooks } from "../hooks";
 
 // hookIntoAgent
 
@@ -30,7 +30,7 @@ import type { AgentHooks, ToolHooks } from "../hooks/hooks";
  * const agent = createAgent({ name: "llm", model: openai("gpt-4o") });
  *
  * hookIntoAgent(agent, {
- *   beforeCall: [async (msg) => console.log("calling with:", msg)],
+ *   beforeCall: [async (message) => console.log("calling with:", message)],
  *   alterResponse: [async (text) => text.toUpperCase()],
  *   beforeToolCall: [async ({ name, args }) => console.log(`tool: ${name}`)],
  * });
@@ -53,8 +53,8 @@ export function hookIntoAgent(agent: Agent, hooks: AgentHooks & ToolHooks): Agen
 
   for (const [name, callbacks] of Object.entries(hooks)) {
     if (callbacks) {
-      for (const cb of callbacks as readonly unknown[]) {
-        appendHook(name, cb);
+      for (const hookCallback of callbacks as readonly unknown[]) {
+        appendHook(name, hookCallback);
       }
     }
   }

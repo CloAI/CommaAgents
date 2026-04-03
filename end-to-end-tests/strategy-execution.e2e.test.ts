@@ -99,7 +99,7 @@ describe("E2E: Strategy Execution", () => {
         { text: "Tool returned: processed: hello" },
       ]);
 
-      const loaded = loadStrategyFromString(strategyJson, "json", {
+      const loaded = await loadStrategyFromString(strategyJson, "json", {
         providers,
         customTools: { "my-tool": myTool },
       });
@@ -118,7 +118,7 @@ describe("E2E: Strategy Execution", () => {
   // -----------------------------------------------------------------------
 
   describe("strategy with nested flows", () => {
-    it("should load YAML strategy with nested sequential + broadcast flows", () => {
+    it("should load YAML strategy with nested sequential + broadcast flows", async () => {
       const yaml = `
 name: nested-flows
 version: "1.0"
@@ -152,7 +152,7 @@ flow:
         summarizer: ["Final summary"],
       });
 
-      const loaded = loadStrategyFromString(yaml, "yaml", { providers });
+      const loaded = await loadStrategyFromString(yaml, "yaml", { providers });
 
       expect(loaded.name).toBe("nested-flows");
       expect(Object.keys(loaded.agents)).toEqual([
@@ -185,7 +185,7 @@ flow:
         editor: ["Polished final article"],
       });
 
-      const loaded = loadStrategyFromString(yaml, "yaml", { providers });
+      const loaded = await loadStrategyFromString(yaml, "yaml", { providers });
       const result = await loaded.flow.call("Write an article");
 
       expect(result.text).toBe("Polished final article");
@@ -213,7 +213,7 @@ flow:
         critic: ["Feedback v1", "Feedback v2"],
       });
 
-      const loaded = loadStrategyFromString(json, "json", { providers });
+      const loaded = await loadStrategyFromString(json, "json", { providers });
       const result = await loaded.flow.call("Write something");
 
       // After 2 cycles with an observer, result should be defined
@@ -256,7 +256,7 @@ flow:
         "custom-model": ["Custom model response"],
       });
 
-      const loaded = loadStrategyFromString(json, "json", { providers });
+      const loaded = await loadStrategyFromString(json, "json", { providers });
 
       expect(loaded.agents.agent1).toBeDefined();
       expect(loaded.agents.agent2).toBeDefined();
@@ -291,13 +291,13 @@ flow:
         default: ["Response with overridden prompt"],
       });
 
-      const loaded = loadStrategyFromString(json, "json", { providers });
+      const loaded = await loadStrategyFromString(json, "json", { providers });
       const result = await loaded.flow.call("Test");
 
       expect(result.text).toBe("Response with overridden prompt");
     });
 
-    it("should fail if agent has no model and useDefaults is false", () => {
+    it("should fail if agent has no model and useDefaults is false", async () => {
       const json = JSON.stringify({
         name: "no-model",
         version: "1.0",
@@ -315,9 +315,9 @@ flow:
 
       const providers = createMockProviders({});
 
-      expect(() => {
-        loadStrategyFromString(json, "json", { providers });
-      }).toThrow(/model/i);
+      await expect(
+        loadStrategyFromString(json, "json", { providers }),
+      ).rejects.toThrow(/model/i);
     });
   });
 
@@ -353,7 +353,7 @@ flow:
         worker: ["Here is my analysis."],
       });
 
-      const loaded = loadStrategyFromString(json, "json", { providers });
+      const loaded = await loadStrategyFromString(json, "json", { providers });
 
       expect(loaded.agents.user).toBeDefined();
       expect(loaded.agents.user!.name).toBe("user");
@@ -404,7 +404,7 @@ flow:
         { text: "3 + 4 = 7" },
       ]);
 
-      const loaded = loadStrategyFromString(json, "json", {
+      const loaded = await loadStrategyFromString(json, "json", {
         providers,
         customTools: { calculator },
       });
@@ -413,7 +413,7 @@ flow:
       expect(result.text).toBe("3 + 4 = 7");
     });
 
-    it("should fail when referencing an unknown tool", () => {
+    it("should fail when referencing an unknown tool", async () => {
       const json = JSON.stringify({
         name: "unknown-tool",
         version: "1.0",
@@ -432,9 +432,9 @@ flow:
 
       const providers = createMockProviders({ model: ["Response"] });
 
-      expect(() => {
-        loadStrategyFromString(json, "json", { providers });
-      }).toThrow(/nonexistent-tool/);
+      await expect(
+        loadStrategyFromString(json, "json", { providers }),
+      ).rejects.toThrow(/nonexistent-tool/);
     });
   });
 
@@ -477,7 +477,7 @@ flow:
         model: ["Response 1", "Response 2"],
       });
 
-      const loaded = loadStrategyFromString(json, "json", {
+      const loaded = await loadStrategyFromString(json, "json", {
         providers,
         agentHooks,
       });
@@ -527,7 +527,7 @@ flow:
         model: ["Response"],
       });
 
-      const loaded = loadStrategyFromString(json, "json", {
+      const loaded = await loadStrategyFromString(json, "json", {
         providers,
         flowHooks,
       });
@@ -577,7 +577,7 @@ flow:
         });
 
       // First load
-      const loaded1 = loadStrategyFromString(originalJson, "json", {
+      const loaded1 = await loadStrategyFromString(originalJson, "json", {
         providers: makeProviders(),
       });
 
@@ -585,7 +585,7 @@ flow:
       const exported = exportStrategy(loaded1, { format: "json" });
 
       // Reload from exported
-      const loaded2 = loadStrategyFromString(exported, "json", {
+      const loaded2 = await loadStrategyFromString(exported, "json", {
         providers: makeProviders(),
       });
 
@@ -620,13 +620,13 @@ flow:
           model: ["YAML response"],
         });
 
-      const loaded1 = loadStrategyFromString(originalYaml, "yaml", {
+      const loaded1 = await loadStrategyFromString(originalYaml, "yaml", {
         providers: makeProviders(),
       });
 
       const exportedYaml = exportStrategy(loaded1, { format: "yaml" });
 
-      const loaded2 = loadStrategyFromString(exportedYaml, "yaml", {
+      const loaded2 = await loadStrategyFromString(exportedYaml, "yaml", {
         providers: makeProviders(),
       });
 
@@ -654,7 +654,7 @@ flow:
       const makeProviders = () => createMockProviders({ model: ["Cross-format response"] });
 
       // Load from JSON
-      const loaded1 = loadStrategyFromString(originalJson, "json", {
+      const loaded1 = await loadStrategyFromString(originalJson, "json", {
         providers: makeProviders(),
       });
 
@@ -662,7 +662,7 @@ flow:
       const yaml = exportStrategy(loaded1, { format: "yaml" });
 
       // Reload from YAML
-      const loaded2 = loadStrategyFromString(yaml, "yaml", {
+      const loaded2 = await loadStrategyFromString(yaml, "yaml", {
         providers: makeProviders(),
       });
 
@@ -670,7 +670,7 @@ flow:
       const json2 = exportStrategy(loaded2, { format: "json" });
 
       // Reload from JSON again
-      const loaded3 = loadStrategyFromString(json2, "json", {
+      const loaded3 = await loadStrategyFromString(json2, "json", {
         providers: makeProviders(),
       });
 
@@ -686,24 +686,24 @@ flow:
   // -----------------------------------------------------------------------
 
   describe("validation errors", () => {
-    it("should reject invalid JSON", () => {
+    it("should reject invalid JSON", async () => {
       const providers = createMockProviders({});
-      expect(() => {
-        loadStrategyFromString("not valid json", "json", { providers });
-      }).toThrow(/parse/i);
+      await expect(
+        loadStrategyFromString("not valid json", "json", { providers }),
+      ).rejects.toThrow(/parse/i);
     });
 
-    it("should reject strategy missing required fields", () => {
+    it("should reject strategy missing required fields", async () => {
       const json = JSON.stringify({
         // Missing name, version, agents, flow
       });
       const providers = createMockProviders({});
-      expect(() => {
-        loadStrategyFromString(json, "json", { providers });
-      }).toThrow(/validation/i);
+      await expect(
+        loadStrategyFromString(json, "json", { providers }),
+      ).rejects.toThrow(/validation/i);
     });
 
-    it("should reject agent referencing unknown provider", () => {
+    it("should reject agent referencing unknown provider", async () => {
       const json = JSON.stringify({
         name: "bad-provider",
         version: "1.0",
@@ -718,12 +718,12 @@ flow:
       });
 
       const providers = createMockProviders({});
-      expect(() => {
-        loadStrategyFromString(json, "json", { providers });
-      }).toThrow(/unknown-provider/i);
+      await expect(
+        loadStrategyFromString(json, "json", { providers }),
+      ).rejects.toThrow(/unknown-provider/i);
     });
 
-    it("should reject flow referencing undefined agent", () => {
+    it("should reject flow referencing undefined agent", async () => {
       const json = JSON.stringify({
         name: "bad-ref",
         version: "1.0",
@@ -738,9 +738,9 @@ flow:
       });
 
       const providers = createMockProviders({ model: ["Response"] });
-      expect(() => {
-        loadStrategyFromString(json, "json", { providers });
-      }).toThrow(/nonexistent/);
+      await expect(
+        loadStrategyFromString(json, "json", { providers }),
+      ).rejects.toThrow(/nonexistent/);
     });
   });
 });

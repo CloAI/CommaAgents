@@ -7,14 +7,20 @@
 
 import { generateText, streamText } from "ai";
 import { AgentCallError } from "../../errors/index";
-import type { SideEffectHook, TransformHook } from "../../hooks/types";
-import { runSideEffectHooks, runTransformHooks } from "../../hooks/types";
+import type { SideEffectHook, TransformHook } from "../../hooks";
+import { runSideEffectHooks, runTransformHooks } from "../../hooks";
 import { createConversationHistory } from "../../prompts/history/conversation-history";
 import type { ConversationTurn, ModelMessage, ResponseMessage } from "../../prompts/types";
-import type { Agent, AgentConfig, AgentStreamEvent, LLMCallResult } from "./agent.types";
+import type { ToolHooks } from "../hooks";
+import { resolveHook } from "../hooks";
+import type {
+  Agent,
+  AgentCallResult,
+  AgentConfig,
+  AgentStreamEvent,
+  LLMCallResult,
+} from "./agent.types";
 import { buildCallOptions, buildStreamCallResult, mapStreamPart } from "./agent.utils";
-import type { ToolHooks } from "../hooks/hooks";
-import { resolveHook } from "../hooks/hooks";
 
 // createAgent
 
@@ -61,6 +67,7 @@ export function createAgent(config: AgentConfig): Agent {
     beforeCall: Array<SideEffectHook<string>> | undefined;
     afterCall: Array<SideEffectHook<string>> | undefined;
     alterResponse: Array<TransformHook<string>> | undefined;
+    afterCallResult: Array<SideEffectHook<AgentCallResult>> | undefined;
     onStreamEvent: Array<SideEffectHook<AgentStreamEvent>> | undefined;
     beforeToolCall:
       | Array<SideEffectHook<{ readonly name: string; readonly args: string }>>
@@ -93,6 +100,7 @@ export function createAgent(config: AgentConfig): Agent {
     beforeCall: config.hooks?.beforeCall ? [...config.hooks.beforeCall] : undefined,
     afterCall: config.hooks?.afterCall ? [...config.hooks.afterCall] : undefined,
     alterResponse: config.hooks?.alterResponse ? [...config.hooks.alterResponse] : undefined,
+    afterCallResult: config.hooks?.afterCallResult ? [...config.hooks.afterCallResult] : undefined,
     onStreamEvent: config.hooks?.onStreamEvent ? [...config.hooks.onStreamEvent] : undefined,
     beforeToolCall: config.toolHooks?.beforeToolCall
       ? [...config.toolHooks.beforeToolCall]
@@ -105,9 +113,9 @@ export function createAgent(config: AgentConfig): Agent {
   // -- Internal helpers --
 
   function consumeFirstCall(): boolean {
-    const was = firstCall;
-    if (was) firstCall = false;
-    return was;
+    const wasFirstCall = firstCall;
+    if (wasFirstCall) firstCall = false;
+    return wasFirstCall;
   }
 
   /** Build a ToolHooks view from the mutable store for passing to buildCallOptions. */
@@ -175,17 +183,17 @@ export function createAgent(config: AgentConfig): Agent {
     try {
       let result: LLMCallResult;
       if (config.execute) {
-        const raw = await config.execute(message);
-        if (typeof raw === "string") {
+        const rawExecuteResult = await config.execute(message);
+        if (typeof rawExecuteResult === "string") {
           result = {
-            text: raw,
-            responseMessages: [{ role: "assistant", content: raw }],
+            text: rawExecuteResult,
+            responseMessages: [{ role: "assistant", content: rawExecuteResult }],
             steps: [],
             usage: { promptTokens: 0, completionTokens: 0 },
             finishReason: "stop",
           };
         } else {
-          result = raw;
+          result = rawExecuteResult;
         }
       } else if (config.stream) {
         result = await callStream(message);
@@ -226,12 +234,14 @@ export function createAgent(config: AgentConfig): Agent {
       );
       // 3. Execute
       const result = await execute(alteredMessage);
-      // 4. After call
+      // 4. After call (text only — legacy)
       await runSideEffectHooks(
         resolveHook(hooks.afterInitialCall, hooks.afterCall, isFirst),
         result.text,
       );
-      // 5. Alter response
+      // 5. After call result (full result with usage)
+      await runSideEffectHooks(hooks.afterCallResult, result);
+      // 6. Alter response
       const alteredText = await runTransformHooks(
         resolveHook(hooks.alterInitialResponse, hooks.alterResponse, isFirst),
         result.text,
@@ -279,6 +289,17 @@ export function createAgent(config: AgentConfig): Agent {
       const responseMessages: readonly ResponseMessage[] = response.messages;
 
       await runSideEffectHooks(resolveHook(hooks.afterInitialCall, hooks.afterCall, isFirst), text);
+
+      // afterCallResult — full result with usage for token tracking
+      const streamCallResult = buildStreamCallResult(
+        text,
+        responseMessages,
+        steps,
+        totalUsage,
+        await streamResult.finishReason,
+      );
+      await runSideEffectHooks(hooks.afterCallResult, streamCallResult);
+
       const alteredText = await runTransformHooks(
         resolveHook(hooks.alterInitialResponse, hooks.alterResponse, isFirst),
         text,
@@ -288,13 +309,7 @@ export function createAgent(config: AgentConfig): Agent {
 
       const doneEvent: AgentStreamEvent = {
         type: "done",
-        result: buildStreamCallResult(
-          alteredText,
-          responseMessages,
-          steps,
-          totalUsage,
-          await streamResult.finishReason,
-        ),
+        result: { ...streamCallResult, text: alteredText },
       };
 
       if (streamEventHooks && streamEventHooks.length > 0) {
@@ -317,13 +332,13 @@ export function createAgent(config: AgentConfig): Agent {
       if (!(hookName in hooks)) {
         throw new Error(`Unknown hook name: "${hookName}"`);
       }
-      const key = hookName as keyof typeof hooks;
-      const arr = hooks[key];
-      if (arr) {
-        (arr as unknown[]).push(callback);
+      const hookStoreKey = hookName as keyof typeof hooks;
+      const existingHooks = hooks[hookStoreKey];
+      if (existingHooks) {
+        (existingHooks as unknown[]).push(callback);
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic hook store
-        (hooks as any)[key] = [callback];
+        (hooks as any)[hookStoreKey] = [callback];
       }
     },
 

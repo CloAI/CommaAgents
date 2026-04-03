@@ -1,6 +1,6 @@
 ---
 name: ts-patterns
-description: TypeScript coding conventions for this monorepo — file naming, module structure, factory patterns, type separation, commenting style, and test organization
+description: TypeScript coding conventions for this monorepo — file naming, module structure, factory patterns, type separation, variable naming, commenting style, and test organization
 ---
 
 ## Overview
@@ -73,6 +73,31 @@ parsers/
   xml/xml-parser.ts
 ```
 
+### Built-in subdomains
+
+Both tools and hooks use a `built-in/` subdirectory for self-contained, first-party implementations. Each built-in is its own domain folder with the standard file layout:
+
+```
+hooks/
+  index.ts                  # shared hook infrastructure (SideEffectHook, TransformHook, runners)
+  types.test.ts
+  built-in/
+    token-tracking/
+      token-tracking.ts             # createTokenTracker() + useTokenTracking() factories
+      token-tracking.types.ts       # TokenTracker, TokenSnapshot, UseTokenTrackingConfig, etc.
+      token-tracking.constants.ts   # MODEL_CATALOG
+      token-tracking.test.ts
+      index.ts                      # barrel
+
+tools/
+  built-in/
+    bash/bash.ts
+    glob/glob.ts
+    ...
+```
+
+A built-in hook groups its factory, types, constants, and tests together as one contained domain of functionality, even when it re-uses shared hook types from the parent `hooks/` module.
+
 ---
 
 ## Index Barrel Pattern
@@ -137,8 +162,8 @@ export interface SchedulerConfig {
 
 ### Collections use `Readonly` wrappers
 
-- Maps: `Readonly<Record<string, T>>`
-- Arrays: `ReadonlyArray<T>` or `readonly T[]`
+- Maps: `Readonly<Record<string, ValueType>>`
+- Arrays: `ReadonlyArray<ElementType>` or `readonly ElementType[]`
 
 ```ts
 readonly steps: ReadonlyArray<Task>;
@@ -205,6 +230,104 @@ export interface RetryConfig extends BaseConfig {
 
 ---
 
+## Variable and Parameter Naming
+
+### Every name must be descriptive — no abbreviations, no single letters
+
+All variables, parameters, function names, and generic type parameters must use **full, descriptive words**. Names should be two to three words that clearly communicate intent. Single-letter names and abbreviations are prohibited everywhere — including loop variables, callbacks, generics, and destructured parameters.
+
+### Prohibited patterns
+
+| Banned | Replacement | Why |
+|---|---|---|
+| `fn` | `callbackFunction`, `hookFunction` | What kind of function? |
+| `ctx` | `flowContext`, `toolContext` | Context of what? |
+| `cb` | `completionCallback` | Callback for what? |
+| `e`, `err` | `caughtError`, `validationError` | What error? |
+| `i`, `j`, `k` | `stepIndex`, `retryIndex` | Index of what? |
+| `n`, `x`, `v` | `retryCount`, `offsetValue` | Meaningless |
+| `el`, `item` | `agentDefinition`, `toolEntry` | Element/item of what? |
+| `res`, `req` | `serverResponse`, `clientRequest` | Spell it out |
+| `msg` | `errorMessage`, `userMessage` | Message about what? |
+| `proc` | `processor` | Just spell it out |
+| `opts` | `resolvedOptions` | Spell it out |
+| `args` | `toolArguments`, `parsedArguments` | Arguments for what? |
+| `T`, `K`, `V` | `ElementType`, `KeyType`, `ValueType` | Describe the role |
+
+### Rules
+
+1. **Minimum two words** for local variables and parameters — unless the full meaning is a single complete word (e.g., `name`, `steps`, `model`, `result`, `error`). Single complete words are acceptable; single letters and abbreviations are not.
+2. **Full words only** — never truncate (`arg` → `argument`, `config` is acceptable as it is a widely understood complete word in this codebase).
+3. **Generic type parameters** use descriptive PascalCase names, not single letters:
+
+```ts
+// Correct
+type EntryMap<KeyType extends string, ValueType> = Readonly<Record<KeyType, ValueType>>;
+function wrapArray<ElementType>(items: ReadonlyArray<ElementType>): ElementType[];
+
+// Wrong
+type EntryMap<K extends string, V> = Readonly<Record<K, V>>;
+function wrapArray<T>(items: ReadonlyArray<T>): T[];
+```
+
+4. **Loop variables** describe what they iterate:
+
+```ts
+// Correct
+for (const agentDefinition of agentDefinitions) { ... }
+for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) { ... }
+
+// Wrong
+for (const def of defs) { ... }
+for (let i = 0; i < steps.length; i++) { ... }
+```
+
+5. **Callback parameters** name the role, not the shape:
+
+```ts
+// Correct
+appendCallback(callbackName: string, hookFunction: unknown): void;
+steps.map((flowStep, stepIndex) => { ... });
+
+// Wrong
+appendCallback(callbackName: string, fn: unknown): void;
+steps.map((step, i) => { ... });
+```
+
+6. **Destructured fields** retain their original property name — renaming to abbreviations is banned:
+
+```ts
+// Correct
+const { providerID, modelID, packageName } = parseModel(modelString);
+
+// Wrong
+const { providerID: pid, modelID: mid } = parseModel(modelString);
+```
+
+7. **Accepted single words** — these complete English words are fine on their own because they are unambiguous in context: `name`, `model`, `steps`, `result`, `error`, `input`, `output`, `index`, `value`, `config`, `options`, `buffer`, `stream`, `signal`, `factory`, `hooks`, `tools`, `agent`, `flow`, `text`, `path`, `line`, `lines`, `type`, `schema`.
+
+### Property names on our own types, interfaces, and Zod schemas
+
+The naming rules above also apply to **property names** on interfaces, types, and Zod schemas that we define. Abbreviated property names are violations just like abbreviated variables.
+
+When a property on our interface maps to an external API property that uses a different name (e.g., the AI SDK expects `topP`), rename our property to be descriptive and bridge the gap at the mapping boundary:
+
+```ts
+// Our interface — descriptive property name
+export interface AgentConfig {
+  readonly topProbability?: number;  // not "topP"
+}
+
+// At the AI SDK boundary — map to the external name
+const callOptions = {
+  topP: config.topProbability,  // our name → SDK name
+};
+```
+
+`CallOptions.topP` (the object passed directly to `generateText()`/`streamText()`) is acceptable because it is a direct passthrough to an external API. But our user-facing types must use full descriptive names.
+
+---
+
 ## Factory Function Pattern
 
 No classes. Every module uses a factory function that captures mutable state in closure and returns a plain object literal.
@@ -229,9 +352,9 @@ export function createProcessor(config: ProcessorConfig): Processor {
 
   // -- Internal helpers --
   function markInitialized(): boolean {
-    const was = initialized;
-    if (!was) initialized = true;
-    return was;
+    const previouslyInitialized = initialized;
+    if (!previouslyInitialized) initialized = true;
+    return previouslyInitialized;
   }
 
   async function execute(input: string): Promise<ProcessResult> { ... }
@@ -255,8 +378,8 @@ export function createProcessor(config: ProcessorConfig): Processor {
       buffer.clear();
     },
 
-    appendCallback(callbackName: string, fn: unknown): void {
-      // replace-on-append: store[key] = [...(store[key] ?? []), fn]
+    appendCallback(callbackName: string, hookFunction: unknown): void {
+      // replace-on-append: store[key] = [...(store[key] ?? []), hookFunction]
     },
   };
 
@@ -267,7 +390,7 @@ export function createProcessor(config: ProcessorConfig): Processor {
 ### Key principles
 
 1. **Config callbacks are spread into new arrays** (`[...config.callbacks.beforeProcess]`) — the original config is never mutated.
-2. **Append uses replace-on-append**: `store[key] = [...(store[key] ?? []), fn]`.
+2. **Append uses replace-on-append**: `store[key] = [...(store[key] ?? []), hookFunction]`.
 3. **Internal helpers are regular functions in closure** — no `this` binding.
 4. **Lifecycle steps are numbered** with inline comments (1. Transform, 2. Before, 3. Execute, 4. After, 5. Transform).
 5. **Specialized factories delegate to a shared builder** — they only provide the execution logic.
@@ -278,13 +401,13 @@ When multiple factory variants share lifecycle logic, a shared builder handles t
 
 ```ts
 export function createSequentialPipeline(config: PipelineConfig): Processor {
-  return buildPipeline(config, "sequential", { ...config.callbacks }, async (steps, input, ctx) => {
-    let current = input;
-    for (const step of steps) {
-      const result = await ctx.runStep(step, current);
-      current = result.text;
+  return buildPipeline(config, "sequential", { ...config.callbacks }, async (steps, input, pipelineContext) => {
+    let currentOutput = input;
+    for (const pipelineStep of steps) {
+      const stepResult = await pipelineContext.runStep(pipelineStep, currentOutput);
+      currentOutput = stepResult.text;
     }
-    return current;
+    return currentOutput;
   });
 }
 ```
@@ -379,7 +502,7 @@ const processor: Processor = { ... };
  *
  * @example
  * ```ts
- * const proc = createProcessor({ name: "parser", bufferSize: 1024 });
+ * const processor = createProcessor({ name: "parser", bufferSize: 1024 });
  * ```
  */
 export function createProcessor(config: ProcessorConfig): Processor {
@@ -405,7 +528,7 @@ export function resolveOptions(options?: Options): ResolvedOptions {
 
 ```ts
 /** @internal Used by hookInto* — not part of the public API. */
-appendCallback?(callbackName: string, fn: unknown): void;
+appendCallback?(callbackName: string, hookFunction: unknown): void;
 ```
 
 ### Inline comments
@@ -490,10 +613,10 @@ function createCapture(): { lines: string[]; output: (line: string) => void } {
 }
 
 /** Create a mock processor with a fixed response. */
-function makeMock(name: string, response: string) {
+function createMockProcessor(agentName: string, fixedResponse: string) {
   return createProcessor({
-    name,
-    execute: async (_input) => response,
+    name: agentName,
+    execute: async (_input) => fixedResponse,
   });
 }
 ```
@@ -519,7 +642,7 @@ describe("resolveOptions", () => { ... });
 
 - Use inline literals, not shared fixtures.
 - Exact structural comparison with `toEqual` for object shapes.
-- Side-effect tracking with `log: string[]` arrays.
+- Side-effect tracking with `capturedCalls: string[]` arrays.
 - `!` non-null assertions on array indices and optional methods in test code (test knows the index/method is valid).
 
 ```ts

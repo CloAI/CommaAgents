@@ -70,7 +70,7 @@ async function main() {
   const initialInput = "Hello! What can you help me with?";
 
   // Track the run ID so we can correlate events
-  let runId: string | undefined;
+  let _runId: string | undefined;
 
   ws.onopen = () => {
     console.log("Connected to daemon.\n");
@@ -98,7 +98,7 @@ async function main() {
         break;
 
       case "flow_started":
-        runId = msg.runId;
+        _runId = msg.runId;
         console.log(`[flow_started] Run: ${msg.runId}`);
         console.log(`  Strategy: ${msg.strategyName}`);
         console.log(`  Agents: ${msg.agents.join(", ")}\n`);

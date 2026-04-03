@@ -11,14 +11,16 @@
  *   - Token refresh does NOT require a client_secret when the token
  *     originated from the device flow
  *
+ * OAuth credentials are stored using @comma-agents/core's OAuthCredential
+ * type. Expiry uses ISO-8601 datetime strings, and `refreshExpiresAt` is
+ * stored in the `metadata` field.
+ *
  * @see https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app#using-the-device-flow-to-generate-a-user-access-token
  */
 
-import type { OAuthInfo } from "./store";
+import type { OAuthCredential } from "@comma-agents/core";
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 /** comma-agents GitHub App client ID. */
 const CLIENT_ID = "Ov23ctjLWBsnGRRwrakq";
@@ -38,33 +40,29 @@ const POLLING_SAFETY_MARGIN_MS = 3_000;
  */
 const EXPIRY_BUFFER_MS = 5 * 60 * 1_000;
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /** Result from GitHub's device code endpoint. */
 export interface DeviceCodeResponse {
   /** The URL the user should visit to authorize. */
-  verificationUri: string;
+  readonly verificationUri: string;
   /** The code the user enters at the verification URL. */
-  userCode: string;
+  readonly userCode: string;
   /** Internal device code used for polling (not shown to user). */
-  deviceCode: string;
+  readonly deviceCode: string;
   /** Polling interval in seconds suggested by GitHub. */
-  interval: number;
+  readonly interval: number;
   /** Seconds until the device code expires. */
-  expiresIn: number;
+  readonly expiresIn: number;
 }
 
 export type PollResult =
-  | { type: "success"; auth: OAuthInfo }
-  | { type: "expired" }
-  | { type: "denied" }
-  | { type: "error"; message: string };
+  | { readonly type: "success"; readonly auth: OAuthCredential }
+  | { readonly type: "expired" }
+  | { readonly type: "denied" }
+  | { readonly type: "error"; readonly message: string };
 
-// ---------------------------------------------------------------------------
 // Device Flow — Step 1: Request device code
-// ---------------------------------------------------------------------------
 
 /**
  * Initiate the GitHub device authorization flow.
@@ -113,9 +111,7 @@ export async function startDeviceFlow(): Promise<{
   };
 }
 
-// ---------------------------------------------------------------------------
 // Device Flow — Step 2: Poll for access token
-// ---------------------------------------------------------------------------
 
 /**
  * Poll GitHub's token endpoint until the user authorizes (or the code expires).
@@ -161,20 +157,7 @@ async function pollForToken(device: DeviceCodeResponse): Promise<PollResult> {
 
     // Success — we have an access token
     if (data.access_token) {
-      const now = Date.now();
-      const expiresIn = data.expires_in ?? 0;
-      const refreshExpiresIn = data.refresh_token_expires_in;
-
-      const auth: OAuthInfo = {
-        type: "oauth",
-        access: data.access_token,
-        refresh: data.refresh_token ?? data.access_token,
-        expires: expiresIn > 0 ? now + expiresIn * 1_000 : 0,
-        ...(refreshExpiresIn != null && refreshExpiresIn > 0
-          ? { refreshExpiresAt: now + refreshExpiresIn * 1_000 }
-          : {}),
-      };
-
+      const auth = buildOAuthCredential(data);
       return { type: "success", auth };
     }
 
@@ -185,7 +168,7 @@ async function pollForToken(device: DeviceCodeResponse): Promise<PollResult> {
     }
 
     if (data.error === "slow_down") {
-      // RFC 8628 §3.5: add 5 seconds to the interval
+      // RFC 8628 section 3.5: add 5 seconds to the interval
       interval += 5;
       // GitHub may also return a new interval value — prefer that if provided
       if (data.interval && typeof data.interval === "number" && data.interval > 0) {
@@ -212,27 +195,30 @@ async function pollForToken(device: DeviceCodeResponse): Promise<PollResult> {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Token Refresh
-// ---------------------------------------------------------------------------
 
 /**
  * Check whether a stored OAuth credential's access token has expired
  * (or will expire within the safety buffer).
  */
-export function isExpired(info: OAuthInfo): boolean {
-  // expires === 0 means the token never expires
-  if (info.expires === 0) return false;
-  return Date.now() >= info.expires - EXPIRY_BUFFER_MS;
+export function isExpired(credential: OAuthCredential): boolean {
+  if (!credential.expiresAt) return false;
+  const expiresAtMs = new Date(credential.expiresAt).getTime();
+  // expiresAt of 0 (epoch) means never expires
+  if (expiresAtMs === 0) return false;
+  return Date.now() >= expiresAtMs - EXPIRY_BUFFER_MS;
 }
 
 /**
  * Check whether the refresh token itself has expired.
- * If `refreshExpiresAt` is not set, assume it never expires.
+ * If `refreshExpiresAt` is not stored in metadata, assume it never expires.
  */
-export function isRefreshExpired(info: OAuthInfo): boolean {
-  if (info.refreshExpiresAt == null || info.refreshExpiresAt === 0) return false;
-  return Date.now() >= info.refreshExpiresAt;
+export function isRefreshExpired(credential: OAuthCredential): boolean {
+  const refreshExpiresAt = credential.metadata?.refreshExpiresAt;
+  if (refreshExpiresAt == null) return false;
+  const expiresAtMs = new Date(refreshExpiresAt as string).getTime();
+  if (expiresAtMs === 0) return false;
+  return Date.now() >= expiresAtMs;
 }
 
 /**
@@ -241,11 +227,17 @@ export function isRefreshExpired(info: OAuthInfo): boolean {
  * For GitHub App tokens obtained via the device flow, the refresh endpoint
  * does NOT require a client_secret — only the client_id and refresh_token.
  *
- * Returns a new OAuthInfo with updated tokens and expiry timestamps,
+ * Returns a new OAuthCredential with updated tokens and expiry timestamps,
  * or `undefined` if the refresh fails (e.g. refresh token itself expired).
  */
-export async function refreshAccessToken(info: OAuthInfo): Promise<OAuthInfo | undefined> {
-  if (isRefreshExpired(info)) {
+export async function refreshAccessToken(
+  credential: OAuthCredential,
+): Promise<OAuthCredential | undefined> {
+  if (isRefreshExpired(credential)) {
+    return undefined;
+  }
+
+  if (!credential.refreshToken) {
     return undefined;
   }
 
@@ -258,7 +250,7 @@ export async function refreshAccessToken(info: OAuthInfo): Promise<OAuthInfo | u
     body: JSON.stringify({
       client_id: CLIENT_ID,
       grant_type: "refresh_token",
-      refresh_token: info.refresh,
+      refresh_token: credential.refreshToken,
     }),
   });
 
@@ -278,25 +270,45 @@ export async function refreshAccessToken(info: OAuthInfo): Promise<OAuthInfo | u
     return undefined;
   }
 
+  return buildOAuthCredential(data, credential.refreshToken);
+}
+
+// Helpers
+
+/**
+ * Build an OAuthCredential from a GitHub token endpoint response.
+ *
+ * Maps the GitHub response shape into core's OAuthCredential format:
+ * - `access_token` -> `accessToken`
+ * - `refresh_token` -> `refreshToken`
+ * - `expires_in` -> `expiresAt` (converted to ISO-8601)
+ * - `refresh_token_expires_in` -> `metadata.refreshExpiresAt` (ISO-8601)
+ */
+function buildOAuthCredential(
+  data: {
+    access_token?: string;
+    expires_in?: number;
+    refresh_token?: string;
+    refresh_token_expires_in?: number;
+  },
+  fallbackRefreshToken?: string,
+): OAuthCredential {
   const now = Date.now();
   const expiresIn = data.expires_in ?? 0;
   const refreshExpiresIn = data.refresh_token_expires_in;
 
+  const metadata: Record<string, unknown> = {};
+  if (refreshExpiresIn != null && refreshExpiresIn > 0) {
+    metadata.refreshExpiresAt = new Date(now + refreshExpiresIn * 1_000).toISOString();
+  }
+
   return {
     type: "oauth",
-    access: data.access_token,
-    refresh: data.refresh_token ?? info.refresh,
-    expires: expiresIn > 0 ? now + expiresIn * 1_000 : 0,
-    ...(refreshExpiresIn != null && refreshExpiresIn > 0
-      ? { refreshExpiresAt: now + refreshExpiresIn * 1_000 }
-      : {}),
+    accessToken: data.access_token!,
+    refreshToken: data.refresh_token ?? fallbackRefreshToken,
+    expiresAt: expiresIn > 0 ? new Date(now + expiresIn * 1_000).toISOString() : undefined,
+    ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
   };
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+import { sleep } from "@comma-agents/utils";

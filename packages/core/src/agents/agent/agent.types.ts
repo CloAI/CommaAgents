@@ -1,6 +1,6 @@
 // Agent types — all agent-domain type definitions.
 
-import type { LanguageModel, ModelMessage, StepResult } from "ai";
+import type { tool as aiTool, LanguageModel, ModelMessage, StepResult, stepCountIs } from "ai";
 import type {
   ConversationHistoryConfig,
   ConversationTurn,
@@ -8,8 +8,8 @@ import type {
   ResponseMessage,
   TemplateVariables,
 } from "../../prompts/types";
-import type { ToolDef } from "../../tools/tool.types";
-import type { AgentHooks, ToolHooks } from "../hooks/hooks";
+import type { ToolDefinition } from "../../tools/tool.types";
+import type { AgentHooks, ToolHooks } from "../hooks";
 
 /** Configuration for creating an LLM-backed agent via `createAgent()`. */
 export interface AgentConfig {
@@ -44,7 +44,7 @@ export interface AgentConfig {
   /** Override variables for the system prompt template (per-agent overrides). */
   readonly templateOverrides?: TemplateVariables;
   /** Tools the agent can invoke during a call. Keys become tool names. */
-  readonly tools?: Readonly<Record<string, ToolDef>>;
+  readonly tools?: Readonly<Record<string, ToolDefinition>>;
   /** Agent lifecycle hooks. */
   readonly hooks?: AgentHooks;
   /** Tool lifecycle hooks (before/after each tool execution). */
@@ -57,8 +57,8 @@ export interface AgentConfig {
   readonly maxSteps?: number;
   /** Sampling temperature (0-2). */
   readonly temperature?: number;
-  /** Nucleus sampling parameter. */
-  readonly topP?: number;
+  /** Nucleus sampling probability. */
+  readonly topProbability?: number;
   /** Whether to use streaming internally. @default false */
   readonly stream?: boolean;
   /** AbortSignal for cancellation. */
@@ -98,7 +98,7 @@ export interface AgentConfig {
    * ```ts
    * const echo = createAgent({
    *   name: "echo",
-   *   execute: async (msg) => `Echo: ${msg}`,
+   *   execute: async (message) => `Echo: ${message}`,
    * });
    * ```
    */
@@ -219,3 +219,16 @@ export type AgentStreamEvent =
   | { readonly type: "tool-result"; readonly toolName: string; readonly output: string }
   | { readonly type: "step-start" }
   | { readonly type: "done"; readonly result: AgentCallResult };
+
+/** Common options passed to generateText / streamText. */
+export interface CallOptions {
+  readonly model: LanguageModel;
+  readonly system: string | undefined;
+  readonly messages: ModelMessage[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
+  readonly tools: Record<string, ReturnType<typeof aiTool<any, any>>> | undefined;
+  readonly stopWhen: ReturnType<typeof stepCountIs>;
+  readonly temperature: number | undefined;
+  readonly topP: number | undefined;
+  readonly abortSignal: AbortSignal | undefined;
+}

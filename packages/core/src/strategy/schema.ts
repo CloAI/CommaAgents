@@ -69,7 +69,7 @@ export const LLMAgentDefSchema = z
     tools: z.array(z.string()).optional(),
     useDefaults: z.boolean().optional(),
     temperature: z.number().min(0).max(2).optional(),
-    topP: z.number().min(0).max(1).optional(),
+    topProbability: z.number().min(0).max(1).optional(),
     maxSteps: z.number().int().positive().optional(),
   })
   .strict();
@@ -165,13 +165,17 @@ export type Strategy = z.infer<typeof StrategySchema>;
 // Type guards
 
 /** Check if an agent definition is a user agent. */
-export function isUserAgentDef(def: AgentDef): def is UserAgentDef {
-  return "type" in def && def.type === "user";
+export function isUserAgentDef(agentDefinition: AgentDef): agentDefinition is UserAgentDef {
+  return "type" in agentDefinition && agentDefinition.type === "user";
 }
 
 /** Check if an agent definition is an LLM agent. */
-export function isLLMAgentDef(def: AgentDef): def is LLMAgentDef {
-  return !("type" in def) || def.type === undefined || def.type === "llm";
+export function isLLMAgentDef(agentDefinition: AgentDef): agentDefinition is LLMAgentDef {
+  return (
+    !("type" in agentDefinition) ||
+    agentDefinition.type === undefined ||
+    agentDefinition.type === "llm"
+  );
 }
 
 /** Check if a flow step is an agent reference (vs a nested flow). */

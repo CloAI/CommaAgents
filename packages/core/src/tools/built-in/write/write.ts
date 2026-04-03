@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
 import { defineTool } from "../../define/define-tool";
-import type { ToolDef } from "../../tool.types";
+import type { ToolDefinition } from "../../tool.types";
 
 const writeParams = z.object({
   filePath: z.string().describe("Absolute or relative path to the file to write."),
@@ -23,15 +23,15 @@ const writeParams = z.object({
  * const tools = { write };
  * ```
  */
-export function createWriteTool(): ToolDef<typeof writeParams> {
+export function createWriteTool(): ToolDefinition<typeof writeParams> {
   return defineTool({
     description:
       "Write content to a file, creating it if it does not exist or overwriting it if it does. " +
       "Parent directories are created automatically. Use this for creating new files or " +
       "completely replacing file contents.",
     parameters: writeParams,
-    execute: async (args, _ctx) => {
-      const { filePath, content } = args;
+    execute: async (validatedArguments, _toolContext) => {
+      const { filePath, content } = validatedArguments;
 
       try {
         // Ensure parent directory exists
@@ -45,8 +45,8 @@ export function createWriteTool(): ToolDef<typeof writeParams> {
           output: `Successfully wrote ${bytes} bytes (${lines} lines) to ${filePath}`,
           metadata: { filePath, bytes, lines },
         };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         return {
           output: `Error: could not write to ${filePath}: ${message}`,
           metadata: { error: true, filePath },

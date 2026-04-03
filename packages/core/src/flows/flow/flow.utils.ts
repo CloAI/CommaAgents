@@ -4,7 +4,7 @@
 
 import type { Agent, AgentCallResult } from "../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../errors/index";
-import { runSideEffectHooks } from "../../hooks/types";
+import { runSideEffectHooks } from "../../hooks";
 import type { FlowContext, FlowHooks, FlowResult } from "./flow.types";
 
 // FlowResult builder
@@ -23,9 +23,9 @@ export function buildFlowResult(
   let promptTokens = 0;
   let completionTokens = 0;
 
-  for (const sr of stepResults) {
-    promptTokens += sr.usage.promptTokens;
-    completionTokens += sr.usage.completionTokens;
+  for (const stepResult of stepResults) {
+    promptTokens += stepResult.usage.promptTokens;
+    completionTokens += stepResult.usage.completionTokens;
   }
 
   return {

@@ -1,12 +1,7 @@
 // Tests for hook utility functions
 
 import { describe, expect, it } from "bun:test";
-import {
-  runSideEffectHooks,
-  runTransformHooks,
-  type SideEffectHook,
-  type TransformHook,
-} from "./types";
+import { runSideEffectHooks, runTransformHooks, type SideEffectHook, type TransformHook } from ".";
 
 describe("runSideEffectHooks", () => {
   it("should do nothing when hooks are undefined", async () => {

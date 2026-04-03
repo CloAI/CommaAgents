@@ -88,16 +88,16 @@ export function buildMessages(options: BuildMessagesOptions): readonly ModelMess
 
   // 1. Prefix messages
   if (options.prefix) {
-    for (const msg of options.prefix) {
-      messages.push(msg);
+    for (const prefixMessage of options.prefix) {
+      messages.push(prefixMessage);
     }
   }
 
   // 2. Conversation history
   if (options.history && !options.history.isEmpty) {
     const historyMessages = options.history.toMessages();
-    for (const msg of historyMessages) {
-      messages.push(msg);
+    for (const historyMessage of historyMessages) {
+      messages.push(historyMessage);
     }
   }
 

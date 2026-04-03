@@ -3,7 +3,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { z } from "zod";
 import { defineTool } from "../../define/define-tool";
-import type { ToolDef } from "../../tool.types";
+import type { ToolDefinition } from "../../tool.types";
 
 /**
  * Configuration for the read tool.
@@ -43,7 +43,7 @@ const readParams = z.object({
  * const read = createReadTool({ defaultLimit: 500, maxLineLength: 1000 });
  * ```
  */
-export function createReadTool(config?: ReadToolConfig): ToolDef<typeof readParams> {
+export function createReadTool(config?: ReadToolConfig): ToolDefinition<typeof readParams> {
   const defaultLimit = config?.defaultLimit ?? DEFAULT_LIMIT;
   const maxLineLength = config?.maxLineLength ?? DEFAULT_MAX_LINE_LENGTH;
 
@@ -53,15 +53,15 @@ export function createReadTool(config?: ReadToolConfig): ToolDef<typeof readPara
       "For directories, returns a listing of entries. Use the offset and limit parameters to " +
       "paginate through large files.",
     parameters: readParams,
-    execute: async (args, _ctx) => {
-      const filePath = args.filePath;
-      const offset = Math.max(1, args.offset ?? 1);
-      const limit = args.limit ?? defaultLimit;
+    execute: async (validatedArguments, _toolContext) => {
+      const filePath = validatedArguments.filePath;
+      const offset = Math.max(1, validatedArguments.offset ?? 1);
+      const limit = validatedArguments.limit ?? defaultLimit;
 
       let fileStat: Awaited<ReturnType<typeof stat>>;
       try {
         fileStat = await stat(filePath);
-      } catch (err) {
+      } catch {
         return {
           output: `Error: path not found: ${filePath}`,
           metadata: { error: true, filePath },
@@ -80,7 +80,7 @@ export function createReadTool(config?: ReadToolConfig): ToolDef<typeof readPara
             output: lines.join("\n") || "[Empty directory]",
             metadata: { type: "directory", filePath, entries: lines.length },
           };
-        } catch (err) {
+        } catch {
           return {
             output: `Error: could not read directory: ${filePath}`,
             metadata: { error: true, filePath },
@@ -98,8 +98,8 @@ export function createReadTool(config?: ReadToolConfig): ToolDef<typeof readPara
         const startIdx = offset - 1;
         const sliced = allLines.slice(startIdx, startIdx + limit);
 
-        const numbered = sliced.map((line, i) => {
-          const lineNum = startIdx + i + 1;
+        const numbered = sliced.map((line, lineIndex) => {
+          const lineNum = startIdx + lineIndex + 1;
           const truncated =
             line.length > maxLineLength ? `${line.slice(0, maxLineLength)}...` : line;
           return `${lineNum}: ${truncated}`;
@@ -123,7 +123,7 @@ export function createReadTool(config?: ReadToolConfig): ToolDef<typeof readPara
             linesReturned: sliced.length,
           },
         };
-      } catch (err) {
+      } catch {
         return {
           output: `Error: could not read file: ${filePath}`,
           metadata: { error: true, filePath },

@@ -9,8 +9,8 @@ import { createLogger } from "./logger";
 import { createFileSink } from "./sinks/file";
 import { createStderrSink, formatJsonLine } from "./sinks/stderr";
 import { createSystemSink, describeSystemLogging } from "./sinks/system";
-import type { LogEntry, LogLevel, LogSink } from "./types";
-import { LOG_LEVELS } from "./types";
+import type { LogEntry, LogSink } from "./logger.types";
+import { LOG_LEVELS } from "./logger.types";
 
 // Helpers
 

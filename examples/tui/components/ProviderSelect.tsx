@@ -3,7 +3,7 @@
  *
  * Displays a list of supported providers (OpenAI, Anthropic, GitHub Copilot).
  * For each provider, checks the environment variable first, then the
- * credential store (~/.local/share/comma-agents/auth.json).
+ * credential store (platform-aware path via resolveCredentialsPath()).
  *
  * Standard providers: prompts for an API key if none found, then offers
  * to save it for future sessions.
@@ -177,7 +177,7 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
           providerID: "github-copilot",
           model,
           envVar: "GITHUB_TOKEN",
-          apiKey: result.auth.access,
+          apiKey: result.auth.accessToken,
         });
       } else if (result.type === "expired") {
         setDeviceError("Device code expired. Please try again.");
@@ -278,7 +278,7 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
       {step === "saveKey" && selectedProvider && (
         <Box flexDirection="column" marginTop={1}>
           <Text>Save this key for future sessions?</Text>
-          <Text dimColor>(Stored in ~/.local/share/comma-agents/auth.json with 0600 perms)</Text>
+          <Text dimColor>(Stored in platform credentials file with 0600 perms)</Text>
           <Box marginTop={1}>
             <SelectInput
               items={[

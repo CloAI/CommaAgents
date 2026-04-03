@@ -1,7 +1,7 @@
 // defineTool — helper to create ToolDef instances with type inference
 
 import type { z } from "zod";
-import type { ToolContext, ToolDef, ToolResult } from "../tool.types";
+import type { ToolContext, ToolDefinition, ToolResult } from "../tool.types";
 
 /**
  * Creates a typed ToolDef with full parameter inference from the Zod schema.
@@ -17,17 +17,20 @@ import type { ToolContext, ToolDef, ToolResult } from "../tool.types";
  *     location: z.string().describe("City name"),
  *     unit: z.enum(["celsius", "fahrenheit"]).optional(),
  *   }),
- *   execute: async (args, _ctx) => ({
- *     output: `Weather in ${args.location}: 72°F, sunny`,
+ *   execute: async (validatedArguments, _toolContext) => ({
+ *     output: `Weather in ${validatedArguments.location}: 72°F, sunny`,
  *   }),
  * });
  * ```
  */
-export function defineTool<TParams extends z.ZodType>(config: {
+export function defineTool<ParameterSchema extends z.ZodType>(config: {
   readonly description: string;
-  readonly parameters: TParams;
-  readonly execute: (args: z.infer<TParams>, ctx: ToolContext) => Promise<ToolResult>;
-}): ToolDef<TParams> {
+  readonly parameters: ParameterSchema;
+  readonly execute: (
+    validatedArguments: z.infer<ParameterSchema>,
+    toolContext: ToolContext,
+  ) => Promise<ToolResult>;
+}): ToolDefinition<ParameterSchema> {
   return {
     description: config.description,
     parameters: config.parameters,

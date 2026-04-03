@@ -12,17 +12,41 @@ export type {
   AgentStreamEvent,
   LLMCallResult,
 } from "./agents/agent/agent.types";
-export { hookIntoAgent } from "./agents/hook-into-agent/hook-into-agent";
-// -- Hooks --
-// Agent-specific hook types (co-located with agent code)
-export type { AgentHooks, ToolHooks } from "./agents/hooks/hooks";
 // -- Agent hook middleware --
-export { createUserAgent } from "./agents/user/create-user-agent";
+export { createUserAgent } from "./agents/built-in/user/user-agent";
 export type {
   InputCollector,
   InputRequest,
   UserAgentConfig,
-} from "./agents/user/create-user-agent.types";
+} from "./agents/built-in/user/user-agent.types";
+export { hookIntoAgent } from "./agents/hook-into-agent/hook-into-agent";
+// -- Hooks --
+// Agent-specific hook types (co-located with agent code)
+export type { AgentHooks, ToolHooks } from "./agents/hooks/hooks.types";
+// -- Credentials --
+export type {
+  ApiCredential,
+  CreateCredentialStoreOptions,
+  Credential,
+  CredentialBackend,
+  CredentialStore,
+  CredentialStoreData,
+  CustomCredential,
+  EnvVarMap,
+  JsonFileBackendOptions,
+  OAuthCredential,
+} from "./credentials/index";
+export {
+  ApiCredentialSchema,
+  CredentialSchema,
+  CustomCredentialSchema,
+  createCredentialStore,
+  createJsonFileBackend,
+  OAuthCredentialSchema,
+  resolveCredentialsPath,
+  resolveDataDir,
+  WELL_KNOWN_ENV_VARS,
+} from "./credentials/index";
 // -- Errors --
 export {
   AgentCallError,
@@ -54,31 +78,18 @@ export {
   hookIntoFlow,
 } from "./flows/index";
 // Shared hook infrastructure
-export type { SideEffectHook, TransformHook } from "./hooks/types";
-export { runSideEffectHooks, runTransformHooks } from "./hooks/types";
-// -- Model Registry & Auth (Phase 3) --
-export type { CredentialEntry, CredentialStore } from "./model/auth/auth";
-export {
-  createCredentialReader,
-  getCredential,
-  getCredentialStorePath,
-  getDataDir,
-  listCredentials,
-  readCredentialStore,
-  removeCredential,
-  setCredential,
-  writeCredentialStore,
-} from "./model/auth/auth";
-export type { ParsedModel, ResolveKeyOptions } from "./model/registry";
-export {
-  getProviderPackage,
-  isKnownProvider,
-  KNOWN_PROVIDERS,
-  PROVIDER_ENV_KEYS,
-  parseModel,
-  resolveInterpolation,
-  resolveKey,
-} from "./model/registry";
+export type { SideEffectHook, TransformHook } from "./hooks";
+export { runSideEffectHooks, runTransformHooks } from "./hooks";
+export type {
+  ModelMetadata,
+  TokenSnapshot,
+  TokenTracker,
+  TokenTrackerConfig,
+  TokenUsageRecord,
+  UseTokenTrackingConfig,
+} from "./hooks/built-in/token-tracking/index";
+// -- Token Tracking --
+export { createTokenTracker, useTokenTracking } from "./hooks/built-in/token-tracking/index";
 export type { ConversationHistory } from "./prompts/history/conversation-history";
 // -- Prompts (Phase 5) --
 export { createConversationHistory } from "./prompts/history/conversation-history";
@@ -107,7 +118,9 @@ export type {
   LLMAgentDef,
   LoadedStrategy,
   LoadStrategyOptions,
+  ParsedModel,
   ProviderFactory,
+  ProviderResolver,
   SequentialFlowDef,
   Strategy,
   StrategyDefaults,
@@ -116,12 +129,17 @@ export type {
 // -- Strategy (Phase 7) --
 export {
   exportStrategy,
+  extractProviderIds,
+  getProviderPackage,
   isAgentStep,
   isFlowDef,
+  isKnownProvider,
   isLLMAgentDef,
   isUserAgentDef,
+  KNOWN_PROVIDERS,
   loadStrategy,
   loadStrategyFromString,
+  parseModel,
   StrategySchema,
 } from "./strategy/index";
 export type {
@@ -143,4 +161,4 @@ export {
 } from "./tools/built-in/index";
 // -- Tools --
 export { defineTool } from "./tools/define/define-tool";
-export type { ToolContext, ToolDef, ToolResult } from "./tools/tool.types";
+export type { ToolContext, ToolDefinition as ToolDef, ToolResult } from "./tools/tool.types";

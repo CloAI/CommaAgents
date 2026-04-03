@@ -1,7 +1,8 @@
 /**
  * Auth module — credential management for comma-agents examples.
  *
- * Provides persistent credential storage and GitHub Copilot OAuth support.
+ * Wraps @comma-agents/core's credential store with OAuth refresh logic
+ * for GitHub Copilot tokens.
  *
  * @example
  * ```ts
@@ -12,18 +13,15 @@
  *
  * // Directly access the store
  * await store.set("openai", { type: "api", key: "sk-..." });
- * const info = await store.get("openai");
+ * const credential = await store.get("openai");
  * ```
  */
 
-import { PROVIDER_ENV_KEYS } from "@comma-agents/core";
+import type { OAuthCredential } from "@comma-agents/core";
 import { isExpired, isRefreshExpired, refreshAccessToken } from "./copilot";
-import type { OAuthInfo } from "./store";
 import * as store from "./store";
 
-// ---------------------------------------------------------------------------
 // Re-exports
-// ---------------------------------------------------------------------------
 
 export { store };
 export type { DeviceCodeResponse, PollResult } from "./copilot";
@@ -33,51 +31,40 @@ export {
   refreshAccessToken,
   startDeviceFlow,
 } from "./copilot";
-export type { ApiAuth, AuthInfo, OAuthInfo } from "./store";
-export { ApiAuthSchema, AuthInfoSchema, OAuthSchema } from "./store";
+export type { ApiCredential, Credential, OAuthCredential } from "./store";
 
-// ---------------------------------------------------------------------------
 // High-level credential resolution
-// ---------------------------------------------------------------------------
 
 /**
  * Resolve a usable API key / token for a provider.
  *
- * Resolution order:
- *   1. Environment variable (standard name from PROVIDER_ENV_KEYS)
- *   2. Credential store
- *      - For "api" credentials: returns the stored key directly
- *      - For "oauth" credentials: checks expiry, refreshes if needed,
- *        persists the refreshed token, returns the access token
+ * Resolution order (via core's credential store):
+ *   1. Strategy-scoped credential (if scope provided)
+ *   2. Environment variable (standard name(s) from WELL_KNOWN_ENV_VARS)
+ *   3. Global-scoped credential
  *
- * Returns `undefined` if no credential is available.
+ * For OAuth credentials (e.g. GitHub Copilot), checks expiry and
+ * refreshes the access token if needed, persisting the refreshed token
+ * back to the store.
  *
- * This function is designed to be used as the `readCredential` callback
- * for core's `resolveKey()`, or called directly by example scripts.
+ * Returns a plain string (API key or access token), or `undefined`
+ * if no credential is available.
  */
 export async function resolveCredential(providerID: string): Promise<string | undefined> {
-  // 1. Check environment variable first
-  const envVar = PROVIDER_ENV_KEYS[providerID];
-  if (envVar) {
-    const envValue = process.env[envVar];
-    if (envValue && envValue.trim().length > 0) {
-      return envValue.trim();
-    }
-  }
+  const credential = await store.resolve(providerID);
+  if (!credential) return undefined;
 
-  // 2. Check credential store
-  const info = await store.get(providerID);
-  if (!info) return undefined;
-
-  if (info.type === "api") {
-    return info.key;
+  // API key — return directly
+  if (credential.type === "api") {
+    return credential.key;
   }
 
   // OAuth token — may need refresh
-  if (info.type === "oauth") {
-    return resolveOAuthToken(providerID, info);
+  if (credential.type === "oauth") {
+    return resolveOAuthToken(providerID, credential);
   }
 
+  // Custom credentials — no standard token extraction
   return undefined;
 }
 
@@ -85,24 +72,27 @@ export async function resolveCredential(providerID: string): Promise<string | un
  * Resolve an OAuth token, refreshing if the access token has expired.
  * Persists the refreshed token back to the store.
  */
-async function resolveOAuthToken(providerID: string, info: OAuthInfo): Promise<string | undefined> {
+async function resolveOAuthToken(
+  providerID: string,
+  credential: OAuthCredential,
+): Promise<string | undefined> {
   // Access token still valid — use it directly
-  if (!isExpired(info)) {
-    return info.access;
+  if (!isExpired(credential)) {
+    return credential.accessToken;
   }
 
   // Refresh token also expired — nothing we can do
-  if (isRefreshExpired(info)) {
+  if (isRefreshExpired(credential)) {
     return undefined;
   }
 
   // Attempt refresh
-  const refreshed = await refreshAccessToken(info);
+  const refreshed = await refreshAccessToken(credential);
   if (!refreshed) {
     return undefined;
   }
 
   // Persist the new tokens
   await store.set(providerID, refreshed);
-  return refreshed.access;
+  return refreshed.accessToken;
 }

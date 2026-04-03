@@ -7,10 +7,11 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target bun",
-    "test": "bun test"
+    "test": "bun test --coverage"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.30",
+    "@comma-agents/utils": "workspace:*",
     "ai": "6.0.91",
     "liquidjs": "10.25.0",
     "yaml": "2.7.0",

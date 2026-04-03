@@ -13,7 +13,7 @@ export { createWriteTool } from "./write/write";
 
 // -- Convenience: create all default tools at once --
 
-import type { ToolDef } from "../tool.types";
+import type { ToolDefinition } from "../tool.types";
 import type { BashToolConfig } from "./bash/bash";
 import { createBashTool } from "./bash/bash";
 import { createEditTool } from "./edit/edit";
@@ -67,7 +67,7 @@ export interface DefaultToolsConfig {
  * });
  * ```
  */
-export function createDefaultTools(config?: DefaultToolsConfig): Record<string, ToolDef> {
+export function createDefaultTools(config?: DefaultToolsConfig): Record<string, ToolDefinition> {
   return {
     bash: createBashTool(config?.bash),
     read: createReadTool(config?.read),

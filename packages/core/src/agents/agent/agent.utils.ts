@@ -3,16 +3,15 @@
 // Standalone helpers for building AI SDK call options, tool sets,
 // messages, and stream event mapping.
 
-import type { LanguageModel } from "ai";
 import { tool as aiTool, stepCountIs } from "ai";
-import { runSideEffectHooks } from "../../hooks/types";
+import { runSideEffectHooks } from "../../hooks";
 import type { ConversationHistory } from "../../prompts/history/conversation-history";
 import { buildMessages, resolveSystemPrompt } from "../../prompts/message-builder";
 import type { ModelMessage, ResponseMessage } from "../../prompts/types";
-import type { ToolContext, ToolDef } from "../../tools/tool.types";
+import type { ToolContext, ToolDefinition } from "../../tools/tool.types";
+import type { ToolHooks } from "../hooks";
 import { DEFAULT_MAX_STEPS } from "./agent.constants";
-import type { AgentConfig, AgentStreamEvent, LLMCallResult } from "./agent.types";
-import type { ToolHooks } from "../hooks/hooks";
+import type { AgentConfig, AgentStreamEvent, CallOptions, LLMCallResult } from "./agent.types";
 
 // Tool set builder
 
@@ -22,43 +21,43 @@ import type { ToolHooks } from "../hooks/hooks";
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
 export function buildAgentToolSet(
-  toolDefs: Readonly<Record<string, ToolDef>> | undefined,
+  toolDefinitions: Readonly<Record<string, ToolDefinition>> | undefined,
   agentName: string,
   toolHooks?: ToolHooks,
 ): Record<string, ReturnType<typeof aiTool<any, any>>> | undefined {
-  if (!toolDefs || Object.keys(toolDefs).length === 0) {
+  if (!toolDefinitions || Object.keys(toolDefinitions).length === 0) {
     return undefined;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics are complex
   const toolSet: Record<string, ReturnType<typeof aiTool<any, any>>> = {};
 
-  for (const [name, def] of Object.entries(toolDefs)) {
+  for (const [name, definition] of Object.entries(toolDefinitions)) {
     toolSet[name] = aiTool({
-      description: def.description,
-      inputSchema: def.parameters,
+      description: definition.description,
+      inputSchema: definition.parameters,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- args type varies per tool definition
-      execute: async (args: any, options: any) => {
-        const argsStr = JSON.stringify(args);
+      execute: async (toolArguments: any, options: any) => {
+        const argsString = JSON.stringify(toolArguments);
 
         // Before tool call hooks
         await runSideEffectHooks(toolHooks?.beforeToolCall, {
           name,
-          args: argsStr,
+          args: argsString,
         });
 
         // Execute the tool
-        const ctx: ToolContext = {
+        const toolContext: ToolContext = {
           agentName,
           abort: options.abortSignal ?? AbortSignal.timeout(30_000),
         };
 
-        const result = await def.execute(args, ctx);
+        const result = await definition.execute(toolArguments, toolContext);
 
         // After tool call hooks
         await runSideEffectHooks(toolHooks?.afterToolCall, {
           name,
-          args: argsStr,
+          args: argsString,
           result: result.output,
         });
 
@@ -68,21 +67,6 @@ export function buildAgentToolSet(
   }
 
   return toolSet;
-}
-
-// AI SDK call options builder
-
-/** Common options passed to generateText / streamText. */
-interface CallOptions {
-  readonly model: LanguageModel;
-  readonly system: string | undefined;
-  readonly messages: ModelMessage[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
-  readonly tools: Record<string, ReturnType<typeof aiTool<any, any>>> | undefined;
-  readonly stopWhen: ReturnType<typeof stepCountIs>;
-  readonly temperature: number | undefined;
-  readonly topP: number | undefined;
-  readonly abortSignal: AbortSignal | undefined;
 }
 
 /**
@@ -111,7 +95,7 @@ export async function buildCallOptions(
     );
   }
 
-  const [tools, system] = await Promise.all([
+  const [tools, resolvedSystemPrompt] = await Promise.all([
     Promise.resolve(
       buildAgentToolSet(config.tools, config.name, toolHooksOverride ?? config.toolHooks),
     ),
@@ -124,12 +108,12 @@ export async function buildCallOptions(
 
   return {
     model: config.model,
-    system,
+    system: resolvedSystemPrompt,
     messages: buildMessages({ message, history, prefix: config.prefixMessages }) as ModelMessage[],
     tools,
     stopWhen: stepCountIs(config.maxSteps ?? DEFAULT_MAX_STEPS),
     temperature: config.temperature,
-    topP: config.topP,
+    topP: config.topProbability,
     abortSignal: config.abort,
   };
 }
@@ -141,21 +125,24 @@ export async function buildCallOptions(
  * Returns undefined for parts we don't surface (e.g., finish, error).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK fullStream part is a complex union
-export function mapStreamPart(part: any): AgentStreamEvent | undefined {
-  switch (part.type) {
+export function mapStreamPart(streamPart: any): AgentStreamEvent | undefined {
+  switch (streamPart.type) {
     case "text-delta":
-      return { type: "text", text: part.text };
+      return { type: "text", text: streamPart.text };
     case "tool-call":
       return {
         type: "tool-call",
-        toolName: part.toolName,
-        args: JSON.stringify(part.args),
+        toolName: streamPart.toolName,
+        args: JSON.stringify(streamPart.args),
       };
     case "tool-result":
       return {
         type: "tool-result",
-        toolName: part.toolName,
-        output: typeof part.output === "string" ? part.output : JSON.stringify(part.output),
+        toolName: streamPart.toolName,
+        output:
+          typeof streamPart.output === "string"
+            ? streamPart.output
+            : JSON.stringify(streamPart.output),
       };
     case "start-step":
       return { type: "step-start" };

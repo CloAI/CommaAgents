@@ -8,7 +8,7 @@
   "scripts": {
     "start": "bun run src/index.tsx",
     "build": "bun build src/index.tsx --outdir dist --target bun",
-    "test": "bun test"
+    "test": "bun test --coverage"
   },
   "dependencies": {
     "@comma-agents/core": "workspace:*",

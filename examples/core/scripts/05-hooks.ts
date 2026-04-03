@@ -20,9 +20,9 @@
  *   - Initial-call hooks run only on the first call; base hooks run on subsequent calls
  */
 
-import { z } from "zod";
 import type { AgentHooks, ToolHooks } from "@comma-agents/core";
 import { createAgent, defineTool } from "@comma-agents/core";
+import { z } from "zod";
 import { getModel } from "./helpers";
 
 // ---------------------------------------------------------------------------

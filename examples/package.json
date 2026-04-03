@@ -15,6 +15,7 @@
     "@comma-agents/core": "workspace:*",
     "@comma-agents/daemon": "workspace:*",
     "@comma-agents/debug": "workspace:*",
+    "@comma-agents/utils": "workspace:*",
     "ai": "6.0.91",
     "ink": "5.1.0",
     "ink-select-input": "6.0.0",

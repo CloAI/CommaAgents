@@ -1,9 +1,10 @@
 // edit — search-and-replace file editing as an agent tool
 
 import { readFile, writeFile } from "node:fs/promises";
+import { countOccurrences } from "@comma-agents/utils";
 import { z } from "zod";
 import { defineTool } from "../../define/define-tool";
-import type { ToolDef } from "../../tool.types";
+import type { ToolDefinition } from "../../tool.types";
 
 const editParams = z.object({
   filePath: z.string().describe("Absolute or relative path to the file to edit."),
@@ -18,20 +19,6 @@ const editParams = z.object({
 });
 
 /**
- * Count non-overlapping occurrences of a substring in a string.
- */
-function countOccurrences(content: string, search: string): number {
-  if (search.length === 0) return 0;
-  let count = 0;
-  let pos = 0;
-  while ((pos = content.indexOf(search, pos)) !== -1) {
-    count++;
-    pos += search.length;
-  }
-  return count;
-}
-
-/**
  * Create an edit tool for search-and-replace file editing.
  *
  * Finds an exact match of `oldString` in the file and replaces it with `newString`.
@@ -44,7 +31,7 @@ function countOccurrences(content: string, search: string): number {
  * const tools = { edit };
  * ```
  */
-export function createEditTool(): ToolDef<typeof editParams> {
+export function createEditTool(): ToolDefinition<typeof editParams> {
   return defineTool({
     description:
       "Edit a file by replacing an exact string match. Provide the exact text to find " +
@@ -52,8 +39,8 @@ export function createEditTool(): ToolDef<typeof editParams> {
       "found, or if multiple matches exist without replaceAll being set to true. " +
       "Prefer using this over the write tool for modifying existing files.",
     parameters: editParams,
-    execute: async (args, _ctx) => {
-      const { filePath, oldString, newString, replaceAll } = args;
+    execute: async (validatedArguments, _toolContext) => {
+      const { filePath, oldString, newString, replaceAll } = validatedArguments;
 
       if (oldString === newString) {
         return {
@@ -65,7 +52,7 @@ export function createEditTool(): ToolDef<typeof editParams> {
       let content: string;
       try {
         content = await readFile(filePath, "utf-8");
-      } catch (err) {
+      } catch {
         return {
           output: `Error: could not read file: ${filePath}`,
           metadata: { error: true, filePath },
@@ -95,14 +82,15 @@ export function createEditTool(): ToolDef<typeof editParams> {
         updated = content.split(oldString).join(newString);
       } else {
         // Replace only the first (and only) occurrence
-        const idx = content.indexOf(oldString);
-        updated = content.slice(0, idx) + newString + content.slice(idx + oldString.length);
+        const matchIndex = content.indexOf(oldString);
+        updated =
+          content.slice(0, matchIndex) + newString + content.slice(matchIndex + oldString.length);
       }
 
       try {
         await writeFile(filePath, updated, "utf-8");
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         return {
           output: `Error: could not write to ${filePath}: ${message}`,
           metadata: { error: true, filePath },

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": ["docs/**"],
+  "workspaces": {
+    "packages/core": {
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["@ai-sdk/openai-compatible"]
+    },
+    "packages/daemon": {
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["@ai-sdk/openai-compatible", "ai"]
+    },
+    "packages/debug": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/tui": {
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": [
+        "@comma-agents/core",
+        "@comma-agents/daemon",
+        "ink",
+        "react",
+        "@types/react"
+      ]
+    },
+    "examples": {
+      "entry": [
+        "auth/**/*.ts",
+        "core/**/*.ts",
+        "daemon/**/*.ts",
+        "tui/**/*.{ts,tsx}"
+      ],
+      "project": ["**/*.{ts,tsx}"],
+      "ignoreDependencies": ["@ai-sdk/openai-compatible"]
+    },
+    "end-to-end-tests": {
+      "entry": ["**/*.test.ts", "**/*.ts"],
+      "project": ["**/*.ts"]
+    }
+  },
+  "ignoreDependencies": ["bun-types"]
+}

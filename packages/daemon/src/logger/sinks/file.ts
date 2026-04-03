@@ -6,7 +6,7 @@
 
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import type { LogEntry, LogSink } from "../types";
+import type { LogEntry, LogSink } from "../logger.types";
 import { formatJsonLine } from "./stderr";
 
 /**
@@ -28,7 +28,7 @@ export function createFileSink(filePath: string): LogSink {
 
   return {
     write(entry: LogEntry): void {
-      appendFileSync(filePath, formatJsonLine(entry) + "\n");
+      appendFileSync(filePath, `${formatJsonLine(entry)}\n`);
     },
     flush(): void {
       // appendFileSync is synchronous — nothing to flush

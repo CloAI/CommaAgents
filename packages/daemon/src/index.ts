@@ -14,22 +14,6 @@ export {
   resolveDataDir,
 } from "./config";
 export type {
-  CreateCredentialStoreOptions,
-  Credential,
-  CredentialBackend,
-  CredentialStore,
-  CredentialStoreData,
-  EnvVarMap,
-} from "./credentials";
-// -- Credentials --
-export {
-  createCredentialStore,
-  createJsonFileBackend,
-  WELL_KNOWN_ENV_VARS,
-} from "./credentials";
-export type {
-  AuthBridge,
-  CreateAuthBridgeOptions,
   CreateInputBridgeOptions,
   CreateStrategyExecutorOptions,
   EventSink,
@@ -39,7 +23,6 @@ export type {
 } from "./executor";
 // -- Executor --
 export {
-  createAuthBridge,
   createInputBridge,
   createStrategyExecutor,
   extractProviderIds,
@@ -67,26 +50,23 @@ export { isRunning, readPid, removePid, writePid } from "./pid";
 export type {
   AgentCallResultWire,
   AgentStreamEventWire,
-  ApiCredential,
-  CustomCredential,
   ErrorInfo,
-  OAuthCredential,
+  HandlerContext,
+  MessageDispatcher,
+  RequestResponseMap,
   RunSummary,
   Usage,
-} from "./protocol";
+} from "./server/protocol";
 // -- Protocol --
 export {
   AgentCallResultSchema,
   AgentOutputMessage,
   AgentStreamEventSchema,
   AgentStreamingMessage,
-  ApiCredentialSchema,
   // Shared schemas
   ClientBase,
   // Unions + parse helpers
   ClientMessage,
-  CredentialSchema,
-  CustomCredentialSchema,
   DaemonBase,
   DaemonMessage,
   ErrorInfoSchema,
@@ -97,13 +77,10 @@ export {
   // Daemon message schemas
   FlowStartedMessage,
   ListFlowsMessage,
-  OAuthCredentialSchema,
   PingMessage,
   PongMessage,
-  ProvideAuthMessage,
   parseClientMessage,
   parseDaemonMessage,
-  RequestAuthMessage,
   RequestInputMessage,
   RunSummarySchema,
   // Client message schemas
@@ -115,10 +92,10 @@ export {
   UnsubscribeMessage,
   UsageSchema,
   UserInputMessage,
-} from "./protocol";
+} from "./server/protocol";
+export { createDaemon } from "./server/server";
 // -- Server --
-export type { CreateDaemonOptions, Daemon } from "./server";
-export { createDaemon } from "./server";
+export type { CreateDaemonOptions, Daemon } from "./server/server.types";
 export type {
   DaemonState,
   RunState,

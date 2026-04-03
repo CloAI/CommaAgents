@@ -31,13 +31,16 @@ export interface ToolResult {
  * Tools have a description (for the LLM), Zod-validated parameters,
  * and an async execute function.
  *
- * @typeParam TParams - Zod schema type for the tool's parameters
+ * @typeParam ParameterSchema - Zod schema type for the tool's parameters
  */
-export interface ToolDef<TParams extends z.ZodType = z.ZodType> {
+export interface ToolDefinition<ParameterSchema extends z.ZodType = z.ZodType> {
   /** Human-readable description of what this tool does (sent to the LLM). */
   readonly description: string;
   /** Zod schema that validates and types the tool's parameters. */
-  readonly parameters: TParams;
+  readonly parameters: ParameterSchema;
   /** Execute the tool with validated arguments and context. */
-  execute(args: z.infer<TParams>, ctx: ToolContext): Promise<ToolResult>;
+  execute(
+    validatedArguments: z.infer<ParameterSchema>,
+    toolContext: ToolContext,
+  ): Promise<ToolResult>;
 }

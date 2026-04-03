@@ -1,33 +1,9 @@
 // Tests for the input bridge — bridges UserAgent input requests over WS.
 
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it } from "bun:test";
 
-import type { DaemonMessage } from "../protocol/daemon";
-import type { EventSink } from "./event-sink";
+import { mockSink } from "../test.utils";
 import { createInputBridge } from "./input-bridge";
-
-// Helpers
-
-/** Create a mock EventSink that records all calls. */
-function mockSink(): EventSink & {
-  broadcasts: Array<{ runId: string; message: DaemonMessage }>;
-  sends: Array<{ clientId: string; message: DaemonMessage }>;
-} {
-  const broadcasts: Array<{ runId: string; message: DaemonMessage }> = [];
-  const sends: Array<{ clientId: string; message: DaemonMessage }> = [];
-  return {
-    broadcasts,
-    sends,
-    broadcast(runId: string, message: DaemonMessage) {
-      broadcasts.push({ runId, message });
-    },
-    send(clientId: string, message: DaemonMessage) {
-      sends.push({ clientId, message });
-    },
-  };
-}
-
-// Tests
 
 describe("createInputBridge", () => {
   it("broadcasts request_input when collector is called", async () => {

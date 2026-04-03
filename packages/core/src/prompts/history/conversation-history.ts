@@ -93,8 +93,8 @@ function estimateTokensForTurns(
   let totalChars = 0;
   for (const turn of turns) {
     totalChars += getMessageTextLength(turn.userMessage);
-    for (const msg of turn.responseMessages) {
-      totalChars += getMessageTextLength(msg);
+    for (const responseMessage of turn.responseMessages) {
+      totalChars += getMessageTextLength(responseMessage);
     }
   }
   return Math.ceil(totalChars * tokensPerChar);
@@ -148,8 +148,8 @@ function turnsToMessages(turns: readonly ConversationTurn[]): readonly ModelMess
   const messages: ModelMessage[] = [];
   for (const turn of turns) {
     messages.push(turn.userMessage);
-    for (const msg of turn.responseMessages) {
-      messages.push(msg);
+    for (const responseMessage of turn.responseMessages) {
+      messages.push(responseMessage);
     }
   }
   return messages;

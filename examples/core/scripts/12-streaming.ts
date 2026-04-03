@@ -22,7 +22,6 @@
  *   - Collecting the final result from the "done" event
  */
 
-import type { AgentStreamEvent } from "@comma-agents/core";
 import { createAgent, createDefaultTools } from "@comma-agents/core";
 import { getModel } from "./helpers";
 

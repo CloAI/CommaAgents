@@ -15,7 +15,8 @@
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CredentialStore, Daemon, ProviderResolver } from "@comma-agents/daemon";
+import type { CredentialStore } from "@comma-agents/core";
+import type { Daemon, ProviderResolver } from "@comma-agents/daemon";
 import { createDaemon } from "@comma-agents/daemon";
 import {
   createMockCredentialStore,
@@ -304,11 +305,15 @@ export async function cleanupTempFiles(): Promise<void> {
 
 // Utilities
 
+import { sleep } from "@comma-agents/utils";
+
 /**
  * Wait a short period for async side effects to settle.
+ *
+ * Wraps `sleep` from utils with a default of 50ms for ergonomic test usage.
  *
  * @param ms - Milliseconds to wait (default: 50)
  */
 export function settle(ms = 50): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+  return sleep(ms);
 }

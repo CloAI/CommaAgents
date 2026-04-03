@@ -4,7 +4,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { z } from "zod";
 import { defineTool } from "../../define/define-tool";
-import type { ToolDef } from "../../tool.types";
+import type { ToolDefinition } from "../../tool.types";
 
 /**
  * Configuration for the grep tool.
@@ -96,7 +96,7 @@ async function collectFiles(
  * const grep = createGrepTool({ maxResults: 50, maxFileSize: 512_000 });
  * ```
  */
-export function createGrepTool(config?: GrepToolConfig): ToolDef<typeof grepParams> {
+export function createGrepTool(config?: GrepToolConfig): ToolDefinition<typeof grepParams> {
   const maxResults = config?.maxResults ?? DEFAULT_MAX_RESULTS;
   const maxFileSize = config?.maxFileSize ?? DEFAULT_MAX_FILE_SIZE;
 
@@ -106,16 +106,16 @@ export function createGrepTool(config?: GrepToolConfig): ToolDef<typeof grepPara
       "with line numbers and content. Supports regex syntax and optional file pattern filtering. " +
       `Results are capped at ${maxResults} matching files.`,
     parameters: grepParams,
-    execute: async (args, _ctx) => {
-      const { pattern, include } = args;
-      const cwd = args.path ?? process.cwd();
+    execute: async (validatedArguments, _toolContext) => {
+      const { pattern, include } = validatedArguments;
+      const cwd = validatedArguments.path ?? process.cwd();
 
       let regex: RegExp;
       try {
         regex = new RegExp(pattern, "g");
-      } catch (err) {
+      } catch (error) {
         return {
-          output: `Error: invalid regex pattern "${pattern}": ${err instanceof Error ? err.message : String(err)}`,
+          output: `Error: invalid regex pattern "${pattern}": ${error instanceof Error ? error.message : String(error)}`,
           metadata: { error: true, pattern },
         };
       }
@@ -125,7 +125,7 @@ export function createGrepTool(config?: GrepToolConfig): ToolDef<typeof grepPara
       let files: string[];
       try {
         files = await collectFiles(cwd, includeGlob, maxFileSize);
-      } catch (err) {
+      } catch (_error) {
         return {
           output: `Error: could not read directory: ${cwd}`,
           metadata: { error: true, cwd },
@@ -148,12 +148,12 @@ export function createGrepTool(config?: GrepToolConfig): ToolDef<typeof grepPara
         const lines = content.split("\n");
         const matchingLines: string[] = [];
 
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i]!;
+        for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+          const line = lines[lineIndex]!;
           // Reset regex state for each line
           regex.lastIndex = 0;
           if (regex.test(line)) {
-            matchingLines.push(`  ${i + 1}: ${line}`);
+            matchingLines.push(`  ${lineIndex + 1}: ${line}`);
           }
         }
 

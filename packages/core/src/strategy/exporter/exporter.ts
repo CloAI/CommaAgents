@@ -6,9 +6,8 @@
 // runtime Agent objects back into declarative definitions.
 
 import YAML from "yaml";
-
-import type { ExportStrategyOptions } from "./exporter.types";
 import type { LoadedStrategy } from "../loader/loader.types";
+import type { ExportStrategyOptions } from "./exporter.types";
 
 /**
  * Serialize a loaded strategy back to a JSON or YAML string.

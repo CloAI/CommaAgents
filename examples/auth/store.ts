@@ -1,119 +1,55 @@
-/**
- * Credential store — persists API keys and OAuth tokens to disk.
- *
- * Store location: ~/.local/share/comma-agents/auth.json (XDG-compliant)
- * File permissions: 0o600 (owner read/write only)
- *
- * Supports two credential types:
- *   - "api"   — standard API keys (OpenAI, Anthropic, etc.)
- *   - "oauth" — OAuth tokens with refresh (GitHub Copilot)
- */
+// Credential store — thin wrapper around @comma-agents/core's credential store.
+//
+// Provides a simplified API for examples that always operates on the
+// "$global" scope. Uses core's resolveCredentialsPath() for the
+// platform-aware store file location.
+//
+// The core types (Credential, OAuthCredential, ApiCredential) are
+// re-exported for convenience.
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { z } from "zod";
+import {
+  type Credential,
+  type CredentialStore,
+  createCredentialStore,
+  createJsonFileBackend,
+  type OAuthCredential,
+  resolveCredentialsPath,
+} from "@comma-agents/core";
 
-// ---------------------------------------------------------------------------
-// Schemas
-// ---------------------------------------------------------------------------
+export type { ApiCredential, Credential, OAuthCredential } from "@comma-agents/core";
 
-/** Standard API key credential. */
-export const ApiAuthSchema = z.object({
-  type: z.literal("api"),
-  key: z.string(),
-});
+/** Default scope used for all example credential operations. */
+const GLOBAL_SCOPE = "$global";
 
-/** OAuth credential with access + refresh tokens and expiry timestamps. */
-export const OAuthSchema = z.object({
-  type: z.literal("oauth"),
-  /** Access token (e.g. ghu_* for GitHub Apps). */
-  access: z.string(),
-  /** Refresh token (e.g. ghr_* for GitHub Apps). */
-  refresh: z.string(),
-  /** Unix timestamp (ms) when the access token expires. 0 = never. */
-  expires: z.number(),
-  /** Unix timestamp (ms) when the refresh token expires. Omitted = never. */
-  refreshExpiresAt: z.number().optional(),
-});
+// Lazily-initialized singleton store instance
 
-/** Discriminated union of all credential types. */
-export const AuthInfoSchema = z.discriminatedUnion("type", [ApiAuthSchema, OAuthSchema]);
+let storeInstance: CredentialStore | undefined;
 
-export type ApiAuth = z.infer<typeof ApiAuthSchema>;
-export type OAuthInfo = z.infer<typeof OAuthSchema>;
-export type AuthInfo = z.infer<typeof AuthInfoSchema>;
-
-// ---------------------------------------------------------------------------
-// Store path
-// ---------------------------------------------------------------------------
-
-/**
- * Resolve the XDG-compliant data directory for comma-agents.
- *
- * Priority:
- *   1. $XDG_DATA_HOME/comma-agents  (Linux convention)
- *   2. ~/.local/share/comma-agents   (fallback)
- */
-function dataDir(): string {
-  const xdg = process.env.XDG_DATA_HOME;
-  const base = xdg && xdg.length > 0 ? xdg : join(homedir(), ".local", "share");
-  return join(base, "comma-agents");
-}
-
-function storePath(): string {
-  return join(dataDir(), "auth.json");
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-async function readStore(): Promise<Record<string, unknown>> {
-  try {
-    const raw = await readFile(storePath(), "utf-8");
-    const parsed = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return {};
-    }
-    return parsed as Record<string, unknown>;
-  } catch {
-    // File doesn't exist or is unreadable — start fresh.
-    return {};
+function getStore(): CredentialStore {
+  if (!storeInstance) {
+    storeInstance = createCredentialStore({
+      backend: createJsonFileBackend({ filePath: resolveCredentialsPath() }),
+    });
   }
+  return storeInstance;
 }
 
-async function writeStore(data: Record<string, AuthInfo>): Promise<void> {
-  const dir = dataDir();
-  await mkdir(dir, { recursive: true });
-  const json = JSON.stringify(data, null, 2);
-  await writeFile(storePath(), json, { mode: 0o600 });
-}
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+// Simplified public API (always uses $global scope)
 
 /**
  * Get a stored credential for a provider.
- * Returns `undefined` if nothing is stored or the stored data is invalid.
+ * Returns `undefined` if nothing is stored.
  */
-export async function get(providerID: string): Promise<AuthInfo | undefined> {
-  const store = await readStore();
-  const entry = store[providerID];
-  if (entry === undefined) return undefined;
-  const result = AuthInfoSchema.safeParse(entry);
-  return result.success ? result.data : undefined;
+export async function get(providerID: string): Promise<Credential | undefined> {
+  return getStore().get(providerID, GLOBAL_SCOPE);
 }
 
 /**
  * Store a credential for a provider.
  * Overwrites any existing credential for that provider.
  */
-export async function set(providerID: string, info: AuthInfo): Promise<void> {
-  const store = await all();
-  store[providerID] = info;
-  await writeStore(store);
+export async function set(providerID: string, credential: Credential): Promise<void> {
+  await getStore().set(providerID, GLOBAL_SCOPE, credential);
 }
 
 /**
@@ -121,24 +57,47 @@ export async function set(providerID: string, info: AuthInfo): Promise<void> {
  * No-op if no credential is stored for that provider.
  */
 export async function remove(providerID: string): Promise<void> {
-  const store = await all();
-  if (!(providerID in store)) return;
-  delete store[providerID];
-  await writeStore(store);
+  await getStore().remove(providerID, GLOBAL_SCOPE);
 }
 
 /**
- * Get all stored credentials, validated.
- * Invalid entries are silently dropped.
+ * Get all stored credentials from the global scope.
  */
-export async function all(): Promise<Record<string, AuthInfo>> {
-  const raw = await readStore();
-  const result: Record<string, AuthInfo> = {};
-  for (const [key, value] of Object.entries(raw)) {
-    const parsed = AuthInfoSchema.safeParse(value);
-    if (parsed.success) {
-      result[key] = parsed.data;
+export async function all(): Promise<Record<string, Credential>> {
+  const store = getStore();
+  const providerIds = await store.list(GLOBAL_SCOPE);
+  const result: Record<string, Credential> = {};
+  for (const providerId of providerIds) {
+    const credential = await store.get(providerId, GLOBAL_SCOPE);
+    if (credential) {
+      result[providerId] = credential;
     }
   }
   return result;
+}
+
+/**
+ * Resolve the best credential for a provider using the core resolution chain.
+ * Checks: strategy scope -> env vars -> $global scope.
+ */
+export async function resolve(providerID: string, scope?: string): Promise<Credential | undefined> {
+  return getStore().resolve(providerID, scope);
+}
+
+/**
+ * Extract a usable token string from a Credential.
+ *
+ * - `api` credentials return the key.
+ * - `oauth` credentials return the accessToken.
+ * - `custom` credentials return `undefined` (no standard token field).
+ */
+export function extractToken(credential: Credential): string | undefined {
+  switch (credential.type) {
+    case "api":
+      return credential.key;
+    case "oauth":
+      return credential.accessToken;
+    case "custom":
+      return undefined;
+  }
 }

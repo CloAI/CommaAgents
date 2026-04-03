@@ -43,8 +43,8 @@ describe("createSequentialFlow", () => {
     const result = (await flow.call("start")) as FlowResult;
 
     expect(result.stepResults).toHaveLength(2);
-    expect(result.stepResults[0]!.text).toBe("first");
-    expect(result.stepResults[1]!.text).toBe("second");
+    expect(result.stepResults[0]?.text).toBe("first");
+    expect(result.stepResults[1]?.text).toBe("second");
   });
 
   it("aggregates token usage across steps", async () => {

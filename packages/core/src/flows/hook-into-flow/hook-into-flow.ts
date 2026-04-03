@@ -17,7 +17,7 @@ import type { FlowHooks } from "../flow/flow.types";
  * `createFlow`, or `buildFlowAgent`), which provide the internal
  * `appendHook` method. Throws if the flow doesn't support it.
  *
- * The generic parameter `H` allows passing extended hook types
+ * The generic parameter `HookType` allows passing extended hook types
  * (e.g. `CycleHooks`) for cycle-specific hooks:
  *
  * @example
@@ -25,14 +25,14 @@ import type { FlowHooks } from "../flow/flow.types";
  * // Basic flow hooks
  * const flow = createSequentialFlow({ name: "pipe", steps: [a, b] });
  * hookIntoFlow(flow, {
- *   beforeFlow: [async (msg) => console.log("starting:", msg)],
- *   afterFlow: [async (msg) => console.log("done:", msg)],
+ *   beforeFlow: [async (message) => console.log("starting:", message)],
+ *   afterFlow: [async (message) => console.log("done:", message)],
  * });
  *
  * // Cycle-specific hooks
  * const cycle = createCycleFlow({ name: "loop", steps: [a], cycles: 3 });
  * hookIntoFlow<CycleHooks>(cycle, {
- *   alterMessageBeforeCycle: [async (msg) => `[cycle]${msg}`],
+ *   alterMessageBeforeCycle: [async (message) => `[cycle]${message}`],
  * });
  *
  * // Chaining
@@ -42,7 +42,10 @@ import type { FlowHooks } from "../flow/flow.types";
  * );
  * ```
  */
-export function hookIntoFlow<H extends FlowHooks = FlowHooks>(flow: Agent, hooks: H): Agent {
+export function hookIntoFlow<HookType extends FlowHooks = FlowHooks>(
+  flow: Agent,
+  hooks: HookType,
+): Agent {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- appendHook is an implementation detail, not on the interface
   const appendHook = (flow as any).appendHook as
     | ((hookName: string, callback: unknown) => void)
@@ -57,8 +60,8 @@ export function hookIntoFlow<H extends FlowHooks = FlowHooks>(flow: Agent, hooks
 
   for (const [name, callbacks] of Object.entries(hooks)) {
     if (callbacks) {
-      for (const cb of callbacks as readonly unknown[]) {
-        appendHook(name, cb);
+      for (const hookCallback of callbacks as readonly unknown[]) {
+        appendHook(name, hookCallback);
       }
     }
   }

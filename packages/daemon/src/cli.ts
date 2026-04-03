@@ -10,21 +10,17 @@
 // missing @ai-sdk/* provider packages are auto-installed at import time.
 
 import { join } from "node:path";
-
+import type { Credential, ProviderResolver } from "@comma-agents/core";
+import { createCredentialStore, createJsonFileBackend } from "@comma-agents/core";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-
 import { loadDaemonConfig, resolveDataDir } from "./config";
-import { createJsonFileBackend } from "./credentials/backends/json-file";
-import { createCredentialStore } from "./credentials/store";
-import type { ProviderResolver } from "./executor/executor";
 import { createLogger } from "./logger/logger";
+import type { LogSink } from "./logger/logger.types";
 import { createFileSink } from "./logger/sinks/file";
 import { createStderrSink } from "./logger/sinks/stderr";
-import type { LogSink } from "./logger/types";
 import { isRunning, readPid, removePid, writePid } from "./pid";
-import type { Credential } from "./protocol/shared";
-import { createDaemon } from "./server";
+import { createDaemon } from "./server/server";
 
 // Argument parsing via yargs
 
@@ -36,14 +32,7 @@ interface StartArgs {
 
 // Provider resolver — dynamic import with Bun auto-install
 
-/**
- * Capitalize the first letter of a string.
- * "openai" → "Openai", "anthropic" → "Anthropic"
- */
-function capitalize(s: string): string {
-  if (s.length === 0) return s;
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
+import { capitalize } from "@comma-agents/utils";
 
 /**
  * Build a ProviderResolver that dynamically imports @ai-sdk/<providerId>.
@@ -57,26 +46,13 @@ function capitalize(s: string): string {
  *
  * Special handling:
  *   github-copilot → uses @ai-sdk/openai-compatible with the Copilot API
- *
- * Credential types map to provider options:
- *   - api    → { apiKey: credential.key }
- *   - oauth  → { apiKey: credential.accessToken }
- *   - custom → spread credential.data
  */
 function buildProviderResolver(): ProviderResolver {
   return async (providerId: string, credential: Credential) => {
-    // Extract API key from credential
-    let apiKey: string | undefined;
-    if (credential.type === "api") {
-      apiKey = credential.key;
-    } else if (credential.type === "oauth") {
-      apiKey = credential.accessToken;
-    }
-
     // -- GitHub Copilot: special handling --
     // Copilot uses @ai-sdk/openai-compatible, not @ai-sdk/github-copilot
     if (providerId === "github-copilot") {
-      return buildCopilotProvider(apiKey);
+      return buildCopilotProvider(credential);
     }
 
     // -- Standard providers --
@@ -107,17 +83,10 @@ function buildProviderResolver(): ProviderResolver {
     }
 
     // Build options from credential
-    const opts: Record<string, unknown> = {};
-    if (credential.type === "api") {
-      opts.apiKey = credential.key;
-    } else if (credential.type === "oauth") {
-      opts.apiKey = credential.accessToken;
-    } else if (credential.type === "custom") {
-      Object.assign(opts, credential.data);
-    }
+    const providerOptions = buildProviderOptions(credential);
 
     // The factory returns a callable provider: (modelID) => LanguageModel
-    const provider = factory(opts);
+    const provider = factory(providerOptions);
     if (typeof provider !== "function") {
       throw new Error(
         `${packageName}.${factoryName}() did not return a callable provider function`,
@@ -129,12 +98,43 @@ function buildProviderResolver(): ProviderResolver {
 }
 
 /**
+ * Extract provider options from a credential.
+ *
+ * Maps credential types to the options object expected by AI SDK providers:
+ *   - api    → { apiKey: credential.key }
+ *   - oauth  → { apiKey: credential.accessToken }
+ *   - custom → spread credential.data
+ */
+function buildProviderOptions(credential: Credential): Record<string, unknown> {
+  if (credential.type === "api") {
+    return { apiKey: credential.key };
+  }
+  if (credential.type === "oauth") {
+    return { apiKey: credential.accessToken };
+  }
+  if (credential.type === "custom") {
+    return { ...credential.data };
+  }
+  return {};
+}
+
+/**
+ * Extract an API key string from a credential, or undefined if none.
+ */
+function extractApiKey(credential: Credential): string | undefined {
+  if (credential.type === "api") return credential.key;
+  if (credential.type === "oauth") return credential.accessToken;
+  return undefined;
+}
+
+/**
  * Build a GitHub Copilot provider using @ai-sdk/openai-compatible.
  *
  * Copilot exposes an OpenAI-compatible API at https://api.githubcopilot.com
  * that requires a GitHub OAuth token (from device flow) as a Bearer token.
  */
-async function buildCopilotProvider(apiKey: string | undefined): Promise<(modelID: string) => any> {
+async function buildCopilotProvider(credential: Credential): Promise<(modelID: string) => any> {
+  const apiKey = extractApiKey(credential);
   if (!apiKey) {
     throw new Error(
       "No GitHub Copilot token available. " + "Set GITHUB_TOKEN or save credentials via the TUI.",

@@ -76,8 +76,8 @@ describe("createBroadcastFlow", () => {
     const result = (await flow.call("input")) as FlowResult;
 
     expect(result.stepResults).toHaveLength(2);
-    expect(result.stepResults[0]!.text).toBe("first");
-    expect(result.stepResults[1]!.text).toBe("second");
+    expect(result.stepResults[0]?.text).toBe("first");
+    expect(result.stepResults[1]?.text).toBe("second");
   });
 
   it("aggregates token usage", async () => {
@@ -193,7 +193,7 @@ describe("createBroadcastFlow", () => {
     const result = (await flow.call("original")) as FlowResult;
 
     // Step b should get "original", NOT "modified:original"
-    expect(result.stepResults[1]!.text).toBe("got:original");
+    expect(result.stepResults[1]?.text).toBe("got:original");
   });
 });
 

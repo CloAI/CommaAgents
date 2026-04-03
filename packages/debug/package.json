@@ -7,10 +7,11 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target bun",
-    "test": "bun test"
+    "test": "bun test --coverage"
   },
   "dependencies": {
-    "@comma-agents/core": "workspace:*"
+    "@comma-agents/core": "workspace:*",
+    "@comma-agents/utils": "workspace:*"
   },
   "author": "CloAI",
   "license": "MIT"

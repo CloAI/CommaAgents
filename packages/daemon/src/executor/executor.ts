@@ -1,54 +1,35 @@
 // Strategy executor — the bridge between the WebSocket layer and core's
-// loadStrategy(). Manages strategy loading, provider resolution, event
-// forwarding, user input collection, and auth flows.
+// loadStrategy(). Manages strategy loading, event forwarding, user input
+// collection, and state tracking.
 //
 // The executor orchestrates strategy execution at the highest level:
-// 1. Pre-parses the strategy file to extract provider IDs.
-// 2. Resolves credentials for each provider (from store or via auth bridge).
-// 3. Loads the strategy with injected hooks that forward events.
-// 4. Executes `strategy.flow.call(input)` in the background (fire-and-forget).
-// 5. Updates DaemonState and broadcasts protocol messages as execution proceeds.
+// 1. Pre-parses the strategy file to determine format and extract metadata.
+// 2. Loads the strategy via core's loadStrategyFromString, which handles
+//    credential resolution automatically via credentialStore + providerResolver.
+// 3. Executes `strategy.flow.call(input)` in the background (fire-and-forget).
+// 4. Updates DaemonState and broadcasts protocol messages as execution proceeds.
+//
+// Credential acquisition (OAuth flows, API key prompting) is handled by the
+// TUI before starting flows. The daemon reads from the credential store only.
 
 import type {
   AgentCallResult,
   AgentHooks,
   AgentStreamEvent,
+  CredentialStore,
   FlowHooks,
   ProviderFactory,
+  ProviderResolver,
 } from "@comma-agents/core";
-import { loadStrategy, loadStrategyFromString } from "@comma-agents/core";
+import { loadStrategyFromString, parseModel } from "@comma-agents/core";
 import YAML from "yaml";
-
-import type { CredentialStore } from "../credentials/types";
 import type { Logger } from "../logger";
-import type { Credential } from "../protocol/shared";
-import type { DaemonState, RunState } from "../state/types";
-import type { AuthBridge } from "./auth-bridge";
-import { createAuthBridge } from "./auth-bridge";
+import type { DaemonState, RunState } from "../state/state.types";
 import type { EventSink } from "./event-sink";
 import type { InputBridge } from "./input-bridge";
 import { createInputBridge } from "./input-bridge";
 
 // Types
-
-/**
- * A function that translates a (providerId, credential) pair into an
- * AI SDK ProviderFactory. Keeps the executor decoupled from @ai-sdk/*
- * packages — the server/CLI layer supplies the implementation.
- *
- * @example
- * ```ts
- * const resolver: ProviderResolver = async (id, cred) => {
- *   if (cred.type !== "api") throw new Error("Only API keys supported");
- *   const mod = await import(`@ai-sdk/${id}`);
- *   return mod.default({ apiKey: cred.key });
- * };
- * ```
- */
-export type ProviderResolver = (
-  providerId: string,
-  credential: Credential,
-) => ProviderFactory | Promise<ProviderFactory>;
 
 /** Options for creating a strategy executor. */
 export interface CreateStrategyExecutorOptions {
@@ -56,13 +37,13 @@ export interface CreateStrategyExecutorOptions {
   readonly state: DaemonState;
   /** EventSink for delivering messages to clients. */
   readonly sink: EventSink;
-  /** Credential store for resolving and persisting credentials. */
+  /** Credential store for resolving provider credentials. */
   readonly credentialStore: CredentialStore;
   /** Logger for executor-level diagnostics. */
   readonly logger: Logger;
   /** Translates (providerId, credential) → ProviderFactory. */
   readonly providerResolver: ProviderResolver;
-  /** Timeout in ms for input/auth bridges. 0 = no timeout. Default: 0. */
+  /** Timeout in ms for input bridge. 0 = no timeout. Default: 0. */
   readonly bridgeTimeout?: number;
   /**
    * Override the model for ALL agents in every strategy executed by this daemon.
@@ -78,7 +59,6 @@ export interface CreateStrategyExecutorOptions {
 /** Per-run context held by the executor. */
 interface RunContext {
   readonly inputBridge: InputBridge;
-  readonly authBridge: AuthBridge;
   readonly clientId: string;
 }
 
@@ -108,55 +88,6 @@ export interface StrategyExecutor {
    * @returns `true` if the input was delivered to a pending request.
    */
   handleUserInput(runId: string, agentName: string, text: string): boolean;
-
-  /**
-   * Route a `provide_auth` message to the correct run's auth bridge.
-   *
-   * @returns `true` if the auth was delivered to a pending request.
-   */
-  handleProvideAuth(
-    providerId: string,
-    credential: Credential,
-    scope: string,
-    persist: boolean,
-  ): Promise<boolean>;
-}
-
-// extractProviderIds() — pre-parse strategy to find required providers
-
-/**
- * Extract unique provider IDs from a raw (already-parsed) strategy object.
- *
- * Scans `defaults.model` and each agent's `model` field for
- * "providerID/modelID" strings. Returns the set of unique provider IDs.
- */
-export function extractProviderIds(raw: Record<string, unknown>): Set<string> {
-  const ids = new Set<string>();
-
-  // Helper: extract providerID from a "providerID/modelID" string
-  const extract = (model: unknown): void => {
-    if (typeof model !== "string") return;
-    const slashIndex = model.indexOf("/");
-    if (slashIndex > 0) {
-      ids.add(model.slice(0, slashIndex));
-    }
-  };
-
-  // Check defaults.model
-  const defaults = raw.defaults as Record<string, unknown> | undefined;
-  if (defaults) {
-    extract(defaults.model);
-  }
-
-  // Check agents[*].model
-  const agents = raw.agents as Record<string, Record<string, unknown>> | undefined;
-  if (agents) {
-    for (const agentDef of Object.values(agents)) {
-      extract(agentDef.model);
-    }
-  }
-
-  return ids;
 }
 
 // parseStrategyFile() — read and JSON/YAML parse a strategy file
@@ -237,7 +168,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     modelOverride,
   } = options;
 
-  /** runId → per-run context (bridges, client). */
+  /** runId → per-run context (bridge, client). */
   const runContexts = new Map<string, RunContext>();
 
   // -- Private: build hooks that forward events to subscribers --
@@ -277,11 +208,6 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     return {
       onStreamEvent: [
         (event: AgentStreamEvent) => {
-          // We don't have the agent name directly from the hook signature,
-          // but the "done" event contains the result. For streaming events,
-          // we use a generic name. The stepName from flow hooks provides
-          // the context clients need.
-          //
           // NOTE: The agentName is not available in the hook context.
           // We pass "unknown" and let clients correlate via step_started
           // messages which do carry the step name. A future core enhancement
@@ -310,33 +236,6 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     };
   }
 
-  // -- Private: resolve providers for a strategy --
-
-  async function resolveProviders(
-    providerIds: Set<string>,
-    strategyName: string,
-    authBridge: AuthBridge,
-  ): Promise<Record<string, ProviderFactory>> {
-    const providers: Record<string, ProviderFactory> = {};
-
-    for (const providerId of providerIds) {
-      // 1. Try credential store (strategy-scoped → env → global)
-      let credential = await credentialStore.resolve(providerId, strategyName);
-
-      // 2. If no credential, request from client via auth bridge
-      if (!credential) {
-        logger.debug(`No credential found for "${providerId}", requesting from client`);
-        credential = await authBridge.requestAuth(providerId);
-      }
-
-      // 3. Translate credential → ProviderFactory
-      const factory = await providerResolver(providerId, credential);
-      providers[providerId] = factory;
-    }
-
-    return providers;
-  }
-
   // -- Private: executeRun — the async background task --
 
   async function executeRun(
@@ -349,33 +248,37 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     if (!ctx) return;
 
     try {
-      // 1. Parse the strategy file to extract provider IDs
+      // 1. Parse the strategy file
       const { raw, content, format } = await parseStrategyFile(strategyPath);
-
-      // When modelOverride is set, use its provider ID instead of scanning
-      // the strategy file. This ensures credentials are resolved for the
-      // override provider, not the one baked into the strategy.
-      let providerIds: Set<string>;
-      if (modelOverride) {
-        const slashIdx = modelOverride.indexOf("/");
-        if (slashIdx < 1) {
-          throw new Error(
-            `Invalid modelOverride "${modelOverride}". Expected "providerID/modelID".`,
-          );
-        }
-        providerIds = new Set([modelOverride.slice(0, slashIdx)]);
-      } else {
-        providerIds = extractProviderIds(raw as Record<string, unknown>);
-      }
-
       const strategyName = typeof raw.name === "string" ? raw.name : "unknown";
 
-      // 2. Resolve providers (may trigger auth bridge)
-      const providers = await resolveProviders(providerIds, strategyName, ctx.authBridge);
+      // 2. Build load options — delegate credential resolution to core
+      //
+      // When modelOverride is set, resolve the override provider's credential
+      // manually and pass as explicit `providers` (explicit entries take
+      // precedence over core's auto-resolve). This ensures the override
+      // provider ID is used instead of whatever is in the strategy file.
+      let explicitProviders: Record<string, ProviderFactory> | undefined;
 
-      // 3. Load the strategy with injected hooks
-      const strategy = loadStrategyFromString(content, format, {
-        providers,
+      if (modelOverride) {
+        const { providerID } = parseModel(modelOverride);
+        const credential = await credentialStore.resolve(providerID, strategyName);
+        if (!credential) {
+          throw new Error(
+            `No credential found for override provider "${providerID}". ` +
+              `Save credentials via the TUI before starting flows.`,
+          );
+        }
+        const factory = await providerResolver(providerID, credential);
+        explicitProviders = { [providerID]: factory };
+      }
+
+      // 3. Load the strategy — core handles credential resolution
+      //    for all providers found in the strategy file
+      const strategy = await loadStrategyFromString(content, format, {
+        providers: explicitProviders,
+        credentialStore,
+        providerResolver,
         inputCollector: ctx.inputBridge.collector,
         abort: run.abortController.signal,
         agentHooks: buildAgentHooks(run.id),
@@ -447,11 +350,10 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
         logger.error(`Run ${run.id} failed: ${errorMessage}`);
       }
     } finally {
-      // Clean up bridges
-      const ctx = runContexts.get(run.id);
-      if (ctx) {
-        ctx.inputBridge.destroy();
-        ctx.authBridge.destroy();
+      // Clean up bridge
+      const runContext = runContexts.get(run.id);
+      if (runContext) {
+        runContext.inputBridge.destroy();
         runContexts.delete(run.id);
       }
     }
@@ -469,7 +371,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       // 2. Subscribe the requesting client to this run
       state.subscribe(clientId, run.id);
 
-      // 3. Create bridges for this run
+      // 3. Create input bridge for this run
       const inputBridge = createInputBridge({
         sink,
         runId: run.id,
@@ -477,24 +379,14 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
         abort: run.abortController.signal,
       });
 
-      const authBridge = createAuthBridge({
-        sink,
-        clientId,
-        runId: run.id,
-        credentialStore,
-        strategyName: strategyPath, // Updated with real name during execution
-        timeout: bridgeTimeout,
-        abort: run.abortController.signal,
-      });
-
       // 4. Store run context
-      runContexts.set(run.id, { inputBridge, authBridge, clientId });
+      runContexts.set(run.id, { inputBridge, clientId });
 
       // 5. Kick off execution (fire-and-forget)
-      executeRun(run, strategyPath, input ?? "", requestId).catch((err) => {
+      executeRun(run, strategyPath, input ?? "", requestId).catch((caughtError) => {
         // This should never happen — executeRun has its own try/catch.
         // But log just in case.
-        logger.error(`Unexpected error in executeRun for ${run.id}: ${err}`);
+        logger.error(`Unexpected error in executeRun for ${run.id}: ${caughtError}`);
       });
 
       return run.id;
@@ -526,11 +418,10 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
         });
       }
 
-      // Clean up bridges
+      // Clean up bridge
       const ctx = runContexts.get(runId);
       if (ctx) {
         ctx.inputBridge.destroy();
-        ctx.authBridge.destroy();
         runContexts.delete(runId);
       }
     },
@@ -539,23 +430,6 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       const ctx = runContexts.get(runId);
       if (!ctx) return false;
       return ctx.inputBridge.resolveInput(agentName, text);
-    },
-
-    async handleProvideAuth(
-      providerId: string,
-      credential: Credential,
-      scope: string,
-      persist: boolean,
-    ): Promise<boolean> {
-      // Find the run context that has a pending auth request for this provider.
-      // In practice, the server routes this by runId, but the provide_auth
-      // message doesn't carry a runId — it carries a providerId.
-      // We search all active run contexts for a match.
-      for (const [, ctx] of runContexts) {
-        const resolved = await ctx.authBridge.resolveAuth(providerId, credential, scope, persist);
-        if (resolved) return true;
-      }
-      return false;
     },
   };
 }

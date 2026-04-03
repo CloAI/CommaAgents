@@ -70,7 +70,7 @@ async function main() {
   });
 
   console.log("--- Loading JSON strategy ---");
-  const loaded = loadStrategyFromString(jsonStrategy, "json", { providers });
+  const loaded = await loadStrategyFromString(jsonStrategy, "json", { providers });
   console.log(`Strategy: ${loaded.name} (v${loaded.version})`);
   console.log(`Agents: ${Object.keys(loaded.agents).join(", ")}`);
   console.log(`Flow: ${loaded.flow.name}\n`);
@@ -110,7 +110,7 @@ flow:
 `;
 
   console.log("\n--- Loading YAML strategy ---");
-  const yamlLoaded = loadStrategyFromString(yamlStrategy.trim(), "yaml", { providers });
+  const yamlLoaded = await loadStrategyFromString(yamlStrategy.trim(), "yaml", { providers });
   console.log(`Strategy: ${yamlLoaded.name}`);
   console.log(`Agents: ${Object.keys(yamlLoaded.agents).join(", ")}`);
   console.log(`Flow: ${yamlLoaded.flow.name}\n`);

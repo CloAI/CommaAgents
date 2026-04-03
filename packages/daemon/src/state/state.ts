@@ -3,7 +3,7 @@
 // All operations are synchronous. No persistence, no event emission.
 // See types.ts for the DaemonState interface contract and invariants.
 
-import type { DaemonState, RunState, RunUpdate } from "./types";
+import type { DaemonState, RunState, RunUpdate } from "./state.types";
 
 // createDaemonState()
 

@@ -15,6 +15,7 @@
     "lint": "bunx @biomejs/biome check .",
     "lint:fix": "bunx @biomejs/biome check --write .",
     "format": "bunx @biomejs/biome format --write .",
+    "knip": "knip",
     "daemon": "bun run --filter @comma-agents/daemon start",
     "tui": "bun run --filter @comma-agents/tui start",
     "example": "bun run examples/core/strategies/run.ts",
@@ -26,6 +27,7 @@
   "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "2.4.2",
-    "bun-types": "1.3.9"
+    "bun-types": "1.3.9",
+    "knip": "6.0.5"
   }
 }

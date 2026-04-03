@@ -3,18 +3,15 @@
 // Multi-sink, level-filtered, with child logger support.
 // Zero external dependencies.
 
+import { isoNow } from "@comma-agents/utils";
 import { createStderrSink } from "./sinks/stderr";
-import type { CreateLoggerOptions, LogEntry, Logger, LogLevel, LogSink } from "./types";
-import { LOG_LEVELS } from "./types";
+import type { CreateLoggerOptions, LogEntry, Logger, LogLevel, LogSink } from "./logger.types";
+import { LOG_LEVELS } from "./logger.types";
 
 // Internal helpers
 
 function shouldLog(entryLevel: LogLevel, minLevel: LogLevel): boolean {
   return LOG_LEVELS[entryLevel] >= LOG_LEVELS[minLevel];
-}
-
-function now(): string {
-  return new Date().toISOString();
 }
 
 // Logger implementation
@@ -24,7 +21,7 @@ function createLoggerImpl(sinks: LogSink[], minLevel: LogLevel, component?: stri
     if (!shouldLog(level, minLevel)) return;
 
     const entry: LogEntry = {
-      ts: now(),
+      ts: isoNow(),
       level,
       msg,
       ...(component ? { component } : {}),

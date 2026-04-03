@@ -11,17 +11,19 @@
   "scripts": {
     "start": "bun run src/cli.ts start --foreground",
     "build": "bun build src/index.ts --outdir dist --target bun",
-    "test": "bun test"
+    "test": "bun test --coverage"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.30",
     "@comma-agents/core": "workspace:*",
+    "@comma-agents/utils": "workspace:*",
     "yaml": "2.7.0",
     "yargs": "17.7.2",
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@types/yargs": "17.0.33"
+    "@types/yargs": "17.0.33",
+    "ai": "6.0.91"
   },
   "author": "CloAI",
   "license": "MIT"

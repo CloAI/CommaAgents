@@ -3,7 +3,7 @@
 // Decouples the strategy executor from WebSocket transport.
 // The server (8h) implements this interface; tests use a mock.
 
-import type { DaemonMessage } from "../protocol/daemon";
+import type { DaemonMessage } from "../server/protocol/messages";
 
 // EventSink interface
 
@@ -26,7 +26,7 @@ export interface EventSink {
   /**
    * Send a message to a specific client.
    *
-   * Used for targeted messages like `request_auth` which go
+   * Used for targeted messages like `request_input` which go
    * only to the client that initiated the run.
    */
   send(clientId: string, message: DaemonMessage): void;

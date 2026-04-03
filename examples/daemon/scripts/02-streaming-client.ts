@@ -156,7 +156,7 @@ async function main() {
         break;
 
       case "flow_completed":
-        console.log("\n" + "─".repeat(60));
+        console.log(`\n${"─".repeat(60)}`);
         console.log(`Flow completed (run: ${msg.runId})`);
         console.log(`Final result: ${msg.result}`);
         console.log(

@@ -3,7 +3,7 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
 import { defineTool } from "../../define/define-tool";
-import type { ToolDef } from "../../tool.types";
+import type { ToolDefinition } from "../../tool.types";
 
 /**
  * Configuration for the bash tool.
@@ -44,24 +44,24 @@ function executeCommand(
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
 
-    const proc = spawn("sh", ["-c", command], {
+    const childProcess = spawn("sh", ["-c", command], {
       cwd: options.workdir,
       stdio: ["ignore", "pipe", "pipe"],
     });
 
     const timer = setTimeout(() => {
-      proc.kill("SIGTERM");
+      childProcess.kill("SIGTERM");
       setTimeout(() => {
-        if (!proc.killed) proc.kill("SIGKILL");
+        if (!childProcess.killed) childProcess.kill("SIGKILL");
       }, 1_000);
     }, options.timeout);
 
     // Handle abort signal
     if (options.signal) {
       const onAbort = () => {
-        proc.kill("SIGTERM");
+        childProcess.kill("SIGTERM");
         setTimeout(() => {
-          if (!proc.killed) proc.kill("SIGKILL");
+          if (!childProcess.killed) childProcess.kill("SIGKILL");
         }, 1_000);
       };
       if (options.signal.aborted) {
@@ -71,23 +71,23 @@ function executeCommand(
       }
     }
 
-    proc.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
-    proc.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+    childProcess.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
+    childProcess.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
 
-    proc.on("error", (err) => {
+    childProcess.on("error", (error) => {
       clearTimeout(timer);
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         resolve({
           stdout: "",
           stderr: "Error: shell interpreter not found",
           exitCode: 127,
         });
       } else {
-        reject(err);
+        reject(error);
       }
     });
 
-    proc.on("close", (code) => {
+    childProcess.on("close", (code) => {
       clearTimeout(timer);
       resolve({
         stdout: Buffer.concat(stdoutChunks).toString("utf-8"),
@@ -113,7 +113,7 @@ function executeCommand(
  * });
  * ```
  */
-export function createBashTool(config?: BashToolConfig): ToolDef<typeof bashParams> {
+export function createBashTool(config?: BashToolConfig): ToolDefinition<typeof bashParams> {
   const defaultTimeout = config?.defaultTimeout ?? DEFAULT_BASH_TIMEOUT;
   const defaultWorkdir = config?.workingDirectory;
 
@@ -123,15 +123,15 @@ export function createBashTool(config?: BashToolConfig): ToolDef<typeof bashPara
       "and the output (stdout/stderr) is returned. Use this for running build tools, " +
       "git commands, installing packages, running scripts, or any other terminal operation.",
     parameters: bashParams,
-    execute: async (args, ctx) => {
-      const timeout = args.timeout ?? defaultTimeout;
-      const workdir = args.workdir ?? defaultWorkdir;
+    execute: async (validatedArguments, toolContext) => {
+      const timeout = validatedArguments.timeout ?? defaultTimeout;
+      const workdir = validatedArguments.workdir ?? defaultWorkdir;
       const startTime = Date.now();
 
-      const result = await executeCommand(args.command, {
+      const result = await executeCommand(validatedArguments.command, {
         timeout,
         workdir,
-        signal: ctx.abort,
+        signal: toolContext.abort,
       });
 
       const durationMs = Date.now() - startTime;
@@ -155,7 +155,7 @@ export function createBashTool(config?: BashToolConfig): ToolDef<typeof bashPara
         metadata: {
           exitCode: result.exitCode,
           durationMs,
-          command: args.command,
+          command: validatedArguments.command,
         },
       };
     },

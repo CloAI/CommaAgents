@@ -119,7 +119,7 @@ describe("createConversationHistory", () => {
       const last = history.getLastTurn();
       expect(last).toBeDefined();
       expect(userText(last!)).toBe("Second");
-      expect(last!.responseMessages).toEqual(assistantResponse("Response 2"));
+      expect(last?.responseMessages).toEqual(assistantResponse("Response 2"));
     });
   });
 

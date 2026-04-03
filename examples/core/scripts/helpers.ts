@@ -6,7 +6,7 @@
  *
  * Credential resolution order (per provider):
  *   1. Environment variable (e.g. OPENAI_API_KEY, GITHUB_TOKEN)
- *   2. Credential store (~/.local/share/comma-agents/auth.json)
+ *   2. Credential store (platform-aware path via resolveCredentialsPath())
  *      - For OAuth tokens (Copilot): automatically refreshes if expired
  *
  * Usage:

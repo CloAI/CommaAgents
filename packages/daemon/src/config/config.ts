@@ -1,6 +1,6 @@
 // Daemon configuration with layered resolution: defaults → JSON file → env vars.
 //
-// Platform-aware defaults:
+// Platform-aware defaults use core's resolveDataDir():
 //   Linux:   ~/.local/share/comma-agents/
 //   macOS:   ~/Library/Application Support/comma-agents/
 //   Windows: %LOCALAPPDATA%/comma-agents/
@@ -11,37 +11,13 @@
 //   3. Built-in defaults
 
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { resolveDataDir } from "@comma-agents/core";
 import { z } from "zod";
-import type { LogLevel } from "../logger/types";
+import type { LogLevel } from "../logger/logger.types";
 
-// Platform-aware data directory
-
-/**
- * Resolve the base data directory for comma-agents.
- *
- * Respects platform conventions:
- * - Linux: XDG_DATA_HOME or ~/.local/share
- * - macOS: ~/Library/Application Support
- * - Windows: LOCALAPPDATA or ~/AppData/Local
- */
-export function resolveDataDir(): string {
-  const platform = process.platform;
-
-  if (platform === "win32") {
-    const base = process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local");
-    return join(base, "comma-agents");
-  }
-
-  if (platform === "darwin") {
-    return join(homedir(), "Library", "Application Support", "comma-agents");
-  }
-
-  // Linux and other Unix — XDG Base Directory Specification
-  const base = process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
-  return join(base, "comma-agents");
-}
+// Re-export resolveDataDir so existing daemon consumers keep working.
+export { resolveDataDir } from "@comma-agents/core";
 
 // Config Zod schema
 

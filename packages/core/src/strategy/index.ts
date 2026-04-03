@@ -6,7 +6,20 @@ export { exportStrategy } from "./exporter/exporter";
 // Config types
 export type { ExportStrategyOptions } from "./exporter/exporter.types";
 export { loadStrategy, loadStrategyFromString } from "./loader/loader";
-export type { LoadedStrategy, LoadStrategyOptions, ProviderFactory } from "./loader/loader.types";
+export type {
+  LoadedStrategy,
+  LoadStrategyOptions,
+  ParsedModel,
+  ProviderFactory,
+  ProviderResolver,
+} from "./loader/loader.types";
+export {
+  extractProviderIds,
+  getProviderPackage,
+  isKnownProvider,
+  KNOWN_PROVIDERS,
+  parseModel,
+} from "./loader/loader.utils";
 // Schema (types, type guards, top-level validator)
 export type {
   AgentDef,

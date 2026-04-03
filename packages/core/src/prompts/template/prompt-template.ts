@@ -14,7 +14,8 @@ import type { PromptTemplate, PromptTemplateConfig, TemplateVariables } from "..
 const engine = new Liquid({
   strictVariables: false,
   strictFilters: true,
-  outputEscape: (v) => (v === undefined || v === null ? "" : String(v)),
+  outputEscape: (outputValue) =>
+    outputValue === undefined || outputValue === null ? "" : String(outputValue),
 });
 
 // -- env filter --
@@ -28,35 +29,40 @@ engine.registerFilter("env", (varName: unknown) => {
 
 // -- file filter (async) --
 engine.registerFilter("file", async (filePath: unknown) => {
-  const p = String(filePath ?? "");
-  if (!p) throw new Error('{{ "/path" | file }} requires a file path');
+  const resolvedPath = String(filePath ?? "");
+  if (!resolvedPath) throw new Error('{{ "/path" | file }} requires a file path');
   try {
-    const content = await readFile(p, "utf-8");
+    const content = await readFile(resolvedPath, "utf-8");
     return content.split("\n")[0]?.trim() ?? "";
   } catch {
-    throw new Error(`file filter: could not read "${p}"`);
+    throw new Error(`file filter: could not read "${resolvedPath}"`);
   }
 });
 
 // -- exec filter (async) --
 engine.registerFilter("exec", async (command: unknown) => {
-  const cmd = String(command ?? "");
-  if (!cmd) throw new Error('{{ "cmd" | exec }} requires a command');
+  const shellCommand = String(command ?? "");
+  if (!shellCommand) throw new Error('{{ "cmd" | exec }} requires a command');
   try {
     if (typeof globalThis.Bun !== "undefined") {
-      const proc = Bun.spawn(["sh", "-c", cmd], { stdout: "pipe", stderr: "pipe" });
-      const output = await new Response(proc.stdout).text();
-      await proc.exited;
+      const childProcess = Bun.spawn(["sh", "-c", shellCommand], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const output = await new Response(childProcess.stdout).text();
+      await childProcess.exited;
       const trimmed = output.trim();
       if (!trimmed) throw new Error("empty output");
       return trimmed;
     }
     const { execSync } = await import("node:child_process");
-    const output = execSync(cmd, { encoding: "utf-8", timeout: 10_000 }).trim();
+    const output = execSync(shellCommand, { encoding: "utf-8", timeout: 10_000 }).trim();
     if (!output) throw new Error("empty output");
     return output;
-  } catch (err) {
-    throw new Error(`exec filter: "${cmd}" failed — ${err instanceof Error ? err.message : err}`);
+  } catch (error) {
+    throw new Error(
+      `exec filter: "${shellCommand}" failed — ${error instanceof Error ? error.message : error}`,
+    );
   }
 });
 
@@ -93,8 +99,8 @@ export function createPromptTemplate(config: PromptTemplateConfig): PromptTempla
       const resolve = async (vars: TemplateVariables) => {
         const out: Record<string, unknown> = {};
         await Promise.all(
-          Object.entries(vars).map(async ([k, v]) => {
-            out[k] = typeof v === "function" ? await v() : v;
+          Object.entries(vars).map(async ([key, variableValue]) => {
+            out[key] = typeof variableValue === "function" ? await variableValue() : variableValue;
           }),
         );
         return out;

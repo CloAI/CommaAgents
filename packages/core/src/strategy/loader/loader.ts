@@ -14,9 +14,9 @@
 import YAML from "yaml";
 
 import { StrategyValidationError } from "../../errors/index";
+import { StrategySchema } from "../schema";
 import type { LoadedStrategy, LoadStrategyOptions } from "./loader.types";
 import { buildAgentRegistry, buildFlow } from "./loader.utils";
-import { StrategySchema } from "../schema";
 
 // loadStrategy — from file path
 
@@ -49,16 +49,16 @@ export async function loadStrategy(
   options: LoadStrategyOptions,
 ): Promise<LoadedStrategy> {
   // Validate extension first (cheap check)
-  const ext = filePath.split(".").pop()?.toLowerCase();
+  const fileExtension = filePath.split(".").pop()?.toLowerCase();
 
   let format: "json" | "yaml";
-  if (ext === "json") {
+  if (fileExtension === "json") {
     format = "json";
-  } else if (ext === "yaml" || ext === "yml") {
+  } else if (fileExtension === "yaml" || fileExtension === "yml") {
     format = "yaml";
   } else {
     throw new StrategyValidationError(
-      `Unsupported strategy file extension: .${ext}. Use .json, .yaml, or .yml`,
+      `Unsupported strategy file extension: .${fileExtension}. Use .json, .yaml, or .yml`,
     );
   }
 
@@ -70,7 +70,7 @@ export async function loadStrategy(
 
   const content = await file.text();
 
-  return loadStrategyFromString(content, format, options);
+  return await loadStrategyFromString(content, format, options);
 }
 
 // loadStrategyFromString — from raw content
@@ -87,11 +87,11 @@ export async function loadStrategy(
  * @returns The loaded strategy with a runnable entry flow.
  * @throws {StrategyValidationError} If parsing or validation fails.
  */
-export function loadStrategyFromString(
+export async function loadStrategyFromString(
   content: string,
   format: "json" | "yaml",
   options: LoadStrategyOptions,
-): LoadedStrategy {
+): Promise<LoadedStrategy> {
   // 1. Parse raw content
   let raw: unknown;
   try {
@@ -100,10 +100,10 @@ export function loadStrategyFromString(
     } else {
       raw = YAML.parse(content);
     }
-  } catch (err) {
+  } catch (parseError) {
     throw new StrategyValidationError(
-      `Failed to parse strategy ${format.toUpperCase()}: ${err instanceof Error ? err.message : String(err)}`,
-      { cause: err },
+      `Failed to parse strategy ${format.toUpperCase()}: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+      { cause: parseError },
     );
   }
 
@@ -111,7 +111,7 @@ export function loadStrategyFromString(
   const result = StrategySchema.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues
-      .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
+      .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
       .join("\n");
     throw new StrategyValidationError(`Strategy validation failed:\n${issues}`, {
       cause: result.error,
@@ -120,8 +120,21 @@ export function loadStrategyFromString(
 
   const strategy = result.data;
 
+  // 2b. Validate options: need at least one provider resolution path
+  if (!options.providers && !options.credentialStore) {
+    throw new StrategyValidationError(
+      "LoadStrategyOptions must include either `providers` or `credentialStore` + `providerResolver`.",
+    );
+  }
+  if (options.credentialStore && !options.providerResolver) {
+    throw new StrategyValidationError(
+      "LoadStrategyOptions has `credentialStore` but no `providerResolver`. " +
+        "Both are required for credential-based provider resolution.",
+    );
+  }
+
   // 3. Instantiate agents
-  const agents = buildAgentRegistry(strategy, options);
+  const agents = await buildAgentRegistry(strategy, options);
 
   // 4. Build the flow tree
   const flow = buildFlow(strategy.flow, agents, options);

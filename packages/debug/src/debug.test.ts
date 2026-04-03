@@ -50,7 +50,7 @@ describe("debugAgent", () => {
     expect(systemLine).toBeDefined();
     expect(systemLine!).toContain("...");
     // 50 chars of A's + "..." = the truncated portion
-    expect(systemLine!.length).toBeLessThan(200);
+    expect(systemLine?.length).toBeLessThan(200);
   });
 
   it("should omit system prompt when showSystemPrompt is false", () => {

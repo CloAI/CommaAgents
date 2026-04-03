@@ -3,10 +3,10 @@
 import { describe, expect, it } from "bun:test";
 import type { Agent, AgentCallResult } from "../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../errors/index";
+import { makeAgent, makeFailingAgent } from "../test.utils";
 import { buildFlowAgent, createFlow } from "./flow";
 import type { FlowConfig, FlowHooks, FlowResult } from "./flow.types";
 import { buildFlowResult } from "./flow.utils";
-import { makeAgent, makeFailingAgent } from "../test.utils";
 
 // buildFlowResult
 
@@ -91,8 +91,8 @@ describe("buildFlowAgent", () => {
 
     const result = (await flow.call("start")) as FlowResult;
     expect(result.stepResults).toHaveLength(2);
-    expect(result.stepResults[0]!.text).toBe("hello");
-    expect(result.stepResults[1]!.text).toBe("world");
+    expect(result.stepResults[0]?.text).toBe("hello");
+    expect(result.stepResults[1]?.text).toBe("world");
     expect(result.usage.promptTokens).toBe(2); // 1 + 1
     expect(result.usage.completionTokens).toBe(4); // 2 + 2
   });
@@ -272,7 +272,7 @@ describe("createFlow", () => {
 
     const flowResult = result as FlowResult;
     expect(flowResult.stepResults).toHaveLength(1);
-    expect(flowResult.stepResults[0]!.text).toBe("world");
+    expect(flowResult.stepResults[0]?.text).toBe("world");
   });
 
   it("supports conditional step execution", async () => {

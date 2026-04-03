@@ -4,11 +4,11 @@ import { describe, expect, it } from "bun:test";
 import type { Agent, AgentCallResult } from "../../agents/agent/agent.types";
 import { createBroadcastFlow } from "../built-in/broadcast/broadcast-flow";
 import { createCycleFlow } from "../built-in/cycle/cycle-flow";
+import { createSequentialFlow } from "../built-in/sequential/sequential-flow";
 import { createFlow } from "../flow/flow";
 import type { CycleHooks } from "../flow/flow.types";
-import { hookIntoFlow } from "./hook-into-flow";
-import { createSequentialFlow } from "../built-in/sequential/sequential-flow";
 import { makeAgent } from "../test.utils";
+import { hookIntoFlow } from "./hook-into-flow";
 
 // Mutation semantics
 

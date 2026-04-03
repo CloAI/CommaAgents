@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { defineTool } from "../../define/define-tool";
-import type { ToolDef } from "../../tool.types";
+import type { ToolDefinition } from "../../tool.types";
 
 /**
  * Configuration for the glob tool.
@@ -39,7 +39,7 @@ const globParams = z.object({
  * const glob = createGlobTool({ maxResults: 50 });
  * ```
  */
-export function createGlobTool(config?: GlobToolConfig): ToolDef<typeof globParams> {
+export function createGlobTool(config?: GlobToolConfig): ToolDefinition<typeof globParams> {
   const maxResults = config?.maxResults ?? DEFAULT_MAX_RESULTS;
 
   return defineTool({
@@ -48,8 +48,8 @@ export function createGlobTool(config?: GlobToolConfig): ToolDef<typeof globPara
       'Supports patterns like "**/*.ts" or "src/**/*.test.ts". ' +
       `Results are capped at ${maxResults} entries.`,
     parameters: globParams,
-    execute: async (args, _ctx) => {
-      const { pattern, path: searchPath } = args;
+    execute: async (validatedArguments, _toolContext) => {
+      const { pattern, path: searchPath } = validatedArguments;
       const cwd = searchPath ?? process.cwd();
 
       try {
@@ -79,8 +79,8 @@ export function createGlobTool(config?: GlobToolConfig): ToolDef<typeof globPara
           output,
           metadata: { pattern, cwd, matchCount: matches.length },
         };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         return {
           output: `Error: glob failed for pattern "${pattern}": ${message}`,
           metadata: { error: true, pattern, cwd },

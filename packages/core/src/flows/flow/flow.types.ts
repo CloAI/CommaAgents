@@ -1,7 +1,7 @@
 // Flow type definitions — the contracts for flow orchestration.
 
 import type { Agent, AgentCallResult } from "../../agents/agent/agent.types";
-import type { SideEffectHook, TransformHook } from "../../hooks/types";
+import type { SideEffectHook, TransformHook } from "../../hooks";
 
 // FlowHooks
 
@@ -106,15 +106,15 @@ export interface FlowContext {
  *
  * Receives the list of steps, the input message, and a context object.
  * Must return the final output text. Step results are tracked automatically
- * via `ctx.runStep()`.
+ * via `flowContext.runStep()`.
  *
  * @example
  * ```ts
  * // A simple pipeline executor
- * const pipelineExecutor: FlowExecutor = async (steps, message, ctx) => {
+ * const pipelineExecutor: FlowExecutor = async (steps, message, flowContext) => {
  *   let current = message;
  *   for (const step of steps) {
- *     const result = await ctx.runStep(step, current);
+ *     const result = await flowContext.runStep(step, current);
  *     current = result.text;
  *   }
  *   return current;
@@ -124,7 +124,7 @@ export interface FlowContext {
 export type FlowExecutor = (
   steps: ReadonlyArray<Agent>,
   message: string,
-  ctx: FlowContext,
+  flowContext: FlowContext,
 ) => Promise<string>;
 
 // FlowConfig — base configuration for all flows

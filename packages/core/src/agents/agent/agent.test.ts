@@ -104,7 +104,7 @@ describe("createAgent with config.execute", () => {
         execute: async (msg) => msg,
       });
 
-      const generator = agent.stream!("test");
+      const generator = agent.stream?.("test");
 
       await expect(generator.next()).rejects.toThrow(
         'Agent "no-stream" uses a custom execute override and does not support streaming.',
@@ -126,7 +126,7 @@ describe("createAgent with config.execute", () => {
       await agent.call("first");
       await agent.call("second");
 
-      const history = agent.getHistory!();
+      const history = agent.getHistory?.();
 
       // History should contain user + assistant pairs for both calls
       expect(history.length).toBeGreaterThanOrEqual(4);
@@ -149,7 +149,7 @@ describe("createAgent with config.execute", () => {
       await agent.call("hello");
       await agent.call("world");
 
-      const turns = agent.getTurns!();
+      const turns = agent.getTurns?.();
       expect(turns).toHaveLength(2);
     });
 
@@ -160,11 +160,11 @@ describe("createAgent with config.execute", () => {
       });
 
       await agent.call("before reset");
-      expect(agent.getHistory!().length).toBeGreaterThan(0);
+      expect(agent.getHistory?.().length).toBeGreaterThan(0);
 
       agent.reset();
-      expect(agent.getHistory!()).toHaveLength(0);
-      expect(agent.getTurns!()).toHaveLength(0);
+      expect(agent.getHistory?.()).toHaveLength(0);
+      expect(agent.getTurns?.()).toHaveLength(0);
     });
   });
 

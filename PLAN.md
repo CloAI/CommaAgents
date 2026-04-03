@@ -197,7 +197,7 @@ interface AgentConfig {
   readonly toolHooks?: ToolHooks;
   readonly maxSteps?: number;        // max tool-call loop iterations (default: 10)
   readonly temperature?: number;
-  readonly topP?: number;
+  readonly topProbability?: number;
   readonly stream?: boolean;
   readonly abort?: AbortSignal;
 }

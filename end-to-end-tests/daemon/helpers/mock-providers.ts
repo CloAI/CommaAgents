@@ -11,12 +11,8 @@
 import type { ProviderFactory } from "@comma-agents/core";
 import type { LanguageModel } from "ai";
 
-import type {
-  Credential,
-  CredentialStore,
-  Logger,
-  ProviderResolver,
-} from "@comma-agents/daemon";
+import type { Credential, CredentialStore } from "@comma-agents/core";
+import type { Logger, ProviderResolver } from "@comma-agents/daemon";
 
 // Mock LanguageModel (AI SDK v3)
 
@@ -87,7 +83,7 @@ export function createMockProviderFactory(
  * Create a mock CredentialStore that always resolves with an API key.
  *
  * By default, `resolve()` returns `{ type: "api", key: "test-key" }`.
- * Pass `resolveReturns` to customize, or `null` to force auth-bridge flow.
+ * Pass `resolveReturns` to customize, or `null` to simulate missing credentials.
  */
 export function createMockCredentialStore(
   resolveReturns: Credential | null = { type: "api" as const, key: "test-key" },
