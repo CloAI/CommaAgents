@@ -45,22 +45,13 @@ export function buildFlowResult(
  * as a readonly array. If step hooks are provided, `beforeStep` fires
  * before each step and `afterStep` fires after.
  */
-export function createFlowContext(
-  name: string,
-  abort?: AbortSignal,
-  hooks?: FlowHooks,
-): FlowContext {
+export function createFlowContext(name: string, hooks?: FlowHooks): FlowContext {
   const collected: AgentCallResult[] = [];
 
   return {
     name,
-    abort,
 
     async runStep(step: Agent, message: string): Promise<AgentCallResult> {
-      if (abort?.aborted) {
-        throw new FlowExecutionError(name, "Flow was aborted");
-      }
-
       // Step pre-hook
       await runSideEffectHooks(hooks?.beforeStep, { stepName: step.name, message });
 

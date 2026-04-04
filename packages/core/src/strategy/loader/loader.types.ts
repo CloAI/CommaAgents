@@ -21,12 +21,6 @@ export interface LoadStrategyOptions {
   readonly inputCollector?: InputCollector;
 
   /**
-   * Abort signal for the entire strategy execution.
-   * Passed to all agents and flows that support cancellation.
-   */
-  readonly abort?: AbortSignal;
-
-  /**
    * Flow hooks to inject into all flows at load time.
    * Useful for the daemon to observe step execution, flow lifecycle, etc.
    */

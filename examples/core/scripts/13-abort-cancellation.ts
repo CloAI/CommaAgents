@@ -1,55 +1,57 @@
 /**
  * Example 13 — Abort / Cancellation
  *
- * Demonstrates using AbortController to cancel agent execution.
+ * Demonstrates using the per-call `.abort()` method to cancel agent execution.
  * This is important for:
  *   - Timeout enforcement
  *   - User-initiated cancellation (e.g., "Stop" button in a UI)
  *   - Resource cleanup when a parent operation is cancelled
  *
- * When an agent is aborted, it throws an AbortError (DOMException
+ * `agent.call()` returns an `AbortablePromise` with an `.abort()` method.
+ * `agent.stream()` returns an `AbortableAsyncGenerator` with an `.abort()` method.
+ *
+ * When aborted, the operation throws an AbortError (DOMException
  * with name "AbortError") that can be caught and handled gracefully.
  *
  * Run:
  *   MODEL=openai/gpt-4o bun run examples/13-abort-cancellation.ts
  *
  * Concepts:
- *   - AbortController / AbortSignal with createAgent()
+ *   - AbortablePromise from agent.call()
+ *   - AbortableAsyncGenerator from agent.stream()
  *   - Timeout-based cancellation
  *   - Error handling for AbortError
- *   - Cancelling flows mid-execution
  */
 
-import { createAgent, createSequentialFlow } from "@comma-agents/core";
+import { createAgent } from "@comma-agents/core";
 import { getModelString } from "./helpers";
 
 async function main() {
   const model = getModelString();
 
   // -----------------------------------------------------------------------
-  // 1. Timeout-based cancellation
+  // 1. Timeout-based cancellation with call()
   // -----------------------------------------------------------------------
 
-  console.log("--- 1. Timeout Cancellation ---\n");
-
-  const controller = new AbortController();
+  console.log("--- 1. Timeout Cancellation (call) ---\n");
 
   const agent = createAgent({
     name: "storyteller",
     model,
     systemPrompt: "You are a storyteller. Write a very long, detailed story.",
-    abort: controller.signal,
   });
+
+  // call() returns an AbortablePromise with an .abort() method
+  const pending = agent.call("Tell me an epic story about a dragon");
 
   // Set a timeout to abort after 2 seconds
   const timer = setTimeout(() => {
     console.log("\n  [Cancelling after 2 seconds...]");
-    controller.abort();
+    pending.abort();
   }, 2000);
 
   try {
-    // This will be aborted after ~2 seconds
-    const result = await agent.call("Tell me an epic story about a dragon");
+    const result = await pending;
     clearTimeout(timer);
     console.log(`Result: ${result.text.slice(0, 200)}...`);
   } catch (err: unknown) {
@@ -63,74 +65,62 @@ async function main() {
   }
 
   // -----------------------------------------------------------------------
-  // 2. Manual cancellation of a flow
+  // 2. Stream cancellation with stream()
   // -----------------------------------------------------------------------
 
-  console.log("\n--- 2. Flow Cancellation ---\n");
+  console.log("\n--- 2. Stream Cancellation ---\n");
 
-  const flowController = new AbortController();
-
-  const writer = createAgent({
+  const streamAgent = createAgent({
     name: "writer",
     model,
     systemPrompt: "You write detailed technical documentation. Be thorough.",
-    abort: flowController.signal,
   });
 
-  const reviewer = createAgent({
-    name: "reviewer",
-    model,
-    systemPrompt: "You review technical documentation and suggest improvements.",
-    abort: flowController.signal,
-  });
+  // stream() returns an AbortableAsyncGenerator with an .abort() method
+  const stream = streamAgent.stream!("Document the WebSocket protocol");
 
-  const pipeline = createSequentialFlow({
-    name: "doc-pipeline",
-    steps: [writer, reviewer],
-  });
-
-  // Cancel after the first agent completes (during reviewer execution)
-  // In practice, this would be triggered by a UI event or external signal
-  const flowTimer = setTimeout(() => {
-    console.log("  [Cancelling flow mid-execution...]");
-    flowController.abort();
-  }, 3000);
+  // Cancel after 2 seconds
+  const streamTimer = setTimeout(() => {
+    console.log("\n  [Cancelling stream after 2 seconds...]");
+    stream.abort();
+  }, 2000);
 
   try {
-    const result = await pipeline.call("Document the WebSocket protocol");
-    clearTimeout(flowTimer);
-    console.log(`Result: ${result.text.slice(0, 200)}...`);
+    for await (const event of stream) {
+      if (event.type === "text") {
+        process.stdout.write(event.text);
+      }
+    }
+    clearTimeout(streamTimer);
   } catch (err: unknown) {
-    clearTimeout(flowTimer);
+    clearTimeout(streamTimer);
     if (err instanceof DOMException && err.name === "AbortError") {
-      console.log("  Flow was successfully aborted.");
-      console.log("  Partial work is discarded — the flow did not complete.");
+      console.log("\n  Stream was successfully aborted.");
     } else {
       throw err;
     }
   }
 
   // -----------------------------------------------------------------------
-  // 3. Pre-cancelled signal (immediate rejection)
+  // 3. Immediate abort (call abort before awaiting)
   // -----------------------------------------------------------------------
 
-  console.log("\n--- 3. Pre-cancelled Signal ---\n");
-
-  const alreadyCancelled = new AbortController();
-  alreadyCancelled.abort(); // Already aborted before agent runs
+  console.log("\n--- 3. Immediate Abort ---\n");
 
   const doomed = createAgent({
     name: "doomed",
     model,
     systemPrompt: "You will never run.",
-    abort: alreadyCancelled.signal,
   });
 
+  const doomedCall = doomed.call("Hello?");
+  doomedCall.abort(); // Abort immediately
+
   try {
-    await doomed.call("Hello?");
+    await doomedCall;
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === "AbortError") {
-      console.log("  Agent rejected immediately — signal was already aborted.");
+      console.log("  Agent rejected immediately — aborted before execution could start.");
     } else {
       throw err;
     }

@@ -99,7 +99,7 @@ export function buildFlowAgent<HookType extends FlowHooks = FlowHooks>(
       await runSideEffectHooks(hooks.beforeFlow, alteredMessage);
 
       // 3. Execute the flow
-      const flowContext = createFlowContext(config.name, config.abort, hooks);
+      const flowContext = createFlowContext(config.name, hooks);
       const text = await executor(config.steps, alteredMessage, flowContext);
       const result = buildFlowResult(text, flowContext.results);
 

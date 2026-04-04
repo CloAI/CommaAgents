@@ -6,6 +6,8 @@ export { createAgent } from "./agents/agent/agent";
 // -- Agents --
 // -- Agent types (the core contracts) --
 export type {
+  AbortableAsyncGenerator,
+  AbortablePromise,
   Agent,
   AgentCallResult,
   AgentConfig,

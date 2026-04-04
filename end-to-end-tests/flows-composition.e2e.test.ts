@@ -205,55 +205,22 @@ describe("E2E: Flow Composition", () => {
   });
 
   // -----------------------------------------------------------------------
-  // 3. Cycle flow abort (infinite loop with abort signal)
+  // 3. Cycle flow — infinite cycles without config-level abort
   // -----------------------------------------------------------------------
 
-  describe("cycle flow abort", () => {
-    it("should stop infinite cycle when abort signal fires", async () => {
-      let cycleCount = 0;
-
-      // Worker that counts cycles
-      const responses = Array.from({ length: 100 }, (_, i) => `cycle-${i + 1}`);
-      const worker = makeMultiResponseAgent("infinite-worker", responses);
-
-      const controller = new AbortController();
-
-      const flow = createCycleFlow({
-        name: "infinite-cycle",
-        steps: [worker],
-        cycles: Infinity,
-        abort: controller.signal,
-        hooks: {
-          afterStep: [
-            async () => {
-              cycleCount++;
-              // Abort after 3 cycles
-              if (cycleCount >= 3) {
-                controller.abort();
-              }
-            },
-          ],
-        },
-      });
-
-      const result = await flow.call("Go");
-
-      // Should have stopped after approximately 3 cycles
-      expect(cycleCount).toBeGreaterThanOrEqual(3);
-      expect(cycleCount).toBeLessThan(10);
-      expect(result.text).toBeTruthy();
-    });
-
-    it("should throw if infinite cycle is created without abort signal", () => {
+  describe("cycle flow infinite cycles", () => {
+    it("should accept infinite cycle without config-level abort signal", () => {
       const worker = makeAgent("w", "out");
 
+      // Infinite cycles are now allowed without config.abort.
+      // Cancellation happens at the call level via AbortablePromise.
       expect(() => {
         createCycleFlow({
           name: "no-abort",
           steps: [worker],
           cycles: Infinity,
         });
-      }).toThrow(/abort/i);
+      }).not.toThrow();
     });
   });
 

@@ -505,11 +505,8 @@ describe("flow tree building", () => {
       },
     });
 
-    // Infinite cycle requires an abort signal
-    const controller = new AbortController();
-    const result = await loadStrategyFromString(json, "json", {
-      abort: controller.signal,
-    });
+    // Infinite cycle no longer requires an abort signal
+    const result = await loadStrategyFromString(json, "json");
     expect(result.flow.name).toBe("Infinite");
   });
 

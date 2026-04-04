@@ -107,62 +107,16 @@ describe("createCycleFlow", () => {
 // Infinite cycles
 
 describe("createCycleFlow (infinite)", () => {
-  it("throws if cycles=Infinity without abort signal", () => {
+  it("accepts cycles=Infinity without abort signal", () => {
+    // Infinite cycles are now allowed without config-level abort.
+    // Cancellation happens at the call level via AbortablePromise.
     expect(() =>
       createCycleFlow({
         name: "inf",
         steps: [makeAgent("a", "x")],
         cycles: Infinity,
       }),
-    ).toThrow(FlowExecutionError);
-    expect(() =>
-      createCycleFlow({
-        name: "inf",
-        steps: [makeAgent("a", "x")],
-        cycles: Infinity,
-      }),
-    ).toThrow("abort signal");
-  });
-
-  it("runs until abort signal fires", async () => {
-    const controller = new AbortController();
-    const { agent, getCount } = makeCountingAgent("a");
-
-    const flow = createCycleFlow({
-      name: "inf",
-      steps: [agent],
-      cycles: Infinity,
-      abort: controller.signal,
-    });
-
-    // Abort after a short delay
-    setTimeout(() => controller.abort(), 50);
-
-    // The flow should eventually resolve (not hang forever)
-    const result = await flow.call("start");
-
-    // Should have run at least once
-    expect(getCount()).toBeGreaterThanOrEqual(1);
-    expect(result.text).toBeDefined();
-  });
-
-  it("stops immediately if already aborted", async () => {
-    const controller = new AbortController();
-    controller.abort();
-
-    const { agent, getCount } = makeCountingAgent("a");
-    const flow = createCycleFlow({
-      name: "inf",
-      steps: [agent],
-      cycles: Infinity,
-      abort: controller.signal,
-    });
-
-    const result = await flow.call("start");
-
-    // Should not have run any cycles
-    expect(getCount()).toBe(0);
-    expect(result.text).toBe("start");
+    ).not.toThrow();
   });
 });
 

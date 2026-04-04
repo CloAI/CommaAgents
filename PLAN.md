@@ -82,8 +82,9 @@ TUI and web clients without changes.
 
 - All LLM calls and I/O are `async`.
 - Streaming via AI SDK's `streamText()` which returns a `StreamTextResult`.
-- Use `AbortController` / `AbortSignal` for cancellation, propagated through
-  nested flows and tool executions.
+- Use `AbortController` / `AbortSignal` for cancellation — each `call()` and
+  `stream()` invocation creates its own internal controller. Cancel via `.abort()`
+  on the returned `AbortablePromise` or `AbortableAsyncGenerator`.
 - Avoid fire-and-forget promises — always handle or propagate.
 
 ### Testing
@@ -177,7 +178,8 @@ inside `createAgent`.
 // The core contract — all flows use this
 interface Agent {
   readonly name: string;
-  call(message: string): Promise<AgentCallResult>;
+  call(message: string): AbortablePromise<AgentCallResult>;
+  stream(message: string): AbortableAsyncGenerator<AgentStreamEvent>;
   reset(): void;
 }
 
@@ -187,7 +189,6 @@ interface AgentConfig {
   readonly model: string;                // e.g. "openai/gpt-4o"
   readonly systemPrompt?: string | PromptTemplate; // static string or dynamic template
   readonly tools?: string[];             // e.g. ["bash", "read"] — resolved via registry
-  readonly abort?: AbortSignal;
 }
 
 // Human-in-the-loop agent — collects input or returns preset message
@@ -196,7 +197,6 @@ interface UserAgentConfig {
   readonly requireInput?: boolean;       // default: true
   readonly presetMessage?: string;
   readonly inputCollector?: InputCollector;
-  readonly abort?: AbortSignal;
 }
 
 // InputCollector receives rich context for daemon/TUI integration

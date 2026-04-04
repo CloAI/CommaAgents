@@ -238,7 +238,6 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       // 2. Load the strategy — model and tool resolution happen via global registries
       const strategy = await loadStrategyFromString(content, format, {
         inputCollector: ctx.inputBridge.collector,
-        abort: run.abortController.signal,
         flowHooks: buildFlowHooks(run.id),
         modelOverride,
       });

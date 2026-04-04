@@ -139,6 +139,5 @@ export async function loadAgentFromString(
     model: description.model,
     systemPrompt,
     tools: description.tools,
-    abort: options.abort,
   });
 }

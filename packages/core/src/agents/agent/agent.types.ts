@@ -47,8 +47,6 @@ export interface AgentConfig {
    * Built-in tools: "bash", "read", "write", "edit", "glob", "grep".
    */
   readonly tools?: readonly string[];
-  /** AbortSignal for cancellation. */
-  readonly abort?: AbortSignal;
   /**
    * Custom execute override — replaces the LLM call with arbitrary logic.
    *
@@ -68,6 +66,52 @@ export interface AgentConfig {
    * ```
    */
   readonly execute?: (message: string) => Promise<string | LLMCallResult>;
+}
+
+/**
+ * A promise that can be cancelled by calling `.abort()`.
+ *
+ * Internally creates an `AbortController` and passes its signal to the
+ * underlying operation. Calling `.abort()` triggers `AbortSignal.abort()`
+ * on that controller, cancelling the in-flight operation.
+ *
+ * @example
+ * ```ts
+ * const pending = agent.call("Write a story");
+ * setTimeout(() => pending.abort(), 2000);
+ * try {
+ *   const result = await pending;
+ * } catch (error) {
+ *   // AbortError if abort() was called before completion
+ * }
+ * ```
+ */
+export interface AbortablePromise<ResultType> extends Promise<ResultType> {
+  /** Cancel the in-flight operation. */
+  abort(): void;
+}
+
+/**
+ * An async generator that can be cancelled by calling `.abort()`.
+ *
+ * Internally creates an `AbortController` and passes its signal to the
+ * underlying stream. Calling `.abort()` cancels the in-flight stream.
+ *
+ * @example
+ * ```ts
+ * const stream = agent.stream("Write a story");
+ * setTimeout(() => stream.abort(), 2000);
+ * try {
+ *   for await (const event of stream) { ... }
+ * } catch (error) {
+ *   // AbortError if abort() was called before completion
+ * }
+ * ```
+ */
+export interface AbortableAsyncGenerator<YieldType>
+  extends AsyncGenerator<YieldType, void, undefined> {
+  /** Cancel the in-flight stream. */
+  abort(): void;
 }
 
 /**
@@ -103,16 +147,20 @@ export interface Agent {
   /**
    * Call the agent with a message.
    * Runs the full hook lifecycle around the core action.
+   * Returns an AbortablePromise — call `.abort()` to cancel the in-flight operation.
    */
-  call(message: string): Promise<AgentCallResult>;
+  call(message: string): AbortablePromise<AgentCallResult>;
 
   /** Reset internal state (history, first-call flag, etc.). */
   reset(): void;
 
   // -- Optional LLM-specific fields (present on createAgent results) --
 
-  /** Stream a call, yielding events as they arrive. */
-  stream?(message: string): AsyncGenerator<AgentStreamEvent>;
+  /**
+   * Stream a call, yielding events as they arrive.
+   * Returns an AbortableAsyncGenerator — call `.abort()` to cancel the stream.
+   */
+  stream?(message: string): AbortableAsyncGenerator<AgentStreamEvent>;
   /** Get conversation history as AI SDK messages. */
   getHistory?(): readonly ModelMessage[];
   /** Get conversation turns (user+assistant pairs). */

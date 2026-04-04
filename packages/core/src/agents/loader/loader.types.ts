@@ -14,10 +14,5 @@
  * const agent = await loadAgent("./agents/researcher.yaml");
  * ```
  */
-export interface LoadAgentOptions {
-  /**
-   * Abort signal for cancellation.
-   * Passed to the created agent for cooperative cancellation.
-   */
-  readonly abort?: AbortSignal;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface -- reserved for future loader options
+export type LoadAgentOptions = {};

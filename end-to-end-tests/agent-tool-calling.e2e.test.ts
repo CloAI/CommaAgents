@@ -435,7 +435,7 @@ describe("E2E: Agent Tool Calling", () => {
   // -----------------------------------------------------------------------
 
   describe("abort signal propagation", () => {
-    it("should abort a long-running tool when the signal fires", async () => {
+    it("should abort a long-running tool when abort is called on the promise", async () => {
       const model = createToolCallingMockModel({
         rounds: [
           {
@@ -445,8 +445,6 @@ describe("E2E: Agent Tool Calling", () => {
         ],
       });
 
-      const abortController = new AbortController();
-
       registerModel("mock/abort-agent", model);
       registerTool("slow", createSlowTool(5000));
 
@@ -454,14 +452,15 @@ describe("E2E: Agent Tool Calling", () => {
         name: "abort-agent",
         model: "mock/abort-agent",
         tools: ["slow"], // 5 second delay
-        abort: abortController.signal,
       });
 
+      const pending = agent.call("Call the slow tool");
+
       // Abort after a short delay
-      setTimeout(() => abortController.abort(), 50);
+      setTimeout(() => pending.abort(), 50);
 
       try {
-        await agent.call("Call the slow tool");
+        await pending;
         // If we get here, the abort didn't propagate — that's a problem
         // But we still accept it since behavior may vary
       } catch (error: any) {
@@ -475,24 +474,23 @@ describe("E2E: Agent Tool Calling", () => {
       }
     });
 
-    it("should not start execution when signal is already aborted", async () => {
+    it("should support calling abort before awaiting", async () => {
       const model = createToolCallingMockModel({
         rounds: [{ text: "Should not reach here" }],
       });
-
-      const abortController = new AbortController();
-      abortController.abort();
 
       registerModel("mock/pre-abort", model);
 
       const agent = createAgent({
         name: "pre-abort",
         model: "mock/pre-abort",
-        abort: abortController.signal,
       });
 
+      const pending = agent.call("This should fail immediately");
+      pending.abort();
+
       try {
-        await agent.call("This should fail immediately");
+        await pending;
         // Some implementations may not check pre-abort; accept either behavior
       } catch (error: any) {
         expect(error).toBeTruthy();

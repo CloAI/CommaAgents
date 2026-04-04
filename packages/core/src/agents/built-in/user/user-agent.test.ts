@@ -74,26 +74,6 @@ describe("createUserAgent", () => {
       expect(receivedRequests[0]?.prompt).toBe("What should we do?");
     });
 
-    it("should pass AbortSignal to collector when configured", async () => {
-      const receivedRequests: InputRequest[] = [];
-      const collector: InputCollector = async (request: InputRequest) => {
-        receivedRequests.push(request);
-        return "response";
-      };
-
-      const controller = new AbortController();
-      const agent = createUserAgent({
-        name: "user",
-        requireInput: true,
-        inputCollector: collector,
-        abort: controller.signal,
-      });
-
-      await agent.call("prompt");
-
-      expect(receivedRequests[0]?.signal).toBe(controller.signal);
-    });
-
     it("should call collector multiple times for multiple calls", async () => {
       const agent = createUserAgent({
         name: "user",

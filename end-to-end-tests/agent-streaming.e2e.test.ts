@@ -184,25 +184,24 @@ describe("E2E: Agent Streaming", () => {
   // -----------------------------------------------------------------------
 
   describe("stream abort", () => {
-    it("should terminate stream when abort signal fires", async () => {
+    it("should terminate stream when abort is called on the generator", async () => {
       const model = createSimpleMockModel(["This should be cut short"]);
       registerModel("mock/stream-abort", model);
-
-      const abortController = new AbortController();
 
       const agent = createAgent({
         name: "abort-stream",
         model: "mock/stream-abort",
-        abort: abortController.signal,
       });
 
       const events: AgentStreamEvent[] = [];
 
       try {
-        // Abort almost immediately
-        setTimeout(() => abortController.abort(), 5);
+        const streamGenerator = agent.stream!("Test abort");
 
-        for await (const event of agent.stream!("Test abort")) {
+        // Abort almost immediately
+        setTimeout(() => streamGenerator.abort(), 5);
+
+        for await (const event of streamGenerator) {
           events.push(event);
         }
       } catch (error: any) {

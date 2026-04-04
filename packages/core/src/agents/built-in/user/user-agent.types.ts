@@ -63,6 +63,4 @@ export interface UserAgentConfig {
   readonly inputCollector?: InputCollector;
   /** Agent lifecycle hooks. */
   readonly hooks?: AgentHooks;
-  /** AbortSignal for cancellation. */
-  readonly abort?: AbortSignal;
 }

@@ -382,15 +382,6 @@ describe("loadAgentFromString", () => {
   });
 
   describe("agent lifecycle", () => {
-    it("should pass abort signal to the created agent", async () => {
-      setupMockModels();
-      const controller = new AbortController();
-      const agent = await loadAgentFromString(MINIMAL_JSON, "json", {
-        abort: controller.signal,
-      });
-      expect(agent.config?.abort).toBe(controller.signal);
-    });
-
     it("should return an agent with call, reset, stream methods", async () => {
       setupMockModels();
       const agent = await loadAgentFromString(MINIMAL_JSON, "json");

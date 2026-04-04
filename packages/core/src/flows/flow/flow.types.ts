@@ -84,8 +84,6 @@ export interface FlowResult extends AgentCallResult {
 export interface FlowContext {
   /** Name of this flow. */
   readonly name: string;
-  /** AbortSignal for cancellation. */
-  readonly abort?: AbortSignal;
   /**
    * Run a step (agent or nested flow) with a message.
    * Tracks the result internally for aggregation into `FlowResult`.
@@ -137,8 +135,6 @@ export interface FlowConfig {
   readonly steps: ReadonlyArray<Agent>;
   /** Flow lifecycle hooks. */
   readonly hooks?: FlowHooks;
-  /** AbortSignal for cancellation. */
-  readonly abort?: AbortSignal;
 }
 
 // CycleFlowConfig — configuration for cycle flows
@@ -146,9 +142,8 @@ export interface FlowConfig {
 /**
  * Configuration for cycle-based flows.
  *
- * Supports finite cycles (`cycles: 3`), infinite cycles (`cycles: Infinity`
- * with an AbortSignal), and an optional observer agent that runs after
- * each cycle.
+ * Supports finite cycles (`cycles: 3`), infinite cycles (`cycles: Infinity`),
+ * and an optional observer agent that runs after each cycle.
  */
 export interface CycleFlowConfig extends FlowConfig {
   /**

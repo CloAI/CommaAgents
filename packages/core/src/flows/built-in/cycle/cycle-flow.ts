@@ -2,14 +2,13 @@
 //
 // Supports:
 // - Finite cycles: cycles: 3 (run the pipeline 3 times)
-// - Infinite cycles: cycles: Infinity (requires abort signal)
+// - Infinite cycles: cycles: Infinity (runs until externally cancelled)
 // - Observer: observer agent runs after each cycle (sugar for alterMessageAfterCycle)
 // - Cycle hooks: alterMessageBeforeCycle / alterMessageAfterCycle
 //
 // Built on buildFlowAgent().
 
 import type { Agent } from "../../../agents/agent/agent.types";
-import { FlowExecutionError } from "../../../errors/index";
 import type { TransformHook } from "../../../hooks";
 import { runTransformHooks } from "../../../hooks";
 import type { HookStore } from "../../flow/flow";
@@ -25,7 +24,7 @@ import type { CycleFlowConfig, CycleHooks } from "../../flow/flow.types";
  * becomes the input of the next. Supports:
  *
  * - **Finite cycles**: `cycles: 3` runs the pipeline 3 times.
- * - **Infinite cycles**: `cycles: Infinity` runs until the `abort` signal fires.
+ * - **Infinite cycles**: `cycles: Infinity` runs until externally cancelled.
  * - **Observer**: An agent that processes each cycle's output before
  *   the next cycle begins (sugar for `alterMessageAfterCycle` hook).
  * - **Cycle hooks**: `alterMessageBeforeCycle` / `alterMessageAfterCycle`
@@ -43,15 +42,6 @@ import type { CycleFlowConfig, CycleHooks } from "../../flow/flow.types";
  *   cycles: 3,
  * });
  *
- * // Infinite: run until aborted
- * const controller = new AbortController();
- * const flow = createCycleFlow({
- *   name: "chat-loop",
- *   steps: [userAgent, assistant],
- *   cycles: Infinity,
- *   abort: controller.signal,
- * });
- *
  * // Observer: critic reviews each cycle's output
  * const flow = createCycleFlow({
  *   name: "refine-loop",
@@ -63,13 +53,6 @@ import type { CycleFlowConfig, CycleHooks } from "../../flow/flow.types";
  */
 export function createCycleFlow(config: CycleFlowConfig): Agent {
   const cycles = config.cycles ?? 1;
-
-  if (cycles === Infinity && !config.abort) {
-    throw new FlowExecutionError(
-      config.name,
-      "Infinite cycle flow requires an abort signal. Pass `abort` in config.",
-    );
-  }
 
   // Shallow copy of config hooks — the store is read by the executor on each
   // cycle, so hooks appended via hookIntoFlow take effect on subsequent calls.
@@ -98,11 +81,6 @@ export function createCycleFlow(config: CycleFlowConfig): Agent {
         // scheduled via setTimeout (or other macrotasks) get a chance to fire.
         if (cycle > 0) {
           await new Promise<void>((resolve) => setTimeout(resolve, 0));
-        }
-
-        // Check abort before each cycle
-        if (config.abort?.aborted) {
-          break;
         }
 
         // Cycle pre-hooks: alterMessageBeforeCycle (reads from mutable store)

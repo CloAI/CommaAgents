@@ -52,13 +52,11 @@ export function createUserAgent(config: UserAgentConfig): Agent {
 
   const agent = createAgent({
     name: config.name,
-    abort: config.abort,
     execute: async (message: string): Promise<string> => {
       if (requireInput) {
         return collector({
           agentName: config.name,
           prompt: message,
-          signal: config.abort,
         });
       }
       return config.presetMessage ?? message;

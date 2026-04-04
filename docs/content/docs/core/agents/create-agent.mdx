@@ -31,8 +31,8 @@ The configuration object passed to `createAgent`.
 | Member | Type | Description |
 |--------|------|-------------|
 | `name` | `string` | The agent's name (from config). |
-| `call(message)` | `(string) => Promise<AgentCallResult>` | Send a message and get a response. Runs the full hook lifecycle (alter message, before call, execute, after call, alter response). |
-| `stream(message)` | `(string) => AsyncGenerator<AgentStreamEvent>` | Stream a call, yielding events (`text`, `tool-call`, `tool-result`, `step-start`, `done`) as they arrive. Throws if a custom `execute` is set. |
+| `call(message)` | `(string) => AbortablePromise<AgentCallResult>` | Send a message and get a response. Runs the full hook lifecycle (alter message, before call, execute, after call, alter response). Returns an `AbortablePromise` — call `.abort()` on it to cancel the in-flight LLM request. |
+| `stream(message)` | `(string) => AbortableAsyncGenerator<AgentStreamEvent>` | Stream a call, yielding events (`text`, `tool-call`, `tool-result`, `step-start`, `done`) as they arrive. Returns an `AbortableAsyncGenerator` — call `.abort()` to cancel. Throws if a custom `execute` is set. |
 | `getHistory()` | `() => readonly ModelMessage[]` | Return the conversation history as AI SDK messages. |
 | `getTurns()` | `() => readonly ConversationTurn[]` | Return the conversation history as user+assistant turn pairs. |
 | `reset()` | `() => void` | Clear conversation history and reset the first-call flag. |
@@ -176,20 +176,36 @@ Streaming is not supported when `execute` is set — calling `stream()` will thr
 
 ## Cancellation
 
-Pass an `AbortSignal` to support cancellation:
+Each `call()` and `stream()` invocation creates its own internal `AbortController`. Cancel an in-flight request by calling `.abort()` on the returned object:
 
 ```ts
-const controller = new AbortController();
-
 const agent = createAgent({
   name: "worker",
   model: "openai/gpt-4o",
-  abort: controller.signal,
 });
 
-// Cancel after 5 seconds
-setTimeout(() => controller.abort(), 5000);
+// Cancel a call() after 5 seconds
+const pending = agent.call("Write a long essay");
+setTimeout(() => pending.abort(), 5000);
+
+try {
+  const result = await pending;
+} catch (err) {
+  // AbortError if cancelled before completion
+}
+
+// Cancel a stream()
+const stream = agent.stream("Write a long essay");
+setTimeout(() => stream.abort(), 5000);
+
+for await (const event of stream) {
+  if (event.type === "text") {
+    process.stdout.write(event.text);
+  }
+}
 ```
+
+`AbortablePromise<T>` extends `Promise<T>` with an `.abort()` method. `AbortableAsyncGenerator<T>` extends `AsyncGenerator<T>` with an `.abort()` method. Both are exported from `@comma-agents/core`.
 
 ## Hooks
 

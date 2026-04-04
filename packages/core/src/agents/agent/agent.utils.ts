@@ -81,6 +81,7 @@ export function buildAgentToolSet(
  * @param history - The conversation history.
  * @param toolHooks - Tool hooks from the agent's mutable closure store.
  *   Dynamically appended hooks (via `hookIntoAgent`) take effect here.
+ * @param abortSignal - Optional AbortSignal for cancellation.
  *
  * @throws {Error} if config.model is not set.
  * @throws {ModelResolutionError} if the model string cannot be resolved.
@@ -90,6 +91,7 @@ export async function buildCallOptions(
   message: string,
   history: ConversationHistory,
   toolHooks?: ToolHooks,
+  abortSignal?: AbortSignal,
 ): Promise<CallOptions> {
   if (!config.model) {
     throw new Error(
@@ -117,7 +119,7 @@ export async function buildCallOptions(
     messages: buildMessages({ message, history }) as ModelMessage[],
     tools,
     stopWhen: stepCountIs(DEFAULT_MAX_STEPS),
-    abortSignal: config.abort,
+    abortSignal,
   };
 }
 

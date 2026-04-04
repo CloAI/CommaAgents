@@ -52,7 +52,6 @@ function buildUserAgent(
     requireInput: agentDefinition.config?.requireInput,
     presetMessage: agentDefinition.config?.presetMessage,
     inputCollector: options.inputCollector,
-    abort: options.abort,
   });
 }
 
@@ -89,7 +88,6 @@ function buildLLMAgent(
     model: effectiveModel,
     systemPrompt,
     tools: agentDefinition.tools,
-    abort: options.abort,
   });
 }
 
@@ -111,7 +109,6 @@ export function buildFlow(
         name: flowDef.name,
         steps,
         hooks: options.flowHooks,
-        abort: options.abort,
       });
 
     case "cycle": {
@@ -129,7 +126,6 @@ export function buildFlow(
         cycles,
         observer,
         hooks: options.flowHooks,
-        abort: options.abort,
       });
     }
 
@@ -139,7 +135,6 @@ export function buildFlow(
         steps,
         separator: (flowDef as { separator?: string }).separator,
         hooks: options.flowHooks,
-        abort: options.abort,
       });
   }
 }

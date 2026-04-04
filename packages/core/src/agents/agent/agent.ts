@@ -14,6 +14,8 @@ import type { ConversationTurn, ModelMessage } from "../../prompts/types";
 import type { ToolHooks } from "../hooks";
 import { resolveHook } from "../hooks";
 import type {
+  AbortableAsyncGenerator,
+  AbortablePromise,
   Agent,
   AgentCallResult,
   AgentConfig,
@@ -110,8 +112,8 @@ export function createAgent(config: AgentConfig): Agent {
     };
   }
 
-  async function callGenerate(message: string): Promise<LLMCallResult> {
-    const options = await buildCallOptions(config, message, history, getToolHooks());
+  async function callGenerate(message: string, abortSignal?: AbortSignal): Promise<LLMCallResult> {
+    const options = await buildCallOptions(config, message, history, getToolHooks(), abortSignal);
     const result = await generateText(options);
 
     return {
@@ -137,8 +139,11 @@ export function createAgent(config: AgentConfig): Agent {
    * generator-based) delegate here to avoid duplicating the iteration,
    * mapping, result-building, and hook-firing logic.
    */
-  async function* runStream(message: string): AsyncGenerator<AgentStreamEvent, LLMCallResult> {
-    const options = await buildCallOptions(config, message, history, getToolHooks());
+  async function* runStream(
+    message: string,
+    abortSignal?: AbortSignal,
+  ): AsyncGenerator<AgentStreamEvent, LLMCallResult> {
+    const options = await buildCallOptions(config, message, history, getToolHooks(), abortSignal);
     const streamResult = streamText(options);
     const streamEventHooks = hooks.onStreamEvent;
 
@@ -174,8 +179,8 @@ export function createAgent(config: AgentConfig): Agent {
   }
 
   /** Consume the stream generator internally, returning only the final result. */
-  async function callStream(message: string): Promise<LLMCallResult> {
-    const generator = runStream(message);
+  async function callStream(message: string, abortSignal?: AbortSignal): Promise<LLMCallResult> {
+    const generator = runStream(message, abortSignal);
     let iteratorResult = await generator.next();
     while (!iteratorResult.done) {
       iteratorResult = await generator.next();
@@ -183,7 +188,7 @@ export function createAgent(config: AgentConfig): Agent {
     return iteratorResult.value;
   }
 
-  async function execute(message: string): Promise<LLMCallResult> {
+  async function execute(message: string, abortSignal?: AbortSignal): Promise<LLMCallResult> {
     try {
       let result: LLMCallResult;
       if (config.execute) {
@@ -200,7 +205,7 @@ export function createAgent(config: AgentConfig): Agent {
           result = rawExecuteResult;
         }
       } else {
-        result = await callGenerate(message);
+        result = await callGenerate(message, abortSignal);
       }
 
       // Append to conversation history — message is already the altered message.
@@ -221,93 +226,109 @@ export function createAgent(config: AgentConfig): Agent {
     name: config.name,
     config,
 
-    async call(message: string): Promise<LLMCallResult> {
-      const isFirst = consumeFirstCall();
+    call(message: string): AbortablePromise<AgentCallResult> {
+      const controller = new AbortController();
 
-      // 1. Alter message
-      const alteredMessage = await runTransformHooks(
-        resolveHook(hooks.alterInitialCallMessage, hooks.alterCallMessage, isFirst),
-        message,
-      );
-      // 2. Before call
-      await runSideEffectHooks(
-        resolveHook(hooks.beforeInitialCall, hooks.beforeCall, isFirst),
-        alteredMessage,
-      );
-      // 3. Execute
-      const result = await execute(alteredMessage);
-      // 4. After call (text only — legacy)
-      await runSideEffectHooks(
-        resolveHook(hooks.afterInitialCall, hooks.afterCall, isFirst),
-        result.text,
-      );
-      // 5. After call result (full result with usage)
-      await runSideEffectHooks(hooks.afterCallResult, result);
-      // 6. Alter response
-      const alteredText = await runTransformHooks(
-        resolveHook(hooks.alterInitialResponse, hooks.alterResponse, isFirst),
-        result.text,
-      );
+      const resultPromise = (async (): Promise<AgentCallResult> => {
+        const isFirst = consumeFirstCall();
 
-      return { ...result, text: alteredText };
+        // 1. Alter message
+        const alteredMessage = await runTransformHooks(
+          resolveHook(hooks.alterInitialCallMessage, hooks.alterCallMessage, isFirst),
+          message,
+        );
+        // 2. Before call
+        await runSideEffectHooks(
+          resolveHook(hooks.beforeInitialCall, hooks.beforeCall, isFirst),
+          alteredMessage,
+        );
+        // 3. Execute
+        const result = await execute(alteredMessage, controller.signal);
+        // 4. After call (text only — legacy)
+        await runSideEffectHooks(
+          resolveHook(hooks.afterInitialCall, hooks.afterCall, isFirst),
+          result.text,
+        );
+        // 5. After call result (full result with usage)
+        await runSideEffectHooks(hooks.afterCallResult, result);
+        // 6. Alter response
+        const alteredText = await runTransformHooks(
+          resolveHook(hooks.alterInitialResponse, hooks.alterResponse, isFirst),
+          result.text,
+        );
+
+        return { ...result, text: alteredText };
+      })();
+
+      const abortablePromise = resultPromise as AbortablePromise<AgentCallResult>;
+      abortablePromise.abort = () => controller.abort();
+      return abortablePromise;
     },
 
-    async *stream(message: string): AsyncGenerator<AgentStreamEvent> {
-      if (config.execute) {
-        throw new Error(
-          `Agent "${config.name}" uses a custom execute override and does not support streaming.`,
-        );
-      }
+    stream(message: string): AbortableAsyncGenerator<AgentStreamEvent> {
+      const controller = new AbortController();
 
-      const isFirst = consumeFirstCall();
-
-      // 1. Alter message
-      const alteredMessage = await runTransformHooks(
-        resolveHook(hooks.alterInitialCallMessage, hooks.alterCallMessage, isFirst),
-        message,
-      );
-      // 2. Before call
-      await runSideEffectHooks(
-        resolveHook(hooks.beforeInitialCall, hooks.beforeCall, isFirst),
-        alteredMessage,
-      );
-
-      // 3. Stream — delegate to the shared generator, re-yielding all
-      //    non-done events. The done event is intercepted so we can run
-      //    post-call hooks and apply response alteration before yielding.
-      const generator = runStream(alteredMessage);
-      let callResult: LLMCallResult | undefined;
-
-      for await (const event of generator) {
-        if (event.type === "done") {
-          callResult = event.result as LLMCallResult;
-        } else {
-          yield event;
+      async function* generateStream(): AsyncGenerator<AgentStreamEvent, void, undefined> {
+        if (config.execute) {
+          throw new Error(
+            `Agent "${config.name}" uses a custom execute override and does not support streaming.`,
+          );
         }
+        const isFirst = consumeFirstCall();
+
+        // 1. Alter message
+        const alteredMessage = await runTransformHooks(
+          resolveHook(hooks.alterInitialCallMessage, hooks.alterCallMessage, isFirst),
+          message,
+        );
+        // 2. Before call
+        await runSideEffectHooks(
+          resolveHook(hooks.beforeInitialCall, hooks.beforeCall, isFirst),
+          alteredMessage,
+        );
+
+        // 3. Stream — delegate to the shared generator, re-yielding all
+        //    non-done events. The done event is intercepted so we can run
+        //    post-call hooks and apply response alteration before yielding.
+        const generator = runStream(alteredMessage, controller.signal);
+        let callResult: LLMCallResult | undefined;
+
+        for await (const event of generator) {
+          if (event.type === "done") {
+            callResult = event.result as LLMCallResult;
+          } else {
+            yield event;
+          }
+        }
+
+        // Safety — callResult is always set because runStream always yields a done event.
+        const result = callResult!;
+
+        // 4. After call (text only — legacy)
+        await runSideEffectHooks(
+          resolveHook(hooks.afterInitialCall, hooks.afterCall, isFirst),
+          result.text,
+        );
+        // 5. After call result (full result with usage)
+        await runSideEffectHooks(hooks.afterCallResult, result);
+        // 6. Alter response
+        const alteredText = await runTransformHooks(
+          resolveHook(hooks.alterInitialResponse, hooks.alterResponse, isFirst),
+          result.text,
+        );
+
+        history.append(alteredMessage, result.responseMessages);
+
+        yield {
+          type: "done",
+          result: { ...result, text: alteredText },
+        };
       }
 
-      // Safety — callResult is always set because runStream always yields a done event.
-      const result = callResult!;
-
-      // 4. After call (text only — legacy)
-      await runSideEffectHooks(
-        resolveHook(hooks.afterInitialCall, hooks.afterCall, isFirst),
-        result.text,
-      );
-      // 5. After call result (full result with usage)
-      await runSideEffectHooks(hooks.afterCallResult, result);
-      // 6. Alter response
-      const alteredText = await runTransformHooks(
-        resolveHook(hooks.alterInitialResponse, hooks.alterResponse, isFirst),
-        result.text,
-      );
-
-      history.append(alteredMessage, result.responseMessages);
-
-      yield {
-        type: "done",
-        result: { ...result, text: alteredText },
-      };
+      const innerGenerator = generateStream();
+      const abortableGenerator = innerGenerator as AbortableAsyncGenerator<AgentStreamEvent>;
+      abortableGenerator.abort = () => controller.abort();
+      return abortableGenerator;
     },
 
     getHistory(): readonly ModelMessage[] {

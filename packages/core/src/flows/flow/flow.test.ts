@@ -232,25 +232,6 @@ describe("buildFlowAgent", () => {
     await expect(flow.call("msg")).rejects.toThrow(FlowExecutionError);
     await expect(flow.call("msg")).rejects.toThrow('Step "bad" failed: boom');
   });
-
-  it("throws FlowExecutionError when abort signal is already fired", async () => {
-    const controller = new AbortController();
-    controller.abort();
-
-    const config: FlowConfig = {
-      name: "f",
-      steps: [makeAgent("a", "hello")],
-      abort: controller.signal,
-    };
-
-    const flow = buildFlowAgent(config, "test", { ...config.hooks }, async (steps, msg, ctx) => {
-      const r = await ctx.runStep(steps[0]!, msg);
-      return r.text;
-    });
-
-    await expect(flow.call("msg")).rejects.toThrow(FlowExecutionError);
-    await expect(flow.call("msg")).rejects.toThrow("Flow was aborted");
-  });
 });
 
 // createFlow
