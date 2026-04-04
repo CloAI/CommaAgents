@@ -1,6 +1,7 @@
 // Tests for strategy/schema.ts — Zod schema validation
 
 import { describe, expect, it } from "bun:test";
+import { BUILT_IN_TOOL_NAMES } from "../tools/tool.constants";
 import {
   AgentDefSchema,
   FlowDefSchema,
@@ -11,7 +12,6 @@ import {
   isUserAgentDef,
   StrategySchema,
 } from "./schema";
-import { BUILT_IN_TOOL_NAMES } from "./strategy.constants";
 
 // Helpers
 
@@ -43,13 +43,20 @@ describe("StrategySchema", () => {
     const result = StrategySchema.safeParse({
       ...minimalStrategy(),
       description: "A test strategy",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a strategy with a defaults block (removed feature)", () => {
+    const result = StrategySchema.safeParse({
+      ...minimalStrategy(),
       defaults: {
         model: "openai/gpt-4o",
         tools: ["bash", "read"],
         systemPrompt: "Be helpful.",
       },
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("rejects empty name", () => {
@@ -145,10 +152,6 @@ describe("AgentDefSchema", () => {
         model: "openai/gpt-4o",
         systemPrompt: "You write code.",
         tools: ["bash", "write"],
-        useDefaults: true,
-        temperature: 0.7,
-        topProbability: 0.9,
-        maxSteps: 15,
       });
       expect(result.success).toBe(true);
     });
@@ -164,50 +167,34 @@ describe("AgentDefSchema", () => {
       expect(result.success).toBe(true);
     });
 
-    it("accepts an LLM agent with useDefaults and no model", () => {
+    it("rejects an LLM agent with useDefaults (removed feature)", () => {
       const result = AgentDefSchema.safeParse({
         useDefaults: true,
         systemPrompt: "I use defaults.",
       });
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
     });
 
-    it("rejects temperature > 2", () => {
+    it("rejects temperature (removed field)", () => {
       const result = AgentDefSchema.safeParse({
         model: "openai/gpt-4o",
-        temperature: 3,
+        temperature: 0.7,
       });
       expect(result.success).toBe(false);
     });
 
-    it("rejects temperature < 0", () => {
+    it("rejects topProbability (removed field)", () => {
       const result = AgentDefSchema.safeParse({
         model: "openai/gpt-4o",
-        temperature: -1,
+        topProbability: 0.9,
       });
       expect(result.success).toBe(false);
     });
 
-    it("rejects topProbability > 1", () => {
+    it("rejects maxSteps (removed field)", () => {
       const result = AgentDefSchema.safeParse({
         model: "openai/gpt-4o",
-        topProbability: 1.5,
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects negative maxSteps", () => {
-      const result = AgentDefSchema.safeParse({
-        model: "openai/gpt-4o",
-        maxSteps: -1,
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects non-integer maxSteps", () => {
-      const result = AgentDefSchema.safeParse({
-        model: "openai/gpt-4o",
-        maxSteps: 5.5,
+        maxSteps: 5,
       });
       expect(result.success).toBe(false);
     });
@@ -438,7 +425,7 @@ describe("StrategySchema — complex strategies", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts strategy with defaults and useDefaults", () => {
+  it("rejects strategy with defaults and useDefaults (removed features)", () => {
     const result = StrategySchema.safeParse({
       name: "Defaults Test",
       version: "1.0",
@@ -464,7 +451,7 @@ describe("StrategySchema — complex strategies", () => {
         steps: [{ agent: "writer" }, { agent: "reviewer" }],
       },
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("accepts strategy with broadcast + observer", () => {

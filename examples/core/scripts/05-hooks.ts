@@ -21,9 +21,9 @@
  */
 
 import type { AgentHooks, ToolHooks } from "@comma-agents/core";
-import { createAgent, defineTool } from "@comma-agents/core";
+import { createAgent, defineTool, hookIntoAgent, registerTool } from "@comma-agents/core";
 import { z } from "zod";
-import { getModel } from "./helpers";
+import { getModelString } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // A simple tool for the agent to use (so we can demo tool hooks)
@@ -36,6 +36,9 @@ const timeTool = defineTool({
     output: new Date().toISOString(),
   }),
 });
+
+// Register the custom tool so it can be referenced by name
+registerTool("time", timeTool);
 
 // ---------------------------------------------------------------------------
 // Define hooks
@@ -117,18 +120,18 @@ const toolHooks: ToolHooks = {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const model = await getModel();
+  const model = getModelString();
 
   const agent = createAgent({
     name: "hooked-agent",
     model,
     systemPrompt:
       "You are a helpful assistant. Use the time tool when asked about the current time.",
-    tools: { time: timeTool },
-    // Attach hooks via the agent config
-    hooks: agentHooks,
-    toolHooks,
+    tools: ["time"],
   });
+
+  // Attach hooks post-creation via hookIntoAgent
+  hookIntoAgent(agent, { ...agentHooks, ...toolHooks });
 
   // First call — triggers alterInitialCallMessage
   console.log("\n=== First call (initial hooks) ===\n");

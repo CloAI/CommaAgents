@@ -13,42 +13,42 @@ The daemon communicates with clients over WebSocket using a typed, Zod-validated
 
 Wire format for agent call results.
 
-<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="AgentCallResultWire" />
+<AutoTypeTable path="../packages/daemon/src/server/protocol/responses/shared.ts" name="AgentCallResultWire" />
 
 ### AgentStreamEventWire
 
 Wire format for agent streaming events.
 
-<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="AgentStreamEventWire" />
+<AutoTypeTable path="../packages/daemon/src/server/protocol/responses/agent-streaming/agent-streaming.schema.ts" name="AgentStreamEventWire" />
 
 ### RunSummary
 
 Summary of a completed or in-progress run.
 
-<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="RunSummary" />
+<AutoTypeTable path="../packages/daemon/src/server/protocol/responses/flow-list/flow-list.schema.ts" name="RunSummary" />
 
 ### ErrorInfo
 
 Structured error information sent over the wire.
 
-<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="ErrorInfo" />
+<AutoTypeTable path="../packages/daemon/src/server/protocol/responses/flow-error/flow-error.schema.ts" name="ErrorInfo" />
 
 ### Usage
 
 Token usage statistics.
 
-<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="Usage" />
+<AutoTypeTable path="../packages/daemon/src/server/protocol/responses/shared.ts" name="Usage" />
 
 ## Credential Types
 
 ### ApiCredential
 
-<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="ApiCredential" />
+<AutoTypeTable path="../packages/core/src/credentials/credentials.schema.ts" name="ApiCredential" />
 
 ### OAuthCredential
 
-<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="OAuthCredential" />
+<AutoTypeTable path="../packages/core/src/credentials/credentials.schema.ts" name="OAuthCredential" />
 
 ### CustomCredential
 
-<AutoTypeTable path="../packages/daemon/src/protocol/shared.ts" name="CustomCredential" />
+<AutoTypeTable path="../packages/core/src/credentials/credentials.schema.ts" name="CustomCredential" />

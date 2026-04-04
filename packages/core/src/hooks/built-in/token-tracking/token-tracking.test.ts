@@ -3,6 +3,7 @@
 import { describe, expect, it } from "bun:test";
 import { createAgent } from "../../../agents/agent/agent";
 import type { LLMCallResult } from "../../../agents/agent/agent.types";
+import { hookIntoAgent } from "../../../agents/hook-into-agent/hook-into-agent";
 import { createTokenTracker, useTokenTracking } from "./token-tracking";
 import type { TokenSnapshot } from "./token-tracking.types";
 
@@ -280,9 +281,10 @@ describe("useTokenTracking", () => {
         usage: { promptTokens: 100, completionTokens: 50 },
         finishReason: "stop",
       }),
-      hooks: {
-        afterCall: [async (text) => log.push(`afterCall: ${text}`)],
-      },
+    });
+
+    hookIntoAgent(agent, {
+      afterCall: [async (text) => log.push(`afterCall: ${text}`)],
     });
 
     const tracker = useTokenTracking(agent);

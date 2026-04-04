@@ -4,6 +4,7 @@ export type { JsonFileBackendOptions } from "./backends/json-file";
 // Factories
 export { createJsonFileBackend } from "./backends/json-file";
 export { createCredentialStore } from "./credentials";
+export { WELL_KNOWN_ENV_VARS } from "./credentials.constants";
 // Types
 export type {
   ApiCredential,
@@ -25,6 +26,5 @@ export type {
   CredentialStoreData,
   EnvVarMap,
 } from "./credentials.types";
-export { WELL_KNOWN_ENV_VARS } from "./credentials.types";
 // Utils
 export { resolveCredentialsPath, resolveDataDir } from "./credentials.utils";

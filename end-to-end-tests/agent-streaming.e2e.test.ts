@@ -13,8 +13,15 @@
  * All tests use mock models — no API keys required.
  */
 
-import { describe, expect, it } from "bun:test";
-import { createAgent } from "@comma-agents/core";
+import { afterEach, describe, expect, it } from "bun:test";
+import {
+  createAgent,
+  hookIntoAgent,
+  registerModel,
+  registerTool,
+  resetModelRegistry,
+  resetToolRegistry,
+} from "@comma-agents/core";
 import type { AgentStreamEvent, AgentHooks } from "@comma-agents/core";
 import { createSimpleMockModel, createToolCallingMockModel } from "./helpers/mock-model";
 import { createEchoTool } from "./helpers/test-tools";
@@ -22,6 +29,11 @@ import { createEchoTool } from "./helpers/test-tools";
 // Tests
 
 describe("E2E: Agent Streaming", () => {
+  afterEach(() => {
+    resetModelRegistry();
+    resetToolRegistry();
+  });
+
   // -----------------------------------------------------------------------
   // 1. Stream text response
   // -----------------------------------------------------------------------
@@ -29,11 +41,11 @@ describe("E2E: Agent Streaming", () => {
   describe("stream text response", () => {
     it("should yield text events and a final done event", async () => {
       const model = createSimpleMockModel(["Hello, streaming world!"]);
+      registerModel("mock/stream-text-events", model);
 
       const agent = createAgent({
         name: "streamer",
-        model,
-        stream: true,
+        model: "mock/stream-text-events",
       });
 
       const events: AgentStreamEvent[] = [];
@@ -56,10 +68,11 @@ describe("E2E: Agent Streaming", () => {
 
     it("should accumulate text from text events into the final result", async () => {
       const model = createSimpleMockModel(["Token by token output"]);
+      registerModel("mock/stream-accumulate", model);
 
       const agent = createAgent({
         name: "accumulator",
-        model,
+        model: "mock/stream-accumulate",
       });
 
       const textParts: string[] = [];
@@ -89,11 +102,13 @@ describe("E2E: Agent Streaming", () => {
           { text: "Echo returned: streamed" },
         ],
       });
+      registerModel("mock/stream-tools", model);
+      registerTool("echo", createEchoTool());
 
       const agent = createAgent({
         name: "stream-tools",
-        model,
-        tools: { echo: createEchoTool() },
+        model: "mock/stream-tools",
+        tools: ["echo"],
       });
 
       const events: AgentStreamEvent[] = [];
@@ -143,12 +158,14 @@ describe("E2E: Agent Streaming", () => {
       };
 
       const model = createSimpleMockModel(["Hooked streaming"]);
+      registerModel("mock/stream-hook", model);
 
       const agent = createAgent({
         name: "hook-stream",
-        model,
-        hooks,
+        model: "mock/stream-hook",
       });
+
+      hookIntoAgent(agent, hooks);
 
       // Use stream() generator to trigger streaming
       const directEvents: AgentStreamEvent[] = [];
@@ -160,35 +177,6 @@ describe("E2E: Agent Streaming", () => {
       expect(hookEvents.length).toBe(directEvents.length);
       expect(hookEvents.map((e) => e.type)).toEqual(directEvents.map((e) => e.type));
     });
-
-    it("should fire onStreamEvent when stream:true is set on call()", async () => {
-      const hookEvents: AgentStreamEvent[] = [];
-
-      const hooks: AgentHooks = {
-        onStreamEvent: [
-          async (event) => {
-            hookEvents.push(event);
-          },
-        ],
-      };
-
-      const model = createSimpleMockModel(["Internal streaming"]);
-
-      const agent = createAgent({
-        name: "internal-stream",
-        model,
-        stream: true,
-        hooks,
-      });
-
-      // call() with stream:true should still fire onStreamEvent hooks
-      const result = await agent.call("Test internal streaming");
-
-      expect(result.text).toBe("Internal streaming");
-      // Should have received stream events via the hook
-      expect(hookEvents.length).toBeGreaterThan(0);
-      expect(hookEvents.some((e) => e.type === "done")).toBe(true);
-    });
   });
 
   // -----------------------------------------------------------------------
@@ -198,12 +186,13 @@ describe("E2E: Agent Streaming", () => {
   describe("stream abort", () => {
     it("should terminate stream when abort signal fires", async () => {
       const model = createSimpleMockModel(["This should be cut short"]);
+      registerModel("mock/stream-abort", model);
 
       const abortController = new AbortController();
 
       const agent = createAgent({
         name: "abort-stream",
-        model,
+        model: "mock/stream-abort",
         abort: abortController.signal,
       });
 

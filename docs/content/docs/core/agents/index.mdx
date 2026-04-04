@@ -1,0 +1,40 @@
+---
+title: Agents
+description: Agent types, configuration, and factory functions.
+---
+
+Agents are the foundation of Comma Agents. They provide the connection between your application and the language models available today, offering a clean base API abstraction that is both straightforward to understand and easy to integrate into any project.
+
+The primary goal of an agent is to give you a consistent, minimal interface for calling models — send a message, get a result — without having to manage the underlying SDK details yourself.
+
+The secondary goal is to expose a hook and lifecycle layer that gives you fine-grained control over agent behavior. Hooks let you intercept, observe, and transform messages at every stage of a call (including distinguishing initial calls from subsequent ones). This makes it possible to build general-purpose interaction patterns that can be configured, saved, and shared across projects, giving teams repeatable agent modules for rapid prototyping and growth.
+
+## Quick Start
+
+Create an agent, call it, and print the result:
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "greeter",
+  model: "openai/gpt-4o",
+  systemPrompt: "You are a friendly assistant. Keep responses concise.",
+});
+
+const result = await agent.call("What is the Fibonacci sequence?");
+
+console.log(result.text);
+console.log(`Prompt tokens: ${result.usage.promptTokens}`);
+console.log(`Completion tokens: ${result.usage.completionTokens}`);
+```
+
+Agents maintain conversation history automatically. A follow-up call sees everything that came before:
+
+```ts
+const followUp = await agent.call("Can you give me the first 10 numbers?");
+console.log(followUp.text);
+
+// Clear history when you want a fresh start.
+agent.reset();
+```

@@ -6,6 +6,10 @@
 // - writeTempStrategy() — write strategy JSON to a temp file
 // - settle() — wait for async side effects
 //
+// Model and credential resolution happen via global registries.
+// startTestDaemon() calls setupMockModels() to register mock models.
+// Tests must call resetModelRegistry() + resetGlobalDefaults() in afterEach.
+//
 // The connectTestClient() helper is an enhanced version of the
 // `connectClient()` pattern from server.test.ts, with:
 // - Type-safe message predicates
@@ -15,14 +19,9 @@
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CredentialStore } from "@comma-agents/core";
-import type { Daemon, ProviderResolver } from "@comma-agents/daemon";
+import type { Daemon } from "@comma-agents/daemon";
 import { createDaemon } from "@comma-agents/daemon";
-import {
-  createMockCredentialStore,
-  createMockLogger,
-  createMockProviderResolver,
-} from "./mock-providers";
+import { createMockLogger, setupMockModels } from "./mock-providers";
 
 // Types
 
@@ -79,10 +78,6 @@ export interface TestClient {
 export interface StartTestDaemonOptions {
   /** Bridge timeout in ms. 0 = no timeout. Default: 0. */
   bridgeTimeout?: number;
-  /** Custom credential store. Defaults to mock that always resolves. */
-  credentialStore?: CredentialStore;
-  /** Custom provider resolver. Defaults to mock with fixed responses. */
-  providerResolver?: ProviderResolver;
 }
 
 // Daemon lifecycle
@@ -98,6 +93,9 @@ const activeDaemons: Daemon[] = [];
  * @returns The started Daemon instance (with `.port` and `.url` available)
  */
 export async function startTestDaemon(options?: StartTestDaemonOptions): Promise<Daemon> {
+  // Register mock models in the global registry so the daemon can resolve them.
+  setupMockModels();
+
   const daemon = createDaemon({
     config: {
       port: 0, // Random available port
@@ -108,8 +106,6 @@ export async function startTestDaemon(options?: StartTestDaemonOptions): Promise
       pidFile: join(tmpdir(), `test-${crypto.randomUUID()}.pid`),
       configFile: join(tmpdir(), `test-${crypto.randomUUID()}.json`),
     },
-    credentialStore: options?.credentialStore ?? createMockCredentialStore(),
-    providerResolver: options?.providerResolver ?? createMockProviderResolver(),
     logger: createMockLogger(),
     bridgeTimeout: options?.bridgeTimeout ?? 0,
   });

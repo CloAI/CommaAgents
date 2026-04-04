@@ -1,0 +1,215 @@
+---
+title: createAgent
+description: Factory function for creating LLM-backed agents with string-based model and tool resolution.
+---
+
+# createAgent
+
+`createAgent` is the primary factory for building LLM-backed agents. It accepts a declarative configuration object and returns a fully functional `Agent` with conversation history, tool calling, streaming, and lifecycle hooks.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "assistant",
+  model: "openai/gpt-4o",
+  systemPrompt: "You are a helpful coding assistant.",
+  tools: ["bash", "read", "edit"],
+});
+```
+
+## AgentConfig
+
+The configuration object passed to `createAgent`.
+
+<AutoTypeTable path="../packages/core/src/agents/agent/agent.types.ts" name="AgentConfig" />
+
+## Agent Object
+
+`createAgent` returns an `Agent` — a plain object (no classes) with methods for calling, streaming, inspecting history, and resetting state. All internal state (conversation history, hook store, first-call flag) is captured in closure.
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `name` | `string` | The agent's name (from config). |
+| `call(message)` | `(string) => Promise<AgentCallResult>` | Send a message and get a response. Runs the full hook lifecycle (alter message, before call, execute, after call, alter response). |
+| `stream(message)` | `(string) => AsyncGenerator<AgentStreamEvent>` | Stream a call, yielding events (`text`, `tool-call`, `tool-result`, `step-start`, `done`) as they arrive. Throws if a custom `execute` is set. |
+| `getHistory()` | `() => readonly ModelMessage[]` | Return the conversation history as AI SDK messages. |
+| `getTurns()` | `() => readonly ConversationTurn[]` | Return the conversation history as user+assistant turn pairs. |
+| `reset()` | `() => void` | Clear conversation history and reset the first-call flag. |
+| `config` | `AgentConfig` | The configuration object passed to `createAgent`. |
+
+`call()` returns an `LLMCallResult` which extends `AgentCallResult` with `responseMessages` (the full AI SDK message chain) and `steps` (each LLM call + tool execution in the agentic loop).
+
+```ts
+const agent = createAgent({
+  name: "writer",
+  model: "openai/gpt-4o",
+});
+
+const result = await agent.call("Hello");
+result.text;              // final text response
+result.usage;             // { promptTokens, completionTokens }
+result.finishReason;      // "stop", "tool-calls", "length", etc.
+result.responseMessages;  // full AI SDK message chain
+result.steps;             // agentic loop steps
+```
+
+## Model Resolution
+
+The `model` field accepts a string in `"providerID/modelID"` format. `createAgent` resolves this internally via the model registry and provider system — you never need to import or configure AI SDK providers directly.
+
+```ts
+// OpenAI
+createAgent({ name: "writer", model: "openai/gpt-4o" });
+
+// Anthropic
+createAgent({ name: "reviewer", model: "anthropic/claude-sonnet-4-5" });
+
+// Ollama (local)
+createAgent({ name: "local", model: "ollama/llama3" });
+```
+
+The model is optional when a custom `execute` function is provided.
+
+## Tool Resolution
+
+The `tools` field accepts an array of tool name strings. Tools are resolved in this order:
+
+1. **Built-in tools** — always available: `"bash"`, `"read"`, `"write"`, `"edit"`, `"glob"`, `"grep"`
+2. **Global tool registry** — tools registered via `registerTool()`
+
+```ts
+import { createAgent, registerTool, defineTool } from "@comma-agents/core";
+import { z } from "zod";
+
+// Register a custom tool globally
+registerTool("weather", defineTool({
+  name: "weather",
+  description: "Get the current weather for a location.",
+  parameters: z.object({ city: z.string() }),
+  execute: async ({ city }) => ({ output: `72°F in ${city}` }),
+}));
+
+// Reference it by name
+const agent = createAgent({
+  name: "assistant",
+  model: "openai/gpt-4o",
+  tools: ["weather", "bash"],
+});
+```
+
+## System Prompts
+
+### Static system prompt
+
+Use `systemPrompt` for a fixed instruction string:
+
+```ts
+const agent = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  systemPrompt: "You are a senior code reviewer. Be thorough but concise.",
+});
+```
+
+### Dynamic system prompt template
+
+Pass a `PromptTemplate` (created via `createPromptTemplate`) to `systemPrompt` for prompts with variable interpolation (Liquid syntax):
+
+```ts
+import { createAgent, createPromptTemplate } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  systemPrompt: createPromptTemplate({
+    template: "You are {{ role }}, reviewing {{ language }} code.",
+    variables: { role: "a senior engineer", language: "TypeScript" },
+  }),
+});
+```
+
+## Conversation History
+
+Agents maintain conversation history automatically:
+
+```ts
+// History is accessible on the agent
+const messages = agent.getHistory();
+const turns = agent.getTurns();
+
+// Clear history
+agent.reset();
+```
+
+## Streaming
+
+Call `agent.stream()` for streaming responses:
+
+```ts
+for await (const event of agent.stream("Write a haiku")) {
+  if (event.type === "text") {
+    process.stdout.write(event.text);
+  }
+}
+```
+
+Stream events are typed as `AgentStreamEvent` — see the [Agents overview](/docs/core/agents) for the full type.
+
+## Custom Execute
+
+Replace the LLM call entirely with custom logic using the `execute` option. When set, `model` is not required.
+
+Return a plain string (an `LLMCallResult` is created automatically) or a full `LLMCallResult` for complete control:
+
+```ts
+const echo = createAgent({
+  name: "echo",
+  execute: async (message) => `Echo: ${message}`,
+});
+
+const result = await echo.call("hello");
+// result.text === "Echo: hello"
+```
+
+Streaming is not supported when `execute` is set — calling `stream()` will throw.
+
+## Cancellation
+
+Pass an `AbortSignal` to support cancellation:
+
+```ts
+const controller = new AbortController();
+
+const agent = createAgent({
+  name: "worker",
+  model: "openai/gpt-4o",
+  abort: controller.signal,
+});
+
+// Cancel after 5 seconds
+setTimeout(() => controller.abort(), 5000);
+```
+
+## Hooks
+
+Attach lifecycle hooks to intercept and transform agent behavior using `hookIntoAgent` after creation. See the [Hooks documentation](/docs/core/hooks) for the full hook API.
+
+```ts
+import { createAgent, hookIntoAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "logged-agent",
+  model: "openai/gpt-4o",
+});
+
+hookIntoAgent(agent, {
+  beforeCall: [async (message) => console.log("Calling with:", message)],
+  afterCall: [async (result) => console.log("Got:", result.text)],
+  alterResponse: [async (text) => text.trim()],
+});
+
+hookIntoAgent(agent, {
+  beforeToolCall: [async ({ name, args }) => console.log(`Tool: ${name}`)],
+});
+```

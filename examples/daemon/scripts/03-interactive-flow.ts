@@ -65,28 +65,24 @@ const DAEMON_URL = argv.daemonUrl as string;
 
 const INTERACTIVE_STRATEGY = {
   name: "interactive-qa",
+  version: "1.0",
   description: "A Q&A agent that asks the user for follow-up questions.",
-  defaults: {
-    provider: "openai",
-    model: "gpt-4o",
+  agents: {
+    assistant: {
+      model: "openai/gpt-4o",
+      systemPrompt: "You are a helpful assistant. Answer the user's question concisely.",
+    },
+    user: {
+      type: "user",
+      config: {
+        requireInput: true,
+      },
+    },
   },
   flow: {
+    name: "Interactive Q&A",
     type: "sequential",
-    steps: [
-      {
-        agent: {
-          name: "assistant",
-          systemPrompt: "You are a helpful assistant. Answer the user's question concisely.",
-        },
-      },
-      {
-        agent: {
-          name: "user",
-          type: "user",
-          prompt: "Your turn — ask a follow-up or type 'done' to finish:",
-        },
-      },
-    ],
+    steps: [{ agent: "assistant" }, { agent: "user" }],
   },
 };
 

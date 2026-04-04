@@ -8,56 +8,63 @@
  * Covers:
  *   1. Strategy with tool-calling agent (JSON)
  *   2. Strategy with nested flows (YAML)
- *   3. Strategy with defaults + useDefaults overrides
+ *   3. Validation of strategies with defaults/useDefaults (rejected by schema)
  *   4. Strategy with user agent (preset message)
- *   5. Strategy with custom tools
+ *   5. Strategy with custom tools (registered via registerTool)
  *   6. Strategy hook injection (agentHooks + flowHooks)
  *   7. Strategy round-trip (load → export → reload → execute)
  *
- * All tests use mock providers — no API keys required.
+ * All tests use mock models registered via registerModel() — no API keys required.
  */
 
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { defineTool, exportStrategy, loadStrategyFromString } from "@comma-agents/core";
-import type { AgentHooks, FlowHooks, ProviderFactory } from "@comma-agents/core";
+import {
+  defineTool,
+  exportStrategy,
+  hookIntoAgent,
+  loadStrategyFromString,
+  registerModel,
+  registerTool,
+  resetGlobalDefaults,
+  resetModelRegistry,
+  resetToolRegistry,
+} from "@comma-agents/core";
+import type { AgentHooks, FlowHooks } from "@comma-agents/core";
 import { createSimpleMockModel, createToolCallingMockModel } from "./helpers/mock-model";
+
+// Cleanup — reset global registries after each test
+
+afterEach(() => {
+  resetModelRegistry();
+  resetGlobalDefaults();
+  resetToolRegistry();
+});
 
 // Helpers
 
 /**
- * Create a mock provider factory that returns a mock model.
- * The model returns responses in order from the `responses` map.
- * Key format: "modelId" → responses for agents using that model.
+ * Register mock models for a set of model strings.
+ * Each model returns predetermined text responses in order.
+ *
+ * Model strings should be full "provider/model" format (e.g., "mock/analyzer").
  */
-function createMockProviders(
-  modelResponses: Record<string, string[]>,
-): Record<string, ProviderFactory> {
-  return {
-    mock: (modelId: string) => {
-      const responses = modelResponses[modelId];
-      if (!responses) {
-        throw new Error(`No mock responses for model: ${modelId}`);
-      }
-      return createSimpleMockModel(responses);
-    },
-  };
+function registerMockModels(modelResponses: Record<string, string[]>): void {
+  for (const [modelString, responses] of Object.entries(modelResponses)) {
+    const fullModelString = modelString.includes("/") ? modelString : `mock/${modelString}`;
+    registerModel(fullModelString, createSimpleMockModel(responses));
+  }
 }
 
 /**
- * Create mock providers where one model does tool calls.
+ * Register a tool-calling mock model for a given model string.
  */
-function createToolCallingProviders(
-  modelId: string,
+function registerToolCallingModel(
+  modelString: string,
   rounds: Parameters<typeof createToolCallingMockModel>[0]["rounds"],
-): Record<string, ProviderFactory> {
-  const model = createToolCallingMockModel({ rounds });
-  return {
-    mock: (id: string) => {
-      if (id === modelId) return model;
-      return createSimpleMockModel(["fallback response"]);
-    },
-  };
+): void {
+  const fullModelString = modelString.includes("/") ? modelString : `mock/${modelString}`;
+  registerModel(fullModelString, createToolCallingMockModel({ rounds }));
 }
 
 // Tests
@@ -85,24 +92,23 @@ describe("E2E: Strategy Execution", () => {
         },
       });
 
-      // Custom tool
+      // Custom tool — registered globally
       const myTool = defineTool({
         description: "A test tool",
         parameters: z.object({ value: z.string() }),
         execute: async (args) => ({ output: `processed: ${args.value}` }),
       });
+      registerTool("my-tool", myTool);
 
-      const providers = createToolCallingProviders("tool-model", [
+      // Register tool-calling mock model
+      registerToolCallingModel("mock/tool-model", [
         {
           toolCalls: [{ id: "c1", name: "my-tool", args: { value: "hello" } }],
         },
         { text: "Tool returned: processed: hello" },
       ]);
 
-      const loaded = await loadStrategyFromString(strategyJson, "json", {
-        providers,
-        customTools: { "my-tool": myTool },
-      });
+      const loaded = await loadStrategyFromString(strategyJson, "json");
 
       expect(loaded.name).toBe("tool-strategy");
       expect(loaded.version).toBe("1.0");
@@ -145,14 +151,14 @@ flow:
     - agent: summarizer
 `;
 
-      const providers = createMockProviders({
-        analyzer: ["Analysis complete"],
-        reviewer1: ["Review 1: looks good"],
-        reviewer2: ["Review 2: needs work"],
-        summarizer: ["Final summary"],
+      registerMockModels({
+        "mock/analyzer": ["Analysis complete"],
+        "mock/reviewer1": ["Review 1: looks good"],
+        "mock/reviewer2": ["Review 2: needs work"],
+        "mock/summarizer": ["Final summary"],
       });
 
-      const loaded = await loadStrategyFromString(yaml, "yaml", { providers });
+      const loaded = await loadStrategyFromString(yaml, "yaml");
 
       expect(loaded.name).toBe("nested-flows");
       expect(Object.keys(loaded.agents)).toEqual([
@@ -180,12 +186,12 @@ flow:
     - agent: editor
 `;
 
-      const providers = createMockProviders({
-        writer: ["Draft of the article"],
-        editor: ["Polished final article"],
+      registerMockModels({
+        "mock/writer": ["Draft of the article"],
+        "mock/editor": ["Polished final article"],
       });
 
-      const loaded = await loadStrategyFromString(yaml, "yaml", { providers });
+      const loaded = await loadStrategyFromString(yaml, "yaml");
       const result = await loaded.flow.call("Write an article");
 
       expect(result.text).toBe("Polished final article");
@@ -208,12 +214,12 @@ flow:
         },
       });
 
-      const providers = createMockProviders({
-        writer: ["Draft v1", "Draft v2"],
-        critic: ["Feedback v1", "Feedback v2"],
+      registerMockModels({
+        "mock/writer": ["Draft v1", "Draft v2"],
+        "mock/critic": ["Feedback v1", "Feedback v2"],
       });
 
-      const loaded = await loadStrategyFromString(json, "json", { providers });
+      const loaded = await loadStrategyFromString(json, "json");
       const result = await loaded.flow.call("Write something");
 
       // After 2 cycles with an observer, result should be defined
@@ -222,11 +228,11 @@ flow:
   });
 
   // -----------------------------------------------------------------------
-  // 3. Strategy with defaults + useDefaults overrides
+  // 3. Strategies with defaults/useDefaults are rejected by schema
   // -----------------------------------------------------------------------
 
-  describe("defaults and overrides", () => {
-    it("should apply defaults to agents with useDefaults: true", async () => {
+  describe("defaults and useDefaults", () => {
+    it("should reject strategy with defaults field", async () => {
       const json = JSON.stringify({
         name: "defaults-strategy",
         version: "1.0",
@@ -235,49 +241,26 @@ flow:
           systemPrompt: "You are a helpful assistant.",
         },
         agents: {
-          agent1: {
-            useDefaults: true,
-            // Inherits model and systemPrompt from defaults
-          },
-          agent2: {
-            model: "mock/custom-model",
-            // Explicitly sets model, ignores defaults (useDefaults not set)
-          },
+          agent1: { model: "mock/model" },
         },
         flow: {
           type: "sequential",
           name: "main",
-          steps: [{ agent: "agent1" }, { agent: "agent2" }],
+          steps: [{ agent: "agent1" }],
         },
       });
 
-      const providers = createMockProviders({
-        "default-model": ["Default model response"],
-        "custom-model": ["Custom model response"],
-      });
-
-      const loaded = await loadStrategyFromString(json, "json", { providers });
-
-      expect(loaded.agents.agent1).toBeDefined();
-      expect(loaded.agents.agent2).toBeDefined();
-
-      const result = await loaded.flow.call("Hello");
-      expect(result.text).toBe("Custom model response");
+      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/validation/i);
     });
 
-    it("should let agent-level fields override defaults", async () => {
+    it("should reject strategy with useDefaults on an agent", async () => {
       const json = JSON.stringify({
-        name: "override-test",
+        name: "usedefaults-strategy",
         version: "1.0",
-        defaults: {
-          model: "mock/default",
-          systemPrompt: "Default prompt",
-        },
         agents: {
           agent1: {
             useDefaults: true,
-            systemPrompt: "Overridden prompt",
-            // model comes from defaults
+            model: "mock/model",
           },
         },
         flow: {
@@ -287,23 +270,16 @@ flow:
         },
       });
 
-      const providers = createMockProviders({
-        default: ["Response with overridden prompt"],
-      });
-
-      const loaded = await loadStrategyFromString(json, "json", { providers });
-      const result = await loaded.flow.call("Test");
-
-      expect(result.text).toBe("Response with overridden prompt");
+      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/validation/i);
     });
 
-    it("should fail if agent has no model and useDefaults is false", async () => {
+    it("should fail if agent has no model", async () => {
       const json = JSON.stringify({
         name: "no-model",
         version: "1.0",
         agents: {
           agent1: {
-            // No model, no useDefaults
+            // No model
           },
         },
         flow: {
@@ -313,11 +289,7 @@ flow:
         },
       });
 
-      const providers = createMockProviders({});
-
-      await expect(
-        loadStrategyFromString(json, "json", { providers }),
-      ).rejects.toThrow(/model/i);
+      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/model/i);
     });
   });
 
@@ -349,11 +321,9 @@ flow:
         },
       });
 
-      const providers = createMockProviders({
-        worker: ["Here is my analysis."],
-      });
+      registerMockModels({ "mock/worker": ["Here is my analysis."] });
 
-      const loaded = await loadStrategyFromString(json, "json", { providers });
+      const loaded = await loadStrategyFromString(json, "json");
 
       expect(loaded.agents.user).toBeDefined();
       expect(loaded.agents.user!.name).toBe("user");
@@ -365,7 +335,7 @@ flow:
   });
 
   // -----------------------------------------------------------------------
-  // 5. Strategy with custom tools
+  // 5. Strategy with custom tools (registered via registerTool)
   // -----------------------------------------------------------------------
 
   describe("custom tools", () => {
@@ -380,6 +350,7 @@ flow:
           output: `${args.a + args.b}`,
         }),
       });
+      registerTool("calculator", calculator);
 
       const json = JSON.stringify({
         name: "custom-tools",
@@ -397,17 +368,14 @@ flow:
         },
       });
 
-      const providers = createToolCallingProviders("math-model", [
+      registerToolCallingModel("mock/math-model", [
         {
           toolCalls: [{ id: "c1", name: "calculator", args: { a: 3, b: 4 } }],
         },
         { text: "3 + 4 = 7" },
       ]);
 
-      const loaded = await loadStrategyFromString(json, "json", {
-        providers,
-        customTools: { calculator },
-      });
+      const loaded = await loadStrategyFromString(json, "json");
 
       const result = await loaded.flow.call("What is 3 + 4?");
       expect(result.text).toBe("3 + 4 = 7");
@@ -430,11 +398,13 @@ flow:
         },
       });
 
-      const providers = createMockProviders({ model: ["Response"] });
+      registerMockModels({ "mock/model": ["Response"] });
 
-      await expect(
-        loadStrategyFromString(json, "json", { providers }),
-      ).rejects.toThrow(/nonexistent-tool/);
+      // Tool resolution now happens at call time, so loading succeeds
+      const loaded = await loadStrategyFromString(json, "json");
+
+      // Calling the flow fails because the tool can't be resolved
+      await expect(loaded.flow.call("Test")).rejects.toThrow(/nonexistent-tool/);
     });
   });
 
@@ -473,14 +443,16 @@ flow:
         },
       });
 
-      const providers = createMockProviders({
-        model: ["Response 1", "Response 2"],
-      });
+      registerMockModels({ "mock/model": ["Response 1", "Response 2"] });
 
-      const loaded = await loadStrategyFromString(json, "json", {
-        providers,
-        agentHooks,
-      });
+      const loaded = await loadStrategyFromString(json, "json");
+
+      // Inject hooks post-load into all agents that support appendHook
+      for (const agent of Object.values(loaded.agents)) {
+        if ("appendHook" in agent) {
+          hookIntoAgent(agent, agentHooks);
+        }
+      }
 
       await loaded.flow.call("Test hooks");
 
@@ -523,12 +495,9 @@ flow:
         },
       });
 
-      const providers = createMockProviders({
-        model: ["Response"],
-      });
+      registerMockModels({ "mock/model": ["Response"] });
 
       const loaded = await loadStrategyFromString(json, "json", {
-        providers,
         flowHooks,
       });
 
@@ -550,12 +519,9 @@ flow:
         name: "round-trip",
         version: "2.0",
         description: "A round-trip test strategy",
-        defaults: {
-          model: "mock/default",
-        },
         agents: {
           writer: {
-            useDefaults: true,
+            model: "mock/writer",
             systemPrompt: "You are a writer.",
           },
           editor: {
@@ -569,25 +535,26 @@ flow:
         },
       });
 
-      // Create providers that always return fresh mocks
-      const makeProviders = () =>
-        createMockProviders({
-          default: ["Writer output"],
-          editor: ["Editor output"],
+      // Register models — need fresh models for each load since
+      // they consume responses in order
+      const registerRoundTripModels = () => {
+        resetModelRegistry();
+        registerMockModels({
+          "mock/writer": ["Writer output"],
+          "mock/editor": ["Editor output"],
         });
+      };
 
       // First load
-      const loaded1 = await loadStrategyFromString(originalJson, "json", {
-        providers: makeProviders(),
-      });
+      registerRoundTripModels();
+      const loaded1 = await loadStrategyFromString(originalJson, "json");
 
       // Export to JSON
       const exported = exportStrategy(loaded1, { format: "json" });
 
       // Reload from exported
-      const loaded2 = await loadStrategyFromString(exported, "json", {
-        providers: makeProviders(),
-      });
+      registerRoundTripModels();
+      const loaded2 = await loadStrategyFromString(exported, "json");
 
       // Verify metadata matches
       expect(loaded2.name).toBe(loaded1.name);
@@ -595,8 +562,14 @@ flow:
       expect(loaded2.description).toBe(loaded1.description);
 
       // Execute both and compare
-      const result1 = await loaded1.flow.call("Test");
-      const result2 = await loaded2.flow.call("Test");
+      registerRoundTripModels();
+      const loaded1b = await loadStrategyFromString(originalJson, "json");
+      const result1 = await loaded1b.flow.call("Test");
+
+      registerRoundTripModels();
+      const loaded2b = await loadStrategyFromString(exported, "json");
+      const result2 = await loaded2b.flow.call("Test");
+
       expect(result1.text).toBe(result2.text);
     });
 
@@ -615,20 +588,18 @@ flow:
     - agent: agent1
 `;
 
-      const makeProviders = () =>
-        createMockProviders({
-          model: ["YAML response"],
-        });
+      const registerYamlModels = () => {
+        resetModelRegistry();
+        registerMockModels({ "mock/model": ["YAML response"] });
+      };
 
-      const loaded1 = await loadStrategyFromString(originalYaml, "yaml", {
-        providers: makeProviders(),
-      });
+      registerYamlModels();
+      const loaded1 = await loadStrategyFromString(originalYaml, "yaml");
 
       const exportedYaml = exportStrategy(loaded1, { format: "yaml" });
 
-      const loaded2 = await loadStrategyFromString(exportedYaml, "yaml", {
-        providers: makeProviders(),
-      });
+      registerYamlModels();
+      const loaded2 = await loadStrategyFromString(exportedYaml, "yaml");
 
       expect(loaded2.name).toBe("yaml-round-trip");
       expect(loaded2.version).toBe("1.0");
@@ -651,28 +622,28 @@ flow:
         },
       });
 
-      const makeProviders = () => createMockProviders({ model: ["Cross-format response"] });
+      const registerCrossFormatModels = () => {
+        resetModelRegistry();
+        registerMockModels({ "mock/model": ["Cross-format response"] });
+      };
 
       // Load from JSON
-      const loaded1 = await loadStrategyFromString(originalJson, "json", {
-        providers: makeProviders(),
-      });
+      registerCrossFormatModels();
+      const loaded1 = await loadStrategyFromString(originalJson, "json");
 
       // Export as YAML
       const yaml = exportStrategy(loaded1, { format: "yaml" });
 
       // Reload from YAML
-      const loaded2 = await loadStrategyFromString(yaml, "yaml", {
-        providers: makeProviders(),
-      });
+      registerCrossFormatModels();
+      const loaded2 = await loadStrategyFromString(yaml, "yaml");
 
       // Export back to JSON
       const json2 = exportStrategy(loaded2, { format: "json" });
 
       // Reload from JSON again
-      const loaded3 = await loadStrategyFromString(json2, "json", {
-        providers: makeProviders(),
-      });
+      registerCrossFormatModels();
+      const loaded3 = await loadStrategyFromString(json2, "json");
 
       expect(loaded3.name).toBe("cross-format");
 
@@ -687,9 +658,8 @@ flow:
 
   describe("validation errors", () => {
     it("should reject invalid JSON", async () => {
-      const providers = createMockProviders({});
       await expect(
-        loadStrategyFromString("not valid json", "json", { providers }),
+        loadStrategyFromString("not valid json", "json"),
       ).rejects.toThrow(/parse/i);
     });
 
@@ -697,9 +667,8 @@ flow:
       const json = JSON.stringify({
         // Missing name, version, agents, flow
       });
-      const providers = createMockProviders({});
       await expect(
-        loadStrategyFromString(json, "json", { providers }),
+        loadStrategyFromString(json, "json"),
       ).rejects.toThrow(/validation/i);
     });
 
@@ -717,10 +686,11 @@ flow:
         },
       });
 
-      const providers = createMockProviders({});
-      await expect(
-        loadStrategyFromString(json, "json", { providers }),
-      ).rejects.toThrow(/unknown-provider/i);
+      // Loading succeeds (model resolution is deferred to call time)
+      const loaded = await loadStrategyFromString(json, "json");
+
+      // Calling fails because no model or provider is registered
+      await expect(loaded.flow.call("Test")).rejects.toThrow(/unknown-provider/i);
     });
 
     it("should reject flow referencing undefined agent", async () => {
@@ -737,9 +707,10 @@ flow:
         },
       });
 
-      const providers = createMockProviders({ model: ["Response"] });
+      registerMockModels({ "mock/model": ["Response"] });
+
       await expect(
-        loadStrategyFromString(json, "json", { providers }),
+        loadStrategyFromString(json, "json"),
       ).rejects.toThrow(/nonexistent/);
     });
   });

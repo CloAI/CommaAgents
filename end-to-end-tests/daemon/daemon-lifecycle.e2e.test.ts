@@ -6,6 +6,7 @@
 // in server.test.ts by focusing on higher-level lifecycle scenarios.
 
 import { afterAll, afterEach, describe, expect, it } from "bun:test";
+import { resetGlobalDefaults, resetModelRegistry } from "@comma-agents/core";
 
 import {
   cleanupTempFiles,
@@ -19,6 +20,8 @@ import {
 
 afterEach(async () => {
   await cleanupTempFiles();
+  resetModelRegistry();
+  resetGlobalDefaults();
 });
 
 afterAll(async () => {

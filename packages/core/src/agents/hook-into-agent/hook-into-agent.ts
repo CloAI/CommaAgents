@@ -27,7 +27,7 @@ import type { AgentHooks, ToolHooks } from "../hooks";
  *
  * @example
  * ```ts
- * const agent = createAgent({ name: "llm", model: openai("gpt-4o") });
+ * const agent = createAgent({ name: "llm", model: "openai/gpt-4o" });
  *
  * hookIntoAgent(agent, {
  *   beforeCall: [async (message) => console.log("calling with:", message)],

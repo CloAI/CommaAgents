@@ -151,33 +151,31 @@ describe("resolveSystemPrompt", () => {
     });
 
     const result = await resolveSystemPrompt({
-      systemPromptTemplate: template,
+      systemPrompt: template,
     });
     expect(result).toBe("You are a reviewer, an expert in TypeScript.");
   });
 
-  it("template overrides work", async () => {
+  it("template renders with baked-in variables", async () => {
     const template = createPromptTemplate({
       template: "Expert in {{ lang }}.",
       variables: { lang: "TypeScript" },
     });
 
     const result = await resolveSystemPrompt({
-      systemPromptTemplate: template,
-      templateOverrides: { lang: "Rust" },
+      systemPrompt: template,
     });
-    expect(result).toBe("Expert in Rust.");
+    expect(result).toBe("Expert in TypeScript.");
   });
 
-  it("template takes precedence over static systemPrompt", async () => {
+  it("PromptTemplate is used when provided as systemPrompt", async () => {
     const template = createPromptTemplate({
       template: "From template: {{ role }}",
       variables: { role: "dynamic" },
     });
 
     const result = await resolveSystemPrompt({
-      systemPrompt: "Static prompt",
-      systemPromptTemplate: template,
+      systemPrompt: template,
     });
     expect(result).toBe("From template: dynamic");
   });

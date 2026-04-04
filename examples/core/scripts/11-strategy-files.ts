@@ -7,57 +7,52 @@
  * Strategy files are declarative definitions of agent pipelines:
  *   - Agents with their models, system prompts, and tools
  *   - Flow structure (sequential, cycle, broadcast)
- *   - Default settings (shared model, tools)
+ *
+ * Model and tool resolution happens automatically via global registries.
+ * The model strings in strategy files (e.g. "openai/gpt-4o") are resolved
+ * internally by createAgent() using the global credential store and
+ * provider system. Just ensure the corresponding env var is set
+ * (e.g. OPENAI_API_KEY) and the provider package is installed.
  *
  * This example:
- *   1. Loads a JSON strategy from a file
+ *   1. Loads a JSON strategy from a string
  *   2. Loads a YAML strategy from a string
- *   3. Shows how to provide model factories (ProviderFactory)
- *   4. Demonstrates strategy export (JSON ↔ YAML roundtrip)
+ *   3. Demonstrates strategy export (JSON ↔ YAML roundtrip)
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/11-strategy-files.ts
+ *   OPENAI_API_KEY=sk-... bun run examples/11-strategy-files.ts
  *
  * Concepts:
- *   - loadStrategy(path, options) — load from file
  *   - loadStrategyFromString(content, format, options) — load from string
  *   - exportStrategy(strategy) — serialize back to JSON/YAML
- *   - ProviderFactory map for model resolution
- *   - Strategy defaults (shared model across agents)
+ *   - Model strings in strategy files (e.g. "openai/gpt-4o")
+ *   - Automatic model resolution via global registries
  */
 
 import { exportStrategy, loadStrategyFromString } from "@comma-agents/core";
-import { getModel } from "./helpers";
+import { getModelString } from "./helpers";
 
 async function main() {
-  const model = await getModel();
-
-  // --- Provider factory ---
-  // Strategy files reference models as "provider/model" strings.
-  // We need to provide a factory that creates LanguageModel instances.
-  // In production, you'd map each provider to its SDK package.
-  // For this example, we use a single model for all providers.
-  const providers: Record<string, (modelId: string) => import("ai").LanguageModel> = {
-    openai: () => model,
-    anthropic: () => model,
-  };
+  const modelString = getModelString();
 
   // -----------------------------------------------------------------------
   // 1. Load a JSON strategy from a string
   // -----------------------------------------------------------------------
 
+  // Strategy files reference models as "provider/model" strings.
+  // These are resolved automatically by the global provider system —
+  // no manual provider factories needed.
   const jsonStrategy = JSON.stringify({
     name: "Code Review Pipeline",
     version: "1.0",
     description: "A sequential pipeline for code review.",
-    defaults: {
-      model: "openai/gpt-4o",
-    },
     agents: {
       analyzer: {
+        model: modelString,
         systemPrompt: "You analyze code for potential issues. Be concise (2-3 bullet points).",
       },
       reviewer: {
+        model: modelString,
         systemPrompt:
           "You review the analysis and suggest improvements. Be concise (2-3 bullet points).",
       },
@@ -70,7 +65,7 @@ async function main() {
   });
 
   console.log("--- Loading JSON strategy ---");
-  const loaded = await loadStrategyFromString(jsonStrategy, "json", { providers });
+  const loaded = await loadStrategyFromString(jsonStrategy, "json");
   console.log(`Strategy: ${loaded.name} (v${loaded.version})`);
   console.log(`Agents: ${Object.keys(loaded.agents).join(", ")}`);
   console.log(`Flow: ${loaded.flow.name}\n`);
@@ -92,12 +87,12 @@ version: "1.0"
 description: Parallel brainstorming with multiple perspectives.
 agents:
   optimist:
-    model: openai/gpt-4o
+    model: ${modelString}
     systemPrompt: >
       You are an optimist. Find 2 positive aspects of the idea.
       Be concise.
   critic:
-    model: openai/gpt-4o
+    model: ${modelString}
     systemPrompt: >
       You are a critic. Find 2 potential problems with the idea.
       Be concise.
@@ -110,7 +105,7 @@ flow:
 `;
 
   console.log("\n--- Loading YAML strategy ---");
-  const yamlLoaded = await loadStrategyFromString(yamlStrategy.trim(), "yaml", { providers });
+  const yamlLoaded = await loadStrategyFromString(yamlStrategy.trim(), "yaml");
   console.log(`Strategy: ${yamlLoaded.name}`);
   console.log(`Agents: ${Object.keys(yamlLoaded.agents).join(", ")}`);
   console.log(`Flow: ${yamlLoaded.flow.name}\n`);

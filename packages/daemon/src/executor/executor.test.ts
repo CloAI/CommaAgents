@@ -1,19 +1,19 @@
 // Tests for the strategy executor — main orchestration layer.
 //
-// These tests use mock providers, mock sinks, and inline strategy content
-// written to temp files. The executor is tested end-to-end with the core
-// loadStrategyFromString pipeline.
+// These tests use mock models registered via registerMockModel(),
+// mock sinks, and inline strategy content written to temp files.
+// The executor is tested end-to-end with the core loadStrategyFromString
+// pipeline. Model and credential resolution happen via global registries.
 
 import { afterEach, describe, expect, it } from "bun:test";
-import { extractProviderIds } from "@comma-agents/core";
+import { extractProviderIds, resetGlobalDefaults, resetModelRegistry } from "@comma-agents/core";
 import { createDaemonState } from "../state/state";
 import {
   MINIMAL_STRATEGY,
   MULTI_AGENT_STRATEGY,
-  mockCredentialStore,
   mockLogger,
-  mockProviderResolver,
   mockSink,
+  setupMockModels,
   USER_AGENT_STRATEGY,
   waitForBroadcasts,
   writeTempStrategy,
@@ -24,6 +24,11 @@ import { createStrategyExecutor } from "./executor";
 const tempFiles: string[] = [];
 
 afterEach(async () => {
+  // Clean up global registries
+  resetModelRegistry();
+  resetGlobalDefaults();
+
+  // Clean up temp files
   for (const f of tempFiles) {
     try {
       await Bun.write(f, ""); // Overwrite to empty
@@ -46,15 +51,6 @@ describe("extractProviderIds", () => {
     };
     const ids = extractProviderIds(raw);
     expect(ids).toEqual(new Set(["openai", "anthropic"]));
-  });
-
-  it("extracts provider ID from defaults.model", () => {
-    const raw = {
-      defaults: { model: "google/gemini-pro" },
-      agents: { a1: { useDefaults: true } },
-    };
-    const ids = extractProviderIds(raw);
-    expect(ids).toEqual(new Set(["google"]));
   });
 
   it("deduplicates provider IDs", () => {
@@ -95,20 +91,16 @@ describe("extractProviderIds", () => {
 
 describe("createStrategyExecutor", () => {
   it("startRun creates a run in state, subscribes client, and returns runId", async () => {
+    setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore({
-      openai: { type: "api", key: "sk-test" },
-    });
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -131,20 +123,16 @@ describe("createStrategyExecutor", () => {
   });
 
   it("fire-and-forget: startRun returns before execution completes", async () => {
+    setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore({
-      openai: { type: "api", key: "sk-test" },
-    });
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -160,20 +148,16 @@ describe("createStrategyExecutor", () => {
   });
 
   it("broadcasts flow_started with strategy metadata", async () => {
+    setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore({
-      openai: { type: "api", key: "sk-test" },
-    });
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -193,20 +177,16 @@ describe("createStrategyExecutor", () => {
   });
 
   it("broadcasts step_started and step_completed for each step", async () => {
+    setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore({
-      openai: { type: "api", key: "sk-test" },
-    });
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -223,20 +203,16 @@ describe("createStrategyExecutor", () => {
   });
 
   it("broadcasts flow_completed on success", async () => {
+    setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore({
-      openai: { type: "api", key: "sk-test" },
-    });
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -265,16 +241,13 @@ describe("createStrategyExecutor", () => {
   it("broadcasts flow_error when strategy file is invalid", async () => {
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore();
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy("{ invalid json content");
@@ -300,16 +273,13 @@ describe("createStrategyExecutor", () => {
   it("broadcasts flow_error when strategy file is not found", async () => {
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore();
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const runId = executor.startRun("client-1", "/nonexistent/path/strategy.json", "hello");
@@ -325,20 +295,16 @@ describe("createStrategyExecutor", () => {
   });
 
   it("stopRun aborts execution and broadcasts flow_error with CANCELLED", async () => {
+    setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore({
-      openai: { type: "api", key: "sk-test" },
-    });
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -362,20 +328,16 @@ describe("createStrategyExecutor", () => {
   });
 
   it("handleUserInput routes to the correct run's input bridge", async () => {
+    setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore({
-      openai: { type: "api", key: "sk-test" },
-    });
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy(USER_AGENT_STRATEGY);
@@ -409,33 +371,27 @@ describe("createStrategyExecutor", () => {
   it("handleUserInput returns false for unknown run", () => {
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore();
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     expect(executor.handleUserInput("nonexistent", "agent", "text")).toBe(false);
   });
 
-  it("broadcasts flow_error when no credential exists for a provider", async () => {
+  it("broadcasts flow_error when no model is registered for a provider", async () => {
+    // No mock models registered — model resolution will fail at call time
     const state = createDaemonState();
     const sink = mockSink();
-    // No pre-configured credentials — core's auto-resolve will fail
-    const store = mockCredentialStore();
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -443,7 +399,7 @@ describe("createStrategyExecutor", () => {
 
     const runId = executor.startRun("client-1", filePath, "hello");
 
-    // Wait for flow_error broadcast (credential resolution fails)
+    // Wait for flow_error broadcast (model resolution fails)
     await waitForBroadcasts(sink, 1, 5000);
 
     const flowError = sink.broadcasts.find((b) => b.message.type === "flow_error");
@@ -459,21 +415,16 @@ describe("createStrategyExecutor", () => {
   });
 
   it("multi-agent strategy broadcasts events for each step", async () => {
+    setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore({
-      openai: { type: "api", key: "sk-test" },
-      anthropic: { type: "api", key: "sk-ant-test" },
-    });
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy(MULTI_AGENT_STRATEGY);
@@ -496,20 +447,16 @@ describe("createStrategyExecutor", () => {
   });
 
   it("requestId is echoed in flow_started and flow_completed", async () => {
+    setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
-    const store = mockCredentialStore({
-      openai: { type: "api", key: "sk-test" },
-    });
 
     state.addClient("client-1");
 
     const executor = createStrategyExecutor({
       state,
       sink,
-      credentialStore: store,
       logger: mockLogger(),
-      providerResolver: mockProviderResolver(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);

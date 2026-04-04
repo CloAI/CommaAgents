@@ -10,10 +10,10 @@
  * Loads the strategy file, validates it, instantiates agents + flows,
  * and executes the entry flow via loadStrategy().
  *
- * Provider setup:
- *   Requires the appropriate @ai-sdk/* provider packages to be installed.
- *   API keys are resolved via the credential store (env vars first, then
- *   stored credentials from ~/.local/share/comma-agents/credentials.json).
+ * Model resolution happens automatically via the global provider system.
+ * API keys are resolved via the credential store (env vars first, then
+ * stored credentials from ~/.local/share/comma-agents/credentials.json).
+ * Ensure the appropriate @ai-sdk/* provider packages are installed.
  */
 
 import path from "node:path";
@@ -22,7 +22,6 @@ import * as readline from "node:readline";
 import { type InputRequest, loadStrategy } from "@comma-agents/core";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { resolveCredential } from "../../auth";
 
 const EXAMPLES_DIR = path.dirname(new URL(import.meta.url).pathname);
 
@@ -112,60 +111,6 @@ if (!(await file.exists())) {
 }
 
 // ---------------------------------------------------------------------------
-// Provider setup
-// ---------------------------------------------------------------------------
-
-/**
- * Dynamically resolve provider factories based on what the strategy file
- * references. For now we support openai and anthropic — add more as needed.
- *
- * Credential resolution order (per provider):
- *   1. Environment variable (e.g. OPENAI_API_KEY, ANTHROPIC_API_KEY)
- *   2. Credential store (~/.local/share/comma-agents/credentials.json)
- *
- * Each provider package must be installed separately:
- *   bun add @ai-sdk/openai
- *   bun add @ai-sdk/anthropic
- */
-async function resolveProviders(): Promise<
-  Record<string, (modelID: string) => import("ai").LanguageModel>
-> {
-  const providers: Record<string, (modelID: string) => import("ai").LanguageModel> = {};
-
-  // Try loading common providers — failures are fine, the loader will
-  // throw a clear error if the strategy references a missing provider.
-  try {
-    const openaiModule = await import("@ai-sdk/openai");
-    const apiKey = await resolveCredential("openai");
-    // If we have a stored credential, create a configured provider instance.
-    // Otherwise fall back to the default (reads OPENAI_API_KEY from env).
-    if (apiKey) {
-      const provider = openaiModule.createOpenAI({ apiKey });
-      providers.openai = (modelId: string) => provider(modelId);
-    } else {
-      providers.openai = (modelId: string) => openaiModule.openai(modelId);
-    }
-  } catch {
-    // @ai-sdk/openai not installed — skip
-  }
-
-  try {
-    const anthropicModule = await import("@ai-sdk/anthropic");
-    const apiKey = await resolveCredential("anthropic");
-    if (apiKey) {
-      const provider = anthropicModule.createAnthropic({ apiKey });
-      providers.anthropic = (modelId: string) => provider(modelId);
-    } else {
-      providers.anthropic = (modelId: string) => anthropicModule.anthropic(modelId);
-    }
-  } catch {
-    // @ai-sdk/anthropic not installed — skip
-  }
-
-  return providers;
-}
-
-// ---------------------------------------------------------------------------
 // Simple terminal input collector for user agents
 // ---------------------------------------------------------------------------
 
@@ -187,19 +132,9 @@ function createTerminalInputCollector(): (request: InputRequest) => Promise<stri
 // Load and execute
 // ---------------------------------------------------------------------------
 
-const providers = await resolveProviders();
-
-if (Object.keys(providers).length === 0) {
-  console.error(
-    "No AI provider packages found. Install at least one, e.g.:\n  bun add @ai-sdk/openai",
-  );
-  process.exit(1);
-}
-
 console.log(`Loading strategy: ${strategyPath}\n`);
 
 const strategy = await loadStrategy(strategyPath, {
-  providers,
   inputCollector: createTerminalInputCollector(),
 });
 

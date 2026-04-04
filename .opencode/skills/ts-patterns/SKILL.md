@@ -310,21 +310,21 @@ const { providerID: pid, modelID: mid } = parseModel(modelString);
 
 The naming rules above also apply to **property names** on interfaces, types, and Zod schemas that we define. Abbreviated property names are violations just like abbreviated variables.
 
-When a property on our interface maps to an external API property that uses a different name (e.g., the AI SDK expects `topP`), rename our property to be descriptive and bridge the gap at the mapping boundary:
+When a property on our interface maps to an external API property that uses a different name, rename our property to be descriptive and bridge the gap at the mapping boundary:
 
 ```ts
 // Our interface — descriptive property name
-export interface AgentConfig {
-  readonly topProbability?: number;  // not "topP"
+export interface RetryConfig {
+  readonly maximumAttempts?: number;  // not "maxRetries"
 }
 
-// At the AI SDK boundary — map to the external name
-const callOptions = {
-  topP: config.topProbability,  // our name → SDK name
+// At the SDK boundary — map to the external name
+const sdkOptions = {
+  maxRetries: config.maximumAttempts,  // our name → SDK name
 };
 ```
 
-`CallOptions.topP` (the object passed directly to `generateText()`/`streamText()`) is acceptable because it is a direct passthrough to an external API. But our user-facing types must use full descriptive names.
+Properties passed directly to an external API as a passthrough are acceptable with the external name. But our user-facing types must use full descriptive names.
 
 ---
 

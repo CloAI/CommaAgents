@@ -1,26 +1,27 @@
-// Tests for strategy/loader.ts — full load pipeline with mock providers
+// Tests for strategy/loader.ts — full load pipeline with model registry
 
-import { describe, expect, it, mock } from "bun:test";
-import type { LanguageModel } from "ai";
+import { afterEach, describe, expect, it } from "bun:test";
+import { hookIntoAgent } from "../../agents/hook-into-agent/hook-into-agent";
 import type { AgentHooks } from "../../agents/hooks/hooks.types";
-import type { Credential, CredentialStore } from "../../credentials/credentials.types";
 import { StrategyValidationError } from "../../errors/index";
 import type { FlowHooks } from "../../flows/flow/flow.types";
+import { registerModel, resetModelRegistry } from "../../model/model";
+import { extractProviderIds } from "../../model/model.utils";
+import { registerTool, resetToolRegistry } from "../../tools/tool.registry";
 import type { ToolDefinition } from "../../tools/tool.types";
 import { loadStrategy, loadStrategyFromString } from "./loader";
-import type { LoadStrategyOptions, ProviderFactory, ProviderResolver } from "./loader.types";
-import { extractProviderIds } from "./loader.utils";
 
-// Mock model & provider factory
+// Mock model registration
 
-function createMockModel(id: string): LanguageModel {
-  return {
-    modelId: id,
+/** Register a mock model for a given model string in the global registry. */
+function registerMockModel(modelString: string): void {
+  registerModel(modelString, {
+    modelId: modelString,
     specificationVersion: "v3",
     provider: "mock",
     defaultObjectGenerationMode: undefined,
     doGenerate: async () => ({
-      content: [{ type: "text" as const, text: `response from ${id}` }],
+      content: [{ type: "text" as const, text: `response from ${modelString}` }],
       finishReason: { unified: "stop" as const, raw: undefined },
       usage: {
         inputTokens: { total: 10, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
@@ -30,56 +31,28 @@ function createMockModel(id: string): LanguageModel {
     }),
     doStream: async () => ({
       stream: new ReadableStream({
-        start(c) {
-          c.close();
+        start(controller) {
+          controller.close();
         },
       }),
     }),
-  } as unknown as LanguageModel;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock doesn't need full LanguageModel interface
+  } as any);
 }
 
-function mockProviderFactory(providerName: string): ProviderFactory {
-  return (modelID: string) => createMockModel(`${providerName}/${modelID}`);
+/** Register standard mock models used across tests. */
+function setupMockModels(): void {
+  registerMockModel("openai/gpt-4o");
+  registerMockModel("openai/gpt-3.5-turbo");
+  registerMockModel("anthropic/claude-sonnet-4-5");
 }
 
-function defaultOptions(overrides?: Partial<LoadStrategyOptions>): LoadStrategyOptions {
-  return {
-    providers: {
-      openai: mockProviderFactory("openai"),
-      anthropic: mockProviderFactory("anthropic"),
-    },
-    ...overrides,
-  };
-}
+// Cleanup
 
-/** Create a mock CredentialStore that returns pre-configured credentials. */
-function mockCredentialStore(credentials: Record<string, Credential> = {}): CredentialStore {
-  return {
-    async resolve(providerId: string) {
-      return credentials[providerId];
-    },
-    async get() {
-      return undefined;
-    },
-    async set() {},
-    async remove() {
-      return false;
-    },
-    async list() {
-      return [];
-    },
-    async listScopes() {
-      return [];
-    },
-  };
-}
-
-/** Create a mock ProviderResolver that uses mockProviderFactory. */
-function mockProviderResolver(): ProviderResolver {
-  return (providerId: string, _credential: Credential) => {
-    return mockProviderFactory(providerId);
-  };
-}
+afterEach(() => {
+  resetModelRegistry();
+  resetToolRegistry();
+});
 
 // Minimal strategy JSON strings
 
@@ -100,11 +73,6 @@ const COMPLEX_JSON = JSON.stringify({
   name: "Code Review",
   version: "2.0",
   description: "Multi-agent review",
-  defaults: {
-    model: "openai/gpt-4o",
-    tools: ["bash", "read"],
-    systemPrompt: "Be helpful.",
-  },
   agents: {
     user: { type: "user", config: { requireInput: false, presetMessage: "Review this." } },
     writer: {
@@ -113,12 +81,8 @@ const COMPLEX_JSON = JSON.stringify({
       tools: ["bash", "write", "edit"],
     },
     reviewer: {
-      useDefaults: true,
+      model: "anthropic/claude-sonnet-4-5",
       systemPrompt: "You review code.",
-    },
-    defaultAgent: {
-      useDefaults: true,
-      description: "Uses all defaults",
     },
   },
   flow: {
@@ -143,7 +107,8 @@ const COMPLEX_JSON = JSON.stringify({
 describe("loadStrategyFromString", () => {
   describe("JSON parsing", () => {
     it("loads a minimal strategy from JSON", async () => {
-      const result = await loadStrategyFromString(MINIMAL_JSON, "json", defaultOptions());
+      setupMockModels();
+      const result = await loadStrategyFromString(MINIMAL_JSON, "json");
       expect(result.name).toBe("Test");
       expect(result.version).toBe("1.0");
       expect(result.flow).toBeDefined();
@@ -152,32 +117,33 @@ describe("loadStrategyFromString", () => {
     });
 
     it("loads a complex strategy from JSON", async () => {
-      const result = await loadStrategyFromString(COMPLEX_JSON, "json", defaultOptions());
+      setupMockModels();
+      const result = await loadStrategyFromString(COMPLEX_JSON, "json");
       expect(result.name).toBe("Code Review");
       expect(result.version).toBe("2.0");
       expect(result.description).toBe("Multi-agent review");
-      expect(Object.keys(result.agents)).toHaveLength(4);
+      expect(Object.keys(result.agents)).toHaveLength(3);
       expect(result.agents.user).toBeDefined();
       expect(result.agents.writer).toBeDefined();
       expect(result.agents.reviewer).toBeDefined();
-      expect(result.agents.defaultAgent).toBeDefined();
     });
 
     it("throws StrategyValidationError for invalid JSON syntax", async () => {
-      await expect(loadStrategyFromString("not { json", "json", defaultOptions())).rejects.toThrow(
+      await expect(loadStrategyFromString("not { json", "json")).rejects.toThrow(
         StrategyValidationError,
       );
     });
 
     it("throws StrategyValidationError for invalid structure", async () => {
-      await expect(
-        loadStrategyFromString(JSON.stringify({ name: "Bad" }), "json", defaultOptions()),
-      ).rejects.toThrow(StrategyValidationError);
+      await expect(loadStrategyFromString(JSON.stringify({ name: "Bad" }), "json")).rejects.toThrow(
+        StrategyValidationError,
+      );
     });
   });
 
   describe("YAML parsing", () => {
     it("loads a strategy from YAML", async () => {
+      setupMockModels();
       const yaml = `
 name: YAML Test
 version: "1.0"
@@ -190,16 +156,16 @@ flow:
   steps:
     - agent: assistant
 `;
-      const result = await loadStrategyFromString(yaml, "yaml", defaultOptions());
+      const result = await loadStrategyFromString(yaml, "yaml");
       expect(result.name).toBe("YAML Test");
       expect(result.version).toBe("1.0");
       expect(result.agents.assistant).toBeDefined();
     });
 
     it("throws StrategyValidationError for invalid YAML syntax", async () => {
-      await expect(
-        loadStrategyFromString(":\n  - :\n  bad: [", "yaml", defaultOptions()),
-      ).rejects.toThrow(StrategyValidationError);
+      await expect(loadStrategyFromString(":\n  - :\n  bad: [", "yaml")).rejects.toThrow(
+        StrategyValidationError,
+      );
     });
   });
 });
@@ -208,17 +174,15 @@ flow:
 
 describe("agent instantiation", () => {
   it("creates LLM agents with the correct model", async () => {
-    const providerFn = mock((id: string) => createMockModel(`openai/${id}`));
-    const result = await loadStrategyFromString(MINIMAL_JSON, "json", {
-      providers: { openai: providerFn },
-    });
+    setupMockModels();
+    const result = await loadStrategyFromString(MINIMAL_JSON, "json");
 
-    expect(providerFn).toHaveBeenCalledWith("gpt-4o");
     expect(result.agents.assistant).toBeDefined();
     expect(result.agents.assistant?.name).toBe("assistant");
   });
 
   it("creates user agents", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -232,7 +196,7 @@ describe("agent instantiation", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", defaultOptions());
+    const result = await loadStrategyFromString(json, "json");
     expect(result.agents.user).toBeDefined();
     expect(result.agents.user?.name).toBe("user");
   });
@@ -251,140 +215,44 @@ describe("agent instantiation", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", defaultOptions());
+    const result = await loadStrategyFromString(json, "json");
     const callResult = await result.agents.user?.call("ignored");
     expect(callResult.text).toBe("Hello!");
   });
 
-  describe("useDefaults", () => {
-    it("applies default model when useDefaults is true and agent has no model", async () => {
-      const providerFn = mock((id: string) => createMockModel(`openai/${id}`));
-      const json = JSON.stringify({
-        name: "Test",
-        version: "1.0",
-        defaults: { model: "openai/gpt-4o" },
-        agents: {
-          agent: { useDefaults: true },
-        },
-        flow: {
-          name: "Main",
-          type: "sequential",
-          steps: [{ agent: "agent" }],
-        },
-      });
-
-      await loadStrategyFromString(json, "json", { providers: { openai: providerFn } });
-      expect(providerFn).toHaveBeenCalledWith("gpt-4o");
+  it("rejects strategies with defaults block (removed feature)", async () => {
+    const json = JSON.stringify({
+      name: "Test",
+      version: "1.0",
+      defaults: { model: "openai/gpt-4o" },
+      agents: {
+        agent: { model: "openai/gpt-4o" },
+      },
+      flow: {
+        name: "Main",
+        type: "sequential",
+        steps: [{ agent: "agent" }],
+      },
     });
 
-    it("agent model takes priority over defaults when both defined", async () => {
-      const openaiFactory = mock((id: string) => createMockModel(`openai/${id}`));
-      const anthropicFactory = mock((id: string) => createMockModel(`anthropic/${id}`));
-      const json = JSON.stringify({
-        name: "Test",
-        version: "1.0",
-        defaults: { model: "openai/gpt-4o" },
-        agents: {
-          agent: { useDefaults: true, model: "anthropic/claude-sonnet-4-5" },
-        },
-        flow: {
-          name: "Main",
-          type: "sequential",
-          steps: [{ agent: "agent" }],
-        },
-      });
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(StrategyValidationError);
+  });
 
-      await loadStrategyFromString(json, "json", {
-        providers: { openai: openaiFactory, anthropic: anthropicFactory },
-      });
-      // Should use agent's own model, not the default
-      expect(anthropicFactory).toHaveBeenCalledWith("claude-sonnet-4-5");
-      expect(openaiFactory).not.toHaveBeenCalled();
+  it("rejects strategies with useDefaults (removed feature)", async () => {
+    const json = JSON.stringify({
+      name: "Test",
+      version: "1.0",
+      agents: {
+        agent: { useDefaults: true, model: "openai/gpt-4o" },
+      },
+      flow: {
+        name: "Main",
+        type: "sequential",
+        steps: [{ agent: "agent" }],
+      },
     });
 
-    it("does not apply defaults when useDefaults is false", async () => {
-      const json = JSON.stringify({
-        name: "Test",
-        version: "1.0",
-        defaults: { model: "openai/gpt-4o" },
-        agents: {
-          agent: { useDefaults: false, model: "openai/gpt-3.5-turbo" },
-        },
-        flow: {
-          name: "Main",
-          type: "sequential",
-          steps: [{ agent: "agent" }],
-        },
-      });
-
-      const providerFn = mock((id: string) => createMockModel(`openai/${id}`));
-      await loadStrategyFromString(json, "json", { providers: { openai: providerFn } });
-      expect(providerFn).toHaveBeenCalledWith("gpt-3.5-turbo");
-    });
-
-    it("does not apply defaults when useDefaults is omitted", async () => {
-      const json = JSON.stringify({
-        name: "Test",
-        version: "1.0",
-        defaults: { model: "openai/gpt-4o", tools: ["bash"] },
-        agents: {
-          agent: { model: "openai/gpt-3.5-turbo" },
-        },
-        flow: {
-          name: "Main",
-          type: "sequential",
-          steps: [{ agent: "agent" }],
-        },
-      });
-
-      const providerFn = mock((id: string) => createMockModel(`openai/${id}`));
-      await loadStrategyFromString(json, "json", { providers: { openai: providerFn } });
-      expect(providerFn).toHaveBeenCalledWith("gpt-3.5-turbo");
-    });
-
-    it("applies default tools when useDefaults is true and agent has no tools", async () => {
-      // The agent should get the default tools
-      const json = JSON.stringify({
-        name: "Test",
-        version: "1.0",
-        defaults: { model: "openai/gpt-4o", tools: ["bash", "read"] },
-        agents: {
-          agent: { useDefaults: true },
-        },
-        flow: {
-          name: "Main",
-          type: "sequential",
-          steps: [{ agent: "agent" }],
-        },
-      });
-
-      // If tools resolve successfully, the agent was created with them
-      const result = await loadStrategyFromString(json, "json", defaultOptions());
-      expect(result.agents.agent).toBeDefined();
-    });
-
-    it("agent tools take absolute priority over defaults (no merge)", async () => {
-      // Agent specifies only "edit" — should NOT also get "bash" and "read" from defaults
-      const json = JSON.stringify({
-        name: "Test",
-        version: "1.0",
-        defaults: { model: "openai/gpt-4o", tools: ["bash", "read"] },
-        agents: {
-          agent: { useDefaults: true, tools: ["edit"] },
-        },
-        flow: {
-          name: "Main",
-          type: "sequential",
-          steps: [{ agent: "agent" }],
-        },
-      });
-
-      // The agent should only have "edit", not "bash" or "read"
-      // We can verify this by checking the strategy loaded without errors
-      // (if it tried to merge and had issues, it would error)
-      const result = await loadStrategyFromString(json, "json", defaultOptions());
-      expect(result.agents.agent).toBeDefined();
-    });
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(StrategyValidationError);
   });
 });
 
@@ -392,6 +260,7 @@ describe("agent instantiation", () => {
 
 describe("tool resolution", () => {
   it("resolves built-in tools by name", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -405,16 +274,20 @@ describe("tool resolution", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", defaultOptions());
+    const result = await loadStrategyFromString(json, "json");
     expect(result.agents.agent).toBeDefined();
   });
 
-  it("resolves custom tools", async () => {
+  it("resolves custom tools via registerTool", async () => {
+    setupMockModels();
     const customTool: ToolDefinition = {
       description: "A custom tool",
       parameters: {} as any,
       execute: async () => ({ output: "done" }),
     };
+
+    // Register the custom tool globally
+    registerTool("myTool", customTool);
 
     const json = JSON.stringify({
       name: "Test",
@@ -429,14 +302,12 @@ describe("tool resolution", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", {
-      ...defaultOptions(),
-      customTools: { myTool: customTool },
-    });
+    const result = await loadStrategyFromString(json, "json");
     expect(result.agents.agent).toBeDefined();
   });
 
   it("throws for unknown tool names", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -450,19 +321,19 @@ describe("tool resolution", () => {
       },
     });
 
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      StrategyValidationError,
-    );
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      /nonexistent/,
-    );
+    // Tool resolution happens at agent.call() time, not at load time.
+    // Loading succeeds; calling the agent fails.
+    const result = await loadStrategyFromString(json, "json");
+    expect(result.agents.agent).toBeDefined();
+
+    await expect(result.agents.agent!.call("test")).rejects.toThrow(/nonexistent/);
   });
 });
 
 // Model resolution errors
 
 describe("model resolution", () => {
-  it("throws for invalid model string format", async () => {
+  it("throws for invalid model string format at call time", async () => {
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -470,15 +341,15 @@ describe("model resolution", () => {
       flow: { name: "Main", type: "sequential", steps: [{ agent: "agent" }] },
     });
 
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      StrategyValidationError,
-    );
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      /providerID\/modelID/,
-    );
+    // Loading succeeds — model string is just passed through
+    const result = await loadStrategyFromString(json, "json");
+    expect(result.agents.agent).toBeDefined();
+
+    // Calling the agent fails — resolveModel() rejects the format
+    await expect(result.agents.agent!.call("test")).rejects.toThrow(/providerID\/modelID/);
   });
 
-  it("throws for empty model ID after slash", async () => {
+  it("throws for empty model ID after slash at call time", async () => {
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -486,12 +357,15 @@ describe("model resolution", () => {
       flow: { name: "Main", type: "sequential", steps: [{ agent: "agent" }] },
     });
 
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      StrategyValidationError,
-    );
+    // Loading succeeds
+    const result = await loadStrategyFromString(json, "json");
+    expect(result.agents.agent).toBeDefined();
+
+    // Calling fails — model ID is empty
+    await expect(result.agents.agent!.call("test")).rejects.toThrow();
   });
 
-  it("throws for missing provider factory", async () => {
+  it("throws for unregistered provider at call time", async () => {
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -499,13 +373,15 @@ describe("model resolution", () => {
       flow: { name: "Main", type: "sequential", steps: [{ agent: "agent" }] },
     });
 
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      StrategyValidationError,
-    );
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(/google/);
+    // Loading succeeds — no model resolution at load time
+    const result = await loadStrategyFromString(json, "json");
+    expect(result.agents.agent).toBeDefined();
+
+    // Calling fails — "google/gemini-pro" is not registered
+    await expect(result.agents.agent!.call("test")).rejects.toThrow(/google/);
   });
 
-  it("throws when LLM agent has no model and useDefaults is false", async () => {
+  it("throws when LLM agent has no model at load time", async () => {
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -513,12 +389,8 @@ describe("model resolution", () => {
       flow: { name: "Main", type: "sequential", steps: [{ agent: "agent" }] },
     });
 
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      StrategyValidationError,
-    );
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      /no model/,
-    );
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(StrategyValidationError);
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/no model/);
   });
 });
 
@@ -526,11 +398,13 @@ describe("model resolution", () => {
 
 describe("flow tree building", () => {
   it("builds a sequential flow", async () => {
-    const result = await loadStrategyFromString(MINIMAL_JSON, "json", defaultOptions());
+    setupMockModels();
+    const result = await loadStrategyFromString(MINIMAL_JSON, "json");
     expect(result.flow.name).toBe("Main");
   });
 
   it("builds a cycle flow", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -543,11 +417,12 @@ describe("flow tree building", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", defaultOptions());
+    const result = await loadStrategyFromString(json, "json");
     expect(result.flow.name).toBe("Loop");
   });
 
   it("builds a broadcast flow", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -562,11 +437,12 @@ describe("flow tree building", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", defaultOptions());
+    const result = await loadStrategyFromString(json, "json");
     expect(result.flow.name).toBe("Fan-out");
   });
 
   it("builds nested flows recursively", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -589,11 +465,12 @@ describe("flow tree building", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", defaultOptions());
+    const result = await loadStrategyFromString(json, "json");
     expect(result.flow.name).toBe("Outer");
   });
 
   it("resolves observer agent in cycle flow", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -610,11 +487,12 @@ describe("flow tree building", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", defaultOptions());
+    const result = await loadStrategyFromString(json, "json");
     expect(result.flow.name).toBe("Loop");
   });
 
   it("handles Infinity cycles from string", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -630,13 +508,13 @@ describe("flow tree building", () => {
     // Infinite cycle requires an abort signal
     const controller = new AbortController();
     const result = await loadStrategyFromString(json, "json", {
-      ...defaultOptions(),
       abort: controller.signal,
     });
     expect(result.flow.name).toBe("Infinite");
   });
 
   it("throws when flow references undefined agent", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -648,15 +526,12 @@ describe("flow tree building", () => {
       },
     });
 
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      StrategyValidationError,
-    );
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      /nonexistent/,
-    );
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(StrategyValidationError);
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/nonexistent/);
   });
 
   it("throws when cycle observer references undefined agent", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
@@ -670,12 +545,8 @@ describe("flow tree building", () => {
       },
     });
 
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      StrategyValidationError,
-    );
-    await expect(loadStrategyFromString(json, "json", defaultOptions())).rejects.toThrow(
-      /nonexistent/,
-    );
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(StrategyValidationError);
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/nonexistent/);
   });
 });
 
@@ -683,7 +554,8 @@ describe("flow tree building", () => {
 
 describe("raw strategy", () => {
   it("preserves the original parsed data", async () => {
-    const result = await loadStrategyFromString(COMPLEX_JSON, "json", defaultOptions());
+    setupMockModels();
+    const result = await loadStrategyFromString(COMPLEX_JSON, "json");
     expect(result.raw.name).toBe("Code Review");
     expect(result.raw.version).toBe("2.0");
     expect(result.raw.agents.writer).toBeDefined();
@@ -695,16 +567,14 @@ describe("raw strategy", () => {
 
 describe("loadStrategy (file-based)", () => {
   it("throws for non-existent file", async () => {
-    await expect(loadStrategy("/nonexistent/strategy.json", defaultOptions())).rejects.toThrow(
+    await expect(loadStrategy("/nonexistent/strategy.json")).rejects.toThrow(
       StrategyValidationError,
     );
   });
 
   it("throws for unsupported file extension", async () => {
-    await expect(loadStrategy("/some/file.toml", defaultOptions())).rejects.toThrow(
-      StrategyValidationError,
-    );
-    await expect(loadStrategy("/some/file.toml", defaultOptions())).rejects.toThrow(/extension/);
+    await expect(loadStrategy("/some/file.toml")).rejects.toThrow(StrategyValidationError);
+    await expect(loadStrategy("/some/file.toml")).rejects.toThrow(/extension/);
   });
 });
 
@@ -712,6 +582,7 @@ describe("loadStrategy (file-based)", () => {
 
 describe("end-to-end execution", () => {
   it("executes a sequential flow with user + LLM agent", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "E2E",
       version: "1.0",
@@ -726,7 +597,7 @@ describe("end-to-end execution", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", defaultOptions());
+    const result = await loadStrategyFromString(json, "json");
     const output = await result.flow.call("start");
 
     // User agent returns "Hello", then assistant processes it
@@ -735,6 +606,7 @@ describe("end-to-end execution", () => {
   });
 
   it("executes a cycle flow", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "E2E Cycle",
       version: "1.0",
@@ -749,12 +621,13 @@ describe("end-to-end execution", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", defaultOptions());
+    const result = await loadStrategyFromString(json, "json");
     const output = await result.flow.call("start");
     expect(output.text).toBeDefined();
   });
 
   it("executes a broadcast flow", async () => {
+    setupMockModels();
     const json = JSON.stringify({
       name: "E2E Broadcast",
       version: "1.0",
@@ -769,16 +642,17 @@ describe("end-to-end execution", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", defaultOptions());
+    const result = await loadStrategyFromString(json, "json");
     const output = await result.flow.call("start");
     expect(output.text).toBeDefined();
   });
 });
 
-// Hook injection (flowHooks / agentHooks)
+// Hook injection (flowHooks via options, agentHooks via hookIntoAgent)
 
-describe("hook injection via LoadStrategyOptions", () => {
-  it("threads agentHooks into LLM agents", async () => {
+describe("hook injection", () => {
+  it("threads agentHooks into LLM agents via hookIntoAgent post-load", async () => {
+    setupMockModels();
     const calls: string[] = [];
     const agentHooks: AgentHooks = {
       beforeCall: [
@@ -806,10 +680,14 @@ describe("hook injection via LoadStrategyOptions", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", {
-      ...defaultOptions(),
-      agentHooks,
-    });
+    const result = await loadStrategyFromString(json, "json");
+
+    // Inject hooks post-load via hookIntoAgent
+    for (const agent of Object.values(result.agents)) {
+      if (agent.appendHook) {
+        hookIntoAgent(agent, agentHooks);
+      }
+    }
 
     await result.flow.call("hello");
 
@@ -818,6 +696,7 @@ describe("hook injection via LoadStrategyOptions", () => {
   });
 
   it("threads flowHooks into flows (beforeStep/afterStep)", async () => {
+    setupMockModels();
     const steps: string[] = [];
     const flowHooks: FlowHooks = {
       beforeStep: [
@@ -847,7 +726,6 @@ describe("hook injection via LoadStrategyOptions", () => {
     });
 
     const result = await loadStrategyFromString(json, "json", {
-      ...defaultOptions(),
       flowHooks,
     });
 
@@ -857,6 +735,7 @@ describe("hook injection via LoadStrategyOptions", () => {
   });
 
   it("threads flowHooks into cycle flows", async () => {
+    setupMockModels();
     const events: string[] = [];
     const flowHooks: FlowHooks = {
       beforeStep: [
@@ -884,7 +763,6 @@ describe("hook injection via LoadStrategyOptions", () => {
     });
 
     const result = await loadStrategyFromString(json, "json", {
-      ...defaultOptions(),
       flowHooks,
     });
 
@@ -895,6 +773,7 @@ describe("hook injection via LoadStrategyOptions", () => {
   });
 
   it("threads flowHooks into broadcast flows", async () => {
+    setupMockModels();
     const events: string[] = [];
     const flowHooks: FlowHooks = {
       beforeStep: [
@@ -924,7 +803,6 @@ describe("hook injection via LoadStrategyOptions", () => {
     });
 
     const result = await loadStrategyFromString(json, "json", {
-      ...defaultOptions(),
       flowHooks,
     });
 
@@ -933,7 +811,8 @@ describe("hook injection via LoadStrategyOptions", () => {
     expect(events).toEqual(["before:a", "after:a", "before:b", "after:b"]);
   });
 
-  it("threads both agentHooks and flowHooks simultaneously", async () => {
+  it("threads both agentHooks (via hookIntoAgent) and flowHooks simultaneously", async () => {
+    setupMockModels();
     const events: string[] = [];
     const agentHooks: AgentHooks = {
       beforeCall: [
@@ -974,10 +853,15 @@ describe("hook injection via LoadStrategyOptions", () => {
     });
 
     const result = await loadStrategyFromString(json, "json", {
-      ...defaultOptions(),
-      agentHooks,
       flowHooks,
     });
+
+    // Inject agent hooks post-load
+    for (const agent of Object.values(result.agents)) {
+      if (agent.appendHook) {
+        hookIntoAgent(agent, agentHooks);
+      }
+    }
 
     await result.flow.call("hello");
 
@@ -988,7 +872,7 @@ describe("hook injection via LoadStrategyOptions", () => {
     expect(events).toContain("step-after:assistant");
   });
 
-  it("does not inject hooks into user agents", async () => {
+  it("injects hooks into user agents (they support appendHook via createAgent)", async () => {
     const calls: string[] = [];
     const agentHooks: AgentHooks = {
       beforeCall: [
@@ -1011,15 +895,19 @@ describe("hook injection via LoadStrategyOptions", () => {
       },
     });
 
-    const result = await loadStrategyFromString(json, "json", {
-      ...defaultOptions(),
-      agentHooks,
-    });
+    const result = await loadStrategyFromString(json, "json");
+
+    // User agents are built on createAgent, so they support appendHook
+    for (const agent of Object.values(result.agents)) {
+      if (agent.appendHook) {
+        hookIntoAgent(agent, agentHooks);
+      }
+    }
 
     await result.flow.call("start");
 
-    // User agents don't use agentHooks (they don't go through BaseAgent)
-    expect(calls).toEqual([]);
+    // User agents support hooks — the hook fires
+    expect(calls).toEqual(["agent-hook"]);
   });
 });
 
@@ -1035,15 +923,6 @@ describe("extractProviderIds", () => {
     };
     const ids = extractProviderIds(raw);
     expect(ids).toEqual(new Set(["openai", "anthropic"]));
-  });
-
-  it("should extract provider ID from defaults.model", () => {
-    const raw = {
-      defaults: { model: "google/gemini-pro" },
-      agents: { agent: { useDefaults: true } },
-    };
-    const ids = extractProviderIds(raw);
-    expect(ids).toEqual(new Set(["google"]));
   });
 
   it("should deduplicate provider IDs", () => {
@@ -1088,108 +967,5 @@ describe("extractProviderIds", () => {
     };
     const ids = extractProviderIds(raw);
     expect(ids).toEqual(new Set(["openai"]));
-  });
-});
-
-// Credential-based provider resolution
-
-describe("credential-based provider resolution", () => {
-  it("should resolve providers via credentialStore and providerResolver", async () => {
-    const resolverFn = mock((providerId: string, _credential: Credential): ProviderFactory => {
-      return mockProviderFactory(providerId);
-    });
-
-    const result = await loadStrategyFromString(MINIMAL_JSON, "json", {
-      credentialStore: mockCredentialStore({
-        openai: { type: "api", key: "sk-test" },
-      }),
-      providerResolver: resolverFn,
-    });
-
-    expect(result.name).toBe("Test");
-    expect(result.agents.assistant).toBeDefined();
-    expect(resolverFn).toHaveBeenCalledWith("openai", { type: "api", key: "sk-test" });
-  });
-
-  it("should prefer explicit providers over credentialStore", async () => {
-    const resolverFn = mock((providerId: string, _credential: Credential): ProviderFactory => {
-      return mockProviderFactory(`credential-${providerId}`);
-    });
-    const explicitFactory = mock((modelID: string) =>
-      createMockModel(`explicit-openai/${modelID}`),
-    );
-
-    const result = await loadStrategyFromString(MINIMAL_JSON, "json", {
-      providers: { openai: explicitFactory },
-      credentialStore: mockCredentialStore({
-        openai: { type: "api", key: "sk-test" },
-      }),
-      providerResolver: resolverFn,
-    });
-
-    expect(result.agents.assistant).toBeDefined();
-    // Explicit provider should be used, not the credential resolver
-    expect(explicitFactory).toHaveBeenCalledWith("gpt-4o");
-    expect(resolverFn).not.toHaveBeenCalled();
-  });
-
-  it("should throw when credentialStore is provided without providerResolver", async () => {
-    await expect(
-      loadStrategyFromString(MINIMAL_JSON, "json", {
-        credentialStore: mockCredentialStore(),
-      }),
-    ).rejects.toThrow(StrategyValidationError);
-    await expect(
-      loadStrategyFromString(MINIMAL_JSON, "json", {
-        credentialStore: mockCredentialStore(),
-      }),
-    ).rejects.toThrow(/providerResolver/);
-  });
-
-  it("should throw when neither providers nor credentialStore is provided", async () => {
-    await expect(loadStrategyFromString(MINIMAL_JSON, "json", {})).rejects.toThrow(
-      StrategyValidationError,
-    );
-    await expect(loadStrategyFromString(MINIMAL_JSON, "json", {})).rejects.toThrow(
-      /providers.*credentialStore/,
-    );
-  });
-
-  it("should throw when credentialStore has no credential for the provider", async () => {
-    await expect(
-      loadStrategyFromString(MINIMAL_JSON, "json", {
-        credentialStore: mockCredentialStore({}),
-        providerResolver: mockProviderResolver(),
-      }),
-    ).rejects.toThrow(StrategyValidationError);
-    await expect(
-      loadStrategyFromString(MINIMAL_JSON, "json", {
-        credentialStore: mockCredentialStore({}),
-        providerResolver: mockProviderResolver(),
-      }),
-    ).rejects.toThrow(/openai/);
-  });
-
-  it("should throw when providerResolver throws", async () => {
-    const failingResolver: ProviderResolver = () => {
-      throw new Error("SDK not installed");
-    };
-
-    await expect(
-      loadStrategyFromString(MINIMAL_JSON, "json", {
-        credentialStore: mockCredentialStore({
-          openai: { type: "api", key: "sk-test" },
-        }),
-        providerResolver: failingResolver,
-      }),
-    ).rejects.toThrow(StrategyValidationError);
-    await expect(
-      loadStrategyFromString(MINIMAL_JSON, "json", {
-        credentialStore: mockCredentialStore({
-          openai: { type: "api", key: "sk-test" },
-        }),
-        providerResolver: failingResolver,
-      }),
-    ).rejects.toThrow(/SDK not installed/);
   });
 });

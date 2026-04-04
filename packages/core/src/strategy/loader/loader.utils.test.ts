@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from "bun:test";
 import { ModelResolutionError } from "../../errors/index";
-import { getProviderPackage, isKnownProvider, KNOWN_PROVIDERS, parseModel } from "./loader.utils";
+import { KNOWN_PROVIDERS } from "../../model/model.constants";
+import { getProviderPackage, isKnownProvider, parseModel } from "../../model/model.utils";
 
 // parseModel
 

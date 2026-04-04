@@ -21,10 +21,10 @@
  */
 
 import { createAgent } from "@comma-agents/core";
-import { getModel } from "./helpers";
+import { getModelString } from "./helpers";
 
 async function main() {
-  const model = await getModel();
+  const model = getModelString();
 
   const agent = createAgent({
     name: "tutor",

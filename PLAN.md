@@ -16,6 +16,8 @@ This is a TypeScript rewrite of the original Python
 | ---------- | ----------------------- | ---------------------------------------------------------------------------- |
 | **Core**   | `@comma-agents/core`   | Agents, flows, hooks, tools, prompts, model registry, strategy (zero LLM deps) |
 | **Daemon** | `@comma-agents/daemon` | Long-running process: executes flows, dynamic provider install, auth, WS API |
+| **Debug**  | `@comma-agents/debug`  | Debug utilities: debugAgent(), debugFlow() for tracing and inspection        |
+| **Utils**  | `@comma-agents/utils`  | Shared utilities: string, async, platform, process helpers                   |
 | **TUI**    | `@comma-agents/tui`    | Terminal UI (Ink/React): setup wizard, model browser, connects via WebSocket  |
 
 A **Web UI** may be added later. The WebSocket protocol is designed to support both
@@ -49,9 +51,8 @@ TUI and web clients without changes.
   and explicitly annotated with a comment explaining why.
 - **Explicit return types** on all exported functions and public methods.
 - **Immutable by default** — prefer `const`, `readonly`, and `Readonly<T>`.
-- **No classes unless necessary** — prefer plain functions and types for stateless
-  logic. Use classes for stateful objects (agents with history) where the OOP model is a
-  natural fit. Use factory functions for agents with minimal state (e.g., `createUserAgent()`).
+- **No classes unless necessary** — prefer plain functions, closures, and types.
+  Use closure-based factory functions (e.g., `createAgent()`, `createUserAgent()`).
   Shared cross-cutting concerns (hooks) use higher-order functions, not inheritance.
 - **No default exports** — always use named exports for better refactoring and
   auto-import support.
@@ -120,7 +121,7 @@ TUI and web clients without changes.
                        v
 ┌──────────────────────────────────────────────────┐
 │                     Flow                          │
-│  Sequential | Cycle | InfiniteCycle | Broadcast    │
+│  Sequential | Cycle | Broadcast                   │
 │                                                   │
 │  contains: Agent[] | Flow[]  (recursive)          │
 └──────────────────────┬───────────────────────────┘
@@ -130,17 +131,22 @@ TUI and web clients without changes.
 │               Agent (interface)                    │
 │  name, call(msg), reset()                         │
 │                                                   │
-│  BaseAgent (class) — LLM-backed, history, tools   │
+│  createAgent() — closure-based LLM agent factory  │
 │  createUserAgent() — human-in-the-loop (closure)  │
-│  withAgentHooks() — shared hook lifecycle (HOF)   │
+│  hookIntoAgent() — append hooks post-creation     │
 │                                                   │
-│  Tools: Zod-validated, auto-executed by AI SDK    │
+│  Model: string (e.g. "openai/gpt-4o")            │
+│  Tools: string[] resolved via global registry     │
 │  Built-in: bash, read, write, edit, glob, grep   │
 └──────────────────────┬───────────────────────────┘
-                       │ uses (via AI SDK)
+                       │ resolves model string
                        v
 ┌──────────────────────────────────────────────────┐
-│              AI SDK (streamText / generateText)    │
+│           Model Registry & AI SDK                  │
+│                                                   │
+│  "openai/gpt-4o" → resolveModel() → LanguageModel│
+│  Global provider registry (registerProvider)       │
+│  Global model registry (registerModel)             │
 │                                                   │
 │  LanguageModel    ← @ai-sdk/openai               │
 │                  ← @ai-sdk/anthropic             │
@@ -150,28 +156,22 @@ TUI and web clients without changes.
 └──────────────────────────────────────────────────┘
 ```
 
-### Agent Architecture (Hybrid Functional/OOP)
+### Agent Architecture (Functional / Closure-Based)
 
-Agents use the Vercel AI SDK directly. No custom provider abstraction layer.
+Agents use the Vercel AI SDK internally. Model and tool resolution are handled by
+global registries — consumers pass strings, not SDK objects.
 
-The architecture follows a **hybrid functional/OOP** pattern:
+The architecture is **purely functional** — no classes:
 
 - **`Agent` interface** — the polymorphic contract. Flows operate on this type exclusively.
-- **`withAgentHooks()`** — higher-order function that handles the shared hook lifecycle
-  (alter message → before → execute → after → alter response). Written once, used by all agents.
-- **`BaseAgent`** — class (justified by mutable state: conversation history). Implements `Agent`.
-- **`createUserAgent()`** — factory function (closure-based, no class needed). Returns `Agent`.
-- **`createAgent()`** — convenience factory for `BaseAgent`.
+- **`createAgent()`** — closure-based factory. Accepts `AgentConfig` with a model string
+  and optional tool name strings. Internally resolves the model via `resolveModel()` and
+  tools via the tool registry. Manages conversation history, streaming, and hooks via closures.
+- **`createUserAgent()`** — closure-based factory for human-in-the-loop agents. Returns `Agent`.
+- **`hookIntoAgent()`** — appends hooks to an existing agent post-creation.
 
-No inheritance hierarchy. The hook lifecycle is a functional pipeline, not a template method.
-
-**Why not pure OOP (abstract base class)?** Template method pattern is rigid — if an agent
-doesn't fit the `execute()` → `finalize()` two-step, you fight the hierarchy. Hook lifecycle
-is fundamentally a pipeline of transformations around an action — a functional concept.
-
-**Why not pure functional?** BaseAgent genuinely benefits from being a class because it has
-mutable state (conversation history, tool building). But UserAgent has almost no state
-(`firstCall` flag only), so a closure-based factory is cleaner.
+No classes, no inheritance hierarchy. Hook lifecycle is a functional pipeline applied
+inside `createAgent`.
 
 ```typescript
 // The core contract — all flows use this
@@ -181,34 +181,21 @@ interface Agent {
   reset(): void;
 }
 
-// Hook middleware — shared by all agent types
-function withAgentHooks(
-  hooks: AgentHooks | undefined,
-  executeFn: (message: string) => Promise<AgentCallResult>,
-): (message: string, isFirst: boolean) => Promise<HookedCallResult>;
-
-// LLM-backed agent config
+// LLM-backed agent config — model and tools are strings
 interface AgentConfig {
   readonly name: string;
-  readonly model: LanguageModel;
-  readonly systemPrompt?: string;
-  readonly tools?: Record<string, ToolDef>;
-  readonly hooks?: AgentHooks;
-  readonly toolHooks?: ToolHooks;
-  readonly maxSteps?: number;        // max tool-call loop iterations (default: 10)
-  readonly temperature?: number;
-  readonly topProbability?: number;
-  readonly stream?: boolean;
+  readonly model: string;                // e.g. "openai/gpt-4o"
+  readonly systemPrompt?: string | PromptTemplate; // static string or dynamic template
+  readonly tools?: string[];             // e.g. ["bash", "read"] — resolved via registry
   readonly abort?: AbortSignal;
 }
 
 // Human-in-the-loop agent — collects input or returns preset message
 interface UserAgentConfig {
   readonly name: string;
-  readonly requireInput?: boolean;   // default: true
+  readonly requireInput?: boolean;       // default: true
   readonly presetMessage?: string;
   readonly inputCollector?: InputCollector;
-  readonly hooks?: AgentHooks;
   readonly abort?: AbortSignal;
 }
 
@@ -223,10 +210,23 @@ type InputCollector = (request: InputRequest) => Promise<string>;
 
 ### Tool System
 
-Tools are first-class citizens. Agents can be given tools that the LLM can invoke.
+Tools are first-class citizens. Agents reference tools by **string name** (e.g., `["bash", "read"]`).
+Tools are resolved at agent creation time via a layered resolution pipeline:
+
+1. **Built-in tools** — `bash`, `read`, `write`, `edit`, `glob`, `grep` (always available)
+2. **Global tool registry** — `registerTool(name, tool)` / `unregisterTool(name)`
+3. **Custom tools** — passed directly to `createAgent` via `customTools` (for programmatic use)
+
 Tools use Zod schemas for parameter validation, matching the AI SDK's `tool()` helper.
 
 ```typescript
+// Tool registry API
+function registerTool(name: string, tool: ToolDef): void;
+function unregisterTool(name: string): void;
+function resetToolRegistry(): void;
+function getRegisteredToolNames(): readonly string[];
+
+// Tool definition
 interface ToolDef<TParams extends z.ZodType = z.ZodType> {
   readonly description: string;
   readonly parameters: TParams;
@@ -350,51 +350,44 @@ string — no API keys, no provider configuration.
   "name": "Code Review Pipeline",
   "version": "1.0",
   "description": "A multi-agent code review workflow",
-  "flows": [
-    {
-      "name": "Review Pipeline",
-      "type": "sequential",
-      "steps": [
-        {
-          "name": "User Input",
-          "type": "agent",
-          "agent": {
-            "type": "user",
-            "config": {
-              "requireInput": true
-            }
-          }
-        },
-        {
-          "name": "Writer",
-          "type": "agent",
-          "agent": {
-            "model": "openai/gpt-4o",
-            "systemPrompt": "You are a code writer."
-          }
-        },
-        {
-          "name": "Review Loop",
-          "type": "cycle",
-          "cycles": 3,
-          "steps": [
-            {
-              "name": "Reviewer",
-              "type": "agent",
-              "agent": {
-                "model": "anthropic/claude-sonnet-4-5",
-                "systemPrompt": "You are a code reviewer."
-              }
-            }
-          ]
-        }
-      ]
+  "agents": {
+    "user-input": {
+      "type": "user",
+      "config": {
+        "requireInput": true
+      }
+    },
+    "writer": {
+      "model": "openai/gpt-4o",
+      "systemPrompt": "You are a code writer."
+    },
+    "reviewer": {
+      "model": "anthropic/claude-sonnet-4-5",
+      "systemPrompt": "You are a code reviewer."
     }
-  ]
+  },
+  "flow": {
+    "name": "Review Pipeline",
+    "type": "sequential",
+    "steps": [
+      { "agent": "user-input" },
+      { "agent": "writer" },
+      {
+        "name": "Review Loop",
+        "type": "cycle",
+        "cycles": 3,
+        "steps": [
+          { "agent": "reviewer" }
+        ]
+      }
+    ]
+  }
 }
 ```
 
 Key differences from the Python version:
+- Top-level `agents` registry — agents defined once, referenced by name in flow steps
+- Single entry `flow` (not an array of flows) — a tree of sequential/cycle/broadcast
 - Simple type identifiers (`sequential`, `cycle`, `broadcast`) not class paths
 - Models referenced by `providerID/modelID` string — no provider config section
 - No API keys in strategy files — resolved at runtime via env/store/config
@@ -412,7 +405,14 @@ CommaAgents2/
 ├── bunfig.toml               # Bun config
 ├── tsconfig.json             # Base tsconfig (shared)
 ├── biome.json                # Linting / formatting
-├── Plan.md                   # This file
+├── PLAN.md                   # This file
+├── docs/                     # Fumadocs-powered docs site (Next.js)
+├── examples/
+│   ├── core/                 # Core library examples
+│   │   ├── scripts/          # 14 runnable example scripts
+│   │   └── strategies/       # Strategy file examples (JSON)
+│   └── daemon/               # Daemon usage examples
+├── end-to-end-tests/         # E2E tests (Bun)
 ├── packages/
 │   ├── core/                 # @comma-agents/core
 │   │   ├── package.json
@@ -420,77 +420,121 @@ CommaAgents2/
 │   │   └── src/
 │   │       ├── index.ts
 │   │       ├── agents/
-│   │       │   ├── types.ts           # Agent interface, AgentCallResult, AgentStreamEvent
-│   │       │   ├── hooks.ts           # withAgentHooks() middleware, hook runners
-│   │       │   ├── base-agent.ts      # BaseAgent class, createAgent() factory
-│   │       │   └── user/
-│   │       │       └── create-user-agent.ts # createUserAgent(), InputCollector, InputRequest
+│   │       │   ├── index.ts
+│   │       │   ├── agent/
+│   │       │   │   ├── agent.ts           # createAgent() factory (closure-based)
+│   │       │   │   ├── agent.types.ts     # Agent, AgentConfig, AgentCallResult
+│   │       │   │   ├── agent.utils.ts     # buildAgentToolSet, etc.
+│   │       │   │   └── agent.constants.ts
+│   │       │   ├── built-in/
+│   │       │   │   └── user/
+│   │       │   │       ├── user-agent.ts       # createUserAgent()
+│   │       │   │       ├── user-agent.types.ts # UserAgentConfig, InputCollector
+│   │       │   │       └── user-agent.utils.ts
+│   │       │   ├── hook-into-agent/
+│   │       │   │   └── hook-into-agent.ts # hookIntoAgent()
+│   │       │   ├── hooks/
+│   │       │   │   ├── index.ts
+│   │       │   │   ├── hooks.ts           # Hook runners (runSideEffectHooks, etc.)
+│   │       │   │   └── hooks.types.ts     # AgentHooks, ToolHooks
+│   │       │   └── loader/
+│   │       │       ├── index.ts
+│   │       │       ├── loader.ts          # loadAgentFromDescription()
+│   │       │       ├── loader.types.ts    # AgentDescription
+│   │       │       └── loader.schema.ts   # Agent description Zod schema
+│   │       ├── credentials/
+│   │       │   ├── index.ts
+│   │       │   ├── credentials.ts         # createCredentialStore()
+│   │       │   ├── credentials.types.ts   # CredentialStore, Credential
+│   │       │   └── backends/
+│   │       │       └── json-file.ts       # JSON file credential backend
+│   │       ├── defaults/
+│   │       │   ├── index.ts
+│   │       │   ├── defaults.ts            # Global defaults: setGlobalCredentialStore(),
+│   │       │   │                          #   registerProvider(), getGlobalProviderResolver()
+│   │       │   └── defaults.types.ts      # GlobalDefaults
+│   │       ├── errors/
+│   │       │   └── index.ts               # Domain error classes
 │   │       ├── flows/
-│   │       │   ├── types.ts              # FlowResult, FlowConfig, CycleFlowConfig, etc.
-│   │       │   ├── flow-hooks.ts         # withFlowHooks() middleware
-│   │       │   ├── define-flow.ts        # defineFlow(), createFlow(), buildFlowResult(), createFlowContext()
-│   │       │   ├── sequential/
-│   │       │   │   └── sequential-flow.ts # createSequentialFlow()
-│   │       │   ├── cycle/
-│   │       │   │   └── cycle-flow.ts     # createCycleFlow() (finite, infinite, observer)
-│   │       │   └── broadcast/
-│   │       │       └── broadcast-flow.ts # createBroadcastFlow()
-│   │       ├── tools/
-│   │       │   ├── tool.ts           # ToolDef, ToolResult, ToolContext types
-│   │       │   ├── index.ts          # Tools barrel export
-│   │       │   ├── define/
-│   │       │   │   └── define-tool.ts # defineTool() helper (wraps AI SDK tool())
-│   │       │   └── built-in/         # Standard built-in tools
-│   │       │       ├── index.ts      # Built-in barrel, createDefaultTools()
-│   │       │       ├── bash.ts       # createBashTool() — shell command execution
-│   │       │       ├── read.ts       # createReadTool() — file reading with line numbers
-│   │       │       ├── write.ts      # createWriteTool() — file creation/overwrite
-│   │       │       ├── edit.ts       # createEditTool() — search-and-replace editing
-│   │       │       ├── glob.ts       # createGlobTool() — file pattern matching
-│   │       │       └── grep.ts       # createGrepTool() — content search by regex
-│   │       ├── model/
-│   │       │   ├── registry.ts       # parseModel(), resolveModel(), KNOWN_PROVIDERS
-│   │       │   └── auth/
-│   │       │       └── auth.ts       # Credential store (get/set/remove keys)
-│   │       ├── prompts/
-│   │       │   ├── types.ts              # ChatMessage, ConversationTurn, PromptTemplate types
-│   │       │   ├── message-builder.ts    # buildMessages(), resolveSystemPrompt()
-│   │       │   ├── history/
-│   │       │   │   └── conversation-history.ts # ConversationHistory class, sliding window, token limits
-│   │       │   └── template/
-│   │       │       └── prompt-template.ts # createPromptTemplate(), extractVariables()
+│   │       │   ├── index.ts
+│   │       │   ├── flow/
+│   │       │   │   ├── flow.ts            # createFlow(), buildFlowAgent()
+│   │       │   │   ├── flow.types.ts      # FlowResult, FlowConfig
+│   │       │   │   └── flow.utils.ts
+│   │       │   ├── built-in/
+│   │       │   │   ├── sequential/
+│   │       │   │   │   └── sequential-flow.ts # createSequentialFlow()
+│   │       │   │   ├── cycle/
+│   │       │   │   │   └── cycle-flow.ts      # createCycleFlow()
+│   │       │   │   └── broadcast/
+│   │       │   │       └── broadcast-flow.ts  # createBroadcastFlow()
+│   │       │   └── hook-into-flow/
+│   │       │       └── hook-into-flow.ts      # hookIntoFlow()
 │   │       ├── hooks/
-│   │       │   └── types.ts          # AgentHooks, FlowHooks, ToolHooks
+│   │       │   ├── index.ts               # Hook types re-export
+│   │       │   └── built-in/
+│   │       │       └── token-tracking/    # Token usage tracking hooks
+│   │       ├── model/
+│   │       │   ├── index.ts
+│   │       │   ├── model.ts               # resolveModel(), registerModel(), model registry
+│   │       │   ├── model.types.ts         # ParsedModel, ProviderFactory, ProviderResolver
+│   │       │   ├── model.utils.ts         # parseModel()
+│   │       │   └── model.constants.ts     # KNOWN_PROVIDERS map
+│   │       ├── prompts/
+│   │       │   ├── types.ts               # ChatMessage, ResponseMessage
+│   │       │   ├── message-builder.ts     # buildMessages(), resolveSystemPrompt()
+│   │       │   ├── history/
+│   │       │   │   └── conversation-history.ts # createConversationHistory()
+│   │       │   └── template/
+│   │       │       └── prompt-template.ts     # createPromptTemplate()
 │   │       ├── strategy/
-│   │       │   ├── loader.ts         # JSON/YAML loading + Zod validation
-│   │       │   └── schema.ts         # Zod strategy schema
-│   │       └── errors/
-│   │           └── index.ts          # Domain error classes
+│   │       │   ├── index.ts
+│   │       │   ├── schema.ts              # Zod strategy schema (StrategySchema)
+│   │       │   ├── loader/
+│   │       │   │   ├── loader.ts          # loadStrategy(), loadStrategyFromString()
+│   │       │   │   ├── loader.types.ts    # LoadStrategyOptions
+│   │       │   │   └── loader.utils.ts    # Strategy parsing utilities
+│   │       │   └── exporter/
+│   │       │       ├── exporter.ts        # exportStrategy() (JSON/YAML)
+│   │       │       └── exporter.types.ts
+│   │       └── tools/
+│   │           ├── index.ts
+│   │           ├── tool.registry.ts       # registerTool(), unregisterTool(), resolveTools()
+│   │           ├── tool.types.ts          # ToolDef, ToolResult, ToolContext
+│   │           ├── tool.constants.ts      # BUILT_IN_TOOL_NAMES
+│   │           ├── define/
+│   │           │   └── define-tool.ts     # defineTool() helper
+│   │           └── built-in/
+│   │               ├── index.ts           # createDefaultTools()
+│   │               ├── bash/bash.ts       # createBashTool()
+│   │               ├── read/read.ts       # createReadTool()
+│   │               ├── write/write.ts     # createWriteTool()
+│   │               ├── edit/edit.ts       # createEditTool()
+│   │               ├── glob/glob.ts       # createGlobTool()
+│   │               └── grep/grep.ts       # createGrepTool()
 │   ├── daemon/               # @comma-agents/daemon
 │   │   ├── package.json
 │   │   ├── tsconfig.json
 │   │   └── src/
 │   │       ├── index.ts
-│   │       ├── server.ts
-│   │       ├── executor/
-│   │       ├── protocol/
-│   │       ├── providers/
-│   │       │   └── installer.ts      # Dynamic bun add + import for provider pkgs
-│   │       ├── state/
-│   │       └── config/
-│   └── tui/                  # @comma-agents/tui
-│       ├── package.json
-│       ├── tsconfig.json
+│   │       ├── cli.ts                 # CLI entry point
+│   │       ├── pid.ts                 # PID file management
+│   │       ├── config/                # Daemon configuration
+│   │       ├── executor/              # Flow executor, event sink, input bridge
+│   │       ├── logger/                # Logger with file/stderr/system sinks
+│   │       ├── server/
+│   │       │   ├── server.ts          # WebSocket server
+│   │       │   └── protocol/          # Typed message schemas (requests + responses)
+│   │       └── state/                 # Daemon state management
+│   ├── debug/                # @comma-agents/debug
+│   │   └── src/
+│   │       ├── index.ts
+│   │       └── debug.ts               # debugAgent(), debugFlow()
+│   ├── utils/                # @comma-agents/utils
+│   │   └── src/                       # Shared utilities (string, async, platform, etc.)
+│   └── tui/                  # @comma-agents/tui (placeholder)
 │       └── src/
-│           ├── index.tsx
-│           ├── app.tsx
-│           ├── client/
-│           ├── components/
-│           ├── hooks/
-│           └── screens/
-│               ├── dashboard.tsx
-│               ├── flow-view.tsx
-│               └── setup-wizard.tsx  # Provider auth / model selection
+│           └── index.tsx              # Ink-based terminal UI (minimal)
 ```
 
 ---
@@ -500,11 +544,11 @@ CommaAgents2/
 | #  | Phase                            | Scope                                                                    | Status |
 | -- | -------------------------------- | ------------------------------------------------------------------------ | ------ |
 | 1  | **Scaffolding**                  | Monorepo, configs, empty packages, verify `bun install`                  | ✅     |
-| 2  | **Core: Agents, Hooks & Tools**  | Agent interface, BaseAgent, createUserAgent, withAgentHooks, hook system, tool types, AI SDK integration | ✅     |
+| 2  | **Core: Agents, Hooks & Tools**  | Agent interface, createAgent (closure-based), createUserAgent, hook system, tool types, AI SDK integration | ✅     |
 | 3  | **Core: Model Registry & Auth**  | Model string parsing, KNOWN_PROVIDERS map, key resolution (env → store → config), credential store | ✅     |
-| 4  | **Core: Flows**                  | Sequential, Cycle, InfiniteCycle, CycleObserver, Broadcast               | ✅     |
+| 4  | **Core: Flows**                  | Sequential, Cycle, Broadcast                                             | ✅     |
 | 5  | **Core: Prompts**                | Message building, system prompts, conversation history management        | ✅     |
-| 6  | **Core: Built-in Tools**         | Standard tool set — bash, read, write, edit, glob, grep, createDefaultTools()  | ✅     |
+| 6  | **Core: Built-in Tools**         | Standard tool set — bash, read, write, edit, glob, grep, tool registry   | ✅     |
 | 7  | **Core: Strategy**               | JSON loader (primary), Zod schema, env/file interpolation, YAML (optional) | ✅     |
 | 8  | **Daemon**                       | WebSocket server, flow executor, dynamic provider install, state mgmt    | ✅     |
 | 9  | **TUI**                          | Ink app, WS client, dashboard, setup wizard, model browser               |        |

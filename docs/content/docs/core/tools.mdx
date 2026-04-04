@@ -1,33 +1,107 @@
 ---
 title: Tools
-description: Tool definition, context, and built-in tools.
+description: Tool definition, registry, context, and built-in tools.
 ---
 
 # Tools
 
 Tools give agents the ability to interact with the outside world. Each tool is defined with a Zod schema for its parameters and an execute function.
 
-## ToolDef
+## Tool Registry
+
+The global tool registry allows you to register custom tools by name, so agents can reference them as strings in their `tools` configuration. Built-in tools are always available; registered custom tools extend the set of names that agents can resolve.
+
+```ts
+import { registerTool, defineTool, createAgent } from "@comma-agents/core";
+import { z } from "zod";
+
+// Define and register a custom tool
+const fetchTool = defineTool({
+  description: "Fetch a URL and return its text content.",
+  parameters: z.object({ url: z.string().url() }),
+  execute: async ({ url }) => ({ output: await fetch(url).then(r => r.text()) }),
+});
+
+registerTool("fetch", fetchTool);
+
+// Now agents can reference "fetch" by name alongside built-in tools
+const agent = createAgent({
+  name: "researcher",
+  model: "openai/gpt-4o",
+  tools: ["bash", "read", "fetch"],
+});
+```
+
+### Resolution Order
+
+When an agent resolves a tool name, the following order is checked:
+
+1. **Global tool registry** — custom tools registered via `registerTool()`
+2. **Built-in tool factories** — `bash`, `read`, `write`, `edit`, `glob`, `grep`
+3. **Error** — unknown tool name throws a `StrategyValidationError`
+
+Custom registry tools shadow built-in tools of the same name.
+
+### registerTool
+
+Register a custom tool with the global tool registry. Registered tools can be referenced by name in agent definitions.
+
+```ts
+registerTool("myTool", myToolDefinition);
+```
+
+### unregisterTool
+
+Remove a previously registered custom tool. Returns `true` if removed. Built-in tools cannot be unregistered.
+
+### resetToolRegistry
+
+Reset the global tool registry to empty state. Primarily for tests.
+
+### getRegisteredToolNames
+
+Get the list of currently registered custom tool names. Does not include built-in tools.
+
+## ToolDefinition
 
 The interface for defining a tool. Use `defineTool` to create instances.
 
-<AutoTypeTable path="../packages/core/src/tools/tool.ts" name="ToolDef" />
+<AutoTypeTable path="../packages/core/src/tools/tool.types.ts" name="ToolDefinition" />
 
 ## ToolContext
 
 Context passed to tool execute functions, providing access to the agent and abort signal.
 
-<AutoTypeTable path="../packages/core/src/tools/tool.ts" name="ToolContext" />
+<AutoTypeTable path="../packages/core/src/tools/tool.types.ts" name="ToolContext" />
 
 ## ToolResult
 
 The result returned from a tool execution.
 
-<AutoTypeTable path="../packages/core/src/tools/tool.ts" name="ToolResult" />
+<AutoTypeTable path="../packages/core/src/tools/tool.types.ts" name="ToolResult" />
 
 ## Built-in Tools
 
-Comma Agents ships with a set of built-in tools for common operations.
+Comma Agents ships with 6 built-in tools for common filesystem and shell operations: `bash`, `read`, `write`, `edit`, `glob`, `grep`.
+
+Agents can reference them by name:
+
+```ts
+const agent = createAgent({
+  name: "explorer",
+  model: "openai/gpt-4o",
+  tools: ["bash", "read", "glob", "grep"],
+});
+```
+
+Or create them programmatically with `createDefaultTools()`:
+
+```ts
+import { createDefaultTools } from "@comma-agents/core";
+
+const tools = createDefaultTools();
+// Returns: { bash, read, write, edit, glob, grep }
+```
 
 ### DefaultToolsConfig
 
@@ -37,16 +111,16 @@ Configuration for the built-in tool suite.
 
 ### BashToolConfig
 
-<AutoTypeTable path="../packages/core/src/tools/built-in/bash.ts" name="BashToolConfig" />
+<AutoTypeTable path="../packages/core/src/tools/built-in/bash/bash.ts" name="BashToolConfig" />
 
 ### ReadToolConfig
 
-<AutoTypeTable path="../packages/core/src/tools/built-in/read.ts" name="ReadToolConfig" />
+<AutoTypeTable path="../packages/core/src/tools/built-in/read/read.ts" name="ReadToolConfig" />
 
 ### GlobToolConfig
 
-<AutoTypeTable path="../packages/core/src/tools/built-in/glob.ts" name="GlobToolConfig" />
+<AutoTypeTable path="../packages/core/src/tools/built-in/glob/glob.ts" name="GlobToolConfig" />
 
 ### GrepToolConfig
 
-<AutoTypeTable path="../packages/core/src/tools/built-in/grep.ts" name="GrepToolConfig" />
+<AutoTypeTable path="../packages/core/src/tools/built-in/grep/grep.ts" name="GrepToolConfig" />

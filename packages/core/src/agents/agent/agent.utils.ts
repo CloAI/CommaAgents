@@ -5,9 +5,11 @@
 
 import { tool as aiTool, stepCountIs } from "ai";
 import { runSideEffectHooks } from "../../hooks";
+import { resolveModel } from "../../model/model";
 import type { ConversationHistory } from "../../prompts/history/conversation-history";
 import { buildMessages, resolveSystemPrompt } from "../../prompts/message-builder";
 import type { ModelMessage, ResponseMessage } from "../../prompts/types";
+import { resolveTools } from "../../tools/tool.registry";
 import type { ToolContext, ToolDefinition } from "../../tools/tool.types";
 import type { ToolHooks } from "../hooks";
 import { DEFAULT_MAX_STEPS } from "./agent.constants";
@@ -71,22 +73,23 @@ export function buildAgentToolSet(
 
 /**
  * Build the full AI SDK call options from agent config + current message.
- * Resolves tools, messages, and system prompt into a single options object.
+ * Resolves the model string to a LanguageModel, tool names to tool definitions,
+ * then builds messages and system prompt into a single options object.
  *
  * @param config - The agent configuration.
  * @param message - The current user message.
  * @param history - The conversation history.
- * @param toolHooksOverride - Mutable tool hooks from the agent's closure store.
- *   When provided, these are used instead of `config.toolHooks`, ensuring that
- *   dynamically appended hooks (via `hookIntoAgent`) take effect.
+ * @param toolHooks - Tool hooks from the agent's mutable closure store.
+ *   Dynamically appended hooks (via `hookIntoAgent`) take effect here.
  *
  * @throws {Error} if config.model is not set.
+ * @throws {ModelResolutionError} if the model string cannot be resolved.
  */
 export async function buildCallOptions(
   config: AgentConfig,
   message: string,
   history: ConversationHistory,
-  toolHooksOverride?: ToolHooks,
+  toolHooks?: ToolHooks,
 ): Promise<CallOptions> {
   if (!config.model) {
     throw new Error(
@@ -95,25 +98,25 @@ export async function buildCallOptions(
     );
   }
 
+  // Resolve model string → LanguageModel
+  const languageModel = await resolveModel(config.model);
+
+  // Resolve tool names → ToolDefinition map, then build AI SDK tool set
+  const resolvedToolDefinitions = config.tools
+    ? resolveTools(config.tools, config.name)
+    : undefined;
+
   const [tools, resolvedSystemPrompt] = await Promise.all([
-    Promise.resolve(
-      buildAgentToolSet(config.tools, config.name, toolHooksOverride ?? config.toolHooks),
-    ),
-    resolveSystemPrompt({
-      systemPrompt: config.systemPrompt,
-      systemPromptTemplate: config.systemPromptTemplate,
-      templateOverrides: config.templateOverrides,
-    }),
+    Promise.resolve(buildAgentToolSet(resolvedToolDefinitions, config.name, toolHooks)),
+    resolveSystemPrompt({ systemPrompt: config.systemPrompt }),
   ]);
 
   return {
-    model: config.model,
+    model: languageModel,
     system: resolvedSystemPrompt,
-    messages: buildMessages({ message, history, prefix: config.prefixMessages }) as ModelMessage[],
+    messages: buildMessages({ message, history }) as ModelMessage[],
     tools,
-    stopWhen: stepCountIs(config.maxSteps ?? DEFAULT_MAX_STEPS),
-    temperature: config.temperature,
-    topP: config.topProbability,
+    stopWhen: stepCountIs(DEFAULT_MAX_STEPS),
     abortSignal: config.abort,
   };
 }
@@ -155,7 +158,7 @@ export function mapStreamPart(streamPart: any): AgentStreamEvent | undefined {
 
 /**
  * Build an LLMCallResult from consumed stream results.
- * Used by both `stream()` and `_callStream()` to avoid duplication.
+ * Used by the shared `runStream` generator inside createAgent.
  */
 export function buildStreamCallResult(
   text: string,

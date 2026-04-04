@@ -7,7 +7,7 @@
 
 import type { Credential } from "./credentials.schema";
 import type { CreateCredentialStoreOptions, CredentialStore, EnvVarMap } from "./credentials.types";
-import { WELL_KNOWN_ENV_VARS } from "./credentials.types";
+import { WELL_KNOWN_ENV_VARS } from "./credentials.constants";
 
 // Helpers
 

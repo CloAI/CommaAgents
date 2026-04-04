@@ -43,9 +43,7 @@ export interface AgentHooks {
 
   /**
    * Called for each streaming event during an agent's LLM call.
-   * Fires when `stream: true` is set on the agent config, including
-   * when flows call `agent.call()` (internal streaming path) and
-   * when `agent.stream()` is called directly.
+   * Fires when `agent.stream()` is called directly.
    */
   readonly onStreamEvent?: ReadonlyArray<SideEffectHook<AgentStreamEvent>>;
 }

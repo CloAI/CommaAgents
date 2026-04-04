@@ -1,33 +1,35 @@
 // Shared test utilities for daemon unit tests.
 //
-// Provides mock factories for LanguageModel, EventSink, CredentialStore,
-// ProviderResolver, and Logger. Also includes strategy fixtures and
-// temp-file helpers.
+// Provides mock factories for EventSink, Logger, and model registration
+// helpers. Also includes strategy fixtures and temp-file helpers.
+//
+// Model and credential resolution happen via global registries. Tests
+// use registerMockModel() to register mock LanguageModel instances
+// and must call resetModelRegistry() + resetGlobalDefaults() in afterEach.
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type {
-  Credential,
-  CredentialStore,
-  ProviderFactory,
-  ProviderResolver,
-} from "@comma-agents/core";
-import type { LanguageModel } from "ai";
+import { registerModel } from "@comma-agents/core";
 import type { EventSink } from "./executor/event-sink";
 import type { Logger } from "./logger/logger.types";
 import type { DaemonMessage } from "./server/protocol/messages";
 
-// Mock factories
+// Mock model registration
 
-/** Create a mock LanguageModel that returns a fixed response. */
-export function createMockModel(id: string): LanguageModel {
-  return {
-    modelId: id,
+/**
+ * Create and register a mock LanguageModel for a given model string.
+ *
+ * The mock returns a fixed text response and an empty stream.
+ * Must be paired with resetModelRegistry() in afterEach.
+ */
+export function registerMockModel(modelString: string): void {
+  registerModel(modelString, {
+    modelId: modelString,
     specificationVersion: "v3",
     provider: "mock",
     defaultObjectGenerationMode: undefined,
     doGenerate: async () => ({
-      content: [{ type: "text" as const, text: `response from ${id}` }],
+      content: [{ type: "text" as const, text: `response from ${modelString}` }],
       finishReason: { unified: "stop" as const, raw: undefined },
       usage: {
         inputTokens: {
@@ -47,12 +49,14 @@ export function createMockModel(id: string): LanguageModel {
         },
       }),
     }),
-  } as unknown as LanguageModel;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock doesn't need full LanguageModel interface
+  } as any);
 }
 
-/** Create a ProviderFactory from a mock model. */
-export function mockProviderFactory(providerName: string): ProviderFactory {
-  return (modelID: string) => createMockModel(`${providerName}/${modelID}`);
+/** Register standard mock models used across daemon tests. */
+export function setupMockModels(): void {
+  registerMockModel("openai/gpt-4o");
+  registerMockModel("anthropic/claude-3.5-sonnet");
 }
 
 /** Mock EventSink that records messages. */
@@ -71,48 +75,6 @@ export function mockSink(): EventSink & {
     send(clientId: string, message: DaemonMessage) {
       sends.push({ clientId, message });
     },
-  };
-}
-
-/** Mock CredentialStore that returns pre-configured credentials. */
-export function mockCredentialStore(
-  credentials: Record<string, Credential> = {},
-): CredentialStore & {
-  setCalls: Array<{ providerId: string; scope: string; credential: Credential }>;
-} {
-  const setCalls: Array<{
-    providerId: string;
-    scope: string;
-    credential: Credential;
-  }> = [];
-
-  return {
-    setCalls,
-    async resolve(providerId: string) {
-      return credentials[providerId];
-    },
-    async get() {
-      return undefined;
-    },
-    async set(providerId: string, scope: string, credential: Credential) {
-      setCalls.push({ providerId, scope, credential });
-    },
-    async remove() {
-      return false;
-    },
-    async list() {
-      return [];
-    },
-    async listScopes() {
-      return [];
-    },
-  };
-}
-
-/** Mock ProviderResolver that creates mock ProviderFactory from credentials. */
-export function mockProviderResolver(): ProviderResolver {
-  return (providerId: string, _credential: Credential) => {
-    return mockProviderFactory(providerId);
   };
 }
 

@@ -14,11 +14,10 @@ import type { Server, ServerWebSocket } from "bun";
 
 import type { EventSink } from "../executor/event-sink";
 import { createStrategyExecutor } from "../executor/executor";
+import { createDaemonState } from "../state/state";
 import { createDispatcher } from "./protocol/dispatcher";
 import type { DaemonMessage } from "./protocol/messages";
-import { createDaemonState } from "../state/state";
-import { CreateDaemonOptions, Daemon, WsData } from "./server.types";
-
+import type { CreateDaemonOptions, Daemon, WsData } from "./server.types";
 
 // createDaemon()
 
@@ -29,14 +28,7 @@ import { CreateDaemonOptions, Daemon, WsData } from "./server.types";
  * Call `start()` to begin listening and `stop()` to shut down.
  */
 export function createDaemon(options: CreateDaemonOptions): Daemon {
-  const {
-    config,
-    credentialStore,
-    providerResolver,
-    logger,
-    bridgeTimeout = 0,
-    modelOverride,
-  } = options;
+  const { config, logger, bridgeTimeout = 0, modelOverride } = options;
 
   // -- Internal state --
 
@@ -85,9 +77,7 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
   const executor = createStrategyExecutor({
     state,
     sink,
-    credentialStore,
     logger: logger.child("executor"),
-    providerResolver,
     bridgeTimeout,
     modelOverride,
   });

@@ -10,7 +10,7 @@ import { AgentCallError } from "../../errors/index";
 import type { SideEffectHook, TransformHook } from "../../hooks";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
 import { createConversationHistory } from "../../prompts/history/conversation-history";
-import type { ConversationTurn, ModelMessage, ResponseMessage } from "../../prompts/types";
+import type { ConversationTurn, ModelMessage } from "../../prompts/types";
 import type { ToolHooks } from "../hooks";
 import { resolveHook } from "../hooks";
 import type {
@@ -35,13 +35,11 @@ import { buildCallOptions, buildStreamCallResult, mapStreamPart } from "./agent.
  * @example
  * ```ts
  * import { createAgent } from "@comma-agents/core";
- * import { openai } from "@ai-sdk/openai";
  *
  * const agent = createAgent({
  *   name: "writer",
- *   model: openai("gpt-4o"),
+ *   model: "openai/gpt-4o",
  *   systemPrompt: "You are a helpful code writer.",
- *   historyConfig: { maxTurns: 20 },
  * });
  *
  * const result = await agent.call("Write a hello world in TypeScript");
@@ -50,14 +48,14 @@ import { buildCallOptions, buildStreamCallResult, mapStreamPart } from "./agent.
  */
 export function createAgent(config: AgentConfig): Agent {
   // -- Closure state --
-  const history = createConversationHistory(config.historyConfig);
+  const history = createConversationHistory();
   let firstCall = true;
 
-  // Mutable hooks store — initialized from config, appendHook pushes here.
-  // All hook reads go through this store (not config.hooks) so that
-  // dynamically appended hooks take effect on subsequent calls.
+  // Mutable hooks store — starts empty, populated via appendHook (hookIntoAgent).
+  // All hook reads go through this store so that dynamically appended hooks
+  // take effect on subsequent calls.
   // Fields start as undefined (preserving resolveHook fallback semantics)
-  // and become arrays when hooks are provided via config or appendHook.
+  // and become arrays when hooks are appended via hookIntoAgent.
   const hooks: {
     alterInitialCallMessage: Array<TransformHook<string>> | undefined;
     beforeInitialCall: Array<SideEffectHook<string>> | undefined;
@@ -82,32 +80,18 @@ export function createAgent(config: AgentConfig): Agent {
         >
       | undefined;
   } = {
-    alterInitialCallMessage: config.hooks?.alterInitialCallMessage
-      ? [...config.hooks.alterInitialCallMessage]
-      : undefined,
-    beforeInitialCall: config.hooks?.beforeInitialCall
-      ? [...config.hooks.beforeInitialCall]
-      : undefined,
-    afterInitialCall: config.hooks?.afterInitialCall
-      ? [...config.hooks.afterInitialCall]
-      : undefined,
-    alterInitialResponse: config.hooks?.alterInitialResponse
-      ? [...config.hooks.alterInitialResponse]
-      : undefined,
-    alterCallMessage: config.hooks?.alterCallMessage
-      ? [...config.hooks.alterCallMessage]
-      : undefined,
-    beforeCall: config.hooks?.beforeCall ? [...config.hooks.beforeCall] : undefined,
-    afterCall: config.hooks?.afterCall ? [...config.hooks.afterCall] : undefined,
-    alterResponse: config.hooks?.alterResponse ? [...config.hooks.alterResponse] : undefined,
-    afterCallResult: config.hooks?.afterCallResult ? [...config.hooks.afterCallResult] : undefined,
-    onStreamEvent: config.hooks?.onStreamEvent ? [...config.hooks.onStreamEvent] : undefined,
-    beforeToolCall: config.toolHooks?.beforeToolCall
-      ? [...config.toolHooks.beforeToolCall]
-      : undefined,
-    afterToolCall: config.toolHooks?.afterToolCall
-      ? [...config.toolHooks.afterToolCall]
-      : undefined,
+    alterInitialCallMessage: undefined,
+    beforeInitialCall: undefined,
+    afterInitialCall: undefined,
+    alterInitialResponse: undefined,
+    alterCallMessage: undefined,
+    beforeCall: undefined,
+    afterCall: undefined,
+    alterResponse: undefined,
+    afterCallResult: undefined,
+    onStreamEvent: undefined,
+    beforeToolCall: undefined,
+    afterToolCall: undefined,
   };
 
   // -- Internal helpers --
@@ -143,40 +127,60 @@ export function createAgent(config: AgentConfig): Agent {
     };
   }
 
-  async function callStream(message: string): Promise<LLMCallResult> {
+  /**
+   * Core streaming generator — yields mapped AgentStreamEvents from a
+   * streamText result, fires onStreamEvent hooks for each event, builds
+   * the final LLMCallResult, fires the "done" hook, and yields the done
+   * event last.
+   *
+   * Both `callStream` (internal, promise-based) and `stream()` (public,
+   * generator-based) delegate here to avoid duplicating the iteration,
+   * mapping, result-building, and hook-firing logic.
+   */
+  async function* runStream(message: string): AsyncGenerator<AgentStreamEvent, LLMCallResult> {
     const options = await buildCallOptions(config, message, history, getToolHooks());
-    const result = streamText(options);
+    const streamResult = streamText(options);
     const streamEventHooks = hooks.onStreamEvent;
 
-    // If onStreamEvent hooks are registered, iterate the full stream to fire
-    // them for each event. Otherwise just consume the stream normally.
-    if (streamEventHooks && streamEventHooks.length > 0) {
-      for await (const part of result.fullStream) {
-        const event = mapStreamPart(part);
-        if (event) {
+    for await (const part of streamResult.fullStream) {
+      const event = mapStreamPart(part);
+      if (event) {
+        if (streamEventHooks && streamEventHooks.length > 0) {
           await runSideEffectHooks(streamEventHooks, event);
         }
+        yield event;
       }
     }
 
-    const response = await result.response;
     const callResult = buildStreamCallResult(
-      await result.text,
-      response.messages,
-      await result.steps,
-      await result.totalUsage,
-      await result.finishReason,
+      await streamResult.text,
+      (await streamResult.response).messages,
+      await streamResult.steps,
+      await streamResult.totalUsage,
+      await streamResult.finishReason,
     );
 
-    // Fire the done event hook
+    const doneEvent: AgentStreamEvent = {
+      type: "done",
+      result: callResult,
+    };
+
     if (streamEventHooks && streamEventHooks.length > 0) {
-      await runSideEffectHooks(streamEventHooks, {
-        type: "done",
-        result: callResult,
-      });
+      await runSideEffectHooks(streamEventHooks, doneEvent);
     }
 
+    yield doneEvent;
     return callResult;
+  }
+
+  /** Consume the stream generator internally, returning only the final result. */
+  async function callStream(message: string): Promise<LLMCallResult> {
+    const generator = runStream(message);
+    let iteratorResult = await generator.next();
+    while (!iteratorResult.done) {
+      iteratorResult = await generator.next();
+    }
+    return iteratorResult.value;
   }
 
   async function execute(message: string): Promise<LLMCallResult> {
@@ -195,8 +199,6 @@ export function createAgent(config: AgentConfig): Agent {
         } else {
           result = rawExecuteResult;
         }
-      } else if (config.stream) {
-        result = await callStream(message);
       } else {
         result = await callGenerate(message);
       }
@@ -259,64 +261,53 @@ export function createAgent(config: AgentConfig): Agent {
 
       const isFirst = consumeFirstCall();
 
+      // 1. Alter message
       const alteredMessage = await runTransformHooks(
         resolveHook(hooks.alterInitialCallMessage, hooks.alterCallMessage, isFirst),
         message,
       );
+      // 2. Before call
       await runSideEffectHooks(
         resolveHook(hooks.beforeInitialCall, hooks.beforeCall, isFirst),
         alteredMessage,
       );
 
-      const options = await buildCallOptions(config, alteredMessage, history, getToolHooks());
-      const streamResult = streamText(options);
-      const streamEventHooks = hooks.onStreamEvent;
+      // 3. Stream — delegate to the shared generator, re-yielding all
+      //    non-done events. The done event is intercepted so we can run
+      //    post-call hooks and apply response alteration before yielding.
+      const generator = runStream(alteredMessage);
+      let callResult: LLMCallResult | undefined;
 
-      for await (const part of streamResult.fullStream) {
-        const event = mapStreamPart(part);
-        if (event) {
-          if (streamEventHooks && streamEventHooks.length > 0) {
-            await runSideEffectHooks(streamEventHooks, event);
-          }
+      for await (const event of generator) {
+        if (event.type === "done") {
+          callResult = event.result as LLMCallResult;
+        } else {
           yield event;
         }
       }
 
-      const text = await streamResult.text;
-      const steps = await streamResult.steps;
-      const totalUsage = await streamResult.totalUsage;
-      const response = await streamResult.response;
-      const responseMessages: readonly ResponseMessage[] = response.messages;
+      // Safety — callResult is always set because runStream always yields a done event.
+      const result = callResult!;
 
-      await runSideEffectHooks(resolveHook(hooks.afterInitialCall, hooks.afterCall, isFirst), text);
-
-      // afterCallResult — full result with usage for token tracking
-      const streamCallResult = buildStreamCallResult(
-        text,
-        responseMessages,
-        steps,
-        totalUsage,
-        await streamResult.finishReason,
+      // 4. After call (text only — legacy)
+      await runSideEffectHooks(
+        resolveHook(hooks.afterInitialCall, hooks.afterCall, isFirst),
+        result.text,
       );
-      await runSideEffectHooks(hooks.afterCallResult, streamCallResult);
-
+      // 5. After call result (full result with usage)
+      await runSideEffectHooks(hooks.afterCallResult, result);
+      // 6. Alter response
       const alteredText = await runTransformHooks(
         resolveHook(hooks.alterInitialResponse, hooks.alterResponse, isFirst),
-        text,
+        result.text,
       );
 
-      history.append(alteredMessage, responseMessages);
+      history.append(alteredMessage, result.responseMessages);
 
-      const doneEvent: AgentStreamEvent = {
+      yield {
         type: "done",
-        result: { ...streamCallResult, text: alteredText },
+        result: { ...result, text: alteredText },
       };
-
-      if (streamEventHooks && streamEventHooks.length > 0) {
-        await runSideEffectHooks(streamEventHooks, doneEvent);
-      }
-
-      yield doneEvent;
     },
 
     getHistory(): readonly ModelMessage[] {

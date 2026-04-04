@@ -1,4 +1,3 @@
-import type { CredentialStore, ProviderResolver } from "@comma-agents/core";
 import type { DaemonConfig } from "../config";
 import type { Logger } from "../logger/logger.types";
 
@@ -7,14 +6,16 @@ export interface WsData {
   readonly clientId: string;
 }
 
-/** Options for creating a daemon instance. */
+/**
+ * Options for creating a daemon instance.
+ *
+ * Model and credential resolution happen via global registries
+ * (setGlobalCredentialStore / registerProvider / registerModel).
+ * The daemon must configure those at startup before creating the daemon.
+ */
 export interface CreateDaemonOptions {
   /** Fully resolved daemon configuration. */
   readonly config: DaemonConfig;
-  /** Credential store for provider auth resolution. */
-  readonly credentialStore: CredentialStore;
-  /** Translates (providerId, credential) into a ProviderFactory. */
-  readonly providerResolver: ProviderResolver;
   /** Logger for server-level diagnostics. */
   readonly logger: Logger;
   /** Timeout in ms for input/auth bridges. 0 = no timeout. Default: 0. */

@@ -23,10 +23,10 @@
 import type { FlowResult } from "@comma-agents/core";
 import { createAgent, createSequentialFlow } from "@comma-agents/core";
 import { debugAgent, debugFlow } from "@comma-agents/debug";
-import { getModel } from "./helpers";
+import { getModelString } from "./helpers";
 
 async function main() {
-  const model = await getModel();
+  const model = getModelString();
 
   // --- Step 1: Writer agent ---
   // Generates a first draft of code from the user's request.

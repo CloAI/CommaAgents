@@ -5,9 +5,9 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } 
 import { join } from "node:path";
 import { createJsonFileBackend } from "./backends/json-file";
 import { createCredentialStore } from "./credentials";
+import { WELL_KNOWN_ENV_VARS } from "./credentials.constants";
 import type { Credential } from "./credentials.schema";
 import type { CredentialBackend, CredentialStoreData } from "./credentials.types";
-import { WELL_KNOWN_ENV_VARS } from "./credentials.types";
 
 // Test helpers
 

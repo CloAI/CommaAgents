@@ -18,12 +18,17 @@
  * All tests use mock models — no API keys required.
  */
 
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import {
   createAgent,
   createBroadcastFlow,
   createCycleFlow,
   createSequentialFlow,
+  hookIntoAgent,
+  registerModel,
+  registerTool,
+  resetModelRegistry,
+  resetToolRegistry,
 } from "@comma-agents/core";
 import type {
   Agent,
@@ -39,42 +44,67 @@ import { createEchoTool } from "./helpers/test-tools";
 
 // Helpers
 
+/** Monotonic counter for unique model/tool names per registration. */
+let nameCounter = 0;
+function uniqueName(prefix: string): string {
+  return `${prefix}-${++nameCounter}`;
+}
+
 /** Create a simple agent that returns a fixed response. */
-function makeAgent(name: string, response: string, hooks?: AgentHooks) {
-  return createAgent({
+function makeAgent(name: string, response: string, agentHooks?: AgentHooks) {
+  const modelId = uniqueName(`mock/${name}`);
+  registerModel(modelId, createSimpleMockModel([response]));
+  const agent = createAgent({
     name,
-    model: createSimpleMockModel([response]),
-    hooks,
+    model: modelId,
   });
+  if (agentHooks) {
+    hookIntoAgent(agent, agentHooks);
+  }
+  return agent;
 }
 
 /** Create a simple agent that returns responses in sequence. */
 function makeMultiResponseAgent(name: string, responses: string[]) {
+  const modelId = uniqueName(`mock/${name}`);
+  registerModel(modelId, createSimpleMockModel(responses));
   return createAgent({
     name,
-    model: createSimpleMockModel(responses),
+    model: modelId,
   });
 }
 
 /** Create a tool-calling agent (calls echo tool, then returns final text). */
 function makeToolAgent(name: string, echoMessage: string, finalText: string) {
-  return createAgent({
-    name,
-    model: createToolCallingMockModel({
+  const modelId = uniqueName(`mock/${name}`);
+  const toolName = uniqueName(`echo-${name}`);
+  registerModel(
+    modelId,
+    createToolCallingMockModel({
       rounds: [
         {
-          toolCalls: [{ id: `${name}-c1`, name: "echo", args: { message: echoMessage } }],
+          toolCalls: [{ id: `${name}-c1`, name: toolName, args: { message: echoMessage } }],
         },
         { text: finalText },
       ],
     }),
-    tools: { echo: createEchoTool() },
+  );
+  registerTool(toolName, createEchoTool());
+  return createAgent({
+    name,
+    model: modelId,
+    tools: [toolName],
   });
 }
 
 // Tests
 
 describe("E2E: Flow Composition", () => {
+  afterEach(() => {
+    resetModelRegistry();
+    resetToolRegistry();
+  });
+
   // -----------------------------------------------------------------------
   // 1. Sequential flow with tool-calling agents
   // -----------------------------------------------------------------------
@@ -631,20 +661,28 @@ describe("E2E: Flow Composition", () => {
         ],
       };
 
-      const toolAgent = createAgent({
-        name: "tool-step",
-        model: createToolCallingMockModel({
+      const modelId = uniqueName("mock/tool-step");
+      const toolName = uniqueName("echo-tool-step");
+      registerModel(
+        modelId,
+        createToolCallingMockModel({
           rounds: [
             {
-              toolCalls: [{ id: "c1", name: "echo", args: { message: "hi" } }],
+              toolCalls: [{ id: "c1", name: toolName, args: { message: "hi" } }],
             },
             { text: "Done" },
           ],
         }),
-        tools: { echo: createEchoTool() },
-        hooks: agentHooks,
-        toolHooks,
+      );
+      registerTool(toolName, createEchoTool());
+
+      const toolAgent = createAgent({
+        name: "tool-step",
+        model: modelId,
+        tools: [toolName],
       });
+
+      hookIntoAgent(toolAgent, { ...agentHooks, ...toolHooks });
 
       const flow = createSequentialFlow({
         name: "full-hooks-flow",
@@ -657,8 +695,8 @@ describe("E2E: Flow Composition", () => {
       // Expected nesting: flow:beforeStep → agent:beforeCall → tool:before → tool:after → agent:afterCall → flow:afterStep
       const flowBeforeIdx = log.indexOf("flow:beforeStep:tool-step");
       const agentBeforeIdx = log.indexOf("agent:beforeCall");
-      const toolBeforeIdx = log.indexOf("tool:before:echo");
-      const toolAfterIdx = log.indexOf("tool:after:echo");
+      const toolBeforeIdx = log.indexOf(`tool:before:${toolName}`);
+      const toolAfterIdx = log.indexOf(`tool:after:${toolName}`);
       const agentAfterIdx = log.indexOf("agent:afterCall");
       const flowAfterIdx = log.indexOf("flow:afterStep:tool-step");
 
@@ -790,13 +828,18 @@ describe("E2E: Flow Composition", () => {
 
   describe("flow reset", () => {
     it("should reset all child agents when flow.reset() is called", async () => {
+      const modelIdA = uniqueName("mock/resettable-a");
+      const modelIdB = uniqueName("mock/resettable-b");
+      registerModel(modelIdA, createSimpleMockModel(["A1", "A2"]));
+      registerModel(modelIdB, createSimpleMockModel(["B1", "B2"]));
+
       const agentA = createAgent({
         name: "resettable-a",
-        model: createSimpleMockModel(["A1", "A2"]),
+        model: modelIdA,
       });
       const agentB = createAgent({
         name: "resettable-b",
-        model: createSimpleMockModel(["B1", "B2"]),
+        model: modelIdB,
       });
 
       const flow = createSequentialFlow({
@@ -817,9 +860,12 @@ describe("E2E: Flow Composition", () => {
     });
 
     it("should reset nested flows recursively", async () => {
+      const innerModelId = uniqueName("mock/inner-agent");
+      registerModel(innerModelId, createSimpleMockModel(["Inner result", "Inner result 2"]));
+
       const innerAgent = createAgent({
         name: "inner-agent",
-        model: createSimpleMockModel(["Inner result", "Inner result 2"]),
+        model: innerModelId,
       });
 
       const innerFlow = createSequentialFlow({
@@ -827,9 +873,12 @@ describe("E2E: Flow Composition", () => {
         steps: [innerAgent],
       });
 
+      const outerModelId = uniqueName("mock/outer-agent");
+      registerModel(outerModelId, createSimpleMockModel(["Outer result", "Outer result 2"]));
+
       const outerAgent = createAgent({
         name: "outer-agent",
-        model: createSimpleMockModel(["Outer result", "Outer result 2"]),
+        model: outerModelId,
       });
 
       const outerFlow = createSequentialFlow({
@@ -849,13 +898,18 @@ describe("E2E: Flow Composition", () => {
     });
 
     it("should reset cycle flow including observer", async () => {
+      const workerModelId = uniqueName("mock/cycle-worker");
+      const observerModelId = uniqueName("mock/cycle-observer");
+      registerModel(workerModelId, createSimpleMockModel(["Work done", "Work done 2"]));
+      registerModel(observerModelId, createSimpleMockModel(["Feedback", "Feedback 2"]));
+
       const worker = createAgent({
         name: "cycle-worker",
-        model: createSimpleMockModel(["Work done", "Work done 2"]),
+        model: workerModelId,
       });
       const observer = createAgent({
         name: "cycle-observer",
-        model: createSimpleMockModel(["Feedback", "Feedback 2"]),
+        model: observerModelId,
       });
 
       const flow = createCycleFlow({

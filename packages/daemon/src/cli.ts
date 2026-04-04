@@ -10,8 +10,11 @@
 // missing @ai-sdk/* provider packages are auto-installed at import time.
 
 import { join } from "node:path";
-import type { Credential, ProviderResolver } from "@comma-agents/core";
-import { createCredentialStore, createJsonFileBackend } from "@comma-agents/core";
+import {
+  createCredentialStore,
+  createJsonFileBackend,
+  setGlobalCredentialStore,
+} from "@comma-agents/core";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { loadDaemonConfig, resolveDataDir } from "./config";
@@ -28,155 +31,6 @@ interface StartArgs {
   foreground: boolean;
   port?: number;
   modelOverride?: string;
-}
-
-// Provider resolver — dynamic import with Bun auto-install
-
-import { capitalize } from "@comma-agents/utils";
-
-/**
- * Build a ProviderResolver that dynamically imports @ai-sdk/<providerId>.
- *
- * When the daemon is launched with `bun -i`, missing packages are
- * auto-installed at import time. The resolver extracts the provider
- * factory from the module using the AI SDK naming convention:
- *
- *   @ai-sdk/openai    → createOpenai or default export
- *   @ai-sdk/anthropic → createAnthropic or default export
- *
- * Special handling:
- *   github-copilot → uses @ai-sdk/openai-compatible with the Copilot API
- */
-function buildProviderResolver(): ProviderResolver {
-  return async (providerId: string, credential: Credential) => {
-    // -- GitHub Copilot: special handling --
-    // Copilot uses @ai-sdk/openai-compatible, not @ai-sdk/github-copilot
-    if (providerId === "github-copilot") {
-      return buildCopilotProvider(credential);
-    }
-
-    // -- Standard providers --
-    const packageName = `@ai-sdk/${providerId}`;
-
-    let mod: Record<string, unknown>;
-    try {
-      mod = await import(packageName);
-    } catch (err) {
-      throw new Error(
-        `Failed to load provider package ${packageName}. ` +
-          `If running without auto-install, run: bun add ${packageName}\n` +
-          `Original error: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-
-    // AI SDK convention: createProviderName or default export
-    const factoryName = `create${capitalize(providerId)}`;
-    const factory = (mod[factoryName] ?? mod.default) as
-      | ((opts: Record<string, unknown>) => unknown)
-      | undefined;
-
-    if (typeof factory !== "function") {
-      throw new Error(
-        `${packageName} does not export "${factoryName}" or a default function. ` +
-          `Available exports: [${Object.keys(mod).join(", ")}]`,
-      );
-    }
-
-    // Build options from credential
-    const providerOptions = buildProviderOptions(credential);
-
-    // The factory returns a callable provider: (modelID) => LanguageModel
-    const provider = factory(providerOptions);
-    if (typeof provider !== "function") {
-      throw new Error(
-        `${packageName}.${factoryName}() did not return a callable provider function`,
-      );
-    }
-
-    return provider as (modelID: string) => any;
-  };
-}
-
-/**
- * Extract provider options from a credential.
- *
- * Maps credential types to the options object expected by AI SDK providers:
- *   - api    → { apiKey: credential.key }
- *   - oauth  → { apiKey: credential.accessToken }
- *   - custom → spread credential.data
- */
-function buildProviderOptions(credential: Credential): Record<string, unknown> {
-  if (credential.type === "api") {
-    return { apiKey: credential.key };
-  }
-  if (credential.type === "oauth") {
-    return { apiKey: credential.accessToken };
-  }
-  if (credential.type === "custom") {
-    return { ...credential.data };
-  }
-  return {};
-}
-
-/**
- * Extract an API key string from a credential, or undefined if none.
- */
-function extractApiKey(credential: Credential): string | undefined {
-  if (credential.type === "api") return credential.key;
-  if (credential.type === "oauth") return credential.accessToken;
-  return undefined;
-}
-
-/**
- * Build a GitHub Copilot provider using @ai-sdk/openai-compatible.
- *
- * Copilot exposes an OpenAI-compatible API at https://api.githubcopilot.com
- * that requires a GitHub OAuth token (from device flow) as a Bearer token.
- */
-async function buildCopilotProvider(credential: Credential): Promise<(modelID: string) => any> {
-  const apiKey = extractApiKey(credential);
-  if (!apiKey) {
-    throw new Error(
-      "No GitHub Copilot token available. " + "Set GITHUB_TOKEN or save credentials via the TUI.",
-    );
-  }
-
-  const packageName = "@ai-sdk/openai-compatible";
-  let mod: Record<string, unknown>;
-  try {
-    mod = await import(packageName);
-  } catch (err) {
-    throw new Error(
-      `Failed to load ${packageName}. Install it with: bun add ${packageName}\n` +
-        `Original error: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-
-  const createOpenAICompatible = mod.createOpenAICompatible as
-    | ((config: Record<string, unknown>) => unknown)
-    | undefined;
-
-  if (typeof createOpenAICompatible !== "function") {
-    throw new Error(
-      `${packageName} does not export "createOpenAICompatible". ` +
-        `Available exports: [${Object.keys(mod).join(", ")}]`,
-    );
-  }
-
-  const provider = createOpenAICompatible({
-    name: "github-copilot",
-    baseURL: "https://api.githubcopilot.com",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Openai-Intent": "conversation-edits",
-    },
-  });
-
-  if (typeof provider !== "function") {
-    throw new Error("createOpenAICompatible() did not return a callable provider function");
-  }
-
-  return provider as (modelID: string) => any;
 }
 
 // Command: start
@@ -245,21 +99,17 @@ async function commandStart(args: StartArgs): Promise<void> {
   }
   const logger = createLogger({ level: config.logLevel, sinks });
 
-  // 2. Set up credential store
+  // 2. Set up credential store (global registry)
   const dataDir = resolveDataDir();
   const credentialBackend = createJsonFileBackend({
     filePath: join(dataDir, "credentials.json"),
   });
   const credentialStore = createCredentialStore({ backend: credentialBackend });
+  setGlobalCredentialStore(credentialStore);
 
-  // 3. Build provider resolver
-  const providerResolver = buildProviderResolver();
-
-  // 4. Create and start daemon
+  // 3. Create and start daemon
   const daemon = createDaemon({
     config,
-    credentialStore,
-    providerResolver,
     logger,
     modelOverride: args.modelOverride,
   });
@@ -272,14 +122,14 @@ async function commandStart(args: StartArgs): Promise<void> {
     process.exit(1);
   }
 
-  // 5. Write PID file
+  // 4. Write PID file
   writePid(config.pidFile);
 
   console.log(`Daemon listening on ${config.host}:${daemon.port} (PID: ${process.pid})`);
   if (args.modelOverride) {
     console.log(`  Model override: ${args.modelOverride}`);
   }
-  // 6. Signal handlers for graceful shutdown
+  // 5. Signal handlers for graceful shutdown
   const shutdown = async () => {
     console.log("\nShutting down...");
     await daemon.stop();

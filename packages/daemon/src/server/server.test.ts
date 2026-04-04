@@ -1,53 +1,35 @@
 // Integration tests for the WebSocket server (createDaemon).
 //
 // These tests use real Bun WebSocket connections, real strategy files with
-// mock AI models, and exercise the full pipeline: WS message → routing →
-// executor → loadStrategy → mock model → events back over WebSocket.
+// mock AI models registered via global registries, and exercise the full
+// pipeline: WS message → routing → executor → loadStrategy → mock model
+// → events back over WebSocket.
 
-import { afterAll, afterEach, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CredentialStore } from "@comma-agents/core";
+import { resetGlobalDefaults, resetModelRegistry } from "@comma-agents/core";
 import {
   MINIMAL_STRATEGY,
   MULTI_AGENT_STRATEGY,
   mockLogger,
-  mockProviderResolver,
+  setupMockModels,
   USER_AGENT_STRATEGY,
   writeTempStrategy,
 } from "../test.utils";
 import { createDaemon } from "./server";
 import type { Daemon } from "./server.types";
 
-// Helpers
+// Test lifecycle — model registration
 
-/**
- * Mock CredentialStore that returns an API key for any provider.
- *
- * Unlike the shared mockCredentialStore (which resolves by provider ID map),
- * this always returns a credential so the server integration tests don't
- * need to enumerate every provider used in strategy fixtures.
- */
-function mockCredentialStoreAlwaysResolves(): CredentialStore {
-  return {
-    async resolve() {
-      return { type: "api" as const, key: "test-key" };
-    },
-    async get() {
-      return undefined;
-    },
-    async set() {},
-    async remove() {
-      return false;
-    },
-    async list() {
-      return [];
-    },
-    async listScopes() {
-      return [];
-    },
-  };
-}
+beforeEach(() => {
+  setupMockModels();
+});
+
+afterEach(() => {
+  resetModelRegistry();
+  resetGlobalDefaults();
+});
 
 // Helpers — strategy files
 
@@ -74,8 +56,6 @@ async function startDaemon(overrides?: { bridgeTimeout?: number }): Promise<Daem
       pidFile: join(tmpdir(), "test.pid"),
       configFile: join(tmpdir(), "test.json"),
     },
-    credentialStore: mockCredentialStoreAlwaysResolves(),
-    providerResolver: mockProviderResolver(),
     logger: mockLogger(),
     bridgeTimeout: overrides?.bridgeTimeout ?? 0,
   });

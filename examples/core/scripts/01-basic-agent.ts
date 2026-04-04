@@ -10,19 +10,20 @@
  *
  * Concepts:
  *   - createAgent()  — the primary agent factory
- *   - AgentConfig    — name, model, systemPrompt
+ *   - AgentConfig    — name, model (string), systemPrompt
  *   - agent.call()   — send a message and await the full response
  *   - AgentCallResult — text, usage, finishReason
  */
 
 import { createAgent } from "@comma-agents/core";
-import { getModel } from "./helpers";
+import { getModelString } from "./helpers";
 
 async function main() {
-  const model = await getModel();
+  const model = getModelString();
 
-  // Create an agent with a name, model, and system prompt.
-  // The system prompt guides the agent's behaviour across all calls.
+  // Create an agent with a name, model string, and system prompt.
+  // The model string is resolved internally by createAgent() via the
+  // global model registry and provider system.
   const agent = createAgent({
     name: "greeter",
     model,

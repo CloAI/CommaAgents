@@ -1,35 +1,28 @@
-// Mock providers, credential store, resolver, and logger for daemon E2E tests.
+// Mock model registration, logger, and strategy fixtures for daemon E2E tests.
 //
-// These are the daemon-specific counterparts of the core mock helpers.
-// They create mock AI models that work with the daemon's strategy executor
-// pipeline, from file-based strategy loading through to WebSocket events.
-//
-// Unlike the core mock model (which returns configurable responses per-call),
-// the daemon mock model creates models by (providerId, modelId) pair with
-// fixed responses — matching how the daemon's provider resolver works.
+// Model resolution happens via global registries. Tests call
+// registerMockModel() to register mock LanguageModel instances and must
+// call resetModelRegistry() + resetGlobalDefaults() in afterEach.
 
-import type { ProviderFactory } from "@comma-agents/core";
-import type { LanguageModel } from "ai";
+import { registerModel } from "@comma-agents/core";
+import type { Logger } from "@comma-agents/daemon";
 
-import type { Credential, CredentialStore } from "@comma-agents/core";
-import type { Logger, ProviderResolver } from "@comma-agents/daemon";
-
-// Mock LanguageModel (AI SDK v3)
+// Mock model registration
 
 /**
- * Create a mock LanguageModel that returns a fixed response.
+ * Create and register a mock LanguageModel for a given model string.
  *
- * The response is always "response from {id}" (matching the existing
- * server.test.ts convention) unless `responseText` is provided.
+ * The mock returns a fixed text response and an empty stream.
+ * Must be paired with resetModelRegistry() in afterEach.
  *
- * @param id - Model identifier (typically "provider/model")
- * @param responseText - Optional fixed response text
+ * @param modelString - Model identifier (e.g. "openai/gpt-4o")
+ * @param responseText - Optional fixed response text (defaults to "response from {modelString}")
  */
-export function createMockModel(id: string, responseText?: string): LanguageModel {
-  const text = responseText ?? `response from ${id}`;
+export function registerMockModel(modelString: string, responseText?: string): void {
+  const text = responseText ?? `response from ${modelString}`;
 
-  return {
-    modelId: id,
+  registerModel(modelString, {
+    modelId: modelString,
     specificationVersion: "v3",
     provider: "mock",
     defaultObjectGenerationMode: undefined,
@@ -54,87 +47,14 @@ export function createMockModel(id: string, responseText?: string): LanguageMode
         },
       }),
     }),
-  } as unknown as LanguageModel;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock doesn't need full LanguageModel interface
+  } as any);
 }
 
-// Mock ProviderFactory
-
-/**
- * Create a ProviderFactory that returns mock models for any model ID.
- *
- * The returned model's response is "response from {providerName}/{modelId}".
- *
- * @param providerName - Provider identifier (e.g. "openai", "anthropic")
- * @param responses - Optional map of modelId → response text for per-model customization
- */
-export function createMockProviderFactory(
-  providerName: string,
-  responses?: Record<string, string>,
-): ProviderFactory {
-  return (modelId: string) => {
-    const text = responses?.[modelId];
-    return createMockModel(`${providerName}/${modelId}`, text);
-  };
-}
-
-// Mock CredentialStore
-
-/**
- * Create a mock CredentialStore that always resolves with an API key.
- *
- * By default, `resolve()` returns `{ type: "api", key: "test-key" }`.
- * Pass `resolveReturns` to customize, or `null` to simulate missing credentials.
- */
-export function createMockCredentialStore(
-  resolveReturns: Credential | null = { type: "api" as const, key: "test-key" },
-): CredentialStore {
-  return {
-    async resolve() {
-      return resolveReturns ?? undefined;
-    },
-    async get() {
-      return undefined;
-    },
-    async set() {},
-    async remove() {
-      return false;
-    },
-    async list() {
-      return [];
-    },
-    async listScopes() {
-      return [];
-    },
-  };
-}
-
-// Mock ProviderResolver
-
-/**
- * Create a mock ProviderResolver that creates mock ProviderFactories.
- *
- * By default, all providers return "response from {providerId}/{modelId}".
- * Pass `providerResponses` to customize responses per provider/model.
- *
- * @example
- * ```ts
- * // Default — all models return "response from openai/gpt-4o" etc.
- * const resolver = createMockProviderResolver();
- *
- * // Custom — specific models return custom text
- * const resolver = createMockProviderResolver({
- *   openai: { "gpt-4o": "I am GPT-4o" },
- *   anthropic: { "claude-3.5-sonnet": "I am Claude" },
- * });
- * ```
- */
-export function createMockProviderResolver(
-  providerResponses?: Record<string, Record<string, string>>,
-): ProviderResolver {
-  return (providerId: string, _credential: Credential) => {
-    const responses = providerResponses?.[providerId];
-    return createMockProviderFactory(providerId, responses);
-  };
+/** Register standard mock models used across daemon E2E tests. */
+export function setupMockModels(): void {
+  registerMockModel("openai/gpt-4o");
+  registerMockModel("anthropic/claude-3.5-sonnet");
 }
 
 // Mock Logger

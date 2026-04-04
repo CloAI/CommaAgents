@@ -8,8 +8,9 @@
 // 4. Builds the flow tree recursively (sequential / cycle / broadcast).
 // 5. Returns a LoadedStrategy with the entry flow as a runnable Agent.
 //
-// Provider management is external — callers pass a map of
-// providerID -> factory function. This keeps auth out of core.
+// Model and tool resolution happen internally via global registries
+// (registerModel / registerProvider / registerTool). Callers must
+// configure those registries before loading a strategy.
 
 import YAML from "yaml";
 
@@ -27,26 +28,26 @@ import { buildAgentRegistry, buildFlow } from "./loader.utils";
  * Validates the structure, instantiates agents and flows, and returns
  * a runnable `LoadedStrategy`.
  *
+ * Model and tool resolution happen via global registries. Call
+ * `registerModel()` / `registerProvider()` / `registerTool()` before
+ * loading a strategy.
+ *
  * @param filePath - Absolute or relative path to the strategy file.
- * @param options  - Providers, custom tools, input collector, abort signal.
+ * @param options  - Input collector, hooks, abort signal, model override.
  * @returns The loaded strategy with a runnable entry flow.
  * @throws {StrategyValidationError} If the file is invalid or missing required fields.
  *
  * @example
  * ```ts
- * import { loadStrategy } from "@comma-agents/core";
- * import { openai } from "@ai-sdk/openai";
+ * import { loadStrategy, registerProvider } from "@comma-agents/core";
  *
- * const strategy = await loadStrategy("./strategy.json", {
- *   providers: { openai: (id) => openai(id) },
- * });
- *
- * const result = await strategy.flow.call("Hello!");
+ * registerProvider("openai", (modelId) => openai(modelId));
+ * const strategy = await loadStrategy("./strategy.json");
  * ```
  */
 export async function loadStrategy(
   filePath: string,
-  options: LoadStrategyOptions,
+  options: LoadStrategyOptions = {},
 ): Promise<LoadedStrategy> {
   // Validate extension first (cheap check)
   const fileExtension = filePath.split(".").pop()?.toLowerCase();
@@ -83,14 +84,14 @@ export async function loadStrategy(
  *
  * @param content - The raw strategy string.
  * @param format  - "json" or "yaml".
- * @param options - Providers, custom tools, input collector, abort signal.
+ * @param options - Input collector, hooks, abort signal, model override.
  * @returns The loaded strategy with a runnable entry flow.
  * @throws {StrategyValidationError} If parsing or validation fails.
  */
 export async function loadStrategyFromString(
   content: string,
   format: "json" | "yaml",
-  options: LoadStrategyOptions,
+  options: LoadStrategyOptions = {},
 ): Promise<LoadedStrategy> {
   // 1. Parse raw content
   let raw: unknown;
@@ -119,19 +120,6 @@ export async function loadStrategyFromString(
   }
 
   const strategy = result.data;
-
-  // 2b. Validate options: need at least one provider resolution path
-  if (!options.providers && !options.credentialStore) {
-    throw new StrategyValidationError(
-      "LoadStrategyOptions must include either `providers` or `credentialStore` + `providerResolver`.",
-    );
-  }
-  if (options.credentialStore && !options.providerResolver) {
-    throw new StrategyValidationError(
-      "LoadStrategyOptions has `credentialStore` but no `providerResolver`. " +
-        "Both are required for credential-based provider resolution.",
-    );
-  }
 
   // 3. Instantiate agents
   const agents = await buildAgentRegistry(strategy, options);

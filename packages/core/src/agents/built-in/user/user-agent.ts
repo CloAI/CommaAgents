@@ -5,6 +5,7 @@
 
 import { createAgent } from "../../agent/agent";
 import type { Agent } from "../../agent/agent.types";
+import { hookIntoAgent } from "../../hook-into-agent/hook-into-agent";
 import type { InputCollector, UserAgentConfig } from "./user-agent.types";
 import { defaultInputCollector } from "./user-agent.utils";
 
@@ -49,9 +50,8 @@ export function createUserAgent(config: UserAgentConfig): Agent {
   const requireInput = config.requireInput ?? true;
   const collector: InputCollector = config.inputCollector ?? defaultInputCollector;
 
-  return createAgent({
+  const agent = createAgent({
     name: config.name,
-    hooks: config.hooks,
     abort: config.abort,
     execute: async (message: string): Promise<string> => {
       if (requireInput) {
@@ -64,4 +64,10 @@ export function createUserAgent(config: UserAgentConfig): Agent {
       return config.presetMessage ?? message;
     },
   });
+
+  if (config.hooks) {
+    hookIntoAgent(agent, config.hooks);
+  }
+
+  return agent;
 }

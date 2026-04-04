@@ -1,15 +1,12 @@
-// Strategy constants — named constants and default value objects.
-// Internal only — not exported from the barrel.
+// Tool constants — built-in tool names and factory map.
 
-import {
-  createBashTool,
-  createEditTool,
-  createGlobTool,
-  createGrepTool,
-  createReadTool,
-  createWriteTool,
-} from "../tools/built-in/index";
-import type { ToolDefinition } from "../tools/tool.types";
+import { createBashTool } from "./built-in/bash/bash";
+import { createEditTool } from "./built-in/edit/edit";
+import { createGlobTool } from "./built-in/glob/glob";
+import { createGrepTool } from "./built-in/grep/grep";
+import { createReadTool } from "./built-in/read/read";
+import { createWriteTool } from "./built-in/write/write";
+import type { ToolDefinition } from "./tool.types";
 
 /** The set of tool names recognized as built-in. */
 export const BUILT_IN_TOOL_NAMES = ["bash", "read", "write", "edit", "glob", "grep"] as const;

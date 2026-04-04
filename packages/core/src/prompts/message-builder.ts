@@ -6,7 +6,7 @@
 
 import type { ModelMessage } from "ai";
 import type { ConversationHistory } from "./history/conversation-history";
-import type { PromptTemplate, TemplateVariables } from "./types";
+import type { PromptTemplate } from "./types";
 
 // Types
 
@@ -35,17 +35,11 @@ export interface BuildMessagesOptions {
  * and dynamic prompt templates.
  */
 export interface SystemPromptOptions {
-  /** A static system prompt string. */
-  readonly systemPrompt?: string;
-
   /**
-   * A prompt template for dynamic system prompts.
-   * Takes precedence over `systemPrompt` if both are provided.
+   * System prompt — a static string or a `PromptTemplate` for dynamic interpolation.
+   * When a `PromptTemplate` is provided, it is rendered with its baked-in variables.
    */
-  readonly systemPromptTemplate?: PromptTemplate;
-
-  /** Override variables for the system prompt template. */
-  readonly templateOverrides?: TemplateVariables;
+  readonly systemPrompt?: string | PromptTemplate;
 }
 
 // buildMessages
@@ -112,8 +106,8 @@ export function buildMessages(options: BuildMessagesOptions): readonly ModelMess
 /**
  * Resolve a system prompt from either a static string or a dynamic template.
  *
- * If `systemPromptTemplate` is provided, it takes precedence and is built
- * with the given overrides. Otherwise, the static `systemPrompt` is returned.
+ * If `systemPrompt` is a `PromptTemplate`, it is rendered with its baked-in
+ * variables. If it is a plain string, it is returned as-is.
  *
  * @returns The resolved system prompt string, or `undefined` if none configured.
  *
@@ -128,18 +122,21 @@ export function buildMessages(options: BuildMessagesOptions): readonly ModelMess
  *   template: "You are {{ role }}, an expert in {{ language }}.",
  *   variables: { role: "a reviewer", language: "TypeScript" },
  * });
- * const prompt = await resolveSystemPrompt({
- *   systemPromptTemplate: template,
- *   templateOverrides: { language: "Rust" },
- * });
- * // => "You are a reviewer, an expert in Rust."
+ * const prompt = await resolveSystemPrompt({ systemPrompt: template });
+ * // => "You are a reviewer, an expert in TypeScript."
  * ```
  */
 export async function resolveSystemPrompt(
   options: SystemPromptOptions,
 ): Promise<string | undefined> {
-  if (options.systemPromptTemplate) {
-    return options.systemPromptTemplate.render(options.templateOverrides);
+  if (!options.systemPrompt) {
+    return undefined;
   }
-  return options.systemPrompt;
+
+  if (typeof options.systemPrompt === "string") {
+    return options.systemPrompt;
+  }
+
+  // PromptTemplate — render with baked-in variables (no overrides)
+  return options.systemPrompt.render();
 }

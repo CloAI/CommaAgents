@@ -12,6 +12,7 @@
 // 8. Error cases (invalid strategy path, missing fields)
 
 import { afterAll, afterEach, describe, expect, it } from "bun:test";
+import { resetGlobalDefaults, resetModelRegistry } from "@comma-agents/core";
 
 import {
   BROADCAST_STRATEGY,
@@ -32,6 +33,8 @@ import {
 
 afterEach(async () => {
   await cleanupTempFiles();
+  resetModelRegistry();
+  resetGlobalDefaults();
 });
 
 afterAll(async () => {

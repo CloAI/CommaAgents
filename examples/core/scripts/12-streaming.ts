@@ -22,11 +22,11 @@
  *   - Collecting the final result from the "done" event
  */
 
-import { createAgent, createDefaultTools } from "@comma-agents/core";
-import { getModel } from "./helpers";
+import { createAgent } from "@comma-agents/core";
+import { getModelString } from "./helpers";
 
 async function main() {
-  const model = await getModel();
+  const model = getModelString();
 
   // --- Simple streaming: text only ---
   console.log("--- 1. Simple Streaming ---\n");
@@ -64,13 +64,11 @@ async function main() {
   // --- Streaming with tools ---
   console.log("\n--- 2. Streaming with Tools ---\n");
 
-  const tools = createDefaultTools();
   const toolAgent = createAgent({
     name: "explorer",
     model,
     systemPrompt: "You are a file explorer. Use tools to answer questions about the project.",
-    tools,
-    maxSteps: 3,
+    tools: ["bash", "read", "write", "edit", "glob", "grep"],
   });
 
   console.log("Streaming response with tool calls:");

@@ -21,10 +21,10 @@
 
 import { createAgent, createBroadcastFlow } from "@comma-agents/core";
 import { debugAgent, debugFlow } from "@comma-agents/debug";
-import { getModel } from "./helpers";
+import { getModelString } from "./helpers";
 
 async function main() {
-  const model = await getModel();
+  const model = getModelString();
 
   // --- Three agents with different expertise ---
   const historian = createAgent({

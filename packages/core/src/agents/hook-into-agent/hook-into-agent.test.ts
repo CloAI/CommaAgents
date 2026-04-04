@@ -175,21 +175,24 @@ describe("hookIntoAgent", () => {
       expect(log).toEqual(["hook-1", "hook-2"]);
     });
 
-    it("should append to hooks from config, not replace them", async () => {
+    it("should append to existing hooks, not replace them", async () => {
       const log: string[] = [];
 
       const agent = createAgent({
         name: "test",
         execute: async (msg) => msg,
-        hooks: {
-          beforeCall: [
-            async () => {
-              log.push("config-hook");
-            },
-          ],
-        },
       });
 
+      // First hookIntoAgent call acts as the "initial" hooks
+      hookIntoAgent(agent, {
+        beforeCall: [
+          async () => {
+            log.push("first-hook");
+          },
+        ],
+      });
+
+      // Second hookIntoAgent call appends
       hookIntoAgent(agent, {
         beforeCall: [
           async () => {
@@ -199,7 +202,7 @@ describe("hookIntoAgent", () => {
       });
 
       await agent.call("test");
-      expect(log).toEqual(["config-hook", "appended-hook"]);
+      expect(log).toEqual(["first-hook", "appended-hook"]);
     });
   });
 
@@ -322,20 +325,22 @@ describe("hookIntoAgent", () => {
       ).not.toThrow();
     });
 
-    it("should append tool hooks alongside config tool hooks", () => {
+    it("should append tool hooks alongside existing tool hooks", () => {
       const agent = createAgent({
         name: "test",
         execute: async (msg) => msg,
-        toolHooks: {
-          beforeToolCall: [
-            async () => {
-              /* config hook */
-            },
-          ],
-        },
       });
 
-      // This should not throw — beforeToolCall is a valid hook name
+      // First hookIntoAgent call sets initial tool hooks
+      hookIntoAgent(agent, {
+        beforeToolCall: [
+          async () => {
+            /* initial hook */
+          },
+        ],
+      });
+
+      // Second hookIntoAgent call appends — should not throw
       expect(() =>
         hookIntoAgent(agent, {
           beforeToolCall: [

@@ -1,26 +1,82 @@
 ---
 title: Model
-description: Model registry and provider resolution.
+description: Model registry, provider resolution, and model string parsing.
 ---
 
 # Model
 
-The model module handles parsing model identifiers (e.g. `openai/gpt-4o`) and mapping providers to their AI SDK packages.
+The model module handles parsing model identifiers (e.g. `openai/gpt-4o`), maintaining a global model registry, and resolving model strings into live `LanguageModel` instances via the provider system.
 
-## ParsedModel
+## How Model Resolution Works
+
+When `createAgent()` receives a model string like `"openai/gpt-4o"`, it calls `resolveModel()` internally. Resolution follows this order:
+
+1. **Direct model registry** — exact match via `registerModel()`. Ideal for tests and mocking.
+2. **Provider-based resolution** — parses the string into provider/model parts, looks up credentials via the global credential store, then creates a `LanguageModel` via the global provider resolver.
+
+```ts
+import { registerModel, registerProvider, createAgent } from "@comma-agents/core";
+
+// Option 1: Register a model directly (great for tests)
+registerModel("mock/test", myMockLanguageModel);
+const agent = createAgent({ name: "test", model: "mock/test" });
+
+// Option 2: Register a provider (for custom/non-standard providers)
+registerProvider("my-llm", {
+  factory: (credential) => (modelId) => myProvider({ apiKey: credential.key, model: modelId }),
+});
+const agent2 = createAgent({ name: "custom", model: "my-llm/latest" });
+
+// Option 3: Known providers resolve automatically (openai, anthropic, etc.)
+// Just ensure credentials are configured and @ai-sdk/<provider> is installed.
+const agent3 = createAgent({ name: "writer", model: "openai/gpt-4o" });
+```
+
+## Model Registry
+
+### registerModel
+
+Register a `LanguageModel` instance for a specific model string. Registered models take precedence over provider-based resolution.
+
+```ts
+import { registerModel } from "@comma-agents/core";
+
+registerModel("mock/test", mockLanguageModel);
+```
+
+### unregisterModel
+
+Remove a previously registered model. Returns `true` if it was registered and removed.
+
+### resetModelRegistry
+
+Reset the global model registry to empty state. Primarily for tests.
+
+## Provider Resolution
+
+Providers are resolved via `registerProvider()` in the [defaults](/docs/core/defaults) module. The global provider resolver checks:
+
+1. Custom provider registrations (via `registerProvider()`)
+2. Special handling for `github-copilot`
+3. Built-in `KNOWN_PROVIDERS` map (standard `@ai-sdk/<id>` packages)
+4. Last resort: attempt `@ai-sdk/<providerId>` as a dynamic import guess
+
+## Types
+
+### ParsedModel
 
 The result of parsing a `provider/model` string.
 
-<AutoTypeTable path="../packages/core/src/strategy/loader/loader.types.ts" name="ParsedModel" />
+<AutoTypeTable path="../packages/core/src/model/model.types.ts" name="ParsedModel" />
 
-## BuildMessagesOptions
+### ProviderFactory
 
-Options for building the message array sent to the LLM.
+A function that creates a `LanguageModel` from a model ID.
 
-<AutoTypeTable path="../packages/core/src/prompts/message-builder.ts" name="BuildMessagesOptions" />
+<AutoTypeTable path="../packages/core/src/model/model.types.ts" name="ProviderFactory" />
 
-## SystemPromptOptions
+### ProviderResolver
 
-Options for resolving the system prompt (supports templates).
+A function that translates a `(providerId, credential)` pair into a `ProviderFactory`.
 
-<AutoTypeTable path="../packages/core/src/prompts/message-builder.ts" name="SystemPromptOptions" />
+<AutoTypeTable path="../packages/core/src/model/model.types.ts" name="ProviderResolver" />

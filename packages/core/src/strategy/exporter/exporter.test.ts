@@ -1,23 +1,23 @@
 // Tests for strategy/exporter.ts — round-trip serialization
 
-import { describe, expect, it } from "bun:test";
-import type { LanguageModel } from "ai";
+import { afterEach, describe, expect, it } from "bun:test";
 import YAML from "yaml";
+import { registerModel, resetModelRegistry } from "../../model/model";
 import { loadStrategyFromString } from "../loader/loader";
-import type { LoadStrategyOptions } from "../loader/loader.types";
 import { StrategySchema } from "../schema";
 import { exportStrategy } from "./exporter";
 
-// Mock provider
+// Mock model registration
 
-function createMockModel(id: string): LanguageModel {
-  return {
-    modelId: id,
+/** Register a mock model for a given model string in the global registry. */
+function registerMockModel(modelString: string): void {
+  registerModel(modelString, {
+    modelId: modelString,
     specificationVersion: "v3",
     provider: "mock",
     defaultObjectGenerationMode: undefined,
     doGenerate: async () => ({
-      content: [{ type: "text" as const, text: `response from ${id}` }],
+      content: [{ type: "text" as const, text: `response from ${modelString}` }],
       finishReason: { unified: "stop" as const, raw: undefined },
       usage: {
         inputTokens: { total: 10, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
@@ -27,22 +27,26 @@ function createMockModel(id: string): LanguageModel {
     }),
     doStream: async () => ({
       stream: new ReadableStream({
-        start(c) {
-          c.close();
+        start(controller) {
+          controller.close();
         },
       }),
     }),
-  } as unknown as LanguageModel;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock doesn't need full LanguageModel interface
+  } as any);
 }
 
-function defaultOptions(): LoadStrategyOptions {
-  return {
-    providers: {
-      openai: (id) => createMockModel(`openai/${id}`),
-      anthropic: (id) => createMockModel(`anthropic/${id}`),
-    },
-  };
+/** Register standard mock models used across tests. */
+function setupMockModels(): void {
+  registerMockModel("openai/gpt-4o");
+  registerMockModel("anthropic/claude-sonnet-4-5");
 }
+
+// Cleanup
+
+afterEach(() => {
+  resetModelRegistry();
+});
 
 // Test strategies
 
@@ -63,11 +67,6 @@ const COMPLEX_STRATEGY = {
   name: "Code Review",
   version: "2.0",
   description: "Multi-agent review pipeline",
-  defaults: {
-    model: "openai/gpt-4o",
-    tools: ["bash", "read"],
-    systemPrompt: "Be helpful.",
-  },
   agents: {
     user: {
       type: "user" as const,
@@ -80,7 +79,7 @@ const COMPLEX_STRATEGY = {
       tools: ["bash", "write", "edit"],
     },
     reviewer: {
-      useDefaults: true,
+      model: "anthropic/claude-sonnet-4-5",
       systemPrompt: "You review code.",
     },
   },
@@ -106,11 +105,8 @@ const COMPLEX_STRATEGY = {
 describe("exportStrategy", () => {
   describe("JSON export", () => {
     it("exports a minimal strategy as valid JSON", async () => {
-      const loaded = await loadStrategyFromString(
-        JSON.stringify(MINIMAL_STRATEGY),
-        "json",
-        defaultOptions(),
-      );
+      setupMockModels();
+      const loaded = await loadStrategyFromString(JSON.stringify(MINIMAL_STRATEGY), "json");
 
       const json = exportStrategy(loaded);
       const parsed = JSON.parse(json);
@@ -122,28 +118,21 @@ describe("exportStrategy", () => {
     });
 
     it("exports a complex strategy as valid JSON", async () => {
-      const loaded = await loadStrategyFromString(
-        JSON.stringify(COMPLEX_STRATEGY),
-        "json",
-        defaultOptions(),
-      );
+      setupMockModels();
+      const loaded = await loadStrategyFromString(JSON.stringify(COMPLEX_STRATEGY), "json");
 
       const json = exportStrategy(loaded);
       const parsed = JSON.parse(json);
 
       expect(parsed.name).toBe("Code Review");
       expect(parsed.description).toBe("Multi-agent review pipeline");
-      expect(parsed.defaults?.model).toBe("openai/gpt-4o");
       expect(parsed.agents.user.type).toBe("user");
       expect(parsed.agents.writer.tools).toEqual(["bash", "write", "edit"]);
     });
 
     it("uses default format (JSON) when no format specified", async () => {
-      const loaded = await loadStrategyFromString(
-        JSON.stringify(MINIMAL_STRATEGY),
-        "json",
-        defaultOptions(),
-      );
+      setupMockModels();
+      const loaded = await loadStrategyFromString(JSON.stringify(MINIMAL_STRATEGY), "json");
 
       const output = exportStrategy(loaded);
       // Should be valid JSON
@@ -151,11 +140,8 @@ describe("exportStrategy", () => {
     });
 
     it("respects custom indent", async () => {
-      const loaded = await loadStrategyFromString(
-        JSON.stringify(MINIMAL_STRATEGY),
-        "json",
-        defaultOptions(),
-      );
+      setupMockModels();
+      const loaded = await loadStrategyFromString(JSON.stringify(MINIMAL_STRATEGY), "json");
 
       const json4 = exportStrategy(loaded, { indent: 4 });
       const json2 = exportStrategy(loaded, { indent: 2 });
@@ -171,11 +157,8 @@ describe("exportStrategy", () => {
 
   describe("YAML export", () => {
     it("exports a strategy as valid YAML", async () => {
-      const loaded = await loadStrategyFromString(
-        JSON.stringify(MINIMAL_STRATEGY),
-        "json",
-        defaultOptions(),
-      );
+      setupMockModels();
+      const loaded = await loadStrategyFromString(JSON.stringify(MINIMAL_STRATEGY), "json");
 
       const yamlStr = exportStrategy(loaded, { format: "yaml" });
       const parsed = YAML.parse(yamlStr);
@@ -186,24 +169,22 @@ describe("exportStrategy", () => {
     });
 
     it("exports a complex strategy as valid YAML", async () => {
-      const loaded = await loadStrategyFromString(
-        JSON.stringify(COMPLEX_STRATEGY),
-        "json",
-        defaultOptions(),
-      );
+      setupMockModels();
+      const loaded = await loadStrategyFromString(JSON.stringify(COMPLEX_STRATEGY), "json");
 
       const yamlStr = exportStrategy(loaded, { format: "yaml" });
       const parsed = YAML.parse(yamlStr);
 
       expect(parsed.name).toBe("Code Review");
-      expect(parsed.defaults.tools).toEqual(["bash", "read"]);
+      expect(parsed.agents.writer.tools).toEqual(["bash", "write", "edit"]);
     });
   });
 
   describe("round-trip fidelity", () => {
     it("JSON -> load -> export -> validates against schema", async () => {
+      setupMockModels();
       const original = JSON.stringify(COMPLEX_STRATEGY);
-      const loaded = await loadStrategyFromString(original, "json", defaultOptions());
+      const loaded = await loadStrategyFromString(original, "json");
       const exported = exportStrategy(loaded);
       const reparsed = JSON.parse(exported);
 
@@ -212,10 +193,11 @@ describe("exportStrategy", () => {
     });
 
     it("JSON -> load -> export JSON -> load again produces same structure", async () => {
+      setupMockModels();
       const original = JSON.stringify(COMPLEX_STRATEGY);
-      const loaded1 = await loadStrategyFromString(original, "json", defaultOptions());
+      const loaded1 = await loadStrategyFromString(original, "json");
       const exported = exportStrategy(loaded1);
-      const loaded2 = await loadStrategyFromString(exported, "json", defaultOptions());
+      const loaded2 = await loadStrategyFromString(exported, "json");
 
       expect(loaded2.name).toBe(loaded1.name);
       expect(loaded2.version).toBe(loaded1.version);
@@ -225,10 +207,11 @@ describe("exportStrategy", () => {
     });
 
     it("JSON -> load -> export YAML -> load produces same structure", async () => {
+      setupMockModels();
       const original = JSON.stringify(COMPLEX_STRATEGY);
-      const loaded1 = await loadStrategyFromString(original, "json", defaultOptions());
+      const loaded1 = await loadStrategyFromString(original, "json");
       const yamlStr = exportStrategy(loaded1, { format: "yaml" });
-      const loaded2 = await loadStrategyFromString(yamlStr, "yaml", defaultOptions());
+      const loaded2 = await loadStrategyFromString(yamlStr, "yaml");
 
       expect(loaded2.name).toBe(loaded1.name);
       expect(loaded2.version).toBe(loaded1.version);
@@ -237,6 +220,7 @@ describe("exportStrategy", () => {
     });
 
     it("YAML -> load -> export JSON -> validates", async () => {
+      setupMockModels();
       const yaml = `
 name: YAML Test
 version: "1.0"
@@ -250,7 +234,7 @@ flow:
   steps:
     - agent: assistant
 `;
-      const loaded = await loadStrategyFromString(yaml, "yaml", defaultOptions());
+      const loaded = await loadStrategyFromString(yaml, "yaml");
       const json = exportStrategy(loaded, { format: "json" });
       const reparsed = JSON.parse(json);
 
@@ -259,6 +243,7 @@ flow:
     });
 
     it("preserves nested flow structures through round-trip", async () => {
+      setupMockModels();
       const strategy = {
         name: "Nested",
         version: "1.0",
@@ -281,11 +266,7 @@ flow:
         },
       };
 
-      const loaded = await loadStrategyFromString(
-        JSON.stringify(strategy),
-        "json",
-        defaultOptions(),
-      );
+      const loaded = await loadStrategyFromString(JSON.stringify(strategy), "json");
       const exported = exportStrategy(loaded);
       const reparsed = JSON.parse(exported);
 

@@ -2,7 +2,8 @@
  * 03 — Custom Tool
  *
  * Shows how to define your own tools with `defineTool()` and Zod parameter
- * schemas, then wire them into an agent alongside the built-in tools.
+ * schemas, then register them with the global tool registry so agents
+ * can reference them by name alongside the built-in tools.
  *
  * This example creates a "weather" tool and a "calculator" tool to
  * demonstrate different parameter shapes and return patterns.
@@ -12,20 +13,16 @@
  *
  * Concepts:
  *   - defineTool()    — declare a tool with description, Zod schema, execute fn
+ *   - registerTool()  — register a custom tool in the global tool registry
  *   - ToolContext      — metadata passed to execute (agentName, abort signal)
- *   - Mixing custom tools with built-in tools in a single agent
+ *   - Referencing custom tools by name alongside built-in tools
  *   - Zod schemas are sent to the LLM as JSON Schema for tool calling
  */
 
-import {
-  createAgent,
-  createDefaultTools,
-  defineTool,
-  type LLMCallResult,
-} from "@comma-agents/core";
+import { createAgent, defineTool, type LLMCallResult, registerTool } from "@comma-agents/core";
 import { debugAgent } from "@comma-agents/debug";
 import { z } from "zod";
-import { getModel } from "./helpers";
+import { getModelString } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // Define custom tools
@@ -89,20 +86,23 @@ const calculatorTool = defineTool({
 });
 
 // ---------------------------------------------------------------------------
+// Register custom tools in the global tool registry
+// ---------------------------------------------------------------------------
+
+// registerTool makes tools available by name to any agent.
+// Custom tools shadow built-in tools of the same name.
+registerTool("weather", weatherTool);
+registerTool("calculator", calculatorTool);
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const model = await getModel();
+  const model = getModelString();
 
-  // Combine built-in tools with custom tools.
-  // Tools are a simple Record<string, ToolDef> — just spread them together.
-  const tools = {
-    ...createDefaultTools(),
-    weather: weatherTool,
-    calculator: calculatorTool,
-  };
-
+  // Reference both built-in and custom tools by name.
+  // The tool registry resolves all names internally.
   const agent = createAgent({
     name: "assistant",
     model,
@@ -111,7 +111,7 @@ async function main() {
       "When asked about weather, use the weather tool.",
       "When asked to compute something, use the calculator tool.",
     ].join("\n"),
-    tools,
+    tools: ["bash", "read", "write", "edit", "glob", "grep", "weather", "calculator"],
   });
 
   debugAgent(agent);

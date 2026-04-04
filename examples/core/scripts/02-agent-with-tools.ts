@@ -9,24 +9,21 @@
  *   MODEL=openai/gpt-4o bun run examples/02-agent-with-tools.ts
  *
  * Concepts:
- *   - createDefaultTools() — factory that returns all 6 built-in tools
- *   - Passing tools to createAgent via the `tools` config option
+ *   - Passing tools as string names to createAgent via the `tools` config
+ *   - Built-in tools: "bash", "read", "write", "edit", "glob", "grep"
  *   - The agent autonomously decides which tools to call
  *   - Tool results are fed back to the LLM for the final answer
  */
 
-import { createAgent, createDefaultTools, type LLMCallResult } from "@comma-agents/core";
-import { getModel } from "./helpers";
+import { createAgent, type LLMCallResult } from "@comma-agents/core";
+import { getModelString } from "./helpers";
 
 async function main() {
-  const model = await getModel();
+  const model = getModelString();
 
-  // createDefaultTools() returns: bash, read, write, edit, glob, grep.
-  // Each tool is a ToolDef with a Zod schema and an execute function.
-  // You can also pass config to customise limits and timeouts:
-  //   createDefaultTools({ bash: { defaultTimeout: 60_000 }, read: { defaultLimit: 500 } })
-  const tools = createDefaultTools();
-
+  // Tools are referenced by name as strings. Built-in tools are:
+  // "bash", "read", "write", "edit", "glob", "grep".
+  // They are resolved internally by createAgent() via the tool registry.
   const agent = createAgent({
     name: "explorer",
     model,
@@ -35,10 +32,7 @@ async function main() {
       "Use the available tools to answer questions about the project.",
       "When reading files, always cite the filename.",
     ].join("\n"),
-    tools,
-    // maxSteps controls how many LLM round-trips (tool calls) the agent
-    // can perform per call(). Default is 10 — raise it for complex tasks.
-    maxSteps: 15,
+    tools: ["bash", "read", "write", "edit", "glob", "grep"],
   });
 
   // Ask the agent something that requires tool use.

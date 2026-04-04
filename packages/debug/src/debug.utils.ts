@@ -68,10 +68,7 @@ export function describeAgentConfig(agent: Agent, opts: ResolvedDebugOptions): v
     emit(`[${agent.name}]`);
   }
 
-  if (cfg.tools) {
-    const names = Object.keys(cfg.tools);
-    if (names.length > 0) {
-      emit(`[${agent.name}] Tools: ${names.join(", ")}`);
-    }
+  if (cfg.tools && cfg.tools.length > 0) {
+    emit(`[${agent.name}] Tools: ${cfg.tools.join(", ")}`);
   }
 }

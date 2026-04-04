@@ -1,89 +1,54 @@
 // Agent types — all agent-domain type definitions.
 
 import type { tool as aiTool, LanguageModel, ModelMessage, StepResult, stepCountIs } from "ai";
-import type {
-  ConversationHistoryConfig,
-  ConversationTurn,
-  PromptTemplate,
-  ResponseMessage,
-  TemplateVariables,
-} from "../../prompts/types";
-import type { ToolDefinition } from "../../tools/tool.types";
-import type { AgentHooks, ToolHooks } from "../hooks";
+import type { ConversationTurn, PromptTemplate, ResponseMessage } from "../../prompts/types";
 
 /** Configuration for creating an LLM-backed agent via `createAgent()`. */
 export interface AgentConfig {
   /** Unique name for this agent. */
   readonly name: string;
-  /** AI SDK language model instance (e.g., `openai("gpt-4o")`). Optional if a custom execute override is provided. */
-  readonly model?: LanguageModel;
+  /**
+   * Model identifier in "providerID/modelID" format (e.g., `"openai/gpt-4o"`).
+   * Resolved internally by `createAgent()` via the model registry and provider system.
+   * Optional if a custom `execute` override is provided.
+   */
+  readonly model?: string;
   /**
    * System prompt sent to the model at the start of every call.
-   * For dynamic system prompts with variable interpolation, use `systemPromptTemplate` instead.
-   */
-  readonly systemPrompt?: string;
-  /**
-   * Dynamic system prompt template using Liquid syntax.
-   * Takes precedence over `systemPrompt` if both are provided.
+   * Accepts a static string or a `PromptTemplate` for dynamic interpolation.
+   * When a `PromptTemplate` is provided, its baked-in variables are used.
    *
    * @example
    * ```ts
+   * // Static string
+   * const agent = createAgent({
+   *   name: "writer",
+   *   model: "openai/gpt-4o",
+   *   systemPrompt: "You are a helpful code writer.",
+   * });
+   *
+   * // Dynamic template
    * import { createPromptTemplate } from "@comma-agents/core";
    *
    * const agent = createAgent({
    *   name: "reviewer",
-   *   model: openai("gpt-4o"),
-   *   systemPromptTemplate: createPromptTemplate({
+   *   model: "openai/gpt-4o",
+   *   systemPrompt: createPromptTemplate({
    *     template: "You are {{ role }}, reviewing {{ language }} code.",
    *     variables: { role: "a senior engineer", language: "TypeScript" },
    *   }),
    * });
    * ```
    */
-  readonly systemPromptTemplate?: PromptTemplate;
-  /** Override variables for the system prompt template (per-agent overrides). */
-  readonly templateOverrides?: TemplateVariables;
-  /** Tools the agent can invoke during a call. Keys become tool names. */
-  readonly tools?: Readonly<Record<string, ToolDefinition>>;
-  /** Agent lifecycle hooks. */
-  readonly hooks?: AgentHooks;
-  /** Tool lifecycle hooks (before/after each tool execution). */
-  readonly toolHooks?: ToolHooks;
+  readonly systemPrompt?: string | PromptTemplate;
   /**
-   * Maximum number of LLM round-trips (steps) per call.
-   * Each tool-call + response counts as one step.
-   * @default 10
+   * Tool names the agent can invoke during a call.
+   * Resolved internally by `createAgent()` via the tool registry.
+   * Built-in tools: "bash", "read", "write", "edit", "glob", "grep".
    */
-  readonly maxSteps?: number;
-  /** Sampling temperature (0-2). */
-  readonly temperature?: number;
-  /** Nucleus sampling probability. */
-  readonly topProbability?: number;
-  /** Whether to use streaming internally. @default false */
-  readonly stream?: boolean;
+  readonly tools?: readonly string[];
   /** AbortSignal for cancellation. */
   readonly abort?: AbortSignal;
-  /**
-   * Conversation history configuration.
-   * Controls windowing, truncation, and token limits.
-   *
-   * @example
-   * ```ts
-   * const agent = createAgent({
-   *   name: "chatbot",
-   *   model: openai("gpt-4o"),
-   *   systemPrompt: "You are helpful.",
-   *   historyConfig: { maxTurns: 20 },
-   * });
-   * ```
-   */
-  readonly historyConfig?: ConversationHistoryConfig;
-  /**
-   * Prefix messages to prepend before conversation history.
-   * Useful for few-shot examples or static context.
-   * Accepts native AI SDK `ModelMessage` objects.
-   */
-  readonly prefixMessages?: readonly ModelMessage[];
   /**
    * Custom execute override — replaces the LLM call with arbitrary logic.
    *
@@ -126,7 +91,7 @@ export interface AgentConfig {
  * });
  *
  * // LLM-specific features are optional
- * const agent = createAgent({ name: "writer", model: openai("gpt-4o") });
+ * const agent = createAgent({ name: "writer", model: "openai/gpt-4o" });
  * const history = agent.getHistory();            // always present on createAgent results
  * for await (const event of agent.stream("Hi")) { ... }
  * ```
@@ -193,7 +158,7 @@ export interface AgentCallResult {
  *
  * @example
  * ```ts
- * const agent = createAgent({ name: "writer", model: openai("gpt-4o") });
+ * const agent = createAgent({ name: "writer", model: "openai/gpt-4o" });
  * const result = await agent.call("Hello"); // typed as LLMCallResult
  * console.log(result.responseMessages); // full AI SDK message chain
  * console.log(result.steps);            // tool calls, reasoning, etc.
@@ -228,7 +193,5 @@ export interface CallOptions {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
   readonly tools: Record<string, ReturnType<typeof aiTool<any, any>>> | undefined;
   readonly stopWhen: ReturnType<typeof stepCountIs>;
-  readonly temperature: number | undefined;
-  readonly topP: number | undefined;
   readonly abortSignal: AbortSignal | undefined;
 }

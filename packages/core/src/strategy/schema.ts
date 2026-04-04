@@ -1,29 +1,14 @@
 // Strategy schema — Zod validation schemas and inferred TypeScript types.
 //
 // A strategy defines:
-// 1. An optional `defaults` block (model, tools, systemPrompt)
-// 2. A named `agents` registry (user agents or LLM agents)
-// 3. A single entry `flow` (a tree of sequential/cycle/broadcast flows)
-//
-// Agents with `useDefaults: true` inherit from the defaults block.
-// When useDefaults is true, defaults fill in any fields the agent
-// does not explicitly define. Agent-level fields always take priority.
+// 1. A named `agents` registry (user agents or LLM agents)
+// 2. A single entry `flow` (a tree of sequential/cycle/broadcast flows)
 
 import { z } from "zod";
 
-import type { BUILT_IN_TOOL_NAMES } from "./strategy.constants";
+import type { BUILT_IN_TOOL_NAMES } from "../tools/tool.constants";
 
 export type BuiltInToolName = (typeof BUILT_IN_TOOL_NAMES)[number];
-
-// Defaults
-
-export const StrategyDefaultsSchema = z
-  .object({
-    model: z.string().optional(),
-    tools: z.array(z.string()).optional(),
-    systemPrompt: z.string().optional(),
-  })
-  .strict();
 
 // Agent definitions
 
@@ -67,10 +52,6 @@ export const LLMAgentDefSchema = z
       .strict()
       .optional(),
     tools: z.array(z.string()).optional(),
-    useDefaults: z.boolean().optional(),
-    temperature: z.number().min(0).max(2).optional(),
-    topProbability: z.number().min(0).max(1).optional(),
-    maxSteps: z.number().int().positive().optional(),
   })
   .strict();
 
@@ -143,7 +124,6 @@ export const StrategySchema = z
     name: z.string().min(1),
     version: z.string().min(1),
     description: z.string().optional(),
-    defaults: StrategyDefaultsSchema.optional(),
     agents: z.record(AgentDefSchema),
     flow: FlowDefSchema,
   })
@@ -151,7 +131,6 @@ export const StrategySchema = z
 
 // Inferred TypeScript types
 
-export type StrategyDefaults = z.infer<typeof StrategyDefaultsSchema>;
 export type UserAgentDef = z.infer<typeof UserAgentDefSchema>;
 export type LLMAgentDef = z.infer<typeof LLMAgentDefSchema>;
 export type AgentDef = z.infer<typeof AgentDefSchema>;

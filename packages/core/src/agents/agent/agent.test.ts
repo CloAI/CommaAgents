@@ -4,6 +4,7 @@
 // createAgent to be used without a model by providing arbitrary logic.
 
 import { describe, expect, it } from "bun:test";
+import { hookIntoAgent } from "../hook-into-agent/hook-into-agent";
 import { createAgent } from "./agent";
 import type { LLMCallResult } from "./agent.types";
 
@@ -35,9 +36,10 @@ describe("createAgent with config.execute", () => {
           received.push(msg);
           return msg;
         },
-        hooks: {
-          alterCallMessage: [async (msg) => `[prefix] ${msg}`],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        alterCallMessage: [async (msg) => `[prefix] ${msg}`],
       });
 
       await agent.call("original");
@@ -83,9 +85,10 @@ describe("createAgent with config.execute", () => {
           usage: { promptTokens: 0, completionTokens: 0 },
           finishReason: "stop",
         }),
-        hooks: {
-          alterResponse: [async (text) => `[wrapped] ${text}`],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        alterResponse: [async (text) => `[wrapped] ${text}`],
       });
 
       const result = await agent.call("test");
@@ -179,18 +182,19 @@ describe("createAgent with config.execute", () => {
       const agent = createAgent({
         name: "first-call",
         execute: async (msg) => msg,
-        hooks: {
-          beforeInitialCall: [
-            async () => {
-              log.push("initial");
-            },
-          ],
-          beforeCall: [
-            async () => {
-              log.push("regular");
-            },
-          ],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        beforeInitialCall: [
+          async () => {
+            log.push("initial");
+          },
+        ],
+        beforeCall: [
+          async () => {
+            log.push("regular");
+          },
+        ],
       });
 
       await agent.call("first");
@@ -205,18 +209,19 @@ describe("createAgent with config.execute", () => {
       const agent = createAgent({
         name: "reset-first",
         execute: async (msg) => msg,
-        hooks: {
-          beforeInitialCall: [
-            async () => {
-              log.push("initial");
-            },
-          ],
-          beforeCall: [
-            async () => {
-              log.push("regular");
-            },
-          ],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        beforeInitialCall: [
+          async () => {
+            log.push("initial");
+          },
+        ],
+        beforeCall: [
+          async () => {
+            log.push("regular");
+          },
+        ],
       });
 
       await agent.call("first");
@@ -255,13 +260,14 @@ describe("createAgent appendHook", () => {
     const agent = createAgent({
       name: "test",
       execute: async (msg) => msg,
-      hooks: {
-        beforeCall: [
-          async () => {
-            log.push("original");
-          },
-        ],
-      },
+    });
+
+    hookIntoAgent(agent, {
+      beforeCall: [
+        async () => {
+          log.push("original");
+        },
+      ],
     });
 
     (agent as any).appendHook("beforeCall", async () => log.push("appended"));

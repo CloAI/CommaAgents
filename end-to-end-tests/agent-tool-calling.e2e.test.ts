@@ -9,16 +9,27 @@
  *   - Multi-step tool chains (model calls tool A → tool B → returns text)
  *   - Tool hooks (beforeToolCall / afterToolCall)
  *   - Tool execution failures
- *   - maxSteps enforcement
+ *   - Internal maxSteps enforcement
  *   - Abort signal propagation to tools
  *   - Custom + built-in tools together
  *
  * All tests use mock models — no API keys required.
+ *
+ * Models and tools are registered in the global registries and referenced
+ * by string name, exercising the registry-based resolution path.
  */
 
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { createAgent, defineTool } from "@comma-agents/core";
+import {
+  createAgent,
+  defineTool,
+  hookIntoAgent,
+  registerModel,
+  resetModelRegistry,
+  registerTool,
+  resetToolRegistry,
+} from "@comma-agents/core";
 import type { LLMCallResult, AgentHooks, ToolHooks } from "@comma-agents/core";
 import { createToolCallingMockModel } from "./helpers/mock-model";
 import {
@@ -30,7 +41,12 @@ import {
   createSlowTool,
 } from "./helpers/test-tools";
 
-// Helpers
+// Cleanup registries after each test to avoid cross-test interference
+
+afterEach(() => {
+  resetModelRegistry();
+  resetToolRegistry();
+});
 
 // Tests
 
@@ -52,10 +68,13 @@ describe("E2E: Agent Tool Calling", () => {
         ],
       });
 
+      registerModel("mock/single-roundtrip", model);
+      registerTool("echo", createEchoTool());
+
       const agent = createAgent({
         name: "tool-agent",
-        model,
-        tools: { echo: createEchoTool() },
+        model: "mock/single-roundtrip",
+        tools: ["echo"],
       });
 
       const result = await agent.call("Please echo hello world");
@@ -78,10 +97,13 @@ describe("E2E: Agent Tool Calling", () => {
         ],
       });
 
+      registerModel("mock/step-recorder", model);
+      registerTool("recorder", recorder);
+
       const agent = createAgent({
         name: "step-recorder",
-        model,
-        tools: { recorder },
+        model: "mock/step-recorder",
+        tools: ["recorder"],
       });
 
       const result = await agent.call("Do something");
@@ -130,11 +152,14 @@ describe("E2E: Agent Tool Calling", () => {
 
       const lookupTool = createLookupTool({ weather: "sunny, 72°F" });
 
+      registerModel("mock/multi-step", model);
+      registerTool("lookup", lookupTool);
+      registerTool("recorder", recorder);
+
       const agent = createAgent({
         name: "multi-step",
-        model,
-        tools: { lookup: lookupTool, recorder },
-        maxSteps: 5,
+        model: "mock/multi-step",
+        tools: ["lookup", "recorder"],
       });
 
       const result = await agent.call("What's the weather? Log it too.");
@@ -163,10 +188,14 @@ describe("E2E: Agent Tool Calling", () => {
         ],
       });
 
+      registerModel("mock/parallel-tools", model);
+      registerTool("echo", createEchoTool());
+      registerTool("recorder", recorder);
+
       const agent = createAgent({
         name: "parallel-tools",
-        model,
-        tools: { echo: createEchoTool(), recorder },
+        model: "mock/parallel-tools",
+        tools: ["echo", "recorder"],
       });
 
       const result = await agent.call("Call both tools");
@@ -206,12 +235,16 @@ describe("E2E: Agent Tool Calling", () => {
         ],
       });
 
+      registerModel("mock/hooked", model);
+      registerTool("echo", createEchoTool());
+
       const agent = createAgent({
         name: "hooked",
-        model,
-        tools: { echo: createEchoTool() },
-        toolHooks,
+        model: "mock/hooked",
+        tools: ["echo"],
       });
+
+      hookIntoAgent(agent, toolHooks);
 
       await agent.call("Test hooks");
 
@@ -250,12 +283,16 @@ describe("E2E: Agent Tool Calling", () => {
         ],
       });
 
+      registerModel("mock/multi-hook", model);
+      registerTool("echo", createEchoTool());
+
       const agent = createAgent({
         name: "multi-hook",
-        model,
-        tools: { echo: createEchoTool() },
-        toolHooks,
+        model: "mock/multi-hook",
+        tools: ["echo"],
       });
+
+      hookIntoAgent(agent, toolHooks);
 
       await agent.call("Test");
 
@@ -301,13 +338,16 @@ describe("E2E: Agent Tool Calling", () => {
         ],
       });
 
+      registerModel("mock/combined-hooks", model);
+      registerTool("echo", createEchoTool());
+
       const agent = createAgent({
         name: "combined-hooks",
-        model,
-        tools: { echo: createEchoTool() },
-        hooks: agentHooks,
-        toolHooks,
+        model: "mock/combined-hooks",
+        tools: ["echo"],
       });
+
+      hookIntoAgent(agent, { ...agentHooks, ...toolHooks });
 
       await agent.call("Test order");
 
@@ -332,10 +372,13 @@ describe("E2E: Agent Tool Calling", () => {
         ],
       });
 
+      registerModel("mock/failure-agent", model);
+      registerTool("fail", createFailingTool("kaboom!"));
+
       const agent = createAgent({
         name: "failure-agent",
-        model,
-        tools: { fail: createFailingTool("kaboom!") },
+        model: "mock/failure-agent",
+        tools: ["fail"],
       });
 
       // The AI SDK may either:
@@ -358,10 +401,10 @@ describe("E2E: Agent Tool Calling", () => {
   // -----------------------------------------------------------------------
 
   describe("maxSteps enforcement", () => {
-    it("should stop after maxSteps even if model keeps requesting tools", async () => {
+    it("should stop after the internal max steps even if model keeps requesting tools", async () => {
       // Create a model that always requests tool calls (never returns text)
-      const infiniteToolCalls = Array.from({ length: 20 }, (_, i) => ({
-        toolCalls: [{ id: `c${i}`, name: "counter", args: {} }] as const,
+      const infiniteToolCalls = Array.from({ length: 20 }, (_, stepIndex) => ({
+        toolCalls: [{ id: `c${stepIndex}`, name: "counter", args: {} }] as const,
       }));
 
       const model = createToolCallingMockModel({
@@ -370,19 +413,20 @@ describe("E2E: Agent Tool Calling", () => {
 
       const { tool: counter, getCount } = createCounterTool();
 
+      registerModel("mock/max-steps", model);
+      registerTool("counter", counter);
+
       const agent = createAgent({
         name: "max-steps",
-        model,
-        tools: { counter },
-        maxSteps: 3,
+        model: "mock/max-steps",
+        tools: ["counter"],
       });
 
       const result = await agent.call("Keep counting");
 
-      // The agent should have stopped at maxSteps
-      // The counter should have been called at most maxSteps times
-      expect(getCount()).toBeLessThanOrEqual(3);
-      expect((result as LLMCallResult).steps.length).toBeLessThanOrEqual(3);
+      // The agent should have stopped at the internal default max steps (10)
+      expect(getCount()).toBeLessThanOrEqual(10);
+      expect((result as LLMCallResult).steps.length).toBeLessThanOrEqual(10);
     });
   });
 
@@ -403,10 +447,13 @@ describe("E2E: Agent Tool Calling", () => {
 
       const abortController = new AbortController();
 
+      registerModel("mock/abort-agent", model);
+      registerTool("slow", createSlowTool(5000));
+
       const agent = createAgent({
         name: "abort-agent",
-        model,
-        tools: { slow: createSlowTool(5000) }, // 5 second delay
+        model: "mock/abort-agent",
+        tools: ["slow"], // 5 second delay
         abort: abortController.signal,
       });
 
@@ -436,9 +483,11 @@ describe("E2E: Agent Tool Calling", () => {
       const abortController = new AbortController();
       abortController.abort();
 
+      registerModel("mock/pre-abort", model);
+
       const agent = createAgent({
         name: "pre-abort",
-        model,
+        model: "mock/pre-abort",
         abort: abortController.signal,
       });
 
@@ -480,14 +529,14 @@ describe("E2E: Agent Tool Calling", () => {
         ],
       });
 
+      registerModel("mock/mixed-tools", model);
+      registerTool("multiply", customTool);
+      registerTool("echo", createEchoTool());
+
       const agent = createAgent({
         name: "mixed-tools",
-        model,
-        tools: {
-          multiply: customTool,
-          echo: createEchoTool(),
-        },
-        maxSteps: 5,
+        model: "mock/mixed-tools",
+        tools: ["multiply", "echo"],
       });
 
       const result = await agent.call("What is 6 times 7?");

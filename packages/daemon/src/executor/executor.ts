@@ -4,24 +4,14 @@
 //
 // The executor orchestrates strategy execution at the highest level:
 // 1. Pre-parses the strategy file to determine format and extract metadata.
-// 2. Loads the strategy via core's loadStrategyFromString, which handles
-//    credential resolution automatically via credentialStore + providerResolver.
+// 2. Loads the strategy via core's loadStrategyFromString. Model and tool
+//    resolution happen via global registries (registerModel / registerProvider /
+//    registerTool / setGlobalCredentialStore).
 // 3. Executes `strategy.flow.call(input)` in the background (fire-and-forget).
 // 4. Updates DaemonState and broadcasts protocol messages as execution proceeds.
-//
-// Credential acquisition (OAuth flows, API key prompting) is handled by the
-// TUI before starting flows. The daemon reads from the credential store only.
 
-import type {
-  AgentCallResult,
-  AgentHooks,
-  AgentStreamEvent,
-  CredentialStore,
-  FlowHooks,
-  ProviderFactory,
-  ProviderResolver,
-} from "@comma-agents/core";
-import { loadStrategyFromString, parseModel } from "@comma-agents/core";
+import type { AgentCallResult, AgentHooks, AgentStreamEvent, FlowHooks } from "@comma-agents/core";
+import { hookIntoAgent, loadStrategyFromString } from "@comma-agents/core";
 import YAML from "yaml";
 import type { Logger } from "../logger";
 import type { DaemonState, RunState } from "../state/state.types";
@@ -31,18 +21,20 @@ import { createInputBridge } from "./input-bridge";
 
 // Types
 
-/** Options for creating a strategy executor. */
+/**
+ * Options for creating a strategy executor.
+ *
+ * Model and credential resolution happen via global registries. The daemon
+ * must configure setGlobalCredentialStore() and registerProvider() before
+ * creating the executor.
+ */
 export interface CreateStrategyExecutorOptions {
   /** Centralized daemon state for run/client/subscription tracking. */
   readonly state: DaemonState;
   /** EventSink for delivering messages to clients. */
   readonly sink: EventSink;
-  /** Credential store for resolving provider credentials. */
-  readonly credentialStore: CredentialStore;
   /** Logger for executor-level diagnostics. */
   readonly logger: Logger;
-  /** Translates (providerId, credential) → ProviderFactory. */
-  readonly providerResolver: ProviderResolver;
   /** Timeout in ms for input bridge. 0 = no timeout. Default: 0. */
   readonly bridgeTimeout?: number;
   /**
@@ -51,7 +43,7 @@ export interface CreateStrategyExecutorOptions {
    *
    * When set, ignores the model strings in strategy files and uses this
    * model for every LLM agent. The provider ID from the override is also
-   * used for credential resolution.
+   * used for credential resolution via the global credential store.
    */
   readonly modelOverride?: string;
 }
@@ -158,15 +150,7 @@ function toWireStreamEvent(event: AgentStreamEvent): Record<string, unknown> {
  * input/auth bridging, and state updates.
  */
 export function createStrategyExecutor(options: CreateStrategyExecutorOptions): StrategyExecutor {
-  const {
-    state,
-    sink,
-    credentialStore,
-    logger,
-    providerResolver,
-    bridgeTimeout = 0,
-    modelOverride,
-  } = options;
+  const { state, sink, logger, bridgeTimeout = 0, modelOverride } = options;
 
   /** runId → per-run context (bridge, client). */
   const runContexts = new Map<string, RunContext>();
@@ -249,42 +233,23 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
 
     try {
       // 1. Parse the strategy file
-      const { raw, content, format } = await parseStrategyFile(strategyPath);
-      const strategyName = typeof raw.name === "string" ? raw.name : "unknown";
+      const { content, format } = await parseStrategyFile(strategyPath);
 
-      // 2. Build load options — delegate credential resolution to core
-      //
-      // When modelOverride is set, resolve the override provider's credential
-      // manually and pass as explicit `providers` (explicit entries take
-      // precedence over core's auto-resolve). This ensures the override
-      // provider ID is used instead of whatever is in the strategy file.
-      let explicitProviders: Record<string, ProviderFactory> | undefined;
-
-      if (modelOverride) {
-        const { providerID } = parseModel(modelOverride);
-        const credential = await credentialStore.resolve(providerID, strategyName);
-        if (!credential) {
-          throw new Error(
-            `No credential found for override provider "${providerID}". ` +
-              `Save credentials via the TUI before starting flows.`,
-          );
-        }
-        const factory = await providerResolver(providerID, credential);
-        explicitProviders = { [providerID]: factory };
-      }
-
-      // 3. Load the strategy — core handles credential resolution
-      //    for all providers found in the strategy file
+      // 2. Load the strategy — model and tool resolution happen via global registries
       const strategy = await loadStrategyFromString(content, format, {
-        providers: explicitProviders,
-        credentialStore,
-        providerResolver,
         inputCollector: ctx.inputBridge.collector,
         abort: run.abortController.signal,
-        agentHooks: buildAgentHooks(run.id),
         flowHooks: buildFlowHooks(run.id),
         modelOverride,
       });
+
+      // 3. Inject agent hooks into all loaded agents via hookIntoAgent
+      const agentHooks = buildAgentHooks(run.id);
+      for (const loadedAgent of Object.values(strategy.agents)) {
+        if (loadedAgent.appendHook) {
+          hookIntoAgent(loadedAgent, agentHooks);
+        }
+      }
 
       // 4. Update state to running
       state.updateRun(run.id, { status: "running" });

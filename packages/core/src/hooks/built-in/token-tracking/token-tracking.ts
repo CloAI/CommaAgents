@@ -73,22 +73,11 @@ function buildSnapshot(
 }
 
 /**
- * Derive a `"providerID/modelID"` catalog key from the agent's LanguageModel.
- * Returns undefined if the agent has no model or the model lacks provider/modelId.
+ * Get the model string from the agent's config.
+ * Returns undefined if the agent has no model configured.
  */
 function resolveModelString(agent: Agent): string | undefined {
-  const model = agent.config?.model;
-  if (!model) return undefined;
-
-  // LanguageModelV3 exposes .provider and .modelId at runtime,
-  // but the base LanguageModel type does not declare them.
-  const provider = (model as Record<string, unknown>).provider as string | undefined;
-  const modelId = (model as Record<string, unknown>).modelId as string | undefined;
-
-  if (provider && modelId) {
-    return `${provider}/${modelId}`;
-  }
-  return undefined;
+  return agent.config?.model;
 }
 
 // createTokenTracker
@@ -171,7 +160,7 @@ export function createTokenTracker(config: TokenTrackerConfig = {}): TokenTracke
  * The model's context window metadata is resolved in this order:
  * 1. Explicit `config.modelMetadata` (if provided)
  * 2. Explicit `config.model` string (catalog lookup)
- * 3. Auto-detected from `agent.config.model.provider` + `agent.config.model.modelId`
+ * 3. Auto-detected from `agent.config.model` (already a "providerID/modelID" string)
  *
  * @param agent - An agent created by `createAgent()`.
  * @param config - Optional configuration to override model detection.
@@ -180,11 +169,10 @@ export function createTokenTracker(config: TokenTrackerConfig = {}): TokenTracke
  * @example
  * ```ts
  * import { createAgent, useTokenTracking } from "@comma-agents/core";
- * import { openai } from "@ai-sdk/openai";
  *
  * const agent = createAgent({
  *   name: "writer",
- *   model: openai("gpt-4o"),
+ *   model: "openai/gpt-4o",
  *   systemPrompt: "You are helpful.",
  * });
  *

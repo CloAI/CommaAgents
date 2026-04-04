@@ -4,7 +4,6 @@
  * Demonstrates attaching hooks to an agent AFTER creation using
  * `hookIntoAgent` and the lower-level `appendHook` method.
  *
- * Compare with example 05 which passes hooks at agent creation time.
  * This approach is useful when:
  *   - You want to compose hooks from separate modules / plugins
  *   - You need to conditionally add hooks based on runtime configuration
@@ -13,14 +12,14 @@
  * This example shows:
  *   - hookIntoAgent(agent, hooks) — bulk-append hooks from an AgentHooks object
  *   - appendHook(hookName, callback) — append a single hook callback
- *   - Hooks added post-creation stack with any hooks set at creation time
+ *   - Multiple hookIntoAgent calls stack hooks
  *   - hookIntoAgent returns the same agent reference (enables chaining)
  *
  * Run:
  *   MODEL=openai/gpt-4o bun run examples/14-hook-into-agent.ts
  *
  * Concepts:
- *   - Post-creation hook injection vs config-time hooks
+ *   - Post-creation hook injection with hookIntoAgent
  *   - hookIntoAgent for bulk hook attachment
  *   - appendHook for single hook attachment
  *   - Hook stacking — multiple callbacks on the same hook point
@@ -28,7 +27,7 @@
 
 import type { AgentHooks } from "@comma-agents/core";
 import { createAgent, hookIntoAgent } from "@comma-agents/core";
-import { getModel } from "./helpers";
+import { getModelString } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // Logging plugin — a reusable set of hooks
@@ -71,26 +70,27 @@ const metricsHooks: AgentHooks = {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const model = await getModel();
+  const model = getModelString();
 
   // -------------------------------------------------------------------------
-  // 1. Create a plain agent with a hook set at creation time
+  // 1. Create a plain agent, then attach an alterResponse hook
   // -------------------------------------------------------------------------
 
-  console.log("\n=== Step 1: Create agent with one config-time hook ===\n");
+  console.log("\n=== Step 1: Create agent and attach an alterResponse hook ===\n");
 
   const agent = createAgent({
     name: "demo-agent",
     model,
     systemPrompt: "You are a concise assistant. Reply in one sentence.",
-    hooks: {
-      alterResponse: [
-        async (text) => {
-          console.log("  [config hook] alterResponse — trimming whitespace");
-          return text.trim();
-        },
-      ],
-    },
+  });
+
+  hookIntoAgent(agent, {
+    alterResponse: [
+      async (text) => {
+        console.log("  [initial hook] alterResponse — trimming whitespace");
+        return text.trim();
+      },
+    ],
   });
 
   // -------------------------------------------------------------------------
