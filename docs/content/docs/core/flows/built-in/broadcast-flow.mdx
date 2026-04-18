@@ -1,0 +1,83 @@
+---
+title: createBroadcastFlow
+description: Fan-out flow that sends the same message to all agents and joins their responses.
+---
+`createBroadcastFlow` sends the same input message to every step and joins their responses into a single output. Each step receives the original message, not the output of a previous step.
+
+```ts
+import { createAgent, createBroadcastFlow } from "@comma-agents/core";
+
+const historian = createAgent({
+  name: "historian",
+  model: "openai/gpt-4o",
+  systemPrompt: "Answer from a historical perspective.",
+});
+
+const scientist = createAgent({
+  name: "scientist",
+  model: "openai/gpt-4o",
+  systemPrompt: "Answer from a scientific perspective.",
+});
+
+const philosopher = createAgent({
+  name: "philosopher",
+  model: "openai/gpt-4o",
+  systemPrompt: "Answer from a philosophical perspective.",
+});
+
+const panel = createBroadcastFlow({
+  name: "multi-perspective",
+  steps: [historian, scientist, philosopher],
+});
+
+const result = await panel.call("What is time?");
+console.log(result.text);
+// historian's response
+//
+// scientist's response
+//
+// philosopher's response
+```
+
+## BroadcastFlowConfig
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="BroadcastFlowConfig" />
+
+## Fan-Out Behavior
+
+Every step receives the original input message. Unlike sequential flows, step A's output does not affect step B's input:
+
+```
+historian("What is time?")
+scientist("What is time?")
+philosopher("What is time?")
+```
+
+Responses are joined with the separator (default `"\n\n"`) in step order.
+
+## Custom Separator
+
+Use the `separator` option to control how responses are joined:
+
+```ts
+const panel = createBroadcastFlow({
+  name: "panel",
+  steps: [historian, scientist, philosopher],
+  separator: "\n---\n",
+});
+```
+
+## Accessing Individual Responses
+
+Cast the result to `FlowResult` to access per-step results:
+
+```ts
+import type { FlowResult } from "@comma-agents/core";
+
+const result = await panel.call("What is time?") as FlowResult;
+
+for (const stepResult of result.stepResults) {
+  console.log(stepResult.text);
+  console.log(stepResult.usage);
+}
+```

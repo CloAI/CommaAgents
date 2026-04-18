@@ -4,7 +4,6 @@
     "server",
     "executor",
     "protocol",
-    "credentials",
     "logger"
   ]
 }

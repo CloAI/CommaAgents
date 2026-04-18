@@ -30,6 +30,27 @@ function registerMockModel(modelString: string): void {
     doStream: async () => ({
       stream: new ReadableStream({
         start(controller) {
+          const textId = "text-0";
+          controller.enqueue({ type: "text-start" as const, id: textId });
+          controller.enqueue({
+            type: "text-delta" as const,
+            delta: `response from ${modelString}`,
+            id: textId,
+          });
+          controller.enqueue({ type: "text-end" as const, id: textId });
+          controller.enqueue({
+            type: "finish" as const,
+            finishReason: { unified: "stop" as const, raw: undefined },
+            usage: {
+              inputTokens: {
+                total: 10,
+                noCache: undefined,
+                cacheRead: undefined,
+                cacheWrite: undefined,
+              },
+              outputTokens: { total: 20, text: undefined, reasoning: undefined },
+            },
+          });
           controller.close();
         },
       }),
@@ -390,11 +411,10 @@ describe("loadAgentFromString", () => {
       expect(typeof agent.stream).toBe("function");
     });
 
-    it("should return an agent with getHistory and getTurns", async () => {
+    it("should return an agent with getConversationContext", async () => {
       setupMockModels();
       const agent = await loadAgentFromString(MINIMAL_JSON, "json");
-      expect(typeof agent.getHistory).toBe("function");
-      expect(typeof agent.getTurns).toBe("function");
+      expect(typeof agent.getConversationContext).toBe("function");
     });
   });
 

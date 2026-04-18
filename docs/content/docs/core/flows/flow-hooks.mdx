@@ -1,0 +1,124 @@
+---
+title: hookIntoFlow
+description: Attach lifecycle hooks to flows for logging, metrics, message transformation, and step observation.
+---
+`hookIntoFlow` appends lifecycle hooks to an existing flow. It mutates the flow in-place. Multiple calls stack hooks rather than replacing them.
+
+```ts
+import { createSequentialFlow, hookIntoFlow } from "@comma-agents/core";
+
+const pipeline = createSequentialFlow({
+  name: "pipeline",
+  steps: [writer, reviewer, editor],
+});
+
+hookIntoFlow(pipeline, {
+  beforeFlow: [async (message) => console.log("Flow started:", message)],
+  afterFlow: [async (message) => console.log("Flow done:", message)],
+  beforeStep: [async ({ stepName, message }) => {
+    console.log(`  Step ${stepName} starting with: ${message.slice(0, 60)}`);
+  }],
+  afterStep: [async ({ stepName, result }) => {
+    console.log(`  Step ${stepName} done: ${result.text.slice(0, 60)}`);
+  }],
+});
+```
+
+## Hook Lifecycle
+
+Flow hooks execute in a fixed order around each flow call:
+
+```
+alterMessageBeforeFlow → beforeFlow → [execute steps] → afterFlow → alterMessageAfterFlow
+```
+
+Within step execution, per-step hooks fire around each individual step:
+
+```
+beforeStep → [step.call()] → afterStep
+```
+
+For cycle flows, cycle-boundary hooks wrap each iteration:
+
+```
+alterMessageBeforeCycle → [all steps] → alterMessageAfterCycle
+```
+
+## FlowHooks
+
+Hooks available on all flow types.
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="FlowHooks" />
+
+## CycleHooks
+
+Additional hooks for cycle flows. Extends `FlowHooks` with cycle-boundary transform hooks.
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="CycleHooks" />
+
+Use the generic parameter to get type safety for cycle-specific hooks:
+
+```ts
+import { createCycleFlow, hookIntoFlow } from "@comma-agents/core";
+import type { CycleHooks } from "@comma-agents/core";
+
+const flow = createCycleFlow({
+  name: "loop",
+  steps: [writer],
+  cycles: 3,
+});
+
+hookIntoFlow<CycleHooks>(flow, {
+  alterMessageBeforeCycle: [
+    async (message) => `[iteration] ${message}`,
+  ],
+  alterMessageAfterCycle: [
+    async (message) => `${message} [done]`,
+  ],
+});
+```
+
+## Transform vs. Side-Effect Hooks
+
+Flow hooks follow the same conventions as agent hooks:
+
+- **Transform hooks** (`alterMessage*`) receive a value and return a (possibly modified) value. Multiple transforms are chained sequentially.
+- **Side-effect hooks** (`beforeFlow`, `afterFlow`, `beforeStep`, `afterStep`) receive context for logging or metrics but do not modify the flow's data.
+
+## Step Hooks
+
+`beforeStep` and `afterStep` fire around each individual step within a flow. They receive context about which step is running:
+
+```ts
+hookIntoFlow(pipeline, {
+  beforeStep: [async ({ stepName, message }) => {
+    console.log(`Starting ${stepName}`);
+  }],
+  afterStep: [async ({ stepName, message, result }) => {
+    console.log(`${stepName} used ${result.usage.promptTokens} prompt tokens`);
+  }],
+});
+```
+
+If a step throws, `afterStep` does not fire for that step. The error propagates as a `FlowExecutionError`.
+
+## Stacking Hooks
+
+Multiple `hookIntoFlow` calls accumulate hooks. Hooks run in the order they were attached:
+
+```ts
+const pipeline = createSequentialFlow({
+  name: "pipeline",
+  steps: [writer, reviewer],
+});
+
+hookIntoFlow(pipeline, {
+  beforeFlow: [async () => console.log("first hook")],
+});
+
+hookIntoFlow(pipeline, {
+  beforeFlow: [async () => console.log("second hook")],
+});
+
+// On call: "first hook", "second hook"
+```

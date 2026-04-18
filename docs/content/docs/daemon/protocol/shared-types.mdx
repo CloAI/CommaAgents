@@ -1,0 +1,73 @@
+---
+title: Shared Types
+description: Reusable wire types — Usage, AgentCallResultWire, ErrorInfo, RunSummary, AgentStreamEventWire.
+---
+
+These types are used across multiple protocol messages.
+
+## Usage
+
+Token usage statistics, included in `strategy_completed`, `agent_output`, `step_completed`, and `AgentCallResultWire`.
+
+```json
+{ "promptTokens": 150, "completionTokens": 87 }
+```
+
+<AutoTypeTable path="../packages/daemon/src/server/protocol/responses/shared.ts" name="Usage" />
+
+## AgentCallResultWire
+
+Wire format for agent call results. Included in `step_completed` and the `done` stream event.
+
+```json
+{
+  "text": "Found 3 issues: ...",
+  "usage": { "promptTokens": 50, "completionTokens": 30 },
+  "finishReason": "stop"
+}
+```
+
+<AutoTypeTable path="../packages/daemon/src/server/protocol/responses/shared.ts" name="AgentCallResultWire" />
+
+## ErrorInfo
+
+Structured error information included in `strategy_error` events.
+
+```json
+{ "code": "EXECUTION_ERROR", "message": "Model resolution failed" }
+```
+
+<AutoTypeTable path="../packages/daemon/src/server/protocol/responses/strategy-error/strategy-error.schema.ts" name="ErrorInfo" />
+
+## RunSummary
+
+Summary of a run, included in `strategy_list` responses.
+
+```json
+{
+  "runId": "run_abc123",
+  "strategyName": "Code Review Pipeline",
+  "status": "running",
+  "startedAt": "2025-01-15T10:30:00.000Z"
+}
+```
+
+<AutoTypeTable path="../packages/daemon/src/server/protocol/responses/strategy-list/strategy-list.schema.ts" name="RunSummary" />
+
+### Run Statuses
+
+| Status | Description |
+|---|---|
+| `pending` | Run created but not yet started |
+| `running` | Flow is actively executing |
+| `completed` | Flow finished successfully |
+| `error` | Flow encountered an error |
+| `cancelled` | Flow was stopped via `stop_strategy` |
+
+## AgentStreamEventWire
+
+Wire format for streaming events, included in `agent_streaming` messages. Discriminated union on `type`.
+
+<AutoTypeTable path="../packages/daemon/src/server/protocol/responses/agent-streaming/agent-streaming.schema.ts" name="AgentStreamEventWire" />
+
+See [Strategy Observation](/docs/daemon/protocol/strategy-observation#stream-event-types) for detailed field descriptions of each event variant.

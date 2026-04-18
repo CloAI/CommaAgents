@@ -1,0 +1,225 @@
+---
+title: loadFlow
+description: Load a flow from a JSON or YAML description file with schema validation and nested flow support.
+---
+`loadFlow` reads a standalone flow description file (JSON or YAML), validates it against a strict schema, resolves agent references from a caller-provided registry, and returns a live flow ready to call. For content already in memory, `loadFlowFromString` accepts a raw string directly.
+
+```ts
+import { createAgent, loadFlow } from "@comma-agents/core";
+
+const writer = createAgent({ name: "writer", model: "openai/gpt-4o", systemPrompt: "Write content." });
+const reviewer = createAgent({ name: "reviewer", model: "openai/gpt-4o", systemPrompt: "Review content." });
+
+const flow = await loadFlow("./flows/review-pipeline.yaml", {
+  agents: { writer, reviewer },
+});
+
+const result = await flow.call("Write a function that adds two numbers");
+console.log(result.text);
+```
+
+Unlike [strategy files](/docs/core/strategy), which define both agents and flows together, flow description files define only the orchestration — agent instances are provided by the caller.
+
+## Flow Description File
+
+A description file defines a single flow — its name, type, steps, and type-specific options. The schema is strict: unknown fields are rejected.
+
+### YAML
+
+```yaml
+name: review-pipeline
+type: sequential
+steps:
+  - agent: writer
+  - agent: reviewer
+  - agent: editor
+```
+
+### JSON
+
+```json
+{
+  "name": "review-pipeline",
+  "type": "sequential",
+  "steps": [
+    { "agent": "writer" },
+    { "agent": "reviewer" },
+    { "agent": "editor" }
+  ]
+}
+```
+
+## FlowDescription
+
+Zod-validated schema for flow description files. Discriminated union on `type` supporting `sequential`, `cycle`, and `broadcast`.
+
+<AutoTypeTable path="../packages/core/src/flows/loader/loader.schema.ts" name="FlowDescription" />
+
+## Flow Types
+
+### Sequential
+
+Runs steps one after another. Each step receives the previous step's output.
+
+```yaml
+name: pipeline
+type: sequential
+steps:
+  - agent: writer
+  - agent: reviewer
+```
+
+### Cycle
+
+Repeats steps for a fixed number of iterations. Supports an optional `observer` agent that runs after each cycle.
+
+```yaml
+name: refinement-loop
+type: cycle
+steps:
+  - agent: writer
+  - agent: critic
+cycles: 3
+observer: editor
+```
+
+Set `cycles: "Infinity"` for an unbounded loop (use with an observer or external abort to stop).
+
+### Broadcast
+
+Fans out the same message to all steps in parallel and joins the results.
+
+```yaml
+name: multi-perspective
+type: broadcast
+steps:
+  - agent: optimist
+  - agent: critic
+  - agent: realist
+separator: "\n---\n"
+```
+
+## Nested Flows
+
+A step can be a full flow definition instead of an agent reference, enabling arbitrarily deep composition:
+
+```json
+{
+  "name": "research-and-review",
+  "type": "sequential",
+  "steps": [
+    {
+      "name": "parallel-research",
+      "type": "broadcast",
+      "steps": [
+        { "agent": "researcher-a" },
+        { "agent": "researcher-b" }
+      ]
+    },
+    { "agent": "reviewer" }
+  ]
+}
+```
+
+The broadcast sub-flow runs two researchers in parallel, then the sequential flow pipes their combined output to the reviewer.
+
+## LoadFlowOptions
+
+Options passed to `loadFlow` or `loadFlowFromString`. The `agents` registry is required — it maps agent names referenced in steps to live `Agent` instances.
+
+<AutoTypeTable path="../packages/core/src/flows/loader/loader.types.ts" name="LoadFlowOptions" />
+
+## loadFlowFromString
+
+When the description content is already in memory (e.g., from a database, WebSocket, or test fixture), use `loadFlowFromString` directly:
+
+```ts
+import { loadFlowFromString, createAgent } from "@comma-agents/core";
+
+const writer = createAgent({ name: "writer", model: "openai/gpt-4o" });
+const reviewer = createAgent({ name: "reviewer", model: "openai/gpt-4o" });
+
+const yaml = `
+name: review-pipeline
+type: sequential
+steps:
+  - agent: writer
+  - agent: reviewer
+`;
+
+const flow = loadFlowFromString(yaml, "yaml", {
+  agents: { writer, reviewer },
+});
+
+const result = await flow.call("Review this code...");
+```
+
+The `format` parameter must be `"json"` or `"yaml"`. `loadFlow` auto-detects format from the file extension (`.json`, `.yaml`, `.yml`).
+
+## Flow Hooks
+
+Inject hooks into the loaded flow via the `flowHooks` option:
+
+```ts
+const flow = await loadFlow("./flows/pipeline.yaml", {
+  agents: { writer, reviewer },
+  flowHooks: {
+    beforeStep: [async ({ stepName }) => console.log(`Starting ${stepName}`)],
+    afterStep: [async ({ stepName, result }) => {
+      console.log(`${stepName} done: ${result.text.slice(0, 60)}`);
+    }],
+  },
+});
+```
+
+You can also attach hooks after loading with `hookIntoFlow`:
+
+```ts
+import { hookIntoFlow } from "@comma-agents/core";
+
+hookIntoFlow(flow, {
+  beforeFlow: [async (message) => console.log("Flow started:", message)],
+});
+```
+
+## Combining with loadAgent
+
+Use `loadAgent` to load agents from description files, then pass them to `loadFlow`:
+
+```ts
+import { loadAgent, loadFlow } from "@comma-agents/core";
+
+const writer = await loadAgent("./agents/writer.yaml");
+const reviewer = await loadAgent("./agents/reviewer.yaml");
+const editor = await loadAgent("./agents/editor.yaml");
+
+const flow = await loadFlow("./flows/review-pipeline.yaml", {
+  agents: { writer, reviewer, editor },
+});
+
+const result = await flow.call("Write a tutorial on closures");
+```
+
+This keeps agent and flow definitions as separate, composable files.
+
+## Error Handling
+
+Both `loadFlow` and `loadFlowFromString` throw `StrategyValidationError` for:
+
+- Unsupported file extensions (only `.json`, `.yaml`, `.yml`)
+- Missing files
+- Malformed JSON or YAML
+- Schema validation failures (missing `name`, `type`, or `steps`, unknown fields, wrong types)
+- Missing agent references (agent name not found in the provided registry)
+
+```ts
+import { loadFlow, StrategyValidationError } from "@comma-agents/core";
+
+try {
+  const flow = await loadFlow("./flows/broken.yaml", { agents: {} });
+} catch (error) {
+  if (error instanceof StrategyValidationError) {
+    console.error("Invalid flow description:", error.message);
+  }
+}
+```

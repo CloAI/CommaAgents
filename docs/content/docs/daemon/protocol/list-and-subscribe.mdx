@@ -1,0 +1,108 @@
+---
+title: List & Subscribe
+description: Listing runs, subscribing to events, and unsubscribing.
+---
+
+Clients can list all runs and subscribe to (or unsubscribe from) a specific run's events.
+
+## Listing Runs
+
+### Request: `list_strategies`
+
+Request a list of all runs (pending, running, completed, errored, cancelled).
+
+```json
+{
+  "type": "list_strategies",
+  "requestId": "list-1"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"list_strategies"` | yes | Message type discriminator |
+| `requestId` | `string` | no | Echoed on the response for correlation |
+
+### Response: `strategy_list`
+
+```json
+{
+  "type": "strategy_list",
+  "runs": [
+    {
+      "runId": "run_abc123",
+      "strategyName": "Code Review Pipeline",
+      "status": "running",
+      "startedAt": "2025-01-15T10:30:00.000Z"
+    },
+    {
+      "runId": "run_def456",
+      "strategyName": "Research Team",
+      "status": "completed",
+      "startedAt": "2025-01-15T10:25:00.000Z",
+      "completedAt": "2025-01-15T10:26:30.000Z"
+    }
+  ],
+  "requestId": "list-1",
+  "ts": "2025-01-15T10:30:05.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"strategy_list"` | Message type discriminator |
+| `runs` | [`RunSummary[]`](/docs/daemon/protocol/shared-types#runsummary) | Array of run summaries |
+| `requestId` | `string?` | Echoed from the request |
+| `ts` | `string` | ISO-8601 timestamp |
+
+## Subscribing to a Run
+
+The client that sends `start_strategy` is automatically subscribed to the run's events. Other clients can subscribe to an existing run to receive its events.
+
+### Request: `subscribe`
+
+```json
+{
+  "type": "subscribe",
+  "runId": "run_abc123",
+  "requestId": "sub-1"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"subscribe"` | yes | Message type discriminator |
+| `runId` | `string` | yes | The run to subscribe to |
+| `requestId` | `string` | no | Echoed on any error response |
+
+On success, there is no direct response — the client begins receiving events for the run (`step_started`, `agent_output`, etc.).
+
+On failure (run not found or client not registered), the daemon replies with an error:
+
+```json
+{
+  "type": "error",
+  "code": "SUBSCRIBE_ERROR",
+  "message": "Run run_abc123 not found",
+  "ts": "2025-01-15T10:30:00.000Z"
+}
+```
+
+## Unsubscribing from a Run
+
+### Request: `unsubscribe`
+
+```json
+{
+  "type": "unsubscribe",
+  "runId": "run_abc123"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"unsubscribe"` | yes | Message type discriminator |
+| `runId` | `string` | yes | The run to unsubscribe from |
+| `requestId` | `string` | no | Not used (no response sent) |
+
+There is no response. The client silently stops receiving events for the run.

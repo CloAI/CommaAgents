@@ -3,10 +3,10 @@
 
 import { z } from "zod";
 
-import { ListFlowsMessage } from "./requests/list-flows/list-flows.schema";
+import { ListStrategiesMessage } from "./requests/list-strategies/list-strategies.schema";
 import { PingMessage } from "./requests/ping/ping.schema";
-import { StartFlowMessage } from "./requests/start-flow/start-flow.schema";
-import { StopFlowMessage } from "./requests/stop-flow/stop-flow.schema";
+import { StartStrategyMessage } from "./requests/start-strategy/start-strategy.schema";
+import { StopStrategyMessage } from "./requests/stop-strategy/stop-strategy.schema";
 import { SubscribeMessage } from "./requests/subscribe/subscribe.schema";
 import { UnsubscribeMessage } from "./requests/unsubscribe/unsubscribe.schema";
 import { UserInputMessage } from "./requests/user-input/user-input.schema";
@@ -15,10 +15,10 @@ import {
   AgentOutputMessage,
   AgentStreamingMessage,
   ErrorMessage,
-  FlowCompletedMessage,
-  FlowErrorMessage,
-  FlowListMessage,
-  FlowStartedMessage,
+  StrategyCompletedMessage,
+  StrategyErrorMessage,
+  StrategyListMessage,
+  StrategyStartedMessage,
   PongMessage,
   RequestInputMessage,
   StepCompletedMessage,
@@ -28,10 +28,10 @@ import {
 // Client -> Daemon discriminated union
 
 export const ClientMessage = z.discriminatedUnion("type", [
-  StartFlowMessage,
-  StopFlowMessage,
+  StartStrategyMessage,
+  StopStrategyMessage,
   UserInputMessage,
-  ListFlowsMessage,
+  ListStrategiesMessage,
   SubscribeMessage,
   UnsubscribeMessage,
   PingMessage,
@@ -42,15 +42,15 @@ export type ClientMessage = z.infer<typeof ClientMessage>;
 // Daemon -> Client discriminated union
 
 export const DaemonMessage = z.discriminatedUnion("type", [
-  FlowStartedMessage,
-  FlowCompletedMessage,
-  FlowErrorMessage,
+  StrategyStartedMessage,
+  StrategyCompletedMessage,
+  StrategyErrorMessage,
   AgentOutputMessage,
   AgentStreamingMessage,
   StepStartedMessage,
   StepCompletedMessage,
   RequestInputMessage,
-  FlowListMessage,
+  StrategyListMessage,
   PongMessage,
   ErrorMessage,
 ]);

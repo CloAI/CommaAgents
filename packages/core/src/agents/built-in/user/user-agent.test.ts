@@ -1,6 +1,7 @@
 // Tests for createUserAgent factory
 
 import { describe, expect, it } from "bun:test";
+import { hookIntoAgent } from "../../hook-into-agent/hook-into-agent";
 import type { InputCollector, InputRequest } from "./user-agent";
 import { createUserAgent } from "./user-agent";
 
@@ -173,14 +174,15 @@ describe("createUserAgent", () => {
     });
   });
 
-  describe("hooks", () => {
+  describe("hooks via hookIntoAgent", () => {
     it("should run alterCallMessage hooks", async () => {
       const agent = createUserAgent({
         name: "user",
         requireInput: false,
-        hooks: {
-          alterCallMessage: [(msg) => `[altered] ${msg}`],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        alterCallMessage: [(message) => `[altered] ${message}`],
       });
 
       // With no presetMessage and requireInput=false, the altered message is passed through
@@ -193,9 +195,10 @@ describe("createUserAgent", () => {
         name: "user",
         requireInput: false,
         presetMessage: "raw",
-        hooks: {
-          alterResponse: [(resp) => `[processed] ${resp}`],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        alterResponse: [(response) => `[processed] ${response}`],
       });
 
       const result = await agent.call("test");
@@ -206,34 +209,36 @@ describe("createUserAgent", () => {
       const agent = createUserAgent({
         name: "user",
         requireInput: false,
-        hooks: {
-          alterCallMessage: [(msg) => `A:${msg}`, (msg) => `B:${msg}`],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        alterCallMessage: [(message) => `A:${message}`, (message) => `B:${message}`],
       });
 
       const result = await agent.call("start");
       expect(result.text).toBe("B:A:start");
     });
 
-    it("should run beforeCall and afterCall side-effect hooks", async () => {
+    it("should run beforeCall and afterCallResult side-effect hooks", async () => {
       const calls: string[] = [];
 
       const agent = createUserAgent({
         name: "user",
         requireInput: false,
         presetMessage: "preset",
-        hooks: {
-          beforeCall: [
-            () => {
-              calls.push("before");
-            },
-          ],
-          afterCall: [
-            () => {
-              calls.push("after");
-            },
-          ],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        beforeCall: [
+          () => {
+            calls.push("before");
+          },
+        ],
+        afterCallResult: [
+          () => {
+            calls.push("after");
+          },
+        ],
       });
 
       await agent.call("test");
@@ -247,18 +252,19 @@ describe("createUserAgent", () => {
         name: "user",
         requireInput: false,
         presetMessage: "preset",
-        hooks: {
-          beforeInitialCall: [
-            () => {
-              calls.push("initial-before");
-            },
-          ],
-          beforeCall: [
-            () => {
-              calls.push("regular-before");
-            },
-          ],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        beforeFirstCall: [
+          () => {
+            calls.push("initial-before");
+          },
+        ],
+        beforeCall: [
+          () => {
+            calls.push("regular-before");
+          },
+        ],
       });
 
       await agent.call("first");
@@ -276,27 +282,29 @@ describe("createUserAgent", () => {
         name: "user",
         requireInput: false,
         presetMessage: "preset",
-        hooks: {
-          beforeCall: [
-            () => {
-              calls.push("base-before");
-            },
-          ],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        beforeCall: [
+          () => {
+            calls.push("base-before");
+          },
+        ],
       });
 
       await agent.call("first");
       expect(calls).toEqual(["base-before"]);
     });
 
-    it("should use alterInitialCallMessage on first call", async () => {
+    it("should use alterFirstCallMessage on first call", async () => {
       const agent = createUserAgent({
         name: "user",
         requireInput: false,
-        hooks: {
-          alterInitialCallMessage: [(msg) => `[initial] ${msg}`],
-          alterCallMessage: [(msg) => `[regular] ${msg}`],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        alterFirstCallMessage: [(message) => `[initial] ${message}`],
+        alterCallMessage: [(message) => `[regular] ${message}`],
       });
 
       const r1 = await agent.call("msg");
@@ -306,15 +314,16 @@ describe("createUserAgent", () => {
       expect(r2.text).toBe("[regular] msg");
     });
 
-    it("should use alterInitialResponse on first call", async () => {
+    it("should use alterFirstResponse on first call", async () => {
       const agent = createUserAgent({
         name: "user",
         requireInput: false,
         presetMessage: "preset",
-        hooks: {
-          alterInitialResponse: [(r) => `[initial] ${r}`],
-          alterResponse: [(r) => `[regular] ${r}`],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        alterFirstResponse: [(response) => `[initial] ${response}`],
+        alterResponse: [(response) => `[regular] ${response}`],
       });
 
       const r1 = await agent.call("msg");
@@ -335,9 +344,10 @@ describe("createUserAgent", () => {
         name: "user",
         requireInput: true,
         inputCollector: collector,
-        hooks: {
-          alterCallMessage: [(msg) => `[prefix] ${msg}`],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        alterCallMessage: [(message) => `[prefix] ${message}`],
       });
 
       await agent.call("original");
@@ -353,18 +363,19 @@ describe("createUserAgent", () => {
         name: "user",
         requireInput: false,
         presetMessage: "preset",
-        hooks: {
-          beforeInitialCall: [
-            () => {
-              calls.push("initial");
-            },
-          ],
-          beforeCall: [
-            () => {
-              calls.push("regular");
-            },
-          ],
-        },
+      });
+
+      hookIntoAgent(agent, {
+        beforeFirstCall: [
+          () => {
+            calls.push("initial");
+          },
+        ],
+        beforeCall: [
+          () => {
+            calls.push("regular");
+          },
+        ],
       });
 
       await agent.call("first");

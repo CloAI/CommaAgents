@@ -1,0 +1,240 @@
+---
+title: Strategy File Format
+description: Schema reference for strategy files — agent definitions, flow definitions, steps, and nesting.
+---
+
+A strategy file is a JSON or YAML document with three top-level fields: `name`, `version`, and the orchestration graph (`agents` + `flow`). The schema is validated at load time with Zod.
+
+## Strategy
+
+The top-level strategy type.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="Strategy" />
+
+## Agent Definitions
+
+The `agents` field is a map of named agent definitions. Each agent is either a **user agent** (collects human input) or an **LLM agent** (backed by a language model). The `type` field discriminates between them — user agents must set `type: "user"`, while LLM agents can omit `type` entirely.
+
+### LLMAgentDef
+
+An LLM agent references a model by string (e.g. `"openai/gpt-4o"`), resolved via the global model/provider registry at load time. Tools are referenced by string name from the [tool registry](/docs/core/tools/tool-registry).
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="LLMAgentDef" />
+
+Example:
+
+```yaml
+agents:
+  coder:
+    model: openai/gpt-4o
+    systemPrompt: You are a coding assistant.
+    tools:
+      - read
+      - glob
+      - grep
+```
+
+### UserAgentDef
+
+A user agent collects input from a human. Set `requireInput: true` to block until input is provided, or use `presetMessage` for a fixed message.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="UserAgentDef" />
+
+Example:
+
+```yaml
+agents:
+  user:
+    type: user
+    description: Collects the user's question.
+    config:
+      requireInput: true
+```
+
+### AgentDef
+
+The union of all agent definition types.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="AgentDef" />
+
+## Flow Definitions
+
+The `flow` field defines the entry flow — a tree of steps that can reference agents or nest sub-flows. Flow type is discriminated by the `type` field.
+
+### FlowDef
+
+The union of all flow definition types.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="FlowDef" />
+
+### SequentialFlowDef
+
+Runs steps one after another. Each step receives the previous step's output as its input.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="SequentialFlowDef" />
+
+### CycleFlowDef
+
+Repeats steps for a fixed number of cycles (or indefinitely with `"Infinity"`). Useful for iterative refinement patterns.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="CycleFlowDef" />
+
+### BroadcastFlowDef
+
+Runs all steps in parallel with the same input. Results are joined into a single output.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="BroadcastFlowDef" />
+
+## Steps
+
+Each entry in a flow's `steps` array is either an **agent reference** or a **nested flow definition**.
+
+### AgentStep
+
+References a named agent from the `agents` map.
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="AgentStep" />
+
+### Nested Flows
+
+A step can be a full flow definition instead of an agent reference. This lets you compose complex orchestration graphs:
+
+```json
+{
+  "name": "Research Pipeline",
+  "version": "1.0",
+  "agents": {
+    "researcher-a": { "model": "openai/gpt-4o", "systemPrompt": "Research from angle A." },
+    "researcher-b": { "model": "openai/gpt-4o", "systemPrompt": "Research from angle B." },
+    "summarizer": { "model": "openai/gpt-4o", "systemPrompt": "Summarize the research." }
+  },
+  "flow": {
+    "name": "Pipeline",
+    "type": "sequential",
+    "steps": [
+      {
+        "name": "Parallel Research",
+        "type": "broadcast",
+        "steps": [
+          { "agent": "researcher-a" },
+          { "agent": "researcher-b" }
+        ]
+      },
+      { "agent": "summarizer" }
+    ]
+  }
+}
+```
+
+Here the sequential flow's first step is a broadcast sub-flow that runs two researchers in parallel, then pipes the combined output to the summarizer.
+
+## Full Examples
+
+### Sequential — Code Review
+
+```json
+{
+  "name": "Code Review Pipeline",
+  "version": "1.0",
+  "description": "Analyzer identifies issues, reviewer suggests fixes.",
+  "agents": {
+    "analyzer": {
+      "model": "openai/gpt-4o",
+      "systemPrompt": "Examine the code and identify potential bugs and code smells. Output a numbered list (max 5)."
+    },
+    "reviewer": {
+      "model": "openai/gpt-4o",
+      "systemPrompt": "Read the analysis and provide specific, actionable suggestions to fix each issue."
+    }
+  },
+  "flow": {
+    "name": "Review Pipeline",
+    "type": "sequential",
+    "steps": [
+      { "agent": "analyzer" },
+      { "agent": "reviewer" }
+    ]
+  }
+}
+```
+
+### Cycle — Iterative Refinement
+
+```json
+{
+  "name": "Iterative Refinement",
+  "version": "1.0",
+  "agents": {
+    "writer": {
+      "model": "openai/gpt-4o",
+      "systemPrompt": "Write or revise content based on the given topic or feedback."
+    },
+    "critic": {
+      "model": "openai/gpt-4o",
+      "systemPrompt": "Evaluate the content for clarity and engagement. Provide specific feedback."
+    }
+  },
+  "flow": {
+    "name": "Refinement Loop",
+    "type": "cycle",
+    "steps": [
+      { "agent": "writer" },
+      { "agent": "critic" }
+    ],
+    "cycles": 3
+  }
+}
+```
+
+### Broadcast — Parallel Research
+
+```yaml
+name: Research Team
+version: "1.0"
+agents:
+  technical:
+    model: openai/gpt-4o
+    systemPrompt: >
+      Analyze the topic from a technical perspective.
+      Cover architecture, tools, and best practices.
+  business:
+    model: openai/gpt-4o
+    systemPrompt: >
+      Analyze the topic from a business perspective.
+      Cover market opportunities and ROI.
+  risk:
+    model: openai/gpt-4o
+    systemPrompt: >
+      Analyze the topic for potential risks and failure modes.
+flow:
+  name: Parallel Research
+  type: broadcast
+  steps:
+    - agent: technical
+    - agent: business
+    - agent: risk
+```
+
+### Agent with Tools
+
+```yaml
+name: Tool Agent
+version: "1.0"
+agents:
+  explorer:
+    model: openai/gpt-4o
+    systemPrompt: >
+      You are a coding assistant. Use the available tools to explore
+      the codebase and answer questions.
+    tools:
+      - read
+      - glob
+      - grep
+flow:
+  name: Explore
+  type: sequential
+  steps:
+    - agent: explorer
+```
+
+Tools are referenced by their registered name. Built-in tools (`bash`, `read`, `write`, `edit`, `glob`, `grep`) are available automatically. Custom tools must be registered via `registerTool` before loading the strategy.

@@ -10,10 +10,10 @@ export type { HandlerContext, MessageDispatcher, RequestResponseMap } from "./di
 export { ClientMessage, DaemonMessage, parseClientMessage, parseDaemonMessage } from "./messages";
 
 // Request handlers + client message schemas
-export { handleListFlows, ListFlowsMessage } from "./requests/list-flows";
+export { handleListStrategies, ListStrategiesMessage } from "./requests/list-strategies";
 export { handlePing, PingMessage } from "./requests/ping";
-export { handleStartFlow, StartFlowMessage } from "./requests/start-flow";
-export { handleStopFlow, StopFlowMessage } from "./requests/stop-flow";
+export { handleStartStrategy, StartStrategyMessage } from "./requests/start-strategy";
+export { handleStopStrategy, StopStrategyMessage } from "./requests/stop-strategy";
 export { handleSubscribe, SubscribeMessage } from "./requests/subscribe";
 export { handleUnsubscribe, UnsubscribeMessage } from "./requests/unsubscribe";
 export { handleUserInput, UserInputMessage } from "./requests/user-input";
@@ -23,14 +23,14 @@ export { AgentStreamingMessage } from "./responses/agent-streaming";
 export type { AgentStreamEventWire } from "./responses/agent-streaming/agent-streaming.schema";
 export { AgentStreamEventSchema } from "./responses/agent-streaming/agent-streaming.schema";
 export { ErrorMessage } from "./responses/error";
-export { FlowCompletedMessage } from "./responses/flow-completed";
-export { FlowErrorMessage } from "./responses/flow-error";
-export type { ErrorInfo } from "./responses/flow-error/flow-error.schema";
-export { ErrorInfoSchema } from "./responses/flow-error/flow-error.schema";
-export { FlowListMessage } from "./responses/flow-list";
-export type { RunSummary } from "./responses/flow-list/flow-list.schema";
-export { RunSummarySchema } from "./responses/flow-list/flow-list.schema";
-export { FlowStartedMessage } from "./responses/flow-started";
+export { StrategyCompletedMessage } from "./responses/strategy-completed";
+export { StrategyErrorMessage } from "./responses/strategy-error";
+export type { ErrorInfo } from "./responses/strategy-error/strategy-error.schema";
+export { ErrorInfoSchema } from "./responses/strategy-error/strategy-error.schema";
+export { StrategyListMessage } from "./responses/strategy-list";
+export type { RunSummary } from "./responses/strategy-list/strategy-list.schema";
+export { RunSummarySchema } from "./responses/strategy-list/strategy-list.schema";
+export { StrategyStartedMessage } from "./responses/strategy-started";
 export { PongMessage } from "./responses/pong";
 export { RequestInputMessage } from "./responses/request-input";
 // Colocated schemas re-exported for public API

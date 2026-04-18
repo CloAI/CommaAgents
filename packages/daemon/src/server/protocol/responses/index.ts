@@ -5,10 +5,10 @@
 export { AgentOutputMessage } from "./agent-output";
 export { AgentStreamingMessage } from "./agent-streaming";
 export { ErrorMessage } from "./error";
-export { FlowCompletedMessage } from "./flow-completed";
-export { FlowErrorMessage } from "./flow-error";
-export { FlowListMessage } from "./flow-list";
-export { FlowStartedMessage } from "./flow-started";
+export { StrategyCompletedMessage } from "./strategy-completed";
+export { StrategyErrorMessage } from "./strategy-error";
+export { StrategyListMessage } from "./strategy-list";
+export { StrategyStartedMessage } from "./strategy-started";
 export { PongMessage } from "./pong";
 export { RequestInputMessage } from "./request-input";
 // Shared response schemas

@@ -1,0 +1,81 @@
+---
+title: hookIntoAgent
+description: Intercept, observe, and transform agent behavior with hookIntoAgent.
+---
+`hookIntoAgent` appends lifecycle hooks to an existing agent. It mutates the agent in-place.
+
+```ts
+import { createAgent, hookIntoAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "assistant",
+  model: "openai/gpt-4o",
+});
+
+hookIntoAgent(agent, {
+  alterCallMessage: [async (msg) => `[context] ${msg}`],
+  beforeCall: [async (msg) => console.log("Sending:", msg)],
+  afterCallResult: [async (result) => console.log("Received:", result.text)],
+  alterResponse: [async (text) => text.trim()],
+});
+
+const result = await agent.call("Hello");
+console.log(result.text);
+```
+
+Multiple `hookIntoAgent` calls stack — each call appends to the existing hooks rather than replacing them.
+
+
+### AgentHooks
+
+<AutoTypeTable path="../packages/core/src/agents/hooks/hooks.types.ts" name="AgentHooks" />
+
+### ToolHooks
+
+<AutoTypeTable path="../packages/core/src/agents/hooks/hooks.types.ts" name="ToolHooks" />
+
+## Lifecycle Order
+
+Hooks run in a predictable sequence around every agent call:
+
+```
+alterCallMessage → beforeCall → [LLM call] → afterCallResult → alterResponse
+```
+
+You can think of each stage as answering a different question:
+
+- `alterCallMessage`: What should be sent to the model?
+- `beforeCall`: What should happen right before the request is made?
+- `[LLM call]`: The model generates a result.
+- `afterCallResult`: What should inspect or record the full result object?
+- `alterResponse`: What final text should the caller receive?
+
+On the **first call**, the `*First*` variants take priority for their matching stage. If a `*First*` hook is not provided, the regular hook for that stage runs instead. After the first call, only the regular hooks are used.
+
+```ts
+hookIntoAgent(agent, {
+  beforeFirstCall: [async () => console.log("First call only")],
+  beforeCall: [async () => console.log("Every call after the first")],
+});
+
+await agent.call("first");  // logs "First call only"
+await agent.call("second"); // logs "Every call after the first"
+
+agent.reset(); // resets first-call flag
+await agent.call("third");  // logs "First call only" again
+```
+
+## Tool Hooks
+
+Tool hooks fire around each individual tool invocation within an agent call. Pass them alongside agent hooks:
+
+```ts
+hookIntoAgent(agent, {
+  beforeToolCall: [async ({ name, args }) => {
+    console.log(`Calling tool ${name} with ${args}`);
+  }],
+  afterToolCall: [async ({ name, args, result }) => {
+    console.log(`Tool ${name} returned: ${result}`);
+  }],
+});
+```

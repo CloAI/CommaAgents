@@ -12,7 +12,7 @@ import type { Logger } from "@comma-agents/daemon";
 /**
  * Create and register a mock LanguageModel for a given model string.
  *
- * The mock returns a fixed text response and an empty stream.
+ * The mock returns a fixed text response via both doGenerate and doStream.
  * Must be paired with resetModelRegistry() in afterEach.
  *
  * @param modelString - Model identifier (e.g. "openai/gpt-4o")
@@ -43,6 +43,23 @@ export function registerMockModel(modelString: string, responseText?: string): v
     doStream: async () => ({
       stream: new ReadableStream({
         start(controller) {
+          const textId = "text-0";
+          controller.enqueue({ type: "text-start" as const, id: textId });
+          controller.enqueue({ type: "text-delta" as const, delta: text, id: textId });
+          controller.enqueue({ type: "text-end" as const, id: textId });
+          controller.enqueue({
+            type: "finish" as const,
+            finishReason: { unified: "stop" as const, raw: undefined },
+            usage: {
+              inputTokens: {
+                total: 10,
+                noCache: undefined,
+                cacheRead: undefined,
+                cacheWrite: undefined,
+              },
+              outputTokens: { total: 20, text: undefined, reasoning: undefined },
+            },
+          });
           controller.close();
         },
       }),

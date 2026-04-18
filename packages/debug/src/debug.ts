@@ -1,9 +1,9 @@
 // debugAgent + debugFlow — hook verbose logging into existing agents and flows.
 //
 // These follow the hookInto* pattern: they mutate in-place via hookIntoAgent
-// and hookIntoFlow, returning the same reference for chaining.
+// and hookIntoFlow.
 
-import type { Agent } from "@comma-agents/core";
+import type { Agent, AgentCallResult } from "@comma-agents/core";
 import { hookIntoAgent, hookIntoFlow } from "@comma-agents/core";
 import type { DebugOptions } from "./debug.types";
 import {
@@ -28,7 +28,6 @@ import {
  *
  * @param agent - An agent created by `createAgent()`.
  * @param options - Debug output options.
- * @returns The same agent reference (for chaining).
  *
  * @example
  * ```ts
@@ -45,7 +44,7 @@ import {
  * // Logs: [writer] -> "The weather in Tokyo is..."
  * ```
  */
-export function debugAgent(agent: Agent, options?: DebugOptions): Agent {
+export function debugAgent(agent: Agent, options?: DebugOptions): void {
   const opts = resolveOptions(options);
   const emit = (line: string) => opts.output(breakLines(line, opts.breakLineAfter));
 
@@ -59,9 +58,9 @@ export function debugAgent(agent: Agent, options?: DebugOptions): Agent {
         emit(`[${agent.name}] <- "${formatText(message, opts)}"`);
       },
     ],
-    afterCall: [
-      async (response: string) => {
-        emit(`[${agent.name}] -> "${formatText(response, opts)}"`);
+    afterCallResult: [
+      async (result: AgentCallResult) => {
+        emit(`[${agent.name}] -> "${formatText(result.text, opts)}"`);
       },
     ],
     beforeToolCall: [
@@ -82,8 +81,6 @@ export function debugAgent(agent: Agent, options?: DebugOptions): Agent {
       },
     ],
   });
-
-  return agent;
 }
 
 // debugFlow
@@ -101,7 +98,6 @@ export function debugAgent(agent: Agent, options?: DebugOptions): Agent {
  *
  * @param flow - A flow agent created by a flow factory.
  * @param options - Debug output options.
- * @returns The same flow reference (for chaining).
  *
  * @example
  * ```ts
@@ -118,7 +114,7 @@ export function debugAgent(agent: Agent, options?: DebugOptions): Agent {
  * // Logs each step with input/output/tokens
  * ```
  */
-export function debugFlow(flow: Agent, options?: DebugOptions): Agent {
+export function debugFlow(flow: Agent, options?: DebugOptions): void {
   const opts = resolveOptions(options);
   const emit = (line: string) => opts.output(breakLines(line, opts.breakLineAfter));
 
@@ -163,6 +159,4 @@ export function debugFlow(flow: Agent, options?: DebugOptions): Agent {
       },
     ],
   });
-
-  return flow;
 }

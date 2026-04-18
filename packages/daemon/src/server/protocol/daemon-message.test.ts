@@ -5,10 +5,10 @@ import { DaemonMessage, parseDaemonMessage } from "./messages";
 import { AgentOutputMessage } from "./responses/agent-output";
 import { AgentStreamingMessage } from "./responses/agent-streaming";
 import { ErrorMessage } from "./responses/error";
-import { FlowCompletedMessage } from "./responses/flow-completed";
-import { FlowErrorMessage } from "./responses/flow-error";
-import { FlowListMessage } from "./responses/flow-list";
-import { FlowStartedMessage } from "./responses/flow-started";
+import { StrategyCompletedMessage } from "./responses/strategy-completed";
+import { StrategyErrorMessage } from "./responses/strategy-error";
+import { StrategyListMessage } from "./responses/strategy-list";
+import { StrategyStartedMessage } from "./responses/strategy-started";
 import { PongMessage } from "./responses/pong";
 import { RequestInputMessage } from "./responses/request-input";
 import { StepCompletedMessage } from "./responses/step-completed";
@@ -20,35 +20,35 @@ const agentResult = { text: "done", usage, finishReason: "stop" };
 
 // Individual message schemas
 
-describe("FlowStartedMessage", () => {
+describe("StrategyStartedMessage", () => {
   test("parses valid message", () => {
     const msg = {
-      type: "flow_started",
+      type: "strategy_started",
       ts,
       runId: "run-1",
       strategyName: "test",
       agents: ["agent-a", "agent-b"],
       flowTree: { root: { type: "sequential" } },
     };
-    expect(FlowStartedMessage.parse(msg)).toEqual(msg);
+    expect(StrategyStartedMessage.parse(msg)).toEqual(msg);
   });
 
   test("accepts empty agents array", () => {
     const msg = {
-      type: "flow_started",
+      type: "strategy_started",
       ts,
       runId: "run-1",
       strategyName: "test",
       agents: [],
       flowTree: {},
     };
-    expect(FlowStartedMessage.parse(msg).agents).toEqual([]);
+    expect(StrategyStartedMessage.parse(msg).agents).toEqual([]);
   });
 
   test("rejects missing runId", () => {
     expect(
-      FlowStartedMessage.safeParse({
-        type: "flow_started",
+      StrategyStartedMessage.safeParse({
+        type: "strategy_started",
         ts,
         strategyName: "t",
         agents: [],
@@ -59,8 +59,8 @@ describe("FlowStartedMessage", () => {
 
   test("rejects missing ts", () => {
     expect(
-      FlowStartedMessage.safeParse({
-        type: "flow_started",
+      StrategyStartedMessage.safeParse({
+        type: "strategy_started",
         runId: "r",
         strategyName: "t",
         agents: [],
@@ -70,41 +70,46 @@ describe("FlowStartedMessage", () => {
   });
 });
 
-describe("FlowCompletedMessage", () => {
+describe("StrategyCompletedMessage", () => {
   test("parses valid message", () => {
-    const msg = { type: "flow_completed", ts, runId: "run-1", result: "final output", usage };
-    expect(FlowCompletedMessage.parse(msg)).toEqual(msg);
+    const msg = { type: "strategy_completed", ts, runId: "run-1", result: "final output", usage };
+    expect(StrategyCompletedMessage.parse(msg)).toEqual(msg);
   });
 
   test("rejects missing result", () => {
     expect(
-      FlowCompletedMessage.safeParse({ type: "flow_completed", ts, runId: "r", usage }).success,
+      StrategyCompletedMessage.safeParse({ type: "strategy_completed", ts, runId: "r", usage })
+        .success,
     ).toBe(false);
   });
 
   test("rejects missing usage", () => {
     expect(
-      FlowCompletedMessage.safeParse({ type: "flow_completed", ts, runId: "r", result: "ok" })
-        .success,
+      StrategyCompletedMessage.safeParse({
+        type: "strategy_completed",
+        ts,
+        runId: "r",
+        result: "ok",
+      }).success,
     ).toBe(false);
   });
 });
 
-describe("FlowErrorMessage", () => {
+describe("StrategyErrorMessage", () => {
   test("parses valid message", () => {
     const msg = {
-      type: "flow_error",
+      type: "strategy_error",
       ts,
       runId: "run-1",
       error: { code: "EXEC_FAILED", message: "Agent crashed" },
     };
-    expect(FlowErrorMessage.parse(msg)).toEqual(msg);
+    expect(StrategyErrorMessage.parse(msg)).toEqual(msg);
   });
 
   test("rejects error missing code", () => {
     expect(
-      FlowErrorMessage.safeParse({
-        type: "flow_error",
+      StrategyErrorMessage.safeParse({
+        type: "strategy_error",
         ts,
         runId: "r",
         error: { message: "oops" },
@@ -283,10 +288,10 @@ describe("RequestInputMessage", () => {
   });
 });
 
-describe("FlowListMessage", () => {
+describe("StrategyListMessage", () => {
   test("parses valid message with runs", () => {
     const msg = {
-      type: "flow_list",
+      type: "strategy_list",
       ts,
       runs: [
         {
@@ -297,22 +302,22 @@ describe("FlowListMessage", () => {
         },
       ],
     };
-    expect(FlowListMessage.parse(msg).runs).toHaveLength(1);
+    expect(StrategyListMessage.parse(msg).runs).toHaveLength(1);
   });
 
   test("parses valid message with empty runs", () => {
-    const msg = { type: "flow_list", ts, runs: [] };
-    expect(FlowListMessage.parse(msg).runs).toEqual([]);
+    const msg = { type: "strategy_list", ts, runs: [] };
+    expect(StrategyListMessage.parse(msg).runs).toEqual([]);
   });
 
   test("rejects missing runs array", () => {
-    expect(FlowListMessage.safeParse({ type: "flow_list", ts }).success).toBe(false);
+    expect(StrategyListMessage.safeParse({ type: "strategy_list", ts }).success).toBe(false);
   });
 
   test("rejects run with invalid status", () => {
     expect(
-      FlowListMessage.safeParse({
-        type: "flow_list",
+      StrategyListMessage.safeParse({
+        type: "strategy_list",
         ts,
         runs: [{ runId: "r", strategyName: "s", status: "paused", startedAt: ts }],
       }).success,
@@ -357,37 +362,37 @@ describe("ErrorMessage", () => {
 // DaemonMessage discriminated union
 
 describe("DaemonMessage union", () => {
-  test("routes flow_started correctly", () => {
+  test("routes strategy_started correctly", () => {
     const result = DaemonMessage.parse({
-      type: "flow_started",
+      type: "strategy_started",
       ts,
       runId: "r",
       strategyName: "s",
       agents: [],
       flowTree: {},
     });
-    expect(result.type).toBe("flow_started");
+    expect(result.type).toBe("strategy_started");
   });
 
-  test("routes flow_completed correctly", () => {
+  test("routes strategy_completed correctly", () => {
     const result = DaemonMessage.parse({
-      type: "flow_completed",
+      type: "strategy_completed",
       ts,
       runId: "r",
       result: "ok",
       usage,
     });
-    expect(result.type).toBe("flow_completed");
+    expect(result.type).toBe("strategy_completed");
   });
 
-  test("routes flow_error correctly", () => {
+  test("routes strategy_error correctly", () => {
     const result = DaemonMessage.parse({
-      type: "flow_error",
+      type: "strategy_error",
       ts,
       runId: "r",
       error: { code: "ERR", message: "fail" },
     });
-    expect(result.type).toBe("flow_error");
+    expect(result.type).toBe("strategy_error");
   });
 
   test("routes agent_output correctly", () => {
@@ -445,13 +450,13 @@ describe("DaemonMessage union", () => {
     expect(result.type).toBe("request_input");
   });
 
-  test("routes flow_list correctly", () => {
+  test("routes strategy_list correctly", () => {
     const result = DaemonMessage.parse({
-      type: "flow_list",
+      type: "strategy_list",
       ts,
       runs: [],
     });
-    expect(result.type).toBe("flow_list");
+    expect(result.type).toBe("strategy_list");
   });
 
   test("routes pong correctly", () => {

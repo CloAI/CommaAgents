@@ -54,9 +54,10 @@ import type { CycleFlowConfig, CycleHooks } from "../../flow/flow.types";
 export function createCycleFlow(config: CycleFlowConfig): Agent {
   const cycles = config.cycles ?? 1;
 
-  // Shallow copy of config hooks — the store is read by the executor on each
-  // cycle, so hooks appended via hookIntoFlow take effect on subsequent calls.
-  const store: HookStore<CycleHooks> = { ...config.hooks };
+  // Empty hook store — hooks are attached via hookIntoFlow after creation.
+  // The store is read by the executor on each cycle, so hooks appended
+  // via hookIntoFlow take effect on subsequent calls.
+  const store: HookStore<CycleHooks> = {};
 
   // If observer is provided, prepend it as the first alterMessageAfterCycle hook.
   if (config.observer) {

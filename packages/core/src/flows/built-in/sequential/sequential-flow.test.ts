@@ -3,7 +3,8 @@
 import { describe, expect, it } from "bun:test";
 import type { Agent } from "../../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../../errors/index";
-import type { FlowHooks, FlowResult } from "../../flow/flow.types";
+import type { FlowResult } from "../../flow/flow.types";
+import { hookIntoFlow } from "../../hook-into-flow/hook-into-flow";
 import { makeAgent } from "../../test.utils";
 import { createSequentialFlow } from "./sequential-flow";
 
@@ -94,16 +95,15 @@ describe("createSequentialFlow", () => {
     await expect(flow.call("test")).rejects.toThrow('Step "bad" failed: oops');
   });
 
-  it("applies flow hooks", async () => {
-    const hooks: FlowHooks = {
-      alterMessageBeforeFlow: [async (msg) => `[${msg}]`],
-      alterMessageAfterFlow: [async (msg) => msg.toUpperCase()],
-    };
-
+  it("applies flow hooks via hookIntoFlow", async () => {
     const flow = createSequentialFlow({
       name: "hooked",
       steps: [makeAgent("a", (msg) => `echo:${msg}`)],
-      hooks,
+    });
+
+    hookIntoFlow(flow, {
+      alterMessageBeforeFlow: [async (msg) => `[${msg}]`],
+      alterMessageAfterFlow: [async (msg) => msg.toUpperCase()],
     });
 
     const result = await flow.call("hi");

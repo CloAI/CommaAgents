@@ -1,0 +1,32 @@
+---
+title: read
+description: Read file contents with line numbers or list directory entries.
+---
+
+The read tool reads file contents with line-number prefixes (e.g., `1: content`) or lists directory entries. It supports pagination via offset and limit for large files.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "explorer",
+  model: "openai/gpt-4o",
+  tools: ["read"],
+});
+```
+
+## Parameters
+
+The agent provides these parameters when invoking the tool:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `filePath` | `string` | Path to the file or directory to read. |
+| `offset` | `number?` | Line number to start from (1-indexed). Defaults to 1. |
+| `limit` | `number?` | Maximum number of lines to return. Defaults to 2,000. |
+
+## Behavior
+
+- **Files**: Returns contents with each line prefixed by its line number. Lines exceeding the max length are truncated. A footer indicates whether more lines are available.
+- **Directories**: Returns a listing of entries, with trailing `/` for subdirectories.
+- Returns an error message (not an exception) if the path does not exist.

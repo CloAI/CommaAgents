@@ -30,7 +30,7 @@ import {
   registerTool,
   resetToolRegistry,
 } from "@comma-agents/core";
-import type { LLMCallResult, AgentHooks, ToolHooks } from "@comma-agents/core";
+import type { AgentHooks, ToolHooks } from "@comma-agents/core";
 import { createToolCallingMockModel } from "./helpers/mock-model";
 import {
   createCounterTool,
@@ -82,7 +82,7 @@ describe("E2E: Agent Tool Calling", () => {
       expect(result.text).toBe("The echo tool said: hello world");
       expect(result.finishReason).toBe("stop");
       // Should have 2 steps: tool-call step + final text step
-      expect((result as LLMCallResult).steps.length).toBeGreaterThanOrEqual(2);
+      expect(result.steps.length).toBeGreaterThanOrEqual(2);
     });
 
     it("should record tool calls in step results", async () => {
@@ -114,7 +114,7 @@ describe("E2E: Agent Tool Calling", () => {
       expect(calls[0]!.agentName).toBe("step-recorder");
 
       // Steps should contain tool call info
-      const toolStep = (result as LLMCallResult).steps.find(
+      const toolStep = result.steps.find(
         (s: any) => s.toolCalls && s.toolCalls.length > 0,
       );
       expect(toolStep).toBeDefined();
@@ -168,7 +168,7 @@ describe("E2E: Agent Tool Calling", () => {
       expect(calls.length).toBe(1); // recorder called once
       expect(calls[0]!.args.input).toBe("logging weather data");
       // Should have at least 3 steps (2 tool rounds + 1 text round)
-      expect((result as LLMCallResult).steps.length).toBeGreaterThanOrEqual(3);
+      expect(result.steps.length).toBeGreaterThanOrEqual(3);
     });
 
     it("should handle multiple tool calls in a single round", async () => {
@@ -311,9 +311,9 @@ describe("E2E: Agent Tool Calling", () => {
             order.push("agent:beforeCall");
           },
         ],
-        afterCall: [
+        afterCallResult: [
           async () => {
-            order.push("agent:afterCall");
+            order.push("agent:afterCallResult");
           },
         ],
       };
@@ -351,11 +351,11 @@ describe("E2E: Agent Tool Calling", () => {
 
       await agent.call("Test order");
 
-      // Agent beforeCall fires first, then tool hooks during execution, then agent afterCall
+      // Agent beforeCall fires first, then tool hooks during execution, then agent afterCallResult
       expect(order[0]).toBe("agent:beforeCall");
       expect(order).toContain("tool:before:echo");
       expect(order).toContain("tool:after:echo");
-      expect(order[order.length - 1]).toBe("agent:afterCall");
+      expect(order[order.length - 1]).toBe("agent:afterCallResult");
     });
   });
 
@@ -426,7 +426,7 @@ describe("E2E: Agent Tool Calling", () => {
 
       // The agent should have stopped at the internal default max steps (10)
       expect(getCount()).toBeLessThanOrEqual(10);
-      expect((result as LLMCallResult).steps.length).toBeLessThanOrEqual(10);
+      expect(result.steps.length).toBeLessThanOrEqual(10);
     });
   });
 
@@ -540,7 +540,7 @@ describe("E2E: Agent Tool Calling", () => {
       const result = await agent.call("What is 6 times 7?");
 
       expect(result.text).toBe("6 * 7 = 42, confirmed by echo");
-      expect((result as LLMCallResult).steps.length).toBeGreaterThanOrEqual(3);
+      expect(result.steps.length).toBeGreaterThanOrEqual(3);
     });
   });
 });

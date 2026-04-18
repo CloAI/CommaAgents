@@ -1,0 +1,4 @@
+{
+  "title": "Protocol",
+  "pages": ["ping", "strategy-execution", "strategy-observation", "user-input", "list-and-subscribe", "shared-types"]
+}

@@ -29,6 +29,8 @@ export function makeAgent(
         text,
         usage: tokens,
         finishReason: "stop",
+        responseMessages: [],
+        steps: [],
       };
     },
     reset(): void {},
@@ -67,6 +69,8 @@ export function makeCountingAgent(name: string): { agent: Agent; getCount: () =>
         text: `${message}[${name}:${count}]`,
         usage: { promptTokens: 1, completionTokens: 1 },
         finishReason: "stop",
+        responseMessages: [],
+        steps: [],
       };
     },
     reset(): void {

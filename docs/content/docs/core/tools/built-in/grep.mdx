@@ -1,0 +1,34 @@
+---
+title: grep
+description: Search file contents by regular expression.
+---
+
+The grep tool recursively searches files for lines matching a regular expression. It returns file paths with matching line numbers and content.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "searcher",
+  model: "openai/gpt-4o",
+  tools: ["grep"],
+});
+```
+
+## Parameters
+
+The agent provides these parameters when invoking the tool:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `pattern` | `string` | Regular expression pattern to search for. |
+| `path` | `string?` | Directory to search in. Defaults to the current working directory. |
+| `include` | `string?` | File pattern to filter which files are searched (e.g., `*.ts`, `*.{ts,tsx}`). |
+
+## Behavior
+
+- Searches recursively from the given directory (or cwd).
+- Skips hidden directories (`.git`, etc.) and `node_modules`.
+- Skips files larger than the default maximum size (1 MB).
+- Results are grouped by file, with matching line numbers and content.
+- Matching files are capped at the default maximum (100).

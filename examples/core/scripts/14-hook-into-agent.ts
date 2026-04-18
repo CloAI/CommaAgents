@@ -13,7 +13,6 @@
  *   - hookIntoAgent(agent, hooks) — bulk-append hooks from an AgentHooks object
  *   - appendHook(hookName, callback) — append a single hook callback
  *   - Multiple hookIntoAgent calls stack hooks
- *   - hookIntoAgent returns the same agent reference (enables chaining)
  *
  * Run:
  *   MODEL=openai/gpt-4o bun run examples/14-hook-into-agent.ts
@@ -40,9 +39,9 @@ const loggingHooks: AgentHooks = {
       console.log(`  [log] beforeCall — "${message.slice(0, 60)}..."`);
     },
   ],
-  afterCall: [
-    async (response) => {
-      console.log(`  [log] afterCall — ${response.length} chars`);
+  afterCallResult: [
+    async (result) => {
+      console.log(`  [log] afterCallResult — ${result.text.length} chars`);
     },
   ],
 };
@@ -58,7 +57,7 @@ const metricsHooks: AgentHooks = {
       console.time("  [metrics] call duration");
     },
   ],
-  afterCall: [
+  afterCallResult: [
     async () => {
       console.timeEnd("  [metrics] call duration");
     },
@@ -103,14 +102,13 @@ async function main() {
   console.log("  Logging hooks attached.\n");
 
   // -------------------------------------------------------------------------
-  // 3. Chain another hookIntoAgent call to attach metrics
+  // 3. Attach metrics hooks
   // -------------------------------------------------------------------------
 
-  console.log("=== Step 3: Chain metrics hooks (hookIntoAgent returns same ref) ===\n");
+  console.log("=== Step 3: Attach metrics hooks ===\n");
 
-  const sameAgent = hookIntoAgent(agent, metricsHooks);
-  console.log(`  Same reference? ${sameAgent === agent}`); // true
-  console.log();
+  hookIntoAgent(agent, metricsHooks);
+  console.log("  Metrics hooks attached.\n");
 
   // -------------------------------------------------------------------------
   // 4. Use appendHook directly for a one-off hook

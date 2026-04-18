@@ -1,7 +1,10 @@
 // Agent types — all agent-domain type definitions.
 
-import type { tool as aiTool, LanguageModel, ModelMessage, StepResult, stepCountIs } from "ai";
-import type { ConversationTurn, PromptTemplate, ResponseMessage } from "../../prompts/types";
+import type { AbortableAsyncGenerator, AbortablePromise } from "@comma-agents/utils";
+import type { tool as aiTool, LanguageModel, ModelMessage, StepResult } from "ai";
+import type { ConversationContext } from "../../context/conversation-context";
+import type { ConversationTurn, ResponseMessage } from "../../context/conversation-context.types";
+import type { PromptTemplate } from "../../prompts/types";
 
 /** Configuration for creating an LLM-backed agent via `createAgent()`. */
 export interface AgentConfig {
@@ -51,11 +54,8 @@ export interface AgentConfig {
    * Custom execute override — replaces the LLM call with arbitrary logic.
    *
    * When set, `model` is not required. Return a plain `string` (a synthetic
-   * `LLMCallResult` with an `{ role: "assistant" }` message will be created
-   * automatically) or a full `LLMCallResult` for complete control.
-   *
-   * Streaming is not supported when `execute` is set — calling `stream()`
-   * will throw.
+   * result with an `{ role: "assistant" }` message will be created
+   * automatically) or a full `AgentCallResult` for complete control.
    *
    * @example
    * ```ts
@@ -65,53 +65,7 @@ export interface AgentConfig {
    * });
    * ```
    */
-  readonly execute?: (message: string) => Promise<string | LLMCallResult>;
-}
-
-/**
- * A promise that can be cancelled by calling `.abort()`.
- *
- * Internally creates an `AbortController` and passes its signal to the
- * underlying operation. Calling `.abort()` triggers `AbortSignal.abort()`
- * on that controller, cancelling the in-flight operation.
- *
- * @example
- * ```ts
- * const pending = agent.call("Write a story");
- * setTimeout(() => pending.abort(), 2000);
- * try {
- *   const result = await pending;
- * } catch (error) {
- *   // AbortError if abort() was called before completion
- * }
- * ```
- */
-export interface AbortablePromise<ResultType> extends Promise<ResultType> {
-  /** Cancel the in-flight operation. */
-  abort(): void;
-}
-
-/**
- * An async generator that can be cancelled by calling `.abort()`.
- *
- * Internally creates an `AbortController` and passes its signal to the
- * underlying stream. Calling `.abort()` cancels the in-flight stream.
- *
- * @example
- * ```ts
- * const stream = agent.stream("Write a story");
- * setTimeout(() => stream.abort(), 2000);
- * try {
- *   for await (const event of stream) { ... }
- * } catch (error) {
- *   // AbortError if abort() was called before completion
- * }
- * ```
- */
-export interface AbortableAsyncGenerator<YieldType>
-  extends AsyncGenerator<YieldType, void, undefined> {
-  /** Cancel the in-flight stream. */
-  abort(): void;
+  readonly execute?: (message: string) => Promise<string | AgentCallResult>;
 }
 
 /**
@@ -121,7 +75,7 @@ export interface AbortableAsyncGenerator<YieldType>
  * **Required fields** (`name`, `call`, `reset`) are the polymorphic minimum
  * that flows and orchestration depend on.
  *
- * **Optional fields** (`stream`, `getHistory`, `getTurns`, `config`) are
+ * **Optional fields** (`stream`, `getConversationContext`, `config`) are
  * provided by LLM-backed agents created via `createAgent()`. Consumer code
  * that needs LLM-specific features can check for their existence or work
  * with a known `createAgent()` result.
@@ -136,13 +90,18 @@ export interface AbortableAsyncGenerator<YieldType>
  *
  * // LLM-specific features are optional
  * const agent = createAgent({ name: "writer", model: "openai/gpt-4o" });
- * const history = agent.getHistory();            // always present on createAgent results
+ * const context = agent.getConversationContext();   // always present on createAgent results
+ * const messages = context.allMessages();            // flat ModelMessage[]
+ * const turns = context.allTurns();                  // structured turns
  * for await (const event of agent.stream("Hi")) { ... }
  * ```
  */
 export interface Agent {
   /** Unique name for this agent. */
   readonly name: string;
+
+  /** The agent's configuration. */
+  readonly config?: AgentConfig;
 
   /**
    * Call the agent with a message.
@@ -151,9 +110,6 @@ export interface Agent {
    */
   call(message: string): AbortablePromise<AgentCallResult>;
 
-  /** Reset internal state (history, first-call flag, etc.). */
-  reset(): void;
-
   // -- Optional LLM-specific fields (present on createAgent results) --
 
   /**
@@ -161,12 +117,16 @@ export interface Agent {
    * Returns an AbortableAsyncGenerator — call `.abort()` to cancel the stream.
    */
   stream?(message: string): AbortableAsyncGenerator<AgentStreamEvent>;
-  /** Get conversation history as AI SDK messages. */
-  getHistory?(): readonly ModelMessage[];
-  /** Get conversation turns (user+assistant pairs). */
-  getTurns?(): readonly ConversationTurn[];
-  /** The agent's configuration. */
-  readonly config?: AgentConfig;
+
+  /**
+   * The conversation context — all turns, messages, and context management.
+   * Provides `allMessages()`, `allTurns()`, `lastTurn()`, `estimateTokens()`,
+   * snapshot/restore, and iteration over turns.
+   */
+  getConversationContext?(): ConversationContext;
+
+  /** Reset internal state (history, first-call flag, etc.). */
+  reset(): void;
 
   /**
    * Append a hook callback to this agent's lifecycle.
@@ -177,12 +137,20 @@ export interface Agent {
 }
 
 /**
- * Result from any agent call — the minimal contract that all agents
- * (LLM-backed, human-in-the-loop, custom) must satisfy.
+ * Result from any agent call.
  *
- * Contains only the fields that flows and orchestration actually consume.
- * For LLM-specific details (response messages, step introspection), see
- * {@link LLMCallResult}.
+ * Contains the response text, token usage, finish reason, and the full
+ * response message chain and step details. Non-LLM agents (mocks, flows,
+ * custom execute overrides) provide empty arrays for `responseMessages`
+ * and `steps`.
+ *
+ * @example
+ * ```ts
+ * const result = await agent.call("Hello");
+ * console.log(result.text);               // final text
+ * console.log(result.responseMessages);    // full message chain
+ * console.log(result.steps);              // tool calls, reasoning, etc.
+ * ```
  */
 export interface AgentCallResult {
   /** The final text response from the agent. */
@@ -194,33 +162,13 @@ export interface AgentCallResult {
   };
   /** Why the agent stopped (e.g., "stop", "tool-calls", "length"). */
   readonly finishReason: string;
-}
-
-/**
- * Extended call result for LLM-backed agents (`createAgent`).
- *
- * Adds AI SDK-specific fields that are meaningful only when an LLM was
- * invoked. Flows and orchestration work with `AgentCallResult`; consumers
- * who need LLM details can narrow to `LLMCallResult` when working with
- * a known `createAgent()` instance.
- *
- * @example
- * ```ts
- * const agent = createAgent({ name: "writer", model: "openai/gpt-4o" });
- * const result = await agent.call("Hello"); // typed as LLMCallResult
- * console.log(result.responseMessages); // full AI SDK message chain
- * console.log(result.steps);            // tool calls, reasoning, etc.
- * ```
- */
-export interface LLMCallResult extends AgentCallResult {
   /**
-   * The response messages from the AI SDK.
-   * Contains the full assistant + tool message chain, preserving tool calls,
+   * The full assistant + tool message chain, preserving tool calls,
    * tool results, reasoning, and multi-modal content.
-   * This is exactly `result.response.messages` from the AI SDK.
+   * Empty array for non-LLM agents.
    */
   readonly responseMessages: readonly ResponseMessage[];
-  /** All steps taken during this call (LLM calls + tool executions). */
+  /** All steps taken during this call (LLM calls + tool executions). Empty array for non-LLM agents. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK step generics are complex
   readonly steps: ReadonlyArray<StepResult<any>>;
 }
@@ -240,6 +188,5 @@ export interface CallOptions {
   readonly messages: ModelMessage[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
   readonly tools: Record<string, ReturnType<typeof aiTool<any, any>>> | undefined;
-  readonly stopWhen: ReturnType<typeof stepCountIs>;
   readonly abortSignal: AbortSignal | undefined;
 }

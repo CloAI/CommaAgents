@@ -10,7 +10,7 @@ Runnable examples demonstrating the daemon WebSocket API. Each example connects 
    bun install
    ```
 
-2. Install an AI SDK provider package (at least one):
+2. Install a provider package (at least one):
 
    ```sh
    bun add @ai-sdk/openai            # for openai/* models

@@ -33,7 +33,7 @@ import { buildAgentRegistry, buildFlow } from "./loader.utils";
  * loading a strategy.
  *
  * @param filePath - Absolute or relative path to the strategy file.
- * @param options  - Input collector, hooks, abort signal, model override.
+ * @param options  - Input collector, flow hooks, model override.
  * @returns The loaded strategy with a runnable entry flow.
  * @throws {StrategyValidationError} If the file is invalid or missing required fields.
  *

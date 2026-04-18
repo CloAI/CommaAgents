@@ -37,7 +37,7 @@ interface AppProps {
 // Interactive mode screens
 // ---------------------------------------------------------------------------
 
-type Screen = "provider" | "example" | "running";
+type Screen = "provider" | "example" | "running" | "running_all";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -71,6 +71,10 @@ function InteractiveMode() {
     setScreen("running");
   };
 
+  const handleRunAll = () => {
+    setScreen("running_all");
+  };
+
   const handleBack = () => {
     setProvider(null);
     setScreen("provider");
@@ -81,16 +85,31 @@ function InteractiveMode() {
     setScreen("example");
   };
 
+  const handleBatchDone = () => {
+    setScreen("example");
+  };
+
   if (screen === "provider") {
     return <ProviderSelect onSelect={handleProviderSelect} />;
   }
 
   if (screen === "example" && provider) {
-    return <ExampleSelect provider={provider} onSelect={handleExampleSelect} onBack={handleBack} />;
+    return (
+      <ExampleSelect
+        provider={provider}
+        onSelect={handleExampleSelect}
+        onRunAll={handleRunAll}
+        onBack={handleBack}
+      />
+    );
   }
 
   if (screen === "running" && provider && example) {
     return <ExampleRunner provider={provider} example={example} onDone={handleRunDone} />;
+  }
+
+  if (screen === "running_all" && provider) {
+    return <BatchRunner provider={provider} examples={ALL_EXAMPLES} onDone={handleBatchDone} />;
   }
 
   return null;

@@ -24,7 +24,7 @@ import { buildFlowResult, createFlowContext } from "./flow.utils";
  *
  * @example
  * ```ts
- * const store: HookStore<FlowHooks> = { ...config.hooks };
+ * const store: HookStore<FlowHooks> = {};
  * // store.beforeFlow is ReadonlyArray<SideEffectHook<string>> | undefined — typed correctly
  * // store.beforeFlow = [...(store.beforeFlow ?? []), newHook]; — assignable
  * ```
@@ -47,9 +47,9 @@ export type HookStore<HookType extends FlowHooks = FlowHooks> = {
  * The `store` is read on each call, so hooks appended via `appendHook` take
  * effect on subsequent calls.
  *
- * @param config - Flow configuration (name, steps, abort).
+ * @param config - Flow configuration (name, steps).
  * @param typeName - Identifier for this flow type (for error messages).
- * @param store - Hooks store (typically `{ ...config.hooks }`).
+ * @param store - Mutable hooks store (starts empty; hooks are added via `hookIntoFlow`).
  * @param executor - The orchestration function that defines step execution order.
  * @param onReset - Optional callback fired after steps are reset (e.g. for observer cleanup).
  * @returns An `Agent` implementing the flow.
@@ -59,7 +59,7 @@ export type HookStore<HookType extends FlowHooks = FlowHooks> = {
  * const agent = buildFlowAgent(
  *   config,
  *   "pipeline",
- *   { ...config.hooks },
+ *   {},
  *   async (steps, message, context) => {
  *     let current = message;
  *     for (const step of steps) {
@@ -155,5 +155,5 @@ export function buildFlowAgent<HookType extends FlowHooks = FlowHooks>(
  * ```
  */
 export function createFlow(config: CustomFlowConfig): Agent {
-  return buildFlowAgent(config, "custom", { ...config.hooks }, config.execute);
+  return buildFlowAgent(config, "custom", {}, config.execute);
 }

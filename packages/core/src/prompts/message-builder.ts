@@ -1,11 +1,10 @@
 // Message builder — Pure utility for composing AI SDK message arrays.
 //
-// Combines conversation history with the current user message into
+// Combines conversation context with the current user message into
 // the format expected by `generateText()` / `streamText()`.
-// This is the function that replaces BaseAgent's inline _buildMessages().
 
 import type { ModelMessage } from "ai";
-import type { ConversationHistory } from "./history/conversation-history";
+import type { ConversationContext } from "../context/conversation-context";
 import type { PromptTemplate } from "./types";
 
 // Types
@@ -18,13 +17,13 @@ export interface BuildMessagesOptions {
   readonly message: string;
 
   /**
-   * Conversation history to prepend.
+   * Conversation context to prepend.
    * If not provided, only the current message is included.
    */
-  readonly history?: ConversationHistory;
+  readonly context?: ConversationContext;
 
   /**
-   * Additional context messages to prepend before history.
+   * Additional context messages to prepend before conversation context.
    * Useful for injecting few-shot examples or other context.
    */
   readonly prefix?: readonly ModelMessage[];
@@ -49,12 +48,12 @@ export interface SystemPromptOptions {
  *
  * Composes messages in this order:
  * 1. `prefix` messages (e.g., few-shot examples)
- * 2. Conversation history (from `ConversationHistory`)
+ * 2. Conversation context (from `ConversationContext`)
  * 3. Current user message
  *
  * Returns native AI SDK `ModelMessage[]` that can be passed directly to
  * `generateText()` / `streamText()`. Preserves tool calls, tool results,
- * reasoning, and multi-modal content from the conversation history.
+ * reasoning, and multi-modal content from the conversation context.
  *
  * Note: The system prompt is NOT included in the message array — it should
  * be passed via the `system` parameter of `generateText`/`streamText`.
@@ -63,7 +62,7 @@ export interface SystemPromptOptions {
  * ```ts
  * const messages = buildMessages({
  *   message: "How do I use generics?",
- *   history,
+ *   context,
  *   prefix: [
  *     { role: "user", content: "What is TypeScript?" },
  *     { role: "assistant", content: "TypeScript is a typed superset of JavaScript." },
@@ -87,11 +86,11 @@ export function buildMessages(options: BuildMessagesOptions): readonly ModelMess
     }
   }
 
-  // 2. Conversation history
-  if (options.history && !options.history.isEmpty) {
-    const historyMessages = options.history.toMessages();
-    for (const historyMessage of historyMessages) {
-      messages.push(historyMessage);
+  // 2. Conversation context
+  if (options.context && !options.context.isEmpty) {
+    const contextMessages = options.context.allMessages();
+    for (const contextMessage of contextMessages) {
+      messages.push(contextMessage);
     }
   }
 

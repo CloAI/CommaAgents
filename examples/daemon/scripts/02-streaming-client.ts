@@ -49,6 +49,13 @@ const argv = yargs(hideBin(process.argv))
     default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
     describe: "WebSocket URL of the daemon",
   })
+  .option("model-override", {
+    alias: "m",
+    type: "string",
+    default: process.env.MODEL,
+    describe:
+      'Override the model for all agents (e.g. "anthropic/claude-sonnet-4-20250514"). Also reads MODEL env var.',
+  })
   .example("$0", "Stream with default strategy")
   .example("$0 path/to/strategy.json", "Stream a specific strategy")
   .strict()
@@ -59,11 +66,13 @@ const argv = yargs(hideBin(process.argv))
 
 const DAEMON_URL = argv.daemonUrl as string;
 const STRATEGY_PATH = argv.strategyPath as string;
+const MODEL_OVERRIDE = argv.modelOverride as string | undefined;
 
 async function main() {
   const strategyPath = path.resolve(STRATEGY_PATH);
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
   console.log(`Strategy: ${strategyPath}`);
+  if (MODEL_OVERRIDE) console.log(`Model override: ${MODEL_OVERRIDE}`);
   console.log("Streaming mode — tokens will appear as they arrive.\n");
 
   const ws = new WebSocket(DAEMON_URL);
@@ -74,15 +83,16 @@ async function main() {
   const initialInput = "Write a short haiku about programming.";
 
   ws.onopen = () => {
-    console.log("Connected. Starting flow...\n");
+    console.log("Connected. Starting strategy...\n");
     console.log("─".repeat(60));
 
     ws.send(
       JSON.stringify({
-        type: "start_flow",
+        type: "start_strategy",
         strategyPath,
         input: initialInput,
         requestId: "stream-1",
+        ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
       }),
     );
   };
@@ -95,8 +105,8 @@ async function main() {
         // Ignore keepalive responses
         break;
 
-      case "flow_started":
-        console.log(`Flow started: ${msg.strategyName} (run: ${msg.runId})`);
+      case "strategy_started":
+        console.log(`Strategy started: ${msg.strategyName} (run: ${msg.runId})`);
         console.log("─".repeat(60));
         break;
 
@@ -155,9 +165,9 @@ async function main() {
         );
         break;
 
-      case "flow_completed":
+      case "strategy_completed":
         console.log(`\n${"─".repeat(60)}`);
-        console.log(`Flow completed (run: ${msg.runId})`);
+        console.log(`Strategy completed (run: ${msg.runId})`);
         console.log(`Final result: ${msg.result}`);
         console.log(
           `Total usage: ${msg.usage.promptTokens} prompt + ${msg.usage.completionTokens} completion tokens`,
@@ -166,8 +176,8 @@ async function main() {
         ws.close();
         break;
 
-      case "flow_error":
-        console.error(`\nFlow error: ${msg.error.code} — ${msg.error.message}`);
+      case "strategy_error":
+        console.error(`\nStrategy error: ${msg.error.code} — ${msg.error.message}`);
         ws.close();
         process.exit(1);
         break;

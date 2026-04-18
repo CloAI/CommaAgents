@@ -1,7 +1,8 @@
 // hookIntoAgent — Append hooks to an existing agent.
 //
 // Mutates the agent's internal hook store via appendHook (provided by
-// createAgent). Returns the same agent reference for chaining.
+// createAgent). Returns void — use separate calls to attach multiple
+// hook sets.
 //
 // Supports both AgentHooks (lifecycle) and ToolHooks (tool execution).
 
@@ -11,8 +12,7 @@ import type { AgentHooks, ToolHooks } from "../hooks";
 // hookIntoAgent
 
 /**
- * Append hooks to an existing agent. Mutates the agent in-place and
- * returns the same reference for chaining.
+ * Append hooks to an existing agent. Mutates the agent in-place.
  *
  * Accepts both agent lifecycle hooks (`AgentHooks`) and tool execution
  * hooks (`ToolHooks`). All hooks are appended to the agent's mutable
@@ -23,7 +23,6 @@ import type { AgentHooks, ToolHooks } from "../hooks";
  *
  * @param agent - An agent created by `createAgent()`.
  * @param hooks - Agent lifecycle and/or tool hooks to append.
- * @returns The same agent reference.
  *
  * @example
  * ```ts
@@ -38,13 +37,8 @@ import type { AgentHooks, ToolHooks } from "../hooks";
  * const result = await agent.call("hello");
  * ```
  */
-export function hookIntoAgent(agent: Agent, hooks: AgentHooks & ToolHooks): Agent {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- appendHook is an implementation detail, not on the interface
-  const appendHook = (agent as any).appendHook as
-    | ((hookName: string, callback: unknown) => void)
-    | undefined;
-
-  if (!appendHook) {
+export function hookIntoAgent(agent: Agent, hooks: AgentHooks & ToolHooks): void {
+  if (!agent.appendHook) {
     throw new Error(
       `hookIntoAgent requires an agent created by createAgent(). ` +
         `Agent "${agent.name}" does not support appendHook.`,
@@ -53,11 +47,9 @@ export function hookIntoAgent(agent: Agent, hooks: AgentHooks & ToolHooks): Agen
 
   for (const [name, callbacks] of Object.entries(hooks)) {
     if (callbacks) {
-      for (const hookCallback of callbacks as readonly unknown[]) {
-        appendHook(name, hookCallback);
+      for (const hookCallback of callbacks) {
+        agent.appendHook(name, hookCallback);
       }
     }
   }
-
-  return agent;
 }

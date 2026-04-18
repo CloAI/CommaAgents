@@ -1,7 +1,5 @@
 // User agent configuration and input collection types.
 
-import type { AgentHooks } from "../../hooks";
-
 // InputRequest
 
 /**
@@ -61,6 +59,4 @@ export interface UserAgentConfig {
    * Defaults to reading from stdin via `prompt()`.
    */
   readonly inputCollector?: InputCollector;
-  /** Agent lifecycle hooks. */
-  readonly hooks?: AgentHooks;
 }

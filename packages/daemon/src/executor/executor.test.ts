@@ -147,7 +147,7 @@ describe("createStrategyExecutor", () => {
     expect(["pending", "running"]).toContain(run?.status);
   });
 
-  it("broadcasts flow_started with strategy metadata", async () => {
+  it("broadcasts strategy_started with strategy metadata", async () => {
     setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
@@ -165,12 +165,12 @@ describe("createStrategyExecutor", () => {
 
     executor.startRun("client-1", filePath, "hello");
 
-    // Wait for flow_started broadcast
+    // Wait for strategy_started broadcast
     await waitForBroadcasts(sink, 1);
 
-    const flowStarted = sink.broadcasts.find((b) => b.message.type === "flow_started");
+    const flowStarted = sink.broadcasts.find((b) => b.message.type === "strategy_started");
     expect(flowStarted).toBeDefined();
-    if (flowStarted && flowStarted.message.type === "flow_started") {
+    if (flowStarted && flowStarted.message.type === "strategy_started") {
       expect(flowStarted.message.strategyName).toBe("Test");
       expect(flowStarted.message.agents).toContain("assistant");
     }
@@ -194,7 +194,7 @@ describe("createStrategyExecutor", () => {
 
     executor.startRun("client-1", filePath, "hello");
 
-    // Wait for flow_completed (which means all steps have run)
+    // Wait for strategy_completed (which means all steps have run)
     await waitForBroadcasts(sink, 4, 10000);
 
     const types = sink.broadcasts.map((b) => b.message.type);
@@ -202,7 +202,7 @@ describe("createStrategyExecutor", () => {
     expect(types).toContain("step_completed");
   });
 
-  it("broadcasts flow_completed on success", async () => {
+  it("broadcasts strategy_completed on success", async () => {
     setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
@@ -220,12 +220,12 @@ describe("createStrategyExecutor", () => {
 
     const runId = executor.startRun("client-1", filePath, "hello");
 
-    // Wait for flow_completed
+    // Wait for strategy_completed
     await waitForBroadcasts(sink, 4, 10000);
 
-    const flowCompleted = sink.broadcasts.find((b) => b.message.type === "flow_completed");
+    const flowCompleted = sink.broadcasts.find((b) => b.message.type === "strategy_completed");
     expect(flowCompleted).toBeDefined();
-    if (flowCompleted && flowCompleted.message.type === "flow_completed") {
+    if (flowCompleted && flowCompleted.message.type === "strategy_completed") {
       expect(flowCompleted.message.runId).toBe(runId);
       expect(typeof flowCompleted.message.result).toBe("string");
       expect(flowCompleted.message.usage).toBeDefined();
@@ -238,7 +238,7 @@ describe("createStrategyExecutor", () => {
     expect(run?.result).toBeDefined();
   });
 
-  it("broadcasts flow_error when strategy file is invalid", async () => {
+  it("broadcasts strategy_error when strategy file is invalid", async () => {
     const state = createDaemonState();
     const sink = mockSink();
 
@@ -255,12 +255,12 @@ describe("createStrategyExecutor", () => {
 
     const runId = executor.startRun("client-1", filePath, "hello");
 
-    // Wait for flow_error broadcast
+    // Wait for strategy_error broadcast
     await waitForBroadcasts(sink, 1, 5000);
 
-    const flowError = sink.broadcasts.find((b) => b.message.type === "flow_error");
+    const flowError = sink.broadcasts.find((b) => b.message.type === "strategy_error");
     expect(flowError).toBeDefined();
-    if (flowError && flowError.message.type === "flow_error") {
+    if (flowError && flowError.message.type === "strategy_error") {
       expect(flowError.message.runId).toBe(runId);
       expect(flowError.message.error.code).toBe("EXECUTION_ERROR");
     }
@@ -270,7 +270,7 @@ describe("createStrategyExecutor", () => {
     expect(run?.status).toBe("error");
   });
 
-  it("broadcasts flow_error when strategy file is not found", async () => {
+  it("broadcasts strategy_error when strategy file is not found", async () => {
     const state = createDaemonState();
     const sink = mockSink();
 
@@ -286,15 +286,15 @@ describe("createStrategyExecutor", () => {
 
     await waitForBroadcasts(sink, 1, 5000);
 
-    const flowError = sink.broadcasts.find((b) => b.message.type === "flow_error");
+    const flowError = sink.broadcasts.find((b) => b.message.type === "strategy_error");
     expect(flowError).toBeDefined();
-    if (flowError && flowError.message.type === "flow_error") {
+    if (flowError && flowError.message.type === "strategy_error") {
       expect(flowError.message.runId).toBe(runId);
       expect(flowError.message.error.message).toContain("not found");
     }
   });
 
-  it("stopRun aborts execution and broadcasts flow_error with CANCELLED", async () => {
+  it("stopRun aborts execution and broadcasts strategy_error with CANCELLED", async () => {
     setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
@@ -320,9 +320,9 @@ describe("createStrategyExecutor", () => {
     expect(run?.status).toBe("cancelled");
     expect(run?.error?.code).toBe("CANCELLED");
 
-    // Should have broadcast a flow_error with CANCELLED
+    // Should have broadcast a strategy_error with CANCELLED
     const cancelledMsg = sink.broadcasts.find(
-      (b) => b.message.type === "flow_error" && b.message.error.code === "CANCELLED",
+      (b) => b.message.type === "strategy_error" && b.message.error.code === "CANCELLED",
     );
     expect(cancelledMsg).toBeDefined();
   });
@@ -361,10 +361,10 @@ describe("createStrategyExecutor", () => {
       expect(handled).toBe(true);
     }
 
-    // Wait for flow_completed
+    // Wait for strategy_completed
     await waitForBroadcasts(sink, 6, 10000);
 
-    const flowCompleted = sink.broadcasts.find((b) => b.message.type === "flow_completed");
+    const flowCompleted = sink.broadcasts.find((b) => b.message.type === "strategy_completed");
     expect(flowCompleted).toBeDefined();
   });
 
@@ -381,7 +381,7 @@ describe("createStrategyExecutor", () => {
     expect(executor.handleUserInput("nonexistent", "agent", "text")).toBe(false);
   });
 
-  it("broadcasts flow_error when no model is registered for a provider", async () => {
+  it("broadcasts strategy_error when no model is registered for a provider", async () => {
     // No mock models registered — model resolution will fail at call time
     const state = createDaemonState();
     const sink = mockSink();
@@ -399,12 +399,12 @@ describe("createStrategyExecutor", () => {
 
     const runId = executor.startRun("client-1", filePath, "hello");
 
-    // Wait for flow_error broadcast (model resolution fails)
+    // Wait for strategy_error broadcast (model resolution fails)
     await waitForBroadcasts(sink, 1, 5000);
 
-    const flowError = sink.broadcasts.find((b) => b.message.type === "flow_error");
+    const flowError = sink.broadcasts.find((b) => b.message.type === "strategy_error");
     expect(flowError).toBeDefined();
-    if (flowError && flowError.message.type === "flow_error") {
+    if (flowError && flowError.message.type === "strategy_error") {
       expect(flowError.message.runId).toBe(runId);
       expect(flowError.message.error.code).toBe("EXECUTION_ERROR");
     }
@@ -432,21 +432,21 @@ describe("createStrategyExecutor", () => {
 
     executor.startRun("client-1", filePath, "hello");
 
-    // Wait for flow_completed (1 flow_started + 2 step_started + 2 step_completed + agent events + flow_completed)
+    // Wait for strategy_completed (1 strategy_started + 2 step_started + 2 step_completed + agent events + strategy_completed)
     await waitForBroadcasts(sink, 6, 10000);
 
     const types = sink.broadcasts.map((b) => b.message.type);
 
-    // Should have flow_started
-    expect(types).toContain("flow_started");
+    // Should have strategy_started
+    expect(types).toContain("strategy_started");
     // Should have step events for both agents
     expect(types.filter((t) => t === "step_started").length).toBeGreaterThanOrEqual(2);
     expect(types.filter((t) => t === "step_completed").length).toBeGreaterThanOrEqual(2);
-    // Should have flow_completed
-    expect(types).toContain("flow_completed");
+    // Should have strategy_completed
+    expect(types).toContain("strategy_completed");
   });
 
-  it("requestId is echoed in flow_started and flow_completed", async () => {
+  it("requestId is echoed in strategy_started and strategy_completed", async () => {
     setupMockModels();
     const state = createDaemonState();
     const sink = mockSink();
@@ -466,8 +466,8 @@ describe("createStrategyExecutor", () => {
 
     await waitForBroadcasts(sink, 4, 10000);
 
-    const flowStarted = sink.broadcasts.find((b) => b.message.type === "flow_started");
-    const flowCompleted = sink.broadcasts.find((b) => b.message.type === "flow_completed");
+    const flowStarted = sink.broadcasts.find((b) => b.message.type === "strategy_started");
+    const flowCompleted = sink.broadcasts.find((b) => b.message.type === "strategy_completed");
 
     expect(flowStarted?.message.requestId).toBe("req-123");
     expect(flowCompleted?.message.requestId).toBe("req-123");

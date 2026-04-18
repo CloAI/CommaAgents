@@ -1,0 +1,93 @@
+---
+title: Tool Registry
+description: Register custom tools by name so agents can reference them as strings.
+---
+
+The global tool registry allows you to register custom tools by name. Once registered, agents can reference them as strings in their `tools` configuration, just like built-in tools.
+
+```ts
+import { registerTool, defineTool, createAgent } from "@comma-agents/core";
+import { z } from "zod";
+
+const fetchTool = defineTool({
+  description: "Fetch a URL and return its text content.",
+  parameters: z.object({ url: z.string().url() }),
+  execute: async ({ url }) => ({ output: await fetch(url).then(r => r.text()) }),
+});
+
+registerTool("fetch", fetchTool);
+
+// Now agents can reference "fetch" by name alongside built-in tools
+const agent = createAgent({
+  name: "researcher",
+  model: "openai/gpt-4o",
+  tools: ["bash", "read", "fetch"],
+});
+```
+
+## Resolution Order
+
+When an agent resolves a tool name, the following order is checked:
+
+1. **Global tool registry** — custom tools registered via `registerTool()`
+2. **Built-in tools** — `bash`, `read`, `write`, `edit`, `glob`, `grep`
+3. **Error** — unknown tool name throws a `StrategyValidationError`
+
+Custom registry tools shadow built-in tools of the same name.
+
+## registerTool
+
+Register a custom tool with the global tool registry. Registered tools can be referenced by name in agent definitions.
+
+If the name matches a built-in tool or a previously registered tool, a warning is logged. The new registration takes effect immediately.
+
+```ts
+registerTool("myTool", myToolDefinition);
+```
+
+## unregisterTool
+
+Remove a previously registered custom tool. Returns `true` if the tool was registered and removed. Built-in tools cannot be unregistered.
+
+```ts
+const removed = unregisterTool("myTool"); // true
+```
+
+## getRegisteredToolNames
+
+Get the list of currently registered custom tool names. Does not include built-in tools.
+
+```ts
+const names = getRegisteredToolNames(); // ["fetch", "myTool"]
+```
+
+## resetToolRegistry
+
+Reset the global tool registry to empty state. Primarily useful in tests.
+
+```ts
+resetToolRegistry();
+```
+
+## Overriding Built-in Tools
+
+To replace a built-in tool with a custom implementation, register a tool with the same name:
+
+```ts
+import { defineTool, registerTool } from "@comma-agents/core";
+import { z } from "zod";
+
+const customRead = defineTool({
+  description: "Custom read tool with different behavior.",
+  parameters: z.object({ filePath: z.string() }),
+  execute: async ({ filePath }) => {
+    // custom logic
+    return { output: "..." };
+  },
+});
+
+// Shadows the built-in "read" tool — a warning is logged
+registerTool("read", customRead);
+```
+
+All agents referencing `"read"` will now use the custom implementation.

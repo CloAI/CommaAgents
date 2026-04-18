@@ -99,7 +99,7 @@ TUI and web clients without changes.
 - Minimize external dependencies. Prefer Bun built-ins.
 - Pin exact versions in `package.json` (no `^` or `~`).
 - Key allowed dependencies:
-  - `ai` — Vercel AI SDK core (streamText, generateText, tool calling)
+  - `ai` — Vercel AI SDK core (streamText, tool calling)
   - `zod` — schema validation (used by AI SDK tools and strategy schemas)
   - `ink`, `react` — TUI only
   - `yaml` — optional, for YAML strategy support
@@ -130,7 +130,7 @@ TUI and web clients without changes.
                        v
 ┌──────────────────────────────────────────────────┐
 │               Agent (interface)                    │
-│  name, call(msg), reset()                         │
+│  name, call(msg), stream(msg), reset()             │
 │                                                   │
 │  createAgent() — closure-based LLM agent factory  │
 │  createUserAgent() — human-in-the-loop (closure)  │
@@ -174,12 +174,18 @@ The architecture is **purely functional** — no classes:
 No classes, no inheritance hierarchy. Hook lifecycle is a functional pipeline applied
 inside `createAgent`.
 
+**Execution model**: `stream()` is the single execution path for all agents. It runs the
+full hook lifecycle, manages conversation history, and handles both LLM calls (via
+`streamText()`) and execute-override agents. `call()` is a thin wrapper that delegates
+to `stream()`, consumes all events silently, and returns the final result from the
+`done` event.
+
 ```typescript
 // The core contract — all flows use this
 interface Agent {
   readonly name: string;
-  call(message: string): AbortablePromise<AgentCallResult>;
-  stream(message: string): AbortableAsyncGenerator<AgentStreamEvent>;
+  call(message: string): AbortablePromise<AgentCallResult>;   // thin wrapper over stream()
+  stream(message: string): AbortableAsyncGenerator<AgentStreamEvent>; // single execution path
   reset(): void;
 }
 
@@ -248,12 +254,12 @@ interface ToolContext {
 ### Hook System
 
 Both agents and flows support hooks at defined lifecycle points.
-Agent hooks are applied via the `withAgentHooks()` middleware (higher-order function),
-so the lifecycle is implemented once and shared by all agent types.
+Agent hooks are attached via `hookIntoAgent()` post-creation and run inside
+`stream()` — the single execution path for all agents.
 
 **Agent hooks:**
-`alterCallMessage -> beforeCall -> [LLM call] -> afterCall -> alterResponse`
-(plus `initial*` variants for the first call, with fallback to base hooks)
+`alterCallMessage -> beforeCall -> [execute/LLM] -> afterCallResult -> alterResponse`
+(plus `*First*` variants for the first call, with fallback to base hooks)
 
 **Tool hooks (new):**
 `beforeToolCall(name, args) -> [tool execution] -> afterToolCall(name, args, result)`
@@ -481,12 +487,14 @@ CommaAgents2/
 │   │       │   ├── model.utils.ts         # parseModel()
 │   │       │   └── model.constants.ts     # KNOWN_PROVIDERS map
 │   │       ├── prompts/
-│   │       │   ├── types.ts               # ChatMessage, ResponseMessage
+│   │       │   ├── types.ts               # TemplateValue, PromptTemplateConfig, PromptTemplate
 │   │       │   ├── message-builder.ts     # buildMessages(), resolveSystemPrompt()
-│   │       │   ├── history/
-│   │       │   │   └── conversation-history.ts # createConversationHistory()
 │   │       │   └── template/
 │   │       │       └── prompt-template.ts     # createPromptTemplate()
+│   │       ├── context/
+│   │       │   ├── index.ts
+│   │       │   ├── conversation-context.ts       # createConversationContext()
+│   │       │   └── conversation-context.types.ts # ConversationContext, ConversationTurn, etc.
 │   │       ├── strategy/
 │   │       │   ├── index.ts
 │   │       │   ├── schema.ts              # Zod strategy schema (StrategySchema)

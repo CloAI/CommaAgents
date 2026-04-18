@@ -11,6 +11,8 @@ const mockResult: AgentCallResult = {
   text: "done",
   usage: { promptTokens: 10, completionTokens: 5 },
   finishReason: "stop",
+  responseMessages: [],
+  steps: [],
 };
 
 // Run lifecycle

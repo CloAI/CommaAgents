@@ -657,7 +657,7 @@ describe("hook injection", () => {
           calls.push("before-call");
         },
       ],
-      afterCall: [
+      afterCallResult: [
         () => {
           calls.push("after-call");
         },
@@ -817,7 +817,7 @@ describe("hook injection", () => {
           events.push("agent-before");
         },
       ],
-      afterCall: [
+      afterCallResult: [
         () => {
           events.push("agent-after");
         },

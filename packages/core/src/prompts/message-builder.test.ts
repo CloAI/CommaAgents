@@ -1,10 +1,10 @@
-// Tests for message builder — buildMessages and resolveSystemPrompt
+// Tests for message builder — buildMessages and resolveSystemPrompt.
 
 import { describe, expect, it } from "bun:test";
-import { createConversationHistory } from "./history/conversation-history";
+import { createConversationContext } from "../context/conversation-context";
+import type { ResponseMessage } from "../context/conversation-context.types";
 import { buildMessages, resolveSystemPrompt } from "./message-builder";
 import { createPromptTemplate } from "./template/prompt-template";
-import type { ResponseMessage } from "./types";
 
 // Helpers
 
@@ -17,17 +17,17 @@ function assistantResponse(text: string): ResponseMessage[] {
 
 describe("buildMessages", () => {
   describe("basic usage", () => {
-    it("returns just the user message when no history or extras", () => {
+    it("should return just the user message when no context or extras", () => {
       const messages = buildMessages({ message: "Hello" });
 
       expect(messages).toEqual([{ role: "user", content: "Hello" }]);
     });
 
-    it("prepends history before the current message", () => {
-      const history = createConversationHistory();
-      history.append("Q1", assistantResponse("A1"));
+    it("should prepend context before the current message", () => {
+      const context = createConversationContext();
+      context.append("Q1", assistantResponse("A1"));
 
-      const messages = buildMessages({ message: "Q2", history });
+      const messages = buildMessages({ message: "Q2", context });
 
       expect(messages).toEqual([
         { role: "user", content: "Q1" },
@@ -36,12 +36,12 @@ describe("buildMessages", () => {
       ]);
     });
 
-    it("handles multi-turn history", () => {
-      const history = createConversationHistory();
-      history.append("Q1", assistantResponse("A1"));
-      history.append("Q2", assistantResponse("A2"));
+    it("should handle multi-turn context", () => {
+      const context = createConversationContext();
+      context.append("Q1", assistantResponse("A1"));
+      context.append("Q2", assistantResponse("A2"));
 
-      const messages = buildMessages({ message: "Q3", history });
+      const messages = buildMessages({ message: "Q3", context });
 
       expect(messages).toEqual([
         { role: "user", content: "Q1" },
@@ -52,26 +52,22 @@ describe("buildMessages", () => {
       ]);
     });
 
-    it("handles empty history", () => {
-      const history = createConversationHistory();
-      const messages = buildMessages({ message: "Hello", history });
+    it("should handle empty context", () => {
+      const context = createConversationContext();
+      const messages = buildMessages({ message: "Hello", context });
 
       expect(messages).toEqual([{ role: "user", content: "Hello" }]);
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // Prefix messages
-  // ---------------------------------------------------------------------------
-
   describe("prefix messages", () => {
-    it("prepends prefix before history", () => {
-      const history = createConversationHistory();
-      history.append("Q1", assistantResponse("A1"));
+    it("should prepend prefix before context", () => {
+      const context = createConversationContext();
+      context.append("Q1", assistantResponse("A1"));
 
       const messages = buildMessages({
         message: "Q2",
-        history,
+        context,
         prefix: [
           { role: "user", content: "Example Q" },
           { role: "assistant", content: "Example A" },
@@ -87,7 +83,7 @@ describe("buildMessages", () => {
       ]);
     });
 
-    it("prefix works without history", () => {
+    it("should work without context", () => {
       const messages = buildMessages({
         message: "Question",
         prefix: [{ role: "system", content: "Context info" }],
@@ -100,18 +96,14 @@ describe("buildMessages", () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // Full composition: prefix + history + message
-  // ---------------------------------------------------------------------------
-
   describe("full composition", () => {
-    it("composes all parts in correct order", () => {
-      const history = createConversationHistory();
-      history.append("H1", assistantResponse("R1"));
+    it("should compose all parts in correct order", () => {
+      const context = createConversationContext();
+      context.append("H1", assistantResponse("R1"));
 
       const messages = buildMessages({
         message: "Current question",
-        history,
+        context,
         prefix: [
           { role: "user", content: "Few-shot Q" },
           { role: "assistant", content: "Few-shot A" },
@@ -132,19 +124,19 @@ describe("buildMessages", () => {
 // resolveSystemPrompt
 
 describe("resolveSystemPrompt", () => {
-  it("returns undefined when no prompt configured", async () => {
+  it("should return undefined when no prompt configured", async () => {
     const result = await resolveSystemPrompt({});
     expect(result).toBeUndefined();
   });
 
-  it("returns static systemPrompt", async () => {
+  it("should return static systemPrompt", async () => {
     const result = await resolveSystemPrompt({
       systemPrompt: "You are helpful.",
     });
     expect(result).toBe("You are helpful.");
   });
 
-  it("resolves a prompt template", async () => {
+  it("should resolve a prompt template", async () => {
     const template = createPromptTemplate({
       template: "You are {{ role }}, an expert in {{ lang }}.",
       variables: { role: "a reviewer", lang: "TypeScript" },
@@ -156,7 +148,7 @@ describe("resolveSystemPrompt", () => {
     expect(result).toBe("You are a reviewer, an expert in TypeScript.");
   });
 
-  it("template renders with baked-in variables", async () => {
+  it("should render template with baked-in variables", async () => {
     const template = createPromptTemplate({
       template: "Expert in {{ lang }}.",
       variables: { lang: "TypeScript" },
@@ -168,7 +160,7 @@ describe("resolveSystemPrompt", () => {
     expect(result).toBe("Expert in TypeScript.");
   });
 
-  it("PromptTemplate is used when provided as systemPrompt", async () => {
+  it("should use PromptTemplate when provided as systemPrompt", async () => {
     const template = createPromptTemplate({
       template: "From template: {{ role }}",
       variables: { role: "dynamic" },

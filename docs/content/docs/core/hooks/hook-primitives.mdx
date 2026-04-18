@@ -1,0 +1,49 @@
+---
+title: Hook Primitives
+description: The two base hook types — SideEffectHook and TransformHook.
+---
+
+All domain-specific hooks ([AgentHooks](/docs/core/agents/agent-hooks), [FlowHooks](/docs/core/flows/flow-hooks)) are built on two primitive types.
+
+## SideEffectHook
+
+A hook that observes a value without modifying it. Multiple side-effect hooks run in order. Used for logging, metrics, state management, and similar read-only observations.
+
+<AutoTypeTable path="../packages/core/src/hooks/index.ts" name="SideEffectHook" />
+
+```ts
+import { hookIntoAgent } from "@comma-agents/core";
+
+hookIntoAgent(agent, {
+  beforeCall: [
+    async (message) => console.log("Sending:", message),
+    async (message) => metrics.recordCall(message),
+  ],
+});
+```
+
+## TransformHook
+
+A hook that receives a value and returns a (possibly modified) value. Multiple transform hooks are chained sequentially — the output of one becomes the input of the next.
+
+<AutoTypeTable path="../packages/core/src/hooks/index.ts" name="TransformHook" />
+
+```ts
+import { hookIntoAgent } from "@comma-agents/core";
+
+hookIntoAgent(agent, {
+  alterCallMessage: [
+    async (message) => `[context] ${message}`,
+    async (message) => message.trim(),
+  ],
+});
+```
+
+## Which hooks are which?
+
+Hooks with `alter*` in their name are **transform hooks**. All others are **side-effect hooks**.
+
+| Hook kind | Agent examples | Flow examples |
+|---|---|---|
+| Transform | `alterCallMessage`, `alterResponse`, `alterFirstCallMessage`, `alterFirstResponse` | `alterMessageBeforeFlow`, `alterMessageAfterFlow`, `alterMessageBeforeCycle`, `alterMessageAfterCycle` |
+| Side-effect | `beforeCall`, `afterCallResult`, `beforeFirstCall`, `afterFirstCallResult`, `beforeToolCall`, `afterToolCall` | `beforeFlow`, `afterFlow`, `beforeStep`, `afterStep` |

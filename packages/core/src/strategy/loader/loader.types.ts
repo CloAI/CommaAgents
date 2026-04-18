@@ -21,8 +21,9 @@ export interface LoadStrategyOptions {
   readonly inputCollector?: InputCollector;
 
   /**
-   * Flow hooks to inject into all flows at load time.
-   * Useful for the daemon to observe step execution, flow lifecycle, etc.
+   * Flow hooks to inject into all flows via `hookIntoFlow()` after
+   * construction. Useful for the daemon to observe step execution,
+   * flow lifecycle, etc.
    */
   readonly flowHooks?: FlowHooks;
 

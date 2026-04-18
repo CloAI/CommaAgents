@@ -6,7 +6,7 @@ import type { Logger } from "../../logger/logger.types";
 import type { DaemonState } from "../../state/state.types";
 import type { DaemonMessage } from "./messages";
 import type { ErrorMessage } from "./responses/error";
-import type { FlowListMessage } from "./responses/flow-list";
+import type { StrategyListMessage } from "./responses/strategy-list";
 import type { PongMessage } from "./responses/pong";
 
 // Request → Response map
@@ -22,16 +22,16 @@ import type { PongMessage } from "./responses/pong";
  * ```ts
  * // Ping may reply with PongMessage (or ErrorMessage, always implicit)
  * type PingResponse = RequestResponseMap["ping"]; // PongMessage
- * // Start-flow never sends a direct success response
- * type StartFlowResponse = RequestResponseMap["start_flow"]; // never
+ * // Start-strategy never sends a direct success response
+ * type StartStrategyResponse = RequestResponseMap["start_strategy"]; // never
  * ```
  */
 export interface RequestResponseMap {
   readonly ping: PongMessage;
-  readonly start_flow: never;
-  readonly stop_flow: never;
+  readonly start_strategy: never;
+  readonly stop_strategy: never;
   readonly user_input: never;
-  readonly list_flows: FlowListMessage;
+  readonly list_strategies: StrategyListMessage;
   readonly subscribe: never;
   readonly unsubscribe: never;
 }
@@ -56,8 +56,8 @@ export interface RequestResponseMap {
  *   context.reply({ type: "pong", ts: new Date().toISOString() });
  * }
  *
- * // Start-flow handler — may only reply with ErrorMessage (never = error-only)
- * function handleStartFlow(message: StartFlowMessage, context: HandlerContext<"start_flow">): void {
+ * // Start-strategy handler — may only reply with ErrorMessage (never = error-only)
+ * function handleStartStrategy(message: StartStrategyMessage, context: HandlerContext<"start_strategy">): void {
  *   // context.reply({ type: "pong", ... }); // Type error!
  * }
  * ```

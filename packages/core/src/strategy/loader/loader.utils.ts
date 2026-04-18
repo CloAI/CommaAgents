@@ -9,6 +9,7 @@ import { StrategyValidationError } from "../../errors/index";
 import { createBroadcastFlow } from "../../flows/built-in/broadcast/broadcast-flow";
 import { createCycleFlow } from "../../flows/built-in/cycle/cycle-flow";
 import { createSequentialFlow } from "../../flows/built-in/sequential/sequential-flow";
+import { hookIntoFlow } from "../../flows/hook-into-flow/hook-into-flow";
 import { createPromptTemplate } from "../../prompts/template/prompt-template";
 import type { CycleFlowDef, FlowDef, LLMAgentDef, Strategy, UserAgentDef } from "../schema";
 import { isAgentStep, isFlowDef, isLLMAgentDef, isUserAgentDef } from "../schema";
@@ -95,6 +96,9 @@ function buildLLMAgent(
 
 /**
  * Recursively build a flow definition into a runnable Agent.
+ *
+ * If `options.flowHooks` is provided, hooks are injected into the
+ * created flow via `hookIntoFlow()` after construction.
  */
 export function buildFlow(
   flowDef: FlowDef,
@@ -103,13 +107,15 @@ export function buildFlow(
 ): Agent {
   const steps = resolveSteps(flowDef.steps, flowDef.name, agents, options);
 
+  let flow: Agent;
+
   switch (flowDef.type) {
     case "sequential":
-      return createSequentialFlow({
+      flow = createSequentialFlow({
         name: flowDef.name,
         steps,
-        hooks: options.flowHooks,
       });
+      break;
 
     case "cycle": {
       const cycleDef = flowDef as CycleFlowDef;
@@ -120,23 +126,30 @@ export function buildFlow(
         ? resolveAgentRef(cycleDef.observer, flowDef.name, agents)
         : undefined;
 
-      return createCycleFlow({
+      flow = createCycleFlow({
         name: flowDef.name,
         steps,
         cycles,
         observer,
-        hooks: options.flowHooks,
       });
+      break;
     }
 
     case "broadcast":
-      return createBroadcastFlow({
+      flow = createBroadcastFlow({
         name: flowDef.name,
         steps,
         separator: (flowDef as { separator?: string }).separator,
-        hooks: options.flowHooks,
       });
+      break;
   }
+
+  // Inject flow hooks post-creation via hookIntoFlow
+  if (options.flowHooks) {
+    hookIntoFlow(flow, options.flowHooks);
+  }
+
+  return flow;
 }
 
 /**

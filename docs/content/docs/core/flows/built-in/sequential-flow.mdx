@@ -1,0 +1,87 @@
+---
+title: createSequentialFlow
+description: Pipeline flow where each agent's output feeds into the next.
+---
+`createSequentialFlow` creates a pipeline that calls agents in order, passing each agent's output as the next agent's input. The final agent's output becomes the flow result.
+
+```ts
+import { createAgent, createSequentialFlow } from "@comma-agents/core";
+
+const writer = createAgent({
+  name: "writer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Write a short paragraph on the given topic.",
+});
+
+const reviewer = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Review the text and suggest improvements.",
+});
+
+const pipeline = createSequentialFlow({
+  name: "writing-pipeline",
+  steps: [writer, reviewer],
+});
+
+const result = await pipeline.call("TypeScript generics");
+console.log(result.text); // reviewer's improved version
+```
+
+## FlowConfig
+
+Sequential flows use the base `FlowConfig` with no additional fields.
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="FlowConfig" />
+
+## Step Chaining
+
+Steps execute left-to-right. The output of step N becomes the input message of step N+1:
+
+```
+writer("topic") → reviewer(writer's output) → editor(reviewer's output)
+```
+
+```ts
+const editor = createAgent({
+  name: "editor",
+  model: "openai/gpt-4o",
+  systemPrompt: "Apply the review feedback and return polished text.",
+});
+
+const pipeline = createSequentialFlow({
+  name: "pipeline",
+  steps: [writer, reviewer, editor],
+});
+
+// writer receives "topic"
+// reviewer receives writer's output
+// editor receives reviewer's output
+const result = await pipeline.call("topic");
+```
+
+## Nested Composition
+
+Flows are composable — you can use a sequential flow as a step inside another flow:
+
+```ts
+const innerPipeline = createSequentialFlow({
+  name: "draft-and-review",
+  steps: [writer, reviewer],
+});
+
+const outerPipeline = createSequentialFlow({
+  name: "full-pipeline",
+  steps: [innerPipeline, editor],
+});
+
+const result = await outerPipeline.call("topic");
+```
+
+## Reset
+
+Calling `reset()` on a sequential flow resets all of its steps, clearing their conversation history:
+
+```ts
+pipeline.reset();
+```

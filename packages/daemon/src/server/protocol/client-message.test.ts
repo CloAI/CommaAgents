@@ -2,61 +2,82 @@
 
 import { describe, expect, test } from "bun:test";
 import { ClientMessage, parseClientMessage } from "./messages";
-import { ListFlowsMessage } from "./requests/list-flows/list-flows.schema";
+import { ListStrategiesMessage } from "./requests/list-strategies/list-strategies.schema";
 import { PingMessage } from "./requests/ping/ping.schema";
-import { StartFlowMessage } from "./requests/start-flow/start-flow.schema";
-import { StopFlowMessage } from "./requests/stop-flow/stop-flow.schema";
+import { StartStrategyMessage } from "./requests/start-strategy/start-strategy.schema";
+import { StopStrategyMessage } from "./requests/stop-strategy/stop-strategy.schema";
 import { SubscribeMessage } from "./requests/subscribe/subscribe.schema";
 import { UnsubscribeMessage } from "./requests/unsubscribe/unsubscribe.schema";
 import { UserInputMessage } from "./requests/user-input/user-input.schema";
 
 // Individual message schemas
 
-describe("StartFlowMessage", () => {
+describe("StartStrategyMessage", () => {
   test("parses valid message", () => {
-    const msg = { type: "start_flow", strategyPath: "/path/to/strategy.json" };
-    expect(StartFlowMessage.parse(msg)).toEqual(msg);
+    const msg = { type: "start_strategy", strategyPath: "/path/to/strategy.json" };
+    expect(StartStrategyMessage.parse(msg)).toEqual(msg);
   });
 
   test("accepts optional input", () => {
-    const msg = { type: "start_flow", strategyPath: "/path.json", input: "hello" };
-    expect(StartFlowMessage.parse(msg).input).toBe("hello");
+    const msg = { type: "start_strategy", strategyPath: "/path.json", input: "hello" };
+    expect(StartStrategyMessage.parse(msg).input).toBe("hello");
   });
 
   test("accepts optional requestId", () => {
-    const msg = { type: "start_flow", strategyPath: "/path.json", requestId: "req-1" };
-    expect(StartFlowMessage.parse(msg).requestId).toBe("req-1");
+    const msg = { type: "start_strategy", strategyPath: "/path.json", requestId: "req-1" };
+    expect(StartStrategyMessage.parse(msg).requestId).toBe("req-1");
+  });
+
+  test("accepts optional modelOverride", () => {
+    const msg = {
+      type: "start_strategy",
+      strategyPath: "/path.json",
+      modelOverride: "anthropic/claude-sonnet-4-20250514",
+    };
+    expect(StartStrategyMessage.parse(msg).modelOverride).toBe(
+      "anthropic/claude-sonnet-4-20250514",
+    );
+  });
+
+  test("rejects empty modelOverride", () => {
+    expect(
+      StartStrategyMessage.safeParse({
+        type: "start_strategy",
+        strategyPath: "/p.json",
+        modelOverride: "",
+      }).success,
+    ).toBe(false);
   });
 
   test("rejects missing strategyPath", () => {
-    expect(StartFlowMessage.safeParse({ type: "start_flow" }).success).toBe(false);
+    expect(StartStrategyMessage.safeParse({ type: "start_strategy" }).success).toBe(false);
   });
 
   test("rejects empty strategyPath", () => {
-    expect(StartFlowMessage.safeParse({ type: "start_flow", strategyPath: "" }).success).toBe(
-      false,
-    );
+    expect(
+      StartStrategyMessage.safeParse({ type: "start_strategy", strategyPath: "" }).success,
+    ).toBe(false);
   });
 
   test("rejects wrong type literal", () => {
-    expect(StartFlowMessage.safeParse({ type: "stop_flow", strategyPath: "/p" }).success).toBe(
-      false,
-    );
+    expect(
+      StartStrategyMessage.safeParse({ type: "stop_strategy", strategyPath: "/p" }).success,
+    ).toBe(false);
   });
 });
 
-describe("StopFlowMessage", () => {
+describe("StopStrategyMessage", () => {
   test("parses valid message", () => {
-    const msg = { type: "stop_flow", runId: "run-1" };
-    expect(StopFlowMessage.parse(msg)).toEqual(msg);
+    const msg = { type: "stop_strategy", runId: "run-1" };
+    expect(StopStrategyMessage.parse(msg)).toEqual(msg);
   });
 
   test("rejects missing runId", () => {
-    expect(StopFlowMessage.safeParse({ type: "stop_flow" }).success).toBe(false);
+    expect(StopStrategyMessage.safeParse({ type: "stop_strategy" }).success).toBe(false);
   });
 
   test("rejects empty runId", () => {
-    expect(StopFlowMessage.safeParse({ type: "stop_flow", runId: "" }).success).toBe(false);
+    expect(StopStrategyMessage.safeParse({ type: "stop_strategy", runId: "" }).success).toBe(false);
   });
 });
 
@@ -84,14 +105,16 @@ describe("UserInputMessage", () => {
   });
 });
 
-describe("ListFlowsMessage", () => {
+describe("ListStrategiesMessage", () => {
   test("parses valid message", () => {
-    expect(ListFlowsMessage.parse({ type: "list_flows" })).toEqual({ type: "list_flows" });
+    expect(ListStrategiesMessage.parse({ type: "list_strategies" })).toEqual({
+      type: "list_strategies",
+    });
   });
 
   test("accepts optional requestId", () => {
-    const msg = { type: "list_flows", requestId: "req-3" };
-    expect(ListFlowsMessage.parse(msg).requestId).toBe("req-3");
+    const msg = { type: "list_strategies", requestId: "req-3" };
+    expect(ListStrategiesMessage.parse(msg).requestId).toBe("req-3");
   });
 });
 
@@ -134,14 +157,14 @@ describe("PingMessage", () => {
 // ClientMessage discriminated union
 
 describe("ClientMessage union", () => {
-  test("routes start_flow correctly", () => {
-    const result = ClientMessage.parse({ type: "start_flow", strategyPath: "/p.json" });
-    expect(result.type).toBe("start_flow");
+  test("routes start_strategy correctly", () => {
+    const result = ClientMessage.parse({ type: "start_strategy", strategyPath: "/p.json" });
+    expect(result.type).toBe("start_strategy");
   });
 
-  test("routes stop_flow correctly", () => {
-    const result = ClientMessage.parse({ type: "stop_flow", runId: "r" });
-    expect(result.type).toBe("stop_flow");
+  test("routes stop_strategy correctly", () => {
+    const result = ClientMessage.parse({ type: "stop_strategy", runId: "r" });
+    expect(result.type).toBe("stop_strategy");
   });
 
   test("routes user_input correctly", () => {
@@ -154,9 +177,9 @@ describe("ClientMessage union", () => {
     expect(result.type).toBe("user_input");
   });
 
-  test("routes list_flows correctly", () => {
-    const result = ClientMessage.parse({ type: "list_flows" });
-    expect(result.type).toBe("list_flows");
+  test("routes list_strategies correctly", () => {
+    const result = ClientMessage.parse({ type: "list_strategies" });
+    expect(result.type).toBe("list_strategies");
   });
 
   test("routes subscribe correctly", () => {

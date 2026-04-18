@@ -38,3 +38,27 @@ console.log(followUp.text);
 // Clear history when you want a fresh start.
 agent.reset();
 ```
+
+`createUserAgent` creates a human-in-the-loop agent that collects input from the console instead of calling an LLM. Pair it with an LLM agent to build interactive workflows:
+
+```ts
+import { createAgent, createUserAgent } from "@comma-agents/core";
+
+const user = createUserAgent({
+  name: "user",
+  requireInput: true,
+});
+
+const writer = createAgent({
+  name: "writer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Write concise, well-structured prose based on the user's request.",
+});
+
+// Collect a topic from the user, then pass it to the LLM agent.
+const input = await user.call("What would you like me to write about?");
+const result = await writer.call(input.text);
+console.log(result.text);
+```
+
+By default, input is read from stdin (works in both Node.js and Bun). You can pass a custom `inputCollector` function to collect input from other sources, such as a WebSocket or UI.

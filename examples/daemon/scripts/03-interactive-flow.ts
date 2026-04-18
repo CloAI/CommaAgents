@@ -51,6 +51,13 @@ const argv = yargs(hideBin(process.argv))
     default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
     describe: "WebSocket URL of the daemon",
   })
+  .option("model-override", {
+    alias: "m",
+    type: "string",
+    default: process.env.MODEL,
+    describe:
+      'Override the model for all agents (e.g. "anthropic/claude-sonnet-4-20250514"). Also reads MODEL env var.',
+  })
   .example("$0", "Run with auto-generated interactive strategy")
   .example("$0 path/to/strategy.json", "Run a specific interactive strategy")
   .strict()
@@ -60,6 +67,7 @@ const argv = yargs(hideBin(process.argv))
   .parseSync();
 
 const DAEMON_URL = argv.daemonUrl as string;
+const MODEL_OVERRIDE = argv.modelOverride as string | undefined;
 
 // -- Temporary strategy with a UserAgent ------------------------------------
 
@@ -117,7 +125,9 @@ function askUser(prompt: string): Promise<string> {
 async function main() {
   const strategyPath = getStrategyPath();
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
-  console.log(`Strategy: ${strategyPath}\n`);
+  console.log(`Strategy: ${strategyPath}`);
+  if (MODEL_OVERRIDE) console.log(`Model override: ${MODEL_OVERRIDE}`);
+  console.log();
 
   const ws = new WebSocket(DAEMON_URL);
   let currentRunId: string | undefined;
@@ -127,10 +137,11 @@ async function main() {
 
     ws.send(
       JSON.stringify({
-        type: "start_flow",
+        type: "start_strategy",
         strategyPath,
         input: "What is the capital of France?",
         requestId: "interactive-1",
+        ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
       }),
     );
   };
@@ -142,9 +153,9 @@ async function main() {
       case "pong":
         break;
 
-      case "flow_started":
+      case "strategy_started":
         currentRunId = msg.runId;
-        console.log(`Flow started: ${msg.strategyName}`);
+        console.log(`Strategy started: ${msg.strategyName}`);
         console.log(`Agents: ${msg.agents.join(", ")}\n`);
         break;
 
@@ -178,7 +189,7 @@ async function main() {
           if (currentRunId) {
             ws.send(
               JSON.stringify({
-                type: "stop_flow",
+                type: "stop_strategy",
                 runId: currentRunId,
               }),
             );
@@ -205,8 +216,8 @@ async function main() {
         break;
       }
 
-      case "flow_completed":
-        console.log(`\nFlow completed (run: ${msg.runId})`);
+      case "strategy_completed":
+        console.log(`\nStrategy completed (run: ${msg.runId})`);
         console.log(`Result: ${msg.result}`);
         console.log(
           `Usage: ${msg.usage.promptTokens} prompt + ${msg.usage.completionTokens} completion`,
@@ -214,8 +225,8 @@ async function main() {
         ws.close();
         break;
 
-      case "flow_error":
-        console.error(`\nFlow error: ${msg.error.code} — ${msg.error.message}`);
+      case "strategy_error":
+        console.error(`\nStrategy error: ${msg.error.code} — ${msg.error.message}`);
         ws.close();
         process.exit(1);
         break;

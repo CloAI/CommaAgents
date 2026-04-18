@@ -32,6 +32,8 @@ export function buildFlowResult(
     text,
     usage: { promptTokens, completionTokens },
     finishReason: "stop",
+    responseMessages: [],
+    steps: [],
     stepResults,
   };
 }

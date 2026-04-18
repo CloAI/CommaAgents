@@ -3,7 +3,8 @@
 import { describe, expect, it } from "bun:test";
 import type { Agent } from "../../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../../errors/index";
-import type { FlowHooks, FlowResult } from "../../flow/flow.types";
+import type { FlowResult } from "../../flow/flow.types";
+import { hookIntoFlow } from "../../hook-into-flow/hook-into-flow";
 import { makeAgent } from "../../test.utils";
 import { createBroadcastFlow } from "./broadcast-flow";
 
@@ -127,16 +128,15 @@ describe("createBroadcastFlow", () => {
     await expect(flow.call("test")).rejects.toThrow('Step "bad" failed: fail');
   });
 
-  it("applies flow hooks", async () => {
-    const hooks: FlowHooks = {
-      alterMessageBeforeFlow: [async (msg) => `[${msg}]`],
-      alterMessageAfterFlow: [async (msg) => msg.toUpperCase()],
-    };
-
+  it("applies flow hooks via hookIntoFlow", async () => {
     const flow = createBroadcastFlow({
       name: "hooked",
       steps: [makeAgent("a", (msg) => `a:${msg}`), makeAgent("b", (msg) => `b:${msg}`)],
-      hooks,
+    });
+
+    hookIntoFlow(flow, {
+      alterMessageBeforeFlow: [async (msg) => `[${msg}]`],
+      alterMessageAfterFlow: [async (msg) => msg.toUpperCase()],
     });
 
     const result = await flow.call("hi");
@@ -202,7 +202,13 @@ describe("createBroadcastFlow", () => {
 describe("createBroadcastFlow (step hooks)", () => {
   it("fires beforeStep and afterStep for each step", async () => {
     const events: string[] = [];
-    const hooks: FlowHooks = {
+
+    const flow = createBroadcastFlow({
+      name: "hooked-broadcast",
+      steps: [makeAgent("a", "alpha"), makeAgent("b", "beta")],
+    });
+
+    hookIntoFlow(flow, {
       beforeStep: [
         ({ stepName, message }) => {
           events.push(`before:${stepName}:${message}`);
@@ -213,12 +219,6 @@ describe("createBroadcastFlow (step hooks)", () => {
           events.push(`after:${stepName}:${result.text}`);
         },
       ],
-    };
-
-    const flow = createBroadcastFlow({
-      name: "hooked-broadcast",
-      steps: [makeAgent("a", "alpha"), makeAgent("b", "beta")],
-      hooks,
     });
 
     await flow.call("input");
@@ -229,7 +229,13 @@ describe("createBroadcastFlow (step hooks)", () => {
 
   it("step hooks fire alongside flow-level hooks in correct order", async () => {
     const order: string[] = [];
-    const hooks: FlowHooks = {
+
+    const flow = createBroadcastFlow({
+      name: "ordered",
+      steps: [makeAgent("a", "out-a"), makeAgent("b", "out-b")],
+    });
+
+    hookIntoFlow(flow, {
       beforeFlow: [
         () => {
           order.push("flow-before");
@@ -250,12 +256,6 @@ describe("createBroadcastFlow (step hooks)", () => {
           order.push(`step-after:${stepName}`);
         },
       ],
-    };
-
-    const flow = createBroadcastFlow({
-      name: "ordered",
-      steps: [makeAgent("a", "out-a"), makeAgent("b", "out-b")],
-      hooks,
     });
 
     await flow.call("msg");

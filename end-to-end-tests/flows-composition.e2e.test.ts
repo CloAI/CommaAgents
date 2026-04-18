@@ -25,6 +25,7 @@ import {
   createCycleFlow,
   createSequentialFlow,
   hookIntoAgent,
+  hookIntoFlow,
   registerModel,
   registerTool,
   resetModelRegistry,
@@ -36,7 +37,6 @@ import type {
   AgentHooks,
   ToolHooks,
   CycleHooks,
-  FlowHooks,
   FlowResult,
 } from "@comma-agents/core";
 import { createSimpleMockModel, createToolCallingMockModel } from "./helpers/mock-model";
@@ -169,13 +169,14 @@ describe("E2E: Flow Composition", () => {
         steps: [worker],
         cycles: 3,
         observer,
-        hooks: {
-          afterStep: [
-            async ({ stepName, result }) => {
-              cycleOutputs.push(`${stepName}:${result.text}`);
-            },
-          ],
-        },
+      });
+
+      hookIntoFlow(flow, {
+        afterStep: [
+          async ({ stepName, result }) => {
+            cycleOutputs.push(`${stepName}:${result.text}`);
+          },
+        ],
       });
 
       const result = (await flow.call("Initial prompt")) as FlowResult;
@@ -376,7 +377,15 @@ describe("E2E: Flow Composition", () => {
     it("should fire flow hooks in correct order: before → steps → after", async () => {
       const log: string[] = [];
 
-      const hooks: FlowHooks = {
+      const agentA = makeAgent("step-a", "Output A");
+      const agentB = makeAgent("step-b", "Output B");
+
+      const flow = createSequentialFlow({
+        name: "hooked-flow",
+        steps: [agentA, agentB],
+      });
+
+      hookIntoFlow(flow, {
         alterMessageBeforeFlow: [
           async (msg) => {
             log.push("alterMessageBeforeFlow");
@@ -409,15 +418,6 @@ describe("E2E: Flow Composition", () => {
             return msg;
           },
         ],
-      };
-
-      const agentA = makeAgent("step-a", "Output A");
-      const agentB = makeAgent("step-b", "Output B");
-
-      const flow = createSequentialFlow({
-        name: "hooked-flow",
-        steps: [agentA, agentB],
-        hooks,
       });
 
       await flow.call("Test hooks");
@@ -437,7 +437,15 @@ describe("E2E: Flow Composition", () => {
     it("should fire cycle hooks in correct order including cycle boundaries", async () => {
       const log: string[] = [];
 
-      const hooks: CycleHooks = {
+      const worker = makeMultiResponseAgent("worker", ["out-1", "out-2"]);
+
+      const flow = createCycleFlow({
+        name: "cycle-hooks-flow",
+        steps: [worker],
+        cycles: 2,
+      });
+
+      hookIntoFlow<CycleHooks>(flow, {
         alterMessageBeforeFlow: [
           async (msg) => {
             log.push("alterMessageBeforeFlow");
@@ -482,15 +490,6 @@ describe("E2E: Flow Composition", () => {
             return msg;
           },
         ],
-      };
-
-      const worker = makeMultiResponseAgent("worker", ["out-1", "out-2"]);
-
-      const flow = createCycleFlow({
-        name: "cycle-hooks-flow",
-        steps: [worker],
-        cycles: 2,
-        hooks,
       });
 
       await flow.call("Test cycle hooks");
@@ -517,7 +516,27 @@ describe("E2E: Flow Composition", () => {
     it("should combine flow hooks and agent hooks across a sequential flow", async () => {
       const log: string[] = [];
 
-      const flowHooks: FlowHooks = {
+      const agentHooks: AgentHooks = {
+        beforeCall: [
+          async () => {
+            log.push("agent:beforeCall");
+          },
+        ],
+        afterCallResult: [
+          async () => {
+            log.push("agent:afterCallResult");
+          },
+        ],
+      };
+
+      const agentA = makeAgent("agent-a", "Output A", agentHooks);
+
+      const flow = createSequentialFlow({
+        name: "combined-hooks-flow",
+        steps: [agentA],
+      });
+
+      hookIntoFlow(flow, {
         beforeFlow: [
           async () => {
             log.push("flow:beforeFlow");
@@ -538,27 +557,6 @@ describe("E2E: Flow Composition", () => {
             log.push("flow:afterFlow");
           },
         ],
-      };
-
-      const agentHooks: AgentHooks = {
-        beforeCall: [
-          async () => {
-            log.push("agent:beforeCall");
-          },
-        ],
-        afterCall: [
-          async () => {
-            log.push("agent:afterCall");
-          },
-        ],
-      };
-
-      const agentA = makeAgent("agent-a", "Output A", agentHooks);
-
-      const flow = createSequentialFlow({
-        name: "combined-hooks-flow",
-        steps: [agentA],
-        hooks: flowHooks,
       });
 
       await flow.call("Test combined hooks");
@@ -569,16 +567,16 @@ describe("E2E: Flow Composition", () => {
       expect(log).toContain("flow:beforeStep:agent-a");
       // Agent hooks should fire during step execution
       expect(log).toContain("agent:beforeCall");
-      expect(log).toContain("agent:afterCall");
+      expect(log).toContain("agent:afterCallResult");
       // Then flow afterStep
       expect(log).toContain("flow:afterStep:agent-a");
       // Flow afterFlow fires last
       expect(log[log.length - 1]).toBe("flow:afterFlow");
 
-      // Verify ordering: flow:beforeStep < agent:beforeCall < agent:afterCall < flow:afterStep
+      // Verify ordering: flow:beforeStep < agent:beforeCall < agent:afterCallResult < flow:afterStep
       const beforeStepIdx = log.indexOf("flow:beforeStep:agent-a");
       const agentBeforeIdx = log.indexOf("agent:beforeCall");
-      const agentAfterIdx = log.indexOf("agent:afterCall");
+      const agentAfterIdx = log.indexOf("agent:afterCallResult");
       const afterStepIdx = log.indexOf("flow:afterStep:agent-a");
 
       expect(beforeStepIdx).toBeLessThan(agentBeforeIdx);
@@ -589,28 +587,15 @@ describe("E2E: Flow Composition", () => {
     it("should combine flow + step + tool hooks in correct nesting order", async () => {
       const log: string[] = [];
 
-      const flowHooks: FlowHooks = {
-        beforeStep: [
-          async ({ stepName }) => {
-            log.push(`flow:beforeStep:${stepName}`);
-          },
-        ],
-        afterStep: [
-          async ({ stepName }) => {
-            log.push(`flow:afterStep:${stepName}`);
-          },
-        ],
-      };
-
       const agentHooks: AgentHooks = {
         beforeCall: [
           async () => {
             log.push("agent:beforeCall");
           },
         ],
-        afterCall: [
+        afterCallResult: [
           async () => {
-            log.push("agent:afterCall");
+            log.push("agent:afterCallResult");
           },
         ],
       };
@@ -654,17 +639,29 @@ describe("E2E: Flow Composition", () => {
       const flow = createSequentialFlow({
         name: "full-hooks-flow",
         steps: [toolAgent],
-        hooks: flowHooks,
+      });
+
+      hookIntoFlow(flow, {
+        beforeStep: [
+          async ({ stepName }) => {
+            log.push(`flow:beforeStep:${stepName}`);
+          },
+        ],
+        afterStep: [
+          async ({ stepName }) => {
+            log.push(`flow:afterStep:${stepName}`);
+          },
+        ],
       });
 
       await flow.call("Test all hooks");
 
-      // Expected nesting: flow:beforeStep → agent:beforeCall → tool:before → tool:after → agent:afterCall → flow:afterStep
+      // Expected nesting: flow:beforeStep → agent:beforeCall → tool:before → tool:after → agent:afterCallResult → flow:afterStep
       const flowBeforeIdx = log.indexOf("flow:beforeStep:tool-step");
       const agentBeforeIdx = log.indexOf("agent:beforeCall");
       const toolBeforeIdx = log.indexOf(`tool:before:${toolName}`);
       const toolAfterIdx = log.indexOf(`tool:after:${toolName}`);
-      const agentAfterIdx = log.indexOf("agent:afterCall");
+      const agentAfterIdx = log.indexOf("agent:afterCallResult");
       const flowAfterIdx = log.indexOf("flow:afterStep:tool-step");
 
       expect(flowBeforeIdx).toBeLessThan(agentBeforeIdx);
@@ -717,6 +714,8 @@ describe("E2E: Flow Composition", () => {
             text: "A output",
             usage: { promptTokens: 0, completionTokens: 0 },
             finishReason: "stop",
+            responseMessages: [],
+            steps: [],
           };
         },
         reset() {},
@@ -739,6 +738,8 @@ describe("E2E: Flow Composition", () => {
             text: "C output",
             usage: { promptTokens: 0, completionTokens: 0 },
             finishReason: "stop",
+            responseMessages: [],
+            steps: [],
           };
         },
         reset() {},
@@ -814,16 +815,16 @@ describe("E2E: Flow Composition", () => {
         steps: [agentA, agentB],
       });
 
-      // First call builds up history
+      // First call builds up context
       await flow.call("First run");
-      expect(agentA.getHistory!().length).toBeGreaterThan(0);
-      expect(agentB.getHistory!().length).toBeGreaterThan(0);
+      expect(agentA.getConversationContext!().allMessages().length).toBeGreaterThan(0);
+      expect(agentB.getConversationContext!().allMessages().length).toBeGreaterThan(0);
 
       // Reset flow — should reset all child agents
       flow.reset();
 
-      expect(agentA.getHistory!().length).toBe(0);
-      expect(agentB.getHistory!().length).toBe(0);
+      expect(agentA.getConversationContext!().allMessages().length).toBe(0);
+      expect(agentB.getConversationContext!().allMessages().length).toBe(0);
     });
 
     it("should reset nested flows recursively", async () => {
@@ -855,13 +856,13 @@ describe("E2E: Flow Composition", () => {
 
       await outerFlow.call("Run");
 
-      expect(innerAgent.getHistory!().length).toBeGreaterThan(0);
-      expect(outerAgent.getHistory!().length).toBeGreaterThan(0);
+      expect(innerAgent.getConversationContext!().allMessages().length).toBeGreaterThan(0);
+      expect(outerAgent.getConversationContext!().allMessages().length).toBeGreaterThan(0);
 
       outerFlow.reset();
 
-      expect(innerAgent.getHistory!().length).toBe(0);
-      expect(outerAgent.getHistory!().length).toBe(0);
+      expect(innerAgent.getConversationContext!().allMessages().length).toBe(0);
+      expect(outerAgent.getConversationContext!().allMessages().length).toBe(0);
     });
 
     it("should reset cycle flow including observer", async () => {
@@ -888,13 +889,13 @@ describe("E2E: Flow Composition", () => {
 
       await flow.call("Run cycle");
 
-      // Both should have history
-      expect(worker.getHistory!().length).toBeGreaterThan(0);
+      // Both should have context
+      expect(worker.getConversationContext!().allMessages().length).toBeGreaterThan(0);
 
       flow.reset();
 
-      expect(worker.getHistory!().length).toBe(0);
-      expect(observer.getHistory!().length).toBe(0);
+      expect(worker.getConversationContext!().allMessages().length).toBe(0);
+      expect(observer.getConversationContext!().allMessages().length).toBe(0);
     });
   });
 });

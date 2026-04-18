@@ -1,0 +1,145 @@
+---
+title: Strategy Execution
+description: Starting and stopping strategies — start_strategy, stop_strategy, and the strategy lifecycle events they produce.
+---
+
+Strategy execution is fire-and-forget. The client sends `start_strategy` to begin executing a strategy. The daemon loads the strategy, starts the run, and emits lifecycle events asynchronously to all subscribers. Send `stop_strategy` to cancel a running strategy.
+
+## Starting a Strategy
+
+### Request: `start_strategy`
+
+```json
+{
+  "type": "start_strategy",
+  "strategyPath": "./strategies/code-review.yaml",
+  "input": "Review this function: function add(a, b) { return a + b; }",
+  "modelOverride": "anthropic/claude-sonnet-4-20250514",
+  "requestId": "run-1"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"start_strategy"` | yes | Message type discriminator |
+| `strategyPath` | `string` | yes | Path to the strategy JSON/YAML file |
+| `input` | `string` | no | Initial input message for the strategy |
+| `modelOverride` | `string` | no | Override the model for all agents in this run. Format: `"providerID/modelID"` (e.g. `"openai/gpt-4o"`). When set, ignores model strings in the strategy file. |
+| `requestId` | `string` | no | Echoed on all events for this run |
+
+The client that sends `start_strategy` is automatically subscribed to the run's events. There is no direct success response — instead, the daemon emits a `strategy_started` event when execution begins.
+
+### Event: `strategy_started`
+
+Sent to all subscribers when the strategy has been loaded and execution begins.
+
+```json
+{
+  "type": "strategy_started",
+  "runId": "run_abc123",
+  "strategyName": "Code Review Pipeline",
+  "agents": ["analyzer", "reviewer"],
+  "flowTree": { "name": "Review Pipeline", "type": "sequential", "steps": ["..."] },
+  "ts": "2025-01-15T10:30:00.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"strategy_started"` | Message type discriminator |
+| `runId` | `string` | Unique identifier for this run |
+| `strategyName` | `string` | Name of the strategy being executed |
+| `agents` | `string[]` | List of agent names in the strategy |
+| `flowTree` | `Record<string, unknown>` | Serialized flow tree structure (for UI rendering) |
+| `requestId` | `string?` | Echoed from the request |
+| `ts` | `string` | ISO-8601 timestamp |
+
+### Event: `strategy_completed`
+
+Sent when the strategy finishes successfully.
+
+```json
+{
+  "type": "strategy_completed",
+  "runId": "run_abc123",
+  "result": "The function looks correct but could benefit from type annotations...",
+  "usage": { "promptTokens": 150, "completionTokens": 87 },
+  "ts": "2025-01-15T10:30:05.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"strategy_completed"` | Message type discriminator |
+| `runId` | `string` | The run that completed |
+| `result` | `string` | Final text output of the strategy |
+| `usage` | [`Usage`](/docs/daemon/protocol/shared-types#usage) | Aggregated token usage across all steps |
+| `requestId` | `string?` | Echoed from the request |
+| `ts` | `string` | ISO-8601 timestamp |
+
+### Event: `strategy_error`
+
+Sent when the strategy encounters an error or is cancelled.
+
+```json
+{
+  "type": "strategy_error",
+  "runId": "run_abc123",
+  "error": { "code": "EXECUTION_ERROR", "message": "Model resolution failed for openai/gpt-4o" },
+  "ts": "2025-01-15T10:30:02.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"strategy_error"` | Message type discriminator |
+| `runId` | `string` | The run that errored |
+| `error` | [`ErrorInfo`](/docs/daemon/protocol/shared-types#errorinfo) | Structured error with `code` and `message` |
+| `requestId` | `string?` | Echoed from the request |
+| `ts` | `string` | ISO-8601 timestamp |
+
+## Stopping a Strategy
+
+### Request: `stop_strategy`
+
+Cancels a running strategy. The daemon aborts execution and emits a `strategy_error` with code `CANCELLED`.
+
+```json
+{
+  "type": "stop_strategy",
+  "runId": "run_abc123",
+  "requestId": "cancel-1"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"stop_strategy"` | yes | Message type discriminator |
+| `runId` | `string` | yes | The run to cancel |
+| `requestId` | `string` | no | Echoed on the resulting `strategy_error` |
+
+There is no direct response. Subscribers receive a `strategy_error` event:
+
+```json
+{
+  "type": "strategy_error",
+  "runId": "run_abc123",
+  "error": { "code": "CANCELLED", "message": "Run cancelled by client" },
+  "ts": "2025-01-15T10:30:03.000Z"
+}
+```
+
+## Event Sequence
+
+A typical successful run produces events in this order:
+
+```
+start_strategy →
+  strategy_started →
+    step_started → agent_streaming* → agent_output → step_completed →
+    step_started → agent_streaming* → agent_output → step_completed →
+    ...
+  strategy_completed
+```
+
+See [Strategy Observation](/docs/daemon/protocol/strategy-observation) for details on the per-step events.

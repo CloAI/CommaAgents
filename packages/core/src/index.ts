@@ -1,18 +1,19 @@
 // @comma-agents/core
 // Composable agent orchestration framework
 
+export type { AbortableAsyncGenerator, AbortablePromise } from "@comma-agents/utils";
+// -- Abortable utilities (re-exported from @comma-agents/utils) --
+export { createAbortableGenerator, createAbortablePromise } from "@comma-agents/utils";
+
 // -- Agent composition --
 export { createAgent } from "./agents/agent/agent";
 // -- Agents --
 // -- Agent types (the core contracts) --
 export type {
-  AbortableAsyncGenerator,
-  AbortablePromise,
   Agent,
   AgentCallResult,
   AgentConfig,
   AgentStreamEvent,
-  LLMCallResult,
 } from "./agents/agent/agent.types";
 // -- Agent hook middleware --
 export { createUserAgent } from "./agents/built-in/user/user-agent";
@@ -28,6 +29,22 @@ export type { AgentHooks, ToolHooks } from "./agents/hooks/hooks.types";
 export type { AgentDescription, LoadAgentOptions } from "./agents/loader/index";
 // -- Agent loader (standalone agent files) --
 export { AgentDescriptionSchema, loadAgent, loadAgentFromString } from "./agents/loader/index";
+// Re-export AI SDK message types and our ResponseMessage alias for consumer convenience
+export type {
+  AssistantModelMessage,
+  ModelMessage,
+  ResponseMessage,
+  ToolModelMessage,
+  UserModelMessage,
+} from "./context/conversation-context.types";
+export type {
+  ContextStrategy,
+  ConversationContext,
+  ConversationContextConfig,
+  ConversationTurn,
+} from "./context/index";
+// -- Context (conversation state management) --
+export { createConversationContext } from "./context/index";
 // -- Credentials --
 export type {
   ApiCredential,
@@ -93,6 +110,9 @@ export {
   createSequentialFlow,
   hookIntoFlow,
 } from "./flows/index";
+export type { FlowDescription, LoadFlowOptions } from "./flows/loader/index";
+// -- Flow loader (standalone flow files) --
+export { FlowDescriptionSchema, loadFlow, loadFlowFromString } from "./flows/loader/index";
 // Shared hook infrastructure
 export type { SideEffectHook, TransformHook } from "./hooks";
 export { runSideEffectHooks, runTransformHooks } from "./hooks";
@@ -119,23 +139,13 @@ export {
   resolveModel,
   unregisterModel,
 } from "./model/index";
-export type { ConversationHistory } from "./prompts/history/conversation-history";
-// -- Prompts (Phase 5) --
-export { createConversationHistory } from "./prompts/history/conversation-history";
 export type {
   BuildMessagesOptions,
   SystemPromptOptions,
 } from "./prompts/message-builder";
+// -- Prompts --
 export { buildMessages, resolveSystemPrompt } from "./prompts/message-builder";
 export { createPromptTemplate } from "./prompts/template/prompt-template";
-// Re-export AI SDK message types and our ResponseMessage alias for consumer convenience
-export type {
-  AssistantModelMessage,
-  ModelMessage,
-  ResponseMessage,
-  ToolModelMessage,
-  UserModelMessage,
-} from "./prompts/types";
 export type {
   AgentDef,
   AgentStep,
@@ -162,23 +172,6 @@ export {
   loadStrategyFromString,
   StrategySchema,
 } from "./strategy/index";
-export type {
-  BashToolConfig,
-  DefaultToolsConfig,
-  GlobToolConfig,
-  GrepToolConfig,
-  ReadToolConfig,
-} from "./tools/built-in/index";
-// -- Built-in Tools (Phase 6) --
-export {
-  createBashTool,
-  createDefaultTools,
-  createEditTool,
-  createGlobTool,
-  createGrepTool,
-  createReadTool,
-  createWriteTool,
-} from "./tools/built-in/index";
 // -- Tools --
 export { defineTool } from "./tools/define/define-tool";
 // -- Tool registry --

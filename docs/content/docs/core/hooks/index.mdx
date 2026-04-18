@@ -1,0 +1,44 @@
+---
+title: Hooks
+description: Overview of the hook system for intercepting and transforming agent, tool, and flow behavior.
+---
+
+Hooks let you intercept and transform agent, tool, and flow behavior at various lifecycle points. There are two kinds:
+
+- **Side-effect hooks** — observe values without modifying them (logging, metrics, etc.).
+- **Transform hooks** — modify values in the pipeline (altering messages, responses, etc.).
+
+Hooks are always attached **after creation** using `hookIntoAgent` or `hookIntoFlow`:
+
+```ts
+import { createAgent, hookIntoAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "assistant",
+  model: "openai/gpt-4o",
+});
+
+hookIntoAgent(agent, {
+  beforeCall: [async (message) => console.log("Sending:", message)],
+  afterCallResult: [async (result) => console.log("Tokens:", result.usage.promptTokens)],
+});
+```
+
+Multiple hook calls stack — each call appends to the existing hooks rather than replacing them.
+
+## Domain-specific Hooks
+
+Hook interfaces are co-located with their domain. See the dedicated pages for the full APIs:
+
+- [Agent Hooks](/docs/core/agents/agent-hooks) — `hookIntoAgent`, `AgentHooks`, `ToolHooks`
+- [Flow Hooks](/docs/core/flows/flow-hooks) — `hookIntoFlow`, `FlowHooks`, `CycleFlowHooks`
+
+## Hook Primitives
+
+The two base hook types that all domain-specific hooks are built on are documented in [Hook Primitives](/docs/core/hooks/hook-primitives).
+
+## Built-in Hooks
+
+Comma Agents ships with built-in hooks for common cross-cutting concerns:
+
+- [Token Tracking](/docs/core/hooks/built-in/token-tracking) — accumulate real token usage, monitor context window budget

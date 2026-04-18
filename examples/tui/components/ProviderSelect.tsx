@@ -21,6 +21,7 @@ import type { DeviceCodeResponse, PollResult } from "../../auth";
 import { resolveCredential, startDeviceFlow, store } from "../../auth";
 import type { ProviderConfig } from "../examples";
 import { PROVIDERS } from "../examples";
+import { useTerminalSize } from "../hooks/useTerminalSize";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -55,6 +56,7 @@ type Step =
 // ---------------------------------------------------------------------------
 
 export function ProviderSelect({ onSelect }: ProviderSelectProps) {
+  const { rows } = useTerminalSize();
   const [step, setStep] = useState<Step>("loading");
   const [selectedProvider, setSelectedProvider] = useState<ProviderConfig | null>(null);
   const [modelInput, setModelInput] = useState("");
@@ -209,7 +211,7 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
   // ---------------------------------------------------------------------------
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" height={rows}>
       <Text bold color="cyan">
         comma-agents Example Runner
       </Text>

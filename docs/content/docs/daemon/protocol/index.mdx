@@ -1,0 +1,81 @@
+---
+title: Protocol
+description: WebSocket protocol overview — message envelopes, request/response pairs, and error handling.
+---
+
+The daemon communicates with clients over a WebSocket connection at `/ws`. All messages are JSON objects validated with Zod schemas. Each message has a `type` field that identifies its kind.
+
+## Connection Lifecycle
+
+1. Client opens a WebSocket to `ws://host:port/ws`.
+2. The daemon assigns a `clientId` and tracks the connection.
+3. Client sends JSON messages (requests). Daemon replies with JSON messages (responses/events).
+4. On disconnect, the daemon removes the client from all subscriptions.
+
+A health check is available at `GET /health`, returning `{ status, uptime, activeRuns, connectedClients }`.
+
+## Message Envelopes
+
+Every message extends a base envelope.
+
+### Client Messages
+
+All client-to-daemon messages include an optional `requestId`. When provided, the daemon echoes it back on the response so the client can correlate request/response pairs.
+
+```json
+{
+  "type": "ping",
+  "requestId": "abc-123"
+}
+```
+
+### Daemon Messages
+
+All daemon-to-client messages include a `ts` field (ISO-8601 timestamp) and an optional `requestId` echoed from the triggering request.
+
+```json
+{
+  "type": "pong",
+  "requestId": "abc-123",
+  "ts": "2025-01-15T10:30:00.000Z"
+}
+```
+
+## Message Pairs Summary
+
+| Client Request | Daemon Response | Pattern |
+|---|---|---|
+| [`ping`](/docs/daemon/protocol/ping) | `pong` | Request/Reply |
+| [`start_strategy`](/docs/daemon/protocol/strategy-execution) | `strategy_started`, `strategy_completed`, `strategy_error` | Fire-and-forget + async events |
+| [`stop_strategy`](/docs/daemon/protocol/strategy-execution) | `strategy_error` (code: `CANCELLED`) | Fire-and-forget |
+| [`list_strategies`](/docs/daemon/protocol/list-and-subscribe) | `strategy_list` | Request/Reply |
+| [`subscribe`](/docs/daemon/protocol/list-and-subscribe) | `error` (only on failure) | Silent success |
+| [`unsubscribe`](/docs/daemon/protocol/list-and-subscribe) | _(none)_ | Silent |
+| [`user_input`](/docs/daemon/protocol/user-input) | `error` (only if no pending request) | Silent success |
+
+During strategy execution, subscribers receive [observation events](/docs/daemon/protocol/strategy-observation): `step_started`, `step_completed`, `agent_output`, `agent_streaming`, and `request_input`.
+
+## Error Handling
+
+The daemon sends an `error` message for protocol-level failures. Every error includes a machine-readable `code` and a human-readable `message`:
+
+```json
+{
+  "type": "error",
+  "code": "VALIDATION_ERROR",
+  "message": "Missing required field: strategyPath",
+  "ts": "2025-01-15T10:30:00.000Z"
+}
+```
+
+### Error Codes
+
+| Code | When |
+|---|---|
+| `PARSE_ERROR` | Invalid JSON received on the WebSocket |
+| `VALIDATION_ERROR` | JSON is valid but fails schema validation |
+| `INTERNAL_ERROR` | Unhandled exception in a handler |
+| `NO_PENDING_INPUT` | `user_input` sent but no agent is waiting for input |
+| `SUBSCRIBE_ERROR` | `subscribe` failed (run not found or client not registered) |
+| `EXECUTION_ERROR` | Strategy file not found, parse error, or model resolution failure |
+| `CANCELLED` | Run was explicitly stopped via `stop_strategy` |

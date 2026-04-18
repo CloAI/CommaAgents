@@ -1,0 +1,111 @@
+---
+title: loadAgent
+description: Load an agent from a JSON or YAML description file with schema validation and template support.
+---
+`loadAgent` reads a standalone agent description file (JSON or YAML), validates it against a strict schema, and returns a live `Agent` ready to call. For content already in memory, `loadAgentFromString` accepts a raw string directly.
+
+```ts
+import { loadAgent } from "@comma-agents/core";
+
+const agent = await loadAgent("./agents/researcher.yaml");
+const result = await agent.call("What is TypeScript?");
+console.log(result.text);
+```
+
+## Agent Description File
+
+A description file defines a single agent — its name, model, optional system prompt, and optional tools. The schema is strict: unknown fields are rejected.
+
+### YAML
+
+```yaml
+name: researcher
+model: openai/gpt-4o
+systemPrompt: You are a research assistant.
+tools:
+  - read
+  - grep
+```
+
+### JSON
+
+```json
+{
+  "name": "researcher",
+  "model": "openai/gpt-4o",
+  "systemPrompt": "You are a research assistant.",
+  "tools": ["read", "grep"]
+}
+```
+
+## AgentDescriptionSchema
+
+Zod schema used to validate agent description files. Requires `name` and `model`; everything else is optional.
+
+<AutoTypeTable path="../packages/core/src/agents/loader/loader.schema.ts" name="AgentDescription" />
+
+## LoadAgentOptions
+
+Options passed to `loadAgent` or `loadAgentFromString`. Currently reserved for future use.
+
+<AutoTypeTable path="../packages/core/src/agents/loader/loader.types.ts" name="LoadAgentOptions" />
+
+## loadAgentFromString
+
+When the description content is already in memory (e.g., from a database, WebSocket, or test fixture), use `loadAgentFromString` directly:
+
+```ts
+import { loadAgentFromString } from "@comma-agents/core";
+
+const yaml = `
+name: writer
+model: openai/gpt-4o
+systemPrompt: You are a creative writer.
+`;
+
+const agent = await loadAgentFromString(yaml, "yaml");
+const result = await agent.call("Write a haiku about TypeScript.");
+```
+
+The `format` parameter must be `"json"` or `"yaml"`. `loadAgent` auto-detects format from the file extension (`.json`, `.yaml`, `.yml`).
+
+## System Prompt Templates
+
+Instead of a static `systemPrompt`, you can define a `systemPromptTemplate` using [Liquid](https://liquidjs.com/) syntax with default variables:
+
+```yaml
+name: greeter
+model: openai/gpt-4o
+systemPromptTemplate:
+  template: "You are a {{ role }} who speaks {{ language }}."
+  variables:
+    role: friendly assistant
+    language: English
+```
+
+When both `systemPromptTemplate` and `systemPrompt` are present, the template takes precedence.
+
+## Model and Tool Resolution
+
+Model and tool names in the description file are plain strings (e.g., `"openai/gpt-4o"`, `"read"`). They are resolved at call time through the global registries — `registerProvider()`, `registerModel()`, and `registerTool()`. Make sure the required providers and tools are registered before calling the agent.
+
+## Error Handling
+
+Both `loadAgent` and `loadAgentFromString` throw `StrategyValidationError` for:
+
+- Unsupported file extensions (only `.json`, `.yaml`, `.yml`)
+- Missing files
+- Malformed JSON or YAML
+- Schema validation failures (missing `name` or `model`, unknown fields, wrong types)
+
+```ts
+import { loadAgent, StrategyValidationError } from "@comma-agents/core";
+
+try {
+  const agent = await loadAgent("./agents/broken.yaml");
+} catch (error) {
+  if (error instanceof StrategyValidationError) {
+    console.error("Invalid agent description:", error.message);
+  }
+}
+```

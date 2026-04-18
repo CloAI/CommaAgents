@@ -1,0 +1,105 @@
+---
+title: createCycleFlow
+description: Repeated pipeline iterations with optional observer feedback between cycles.
+---
+`createCycleFlow` repeats a sequential pipeline N times. Each cycle runs all steps in order; the output of one cycle becomes the input of the next. An optional observer agent can provide feedback between cycles.
+
+```ts
+import { createAgent, createCycleFlow } from "@comma-agents/core";
+
+const writer = createAgent({
+  name: "writer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Write or refine a poem based on the input.",
+});
+
+const reviewer = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Critique the poem and suggest improvements.",
+});
+
+const flow = createCycleFlow({
+  name: "poem-refinement",
+  steps: [writer, reviewer],
+  cycles: 3,
+});
+
+const result = await flow.call("Write a haiku about TypeScript.");
+console.log(result.text);
+```
+
+## CycleFlowConfig
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="CycleFlowConfig" />
+
+## Cycle Behavior
+
+Each cycle runs all steps sequentially (same as `createSequentialFlow`). The output of the last step in cycle N becomes the input message for the first step in cycle N+1:
+
+```
+Cycle 1: writer("topic") → reviewer(writer's output)
+Cycle 2: writer(reviewer's output from cycle 1) → reviewer(writer's output)
+Cycle 3: writer(reviewer's output from cycle 2) → reviewer(writer's output)
+```
+
+The default is 1 cycle. Set `cycles: Infinity` for an unbounded loop — use `AbortablePromise.abort()` to stop it:
+
+```ts
+const flow = createCycleFlow({
+  name: "infinite-loop",
+  steps: [writer, reviewer],
+  cycles: Infinity,
+});
+
+const promise = flow.call("topic");
+// Cancel after 30 seconds
+setTimeout(() => promise.abort(), 30_000);
+```
+
+## Observer
+
+The `observer` option adds an agent that runs after each cycle, before the next cycle begins. The observer's output becomes the input for the next cycle:
+
+```ts
+const observer = createAgent({
+  name: "observer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Summarize the feedback so far into a clear directive for the next iteration.",
+});
+
+const flow = createCycleFlow({
+  name: "observed-refinement",
+  steps: [writer, reviewer],
+  cycles: 3,
+  observer,
+});
+```
+
+The observer runs after all steps complete but before any user-provided `alterMessageAfterCycle` hooks. Calling `reset()` on the flow also resets the observer.
+
+## Cycle Hooks
+
+Cycle flows support two additional hooks beyond the standard flow hooks. Use `hookIntoFlow<CycleHooks>()` to attach them:
+
+```ts
+import { createCycleFlow, hookIntoFlow } from "@comma-agents/core";
+import type { CycleHooks } from "@comma-agents/core";
+
+const flow = createCycleFlow({
+  name: "loop",
+  steps: [writer],
+  cycles: 3,
+});
+
+hookIntoFlow<CycleHooks>(flow, {
+  alterMessageBeforeCycle: [
+    async (message) => `[cycle-input] ${message}`,
+  ],
+  alterMessageAfterCycle: [
+    async (message) => `${message} [cycle-done]`,
+  ],
+});
+```
+
+See the [Flow Hooks](/docs/core/flows/flow-hooks) page for the full hook reference.

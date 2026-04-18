@@ -5,9 +5,9 @@
  * behaviour at different lifecycle points.
  *
  * This example shows:
- *   - AgentHooks: beforeCall, afterCall, alterCallMessage, alterResponse
+ *   - AgentHooks: beforeCall, afterCallResult, alterCallMessage, alterResponse
  *   - ToolHooks: beforeToolCall, afterToolCall
- *   - Initial-call variants (alterInitialCallMessage)
+ *   - First-call variants (alterFirstCallMessage)
  *   - Using hooks for logging, metrics, and message transformation
  *
  * Run:
@@ -48,23 +48,23 @@ registerTool("time", timeTool);
  * Agent hooks — observe and transform the agent lifecycle.
  *
  * Execution order per call:
- *   alterCallMessage → beforeCall → [LLM call] → afterCall → alterResponse
+ *   alterCallMessage → beforeCall → [LLM call] → afterCallResult → alterResponse
  *
- * On the very first call, the `alter*Initial*` / `before/afterInitial*`
- * variants are used (falling back to the base hooks if not set).
+ * On the very first call, the `*First*` variants are used
+ * (falling back to the base hooks if not set).
  */
 const agentHooks: AgentHooks = {
   // --- Transform hooks (can modify the value) ---
 
   // Runs only on the FIRST call. Adds a prefix to the initial user message.
-  alterInitialCallMessage: [
+  alterFirstCallMessage: [
     async (message) => {
-      console.log("[hook] alterInitialCallMessage — adding greeting prefix");
+      console.log("[hook] alterFirstCallMessage — adding greeting prefix");
       return `[First message] ${message}`;
     },
   ],
 
-  // Runs on EVERY call (except the first, if alterInitialCallMessage is set).
+  // Runs on EVERY call (except the first, if alterFirstCallMessage is set).
   // Could be used for prompt injection, guardrails, input sanitisation, etc.
   alterCallMessage: [
     async (message) => {
@@ -90,9 +90,9 @@ const agentHooks: AgentHooks = {
     },
   ],
 
-  afterCall: [
-    async (response) => {
-      console.log(`[hook] afterCall — received: "${response.slice(0, 50)}..."`);
+  afterCallResult: [
+    async (result) => {
+      console.log(`[hook] afterCallResult — received: "${result.text.slice(0, 50)}..."`);
     },
   ],
 };
@@ -133,8 +133,8 @@ async function main() {
   // Attach hooks post-creation via hookIntoAgent
   hookIntoAgent(agent, { ...agentHooks, ...toolHooks });
 
-  // First call — triggers alterInitialCallMessage
-  console.log("\n=== First call (initial hooks) ===\n");
+  // First call — triggers alterFirstCallMessage
+  console.log("\n=== First call (first-call hooks) ===\n");
   const first = await agent.call("What time is it right now?");
   console.log(`\nResponse: ${first.text}`);
 

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { createAgent } from "../../../agents/agent/agent";
-import type { LLMCallResult } from "../../../agents/agent/agent.types";
+import type { AgentCallResult } from "../../../agents/agent/agent.types";
 import { hookIntoAgent } from "../../../agents/hook-into-agent/hook-into-agent";
 import { createTokenTracker, useTokenTracking } from "./token-tracking";
 import type { TokenSnapshot } from "./token-tracking.types";
@@ -274,7 +274,7 @@ describe("useTokenTracking", () => {
 
     const agent = createAgent({
       name: "hooked",
-      execute: async (message): Promise<LLMCallResult> => ({
+      execute: async (message): Promise<AgentCallResult> => ({
         text: message,
         responseMessages: [{ role: "assistant", content: message }],
         steps: [],
@@ -284,14 +284,14 @@ describe("useTokenTracking", () => {
     });
 
     hookIntoAgent(agent, {
-      afterCall: [async (text) => log.push(`afterCall: ${text}`)],
+      afterCallResult: [async (result) => log.push(`afterCallResult: ${result.text}`)],
     });
 
     const tracker = useTokenTracking(agent);
     await agent.call("test");
 
     // Both hooks should fire
-    expect(log).toEqual(["afterCall: test"]);
+    expect(log).toEqual(["afterCallResult: test"]);
     expect(tracker.snapshot().totalTokens).toBe(150);
   });
 

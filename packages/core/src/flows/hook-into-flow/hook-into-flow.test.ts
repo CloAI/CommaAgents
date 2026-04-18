@@ -14,7 +14,7 @@ import { hookIntoFlow } from "./hook-into-flow";
 
 describe("hookIntoFlow", () => {
   describe("mutation semantics", () => {
-    it("should return the same flow reference", () => {
+    it("should mutate the flow in-place and return void", () => {
       const flow = createSequentialFlow({
         name: "pipe",
         steps: [makeAgent("a", "hello")],
@@ -22,7 +22,7 @@ describe("hookIntoFlow", () => {
       const result = hookIntoFlow(flow, {
         beforeFlow: [async () => {}],
       });
-      expect(result).toBe(flow);
+      expect(result).toBeUndefined();
     });
 
     it("should throw for agents without appendHook", () => {
@@ -33,6 +33,8 @@ describe("hookIntoFlow", () => {
             text: "",
             usage: { promptTokens: 0, completionTokens: 0 },
             finishReason: "stop",
+            responseMessages: [],
+            steps: [],
           };
         },
         reset(): void {},
@@ -51,6 +53,8 @@ describe("hookIntoFlow", () => {
             text: "",
             usage: { promptTokens: 0, completionTokens: 0 },
             finishReason: "stop",
+            responseMessages: [],
+            steps: [],
           };
         },
         reset(): void {},
@@ -259,19 +263,20 @@ describe("hookIntoFlow", () => {
       expect(log).toEqual(["hook-1", "hook-2"]);
     });
 
-    it("should append to hooks from config, not replace them", async () => {
+    it("should append to existing hooks, not replace them", async () => {
       const log: string[] = [];
 
       const flow = createSequentialFlow({
         name: "pipe",
         steps: [makeAgent("a", "hello")],
-        hooks: {
-          beforeFlow: [
-            async () => {
-              log.push("config-hook");
-            },
-          ],
-        },
+      });
+
+      hookIntoFlow(flow, {
+        beforeFlow: [
+          async () => {
+            log.push("first-hook");
+          },
+        ],
       });
 
       hookIntoFlow(flow, {
@@ -283,43 +288,7 @@ describe("hookIntoFlow", () => {
       });
 
       await flow.call("test");
-      expect(log).toEqual(["config-hook", "appended-hook"]);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Chaining
-  // ---------------------------------------------------------------------------
-
-  describe("chaining", () => {
-    it("should support chaining hookIntoFlow calls", async () => {
-      const log: string[] = [];
-
-      const flow = hookIntoFlow(
-        hookIntoFlow(
-          createSequentialFlow({
-            name: "pipe",
-            steps: [makeAgent("a", "hello")],
-          }),
-          {
-            beforeFlow: [
-              async () => {
-                log.push("first");
-              },
-            ],
-          },
-        ),
-        {
-          beforeFlow: [
-            async () => {
-              log.push("second");
-            },
-          ],
-        },
-      );
-
-      await flow.call("test");
-      expect(log).toEqual(["first", "second"]);
+      expect(log).toEqual(["first-hook", "appended-hook"]);
     });
   });
 

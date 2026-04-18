@@ -10,10 +10,10 @@ import type { DaemonState } from "../../state/state.types";
 import type { HandlerContext, MessageDispatcher } from "./dispatcher.types";
 import type { DaemonMessage } from "./messages";
 import { parseClientMessage } from "./messages";
-import { handleListFlows } from "./requests/list-flows";
+import { handleListStrategies } from "./requests/list-strategies";
 import { handlePing } from "./requests/ping";
-import { handleStartFlow } from "./requests/start-flow";
-import { handleStopFlow } from "./requests/stop-flow";
+import { handleStartStrategy } from "./requests/start-strategy";
+import { handleStopStrategy } from "./requests/stop-strategy";
 import { handleSubscribe } from "./requests/subscribe";
 import { handleUnsubscribe } from "./requests/unsubscribe";
 import { handleUserInput } from "./requests/user-input";
@@ -107,17 +107,17 @@ export function createDispatcher(options: CreateDispatcherOptions): MessageDispa
         case "ping":
           handlePing(message, context);
           break;
-        case "start_flow":
-          handleStartFlow(message, context);
+        case "start_strategy":
+          handleStartStrategy(message, context);
           break;
-        case "stop_flow":
-          handleStopFlow(message, context);
+        case "stop_strategy":
+          handleStopStrategy(message, context);
           break;
         case "user_input":
           handleUserInput(message, context);
           break;
-        case "list_flows":
-          handleListFlows(message, context);
+        case "list_strategies":
+          handleListStrategies(message, context);
           break;
         case "subscribe":
           handleSubscribe(message, context);

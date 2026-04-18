@@ -4,6 +4,7 @@ import { describe, expect, it } from "bun:test";
 import type { Agent } from "../../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../../errors/index";
 import type { CycleHooks, FlowResult } from "../../flow/flow.types";
+import { hookIntoFlow } from "../../hook-into-flow/hook-into-flow";
 import { makeAgent, makeCountingAgent } from "../../test.utils";
 import { createCycleFlow } from "./cycle-flow";
 
@@ -125,20 +126,20 @@ describe("createCycleFlow (infinite)", () => {
 describe("createCycleFlow (cycle hooks)", () => {
   it("runs alterMessageBeforeCycle before each cycle", async () => {
     let cycleNum = 0;
-    const hooks: CycleHooks = {
+
+    const flow = createCycleFlow({
+      name: "hooked",
+      steps: [makeAgent("a", (msg) => msg)],
+      cycles: 2,
+    });
+
+    hookIntoFlow<CycleHooks>(flow, {
       alterMessageBeforeCycle: [
         async (msg) => {
           cycleNum++;
           return `[cycle${cycleNum}]${msg}`;
         },
       ],
-    };
-
-    const flow = createCycleFlow({
-      name: "hooked",
-      steps: [makeAgent("a", (msg) => msg)],
-      cycles: 2,
-      hooks,
     });
 
     const result = await flow.call("x");
@@ -148,15 +149,14 @@ describe("createCycleFlow (cycle hooks)", () => {
   });
 
   it("runs alterMessageAfterCycle after each cycle", async () => {
-    const hooks: CycleHooks = {
-      alterMessageAfterCycle: [async (msg) => `${msg}!`],
-    };
-
     const flow = createCycleFlow({
       name: "hooked",
       steps: [makeAgent("a", (msg) => msg)],
       cycles: 3,
-      hooks,
+    });
+
+    hookIntoFlow<CycleHooks>(flow, {
+      alterMessageAfterCycle: [async (msg) => `${msg}!`],
     });
 
     const result = await flow.call("x");
@@ -168,7 +168,19 @@ describe("createCycleFlow (cycle hooks)", () => {
 
   it("applies flow-level hooks around entire cycle", async () => {
     const order: string[] = [];
-    const hooks: CycleHooks = {
+
+    const flow = createCycleFlow({
+      name: "hooked",
+      steps: [
+        makeAgent("a", (msg) => {
+          order.push("execute");
+          return msg;
+        }),
+      ],
+      cycles: 2,
+    });
+
+    hookIntoFlow<CycleHooks>(flow, {
       alterMessageBeforeFlow: [
         async (msg) => {
           order.push("flow-before");
@@ -192,18 +204,6 @@ describe("createCycleFlow (cycle hooks)", () => {
           return msg;
         },
       ],
-    };
-
-    const flow = createCycleFlow({
-      name: "hooked",
-      steps: [
-        makeAgent("a", (msg) => {
-          order.push("execute");
-          return msg;
-        }),
-      ],
-      cycles: 2,
-      hooks,
     });
 
     await flow.call("x");
@@ -255,21 +255,20 @@ describe("createCycleFlow (observer)", () => {
       reset() {},
     };
 
-    const hooks: CycleHooks = {
+    const flow = createCycleFlow({
+      name: "observed",
+      steps: [makeAgent("a", (msg) => msg)],
+      cycles: 1,
+      observer,
+    });
+
+    hookIntoFlow<CycleHooks>(flow, {
       alterMessageAfterCycle: [
         async (msg) => {
           order.push("user-hook");
           return msg;
         },
       ],
-    };
-
-    const flow = createCycleFlow({
-      name: "observed",
-      steps: [makeAgent("a", (msg) => msg)],
-      cycles: 1,
-      hooks,
-      observer,
     });
 
     await flow.call("x");
@@ -345,7 +344,14 @@ describe("createCycleFlow (composition)", () => {
 describe("createCycleFlow (step hooks)", () => {
   it("fires beforeStep and afterStep for each step in each cycle", async () => {
     const events: string[] = [];
-    const hooks: CycleHooks = {
+
+    const flow = createCycleFlow({
+      name: "hooked-cycle",
+      steps: [makeAgent("a", (msg) => `A(${msg})`)],
+      cycles: 2,
+    });
+
+    hookIntoFlow<CycleHooks>(flow, {
       beforeStep: [
         ({ stepName, message }) => {
           events.push(`before:${stepName}:${message}`);
@@ -356,13 +362,6 @@ describe("createCycleFlow (step hooks)", () => {
           events.push(`after:${stepName}:${result.text}`);
         },
       ],
-    };
-
-    const flow = createCycleFlow({
-      name: "hooked-cycle",
-      steps: [makeAgent("a", (msg) => `A(${msg})`)],
-      cycles: 2,
-      hooks,
     });
 
     await flow.call("x");
@@ -372,7 +371,14 @@ describe("createCycleFlow (step hooks)", () => {
 
   it("step hooks fire alongside cycle-level hooks in correct order", async () => {
     const order: string[] = [];
-    const hooks: CycleHooks = {
+
+    const flow = createCycleFlow({
+      name: "ordered",
+      steps: [makeAgent("a", (msg) => msg)],
+      cycles: 2,
+    });
+
+    hookIntoFlow<CycleHooks>(flow, {
       alterMessageBeforeCycle: [
         async (msg) => {
           order.push("cycle-before");
@@ -395,13 +401,6 @@ describe("createCycleFlow (step hooks)", () => {
           order.push("step-after");
         },
       ],
-    };
-
-    const flow = createCycleFlow({
-      name: "ordered",
-      steps: [makeAgent("a", (msg) => msg)],
-      cycles: 2,
-      hooks,
     });
 
     await flow.call("x");
@@ -420,7 +419,14 @@ describe("createCycleFlow (step hooks)", () => {
 
   it("fires step hooks for multiple steps within a single cycle", async () => {
     const events: string[] = [];
-    const hooks: CycleHooks = {
+
+    const flow = createCycleFlow({
+      name: "multi-step",
+      steps: [makeAgent("a", (msg) => `A(${msg})`), makeAgent("b", (msg) => `B(${msg})`)],
+      cycles: 1,
+    });
+
+    hookIntoFlow<CycleHooks>(flow, {
       beforeStep: [
         ({ stepName }) => {
           events.push(`before:${stepName}`);
@@ -431,13 +437,6 @@ describe("createCycleFlow (step hooks)", () => {
           events.push(`after:${stepName}`);
         },
       ],
-    };
-
-    const flow = createCycleFlow({
-      name: "multi-step",
-      steps: [makeAgent("a", (msg) => `A(${msg})`), makeAgent("b", (msg) => `B(${msg})`)],
-      cycles: 1,
-      hooks,
     });
 
     await flow.call("x");

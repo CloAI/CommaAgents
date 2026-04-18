@@ -4,11 +4,11 @@
  * Demonstrates running multiple strategy flows concurrently through a single
  * daemon connection. Shows how to:
  *
- *   - Start several flows in parallel
+ *   - Start several strategies in parallel
  *   - Use `requestId` to correlate start responses
  *   - Track multiple `runId`s and route events to the right handler
- *   - Subscribe to a flow started by another client
- *   - List active flows with `list_flows`
+ *   - Subscribe to a strategy started by another client
+ *   - List active strategies with `list_strategies`
  *
  * Prerequisites:
  *   1. Start the daemon: bun run --cwd packages/daemon start
@@ -20,9 +20,9 @@
  *   bun run examples/04-multi-flow.ts --daemon-url ws://localhost:8080/ws
  *
  * Concepts:
- *   - Concurrent flow execution
+ *   - Concurrent strategy execution
  *   - requestId / runId correlation
- *   - list_flows + flow_list messages
+ *   - list_strategies + strategy_list messages
  *   - subscribe / unsubscribe
  *   - Tracking per-flow state on the client side
  */
@@ -52,6 +52,13 @@ const argv = yargs(hideBin(process.argv))
     default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
     describe: "WebSocket URL of the daemon",
   })
+  .option("model-override", {
+    alias: "m",
+    type: "string",
+    default: process.env.MODEL,
+    describe:
+      'Override the model for all agents (e.g. "anthropic/claude-sonnet-4-20250514"). Also reads MODEL env var.',
+  })
   .example("$0", "Run 3 parallel flows with default strategy")
   .example("$0 path/to/strategy.json", "Run with a specific strategy")
   .strict()
@@ -62,6 +69,7 @@ const argv = yargs(hideBin(process.argv))
 
 const DAEMON_URL = argv.daemonUrl as string;
 const STRATEGY_PATH = argv.strategyPath as string;
+const MODEL_OVERRIDE = argv.modelOverride as string | undefined;
 
 // -- Per-flow tracking ------------------------------------------------------
 
@@ -112,16 +120,18 @@ function printStatus() {
 async function main() {
   const strategyPath = path.resolve(STRATEGY_PATH);
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
-  console.log(`Strategy: ${strategyPath}\n`);
+  console.log(`Strategy: ${strategyPath}`);
+  if (MODEL_OVERRIDE) console.log(`Model override: ${MODEL_OVERRIDE}`);
+  console.log();
 
   const ws = new WebSocket(DAEMON_URL);
   let completedCount = 0;
   const totalFlows = 3;
 
   ws.onopen = () => {
-    console.log("Connected. Starting 3 flows in parallel...\n");
+    console.log("Connected. Starting 3 strategies in parallel...\n");
 
-    // Start three flows with different inputs, each with a unique requestId
+    // Start three strategies with different inputs, each with a unique requestId
     const inputs = [
       { id: "flow-a", label: "Haiku", input: "Write a haiku about the ocean." },
       {
@@ -140,18 +150,19 @@ async function main() {
       createTracker(id, label, input);
       ws.send(
         JSON.stringify({
-          type: "start_flow",
+          type: "start_strategy",
           strategyPath,
           input,
           requestId: id,
+          ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
         }),
       );
     }
 
-    // Also request the flow list after a short delay, to show list_flows usage
+    // Also request the strategy list after a short delay, to show list_strategies usage
     setTimeout(() => {
-      console.log("Requesting flow list...");
-      ws.send(JSON.stringify({ type: "list_flows", requestId: "list-1" }));
+      console.log("Requesting strategy list...");
+      ws.send(JSON.stringify({ type: "list_strategies", requestId: "list-1" }));
     }, 500);
   };
 
@@ -162,8 +173,8 @@ async function main() {
       case "pong":
         break;
 
-      case "flow_started": {
-        // Correlate by scanning trackers — the daemon broadcasts flow_started
+      case "strategy_started": {
+        // Correlate by scanning trackers — the daemon broadcasts strategy_started
         // to the starting client, and the requestId is NOT echoed on flow_started.
         // Instead, use step events keyed by runId.
         // However, the starting client is auto-subscribed, so we match by order.
@@ -175,7 +186,7 @@ async function main() {
           pending.status = "running";
           pendingByRequestId.delete(pending.requestId);
         }
-        console.log(`[flow_started] ${msg.strategyName} → run ${msg.runId.slice(0, 8)}`);
+        console.log(`[strategy_started] ${msg.strategyName} → run ${msg.runId.slice(0, 8)}`);
         break;
       }
 
@@ -220,7 +231,7 @@ async function main() {
         break;
       }
 
-      case "flow_completed": {
+      case "strategy_completed": {
         const t = findTracker(msg.runId);
         if (t) t.status = "completed";
         completedCount++;
@@ -232,13 +243,13 @@ async function main() {
 
         if (completedCount >= totalFlows) {
           printStatus();
-          console.log("All flows completed. Closing connection.");
+          console.log("All strategies completed. Closing connection.");
           ws.close();
         }
         break;
       }
 
-      case "flow_error": {
+      case "strategy_error": {
         const t = findTracker(msg.runId);
         if (t) t.status = "error";
         completedCount++;
@@ -253,8 +264,8 @@ async function main() {
         break;
       }
 
-      case "flow_list": {
-        console.log(`\n[flow_list] Active runs: ${msg.runs.length}`);
+      case "strategy_list": {
+        console.log(`\n[strategy_list] Active runs: ${msg.runs.length}`);
         for (const run of msg.runs) {
           console.log(`  ${run.runId.slice(0, 8)} — ${run.strategyName} (${run.status})`);
         }

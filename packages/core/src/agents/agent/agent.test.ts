@@ -6,19 +6,19 @@
 import { describe, expect, it } from "bun:test";
 import { hookIntoAgent } from "../hook-into-agent/hook-into-agent";
 import { createAgent } from "./agent";
-import type { LLMCallResult } from "./agent.types";
+import type { AgentCallResult } from "./agent.types";
 
 // execute returning a string
 
 describe("createAgent with config.execute", () => {
   describe("execute returning a string", () => {
-    it("should synthesize an LLMCallResult from the returned string", async () => {
+    it("should synthesize an AgentCallResult from the returned string", async () => {
       const agent = createAgent({
         name: "echo",
         execute: async (msg) => `Echo: ${msg}`,
       });
 
-      const result = (await agent.call("hello")) as LLMCallResult;
+      const result = await agent.call("hello");
 
       expect(result.text).toBe("Echo: hello");
       expect(result.responseMessages).toEqual([{ role: "assistant", content: "Echo: hello" }]);
@@ -48,12 +48,12 @@ describe("createAgent with config.execute", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // execute returning a full LLMCallResult
+  // execute returning a full AgentCallResult
   // ---------------------------------------------------------------------------
 
-  describe("execute returning a full LLMCallResult", () => {
-    it("should pass through the returned LLMCallResult", async () => {
-      const custom: LLMCallResult = {
+  describe("execute returning a full AgentCallResult", () => {
+    it("should pass through the returned AgentCallResult", async () => {
+      const custom: AgentCallResult = {
         text: "custom result",
         responseMessages: [{ role: "assistant", content: "custom result" }],
         steps: [],
@@ -66,7 +66,7 @@ describe("createAgent with config.execute", () => {
         execute: async () => custom,
       });
 
-      const result = (await agent.call("anything")) as LLMCallResult;
+      const result = await agent.call("anything");
 
       expect(result.text).toBe("custom result");
       expect(result.responseMessages).toEqual(custom.responseMessages);
@@ -75,7 +75,7 @@ describe("createAgent with config.execute", () => {
       expect(result.finishReason).toBe("length");
     });
 
-    it("should apply alterResponse hooks to the LLMCallResult text", async () => {
+    it("should apply alterResponse hooks to the AgentCallResult text", async () => {
       const agent = createAgent({
         name: "hooked",
         execute: async () => ({
@@ -97,21 +97,34 @@ describe("createAgent with config.execute", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // stream() throws when execute is set
+  // stream() with execute override
   // ---------------------------------------------------------------------------
 
   describe("stream() with execute override", () => {
-    it("should throw when stream() is called on an agent with execute", async () => {
+    it("should yield a done event with the execute result (no intermediate stream events)", async () => {
       const agent = createAgent({
-        name: "no-stream",
-        execute: async (msg) => msg,
+        name: "exec-stream",
+        execute: async (msg) => `Echo: ${msg}`,
       });
 
       const generator = agent.stream?.("test");
+      const events: unknown[] = [];
+      for await (const event of generator) {
+        events.push(event);
+      }
 
-      await expect(generator.next()).rejects.toThrow(
-        'Agent "no-stream" uses a custom execute override and does not support streaming.',
-      );
+      // Execute override produces only a done event — no text/tool events.
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        type: "done",
+        result: {
+          text: "Echo: test",
+          responseMessages: [{ role: "assistant", content: "Echo: test" }],
+          steps: [],
+          usage: { promptTokens: 0, completionTokens: 0 },
+          finishReason: "stop",
+        },
+      });
     });
   });
 
@@ -119,31 +132,31 @@ describe("createAgent with config.execute", () => {
   // History recording with custom execute
   // ---------------------------------------------------------------------------
 
-  describe("history recording", () => {
-    it("should record calls in conversation history", async () => {
+  describe("context recording", () => {
+    it("should record calls in conversation context", async () => {
       const agent = createAgent({
-        name: "history-test",
+        name: "context-test",
         execute: async (msg) => `Reply to: ${msg}`,
       });
 
       await agent.call("first");
       await agent.call("second");
 
-      const history = agent.getHistory?.();
+      const allMessages = agent.getConversationContext!().allMessages();
 
-      // History should contain user + assistant pairs for both calls
-      expect(history.length).toBeGreaterThanOrEqual(4);
+      // Context should contain user + assistant pairs for both calls
+      expect(allMessages.length).toBeGreaterThanOrEqual(4);
 
       // Find user messages
-      const userMessages = history.filter((m) => m.role === "user");
+      const userMessages = allMessages.filter((m) => m.role === "user");
       expect(userMessages).toHaveLength(2);
 
       // Find assistant messages
-      const assistantMessages = history.filter((m) => m.role === "assistant");
+      const assistantMessages = allMessages.filter((m) => m.role === "assistant");
       expect(assistantMessages).toHaveLength(2);
     });
 
-    it("should record turns accessible via getTurns()", async () => {
+    it("should record turns accessible via getConversationContext().allTurns()", async () => {
       const agent = createAgent({
         name: "turns-test",
         execute: async (msg) => `Re: ${msg}`,
@@ -152,22 +165,22 @@ describe("createAgent with config.execute", () => {
       await agent.call("hello");
       await agent.call("world");
 
-      const turns = agent.getTurns?.();
+      const turns = agent.getConversationContext!().allTurns();
       expect(turns).toHaveLength(2);
     });
 
-    it("should clear history on reset", async () => {
+    it("should clear context on reset", async () => {
       const agent = createAgent({
         name: "reset-test",
         execute: async (msg) => msg,
       });
 
       await agent.call("before reset");
-      expect(agent.getHistory?.().length).toBeGreaterThan(0);
+      expect(agent.getConversationContext!().allMessages().length).toBeGreaterThan(0);
 
       agent.reset();
-      expect(agent.getHistory?.()).toHaveLength(0);
-      expect(agent.getTurns?.()).toHaveLength(0);
+      expect(agent.getConversationContext!().allMessages()).toHaveLength(0);
+      expect(agent.getConversationContext!().allTurns()).toHaveLength(0);
     });
   });
 
@@ -185,7 +198,7 @@ describe("createAgent with config.execute", () => {
       });
 
       hookIntoAgent(agent, {
-        beforeInitialCall: [
+        beforeFirstCall: [
           async () => {
             log.push("initial");
           },
@@ -212,7 +225,7 @@ describe("createAgent with config.execute", () => {
       });
 
       hookIntoAgent(agent, {
-        beforeInitialCall: [
+        beforeFirstCall: [
           async () => {
             log.push("initial");
           },
@@ -307,7 +320,7 @@ describe("createAgent appendHook", () => {
       execute: async (msg) => msg,
     });
 
-    (agent as any).appendHook("beforeInitialCall", async () => log.push("initial"));
+    (agent as any).appendHook("beforeFirstCall", async () => log.push("initial"));
     (agent as any).appendHook("beforeCall", async () => log.push("regular"));
 
     await agent.call("first");
@@ -325,7 +338,7 @@ describe("createAgent appendHook", () => {
       // No hooks at all in config
     });
 
-    (agent as any).appendHook("afterCall", async () => log.push("fired"));
+    (agent as any).appendHook("afterCallResult", async () => log.push("fired"));
 
     await agent.call("hello");
     expect(log).toEqual(["fired"]);

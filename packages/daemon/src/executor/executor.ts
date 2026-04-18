@@ -64,13 +64,20 @@ export interface StrategyExecutor {
    * @param strategyPath - Filesystem path to the strategy file.
    * @param input - Optional initial input for the strategy's entry flow.
    * @param requestId - Optional requestId for protocol correlation.
+   * @param modelOverride - Optional per-run model override (takes precedence over executor-level override).
    * @returns The newly created run ID.
    */
-  startRun(clientId: string, strategyPath: string, input?: string, requestId?: string): string;
+  startRun(
+    clientId: string,
+    strategyPath: string,
+    input?: string,
+    requestId?: string,
+    modelOverride?: string,
+  ): string;
 
   /**
    * Cancel a running strategy by run ID.
-   * Aborts the execution, destroys bridges, and broadcasts `flow_error`.
+   * Aborts the execution, destroys bridges, and broadcasts `strategy_error`.
    */
   stopRun(runId: string): void;
 
@@ -145,7 +152,7 @@ function toWireStreamEvent(event: AgentStreamEvent): Record<string, unknown> {
  * Create a strategy executor.
  *
  * The executor is the orchestration layer that connects incoming
- * `start_flow` requests to core's `loadStrategy()` and manages the
+ * `start_strategy` requests to core's `loadStrategy()` and manages the
  * full lifecycle: credential resolution, hook injection, event forwarding,
  * input/auth bridging, and state updates.
  */
@@ -188,31 +195,30 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     };
   }
 
-  function buildAgentHooks(runId: string): AgentHooks {
+  function buildAgentHooks(runId: string, agentName: string): AgentHooks {
     return {
       onStreamEvent: [
         (event: AgentStreamEvent) => {
-          // NOTE: The agentName is not available in the hook context.
-          // We pass "unknown" and let clients correlate via step_started
-          // messages which do carry the step name. A future core enhancement
-          // could add agent name to the hook context.
           sink.broadcast(runId, {
             type: "agent_streaming" as const,
             runId,
-            agentName: "unknown",
+            agentName,
             event: toWireStreamEvent(event) as any,
             ts: new Date().toISOString(),
           });
         },
       ],
-      afterCall: [
-        (responseText: string) => {
+      afterCallResult: [
+        (result: AgentCallResult) => {
           sink.broadcast(runId, {
             type: "agent_output" as const,
             runId,
-            agentName: "unknown",
-            text: responseText,
-            usage: { promptTokens: 0, completionTokens: 0 },
+            agentName,
+            text: result.text,
+            usage: {
+              promptTokens: result.usage.promptTokens,
+              completionTokens: result.usage.completionTokens,
+            },
             ts: new Date().toISOString(),
           });
         },
@@ -227,6 +233,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     strategyPath: string,
     input: string,
     requestId: string | undefined,
+    runModelOverride: string | undefined,
   ): Promise<void> {
     const ctx = runContexts.get(run.id);
     if (!ctx) return;
@@ -239,23 +246,22 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       const strategy = await loadStrategyFromString(content, format, {
         inputCollector: ctx.inputBridge.collector,
         flowHooks: buildFlowHooks(run.id),
-        modelOverride,
+        modelOverride: runModelOverride ?? modelOverride,
       });
 
       // 3. Inject agent hooks into all loaded agents via hookIntoAgent
-      const agentHooks = buildAgentHooks(run.id);
-      for (const loadedAgent of Object.values(strategy.agents)) {
+      for (const [agentName, loadedAgent] of Object.entries(strategy.agents)) {
         if (loadedAgent.appendHook) {
-          hookIntoAgent(loadedAgent, agentHooks);
+          hookIntoAgent(loadedAgent, buildAgentHooks(run.id, agentName));
         }
       }
 
       // 4. Update state to running
       state.updateRun(run.id, { status: "running" });
 
-      // 5. Broadcast flow_started
+      // 5. Broadcast strategy_started
       sink.broadcast(run.id, {
-        type: "flow_started" as const,
+        type: "strategy_started" as const,
         runId: run.id,
         strategyName: strategy.name,
         agents: Object.keys(strategy.agents),
@@ -275,7 +281,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       });
 
       sink.broadcast(run.id, {
-        type: "flow_completed" as const,
+        type: "strategy_completed" as const,
         runId: run.id,
         result: result.text,
         usage: {
@@ -302,7 +308,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
         });
 
         sink.broadcast(run.id, {
-          type: "flow_error" as const,
+          type: "strategy_error" as const,
           runId: run.id,
           error: { code: errorCode, message: errorMessage },
           ts: new Date().toISOString(),
@@ -326,7 +332,13 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
   // -- Public API --
 
   return {
-    startRun(clientId: string, strategyPath: string, input?: string, requestId?: string): string {
+    startRun(
+      clientId: string,
+      strategyPath: string,
+      input?: string,
+      requestId?: string,
+      runModelOverride?: string,
+    ): string {
       // 1. Create run in state (status: "pending")
       // Use the file path as a temporary name — the real name comes
       // from the strategy file after parsing.
@@ -347,11 +359,13 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       runContexts.set(run.id, { inputBridge, clientId });
 
       // 5. Kick off execution (fire-and-forget)
-      executeRun(run, strategyPath, input ?? "", requestId).catch((caughtError) => {
-        // This should never happen — executeRun has its own try/catch.
-        // But log just in case.
-        logger.error(`Unexpected error in executeRun for ${run.id}: ${caughtError}`);
-      });
+      executeRun(run, strategyPath, input ?? "", requestId, runModelOverride).catch(
+        (caughtError) => {
+          // This should never happen — executeRun has its own try/catch.
+          // But log just in case.
+          logger.error(`Unexpected error in executeRun for ${run.id}: ${caughtError}`);
+        },
+      );
 
       return run.id;
     },
@@ -375,7 +389,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
         });
 
         sink.broadcast(runId, {
-          type: "flow_error" as const,
+          type: "strategy_error" as const,
           runId,
           error: { code: "CANCELLED", message: "Run cancelled by client" },
           ts: new Date().toISOString(),

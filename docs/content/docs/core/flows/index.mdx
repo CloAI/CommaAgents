@@ -1,0 +1,88 @@
+---
+title: Flows
+description: Orchestrate multiple agents in sequence, cycles, broadcast, or custom patterns.
+---
+
+Flows orchestrate multiple agents into structured execution patterns. Flows compose naturally — you can use a flow as a step inside another flow.
+
+Three built-in flow types cover common patterns:
+
+- **Sequential** — a pipeline where each agent's output feeds into the next.
+- **Cycle** — repeats a pipeline N times, with optional observer feedback between iterations.
+- **Broadcast** — fans out the same message to all agents and joins their responses.
+
+For anything else, `createFlow` accepts a custom executor function with full control over step ordering and branching.
+
+Flows can also be loaded from JSON or YAML description files with [`loadFlow`](/docs/core/flows/load-flow).
+
+## Quick Start
+
+Create a sequential pipeline where a writer drafts content, a reviewer critiques it, and an editor polishes the result:
+
+```ts
+import { createAgent, createSequentialFlow } from "@comma-agents/core";
+
+const writer = createAgent({
+  name: "writer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Write a short paragraph on the given topic.",
+});
+
+const reviewer = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Review the text and suggest improvements.",
+});
+
+const editor = createAgent({
+  name: "editor",
+  model: "openai/gpt-4o",
+  systemPrompt: "Apply the suggested improvements and return the final text.",
+});
+
+const pipeline = createSequentialFlow({
+  name: "writing-pipeline",
+  steps: [writer, reviewer, editor],
+});
+
+const result = await pipeline.call("TypeScript generics");
+console.log(result.text);
+```
+
+Flows are composable — use a flow as a step inside another flow:
+
+```ts
+const outerPipeline = createSequentialFlow({
+  name: "outer",
+  steps: [pipeline, anotherAgent],
+});
+```
+
+## FlowConfig
+
+Base configuration shared by all flow types.
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="FlowConfig" />
+
+## FlowResult
+
+All flows return a `FlowResult`, which extends `AgentCallResult` with per-step details.
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="FlowResult" />
+
+```ts
+import type { FlowResult } from "@comma-agents/core";
+
+const result = await pipeline.call("topic") as FlowResult;
+
+// Aggregated token usage across all steps
+console.log(result.usage.promptTokens);
+console.log(result.usage.completionTokens);
+
+// Individual step results
+for (const stepResult of result.stepResults) {
+  console.log(stepResult.text);
+}
+```
+
+

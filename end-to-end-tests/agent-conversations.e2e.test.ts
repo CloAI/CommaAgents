@@ -206,8 +206,7 @@ describe("E2E: Agent Conversations", () => {
       expect(typeof agent.call).toBe("function");
       expect(typeof agent.reset).toBe("function");
       expect(typeof agent.stream).toBe("function");
-      expect(typeof agent.getHistory).toBe("function");
-      expect(typeof agent.getTurns).toBe("function");
+      expect(typeof agent.getConversationContext).toBe("function");
       expect(agent.name).toBe("instance-check");
       expect(agent.config).toBeDefined();
     });
@@ -229,7 +228,7 @@ describe("E2E: Agent Conversations", () => {
       });
 
       hookIntoAgent(agent, {
-        beforeInitialCall: [
+        beforeFirstCall: [
           async () => {
             hookLog.push("initial");
           },
@@ -256,11 +255,11 @@ describe("E2E: Agent Conversations", () => {
       await agent.call("After reset");
       expect(hookLog).toContain("initial");
 
-      // History should be empty — verify via getHistory()
-      // Reset was called before third call, so history should only have the post-reset call
-      const history = agent.getHistory!();
+      // Context should be empty — verify via getConversationContext()
+      // Reset was called before third call, so context should only have the post-reset call
+      const context = agent.getConversationContext!();
       // Should have 2 entries (1 user + 1 assistant from the post-reset call)
-      expect(history.length).toBe(2);
+      expect(context.allMessages().length).toBe(2);
     });
   });
 });

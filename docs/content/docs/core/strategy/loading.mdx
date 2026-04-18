@@ -1,0 +1,149 @@
+---
+title: Loading
+description: Parse, validate, and instantiate strategy files into runnable flows.
+---
+
+The strategy loader reads a JSON or YAML strategy, validates it against the schema, instantiates agents and flows, and returns a `LoadedStrategy` with a runnable entry flow.
+
+## loadStrategy
+
+Load a strategy from a file path. The format is auto-detected from the file extension (`.json`, `.yaml`, `.yml`).
+
+```ts
+import { loadStrategy } from "@comma-agents/core";
+
+const strategy = await loadStrategy("./strategy.json");
+console.log(strategy.name);    // "Code Review Pipeline"
+console.log(strategy.version); // "1.0"
+
+// Run the flow
+const result = await strategy.flow.call("Review this function...");
+console.log(result.text);
+```
+
+## loadStrategyFromString
+
+Load a strategy from a raw string when the content is already in memory — for example, received over a network or from a test fixture.
+
+```ts
+import { loadStrategyFromString } from "@comma-agents/core";
+
+const json = `{
+  "name": "Simple Q&A",
+  "version": "1.0",
+  "agents": {
+    "assistant": {
+      "model": "openai/gpt-4o",
+      "systemPrompt": "Answer concisely."
+    }
+  },
+  "flow": {
+    "name": "Q&A",
+    "type": "sequential",
+    "steps": [{ "agent": "assistant" }]
+  }
+}`;
+
+const strategy = await loadStrategyFromString(json, "json");
+const result = await strategy.flow.call("What is TypeScript?");
+```
+
+YAML works the same way:
+
+```ts
+const yaml = `
+name: Brainstorm
+version: "1.0"
+agents:
+  optimist:
+    model: openai/gpt-4o
+    systemPrompt: Find 2 positive aspects of the idea.
+  critic:
+    model: openai/gpt-4o
+    systemPrompt: Find 2 potential problems with the idea.
+flow:
+  name: Brainstorm
+  type: broadcast
+  steps:
+    - agent: optimist
+    - agent: critic
+`;
+
+const strategy = await loadStrategyFromString(yaml.trim(), "yaml");
+```
+
+## Options
+
+Both `loadStrategy` and `loadStrategyFromString` accept an options object.
+
+### LoadStrategyOptions
+
+<AutoTypeTable path="../packages/core/src/strategy/loader/loader.types.ts" name="LoadStrategyOptions" />
+
+### Model Override
+
+Override the model for every LLM agent in the strategy, regardless of what the file specifies:
+
+```ts
+const strategy = await loadStrategy("./strategy.json", {
+  modelOverride: "anthropic/claude-sonnet-4-20250514",
+});
+```
+
+### Flow Hooks
+
+Inject hooks into all flows after construction:
+
+```ts
+import { loadStrategy } from "@comma-agents/core";
+
+const strategy = await loadStrategy("./strategy.json", {
+  flowHooks: {
+    onStepComplete: [
+      async (result) => console.log("Step done:", result.agent.name),
+    ],
+  },
+});
+```
+
+### User Agent Input
+
+If the strategy contains user agents with `requireInput: true`, provide an input collector:
+
+```ts
+const strategy = await loadStrategy("./strategy.json", {
+  inputCollector: async () => {
+    return prompt("Enter your question: ") ?? "";
+  },
+});
+```
+
+## LoadedStrategy
+
+The result of loading a strategy.
+
+<AutoTypeTable path="../packages/core/src/strategy/loader/loader.types.ts" name="LoadedStrategy" />
+
+The `flow` field is a standard runnable flow — call it with `.call()` or `.stream()`, or attach additional hooks via `hookIntoFlow`.
+
+The `agents` map provides access to the instantiated agents for inspection or attaching hooks via `hookIntoAgent`.
+
+The `raw` field contains the validated strategy data, used by `exportStrategy` for round-trip serialization.
+
+## Model and Tool Resolution
+
+Models and tools are resolved via global registries. Before loading a strategy, ensure the necessary providers and custom tools are registered:
+
+```ts
+import { registerProvider, registerTool, loadStrategy } from "@comma-agents/core";
+
+// Register a provider so "openai/gpt-4o" resolves
+registerProvider("openai", (modelId) => openai(modelId));
+
+// Register a custom tool so "weather" resolves in strategy files
+registerTool("weather", weatherTool);
+
+const strategy = await loadStrategy("./strategy.json");
+```
+
+Built-in tools (`bash`, `read`, `write`, `edit`, `glob`, `grep`) are available automatically and do not need registration.

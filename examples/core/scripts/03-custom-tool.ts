@@ -19,7 +19,7 @@
  *   - Zod schemas are sent to the LLM as JSON Schema for tool calling
  */
 
-import { createAgent, defineTool, type LLMCallResult, registerTool } from "@comma-agents/core";
+import { createAgent, defineTool, registerTool } from "@comma-agents/core";
 import { debugAgent } from "@comma-agents/debug";
 import { z } from "zod";
 import { getModelString } from "./helpers";
@@ -117,9 +117,9 @@ async function main() {
   debugAgent(agent);
 
   // Ask something that exercises the custom tools.
-  const result = (await agent.call(
+  const result = await agent.call(
     "What's the weather like in Tokyo (in celsius)? Also, what's 42 * 17 + 3?",
-  )) as LLMCallResult;
+  );
 
   console.log("\n--- Response ---");
   console.log(result.text);

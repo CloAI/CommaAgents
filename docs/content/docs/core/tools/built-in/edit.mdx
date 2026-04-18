@@ -1,0 +1,35 @@
+---
+title: edit
+description: Search-and-replace file editing with exact string matching.
+---
+
+The edit tool performs exact string replacement in files. It finds `oldString` in the file and replaces it with `newString`. By default, it fails if the string is not found or if multiple matches exist (to prevent ambiguous edits).
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "editor",
+  model: "openai/gpt-4o",
+  tools: ["edit"],
+});
+```
+
+## Parameters
+
+The agent provides these parameters when invoking the tool:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `filePath` | `string` | Path to the file to edit. |
+| `oldString` | `string` | The exact text to find and replace. |
+| `newString` | `string` | The replacement text (must differ from `oldString`). |
+| `replaceAll` | `boolean?` | If `true`, replace all occurrences. Defaults to `false`. |
+
+## Behavior
+
+- Finds an exact match of `oldString` and replaces it with `newString`.
+- If `oldString` is not found, returns an error asking to verify the text.
+- If multiple matches exist and `replaceAll` is not set, returns an error suggesting more context or `replaceAll: true`.
+- Validates that `oldString` and `newString` are different before proceeding.
+- Returns an error message (not an exception) on failure.

@@ -7,6 +7,7 @@
 import { Box, Text } from "ink";
 import SelectInput from "ink-select-input";
 import { CORE_EXAMPLES, DAEMON_EXAMPLES } from "../examples";
+import { useTerminalSize } from "../hooks/useTerminalSize";
 import type { ProviderSelection } from "./ProviderSelect";
 
 export type { ExampleEntry } from "../examples";
@@ -14,18 +15,21 @@ export type { ExampleEntry } from "../examples";
 interface ExampleSelectProps {
   provider: ProviderSelection;
   onSelect: (example: import("../examples").ExampleEntry) => void;
+  onRunAll: () => void;
   onBack: () => void;
 }
 
-export function ExampleSelect({ provider, onSelect, onBack }: ExampleSelectProps) {
+export function ExampleSelect({ provider, onSelect, onRunAll, onBack }: ExampleSelectProps) {
+  const { rows } = useTerminalSize();
   const allItems = [
-    ...CORE_EXAMPLES.map((e) => ({
-      label: `[core]   ${e.label}`,
-      value: e.value,
+    { label: "\u25b6 Run All Examples", value: "__run_all__" },
+    ...CORE_EXAMPLES.map((exampleEntry) => ({
+      label: `[core]   ${exampleEntry.label}`,
+      value: exampleEntry.value,
     })),
-    ...DAEMON_EXAMPLES.map((e) => ({
-      label: `[daemon] ${e.label}`,
-      value: e.value,
+    ...DAEMON_EXAMPLES.map((exampleEntry) => ({
+      label: `[daemon] ${exampleEntry.label}`,
+      value: exampleEntry.value,
     })),
     { label: "\u2190 Back to provider selection", value: "__back__" },
   ];
@@ -35,16 +39,20 @@ export function ExampleSelect({ provider, onSelect, onBack }: ExampleSelectProps
       onBack();
       return;
     }
+    if (item.value === "__run_all__") {
+      onRunAll();
+      return;
+    }
     const entry =
-      CORE_EXAMPLES.find((e) => e.value === item.value) ??
-      DAEMON_EXAMPLES.find((e) => e.value === item.value);
+      CORE_EXAMPLES.find((exampleEntry) => exampleEntry.value === item.value) ??
+      DAEMON_EXAMPLES.find((exampleEntry) => exampleEntry.value === item.value);
     if (entry) {
       onSelect(entry);
     }
   };
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" height={rows}>
       <Text bold color="cyan">
         comma-agents Example Runner
       </Text>

@@ -1,0 +1,36 @@
+{
+  "name": "Build",
+  "version": "1.0",
+  "description": "Interactive build strategy — user describes what to build, a coder produces the implementation using filesystem tools, and a tester reviews the output for correctness.",
+  "agents": {
+    "user": {
+      "type": "user",
+      "description": "Collects the user's build request.",
+      "config": {
+        "requireInput": true
+      }
+    },
+    "coder": {
+      "description": "Implements code based on the user's request using filesystem tools.",
+      "model": "openai/gpt-4o",
+      "systemPrompt": "You are a senior software engineer. Given a build request, implement the solution using the available tools. Use `glob` and `grep` to explore the codebase, `read` to inspect files, and `edit` or `write` to make changes. Write clean, well-structured code. Explain what you did and why.",
+      "tools": ["read", "write", "edit", "glob", "grep"]
+    },
+    "tester": {
+      "description": "Reviews the coder's output for correctness and quality.",
+      "model": "openai/gpt-4o",
+      "systemPrompt": "You are a code reviewer and QA engineer. Review the implementation described in the previous message. Check for correctness, edge cases, code style, and potential bugs. Use the available tools to inspect the actual files if needed. Provide specific, actionable feedback. If the implementation looks good, confirm it.",
+      "tools": ["read", "glob", "grep"]
+    }
+  },
+  "flow": {
+    "name": "Build Flow",
+    "type": "sequential",
+    "description": "User describes the task, coder implements, tester reviews.",
+    "steps": [
+      { "agent": "user" },
+      { "agent": "coder" },
+      { "agent": "tester" }
+    ]
+  }
+}

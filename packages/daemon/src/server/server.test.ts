@@ -315,7 +315,7 @@ describe("Invalid messages", () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
-    client.send({ type: "start_flow" }); // Missing required strategyPath
+    client.send({ type: "start_strategy" }); // Missing required strategyPath
     const err: any = await client.waitForType("error");
 
     expect(err.type).toBe("error");
@@ -336,34 +336,34 @@ describe("Invalid messages", () => {
   });
 });
 
-// list_flows
+// list_strategies
 
-describe("list_flows", () => {
-  it("empty state → flow_list with empty runs", async () => {
+describe("list_strategies", () => {
+  it("empty state → strategy_list with empty runs", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
-    client.send({ type: "list_flows", requestId: "list-1" });
-    const list: any = await client.waitForType("flow_list");
+    client.send({ type: "list_strategies", requestId: "list-1" });
+    const list: any = await client.waitForType("strategy_list");
 
-    expect(list.type).toBe("flow_list");
+    expect(list.type).toBe("strategy_list");
     expect(list.runs).toEqual([]);
     expect(list.requestId).toBe("list-1");
     client.close();
   });
 
-  it("after starting a flow → flow_list includes it", async () => {
+  it("after starting a strategy → strategy_list includes it", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
-    client.send({ type: "start_flow", strategyPath: stratPath });
+    client.send({ type: "start_strategy", strategyPath: stratPath });
 
-    // Wait for flow to actually start
-    await client.waitForType("flow_started");
+    // Wait for strategy to actually start
+    await client.waitForType("strategy_started");
 
-    client.send({ type: "list_flows", requestId: "list-2" });
-    const list: any = await client.waitForType("flow_list");
+    client.send({ type: "list_strategies", requestId: "list-2" });
+    const list: any = await client.waitForType("strategy_list");
 
     expect(list.runs.length).toBeGreaterThanOrEqual(1);
     expect(list.runs[0].runId).toBeTruthy();
@@ -379,10 +379,10 @@ describe("subscribe / unsubscribe", () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
-    // Start a flow so a run exists
+    // Start a strategy so a run exists
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
-    client.send({ type: "start_flow", strategyPath: stratPath });
-    const started: any = await client.waitForType("flow_started");
+    client.send({ type: "start_strategy", strategyPath: stratPath });
+    const started: any = await client.waitForType("strategy_started");
 
     // Subscribe another client to the same run
     const c2 = await connectClient(daemon);
@@ -436,57 +436,57 @@ describe("subscribe / unsubscribe", () => {
   });
 });
 
-// start_flow end-to-end
+// start_strategy end-to-end
 
-describe("start_flow end-to-end", () => {
-  it("start flow with valid single-agent strategy → flow_started + flow_completed", async () => {
+describe("start_strategy end-to-end", () => {
+  it("start strategy with valid single-agent strategy → strategy_started + strategy_completed", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
     client.send({
-      type: "start_flow",
+      type: "start_strategy",
       strategyPath: stratPath,
       requestId: "flow-1",
     });
 
-    const started: any = await client.waitForType("flow_started");
-    expect(started.type).toBe("flow_started");
+    const started: any = await client.waitForType("strategy_started");
+    expect(started.type).toBe("strategy_started");
     expect(started.runId).toBeTruthy();
     expect(started.requestId).toBe("flow-1");
 
-    const completed: any = await client.waitForType("flow_completed");
-    expect(completed.type).toBe("flow_completed");
+    const completed: any = await client.waitForType("strategy_completed");
+    expect(completed.type).toBe("strategy_completed");
     expect(completed.runId).toBe(started.runId);
     expect(completed.requestId).toBe("flow-1");
     client.close();
   });
 
-  it("start flow with invalid path → flow_error", async () => {
+  it("start strategy with invalid path → strategy_error", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     client.send({
-      type: "start_flow",
+      type: "start_strategy",
       strategyPath: "/nonexistent/path/strategy.json",
       requestId: "flow-bad",
     });
 
-    const err: any = await client.waitForType("flow_error");
-    expect(err.type).toBe("flow_error");
+    const err: any = await client.waitForType("strategy_error");
+    expect(err.type).toBe("strategy_error");
     expect(err.error.code).toBe("EXECUTION_ERROR");
     expect(err.error.message).toContain("not found");
     client.close();
   });
 
-  it("flow_started contains correct strategyName, agents, flowTree", async () => {
+  it("strategy_started contains correct strategyName, agents, flowTree", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MULTI_AGENT_STRATEGY);
-    client.send({ type: "start_flow", strategyPath: stratPath });
+    client.send({ type: "start_strategy", strategyPath: stratPath });
 
-    const started: any = await client.waitForType("flow_started");
+    const started: any = await client.waitForType("strategy_started");
     expect(started.strategyName).toBe("MultiAgent");
     expect(started.agents).toContain("writer");
     expect(started.agents).toContain("reviewer");
@@ -494,18 +494,18 @@ describe("start_flow end-to-end", () => {
     expect(started.flowTree.type).toBe("sequential");
 
     // Wait for completion to avoid dangling
-    await client.waitForType("flow_completed");
+    await client.waitForType("strategy_completed");
     client.close();
   });
 
-  it("flow_completed has result and usage", async () => {
+  it("strategy_completed has result and usage", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
-    client.send({ type: "start_flow", strategyPath: stratPath });
+    client.send({ type: "start_strategy", strategyPath: stratPath });
 
-    const completed: any = await client.waitForType("flow_completed");
+    const completed: any = await client.waitForType("strategy_completed");
     expect(typeof completed.result).toBe("string");
     expect(completed.usage).toBeDefined();
     expect(typeof completed.usage.promptTokens).toBe("number");
@@ -514,22 +514,22 @@ describe("start_flow end-to-end", () => {
   });
 });
 
-// stop_flow
+// stop_strategy
 
-describe("stop_flow", () => {
-  it("start flow → immediately stop → receive flow_error with CANCELLED", async () => {
+describe("stop_strategy", () => {
+  it("start strategy → immediately stop → receive strategy_error with CANCELLED", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     // Use the user-agent strategy which blocks for input, giving us time to cancel
     const stratPath = await writeTrackedTempStrategy(USER_AGENT_STRATEGY);
-    client.send({ type: "start_flow", strategyPath: stratPath });
+    client.send({ type: "start_strategy", strategyPath: stratPath });
 
-    // Wait for flow to start before cancelling
-    const started: any = await client.waitForType("flow_started");
-    client.send({ type: "stop_flow", runId: started.runId });
+    // Wait for strategy to start before cancelling
+    const started: any = await client.waitForType("strategy_started");
+    client.send({ type: "stop_strategy", runId: started.runId });
 
-    const err: any = await client.waitForType("flow_error");
+    const err: any = await client.waitForType("strategy_error");
     expect(err.error.code).toBe("CANCELLED");
     client.close();
   });
@@ -538,7 +538,7 @@ describe("stop_flow", () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
-    client.send({ type: "stop_flow", runId: "nonexistent-run" });
+    client.send({ type: "stop_strategy", runId: "nonexistent-run" });
 
     // Should not crash. Give time, then verify daemon is still responsive.
     await settle(200);
@@ -575,33 +575,33 @@ describe("user_input error cases", () => {
 // EventSink broadcast routing
 
 describe("EventSink broadcast routing", () => {
-  it("two clients subscribed to same run → both receive flow_started and flow_completed", async () => {
+  it("two clients subscribed to same run → both receive strategy_started and strategy_completed", async () => {
     const daemon = await startDaemon();
     const c1 = await connectClient(daemon);
     const c2 = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
 
-    // c1 starts the flow (auto-subscribed)
-    c1.send({ type: "start_flow", strategyPath: stratPath });
-    const started: any = await c1.waitForType("flow_started");
+    // c1 starts the strategy (auto-subscribed)
+    c1.send({ type: "start_strategy", strategyPath: stratPath });
+    const started: any = await c1.waitForType("strategy_started");
 
     // c2 subscribes to the same run
     c2.send({ type: "subscribe", runId: started.runId });
     await settle(50);
 
-    // Both should eventually get flow_completed
-    const completed1: any = await c1.waitForType("flow_completed");
+    // Both should eventually get strategy_completed
+    const completed1: any = await c1.waitForType("strategy_completed");
     expect(completed1.runId).toBe(started.runId);
 
-    // c2 may or may not receive flow_completed depending on timing
-    // (it subscribed after flow_started, but possibly before flow_completed)
+    // c2 may or may not receive strategy_completed depending on timing
+    // (it subscribed after strategy_started, but possibly before strategy_completed)
     // We verify at minimum c2 received at least one event for this run
     // by checking for any message with the matching runId
     await settle(200);
     const c2RunMsgs = c2.messages.filter((m: any) => m.runId === started.runId);
-    // c2 should have received at least flow_completed
-    // (since mock models are nearly instant, flow_completed may arrive after subscribe)
+    // c2 should have received at least strategy_completed
+    // (since mock models are nearly instant, strategy_completed may arrive after subscribe)
     expect(c2RunMsgs.length).toBeGreaterThanOrEqual(0);
 
     c1.close();
@@ -613,12 +613,12 @@ describe("EventSink broadcast routing", () => {
     const c1 = await connectClient(daemon);
     const c2 = await connectClient(daemon);
 
-    // Use the user-agent strategy so the flow blocks for input
+    // Use the user-agent strategy so the strategy blocks for input
     const stratPath = await writeTrackedTempStrategy(USER_AGENT_STRATEGY);
 
-    // c1 starts the flow (auto-subscribed)
-    c1.send({ type: "start_flow", strategyPath: stratPath });
-    const started: any = await c1.waitForType("flow_started");
+    // c1 starts the strategy (auto-subscribed)
+    c1.send({ type: "start_strategy", strategyPath: stratPath });
+    const started: any = await c1.waitForType("strategy_started");
 
     // c2 subscribes
     c2.send({ type: "subscribe", runId: started.runId });
@@ -631,14 +631,14 @@ describe("EventSink broadcast routing", () => {
     // Record c2's message count
     const c2MsgCountBefore = c2.messages.length;
 
-    // Now stop the flow (which generates flow_error with CANCELLED)
-    c1.send({ type: "stop_flow", runId: started.runId });
-    await c1.waitForType("flow_error");
+    // Now stop the strategy (which generates strategy_error with CANCELLED)
+    c1.send({ type: "stop_strategy", runId: started.runId });
+    await c1.waitForType("strategy_error");
     await settle(200);
 
-    // c2 should NOT have received the flow_error
+    // c2 should NOT have received the strategy_error
     const c2NewMsgs = c2.messages.slice(c2MsgCountBefore);
-    const c2FlowErrors = c2NewMsgs.filter((m: any) => m.type === "flow_error");
+    const c2FlowErrors = c2NewMsgs.filter((m: any) => m.type === "strategy_error");
     expect(c2FlowErrors.length).toBe(0);
 
     c1.close();
@@ -650,12 +650,12 @@ describe("EventSink broadcast routing", () => {
     const c1 = await connectClient(daemon);
     const c2 = await connectClient(daemon);
 
-    // Use user-agent strategy so the flow blocks
+    // Use user-agent strategy so the strategy blocks
     const stratPath = await writeTrackedTempStrategy(USER_AGENT_STRATEGY);
 
-    // c1 starts the flow (auto-subscribed)
-    c1.send({ type: "start_flow", strategyPath: stratPath });
-    const started: any = await c1.waitForType("flow_started");
+    // c1 starts the strategy (auto-subscribed)
+    c1.send({ type: "start_strategy", strategyPath: stratPath });
+    const started: any = await c1.waitForType("strategy_started");
 
     // c2 subscribes
     c2.send({ type: "subscribe", runId: started.runId });
@@ -665,11 +665,11 @@ describe("EventSink broadcast routing", () => {
     c1.close();
     await settle(100);
 
-    // Stop the flow — c2 should still get the event
+    // Stop the strategy — c2 should still get the event
     // We need to use the executor to stop the run, but the client that
-    // started it is gone. Send stop_flow from c2.
-    c2.send({ type: "stop_flow", runId: started.runId });
-    const err: any = await c2.waitForType("flow_error");
+    // started it is gone. Send stop_strategy from c2.
+    c2.send({ type: "stop_strategy", runId: started.runId });
+    const err: any = await c2.waitForType("strategy_error");
     expect(err.error.code).toBe("CANCELLED");
     expect(err.runId).toBe(started.runId);
 
@@ -680,25 +680,25 @@ describe("EventSink broadcast routing", () => {
 // Edge cases
 
 describe("Edge cases", () => {
-  it("rapid fire multiple start_flow requests → each gets its own run", async () => {
+  it("rapid fire multiple start_strategy requests → each gets its own run", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
 
-    // Fire 3 start_flow requests in rapid succession
-    client.send({ type: "start_flow", strategyPath: stratPath, requestId: "r1" });
-    client.send({ type: "start_flow", strategyPath: stratPath, requestId: "r2" });
-    client.send({ type: "start_flow", strategyPath: stratPath, requestId: "r3" });
+    // Fire 3 start_strategy requests in rapid succession
+    client.send({ type: "start_strategy", strategyPath: stratPath, requestId: "r1" });
+    client.send({ type: "start_strategy", strategyPath: stratPath, requestId: "r2" });
+    client.send({ type: "start_strategy", strategyPath: stratPath, requestId: "r3" });
 
-    // Collect flow_started messages
-    const s1: any = await client.waitForType("flow_started");
+    // Collect strategy_started messages
+    const s1: any = await client.waitForType("strategy_started");
     const s2: any = await client.waitForMessage(
-      (m: any) => m.type === "flow_started" && m.runId !== s1.runId,
+      (m: any) => m.type === "strategy_started" && m.runId !== s1.runId,
     );
     const s3: any = await client.waitForMessage(
       (m: any) =>
-        m.type === "flow_started" && m.runId !== s1.runId && m.runId !== (s2 as any).runId,
+        m.type === "strategy_started" && m.runId !== s1.runId && m.runId !== (s2 as any).runId,
     );
 
     // All should have unique run IDs

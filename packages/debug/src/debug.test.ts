@@ -25,11 +25,11 @@ function makeMockAgent(name: string, response: string, systemPrompt?: string) {
 // debugAgent
 
 describe("debugAgent", () => {
-  it("should return the same agent reference", () => {
+  it("should return void", () => {
     const agent = makeMockAgent("test", "response");
     const { output } = createCapture();
     const result = debugAgent(agent, { output });
-    expect(result).toBe(agent);
+    expect(result).toBeUndefined();
   });
 
   it("should print agent name and system prompt on call", () => {
@@ -90,7 +90,7 @@ describe("debugAgent", () => {
     expect(inputLine!).toContain("[echo]");
   });
 
-  it("should log output on afterCall hook", async () => {
+  it("should log output on afterCallResult hook", async () => {
     const { lines, output } = createCapture();
     const agent = makeMockAgent("echo", "the response text");
     debugAgent(agent, { output });
@@ -174,12 +174,12 @@ describe("debugAgent", () => {
 // debugFlow
 
 describe("debugFlow", () => {
-  it("should return the same flow reference", () => {
+  it("should return void", () => {
     const { output } = createCapture();
     const agent = makeMockAgent("a", "response");
     const flow = createSequentialFlow({ name: "pipe", steps: [agent] });
     const result = debugFlow(flow, { output });
-    expect(result).toBe(flow);
+    expect(result).toBeUndefined();
   });
 
   it("should log flow start with name and input", async () => {

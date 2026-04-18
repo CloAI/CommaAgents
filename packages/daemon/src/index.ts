@@ -1,5 +1,5 @@
 // @comma-agents/daemon
-// Long-running process that executes agent flows and exposes a WebSocket API
+// Long-running process that executes agent strategies and exposes a WebSocket API
 // for clients (TUI, Web UI) to connect and interact.
 
 export type {
@@ -71,12 +71,12 @@ export {
   DaemonMessage,
   ErrorInfoSchema,
   ErrorMessage,
-  FlowCompletedMessage,
-  FlowErrorMessage,
-  FlowListMessage,
+  StrategyCompletedMessage,
+  StrategyErrorMessage,
+  StrategyListMessage,
   // Daemon message schemas
-  FlowStartedMessage,
-  ListFlowsMessage,
+  StrategyStartedMessage,
+  ListStrategiesMessage,
   PingMessage,
   PongMessage,
   parseClientMessage,
@@ -84,10 +84,10 @@ export {
   RequestInputMessage,
   RunSummarySchema,
   // Client message schemas
-  StartFlowMessage,
+  StartStrategyMessage,
   StepCompletedMessage,
   StepStartedMessage,
-  StopFlowMessage,
+  StopStrategyMessage,
   SubscribeMessage,
   UnsubscribeMessage,
   UsageSchema,

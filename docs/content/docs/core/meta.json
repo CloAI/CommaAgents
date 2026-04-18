@@ -3,11 +3,12 @@
   "pages": [
     "agents",
     "flows",
+    "strategy",
     "tools",
     "hooks",
+    "credentials",
     "model",
     "prompts",
-    "strategy",
     "errors"
   ]
 }

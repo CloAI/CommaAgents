@@ -1,0 +1,91 @@
+---
+title: createFlow
+description: Custom flow with a user-provided executor function for bespoke orchestration.
+---
+`createFlow` creates a flow with a custom executor function. Use it when the built-in sequential, cycle, and broadcast patterns don't fit your orchestration needs — for example, conditional branching, dynamic step selection, or partial execution.
+
+```ts
+import { createAgent, createFlow } from "@comma-agents/core";
+
+const classifier = createAgent({
+  name: "classifier",
+  model: "openai/gpt-4o",
+  systemPrompt: "Classify the input as 'technical' or 'creative'. Reply with only the category.",
+});
+
+const technicalWriter = createAgent({
+  name: "technical-writer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Write a detailed technical explanation.",
+});
+
+const creativeWriter = createAgent({
+  name: "creative-writer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Write a creative, engaging piece.",
+});
+
+const flow = createFlow({
+  name: "routed-writing",
+  steps: [classifier, technicalWriter, creativeWriter],
+  execute: async (steps, message, flowContext) => {
+    const classification = await flowContext.runStep(steps[0]!, message);
+
+    if (classification.text.includes("technical")) {
+      const result = await flowContext.runStep(steps[1]!, message);
+      return result.text;
+    } else {
+      const result = await flowContext.runStep(steps[2]!, message);
+      return result.text;
+    }
+  },
+});
+
+const result = await flow.call("Explain monads");
+console.log(result.text);
+```
+
+## CustomFlowConfig
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="CustomFlowConfig" />
+
+## FlowExecutor
+
+The `execute` function receives the step list, the input message, and a context object. Call `flowContext.runStep()` to execute steps — this tracks results for aggregation into the `FlowResult` and fires `beforeStep`/`afterStep` hooks.
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="FlowExecutor" />
+
+The executor must return the final output text as a string. The context also exposes `flowContext.results` for inspecting collected step results mid-flow.
+
+## buildFlowAgent
+
+`buildFlowAgent` is the lower-level builder that all built-in flow factories delegate to. Use it when you want to create a reusable flow factory with custom hook types or reset behavior:
+
+```ts
+import { createAgent, buildFlowAgent } from "@comma-agents/core";
+import type { FlowHooks } from "@comma-agents/core";
+
+function createMyCustomFlow(config) {
+  return buildFlowAgent(
+    config,
+    "my-custom",
+    {},
+    async (steps, message, flowContext) => {
+      // your orchestration logic
+      let output = message;
+      for (const step of steps) {
+        const result = await flowContext.runStep(step, output);
+        output = result.text;
+      }
+      return output;
+    },
+  );
+}
+```
+
+The `buildFlowAgent` signature accepts:
+- `config` — the `FlowConfig` (name, steps)
+- `typeName` — identifier for error messages (e.g., `"my-custom"`)
+- `store` — mutable hooks store (starts empty; hooks are added via `hookIntoFlow`)
+- `executor` — the `FlowExecutor` function
+- `onReset` — optional callback fired after steps are reset

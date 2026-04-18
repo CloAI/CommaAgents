@@ -9,6 +9,5 @@ export type {
   AgentCallResult,
   AgentConfig,
   AgentStreamEvent,
-  LLMCallResult,
 } from "./agent/agent.types";
 export { hookIntoAgent } from "./hook-into-agent/hook-into-agent";

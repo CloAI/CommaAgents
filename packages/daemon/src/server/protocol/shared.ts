@@ -5,8 +5,8 @@
 // colocated to its natural home:
 //   - Credential schemas  → credentials/credentials.schema.ts
 //   - UsageSchema, AgentCallResultSchema → responses/shared.ts
-//   - ErrorInfoSchema     → responses/flow-error/flow-error.schema.ts
-//   - RunSummarySchema    → responses/flow-list/flow-list.schema.ts
+//   - ErrorInfoSchema     → responses/strategy-error/strategy-error.schema.ts
+//   - RunSummarySchema    → responses/strategy-list/strategy-list.schema.ts
 //   - AgentStreamEventSchema → responses/agent-streaming/agent-streaming.schema.ts
 
 import { z } from "zod";

@@ -20,11 +20,9 @@ let toolRegistry = new Map<string, ToolDefinition>();
  *
  * Registered tools can be referenced by name in agent definitions
  * (strategy files, agent descriptions, or programmatic config).
- * They are resolved by `resolveTools()` after checking the built-in
- * tool set.
- *
- * Registering a name that matches a built-in tool will shadow the
- * built-in — the custom tool takes precedence.
+ * Custom registry tools take precedence over built-in tools during
+ * resolution — if you register a tool with a built-in name (e.g., "bash"),
+ * it shadows the default. A warning is logged in that case.
  *
  * @example
  * ```ts
@@ -40,6 +38,20 @@ let toolRegistry = new Map<string, ToolDefinition>();
  * ```
  */
 export function registerTool(name: string, tool: ToolDefinition): void {
+  const isBuiltIn = (BUILT_IN_TOOL_NAMES as readonly string[]).includes(name);
+  const isAlreadyRegistered = toolRegistry.has(name);
+
+  if (isBuiltIn) {
+    console.warn(
+      `[comma-agents] registerTool("${name}"): overriding built-in tool "${name}". ` +
+        `The custom tool will be used instead of the default.`,
+    );
+  } else if (isAlreadyRegistered) {
+    console.warn(
+      `[comma-agents] registerTool("${name}"): overriding previously registered tool "${name}".`,
+    );
+  }
+
   toolRegistry.set(name, tool);
 }
 

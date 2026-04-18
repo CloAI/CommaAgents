@@ -1,0 +1,36 @@
+---
+title: Ping / Pong
+description: Keepalive message pair for verifying the WebSocket connection is alive.
+---
+
+The simplest request/response pair. Send `ping`, receive `pong`. Use it as a keepalive or to verify the connection is active.
+
+## Request: `ping`
+
+```json
+{
+  "type": "ping",
+  "requestId": "health-check-1"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"ping"` | yes | Message type discriminator |
+| `requestId` | `string` | no | Echoed back on the response for correlation |
+
+## Response: `pong`
+
+```json
+{
+  "type": "pong",
+  "requestId": "health-check-1",
+  "ts": "2025-01-15T10:30:00.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"pong"` | Message type discriminator |
+| `requestId` | `string?` | Echoed from the request |
+| `ts` | `string` | ISO-8601 timestamp |

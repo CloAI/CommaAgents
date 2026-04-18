@@ -3,14 +3,21 @@
  *
  * Sets the MODEL env var (e.g. "openai/gpt-4o") and the provider's API key
  * env var, then runs the example with Bun. Output is captured line-by-line
- * and displayed in the terminal.
+ * and displayed in the terminal with scrollable navigation.
+ *
+ * Scroll controls:
+ *   - Up/Down arrows: scroll one line
+ *   - Page Up/Page Down: scroll one page
+ *   - Home/End (or g/G): jump to top/bottom
+ *   - Auto-follows output while running (unless user scrolls up)
  */
 
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { Box, Text, useApp, useInput } from "ink";
 import Spinner from "ink-spinner";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useTerminalSize } from "../hooks/useTerminalSize";
 import type { ExampleEntry } from "./ExampleSelect";
 import type { ProviderSelection } from "./ProviderSelect";
 
@@ -22,13 +29,77 @@ interface ExampleRunnerProps {
 
 type RunState = "running" | "success" | "error";
 
+/**
+ * Number of fixed chrome lines (header, separator, running/provider info,
+ * output header, status bar, margins, scroll hints).
+ * Used to compute the dynamic page size from terminal height.
+ */
+const CHROME_LINES = 12;
+
 export function ExampleRunner({ provider, example, onDone }: ExampleRunnerProps) {
   const { exit } = useApp();
+  const { rows } = useTerminalSize();
   const [state, setState] = useState<RunState>("running");
   const [output, setOutput] = useState<string[]>([]);
   const [exitCode, setExitCode] = useState<number | null>(null);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  /** Whether the user has manually scrolled away from the bottom. */
+  const userScrolledRef = useRef(false);
+
+  /** Dynamic page size based on terminal height minus chrome. */
+  const pageSize = Math.max(5, rows - CHROME_LINES);
+
+  // Auto-follow: when new output arrives and user hasn't scrolled up, snap to bottom.
+  useEffect(() => {
+    if (!userScrolledRef.current) {
+      setScrollOffset(Math.max(0, output.length - pageSize));
+    }
+  }, [output.length, pageSize]);
 
   useInput((input, key) => {
+    const maxOffset = Math.max(0, output.length - pageSize);
+
+    // Scroll controls (available in all states)
+    if (key.upArrow) {
+      userScrolledRef.current = true;
+      setScrollOffset((prev) => Math.max(0, prev - 1));
+      return;
+    }
+    if (key.downArrow) {
+      setScrollOffset((prev) => {
+        const next = Math.min(maxOffset, prev + 1);
+        if (next >= maxOffset) userScrolledRef.current = false;
+        return next;
+      });
+      return;
+    }
+    if (key.pageUp) {
+      userScrolledRef.current = true;
+      setScrollOffset((prev) => Math.max(0, prev - pageSize));
+      return;
+    }
+    if (key.pageDown) {
+      setScrollOffset((prev) => {
+        const next = Math.min(maxOffset, prev + pageSize);
+        if (next >= maxOffset) userScrolledRef.current = false;
+        return next;
+      });
+      return;
+    }
+    // Home / g → top
+    if (input === "g") {
+      userScrolledRef.current = true;
+      setScrollOffset(0);
+      return;
+    }
+    // End / G → bottom
+    if (input === "G") {
+      userScrolledRef.current = false;
+      setScrollOffset(maxOffset);
+      return;
+    }
+
+    // Action controls (only when done)
     if (state !== "running") {
       if (input === "r") {
         onDone();
@@ -88,11 +159,13 @@ export function ExampleRunner({ provider, example, onDone }: ExampleRunnerProps)
     };
   }, [example.value, provider.providerID, provider.model, provider.envVar, provider.apiKey]);
 
-  const maxLines = 40;
-  const visibleOutput = output.length > maxLines ? output.slice(-maxLines) : output;
+  const visibleOutput = output.slice(scrollOffset, scrollOffset + pageSize);
+  const maxOffset = Math.max(0, output.length - pageSize);
+  const atBottom = scrollOffset >= maxOffset;
+  const showScrollHint = output.length > pageSize;
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" height={rows}>
       <Text bold color="cyan">
         comma-agents Example Runner
       </Text>
@@ -111,11 +184,22 @@ export function ExampleRunner({ provider, example, onDone }: ExampleRunnerProps)
         </Text>
       </Box>
 
-      <Box flexDirection="column" marginTop={1}>
-        <Text dimColor>── Output ──────────────────</Text>
+      <Box flexDirection="column" marginTop={1} flexGrow={1}>
+        <Box>
+          <Text dimColor>── Output ──────────────────</Text>
+          {showScrollHint && (
+            <Text dimColor>
+              {" "}
+              [{scrollOffset + 1}-{Math.min(scrollOffset + pageSize, output.length)}/{output.length}
+              ]
+            </Text>
+          )}
+        </Box>
+        {!atBottom && scrollOffset > 0 && <Text dimColor>{"  ▲ more above"}</Text>}
         {visibleOutput.map((line, i) => (
-          <Text key={`${i}-${line.slice(0, 20)}`}>{line}</Text>
+          <Text key={`${scrollOffset + i}-${line.slice(0, 20)}`}>{line}</Text>
         ))}
+        {!atBottom && <Text dimColor>{"  ▼ more below"}</Text>}
       </Box>
 
       <Box marginTop={1}>
@@ -127,13 +211,13 @@ export function ExampleRunner({ provider, example, onDone }: ExampleRunnerProps)
         {state === "success" && (
           <Box flexDirection="column">
             <Text color="green">Done (exit code {exitCode})</Text>
-            <Text dimColor>Press r to run another example, q to quit</Text>
+            <Text dimColor>Press r to run another, q to quit | Scroll: arrows, PgUp/PgDn, g/G</Text>
           </Box>
         )}
         {state === "error" && (
           <Box flexDirection="column">
             <Text color="red">Failed (exit code {exitCode})</Text>
-            <Text dimColor>Press r to run another example, q to quit</Text>
+            <Text dimColor>Press r to run another, q to quit | Scroll: arrows, PgUp/PgDn, g/G</Text>
           </Box>
         )}
       </Box>

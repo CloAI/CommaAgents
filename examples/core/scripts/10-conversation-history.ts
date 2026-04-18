@@ -1,23 +1,23 @@
 /**
- * Example 10 — Conversation History
+ * Example 10 — Conversation Context
  *
  * Demonstrates multi-turn conversations with agents. By default, agents
- * maintain conversation history across calls — each call adds the
- * user message and assistant response to the history.
+ * maintain conversation context across calls — each call adds the
+ * user message and assistant response to the context.
  *
  * This example shows:
  *   - Multi-turn conversation with context retention
- *   - agent.reset() to clear history
- *   - How history accumulates and affects responses
+ *   - agent.reset() to clear context
+ *   - How context accumulates and affects responses
  *
  * Run:
  *   MODEL=openai/gpt-4o bun run examples/10-conversation-history.ts
  *
  * Concepts:
- *   - Agent conversation history (automatic)
+ *   - Agent conversation context (automatic)
  *   - Multi-turn dialogue
- *   - agent.reset() to clear history and start fresh
- *   - Token usage growth over turns (history context)
+ *   - agent.reset() to clear context and start fresh
+ *   - Token usage growth over turns (context accumulation)
  */
 
 import { createAgent } from "@comma-agents/core";
@@ -61,10 +61,10 @@ async function main() {
     `  (tokens: ${r3.usage.promptTokens} prompt, ${r3.usage.completionTokens} completion)\n`,
   );
 
-  // Note: prompt tokens grow with each turn because history is included
+  // Note: prompt tokens grow with each turn because context is included
 
-  // --- Reset history ---
-  console.log("--- Resetting conversation history ---\n");
+  // --- Reset context ---
+  console.log("--- Resetting conversation context ---\n");
   agent.reset();
 
   // --- Turn 4: after reset, context is lost ---

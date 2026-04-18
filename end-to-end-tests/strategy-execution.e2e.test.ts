@@ -422,9 +422,9 @@ flow:
             hookLog.push("beforeCall");
           },
         ],
-        afterCall: [
+        afterCallResult: [
           async () => {
-            hookLog.push("afterCall");
+            hookLog.push("afterCallResult");
           },
         ],
       };
@@ -458,7 +458,7 @@ flow:
 
       // Both agents should have received the hooks
       expect(hookLog.filter((h) => h === "beforeCall").length).toBe(2);
-      expect(hookLog.filter((h) => h === "afterCall").length).toBe(2);
+      expect(hookLog.filter((h) => h === "afterCallResult").length).toBe(2);
     });
 
     it("should inject flowHooks into all flows", async () => {

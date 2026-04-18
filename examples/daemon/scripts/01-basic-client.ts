@@ -15,9 +15,9 @@
  *
  * Concepts:
  *   - WebSocket connection to the daemon
- *   - start_flow message to execute a strategy
+ *   - start_strategy message to execute a strategy
  *   - Handling request_input (auto-replying with the initial prompt)
- *   - Handling flow_started, flow_completed, and flow_error events
+ *   - Handling strategy_started, strategy_completed, and strategy_error events
  *   - ping/pong keepalive
  */
 
@@ -46,6 +46,13 @@ const argv = yargs(hideBin(process.argv))
     default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
     describe: "WebSocket URL of the daemon",
   })
+  .option("model-override", {
+    alias: "m",
+    type: "string",
+    default: process.env.MODEL,
+    describe:
+      'Override the model for all agents (e.g. "anthropic/claude-sonnet-4-20250514"). Also reads MODEL env var.',
+  })
   .example("$0", "Run with default strategy")
   .example("$0 path/to/strategy.json", "Run a specific strategy")
   .example("$0 --daemon-url ws://localhost:8080/ws", "Connect to a custom daemon")
@@ -57,15 +64,18 @@ const argv = yargs(hideBin(process.argv))
 
 const DAEMON_URL = argv.daemonUrl as string;
 const STRATEGY_PATH = argv.strategyPath as string;
+const MODEL_OVERRIDE = argv.modelOverride as string | undefined;
 
 async function main() {
   const strategyPath = path.resolve(STRATEGY_PATH);
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
-  console.log(`Strategy: ${strategyPath}\n`);
+  console.log(`Strategy: ${strategyPath}`);
+  if (MODEL_OVERRIDE) console.log(`Model override: ${MODEL_OVERRIDE}`);
+  console.log();
 
   const ws = new WebSocket(DAEMON_URL);
 
-  // The initial prompt we send in start_flow — re-used as a reply if
+  // The initial prompt we send in start_strategy — re-used as a reply if
   // the strategy includes a UserAgent step that requests input.
   const initialInput = "Hello! What can you help me with?";
 
@@ -78,13 +88,14 @@ async function main() {
     // Send a ping to verify connectivity
     ws.send(JSON.stringify({ type: "ping", requestId: "hello" }));
 
-    // Start the flow
+    // Start the strategy
     ws.send(
       JSON.stringify({
-        type: "start_flow",
+        type: "start_strategy",
         strategyPath,
         input: initialInput,
         requestId: "flow-1",
+        ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
       }),
     );
   };
@@ -97,9 +108,9 @@ async function main() {
         console.log(`[pong] Daemon is alive (ts: ${msg.ts})`);
         break;
 
-      case "flow_started":
+      case "strategy_started":
         _runId = msg.runId;
-        console.log(`[flow_started] Run: ${msg.runId}`);
+        console.log(`[strategy_started] Run: ${msg.runId}`);
         console.log(`  Strategy: ${msg.strategyName}`);
         console.log(`  Agents: ${msg.agents.join(", ")}\n`);
         break;
@@ -117,6 +128,11 @@ async function main() {
         console.log(`[agent_output] ${msg.text.slice(0, 200)}`);
         break;
 
+      case "agent_streaming":
+        // Streaming events are handled in detail by example 02.
+        // In this basic example we rely on agent_output for final results.
+        break;
+
       // If the strategy includes a UserAgent step, the daemon asks the
       // client for input. We auto-reply with the initial prompt so the
       // flow continues without manual intervention.
@@ -132,8 +148,8 @@ async function main() {
         );
         break;
 
-      case "flow_completed":
-        console.log(`\n[flow_completed] Run: ${msg.runId}`);
+      case "strategy_completed":
+        console.log(`\n[strategy_completed] Run: ${msg.runId}`);
         console.log(`  Result: ${msg.result}`);
         console.log(
           `  Usage: ${msg.usage.promptTokens} prompt + ${msg.usage.completionTokens} completion tokens`,
@@ -141,8 +157,8 @@ async function main() {
         ws.close();
         break;
 
-      case "flow_error":
-        console.error(`\n[flow_error] Run: ${msg.runId}`);
+      case "strategy_error":
+        console.error(`\n[strategy_error] Run: ${msg.runId}`);
         console.error(`  Code: ${msg.error.code}`);
         console.error(`  Message: ${msg.error.message}`);
         ws.close();

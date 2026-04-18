@@ -19,12 +19,12 @@ function makeAgent(name = "test", fn?: (msg: string) => string): Agent {
 
 describe("hookIntoAgent", () => {
   describe("mutation semantics", () => {
-    it("should return the same agent reference", () => {
+    it("should mutate the agent in-place and return void", () => {
       const agent = makeAgent();
       const result = hookIntoAgent(agent, {
         beforeCall: [async () => {}],
       });
-      expect(result).toBe(agent);
+      expect(result).toBeUndefined();
     });
 
     it("should throw for agents without appendHook", () => {
@@ -35,10 +35,23 @@ describe("hookIntoAgent", () => {
           text: "",
           usage: { promptTokens: 0, completionTokens: 0 },
           finishReason: "stop",
+          responseMessages: [],
+          steps: [],
         }),
         stream: async function* () {},
-        getHistory: () => [],
-        getTurns: () => [],
+        getConversationContext: () => ({
+          length: 0,
+          isEmpty: true,
+          append: () => {},
+          allMessages: () => [],
+          allTurns: () => [],
+          lastTurn: () => undefined,
+          estimateTokens: () => 0,
+          snapshot: () => [],
+          restore: () => {},
+          clear: () => {},
+          [Symbol.iterator]: () => ({ next: () => ({ value: undefined, done: true }) }),
+        }),
         config: {} as any,
         reset: () => {},
       } as Agent;
@@ -67,9 +80,9 @@ describe("hookIntoAgent", () => {
             log.push(`before:${msg}`);
           },
         ],
-        afterCall: [
-          async (text) => {
-            log.push(`after:${text}`);
+        afterCallResult: [
+          async (result) => {
+            log.push(`after:${result.text}`);
           },
         ],
         alterResponse: [
@@ -97,7 +110,7 @@ describe("hookIntoAgent", () => {
       const agent = makeAgent();
 
       hookIntoAgent(agent, {
-        beforeInitialCall: [
+        beforeFirstCall: [
           async () => {
             log.push("initial");
           },
@@ -213,7 +226,7 @@ describe("hookIntoAgent", () => {
       const agent = makeAgent();
 
       hookIntoAgent(agent, {
-        beforeInitialCall: [
+        beforeFirstCall: [
           async () => {
             log.push("initial");
           },
@@ -240,32 +253,6 @@ describe("hookIntoAgent", () => {
       // After reset, first call should trigger initial again
       await agent.call("after-reset");
       expect(log).toEqual(["initial"]);
-    });
-  });
-
-  describe("chaining", () => {
-    it("should support chaining hookIntoAgent calls", async () => {
-      const log: string[] = [];
-
-      const agent = hookIntoAgent(
-        hookIntoAgent(makeAgent(), {
-          beforeCall: [
-            async () => {
-              log.push("first");
-            },
-          ],
-        }),
-        {
-          beforeCall: [
-            async () => {
-              log.push("second");
-            },
-          ],
-        },
-      );
-
-      await agent.call("test");
-      expect(log).toEqual(["first", "second"]);
     });
   });
 
@@ -304,7 +291,7 @@ describe("hookIntoAgent", () => {
       expect(() =>
         hookIntoAgent(agent, {
           beforeCall: [async () => {}],
-          afterCall: [async () => {}],
+          afterCallResult: [async () => {}],
           beforeToolCall: [async () => {}],
           afterToolCall: [async () => {}],
         }),

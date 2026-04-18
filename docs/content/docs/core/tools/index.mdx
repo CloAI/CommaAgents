@@ -1,0 +1,77 @@
+---
+title: Tools
+description: Define custom tools and give agents the ability to interact with the outside world.
+---
+
+Tools give agents the ability to interact with the outside world. Each tool has a Zod schema for its parameters and an execute function that runs when the agent invokes it.
+
+Comma Agents ships with 6 [built-in tools](/docs/core/tools/built-in) for filesystem and shell operations. You can also define custom tools and register them in the [tool registry](/docs/core/tools/tool-registry).
+
+## Quick Start
+
+Agents reference tools by **string name**. Built-in tools are available automatically:
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "coder",
+  model: "openai/gpt-4o",
+  tools: ["bash", "read", "write", "edit", "glob", "grep"],
+});
+```
+
+To add a custom tool, define it with `defineTool`, register it in the [tool registry](/docs/core/tools/tool-registry), and reference it by name:
+
+```ts
+import { defineTool, registerTool, createAgent } from "@comma-agents/core";
+import { z } from "zod";
+
+const weatherTool = defineTool({
+  description: "Get the current weather for a location.",
+  parameters: z.object({
+    location: z.string().describe("City name"),
+    unit: z.enum(["celsius", "fahrenheit"]).optional(),
+  }),
+  execute: async ({ location }) => ({
+    output: `Weather in ${location}: 72°F, sunny`,
+  }),
+});
+
+registerTool("weather", weatherTool);
+
+const agent = createAgent({
+  name: "assistant",
+  model: "openai/gpt-4o",
+  tools: ["bash", "read", "weather"],
+});
+```
+
+## defineTool
+
+`defineTool` creates a `ToolDefinition` with full TypeScript inference from the Zod schema to the execute function's parameters:
+
+```ts
+import { defineTool } from "@comma-agents/core";
+import { z } from "zod";
+
+const fetchTool = defineTool({
+  description: "Fetch a URL and return its text content.",
+  parameters: z.object({ url: z.string().url() }),
+  execute: async ({ url }) => ({
+    output: await fetch(url).then(response => response.text()),
+  }),
+});
+```
+
+## ToolDefinition
+
+The interface for defining a tool.
+
+<AutoTypeTable path="../packages/core/src/tools/tool.types.ts" name="ToolDefinition" />
+
+## ToolResult
+
+The result returned from a tool execution.
+
+<AutoTypeTable path="../packages/core/src/tools/tool.types.ts" name="ToolResult" />

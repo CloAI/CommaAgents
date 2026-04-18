@@ -1,0 +1,92 @@
+---
+title: User Input
+description: Human-in-the-loop — the request_input / user_input message pair.
+---
+
+When a strategy contains a user agent with `requireInput: true`, the daemon pauses execution and asks the client for input. The client responds with the user's text, and execution resumes.
+
+## Event: `request_input`
+
+Sent by the daemon when a user agent is waiting for human input. Broadcast to all subscribers of the run.
+
+```json
+{
+  "type": "request_input",
+  "runId": "run_abc123",
+  "agentName": "user",
+  "prompt": "What would you like me to write about?",
+  "ts": "2025-01-15T10:30:01.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"request_input"` | Message type discriminator |
+| `runId` | `string` | The run that needs input |
+| `agentName` | `string` | The agent waiting for input |
+| `prompt` | `string?` | Optional prompt to display to the user |
+| `requestId` | `string?` | Echoed from the originating `start_strategy` |
+| `ts` | `string` | ISO-8601 timestamp |
+
+## Request: `user_input`
+
+Sent by the client to provide the requested text. The `runId` and `agentName` must match the pending `request_input`.
+
+```json
+{
+  "type": "user_input",
+  "runId": "run_abc123",
+  "agentName": "user",
+  "text": "Write a tutorial on TypeScript generics",
+  "requestId": "input-1"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"user_input"` | yes | Message type discriminator |
+| `runId` | `string` | yes | The run this input is for |
+| `agentName` | `string` | yes | The agent that requested input |
+| `text` | `string` | yes | The user's text response |
+| `requestId` | `string` | no | Echoed on any error response |
+
+On success, there is no direct response — execution resumes and the next events (e.g., `step_completed`, `agent_output`) follow.
+
+If no agent is waiting for input on the specified run, the daemon replies with an error:
+
+```json
+{
+  "type": "error",
+  "code": "NO_PENDING_INPUT",
+  "message": "No pending input request for run run_abc123 agent user",
+  "ts": "2025-01-15T10:30:02.000Z"
+}
+```
+
+## Sequence Diagram
+
+```
+Client                          Daemon
+  |                               |
+  |  start_strategy (strategy with |
+  |  user agent)                  |
+  |------------------------------>|
+  |                               |
+  |       strategy_started        |
+  |<------------------------------|
+  |                               |
+  |         request_input         |
+  |  (agentName: "user",          |
+  |   prompt: "Enter topic...")   |
+  |<------------------------------|
+  |                               |
+  |  user_input                   |
+  |  (text: "TypeScript generics")|
+  |------------------------------>|
+  |                               |
+  |     step_completed, ...       |
+  |<------------------------------|
+  |                               |
+  |     strategy_completed        |
+  |<------------------------------|
+```

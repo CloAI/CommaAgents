@@ -1,0 +1,62 @@
+---
+title: createUserAgent
+description: Factory function for creating human-in-the-loop agents that collect input from the user.
+---
+`createUserAgent` creates a human-in-the-loop agent that collects input from the console (or a custom source) instead of calling an LLM. It delegates to `createAgent` with a custom `execute` override, so it supports the full hook lifecycle and is usable anywhere an `Agent` is accepted.
+
+```ts
+import { createAgent, createUserAgent } from "@comma-agents/core";
+
+const user = createUserAgent({
+  name: "user",
+  requireInput: true,
+});
+
+const writer = createAgent({
+  name: "writer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Write concise, well-structured prose based on the user's request.",
+});
+
+// Collect a topic from the user, then pass it to the LLM agent.
+const input = await user.call("What would you like me to write about?");
+const result = await writer.call(input.text);
+console.log(result.text);
+```
+
+## UserAgentConfig
+
+The configuration object passed to `createUserAgent`.
+
+<AutoTypeTable path="../packages/core/src/agents/built-in/user/user-agent.types.ts" name="UserAgentConfig" />
+
+## Input Collection
+
+By default, input is read from stdin (works in both Node.js and Bun). Pass a custom `inputCollector` to collect input from other sources, such as a WebSocket or UI:
+
+```ts
+import { createUserAgent } from "@comma-agents/core";
+
+const user = createUserAgent({
+  name: "user",
+  inputCollector: async ({ agentName, prompt }) => {
+    // Replace with your own input source (WebSocket, UI, etc.)
+    return fetchInputFromUI(agentName, prompt);
+  },
+});
+```
+
+## Preset Mode
+
+When `requireInput` is `false`, the agent skips input collection and returns a fixed message. This is useful for testing or scripted flows:
+
+```ts
+const reviewer = createUserAgent({
+  name: "reviewer",
+  requireInput: false,
+  presetMessage: "Looks good, ship it.",
+});
+
+const result = await reviewer.call("Please review the code.");
+console.log(result.text); // "Looks good, ship it."
+```

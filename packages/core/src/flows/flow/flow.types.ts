@@ -53,12 +53,10 @@ export interface CycleHooks extends FlowHooks {
 // FlowResult — richer return type for flows
 
 /**
- * Result from a flow execution. Extends `AgentCallResult` so flows
- * satisfy the `Agent.call()` contract while exposing per-step details.
+ * Result from a flow execution. Extends `AgentCallResult` with
+ * per-step details and aggregated token usage.
  *
- * Individual step results are available via `stepResults`. For LLM-specific
- * details (response messages, AI SDK steps), narrow individual step results
- * to `LLMCallResult`.
+ * Individual step results are available via `stepResults`.
  *
  * @example
  * ```ts
@@ -133,8 +131,6 @@ export interface FlowConfig {
   readonly name: string;
   /** The steps (agents or nested flows) this flow orchestrates. */
   readonly steps: ReadonlyArray<Agent>;
-  /** Flow lifecycle hooks. */
-  readonly hooks?: FlowHooks;
 }
 
 // CycleFlowConfig — configuration for cycle flows
@@ -152,8 +148,6 @@ export interface CycleFlowConfig extends FlowConfig {
    * @default 1
    */
   readonly cycles?: number;
-  /** Cycle-specific hooks (includes per-cycle alter hooks). */
-  readonly hooks?: CycleHooks;
   /**
    * Observer agent that runs after each cycle.
    * Sugar for prepending an `alterMessageAfterCycle` hook that calls

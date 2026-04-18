@@ -1,0 +1,99 @@
+---
+title: Token Tracking
+description: Accumulate real token usage and monitor context window budget across agent calls.
+---
+
+The token tracking hook accumulates real token usage reported by the provider after each agent call. When model metadata is available (via the built-in catalog or explicit config), snapshots include context budget information — how full the context window is and how many tokens remain.
+
+## useTokenTracking
+
+The recommended way to add token tracking. Creates a tracker, auto-detects the model from the agent's config, looks up context window metadata from the built-in catalog, and installs the `afterCallResult` hook automatically.
+
+```ts
+import { createAgent, useTokenTracking } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "writer",
+  model: "openai/gpt-4o",
+  systemPrompt: "You are helpful.",
+});
+
+const tracker = useTokenTracking(agent);
+
+await agent.call("Hello");
+const snap = tracker.snapshot();
+console.log(`${snap.totalTokens} tokens used`);
+console.log(`Context ${(snap.contextUsagePercent! * 100).toFixed(1)}% full`);
+console.log(`${snap.contextRemaining} tokens remaining`);
+```
+
+You can override the auto-detected model or provide explicit metadata for models not in the catalog:
+
+```ts
+// Explicit metadata for a custom or private model
+const tracker = useTokenTracking(agent, {
+  modelMetadata: { contextWindow: 32_000, maxOutputTokens: 4_096 },
+});
+```
+
+### UseTokenTrackingConfig
+
+Configuration for `useTokenTracking()`. All fields are optional — when omitted, the model is auto-detected from the agent's config.
+
+<AutoTypeTable path="../packages/core/src/hooks/built-in/token-tracking/token-tracking.types.ts" name="UseTokenTrackingConfig" />
+
+## createTokenTracker
+
+Low-level factory for creating a standalone tracker. Use this when you need full control over hook wiring or want a tracker not attached to any specific agent.
+
+```ts
+import { createTokenTracker } from "@comma-agents/core";
+
+const tracker = createTokenTracker({ model: "openai/gpt-4o" });
+
+// Record usage manually
+tracker.record(1500, 200);
+
+const snap = tracker.snapshot();
+console.log(`${snap.totalTokens} tokens`);
+```
+
+### TokenTrackerConfig
+
+<AutoTypeTable path="../packages/core/src/hooks/built-in/token-tracking/token-tracking.types.ts" name="TokenTrackerConfig" />
+
+## TokenTracker
+
+The object returned by both `useTokenTracking()` and `createTokenTracker()`.
+
+<AutoTypeTable path="../packages/core/src/hooks/built-in/token-tracking/token-tracking.types.ts" name="TokenTracker" />
+
+## TokenSnapshot
+
+A point-in-time snapshot of accumulated token usage. All token counts are real values reported by the provider, not estimates. Context budget fields are present only when model metadata is available.
+
+<AutoTypeTable path="../packages/core/src/hooks/built-in/token-tracking/token-tracking.types.ts" name="TokenSnapshot" />
+
+## TokenUsageRecord
+
+An individual call's recorded token usage.
+
+<AutoTypeTable path="../packages/core/src/hooks/built-in/token-tracking/token-tracking.types.ts" name="TokenUsageRecord" />
+
+## ModelMetadata
+
+Metadata about a model's token limits, used to compute context budget estimates.
+
+<AutoTypeTable path="../packages/core/src/hooks/built-in/token-tracking/token-tracking.types.ts" name="ModelMetadata" />
+
+## Model Catalog
+
+The built-in catalog covers widely-used models from OpenAI, Anthropic, Google, DeepSeek, Groq, Mistral, xAI, and Cohere. When a model string (e.g., `"openai/gpt-4o"`) matches a catalog entry, context window metadata is resolved automatically.
+
+For models not in the catalog, pass `modelMetadata` explicitly:
+
+```ts
+const tracker = useTokenTracking(agent, {
+  modelMetadata: { contextWindow: 65_536, maxOutputTokens: 8_192 },
+});
+```

@@ -10,11 +10,13 @@
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
-import { Box, Text, useApp } from "ink";
+import { Box, Text, useApp, useInput } from "ink";
 import Spinner from "ink-spinner";
 import { useEffect, useState } from "react";
 import type { ExampleEntry } from "../examples";
+import { useTerminalSize } from "../hooks/useTerminalSize";
 import type { ProviderSelection } from "./ProviderSelect";
 
 // ---------------------------------------------------------------------------
@@ -24,6 +26,8 @@ import type { ProviderSelection } from "./ProviderSelect";
 interface BatchRunnerProps {
   provider: ProviderSelection;
   examples: ExampleEntry[];
+  /** When provided, the runner shows interactive controls instead of auto-exiting. */
+  onDone?: () => void;
 }
 
 interface ExampleResult {
@@ -49,13 +53,26 @@ const EXAMPLE_TIMEOUT_MS = 120_000;
 // Component
 // ---------------------------------------------------------------------------
 
-export function BatchRunner({ provider, examples }: BatchRunnerProps) {
+export function BatchRunner({ provider, examples, onDone }: BatchRunnerProps) {
   const { exit } = useApp();
+  const { rows } = useTerminalSize();
   const [state, setState] = useState<BatchState>("running");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentOutput, setCurrentOutput] = useState<string[]>([]);
   const [results, setResults] = useState<ExampleResult[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [logPath, setLogPath] = useState<string | null>(null);
+
+  // Handle keyboard input when batch is done (interactive mode only)
+  useInput((input, key) => {
+    if (state === "done" && onDone) {
+      if (input === "b") {
+        onDone();
+      } else if (input === "q" || key.escape) {
+        exit();
+      }
+    }
+  });
 
   // Run examples sequentially
   useEffect(() => {
@@ -155,21 +172,32 @@ export function BatchRunner({ provider, examples }: BatchRunnerProps) {
     };
   }, [examples, provider]);
 
-  // Auto-exit after rendering the summary
+  // Write error log and auto-exit (or wait for user input in interactive mode)
   useEffect(() => {
     if (state === "done") {
-      const failed = results.filter((r) => r.exitCode !== 0);
-      // Small delay to let Ink flush the final render
-      const timer = setTimeout(() => {
-        exit();
-        process.exitCode = failed.length > 0 ? 1 : 0;
-      }, 100);
-      return () => clearTimeout(timer);
+      const failed = results.filter((result) => result.exitCode !== 0);
+
+      // Write error log if there were failures
+      if (failed.length > 0) {
+        const writtenLogPath = writeErrorLog(results, provider);
+        setLogPath(writtenLogPath);
+      }
+
+      // In non-interactive mode (no onDone), auto-exit after a small delay
+      if (!onDone) {
+        const timer = setTimeout(() => {
+          exit();
+          process.exitCode = failed.length > 0 ? 1 : 0;
+        }, 100);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [state, results, exit]);
+  }, [state, results, exit, onDone, provider]);
 
   const currentExample = examples[currentIndex];
-  const maxOutputLines = 20;
+  // Reserve lines for chrome (header, progress, completed results, separator, etc.)
+  const chromeLines = 8 + results.length;
+  const maxOutputLines = Math.max(5, rows - chromeLines);
   const visibleOutput =
     currentOutput.length > maxOutputLines ? currentOutput.slice(-maxOutputLines) : currentOutput;
 
@@ -182,7 +210,7 @@ export function BatchRunner({ provider, examples }: BatchRunnerProps) {
     const failed = results.filter((r) => r.exitCode !== 0);
 
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" height={rows}>
         <Text bold color="cyan">
           Batch Run Complete
         </Text>
@@ -233,17 +261,34 @@ export function BatchRunner({ provider, examples }: BatchRunnerProps) {
             <Text bold color="red">
               Failed examples:
             </Text>
-            {failed.map((r) => (
-              <Box key={r.example.value} flexDirection="column">
-                <Text color="red"> {r.example.label}:</Text>
-                {r.output.slice(-5).map((line, i) => (
-                  <Text key={`${r.example.value}-line-${line.slice(0, 30)}-${i}`} dimColor>
+            {failed.map((failedResult) => (
+              <Box key={failedResult.example.value} flexDirection="column">
+                <Text color="red"> {failedResult.example.label}:</Text>
+                {failedResult.output.slice(-5).map((line, lineIndex) => (
+                  <Text
+                    key={`${failedResult.example.value}-line-${line.slice(0, 30)}-${lineIndex}`}
+                    dimColor
+                  >
                     {"    "}
                     {line}
                   </Text>
                 ))}
               </Box>
             ))}
+          </Box>
+        )}
+
+        {logPath && (
+          <Box marginTop={1}>
+            <Text>
+              Error log written to: <Text color="yellow">{logPath}</Text>
+            </Text>
+          </Box>
+        )}
+
+        {onDone && (
+          <Box marginTop={1}>
+            <Text dimColor>Press b to go back to examples, q to quit</Text>
           </Box>
         )}
       </Box>
@@ -255,7 +300,7 @@ export function BatchRunner({ provider, examples }: BatchRunnerProps) {
   // ---------------------------------------------------------------------------
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" height={rows}>
       <Text bold color="cyan">
         Batch Run
       </Text>
@@ -420,6 +465,47 @@ function stopDaemon(child: ChildProcess): void {
     child.kill("SIGTERM");
   } catch {
     // Already dead
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Error logging (non-React)
+// ---------------------------------------------------------------------------
+
+/**
+ * Write a log file containing all errors from the batch run.
+ * Returns the path to the log file, or null if writing failed.
+ */
+function writeErrorLog(results: ExampleResult[], provider: ProviderSelection): string | null {
+  try {
+    const examplesDir = path.resolve(import.meta.dir, "../..");
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const logFileName = `batch-errors-${timestamp}.log`;
+    const logFilePath = path.join(examplesDir, logFileName);
+
+    const failedResults = results.filter((result) => result.exitCode !== 0);
+    const lines: string[] = [
+      `Batch Run Error Log`,
+      `Date: ${new Date().toISOString()}`,
+      `Provider: ${provider.providerID}/${provider.model}`,
+      `Total: ${results.length} | Passed: ${results.length - failedResults.length} | Failed: ${failedResults.length}`,
+      "",
+    ];
+
+    for (const result of failedResults) {
+      lines.push(
+        `--- ${result.example.label} (exit code ${result.exitCode}, ${(result.durationMs / 1000).toFixed(1)}s) ---`,
+      );
+      for (const outputLine of result.output) {
+        lines.push(`  ${outputLine}`);
+      }
+      lines.push("");
+    }
+
+    fs.writeFileSync(logFilePath, lines.join("\n"), "utf-8");
+    return logFilePath;
+  } catch {
+    return null;
   }
 }
 

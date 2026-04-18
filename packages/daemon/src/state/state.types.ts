@@ -9,7 +9,7 @@ import type { AgentCallResult } from "@comma-agents/core";
 // Run status
 
 /**
- * Lifecycle status of a flow run.
+ * Lifecycle status of a strategy run.
  *
  * Matches the protocol's `RunSummarySchema.status` enum so conversion
  * to wire format is trivial.
@@ -19,7 +19,7 @@ export type RunStatus = "pending" | "running" | "completed" | "error" | "cancell
 // Run state
 
 /**
- * Internal state of a single flow run.
+ * Internal state of a single strategy run.
  *
  * Immutable fields (`id`, `strategyPath`, `strategyName`, `startedAt`,
  * `abortController`) are set at creation and never change. Mutable fields

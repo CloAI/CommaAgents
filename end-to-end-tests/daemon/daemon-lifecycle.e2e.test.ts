@@ -217,7 +217,7 @@ describe("E2E: Daemon Lifecycle", () => {
       const client = await connectTestClient(daemon);
 
       // Missing required strategyPath
-      client.send({ type: "start_flow" });
+      client.send({ type: "start_strategy" });
       const err: any = await client.waitForType("error");
 
       expect(err.code).toBe("VALIDATION_ERROR");
@@ -266,18 +266,18 @@ describe("E2E: Daemon Lifecycle", () => {
   });
 
   // -----------------------------------------------------------------------
-  // 6. list_flows when idle
+  // 6. list_strategies when idle
   // -----------------------------------------------------------------------
 
-  describe("list_flows", () => {
+  describe("list_strategies", () => {
     it("should return empty runs when no flows are active", async () => {
       const daemon = await startTestDaemon();
       const client = await connectTestClient(daemon);
 
-      client.send({ type: "list_flows", requestId: "list-idle" });
-      const list: any = await client.waitForType("flow_list");
+      client.send({ type: "list_strategies", requestId: "list-idle" });
+      const list: any = await client.waitForType("strategy_list");
 
-      expect(list.type).toBe("flow_list");
+      expect(list.type).toBe("strategy_list");
       expect(list.runs).toEqual([]);
       expect(list.requestId).toBe("list-idle");
 

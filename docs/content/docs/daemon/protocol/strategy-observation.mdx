@@ -1,0 +1,187 @@
+---
+title: Strategy Observation
+description: Per-step execution events — step lifecycle, agent output, and streaming.
+---
+
+During strategy execution, the daemon emits fine-grained events for each step. These are broadcast to all clients subscribed to the run.
+
+## Step Lifecycle
+
+### Event: `step_started`
+
+Sent when a flow step begins execution.
+
+```json
+{
+  "type": "step_started",
+  "runId": "run_abc123",
+  "stepName": "analyzer",
+  "message": "Review this function: function add(a, b) { return a + b; }",
+  "ts": "2025-01-15T10:30:01.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"step_started"` | Message type discriminator |
+| `runId` | `string` | The run this step belongs to |
+| `stepName` | `string` | Name of the step (agent or nested flow) |
+| `message` | `string` | The input message being passed to this step |
+| `requestId` | `string?` | Echoed from the originating `start_strategy` |
+| `ts` | `string` | ISO-8601 timestamp |
+
+### Event: `step_completed`
+
+Sent when a flow step finishes execution.
+
+```json
+{
+  "type": "step_completed",
+  "runId": "run_abc123",
+  "stepName": "analyzer",
+  "result": {
+    "text": "Found 3 issues: ...",
+    "usage": { "promptTokens": 50, "completionTokens": 30 },
+    "finishReason": "stop"
+  },
+  "ts": "2025-01-15T10:30:02.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"step_completed"` | Message type discriminator |
+| `runId` | `string` | The run this step belongs to |
+| `stepName` | `string` | Name of the step that completed |
+| `result` | [`AgentCallResultWire`](/docs/daemon/protocol/shared-types#agentcallresultwire) | The step's result (text, usage, finish reason) |
+| `requestId` | `string?` | Echoed from the originating `start_strategy` |
+| `ts` | `string` | ISO-8601 timestamp |
+
+## Agent Output
+
+### Event: `agent_output`
+
+Sent when an agent produces its final output. This is the non-streaming counterpart — one event per agent call with the complete text.
+
+```json
+{
+  "type": "agent_output",
+  "runId": "run_abc123",
+  "agentName": "analyzer",
+  "text": "Found 3 issues: ...",
+  "usage": { "promptTokens": 50, "completionTokens": 30 },
+  "ts": "2025-01-15T10:30:02.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"agent_output"` | Message type discriminator |
+| `runId` | `string` | The run this output belongs to |
+| `agentName` | `string` | Name of the agent that produced the output |
+| `text` | `string` | The agent's final text response |
+| `usage` | [`Usage`](/docs/daemon/protocol/shared-types#usage) | Token usage for this agent call |
+| `requestId` | `string?` | Echoed from the originating `start_strategy` |
+| `ts` | `string` | ISO-8601 timestamp |
+
+## Agent Streaming
+
+### Event: `agent_streaming`
+
+Sent for each streaming event as an agent generates output. The `event` field is a discriminated union on `type`.
+
+```json
+{
+  "type": "agent_streaming",
+  "runId": "run_abc123",
+  "agentName": "analyzer",
+  "event": { "type": "text", "text": "Found " },
+  "ts": "2025-01-15T10:30:01.500Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"agent_streaming"` | Message type discriminator |
+| `runId` | `string` | The run this stream belongs to |
+| `agentName` | `string` | Name of the streaming agent |
+| `event` | [`AgentStreamEventWire`](/docs/daemon/protocol/shared-types#agentstreameventwire) | The stream event |
+| `requestId` | `string?` | Echoed from the originating `start_strategy` |
+| `ts` | `string` | ISO-8601 timestamp |
+
+### Stream Event Types
+
+The `event` field contains one of these discriminated variants:
+
+#### `text`
+
+A chunk of generated text.
+
+```json
+{ "type": "text", "text": "Found 3 issues" }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"text"` | Event discriminator |
+| `text` | `string` | The text chunk |
+
+#### `tool-call`
+
+The agent is invoking a tool.
+
+```json
+{ "type": "tool-call", "toolName": "read", "args": "{\"path\":\"/src/index.ts\"}" }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"tool-call"` | Event discriminator |
+| `toolName` | `string` | Name of the tool being called |
+| `args` | `string` | JSON-encoded tool arguments |
+
+#### `tool-result`
+
+A tool returned its result.
+
+```json
+{ "type": "tool-result", "toolName": "read", "output": "import { createAgent } from ..." }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"tool-result"` | Event discriminator |
+| `toolName` | `string` | Name of the tool that returned |
+| `output` | `string` | The tool's output |
+
+#### `step-start`
+
+A new model step has begun within a multi-step agent call (e.g., after a tool result triggers another model call).
+
+```json
+{ "type": "step-start" }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"step-start"` | Event discriminator |
+
+#### `done`
+
+The agent has finished generating. Contains the complete result.
+
+```json
+{
+  "type": "done",
+  "result": {
+    "text": "Found 3 issues: ...",
+    "usage": { "promptTokens": 50, "completionTokens": 30 },
+    "finishReason": "stop"
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"done"` | Event discriminator |
+| `result` | [`AgentCallResultWire`](/docs/daemon/protocol/shared-types#agentcallresultwire) | The complete agent result |

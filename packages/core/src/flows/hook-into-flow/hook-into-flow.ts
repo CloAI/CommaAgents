@@ -1,7 +1,7 @@
 // hookIntoFlow — Append hooks to an existing flow agent.
 //
 // Mutates the flow's internal hook store via appendHook (provided by
-// buildFlowAgent). Returns the same agent reference for chaining.
+// buildFlowAgent).
 
 import type { Agent } from "../../agents/agent/agent.types";
 import type { FlowHooks } from "../flow/flow.types";
@@ -9,8 +9,7 @@ import type { FlowHooks } from "../flow/flow.types";
 // hookIntoFlow
 
 /**
- * Append hooks to an existing flow agent. Mutates the flow in-place and
- * returns the same reference for chaining.
+ * Append hooks to an existing flow agent. Mutates the flow in-place.
  *
  * The flow must have been created by one of the flow factories
  * (`createSequentialFlow`, `createCycleFlow`, `createBroadcastFlow`,
@@ -34,18 +33,12 @@ import type { FlowHooks } from "../flow/flow.types";
  * hookIntoFlow<CycleHooks>(cycle, {
  *   alterMessageBeforeCycle: [async (message) => `[cycle]${message}`],
  * });
- *
- * // Chaining
- * hookIntoFlow(
- *   hookIntoFlow(flow, { beforeFlow: [logger] }),
- *   { afterFlow: [cleanup] },
- * );
  * ```
  */
 export function hookIntoFlow<HookType extends FlowHooks = FlowHooks>(
   flow: Agent,
   hooks: HookType,
-): Agent {
+): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- appendHook is an implementation detail, not on the interface
   const appendHook = (flow as any).appendHook as
     | ((hookName: string, callback: unknown) => void)
@@ -65,6 +58,4 @@ export function hookIntoFlow<HookType extends FlowHooks = FlowHooks>(
       }
     }
   }
-
-  return flow;
 }

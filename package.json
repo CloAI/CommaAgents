@@ -17,7 +17,7 @@
     "format": "bunx @biomejs/biome format --write .",
     "knip": "knip",
     "daemon": "bun run --filter @comma-agents/daemon start",
-    "tui": "bun run --filter @comma-agents/tui start",
+    "tui": "bun run --cwd packages/tui start",
     "example": "bun run examples/core/strategies/run.ts",
     "example:tui": "bun run --cwd examples tui",
     "docs": "bun run --cwd docs dev",

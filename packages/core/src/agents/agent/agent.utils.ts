@@ -4,16 +4,16 @@
 // messages, and stream event mapping.
 
 import { tool as aiTool, stepCountIs } from "ai";
+import type { ConversationContext } from "../../context/conversation-context";
+import type { ModelMessage, ResponseMessage } from "../../context/conversation-context.types";
 import { runSideEffectHooks } from "../../hooks";
 import { resolveModel } from "../../model/model";
-import type { ConversationHistory } from "../../prompts/history/conversation-history";
 import { buildMessages, resolveSystemPrompt } from "../../prompts/message-builder";
-import type { ModelMessage, ResponseMessage } from "../../prompts/types";
 import { resolveTools } from "../../tools/tool.registry";
 import type { ToolContext, ToolDefinition } from "../../tools/tool.types";
 import type { ToolHooks } from "../hooks";
 import { DEFAULT_MAX_STEPS } from "./agent.constants";
-import type { AgentConfig, AgentStreamEvent, CallOptions, LLMCallResult } from "./agent.types";
+import type { AgentCallResult, AgentConfig, AgentStreamEvent, CallOptions } from "./agent.types";
 
 // Tool set builder
 
@@ -78,7 +78,7 @@ export function buildAgentToolSet(
  *
  * @param config - The agent configuration.
  * @param message - The current user message.
- * @param history - The conversation history.
+ * @param context - The conversation context.
  * @param toolHooks - Tool hooks from the agent's mutable closure store.
  *   Dynamically appended hooks (via `hookIntoAgent`) take effect here.
  * @param abortSignal - Optional AbortSignal for cancellation.
@@ -89,7 +89,7 @@ export function buildAgentToolSet(
 export async function buildCallOptions(
   config: AgentConfig,
   message: string,
-  history: ConversationHistory,
+  context: ConversationContext,
   toolHooks?: ToolHooks,
   abortSignal?: AbortSignal,
 ): Promise<CallOptions> {
@@ -116,7 +116,7 @@ export async function buildCallOptions(
   return {
     model: languageModel,
     system: resolvedSystemPrompt,
-    messages: buildMessages({ message, history }) as ModelMessage[],
+    messages: buildMessages({ message, context }) as ModelMessage[],
     tools,
     stopWhen: stepCountIs(DEFAULT_MAX_STEPS),
     abortSignal,
@@ -156,10 +156,10 @@ export function mapStreamPart(streamPart: any): AgentStreamEvent | undefined {
   }
 }
 
-// Stream result → LLMCallResult builder
+// Stream result → AgentCallResult builder
 
 /**
- * Build an LLMCallResult from consumed stream results.
+ * Build an AgentCallResult from consumed stream results.
  * Used by the shared `runStream` generator inside createAgent.
  */
 export function buildStreamCallResult(
@@ -172,7 +172,7 @@ export function buildStreamCallResult(
     readonly outputTokens: number | undefined;
   },
   finishReason: string | null | undefined,
-): LLMCallResult {
+): AgentCallResult {
   return {
     text,
     responseMessages,

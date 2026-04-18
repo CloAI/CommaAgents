@@ -3,7 +3,7 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { buildAgentToolSet } from "../agent/agent.utils";
-import { resolveHook } from "./hooks";
+import { resolveHook } from "./hooks.utils";
 
 // resolveHook
 

@@ -1,0 +1,49 @@
+---
+title: Exporting
+description: Serialize a loaded strategy back to JSON or YAML.
+---
+
+`exportStrategy` serializes a loaded strategy back to a JSON or YAML string. It uses the original validated data stored on the `LoadedStrategy` object, so the output faithfully matches what was loaded.
+
+## exportStrategy
+
+```ts
+import { loadStrategy, exportStrategy } from "@comma-agents/core";
+
+const strategy = await loadStrategy("./strategy.json");
+
+// Export as JSON (default)
+const json = exportStrategy(strategy);
+console.log(json);
+
+// Export as YAML
+const yaml = exportStrategy(strategy, { format: "yaml" });
+console.log(yaml);
+```
+
+## ExportStrategyOptions
+
+<AutoTypeTable path="../packages/core/src/strategy/exporter/exporter.types.ts" name="ExportStrategyOptions" />
+
+## Round-Trip Example
+
+Load a strategy, run it, then export it back:
+
+```ts
+import { loadStrategy, exportStrategy } from "@comma-agents/core";
+
+// Load from JSON
+const strategy = await loadStrategy("./strategy.json");
+
+// Run the flow
+const result = await strategy.flow.call("Analyze this code...");
+console.log(result.text);
+
+// Export back to JSON
+const json = exportStrategy(strategy);
+
+// Export to YAML
+const yaml = exportStrategy(strategy, { format: "yaml" });
+```
+
+The exported output preserves the original structure — fields that were normalized or defaulted during loading appear in their original form.
