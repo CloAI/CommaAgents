@@ -1,0 +1,171 @@
+---
+title: Sandbox Permissions
+description: The request_permission / permission_decision message pair for interactive sandbox authorization.
+---
+
+# Sandbox Permissions
+
+When a strategy's sandbox policy is set to `"ask"` for a path, the daemon pauses the tool execution and asks the client for a permission decision. The client responds with `allow`, `deny`, `allow-session`, or `deny-session`, and execution resumes.
+
+## Event: `request_permission`
+
+Sent by the daemon when a tool needs authorization for a file-system operation. Broadcast to all subscribers of the run.
+
+```json
+{
+  "type": "request_permission",
+  "runId": "run_abc123",
+  "requestId": "perm-uuid-1234",
+  "agentName": "writer",
+  "toolName": "write_file",
+  "operation": "fs.write",
+  "resource": "/projects/app/src/index.ts",
+  "reason": "policy-ask",
+  "ts": "2025-01-15T10:30:01.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"request_permission"` | Message type discriminator |
+| `runId` | `string` | The run that needs a permission decision |
+| `requestId` | `string` | Unique ID for this request — echo back in `permission_decision` |
+| `agentName` | `string` | Name of the agent that triggered the operation |
+| `toolName` | `string?` | Name of the tool that triggered the operation |
+| `operation` | `"fs.read" \| "fs.write" \| "fs.exec"` | Category of the operation |
+| `resource` | `string` | Resolved absolute path being accessed |
+| `reason` | `"policy-ask" \| "policy-deny-override"` | Why this request was raised |
+| `details` | `Record<string, unknown>?` | Optional extra context (e.g. content about to be written) |
+| `ts` | `string` | ISO-8601 timestamp |
+
+`reason` values:
+- `"policy-ask"` — the sandbox policy for this path is set to `"ask"`.
+- `"policy-deny-override"` — a session-level deny is in place, but the tool is requesting a one-time override.
+
+## Request: `permission_decision`
+
+Sent by the client to deliver the decision. The `runId` and `permissionRequestId` must match the pending `request_permission`.
+
+```json
+{
+  "type": "permission_decision",
+  "runId": "run_abc123",
+  "permissionRequestId": "perm-uuid-1234",
+  "decision": "allow-session"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"permission_decision"` | yes | Message type discriminator |
+| `runId` | `string` | yes | The run this decision is for |
+| `permissionRequestId` | `string` | yes | The `requestId` from the matching `request_permission` |
+| `decision` | `"allow" \| "deny" \| "allow-session" \| "deny-session"` | yes | The client's decision |
+| `requestId` | `string` | no | Optional correlation ID echoed on any error response |
+
+Decision semantics:
+- `"allow"` / `"deny"` — one-shot for this invocation only.
+- `"allow-session"` / `"deny-session"` — remembered for the lifetime of this run (stored in-memory, not persisted to disk). Triggers a `policy_updated` broadcast.
+
+On success, there is no direct response — the sandbox unblocks and the tool continues execution.
+
+If no pending request matches the `permissionRequestId`, the daemon replies with an error:
+
+```json
+{
+  "type": "error",
+  "code": "NO_PENDING_PERMISSION",
+  "message": "No pending permission request perm-uuid-1234 for run run_abc123",
+  "ts": "2025-01-15T10:30:02.000Z"
+}
+```
+
+## Event: `policy_updated`
+
+Broadcast to all subscribers of the run whenever the sandbox's in-memory policy changes. This happens after `"allow-session"` / `"deny-session"` decisions and after `update_policy` messages.
+
+```json
+{
+  "type": "policy_updated",
+  "runId": "run_abc123",
+  "read": { "default": "allow" },
+  "write": { "default": "ask", "allow": ["out/**"] },
+  "ts": "2025-01-15T10:30:02.500Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"policy_updated"` | Message type discriminator |
+| `runId` | `string` | The run whose sandbox policy changed |
+| `read` | `PathPolicyWire` | Current read policy snapshot |
+| `write` | `PathPolicyWire` | Current write policy snapshot |
+| `ts` | `string` | ISO-8601 timestamp |
+
+`PathPolicyWire` shape: `{ default: "allow" | "deny" | "ask", allow?: string[], deny?: string[] }`.
+
+## Request: `update_policy`
+
+Sent by the client to patch the sandbox's in-memory policy for a run. Useful for pre-approving or pre-denying paths before execution reaches them.
+
+```json
+{
+  "type": "update_policy",
+  "runId": "run_abc123",
+  "mode": "write",
+  "allow": ["generated/**", "tmp/**"]
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"update_policy"` | yes | Message type discriminator |
+| `runId` | `string` | yes | The run whose sandbox to update |
+| `mode` | `"read" \| "write"` | yes | Which policy dimension to update |
+| `allow` | `string[]` | no | Glob patterns to append to the allow list |
+| `deny` | `string[]` | no | Glob patterns to append to the deny list |
+| `default` | `"allow" \| "deny" \| "ask"` | no | Replace the default decision for this dimension |
+
+On success, the daemon applies the patch and broadcasts `policy_updated` to all subscribers.
+
+If the run is not found, the daemon replies with an error:
+
+```json
+{
+  "type": "error",
+  "code": "RUN_NOT_FOUND",
+  "message": "No active run found for runId run_abc123",
+  "ts": "2025-01-15T10:30:02.000Z"
+}
+```
+
+## Sequence Diagram
+
+```
+Client                          Daemon
+  |                               |
+  |  start_strategy               |
+  |------------------------------>|
+  |                               |
+  |     strategy_started          |
+  |<------------------------------|
+  |                               |
+  |    request_permission         |
+  |  (operation: "fs.write",      |
+  |   resource: "/app/src/...",   |
+  |   reason: "policy-ask")       |
+  |<------------------------------|
+  |                               |
+  |  permission_decision          |
+  |  (decision: "allow-session")  |
+  |------------------------------>|
+  |                               |
+  |     policy_updated            |
+  |<------------------------------|
+  |                               |
+  |  agent_output, ...            |
+  |<------------------------------|
+  |                               |
+  |     strategy_completed        |
+  |<------------------------------|
+```

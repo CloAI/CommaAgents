@@ -55,6 +55,7 @@ async function startDaemon(overrides?: { bridgeTimeout?: number }): Promise<Daem
       providerCacheDir: join(tmpdir(), "providers"),
       pidFile: join(tmpdir(), "test.pid"),
       configFile: join(tmpdir(), "test.json"),
+      sessionsDir: join(tmpdir(), `sessions-${crypto.randomUUID()}`),
     },
     logger: mockLogger(),
     bridgeTimeout: overrides?.bridgeTimeout ?? 0,

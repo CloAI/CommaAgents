@@ -30,8 +30,24 @@ export function createWriteTool(): ToolDefinition<typeof writeParams> {
       "Parent directories are created automatically. Use this for creating new files or " +
       "completely replacing file contents.",
     parameters: writeParams,
-    execute: async (validatedArguments, _toolContext) => {
-      const { filePath, content } = validatedArguments;
+    execute: async (validatedArguments, toolContext) => {
+      const { filePath: rawPath, content } = validatedArguments;
+
+      // Authorize before any I/O so the permission bridge can prompt the user.
+      let filePath: string;
+      try {
+        filePath = await toolContext.sandbox.authorizeWrite(rawPath, {
+          agentName: toolContext.agentName,
+          toolName: "write",
+          signal: toolContext.abort,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          output: `Permission denied: ${message}`,
+          metadata: { error: true, filePath: rawPath },
+        };
+      }
 
       try {
         // Ensure parent directory exists

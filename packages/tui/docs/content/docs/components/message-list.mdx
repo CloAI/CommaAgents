@@ -1,0 +1,41 @@
+---
+title: MessageList
+description: Scrollable chat message list with role-colored senders and streaming indicator.
+---
+
+# MessageList
+
+Renders a list of chat messages, each showing the sender name colored by role, followed by the message text. Automatically scrolls to the most recent messages. Displays a streaming cursor when a message is still being received.
+
+```tsx
+import { MessageList } from "@comma-agents/tui";
+
+<MessageList messages={chat.messages} maxVisible={20} />
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `messages` | `readonly ChatMessage[]` | — | Chat messages to display |
+| `maxVisible` | `number` | `20` | Maximum visible messages (shows the most recent) |
+
+## ChatMessage
+
+Each message in the array has the following shape:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique message identifier |
+| `role` | `string` | Role key used to look up the sender color from the theme (e.g. `"user"`, `"agent"`, `"system"`) |
+| `sender` | `string` | Display name shown before the message text |
+| `text` | `string` | Message content |
+| `streaming` | `boolean` | When `true`, a block cursor (`▍`) is appended to indicate the message is still arriving |
+
+## Empty State
+
+When there are no messages, the component renders an empty state with the text "No messages yet." styled by the theme's `emptyState` style.
+
+## Theming
+
+Role colors are defined in the `MessageListTheme` via the `roles` map. Each role key maps to Ink `Text` style props (e.g. `color`, `bold`). The theme also defines styles for the message separator (`: `), message body, streaming cursor, and the empty state.

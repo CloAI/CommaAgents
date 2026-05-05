@@ -22,5 +22,6 @@ export function handleStartStrategy(
     message.input,
     message.requestId,
     message.modelOverride,
+    message.cwd,
   );
 }

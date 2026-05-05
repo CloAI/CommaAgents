@@ -16,6 +16,11 @@ export const StartStrategyMessage = ClientBase.extend({
    * When set, ignores model strings in the strategy file.
    */
   modelOverride: z.string().min(1).optional(),
+  /**
+   * Working directory for the strategy's sandbox.
+   * Defaults to the daemon's `process.cwd()` when not provided.
+   */
+  cwd: z.string().min(1).optional(),
 });
 
 export type StartStrategyMessage = z.infer<typeof StartStrategyMessage>;

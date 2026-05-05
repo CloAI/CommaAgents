@@ -18,10 +18,16 @@ const ROTATION_DURATION_S = 4;
 const TOTAL_FRAMES = FPS * ROTATION_DURATION_S;
 
 /** Width of the ASCII canvas in columns. */
-const WIDTH = 40;
+const WIDTH = 26;
 
 /** Height of the ASCII canvas in rows (half of width — terminal chars are ~2:1). */
-const HEIGHT = 20;
+const HEIGHT = 15;
+
+/**
+ * Padding around the 3D model in the ASCII canvas (in characters).
+ * `{ top, right, bottom, left }` — similar to CSS padding.
+ */
+const PADDING = { top: 1, right: 1, bottom: 1, left: 1 };
 
 /**
  * Classic ASCII brightness ramp — darkest to brightest.
@@ -143,18 +149,70 @@ function rasterise(triangles: ProjectedTriangle[]): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// Viewport bounds — tracks the min/max projected XY across all frames so
+// we can fit the model tightly into the canvas.
+// ---------------------------------------------------------------------------
+
+interface ViewportBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+/**
+ * Project all vertices through the model-view matrix and collect the
+ * min/max X/Y in view space (before screen mapping). This lets us
+ * compute a tight orthographic viewport.
+ */
+function computeViewBounds(
+  vertices: Float32Array,
+  modelView: mat4,
+): ViewportBounds {
+  const bounds: ViewportBounds = {
+    minX: Infinity,
+    maxX: -Infinity,
+    minY: Infinity,
+    maxY: -Infinity,
+  };
+
+  const numVerts = vertices.length / 3;
+  for (let i = 0; i < numVerts; i++) {
+    const vIn = vec4.fromValues(
+      vertices[i * 3] ?? 0,
+      vertices[i * 3 + 1] ?? 0,
+      vertices[i * 3 + 2] ?? 0,
+      1,
+    );
+    const vOut = vec4.create();
+    vec4.transformMat4(vOut, vIn, modelView);
+
+    if (vOut[0] < bounds.minX) bounds.minX = vOut[0];
+    if (vOut[0] > bounds.maxX) bounds.maxX = vOut[0];
+    if (vOut[1] < bounds.minY) bounds.minY = vOut[1];
+    if (vOut[1] > bounds.maxY) bounds.maxY = vOut[1];
+  }
+
+  return bounds;
+}
+
+// ---------------------------------------------------------------------------
 // Projection pipeline
 // ---------------------------------------------------------------------------
 
 /**
  * Transform a mesh's triangles by the given model-view matrix, compute
  * per-face lighting, project to screen space, and rasterise.
+ *
+ * `viewport` defines the view-space extents to map into the canvas
+ * (already includes padding).
  */
 function renderFrame(
   vertices: Float32Array,
   facesIndices: Uint32Array,
   facesNormals: Float32Array,
   modelView: mat4,
+  viewport: ViewportBounds,
 ): string[] {
   /** Light direction in view space (pointing from top-right-front). */
   const lightDir: Vec3 = normalizeVec3([0.5, 0.8, 1.0]);
@@ -162,6 +220,9 @@ function renderFrame(
   const projected: ProjectedTriangle[] = [];
 
   const numFaces = facesIndices.length / 3;
+
+  const vpW = viewport.maxX - viewport.minX;
+  const vpH = viewport.maxY - viewport.minY;
 
   for (let f = 0; f < numFaces; f++) {
     const i0 = facesIndices[f * 3] ?? 0;
@@ -210,10 +271,10 @@ function renderFrame(
     const ambient = 0.15;
     const brightness = Math.min(1, ambient + diffuse * 0.85);
 
-    // Orthographic projection → screen space.
+    // Orthographic projection: map viewport bounds → screen space.
     const toScreen = (v: Vec3): Vec3 => {
-      const sx = (v[0] + 1) * 0.5 * WIDTH;
-      const sy = (1 - (v[1] + 1) * 0.5) * HEIGHT; // flip Y
+      const sx = ((v[0] - viewport.minX) / vpW) * WIDTH;
+      const sy = ((viewport.maxY - v[1]) / vpH) * HEIGHT; // flip Y
       return [sx, sy, v[2]];
     };
 
@@ -252,28 +313,65 @@ function generate(): void {
   const cy = (min[1] + max[1]) / 2;
   const cz = (min[2] + max[2]) / 2;
 
-  const frames: string[][] = [];
+  // -----------------------------------------------------------------------
+  // Pass 1: Compute the model-view matrix for every frame and find the
+  //         tight bounding box of all projected vertices across all frames.
+  // -----------------------------------------------------------------------
+
+  const modelViews: mat4[] = [];
+  const globalBounds: ViewportBounds = {
+    minX: Infinity,
+    maxX: -Infinity,
+    minY: Infinity,
+    maxY: -Infinity,
+  };
 
   for (let i = 0; i < TOTAL_FRAMES; i++) {
     const angle = (i / TOTAL_FRAMES) * Math.PI * 2;
 
-    // Build model-view matrix: centre → rotate Y → slight tilt on X.
     const mv = mat4.create();
-
-    // Pull back slightly so the model fits inside [-1, 1] clip space.
     mat4.translate(mv, mv, [0, 0, 0]);
-
-    // Tilt the model slightly toward the viewer.
     mat4.rotateX(mv, mv, -0.3);
-
-    // Main rotation around the Y axis.
     mat4.rotateY(mv, mv, angle);
-
-    // Centre the model at the origin.
     mat4.translate(mv, mv, [-cx, -cy, -cz]);
 
-    const frameLines = renderFrame(vertices, facesIndices, facesNormals, mv);
+    modelViews.push(mv);
 
+    const frameBounds = computeViewBounds(vertices, mv);
+    if (frameBounds.minX < globalBounds.minX) globalBounds.minX = frameBounds.minX;
+    if (frameBounds.maxX > globalBounds.maxX) globalBounds.maxX = frameBounds.maxX;
+    if (frameBounds.minY < globalBounds.minY) globalBounds.minY = frameBounds.minY;
+    if (frameBounds.maxY > globalBounds.maxY) globalBounds.maxY = frameBounds.maxY;
+  }
+
+  // -----------------------------------------------------------------------
+  // Expand the viewport by padding (convert character padding to view-space
+  // units so it maps to the correct number of characters on screen).
+  // -----------------------------------------------------------------------
+
+  const modelW = globalBounds.maxX - globalBounds.minX;
+  const modelH = globalBounds.maxY - globalBounds.minY;
+
+  // View-space units per character in each axis.
+  const unitsPerCharX = modelW / (WIDTH - PADDING.left - PADDING.right);
+  const unitsPerCharY = modelH / (HEIGHT - PADDING.top - PADDING.bottom);
+
+  const viewport: ViewportBounds = {
+    minX: globalBounds.minX - PADDING.left * unitsPerCharX,
+    maxX: globalBounds.maxX + PADDING.right * unitsPerCharX,
+    minY: globalBounds.minY - PADDING.bottom * unitsPerCharY,
+    maxY: globalBounds.maxY + PADDING.top * unitsPerCharY,
+  };
+
+  // -----------------------------------------------------------------------
+  // Pass 2: Render every frame using the tight viewport.
+  // -----------------------------------------------------------------------
+
+  const frames: string[][] = [];
+
+  for (let i = 0; i < TOTAL_FRAMES; i++) {
+    const mv = modelViews[i]!;
+    const frameLines = renderFrame(vertices, facesIndices, facesNormals, mv, viewport);
     frames.push(frameLines);
   }
 
@@ -281,6 +379,7 @@ function generate(): void {
     fps: FPS,
     width: WIDTH,
     height: HEIGHT,
+    padding: PADDING,
     totalFrames: TOTAL_FRAMES,
     ramp: ASCII_RAMP,
     frames,

@@ -1,0 +1,134 @@
+---
+title: List Providers
+description: Discover known providers, their auth status, and the models they expose.
+---
+
+Request the set of known providers along with per-provider auth status and model metadata. Provider data comes from a bundled catalog snapshot, with optional live discovery for providers that support it.
+
+## Request: `list_providers`
+
+```json
+{
+  "type": "list_providers",
+  "requestId": "providers-1",
+  "scope": "my-strategy",
+  "live": true
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"list_providers"` | yes | Message type discriminator |
+| `requestId` | `string` | no | Echoed on the response for correlation |
+| `scope` | `string` | no | Strategy scope for credential resolution. When provided, the daemon checks strategy-scoped credentials first before falling back to environment variables and the global scope. |
+| `live` | `boolean` | no | When `true`, the daemon attempts live model discovery for providers that support it (currently Ollama and GitHub Copilot). Providers without a live lister always return catalog data. Defaults to `false`. |
+
+## Response: `provider_list`
+
+```json
+{
+  "type": "provider_list",
+  "providers": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "authStatus": "configured",
+      "modelsSource": "catalog",
+      "isCustom": false,
+      "models": [
+        {
+          "id": "gpt-4o",
+          "name": "GPT-4o",
+          "contextWindow": 128000,
+          "capabilities": { "tools": true, "vision": true }
+        }
+      ]
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "authStatus": "none",
+      "modelsSource": "live",
+      "fetchedAt": "2025-01-15T10:30:00.000Z",
+      "isCustom": false,
+      "models": [
+        { "id": "llama3.1:8b", "name": "llama3.1:8b" }
+      ]
+    }
+  ],
+  "requestId": "providers-1",
+  "ts": "2025-01-15T10:30:05.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"provider_list"` | Message type discriminator |
+| `providers` | `ProviderInfo[]` | Alphabetically sorted list of known providers |
+| `requestId` | `string?` | Echoed from the request |
+| `ts` | `string` | ISO-8601 timestamp |
+
+### ProviderInfo
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Canonical provider id (matches models.dev keys, e.g. `"openai"`, `"github-copilot"`) |
+| `name` | `string` | Human-friendly display name |
+| `authStatus` | `"none" \| "configured"` | `"configured"` means a credential is resolvable (env var, strategy scope, or global scope). Not validated against the provider's API. |
+| `models` | `ModelInfo[]` | Normalized model metadata. Empty array when nothing is known. |
+| `modelsSource` | `"catalog" \| "live" \| "merged" \| "error"` | Provenance of the models list |
+| `fetchedAt` | `string?` | ISO-8601 timestamp of the live fetch, when applicable |
+| `error` | `string?` | Error message when live discovery failed and the response fell back to catalog data |
+| `isCustom` | `boolean` | `true` when the provider was added via `registerProvider()` |
+
+### ModelInfo
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Model identifier (used in `provider/model` strings) |
+| `name` | `string?` | Display name |
+| `family` | `string?` | Model family (e.g. `"gpt"`, `"claude"`) |
+| `contextWindow` | `number?` | Total context window in tokens |
+| `maxInputTokens` | `number?` | Maximum input tokens |
+| `maxOutputTokens` | `number?` | Maximum output tokens |
+| `knowledgeCutoff` | `string?` | Knowledge cutoff date (e.g. `"2024-06"`) |
+| `releaseDate` | `string?` | Release date |
+| `lastUpdated` | `string?` | Last update date |
+| `status` | `"alpha" \| "beta" \| "deprecated"?` | Release status, when known |
+| `modalities` | `{ input?: Modality[]; output?: Modality[] }?` | Supported input/output modalities |
+| `capabilities` | `ModelCapabilities?` | Feature flags (see below) |
+| `cost` | `ModelCost?` | Pricing metadata (see below) |
+
+`Modality` is one of `"text"`, `"image"`, `"audio"`, `"video"`, `"pdf"`.
+
+#### ModelCapabilities
+
+| Field | Type | Description |
+|---|---|---|
+| `tools` | `boolean?` | Supports tool calls |
+| `reasoning` | `boolean?` | Dedicated reasoning model |
+| `vision` | `boolean?` | Accepts image input |
+| `attachment` | `boolean?` | Accepts file attachments |
+| `structuredOutput` | `boolean?` | Supports structured output / JSON mode |
+
+#### ModelCost
+
+All values are USD per million tokens unless the provider specifies otherwise.
+
+| Field | Type | Description |
+|---|---|---|
+| `input` | `number?` | Input token cost |
+| `output` | `number?` | Output token cost |
+| `reasoning` | `number?` | Reasoning token cost |
+| `cacheRead` | `number?` | Cached input cost |
+| `cacheWrite` | `number?` | Cache write cost |
+
+## Data Sources
+
+Provider data is merged from up to three sources:
+
+- **Catalog** — a bundled snapshot of the [models.dev](https://models.dev) catalog covering 50+ providers. Refreshed on disk every 24 hours.
+- **Built-in overrides** — hardcoded entries for providers that need custom package resolution or live discovery (Ollama, Deepseek, GitHub Copilot).
+- **Live listers** — runtime discovery for Ollama (local `/api/tags`) and GitHub Copilot (Copilot API). Only invoked when `live: true` is set on the request.
+
+When live discovery fails, the daemon silently falls back to catalog data and sets the `error` field on the affected provider.

@@ -11,11 +11,31 @@ import { createCycleFlow } from "../../flows/built-in/cycle/cycle-flow";
 import { createSequentialFlow } from "../../flows/built-in/sequential/sequential-flow";
 import { hookIntoFlow } from "../../flows/hook-into-flow/hook-into-flow";
 import { createPromptTemplate } from "../../prompts/template/prompt-template";
+import { createSandbox } from "../../sandbox/sandbox";
+import type { Sandbox, SandboxConfig } from "../../sandbox/sandbox.types";
 import type { CycleFlowDef, FlowDef, LLMAgentDef, Strategy, UserAgentDef } from "../schema";
 import { isAgentStep, isFlowDef, isLLMAgentDef, isUserAgentDef } from "../schema";
 import type { LoadStrategyOptions } from "./loader.types";
 
 // Agent instantiation
+
+/**
+ * Resolve the sandbox option from LoadStrategyOptions into a single Sandbox
+ * instance, constructing one from SandboxConfig when necessary.
+ */
+function resolveSandbox(options: LoadStrategyOptions): Sandbox | undefined {
+  if (!options.sandbox) return undefined;
+
+  // If it already has the Sandbox interface methods, use it directly
+  if (typeof (options.sandbox as Sandbox).resolvePath === "function") {
+    return options.sandbox as Sandbox;
+  }
+
+  // Otherwise treat it as a SandboxConfig and construct the sandbox
+  return createSandbox(options.sandbox as SandboxConfig, {
+    requestPermission: options.permissionRequester,
+  });
+}
 
 /**
  * Build all agents defined in the strategy into live Agent instances.
@@ -28,12 +48,13 @@ export async function buildAgentRegistry(
   options: LoadStrategyOptions,
 ): Promise<Record<string, Agent>> {
   const registry: Record<string, Agent> = {};
+  const sandbox = resolveSandbox(options);
 
   for (const [name, agentDefinition] of Object.entries(strategy.agents)) {
     if (isUserAgentDef(agentDefinition)) {
       registry[name] = buildUserAgent(name, agentDefinition, options);
     } else if (isLLMAgentDef(agentDefinition)) {
-      registry[name] = buildLLMAgent(name, agentDefinition, options);
+      registry[name] = buildLLMAgent(name, agentDefinition, options, sandbox);
     }
   }
 
@@ -64,6 +85,7 @@ function buildLLMAgent(
   name: string,
   agentDefinition: LLMAgentDef,
   options: LoadStrategyOptions,
+  sandbox?: Sandbox,
 ): Agent {
   // modelOverride replaces whatever the strategy file specifies
   const effectiveModel = options.modelOverride ?? agentDefinition.model;
@@ -89,6 +111,10 @@ function buildLLMAgent(
     model: effectiveModel,
     systemPrompt,
     tools: agentDefinition.tools,
+    ...(agentDefinition.providerOptions
+      ? { providerOptions: agentDefinition.providerOptions }
+      : {}),
+    ...(sandbox ? { sandbox } : {}),
   });
 }
 

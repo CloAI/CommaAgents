@@ -7,6 +7,7 @@ export interface FrameTheme {
   /** Root container (column layout). Height is set dynamically by the container. */
   readonly root: {
     readonly flexDirection: "column";
+    readonly backgroundColor: string;
   };
   /** Tab bar container. */
   readonly tabBar: {
@@ -25,18 +26,18 @@ export interface FrameTheme {
   readonly inactiveTab: {
     readonly dimColor: boolean;
   };
-  /** Style for the tab shortcut hint (e.g. "F1"). */
+  /**
+   * Style applied (merged on top of the active/inactive style) when the
+   * pointer is hovering over a tab. Only sets the visual highlight —
+   * underline / bold come from the base style.
+   */
+  readonly hoveredTab: {
+    readonly color: string;
+    readonly bold: boolean;
+  };
+  /** Style for the tab shortcut hint (e.g. "Alt+1"). */
   readonly tabHint: {
     readonly dimColor: boolean;
-  };
-  /** Separator below the tab bar. */
-  readonly separator: {
-    readonly paddingX: number;
-    readonly text: {
-      readonly dimColor: boolean;
-    };
-    /** Single separator character to repeat across the terminal width. */
-    readonly char: string;
   };
   /** Content area below the tab bar (grows to fill available space). */
   readonly content: {
@@ -60,6 +61,7 @@ export function useFrameTheme(): FrameTheme {
     () => ({
       root: {
         flexDirection: "column",
+        backgroundColor: tokens.colors.background,
       },
       tabBar: {
         flexDirection: "row",
@@ -75,15 +77,12 @@ export function useFrameTheme(): FrameTheme {
       inactiveTab: {
         dimColor: tokens.typography.secondaryDim,
       },
+      hoveredTab: {
+        color: tokens.colors.primary,
+        bold: true,
+      },
       tabHint: {
         dimColor: tokens.typography.secondaryDim,
-      },
-      separator: {
-        paddingX: tokens.spacing.sm,
-        text: {
-          dimColor: tokens.typography.secondaryDim,
-        },
-        char: tokens.separator.char,
       },
       content: {
         flexDirection: "column",

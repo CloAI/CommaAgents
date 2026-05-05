@@ -1,0 +1,10 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`ChatTextAreaRender should match snapshot for default state 1`] = `
+"╔══════════════════════════════════════════════════════════╗
+║Enter your prompt...                                      ║
+║                                                          ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
+Build — Describe what to build  tab strategy · ctrl+s submit"
+`;

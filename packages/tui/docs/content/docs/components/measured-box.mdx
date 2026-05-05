@@ -1,0 +1,50 @@
+---
+title: MeasuredBox
+description: Self-measuring Box wrapper that provides dimensions to children via render prop.
+---
+
+# MeasuredBox
+
+A `<Box>` wrapper that measures its own rendered dimensions and provides them to children via a render prop. Re-measures automatically on terminal resize.
+
+```tsx
+import { MeasuredBox } from "@comma-agents/tui";
+
+<MeasuredBox width="100%">
+  {({ width }) => (
+    <Text>{"─".repeat(width)}</Text>
+  )}
+</MeasuredBox>
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `children` | `(dimensions: MeasuredDimensions) => ReactNode` | — | Render prop receiving `{ width, height }` |
+| `width` | `number \| string` | `"100%"` | Width of the outer box |
+| `flexDirection` | `"row" \| "column" \| "row-reverse" \| "column-reverse"` | `"column"` | Flex direction |
+| `flexGrow` | `number` | — | Flex grow factor |
+
+## MeasuredDimensions
+
+| Field | Type | Description |
+|---|---|---|
+| `width` | `number` | Measured width in columns |
+| `height` | `number` | Measured height in rows |
+
+## useMeasure Hook
+
+The underlying `useMeasure()` hook can be used independently. It returns a `ref` to attach to any Ink `<Box>` and the measured `{ width, height }`.
+
+```tsx
+import { useMeasure } from "@comma-agents/tui";
+
+const { ref, dimensions } = useMeasure();
+
+<Box ref={ref} width="100%">
+  <Text>Width is {dimensions.width}</Text>
+</Box>
+```
+
+The hook uses Ink's `measureElement` to read dimensions after the initial render and re-measures on `stdout` resize events. Dimensions start at `{ width: 0, height: 0 }` and update after the first layout pass.

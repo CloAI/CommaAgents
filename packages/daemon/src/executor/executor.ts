@@ -10,14 +10,17 @@
 // 3. Executes `strategy.flow.call(input)` in the background (fire-and-forget).
 // 4. Updates DaemonState and broadcasts protocol messages as execution proceeds.
 
-import type { AgentCallResult, AgentHooks, AgentStreamEvent, FlowHooks } from "@comma-agents/core";
-import { hookIntoAgent, loadStrategyFromString } from "@comma-agents/core";
+import type { AgentCallResult, AgentHooks, AgentStreamEvent, FlowHooks, PermissionDecision, PolicyPatch, Sandbox } from "@comma-agents/core";
+import { createSandbox, hookIntoAgent, loadStrategyFromString } from "@comma-agents/core";
 import YAML from "yaml";
 import type { Logger } from "../logger";
+import type { SessionStore } from "../sessions";
 import type { DaemonState, RunState } from "../state/state.types";
 import type { EventSink } from "./event-sink";
 import type { InputBridge } from "./input-bridge";
 import { createInputBridge } from "./input-bridge";
+import type { PermissionBridge } from "./permission-bridge";
+import { createPermissionBridge } from "./permission-bridge";
 
 // Types
 
@@ -35,6 +38,8 @@ export interface CreateStrategyExecutorOptions {
   readonly sink: EventSink;
   /** Logger for executor-level diagnostics. */
   readonly logger: Logger;
+  /** Persistent per-cwd session store. Auto-saves turns and run summaries. */
+  readonly sessionStore: SessionStore;
   /** Timeout in ms for input bridge. 0 = no timeout. Default: 0. */
   readonly bridgeTimeout?: number;
   /**
@@ -51,7 +56,12 @@ export interface CreateStrategyExecutorOptions {
 /** Per-run context held by the executor. */
 interface RunContext {
   readonly inputBridge: InputBridge;
+  readonly permissionBridge: PermissionBridge;
   readonly clientId: string;
+  /** Set after sandbox is created in executeRun (after strategy file parse). */
+  sandbox?: Sandbox;
+  /** Set after the strategy is loaded; used when persisting turns. */
+  strategyName?: string;
 }
 
 /** The strategy executor instance. */
@@ -65,6 +75,7 @@ export interface StrategyExecutor {
    * @param input - Optional initial input for the strategy's entry flow.
    * @param requestId - Optional requestId for protocol correlation.
    * @param modelOverride - Optional per-run model override (takes precedence over executor-level override).
+   * @param cwd - Optional working directory for the strategy's sandbox. Defaults to process.cwd().
    * @returns The newly created run ID.
    */
   startRun(
@@ -73,6 +84,7 @@ export interface StrategyExecutor {
     input?: string,
     requestId?: string,
     modelOverride?: string,
+    cwd?: string,
   ): string;
 
   /**
@@ -87,6 +99,20 @@ export interface StrategyExecutor {
    * @returns `true` if the input was delivered to a pending request.
    */
   handleUserInput(runId: string, agentName: string, text: string): boolean;
+
+  /**
+   * Route a `permission_decision` message to the correct run's permission bridge.
+   *
+   * @returns `true` if a pending permission request was found and resolved.
+   */
+  handlePermissionDecision(runId: string, permissionRequestId: string, decision: import("@comma-agents/core").PermissionDecision): boolean;
+
+  /**
+   * Apply a policy patch from an `update_policy` client message to the run's sandbox.
+   *
+   * @returns `true` if the run was found and the policy was updated.
+   */
+  handleUpdatePolicy(runId: string, patch: import("@comma-agents/core").PolicyPatch): boolean;
 }
 
 // parseStrategyFile() — read and JSON/YAML parse a strategy file
@@ -157,13 +183,32 @@ function toWireStreamEvent(event: AgentStreamEvent): Record<string, unknown> {
  * input/auth bridging, and state updates.
  */
 export function createStrategyExecutor(options: CreateStrategyExecutorOptions): StrategyExecutor {
-  const { state, sink, logger, bridgeTimeout = 0, modelOverride } = options;
+  const { state, sink, logger, sessionStore, bridgeTimeout = 0, modelOverride } = options;
 
   /** runId → per-run context (bridge, client). */
   const runContexts = new Map<string, RunContext>();
 
+  /** Persist a run summary to its session. Logs but never throws. */
+  function persistRunSummary(run: RunState, completedAt: Date | null, errorInfo?: { code: string; message: string }): void {
+    const summary = {
+      runId: run.id,
+      strategyName: runContexts.get(run.id)?.strategyName ?? run.strategyName,
+      strategyPath: run.strategyPath,
+      startedAt: run.startedAt.toISOString(),
+      completedAt: completedAt ? completedAt.toISOString() : null,
+      status: run.status,
+      ...(errorInfo ? { error: errorInfo } : {}),
+    } as const;
+    sessionStore.recordRun(run.sessionId, summary).catch((recordError) => {
+      logger.warn(
+        `run ${run.id}: failed to record run summary on session ${run.sessionId}: ${recordError instanceof Error ? recordError.message : String(recordError)}`,
+      );
+    });
+  }
+
   // -- Private: build hooks that forward events to subscribers --
 
+  //AI: Make this function name more descriptive
   function buildFlowHooks(runId: string): FlowHooks {
     return {
       beforeStep: [
@@ -195,10 +240,58 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     };
   }
 
-  function buildAgentHooks(runId: string, agentName: string): AgentHooks {
+  /** Cap on tool args/output preview length in daemon log lines. */
+  const TOOL_LOG_PREVIEW_LIMIT = 200;
+
+  /**
+   * Truncate a multi-line string to a single-line preview suitable for log
+   * output. Newlines are replaced with `\n` literals so the entry stays on
+   * one log line, and anything beyond the cap is replaced with an ellipsis.
+   */
+  function previewForLog(value: string): string {
+    const flattened = value.replace(/\r?\n/g, "\\n");
+    if (flattened.length <= TOOL_LOG_PREVIEW_LIMIT) return flattened;
+    return `${flattened.slice(0, TOOL_LOG_PREVIEW_LIMIT)}\u2026`;
+  }
+
+  /**
+   * Emit a structured `info`-level log entry for tool-call and tool-result
+   * stream events. All other event kinds (text, thinking, step lifecycle)
+   * are intentionally skipped — they're already broadcast to clients and
+   * logging them on the daemon side would flood the log.
+   */
+  function logToolEvent(runId: string, agentName: string, event: AgentStreamEvent): void {
+    const runTag = `[run ${runId.slice(0, 8)}]`;
+    if (event.type === "tool-call") {
+      logger.info(
+        `${runTag} agent=${agentName} tool-call: ${event.toolName} args=${previewForLog(event.args)}`,
+      );
+      return;
+    }
+    if (event.type === "tool-result") {
+      const output = event.output;
+      logger.info(
+        `${runTag} agent=${agentName} tool-result: ${event.toolName} output=${output.length} chars: ${previewForLog(output)}`,
+      );
+    }
+  }
+
+  //AI: Make this function name more descriptive
+  function buildAgentHooks(runId: string, agentName: string, run: RunState): AgentHooks {
+    /** Most recent message captured at beforeCall, paired with afterCallResult. */
+    let pendingUserMessage: string | null = null;
+    let pendingStartedAt: string | null = null;
+
     return {
+      beforeCall: [
+        (message: string) => {
+          pendingUserMessage = message;
+          pendingStartedAt = new Date().toISOString();
+        },
+      ],
       onStreamEvent: [
         (event: AgentStreamEvent) => {
+          logToolEvent(runId, agentName, event);
           sink.broadcast(runId, {
             type: "agent_streaming" as const,
             runId,
@@ -210,6 +303,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       ],
       afterCallResult: [
         (result: AgentCallResult) => {
+          const completedAt = new Date().toISOString();
           sink.broadcast(runId, {
             type: "agent_output" as const,
             runId,
@@ -219,8 +313,40 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
               promptTokens: result.usage.promptTokens,
               completionTokens: result.usage.completionTokens,
             },
-            ts: new Date().toISOString(),
+            ts: completedAt,
           });
+
+          // Auto-save the completed turn. Errors are logged but never bubble
+          // into the strategy execution path — disk failures must not abort
+          // a live run.
+          const ctx = runContexts.get(run.id);
+          const strategyName = ctx?.strategyName ?? run.strategyName;
+          const userMessage = pendingUserMessage ?? "";
+          const startedAt = pendingStartedAt ?? completedAt;
+          pendingUserMessage = null;
+          pendingStartedAt = null;
+
+          sessionStore
+            .appendTurn(run.sessionId, {
+              runId: run.id,
+              strategyName,
+              agentName,
+              startedAt,
+              completedAt,
+              text: result.text,
+              usage: {
+                promptTokens: result.usage.promptTokens,
+                completionTokens: result.usage.completionTokens,
+              },
+              finishReason: result.finishReason,
+              userMessage,
+              responseMessages: result.responseMessages as ReadonlyArray<unknown>,
+            })
+            .catch((appendError) => {
+              logger.warn(
+                `run ${run.id}: failed to append turn to session ${run.sessionId}: ${appendError instanceof Error ? appendError.message : String(appendError)}`,
+              );
+            });
         },
       ],
     };
@@ -234,32 +360,101 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     input: string,
     requestId: string | undefined,
     runModelOverride: string | undefined,
+    runCwd: string | undefined,
   ): Promise<void> {
     const ctx = runContexts.get(run.id);
     if (!ctx) return;
 
     try {
+      logger.debug(`run ${run.id}: parsing strategy file ${strategyPath}`);
       // 1. Parse the strategy file
       const { content, format } = await parseStrategyFile(strategyPath);
+      logger.debug(`run ${run.id}: parsed (${format}, ${content.length} bytes); loading strategy`);
 
-      // 2. Load the strategy — model and tool resolution happen via global registries
-      const strategy = await loadStrategyFromString(content, format, {
-        inputCollector: ctx.inputBridge.collector,
-        flowHooks: buildFlowHooks(run.id),
-        modelOverride: runModelOverride ?? modelOverride,
+      // 2. Build a seed-aware collector. The TUI sends the first user prompt
+      //    via `start_strategy.input`. If the strategy's first step is a
+      //    `user` agent (very common — Plan, Build, etc.), that step would
+      //    otherwise discard the seed and call `request_input`, forcing the
+      //    user to type their prompt a second time. By wrapping the bridge
+      //    collector and returning the seed on the FIRST call, the strategy
+      //    receives the user's intended input immediately and proceeds to
+      //    the next step without an extra round-trip. Subsequent calls
+      //    (later user steps, e.g. follow-up Q&A) delegate to the bridge.
+
+      // AI: this should be at the startRun function layer, not sure why we have it on execute...
+      let seed: string | null = input.length > 0 ? input : null;
+      const wrappedCollector = seed !== null
+        ? (request: { agentName: string; prompt: string }): Promise<string> => {
+            if (seed !== null) {
+              const value = seed;
+              seed = null;
+              logger.debug(
+                `run ${run.id}: pre-seeding first user input for agent "${request.agentName}" (${value.length} bytes)`,
+              );
+              return Promise.resolve(value);
+            }
+            return ctx.inputBridge.collector(request);
+          }
+        : ctx.inputBridge.collector;
+
+      // 3. Create a sandbox for this run, backed by the permission bridge.
+      // Default policy is "ask" for all operations — the TUI permission prompt
+      // handles every access unless the user has already granted session permission.
+      const sandbox = createSandbox(
+        {
+          cwd: runCwd,
+          jail: false,
+          read: { default: "ask" },
+          write: { default: "ask" },
+        },
+        {
+          requestPermission: ctx.permissionBridge.requester,
+        },
+      );
+
+      // Subscribe to policy changes and broadcast policy_updated to subscribers
+      sandbox.onPolicyChange((snapshot) => {
+        sink.broadcast(run.id, {
+          type: "policy_updated" as const,
+          runId: run.id,
+          read: snapshot.read as { default: "allow" | "deny" | "ask"; allow?: string[]; deny?: string[] },
+          write: snapshot.write as { default: "allow" | "deny" | "ask"; allow?: string[]; deny?: string[] },
+          ts: new Date().toISOString(),
+        });
       });
 
-      // 3. Inject agent hooks into all loaded agents via hookIntoAgent
+      // Store sandbox on context for handleUpdatePolicy
+      ctx.sandbox = sandbox;
+
+      // 4. Load the strategy — model and tool resolution happen via global registries
+      const strategy = await loadStrategyFromString(content, format, {
+        inputCollector: wrappedCollector,
+        flowHooks: buildFlowHooks(run.id),
+        modelOverride: runModelOverride ?? modelOverride,
+        sandbox,
+      });
+      logger.debug(
+        `run ${run.id}: strategy loaded (name="${strategy.name}", agents=[${Object.keys(strategy.agents).join(",")}])`,
+      );
+
+      // 5. Inject agent hooks into all loaded agents via hookIntoAgent
       for (const [agentName, loadedAgent] of Object.entries(strategy.agents)) {
         if (loadedAgent.appendHook) {
-          hookIntoAgent(loadedAgent, buildAgentHooks(run.id, agentName));
+          hookIntoAgent(loadedAgent, buildAgentHooks(run.id, agentName, run));
         }
       }
 
-      // 4. Update state to running
+      // Strategy name is now known — capture for session turn metadata.
+      ctx.strategyName = strategy.name;
+
+      // 5. Update state to running
       state.updateRun(run.id, { status: "running" });
 
-      // 5. Broadcast strategy_started
+      // 6. Broadcast strategy_started
+      const subscriberCount = state.getSubscribers(run.id).length;
+      logger.debug(
+        `run ${run.id}: broadcasting strategy_started to ${subscriberCount} subscriber(s)`,
+      );
       sink.broadcast(run.id, {
         type: "strategy_started" as const,
         runId: run.id,
@@ -271,7 +466,9 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       });
 
       // 6. Execute the strategy's entry flow
+      logger.debug(`run ${run.id}: invoking strategy.flow.call(input.length=${input.length})`);
       const result = await strategy.flow.call(input);
+      logger.debug(`run ${run.id}: flow.call resolved`);
 
       // 7. Success — update state and broadcast completion
       state.updateRun(run.id, {
@@ -279,6 +476,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
         completedAt: new Date(),
         result,
       });
+      persistRunSummary(state.getRun(run.id) ?? run, new Date());
 
       sink.broadcast(run.id, {
         type: "strategy_completed" as const,
@@ -298,6 +496,10 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       const errorCode = isAbort ? "CANCELLED" : "EXECUTION_ERROR";
       const errorMessage = err instanceof Error ? err.message : String(err);
 
+      logger.warn(
+        `run ${run.id}: caught ${isAbort ? "abort" : "error"}: ${errorMessage}`,
+      );
+
       // Only update if the run still exists (may have been removed)
       const existingRun = state.getRun(run.id);
       if (existingRun && existingRun.status !== "cancelled") {
@@ -306,7 +508,15 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
           completedAt: new Date(),
           error: { code: errorCode, message: errorMessage },
         });
+        persistRunSummary(state.getRun(run.id) ?? run, new Date(), {
+          code: errorCode,
+          message: errorMessage,
+        });
 
+        const subs = state.getSubscribers(run.id).length;
+        logger.debug(
+          `run ${run.id}: broadcasting strategy_error to ${subs} subscriber(s)`,
+        );
         sink.broadcast(run.id, {
           type: "strategy_error" as const,
           runId: run.id,
@@ -314,16 +524,21 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
           ts: new Date().toISOString(),
           requestId,
         });
+      } else {
+        logger.debug(
+          `run ${run.id}: skipping strategy_error broadcast (run ${existingRun ? "already cancelled" : "missing"})`,
+        );
       }
 
       if (!isAbort) {
         logger.error(`Run ${run.id} failed: ${errorMessage}`);
       }
     } finally {
-      // Clean up bridge
+      // Clean up bridges
       const runContext = runContexts.get(run.id);
       if (runContext) {
         runContext.inputBridge.destroy();
+        runContext.permissionBridge.destroy();
         runContexts.delete(run.id);
       }
     }
@@ -338,11 +553,21 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       input?: string,
       requestId?: string,
       runModelOverride?: string,
+      runCwd?: string,
     ): string {
+      // 0. Resolve the per-cwd session before creating run state so the run
+      //    can carry its sessionId from the start. Falls back to the daemon's
+      //    own cwd if the client did not provide one.
+      const effectiveCwd = runCwd ?? process.cwd();
+      const session = sessionStore.getOrCreateForCwdSync(effectiveCwd);
+
       // 1. Create run in state (status: "pending")
       // Use the file path as a temporary name — the real name comes
       // from the strategy file after parsing.
-      const run = state.createRun(strategyPath, strategyPath);
+      const run = state.createRun(strategyPath, strategyPath, session.metadata.cwd, session.metadata.id);
+      logger.info(
+        `startRun: client=${clientId} run=${run.id} path=${strategyPath} cwd=${session.metadata.cwd} session=${session.metadata.id}`,
+      );
 
       // 2. Subscribe the requesting client to this run
       state.subscribe(clientId, run.id);
@@ -355,11 +580,19 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
         abort: run.abortController.signal,
       });
 
-      // 4. Store run context
-      runContexts.set(run.id, { inputBridge, clientId });
+      // 4. Create permission bridge for this run
+      const permissionBridge = createPermissionBridge({
+        sink,
+        runId: run.id,
+        timeout: bridgeTimeout,
+        abort: run.abortController.signal,
+      });
+
+      // 5. Store run context
+      runContexts.set(run.id, { inputBridge, permissionBridge, clientId });
 
       // 5. Kick off execution (fire-and-forget)
-      executeRun(run, strategyPath, input ?? "", requestId, runModelOverride).catch(
+      executeRun(run, strategyPath, input ?? "", requestId, runModelOverride, runCwd).catch(
         (caughtError) => {
           // This should never happen — executeRun has its own try/catch.
           // But log just in case.
@@ -396,10 +629,11 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
         });
       }
 
-      // Clean up bridge
+      // Clean up bridges
       const ctx = runContexts.get(runId);
       if (ctx) {
         ctx.inputBridge.destroy();
+        ctx.permissionBridge.destroy();
         runContexts.delete(runId);
       }
     },
@@ -408,6 +642,19 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       const ctx = runContexts.get(runId);
       if (!ctx) return false;
       return ctx.inputBridge.resolveInput(agentName, text);
+    },
+
+    handlePermissionDecision(runId: string, permissionRequestId: string, decision: PermissionDecision): boolean {
+      const ctx = runContexts.get(runId);
+      if (!ctx) return false;
+      return ctx.permissionBridge.resolvePermission(permissionRequestId, decision);
+    },
+
+    handleUpdatePolicy(runId: string, patch: PolicyPatch): boolean {
+      const ctx = runContexts.get(runId);
+      if (!ctx?.sandbox) return false;
+      ctx.sandbox.updatePolicy(patch);
+      return true;
     },
   };
 }

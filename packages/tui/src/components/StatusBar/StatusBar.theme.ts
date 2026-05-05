@@ -58,15 +58,20 @@ export function useStatusBarTheme(): StatusBarTheme {
       },
       statusMap: {
         idle: { label: "Ready", color: tokens.colors.muted, spinning: false },
-        picking: { label: "Select a strategy", color: tokens.colors.primary, spinning: false },
-        connecting: { label: "Connecting...", color: tokens.colors.warning, spinning: true },
+        pending: { label: "Starting...", color: tokens.colors.warning, spinning: true },
         running: { label: "Running", color: tokens.colors.success, spinning: true },
         waiting_input: {
           label: "Waiting for input",
           color: tokens.colors.waitingInput,
           spinning: false,
         },
-        done: { label: "Done", color: tokens.colors.success, spinning: false },
+        waiting_permission: {
+          label: "Permission required",
+          color: tokens.colors.warning,
+          spinning: false,
+        },
+        completed: { label: "Done", color: tokens.colors.success, spinning: false },
+        cancelled: { label: "Cancelled", color: tokens.colors.muted, spinning: false },
         error: { label: "Error", color: tokens.colors.error, spinning: false },
       },
     }),

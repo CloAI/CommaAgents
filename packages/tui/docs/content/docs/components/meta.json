@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "frame",
+    "text-area-input",
+    "chat-text-area",
+    "message-list",
+    "status-bar",
+    "code-view",
+    "modal",
+    "hide",
+    "measured-box",
+    "strategy-picker",
+    "title-icon"
+  ]
+}

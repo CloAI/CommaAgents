@@ -36,6 +36,10 @@ export interface RunState {
   readonly startedAt: Date;
   /** AbortController for cancelling the run. */
   readonly abortController: AbortController;
+  /** Absolute, normalized cwd this run is associated with. */
+  readonly cwd: string;
+  /** Session id this run contributes to (one persistent session per cwd). */
+  readonly sessionId: string;
 
   // Mutable fields — updated via RunUpdate
   /** Current lifecycle status. */
@@ -81,7 +85,7 @@ export interface DaemonState {
   // -- Runs --
 
   /** Create a new run with status "pending". Returns the created RunState. */
-  createRun(strategyPath: string, strategyName: string): RunState;
+  createRun(strategyPath: string, strategyName: string, cwd: string, sessionId: string): RunState;
 
   /** Get a run by ID, or undefined if not found. */
   getRun(runId: string): RunState | undefined;

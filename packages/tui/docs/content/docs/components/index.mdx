@@ -1,0 +1,42 @@
+---
+title: Components
+description: Ink component inventory for the TUI.
+---
+
+# Components
+
+The TUI is built from composable Ink (React-for-terminal) components. Every component follows a container/render split — the container holds state and hooks, and a companion `*Render` function is a pure presentational component that receives resolved props.
+
+All components use a theme hook (e.g. `useFrameTheme()`) that returns style objects from the centralized theme system.
+
+## Component Inventory
+
+| Component | Purpose | Key Features |
+|---|---|---|
+| [Frame](./components/frame) | Root layout shell with tab bar | Tab switching (Alt+1/2/3), terminal resize tracking, pinned footer |
+| [TextAreaInput](./components/text-area-input) | Multi-line text input | Word wrap, cursor navigation, scrollbar, mouse wheel, Meta+Enter submit |
+| [ChatTextArea](./components/chat-text-area) | Strategy-aware prompt input | Wraps TextAreaInput with Tab-to-cycle strategy selection |
+| [MessageList](./components/message-list) | Chat message display | Role-colored messages, scroll-to-bottom, streaming cursor |
+| [StatusBar](./components/status-bar) | Chat status indicator | Spinner, status label, error display |
+| [CodeView](./components/code-view) | Syntax-highlighted code block | Shiki-powered highlighting, line numbers, async language loading |
+| [Modal](./components/modal) | Full-screen overlay dialog | Backdrop dimming, centered content, `useModal` hook integration |
+| [Hide](./components/hide) | Responsive visibility toggle | Hide children below/above a breakpoint or column count |
+| [MeasuredBox](./components/measured-box) | Self-measuring Box wrapper | Render-prop with measured `{ width, height }`, auto re-measure on resize |
+| [StrategyPicker](./components/strategy-picker) | Strategy selection menu | `ink-select-input` based list |
+| [TitleIcon](./components/title-icon) | Animated ASCII art logo | Frame-based animation via `useAnimation`, responsive with `Hide` |
+
+## Architecture
+
+Components are organized under `src/components/`, each in its own directory:
+
+```
+ComponentName/
+├── index.ts                 # barrel export
+├── ComponentName.tsx        # container + render
+├── ComponentName.theme.ts   # useComponentNameTheme() hook
+├── ComponentName.types.ts   # prop interfaces (if complex)
+├── ComponentName.test.tsx   # tests
+└── ComponentName.constants.ts  # (optional)
+```
+
+The barrel export at `src/components/index.ts` re-exports all components, types, and theme hooks.

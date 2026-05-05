@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import type { ToolContext } from "../tool.types";
+import { makeToolContext } from "../test.utils";
 import { defineTool } from "./define-tool";
 
 describe("defineTool", () => {
@@ -35,10 +35,7 @@ describe("defineTool", () => {
       }),
     });
 
-    const ctx: ToolContext = {
-      agentName: "test-agent",
-      abort: AbortSignal.timeout(5000),
-    };
+    const ctx = makeToolContext();
 
     const result = await tool.execute({ a: 3, b: 4 }, ctx);
     expect(result.output).toBe("7");
@@ -72,10 +69,7 @@ describe("defineTool", () => {
       execute: async () => ({ output: "done" }),
     });
 
-    const ctx: ToolContext = {
-      agentName: "test",
-      abort: AbortSignal.timeout(5000),
-    };
+    const ctx = makeToolContext();
 
     const result = await tool.execute({}, ctx);
     expect(result.output).toBe("done");
@@ -94,11 +88,7 @@ describe("defineTool", () => {
       },
     });
 
-    const ctx: ToolContext = {
-      agentName: "test",
-      flowName: "review-pipeline",
-      abort: AbortSignal.timeout(5000),
-    };
+    const ctx = makeToolContext({ agentName: "test", flowName: "review-pipeline" });
 
     await tool.execute({}, ctx);
     expect(capturedFlowName).toBe("review-pipeline");

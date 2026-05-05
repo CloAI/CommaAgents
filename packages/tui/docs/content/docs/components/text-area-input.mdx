@@ -1,0 +1,56 @@
+---
+title: TextAreaInput
+description: Multi-line text input with word wrap, scrollbar, and mouse wheel support.
+---
+
+# TextAreaInput
+
+A controlled multi-line text area for terminal input. Handles word wrapping, cursor movement, scrolling, and mouse wheel events. Submit with Meta+Enter.
+
+```tsx
+import { TextAreaInput } from "@comma-agents/tui";
+
+<TextAreaInput
+  value={text}
+  onChange={setText}
+  placeholder="Enter your prompt..."
+  onSubmit={(value) => console.log(value)}
+/>
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `value` | `string` | — | Current text value (controlled) |
+| `onChange` | `(value: string) => void` | — | Called when the text value changes |
+| `width` | `number \| string` | `80` | Width in columns or CSS-like string (e.g. `"100%"`) |
+| `height` | `number` | `10` | Visible row count |
+| `placeholder` | `string` | `"Type here..."` | Placeholder shown when value is empty |
+| `focus` | `boolean` | `true` | Whether the input is focused and accepts keystrokes |
+| `onSubmit` | `(value: string) => void` | — | Called on Meta+Enter with the trimmed value |
+
+## Word Wrapping
+
+Text wraps at the measured box width. The component uses `useBoxMetrics` to determine the actual rendered column count, falling back to the `width` prop if measurement is unavailable.
+
+Cursor position tracks an absolute offset into the text. The `wrap()` function splits text into display lines with parallel offset arrays, and `locateCursor()` maps the absolute offset to a `{ line, col }` position.
+
+## Scrolling
+
+When content exceeds the visible `height`, a scrollbar gutter appears on the right edge. The scrollbar renders a thumb and track using theme-configured characters and colors.
+
+### Mouse Wheel
+
+On focus, the component enables SGR mouse mode (`\x1b[?1002h\x1b[?1006h`) and intercepts mouse escape sequences from stdin. Scroll-up (button 64) and scroll-down (button 65) events adjust the viewport by 3 lines. Mouse sequences are stripped before reaching Ink's input parser.
+
+Mouse mode is disabled on blur or unmount.
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| Arrow keys | Move cursor (left/right by character, up/down by display line) |
+| Enter | Insert newline |
+| Meta+Enter | Submit the current value |
+| Backspace/Delete | Delete character before cursor |

@@ -6,5 +6,6 @@ export { createBashTool } from "./bash/bash";
 export { createEditTool } from "./edit/edit";
 export { createGlobTool } from "./glob/glob";
 export { createGrepTool } from "./grep/grep";
+export { createLsTool } from "./ls/ls";
 export { createReadTool } from "./read/read";
 export { createWriteTool } from "./write/write";

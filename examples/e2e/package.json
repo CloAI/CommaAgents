@@ -1,0 +1,17 @@
+{
+  "name": "@comma-agents/e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "End-to-end tests for comma-agents",
+  "type": "module",
+  "scripts": {
+    "test": "bun test --coverage"
+  },
+  "dependencies": {
+    "@comma-agents/core": "workspace:*",
+    "@comma-agents/daemon": "workspace:*",
+    "@comma-agents/utils": "workspace:*",
+    "ai": "6.0.91",
+    "zod": "3.25.76"
+  }
+}

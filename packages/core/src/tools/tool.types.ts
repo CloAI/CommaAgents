@@ -1,10 +1,12 @@
 // Tool type definitions and ToolContext
 
 import type { z } from "zod";
+import type { Sandbox } from "../sandbox/sandbox.types";
 
 /**
  * Context passed to tool execute functions.
- * Provides information about the calling agent and cancellation support.
+ * Provides information about the calling agent, cancellation support,
+ * and the sandbox that governs file-system access for this execution.
  */
 export interface ToolContext {
   /** Name of the agent that invoked this tool. */
@@ -13,6 +15,11 @@ export interface ToolContext {
   readonly flowName?: string;
   /** AbortSignal for cancellation propagation. */
   readonly abort: AbortSignal;
+  /**
+   * Sandbox governing read/write policies and cwd for this tool call.
+   * Always present — defaults to a permissive sandbox when none is configured.
+   */
+  readonly sandbox: Sandbox;
 }
 
 /**

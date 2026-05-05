@@ -12,15 +12,15 @@
     },
     "coder": {
       "description": "Implements code based on the user's request using filesystem tools.",
-      "model": "openai/gpt-4o",
+      "model": "github-copilot/gpt-4o",
       "systemPrompt": "You are a senior software engineer. Given a build request, implement the solution using the available tools. Use `glob` and `grep` to explore the codebase, `read` to inspect files, and `edit` or `write` to make changes. Write clean, well-structured code. Explain what you did and why.",
-      "tools": ["read", "write", "edit", "glob", "grep"]
+      "tools": ["read", "write", "edit", "glob", "grep", "ls"]
     },
     "tester": {
       "description": "Reviews the coder's output for correctness and quality.",
-      "model": "openai/gpt-4o",
+      "model": "github-copilot/gpt-4o",
       "systemPrompt": "You are a code reviewer and QA engineer. Review the implementation described in the previous message. Check for correctness, edge cases, code style, and potential bugs. Use the available tools to inspect the actual files if needed. Provide specific, actionable feedback. If the implementation looks good, confirm it.",
-      "tools": ["read", "glob", "grep"]
+      "tools": ["read", "glob", "grep", "ls"]
     }
   },
   "flow": {

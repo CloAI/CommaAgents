@@ -53,10 +53,26 @@ export function createReadTool(config?: ReadToolConfig): ToolDefinition<typeof r
       "For directories, returns a listing of entries. Use the offset and limit parameters to " +
       "paginate through large files.",
     parameters: readParams,
-    execute: async (validatedArguments, _toolContext) => {
-      const filePath = validatedArguments.filePath;
+    execute: async (validatedArguments, toolContext) => {
+      const rawPath = validatedArguments.filePath;
       const offset = Math.max(1, validatedArguments.offset ?? 1);
       const limit = validatedArguments.limit ?? defaultLimit;
+
+      // Authorize before any I/O so the permission bridge can prompt the user.
+      let filePath: string;
+      try {
+        filePath = await toolContext.sandbox.authorizeRead(rawPath, {
+          agentName: toolContext.agentName,
+          toolName: "read",
+          signal: toolContext.abort,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          output: `Permission denied: ${message}`,
+          metadata: { error: true, filePath: rawPath },
+        };
+      }
 
       let fileStat: Awaited<ReturnType<typeof stat>>;
       try {

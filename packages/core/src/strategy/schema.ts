@@ -52,6 +52,13 @@ export const LLMAgentDefSchema = z
       .strict()
       .optional(),
     tools: z.array(z.string()).optional(),
+    /**
+     * Per-call provider options forwarded verbatim to the AI SDK. Used to
+     * enable provider-specific features such as Anthropic extended thinking
+     * or OpenAI reasoning effort. Shape:
+     * `{ <providerId>: { <option>: <value>, ... }, ... }`.
+     */
+    providerOptions: z.record(z.record(z.unknown())).optional(),
   })
   .strict();
 

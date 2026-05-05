@@ -33,3 +33,8 @@ coverage/
 docs/.next/
 docs/.source/
 docs/out/
+
+# Docs (Next.js)
+packages/tui/docs/.next/
+packages/tui/docs/.source/
+packages/tui/docs/out/

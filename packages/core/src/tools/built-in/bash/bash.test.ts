@@ -1,13 +1,10 @@
 // Tests for the bash built-in tool
 
 import { describe, expect, it } from "bun:test";
-import type { ToolContext } from "../../tool.types";
+import { makeToolContext } from "../../test.utils";
 import { createBashTool } from "./bash";
 
-const ctx: ToolContext = {
-  agentName: "test-agent",
-  abort: AbortSignal.timeout(10_000),
-};
+const ctx = makeToolContext({ abort: AbortSignal.timeout(10_000) });
 
 describe("createBashTool", () => {
   it("should create a tool with correct description and parameters", () => {

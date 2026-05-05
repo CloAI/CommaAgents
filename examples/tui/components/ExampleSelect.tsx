@@ -6,7 +6,7 @@
 
 import { Box, Text } from "ink";
 import SelectInput from "ink-select-input";
-import { CORE_EXAMPLES, DAEMON_EXAMPLES } from "../examples";
+import { CORE_EXAMPLES, DAEMON_EXAMPLES, E2E_EXAMPLES } from "../examples";
 import { useTerminalSize } from "../hooks/useTerminalSize";
 import type { ProviderSelection } from "./ProviderSelect";
 
@@ -31,6 +31,10 @@ export function ExampleSelect({ provider, onSelect, onRunAll, onBack }: ExampleS
       label: `[daemon] ${exampleEntry.label}`,
       value: exampleEntry.value,
     })),
+    ...E2E_EXAMPLES.map((exampleEntry) => ({
+      label: `[e2e]    ${exampleEntry.label}`,
+      value: exampleEntry.value,
+    })),
     { label: "\u2190 Back to provider selection", value: "__back__" },
   ];
 
@@ -45,7 +49,8 @@ export function ExampleSelect({ provider, onSelect, onRunAll, onBack }: ExampleS
     }
     const entry =
       CORE_EXAMPLES.find((exampleEntry) => exampleEntry.value === item.value) ??
-      DAEMON_EXAMPLES.find((exampleEntry) => exampleEntry.value === item.value);
+      DAEMON_EXAMPLES.find((exampleEntry) => exampleEntry.value === item.value) ??
+      E2E_EXAMPLES.find((exampleEntry) => exampleEntry.value === item.value);
     if (entry) {
       onSelect(entry);
     }

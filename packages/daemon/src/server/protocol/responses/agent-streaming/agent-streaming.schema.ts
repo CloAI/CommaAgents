@@ -19,6 +19,9 @@ export const AgentStreamEventSchema = z.discriminatedUnion("type", [
     toolName: z.string(),
     output: z.string(),
   }),
+  z.object({ type: z.literal("thinking-start"), id: z.string() }),
+  z.object({ type: z.literal("thinking"), id: z.string(), text: z.string() }),
+  z.object({ type: z.literal("thinking-end"), id: z.string() }),
   z.object({ type: z.literal("step-start") }),
   z.object({
     type: z.literal("done"),

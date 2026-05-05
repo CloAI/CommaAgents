@@ -14,6 +14,7 @@ import type { Server, ServerWebSocket } from "bun";
 
 import type { EventSink } from "../executor/event-sink";
 import { createStrategyExecutor } from "../executor/executor";
+import { createSessionStore } from "../sessions";
 import { createDaemonState } from "../state/state";
 import { createDispatcher } from "./protocol/dispatcher";
 import type { DaemonMessage } from "./protocol/messages";
@@ -72,12 +73,17 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
     },
   };
 
+  // -- Session store (per-cwd persistence) --
+
+  const sessionStore = createSessionStore({ sessionsDir: config.sessionsDir });
+
   // -- Strategy executor --
 
   const executor = createStrategyExecutor({
     state,
     sink,
     logger: logger.child("executor"),
+    sessionStore,
     bridgeTimeout,
     modelOverride,
   });
@@ -87,6 +93,7 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
   const dispatch = createDispatcher({
     executor,
     state,
+    sessionStore,
     logger: logger.child("dispatcher"),
   });
 
@@ -154,6 +161,14 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
 
           message(websocket, raw) {
             const { clientId } = websocket.data;
+            // Verbose visibility into the wire: log every inbound frame
+            // (truncated) before any parsing/validation happens. This is the
+            // ground truth for "did the client's message actually arrive?"
+            const preview =
+              typeof raw === "string" ? raw : raw.toString("utf-8");
+            const truncated =
+              preview.length > 500 ? `${preview.slice(0, 500)}...[+${preview.length - 500}]` : preview;
+            logger.debug(`ws.message from ${clientId} (${preview.length} bytes): ${truncated}`);
             dispatch(clientId, raw, (message) => {
               try {
                 websocket.send(JSON.stringify(message));

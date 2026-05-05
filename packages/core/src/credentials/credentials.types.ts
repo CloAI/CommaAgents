@@ -93,7 +93,31 @@ export interface CredentialStore {
    * List all scopes that have at least one credential.
    */
   listScopes(): Promise<string[]>;
+
+  /**
+   * Check whether credentials exist for a provider, without performing
+   * any network validation.
+   *
+   * Returns `"configured"` if a credential is resolvable via any of:
+   * strategy scope → environment variable → global scope. Returns
+   * `"none"` if no credential is available.
+   *
+   * @param providerId - The provider to check.
+   * @param scope - Optional strategy name. If omitted, only env vars and global scope are checked.
+   */
+  getAuthStatus(providerId: string, scope?: string): Promise<AuthStatus>;
 }
+
+/**
+ * Configuration-level authentication status for a provider.
+ *
+ * - `"none"` — no credential found in any source.
+ * - `"configured"` — a credential was found (env var, strategy scope, or global scope).
+ *
+ * This is a configuration check only; it never performs a network call
+ * to validate the credential works.
+ */
+export type AuthStatus = "none" | "configured";
 
 // Environment variable mapping
 

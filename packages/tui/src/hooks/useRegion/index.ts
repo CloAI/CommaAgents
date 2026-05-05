@@ -11,6 +11,7 @@ export {
   CURSOR_RESTORE,
   CURSOR_SAVE,
   cursorTo,
+  fitToWidth,
   getAbsolutePosition,
   padToWidth,
   visibleLength,

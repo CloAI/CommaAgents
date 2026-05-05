@@ -1,259 +1,107 @@
-import { useCallback, useState } from "react";
+import { useCallback, useContext, useMemo } from "react";
 
 import { useDaemonContext } from "../useDaemon/useDaemon";
-import { useDaemonCommand } from "../useDaemon/useDaemonCommand/useDaemonCommand";
-import { useDaemonSubscription } from "../useDaemon/useDaemonSubscription/useDaemonSubscription";
-import type { ChatMessage, ChatStatus, UseChatConfig } from "./useChat.types";
+import { ChatSessionsContext } from "./useChat.context";
+import type { ChatSessionId, ChatSessionsContextType, UseChatState } from "./useChat.types";
 
-let nextMessageId = 0;
-function createMessageId(): string {
-  nextMessageId += 1;
-  return `msg-${nextMessageId}`;
-}
+/** Empty-messages singleton used when no session is bound (stable reference). */
+const EMPTY_MESSAGES = Object.freeze([]) as UseChatState["messages"];
 
-/** State returned by the useChat hook. */
-export interface UseChatState {
-  readonly messages: readonly ChatMessage[];
-  readonly status: ChatStatus;
-  readonly error: string | null;
-  /** Which agent is currently waiting for user input (null if none). */
-  readonly pendingInputAgent: string | null;
-  /** Current run ID (set after strategy_started). */
-  readonly runId: string | null;
-  /** Current daemon connection status. */
-  readonly connectionStatus: string;
-  /** Start a strategy on the daemon. */
-  readonly startStrategy: (strategyPath: string, input?: string) => void;
-  /** Send user input in response to a request_input prompt. */
-  readonly sendInput: (text: string) => void;
-  /** Reset the chat to idle state. */
-  readonly reset: () => void;
+/**
+ * Internal consumer — resolves the `ChatSessionsContext` or throws.
+ *
+ * Used by both `useChat` and `useChatSessions`. Must be called inside a
+ * `<ChatSessionsContextProvider>`.
+ */
+function useChatSessionsContext(): ChatSessionsContextType {
+  const contextValue = useContext(ChatSessionsContext);
+  if (!contextValue) {
+    throw new Error(
+      "useChat / useChatSessions must be used within a <ChatSessionsContextProvider>",
+    );
+  }
+  return contextValue;
 }
 
 /**
- * React hook for managing daemon-backed chat.
+ * Bind a view to a single chat session.
  *
- * Handles the full lifecycle: start_strategy -> stream tokens
- * -> handle request_input -> strategy_completed/error.
+ * If `sessionId` is provided, the hook observes that session. Otherwise it
+ * observes the currently-active session. When no matching session exists
+ * (e.g. on first mount before any strategy has been started), the returned
+ * view exposes empty values; `startStrategy` is still functional and will
+ * create a new session.
  *
- * Requires a `<DaemonProvider>` ancestor in the component tree.
- * The daemon URL is configured on the provider, not on this hook.
+ * Must be called inside both a `<DaemonProvider>` and a
+ * `<ChatSessionsContextProvider>`.
  */
-export function useChat(_config?: UseChatConfig): UseChatState {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [status, setStatus] = useState<ChatStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [pendingInputAgent, setPendingInputAgent] = useState<string | null>(null);
-  const [runId, setRunId] = useState<string | null>(null);
-
+export function useChat(sessionId?: ChatSessionId): UseChatState {
+  const context = useChatSessionsContext();
   const { status: connectionStatus } = useDaemonContext();
 
-  const startStrategyCommand = useDaemonCommand("start_strategy");
-  const sendUserInputCommand = useDaemonCommand("user_input");
+  const resolvedSessionId: ChatSessionId | null =
+    sessionId ?? context.activeSessionId;
+  const session = resolvedSessionId ? context.sessions.get(resolvedSessionId) ?? null : null;
 
-  const appendOrUpdateMessage = useCallback(
-    (agentName: string, token: string, streaming: boolean) => {
-      setMessages((prev) => {
-        const lastIndex = prev.findLastIndex(
-          (message) => message.sender === agentName && message.streaming,
-        );
-        if (lastIndex >= 0) {
-          const updated = [...prev];
-          const existing = updated[lastIndex]!;
-          updated[lastIndex] = {
-            ...existing,
-            text: existing.text + token,
-            streaming,
-          };
-          return updated;
-        }
-        return [
-          ...prev,
-          {
-            id: createMessageId(),
-            role: "agent" as const,
-            sender: agentName,
-            text: token,
-            streaming,
-            timestamp: Date.now(),
-          },
-        ];
-      });
-    },
-    [],
-  );
-
-  const addSystemMessage = useCallback((text: string) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: createMessageId(),
-        role: "system" as const,
-        sender: "system",
-        text,
-        streaming: false,
-        timestamp: Date.now(),
-      },
-    ]);
-  }, []);
-
-  useDaemonSubscription(
-    "strategy_started",
-    (message) => {
-      setRunId(message.runId);
-      setStatus("running");
-      addSystemMessage(
-        `Strategy "${message.strategyName}" started (agents: ${message.agents.join(", ")})`,
-      );
-    },
-    runId,
-  );
-
-  useDaemonSubscription(
-    "step_started",
-    (message) => {
-      addSystemMessage(`[${message.stepName}] started`);
-    },
-    runId,
-  );
-
-  useDaemonSubscription(
-    "agent_streaming",
-    (message) => {
-      if (message.event.type === "text") {
-        appendOrUpdateMessage(message.agentName, message.event.text, true);
-      } else if (message.event.type === "done") {
-        setMessages((prev) => {
-          const lastIndex = prev.findLastIndex(
-            (entry) => entry.sender === message.agentName && entry.streaming,
-          );
-          if (lastIndex >= 0) {
-            const updated = [...prev];
-            const existing = updated[lastIndex]!;
-            updated[lastIndex] = { ...existing, streaming: false };
-            return updated;
-          }
-          return prev;
-        });
-      }
-    },
-    runId,
-  );
-
-  useDaemonSubscription(
-    "agent_output",
-    (message) => {
-      appendOrUpdateMessage(message.agentName, message.text, false);
-    },
-    runId,
-  );
-
-  useDaemonSubscription(
-    "step_completed",
-    (message) => {
-      addSystemMessage(`[${message.stepName}] completed`);
-    },
-    runId,
-  );
-
-  useDaemonSubscription(
-    "request_input",
-    (message) => {
-      setPendingInputAgent(message.agentName);
-      setStatus("waiting_input");
-      if (message.prompt) {
-        addSystemMessage(message.prompt);
-      }
-    },
-    runId,
-  );
-
-  useDaemonSubscription(
-    "strategy_completed",
-    (_message) => {
-      setStatus("done");
-      addSystemMessage("Strategy completed.");
-    },
-    runId,
-  );
-
-  useDaemonSubscription(
-    "strategy_error",
-    (message) => {
-      setStatus("error");
-      setError(message.error.message);
-      addSystemMessage(`Error: ${message.error.message}`);
-    },
-    runId,
-  );
-
-  useDaemonSubscription("error", (message) => {
-    setStatus("error");
-    setError(message.message);
-    addSystemMessage(`Error: ${message.message}`);
-  });
-
-  const startStrategy = useCallback(
-    (strategyPath: string, input?: string) => {
-      setStatus("running");
-      setError(null);
-      setMessages([]);
-      setRunId(null);
-      setPendingInputAgent(null);
-
-      const requestId = startStrategyCommand({
-        strategyPath,
-        ...(input !== undefined ? { input } : {}),
-      });
-
-      if (!requestId) {
-        setStatus("error");
-        setError("Cannot reach daemon — is it running? Start it with: bun run daemon");
-      }
-    },
-    [startStrategyCommand],
-  );
+  const startStrategy = context.startStrategy;
 
   const sendInput = useCallback(
-    (text: string) => {
-      if (!runId || !pendingInputAgent) return;
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: createMessageId(),
-          role: "user" as const,
-          sender: "you",
-          text,
-          streaming: false,
-          timestamp: Date.now(),
-        },
-      ]);
-
-      sendUserInputCommand({ runId, agentName: pendingInputAgent, text });
-      setPendingInputAgent(null);
-      setStatus("running");
+    (text: string): void => {
+      if (!resolvedSessionId) return;
+      context.sendInput(resolvedSessionId, text);
     },
-    [runId, pendingInputAgent, sendUserInputCommand],
+    [context, resolvedSessionId],
   );
 
-  const reset = useCallback(() => {
-    setMessages([]);
-    setStatus("idle");
-    setError(null);
-    setRunId(null);
-    setPendingInputAgent(null);
-  }, []);
+  const sendPermissionDecision = useCallback(
+    (decision: "allow" | "deny" | "allow-session" | "deny-session"): void => {
+      if (!resolvedSessionId) return;
+      context.sendPermissionDecision(resolvedSessionId, decision);
+    },
+    [context, resolvedSessionId],
+  );
 
-  return {
-    messages,
-    status,
-    error,
-    pendingInputAgent,
-    runId,
-    connectionStatus,
-    startStrategy,
-    sendInput,
-    reset,
-  };
+  const reset = useCallback((): void => {
+    if (!resolvedSessionId) return;
+    context.resetSession(resolvedSessionId);
+  }, [context, resolvedSessionId]);
+
+  const stop = useCallback((): void => {
+    if (!resolvedSessionId) return;
+    context.stopSession(resolvedSessionId);
+  }, [context, resolvedSessionId]);
+
+  return useMemo<UseChatState>(
+    () => ({
+      sessionId: resolvedSessionId,
+      messages: session?.messages ?? EMPTY_MESSAGES,
+      status: session?.status ?? "idle",
+      error: session?.error ?? null,
+      pendingInputAgent: session?.pendingInputAgent ?? null,
+      strategyName: session?.strategyName ?? null,
+      strategyPath: session?.strategyPath ?? null,
+      readOnly: session?.readOnly ?? false,
+      pendingPermissionRequest: session?.pendingPermissionRequests[0] ?? null,
+      runId: session?.daemonRunId ?? null,
+      connectionStatus,
+      startStrategy,
+      sendInput,
+      sendPermissionDecision,
+      reset,
+      stop,
+    }),
+    [
+      resolvedSessionId,
+      session,
+      connectionStatus,
+      startStrategy,
+      sendInput,
+      sendPermissionDecision,
+      reset,
+      stop,
+    ],
+  );
 }
+
+// Re-export for legacy imports.
+export { useChatSessionsContext };

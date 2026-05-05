@@ -39,13 +39,35 @@ export function createEditTool(): ToolDefinition<typeof editParams> {
       "found, or if multiple matches exist without replaceAll being set to true. " +
       "Prefer using this over the write tool for modifying existing files.",
     parameters: editParams,
-    execute: async (validatedArguments, _toolContext) => {
-      const { filePath, oldString, newString, replaceAll } = validatedArguments;
+    execute: async (validatedArguments, toolContext) => {
+      const { filePath: rawPath, oldString, newString, replaceAll } = validatedArguments;
 
       if (oldString === newString) {
         return {
           output: "Error: oldString and newString are identical. No changes needed.",
-          metadata: { error: true, filePath },
+          metadata: { error: true, filePath: rawPath },
+        };
+      }
+
+      // Edit requires both read and write access. Authorize read first.
+      let filePath: string;
+      try {
+        filePath = await toolContext.sandbox.authorizeRead(rawPath, {
+          agentName: toolContext.agentName,
+          toolName: "edit",
+          signal: toolContext.abort,
+        });
+        // Also authorize write (may prompt again if policy differs).
+        await toolContext.sandbox.authorizeWrite(rawPath, {
+          agentName: toolContext.agentName,
+          toolName: "edit",
+          signal: toolContext.abort,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          output: `Permission denied: ${message}`,
+          metadata: { error: true, filePath: rawPath },
         };
       }
 

@@ -1,10 +1,14 @@
-// Model utility functions — pure helpers for parsing and inspecting model strings.
-
+import type { AuthStatus, CredentialStore } from "../credentials/credentials.types";
 import { ModelResolutionError } from "../errors/index";
-import { KNOWN_PROVIDERS } from "./model.constants";
-import type { ParsedModel } from "./model.types";
-
-// parseModel()
+import {
+  getProviderDefinition,
+  getProviderPackageNameSync,
+  isKnownProviderSync,
+  listAllProviderModels,
+  listProviderModels,
+  resolveCredentialForProvider,
+} from "./providers/index";
+import type { ParsedModel, ProviderInfo } from "./model.types";
 
 /**
  * Parse a model string in the format `providerID/modelID`.
@@ -12,23 +16,25 @@ import type { ParsedModel } from "./model.types";
  * The model ID may contain slashes (e.g., `"ollama/meta-llama/llama-3"`),
  * so only the first slash is used as the separator.
  *
+ * @param modelString - Raw model string to parse.
  * @throws {ModelResolutionError} If the string is empty or has no slash separator.
  *
  * @example
  * ```ts
  * parseModel("openai/gpt-4o")
- * // => { providerID: "openai", modelID: "gpt-4o", packageName: "@ai-sdk/openai" }
+ * // => { providerId: "openai", modelId: "gpt-4o", packageName: "@ai-sdk/openai" }
  *
  * parseModel("ollama/meta-llama/llama-3")
- * // => { providerID: "ollama", modelID: "meta-llama/llama-3", packageName: "ollama-ai-provider" }
+ * // => { providerId: "ollama", modelId: "meta-llama/llama-3", packageName: "ollama-ai-provider" }
  * ```
  */
 export function parseModel(modelString: string): ParsedModel {
-  if (!modelString || modelString.trim().length === 0) {
+  const trimmed = modelString?.trim() ?? "";
+
+  if (trimmed.length === 0) {
     throw new ModelResolutionError(modelString, "Model string cannot be empty");
   }
 
-  const trimmed = modelString.trim();
   const slashIndex = trimmed.indexOf("/");
 
   if (slashIndex === -1) {
@@ -45,10 +51,10 @@ export function parseModel(modelString: string): ParsedModel {
     );
   }
 
-  const providerID = trimmed.slice(0, slashIndex);
-  const modelID = trimmed.slice(slashIndex + 1);
+  const providerId = trimmed.slice(0, slashIndex);
+  const modelId = trimmed.slice(slashIndex + 1);
 
-  if (modelID.length === 0) {
+  if (modelId.length === 0) {
     throw new ModelResolutionError(
       trimmed,
       `Invalid model string "${trimmed}": model ID cannot be empty`,
@@ -56,36 +62,39 @@ export function parseModel(modelString: string): ParsedModel {
   }
 
   return {
-    providerID,
-    modelID,
-    packageName: KNOWN_PROVIDERS[providerID],
+    providerId,
+    modelId,
+    packageName: getProviderPackageNameSync(providerId),
   };
 }
 
-/** Check if a provider ID is in the known providers map. */
-export function isKnownProvider(providerID: string): boolean {
-  return providerID in KNOWN_PROVIDERS;
+/**
+ * Check whether a provider is known to the runtime (catalog entry or
+ * built-in override).
+ */
+export function isKnownProvider(providerId: string): boolean {
+  return isKnownProviderSync(providerId);
 }
 
 /**
  * Get the npm package name for a known provider.
- * Returns undefined for unknown providers.
+ *
+ * Returns `undefined` for providers that have no catalog entry and no
+ * built-in override; callers may fall back to guessing `@ai-sdk/<id>`.
  */
-export function getProviderPackage(providerID: string): string | undefined {
-  return KNOWN_PROVIDERS[providerID];
+export function getProviderPackage(providerId: string): string | undefined {
+  return getProviderPackageNameSync(providerId);
 }
-
-// extractProviderIds()
 
 /**
  * Extract unique provider IDs from a raw (already-parsed) strategy object.
  *
  * Scans each agent's `model` field for "providerID/modelID" strings.
- * Returns the set of unique provider IDs.
+ * Returns the set of unique provider IDs. Works on pre-validation data —
+ * silently skips invalid model strings so callers can discover required
+ * providers before the full Zod validation pass.
  *
- * Works on pre-validation data — silently skips invalid model strings.
- * This allows callers to discover required providers before the full
- * Zod validation pass.
+ * @param raw - Parsed but unvalidated strategy object.
  *
  * @example
  * ```ts
@@ -95,25 +104,128 @@ export function getProviderPackage(providerID: string): string | undefined {
  * ```
  */
 export function extractProviderIds(raw: Record<string, unknown>): Set<string> {
-  const ids = new Set<string>();
+  const providerIds = new Set<string>();
 
-  // Helper: extract providerID from a "providerID/modelID" string
-  const extract = (model: unknown): void => {
-    if (typeof model !== "string") return;
-    try {
-      ids.add(parseModel(model).providerID);
-    } catch {
-      // Skip invalid model strings silently
-    }
-  };
-
-  // Check agents[*].model
   const agents = raw.agents as Record<string, Record<string, unknown>> | undefined;
-  if (agents) {
-    for (const agentDefinition of Object.values(agents)) {
-      extract(agentDefinition.model);
+  if (!agents) return providerIds;
+
+  for (const agentDefinition of Object.values(agents)) {
+    const model = agentDefinition.model;
+    if (typeof model !== "string") continue;
+    try {
+      providerIds.add(parseModel(model).providerId);
+    } catch {
+      // Skip invalid model strings silently — validation happens later.
     }
   }
 
-  return ids;
+  return providerIds;
+}
+
+/**
+ * Aggregate metadata for a single provider.
+ *
+ * Resolves the provider's models from the models.dev catalog (and,
+ * when `live === true` and credentials are present, the provider's
+ * live API). Auth status is a configuration-level check only.
+ *
+ * @param providerId - The provider ID to inspect.
+ * @param credentialStore - The credential store used to check auth status.
+ * @param options - `scope` for scoped credential resolution; `live` to enable live discovery.
+ *
+ * @example
+ * ```ts
+ * const info = await getProviderInfo("openai", credentialStore, { live: true });
+ * // => { id: "openai", name: "OpenAI", authStatus: "configured", models: [...], modelsSource: "merged", isCustom: false }
+ * ```
+ */
+export async function getProviderInfo(
+  providerId: string,
+  credentialStore: CredentialStore,
+  options?: { readonly scope?: string; readonly live?: boolean },
+): Promise<ProviderInfo> {
+  const authStatus: AuthStatus = await credentialStore.getAuthStatus(providerId, options?.scope);
+  const credential =
+    authStatus === "configured"
+      ? await resolveCredentialForProvider(credentialStore, providerId, options?.scope)
+      : undefined;
+
+  const definition = await getProviderDefinition(providerId);
+  const result = await listProviderModels(providerId, credential, {
+    live: options?.live ?? false,
+  });
+
+  return {
+    id: providerId,
+    name: definition?.name ?? formatProviderName(providerId),
+    authStatus,
+    models: result.models,
+    modelsSource: result.source,
+    ...(result.fetchedAt ? { fetchedAt: result.fetchedAt } : {}),
+    ...(result.error ? { error: result.error } : {}),
+    isCustom: definition?.isCustom === true,
+  };
+}
+
+/**
+ * List all known providers along with their auth status and model metadata.
+ *
+ * Returns every provider derived from the models.dev catalog, plus any
+ * built-in overrides (Ollama, DeepSeek) and user-registered custom
+ * providers. Auth status is a configuration-level check (env var /
+ * credential store presence) and never performs network calls unless
+ * `live === true` is passed.
+ *
+ * @param credentialStore - The credential store used to check auth status.
+ * @param options - `scope` for scoped credential resolution; `live` to enable live model discovery.
+ *
+ * @example
+ * ```ts
+ * const providers = await listProviders(credentialStore, { live: true });
+ * for (const provider of providers) {
+ *   console.log(`${provider.name}: ${provider.authStatus} (${provider.models.length} models, ${provider.modelsSource})`);
+ * }
+ * ```
+ */
+export async function listProviders(
+  credentialStore: CredentialStore,
+  options?: { readonly scope?: string; readonly live?: boolean },
+): Promise<readonly ProviderInfo[]> {
+  const entries = await listAllProviderModels(credentialStore, {
+    live: options?.live ?? false,
+    ...(options?.scope ? { scope: options.scope } : {}),
+  });
+
+  return await Promise.all(
+    entries.map(async ({ definition, result }): Promise<ProviderInfo> => {
+      const authStatus: AuthStatus = await credentialStore.getAuthStatus(
+        definition.id,
+        options?.scope,
+      );
+      return {
+        id: definition.id,
+        name: definition.name,
+        authStatus,
+        models: result.models,
+        modelsSource: result.source,
+        ...(result.fetchedAt ? { fetchedAt: result.fetchedAt } : {}),
+        ...(result.error ? { error: result.error } : {}),
+        isCustom: definition.isCustom === true,
+      };
+    }),
+  );
+}
+
+/**
+ * Convert a provider ID to a human-friendly display name.
+ *
+ * Hyphen-separated tokens are capitalized (e.g., `github-copilot` ->
+ * `Github Copilot`). This is a best-effort default; consumers that want
+ * brand-accurate names should rely on the catalog-provided `name`.
+ */
+export function formatProviderName(providerId: string): string {
+  return providerId
+    .split("-")
+    .map((token) => (token.length === 0 ? token : token[0]!.toUpperCase() + token.slice(1)))
+    .join(" ");
 }

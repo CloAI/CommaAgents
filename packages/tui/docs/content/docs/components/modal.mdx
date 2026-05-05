@@ -1,0 +1,44 @@
+---
+title: Modal
+description: Full-screen overlay dialog with backdrop dimming.
+---
+
+# Modal
+
+A full-screen overlay that grays out the background and centers its children. Visibility is controlled via the `useModal` hook — open and close the modal from anywhere by matching the `modalId`.
+
+```tsx
+import { Modal } from "@comma-agents/tui";
+import { useModal } from "@comma-agents/tui/hooks";
+
+const confirm = useModal("confirm");
+
+<Modal modalId="confirm" title="Are you sure?">
+  <Text>This action cannot be undone.</Text>
+</Modal>
+
+// open from anywhere:
+confirm.open();
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `modalId` | `string` | — | Unique identifier that ties this modal to `useModal(id)` controls |
+| `title` | `string` | — | Optional title displayed at the top of the modal |
+| `children` | `ReactNode` | — | Content rendered inside the modal body |
+| `width` | `number` | 50% of terminal width | Width of the modal content box |
+| `height` | `number` | auto | Height of the modal content box |
+
+## Backdrop
+
+The modal renders an absolute-positioned backdrop that fills the terminal. Since Ink does not support alpha transparency, the backdrop fills with dim-colored spaces to simulate a grayed-out background. The backdrop color is configurable via the `ModalTheme`.
+
+## Terminal Resize
+
+Like `Frame`, the modal tracks `stdout` resize events to keep the backdrop sized correctly and the content centered.
+
+## Container / Render Split
+
+`Modal` handles visibility state (via `useModal`), terminal dimensions, and width calculation. `ModalRender` is the pure function that positions the backdrop and content box.

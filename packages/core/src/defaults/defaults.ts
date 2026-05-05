@@ -13,8 +13,8 @@ import { createJsonFileBackend } from "../credentials/backends/json-file";
 import { createCredentialStore } from "../credentials/credentials";
 import type { Credential, CredentialStore } from "../credentials/credentials.types";
 import { resolveCredentialsPath } from "../credentials/credentials.utils";
-import { KNOWN_PROVIDERS } from "../model/model.constants";
 import type { ProviderFactory, ProviderResolver } from "../model/model.types";
+import { getProviderPackageNameSync } from "../model/providers/index";
 import type { GlobalDefaults, ProviderRegistration } from "./defaults.types";
 
 // -- Module state --
@@ -79,7 +79,7 @@ export function setGlobalCredentialStore(store: CredentialStore | undefined): vo
 /**
  * Register a custom provider with the global resolver.
  *
- * Registered providers take precedence over the built-in `KNOWN_PROVIDERS`
+ * Registered providers take precedence over the models.dev catalog
  * map and the default `@ai-sdk/<providerId>` dynamic import convention.
  *
  * @example
@@ -262,7 +262,7 @@ async function resolveCopilotProvider(credential: Credential): Promise<ProviderF
  * 1. Custom registration with direct `factory` (via `registerProvider()`)
  * 2. Custom registration with `packageName`/`factoryName`
  * 3. Special handling for `github-copilot` (uses `@ai-sdk/openai-compatible`)
- * 4. Built-in `KNOWN_PROVIDERS` map (standard `@ai-sdk/<id>` packages)
+ * 4. models.dev catalog + built-in overrides (ollama, deepseek) — sync lookup
  * 5. Last resort: attempt `@ai-sdk/<providerId>` as a guess
  *
  * @example
@@ -285,10 +285,9 @@ export function getGlobalProviderResolver(): ProviderResolver {
       return await resolveCopilotProvider(credential);
     }
 
-    // 3. Known providers (built-in map)
-    const knownPackage = KNOWN_PROVIDERS[providerId];
+    // 3. Catalog + built-in overrides
+    const knownPackage = getProviderPackageNameSync(providerId);
     if (knownPackage) {
-      // github-copilot is already handled above; all others use standard convention
       const factoryName = `create${capitalize(providerId)}`;
       return await resolveViaPackage(providerId, credential, knownPackage, factoryName);
     }

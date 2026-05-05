@@ -48,6 +48,7 @@ export { createConversationContext } from "./context/index";
 // -- Credentials --
 export type {
   ApiCredential,
+  AuthStatus,
   CreateCredentialStoreOptions,
   Credential,
   CredentialBackend,
@@ -87,6 +88,7 @@ export {
   FlowExecutionError,
   HookExecutionError,
   ModelResolutionError,
+  SandboxViolationError,
   StrategyValidationError,
   ToolExecutionError,
 } from "./errors/index";
@@ -127,17 +129,53 @@ export type {
 // -- Token Tracking --
 export { createTokenTracker, useTokenTracking } from "./hooks/built-in/token-tracking/index";
 // -- Model resolution --
-export type { ParsedModel, ProviderFactory, ProviderResolver } from "./model/index";
+export type {
+  CatalogData,
+  CatalogModel,
+  CatalogProvider,
+  ListModelsContext,
+  ListModelsFn,
+  ListModelsResult,
+  Modality,
+  ModelCapabilities,
+  ModelCost,
+  ModelInfo,
+  ModelModalities,
+  ModelsSource,
+  ModelStatus,
+  ParsedModel,
+  ProviderDefinition,
+  ProviderFactory,
+  ProviderInfo,
+  ProviderResolver,
+  ProviderWithModels,
+} from "./model/index";
 export {
   extractProviderIds,
+  getCatalogModels,
+  getCatalogProvider,
+  getCatalogProviderSync,
+  getCatalogSnapshot,
+  getProviderDefinition,
+  getProviderInfo,
   getProviderPackage,
   isKnownProvider,
-  KNOWN_PROVIDERS,
+  listAllProviderModels,
+  listCatalogProviders,
+  listProviderDefinitions,
+  listProviderModels,
+  listProviders,
+  loadCatalog,
   parseModel,
+  refreshCatalog,
   registerModel,
+  registerProviderDefinition,
+  resetCatalog,
   resetModelRegistry,
+  resetProviderRegistry,
   resolveModel,
   unregisterModel,
+  unregisterProviderDefinition,
 } from "./model/index";
 export type {
   BuildMessagesOptions,
@@ -183,3 +221,21 @@ export {
   unregisterTool,
 } from "./tools/tool.registry";
 export type { ToolContext, ToolDefinition as ToolDef, ToolResult } from "./tools/tool.types";
+// -- Sandbox --
+export { createSandbox } from "./sandbox/index";
+export { DEFAULT_SANDBOX_CONFIG, PERMISSIVE_SANDBOX_CONFIG } from "./sandbox/sandbox.constants";
+export type {
+  AccessMode,
+  AuthorizationContext,
+  PathPolicy,
+  PermissionDecision,
+  PermissionOperation,
+  PermissionRequest,
+  PermissionRequester,
+  PolicyChangeListener,
+  PolicyPatch,
+  PolicySnapshot,
+  Sandbox,
+  SandboxConfig,
+  SandboxDependencies,
+} from "./sandbox/index";

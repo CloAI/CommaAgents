@@ -15,6 +15,8 @@ export interface ModalEntry {
 export interface ModalControls {
   /** Whether this modal is currently visible. */
   readonly isOpen: boolean;
+  /** Whether this modal is the topmost currently open modal. */
+  readonly isTopmost: boolean;
   /** Arbitrary data passed via `open(data)`. */
   readonly data: unknown;
   /** Show the modal, optionally passing data to it. */
@@ -29,6 +31,8 @@ export interface ModalControls {
 export interface ModalContextType {
   /** Map of all registered modal states keyed by id. */
   readonly modals: ReadonlyMap<ModalId, ModalEntry>;
+  /** Ordered stack of currently open modal ids; last element is topmost. */
+  readonly openStack: readonly ModalId[];
   /** Open a modal by id, optionally passing data. */
   readonly open: (modalId: ModalId, data?: unknown) => void;
   /** Close a modal by id. */
@@ -37,6 +41,8 @@ export interface ModalContextType {
   readonly toggle: (modalId: ModalId, data?: unknown) => void;
   /** Check whether a modal is open. */
   readonly isOpen: (modalId: ModalId) => boolean;
+  /** Check whether a modal is the topmost open modal. */
+  readonly isTopmost: (modalId: ModalId) => boolean;
   /** Retrieve the data for a modal. */
   readonly getData: (modalId: ModalId) => unknown;
 }

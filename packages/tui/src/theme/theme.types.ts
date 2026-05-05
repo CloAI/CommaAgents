@@ -12,6 +12,20 @@ export interface ThemeColors {
   readonly error: string;
   /** Muted/dim text. */
   readonly muted: string;
+  /** App background color (the global canvas). */
+  readonly background: string;
+  /**
+   * Elevated surface background (input fields, modals, panels) — sits one
+   * step above {@link ThemeColors.background} so interactive areas read as
+   * distinct from the frame canvas.
+   */
+  readonly surface: string;
+  /** Cursor highlight color. */
+  readonly cursor: string;
+  /** Scrollbar thumb (active region). */
+  readonly scrollThumb: string;
+  /** Scrollbar track (inactive region). */
+  readonly scrollTrack: string;
   /** User message color. */
   readonly userMessage: string;
   /** Agent message color. */
@@ -64,6 +78,20 @@ export interface ThemeSeparator {
   readonly width: number;
 }
 
+/** Named breakpoint for terminal width thresholds (mobile-first, min-width). */
+export type BreakpointName = "xs" | "sm" | "md" | "lg" | "xl";
+
+/** Terminal width breakpoints in columns (mobile-first, min-width). */
+export type ThemeBreakpoints = Readonly<Record<BreakpointName, number>>;
+
+/**
+ * Responsive container width per breakpoint.
+ *
+ * `undefined` means full terminal width (no max constraint).
+ * A number means a fixed column width.
+ */
+export type ThemeContainerWidths = Readonly<Record<BreakpointName, number | undefined>>;
+
 /** Complete theme token set. */
 export interface Theme {
   readonly colors: ThemeColors;
@@ -71,4 +99,6 @@ export interface Theme {
   readonly typography: ThemeTypography;
   readonly borders: ThemeBorders;
   readonly separator: ThemeSeparator;
+  readonly breakpoints: ThemeBreakpoints;
+  readonly containerWidths: ThemeContainerWidths;
 }

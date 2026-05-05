@@ -16,7 +16,7 @@ import { BatchRunner } from "./components/BatchRunner";
 import { ExampleRunner } from "./components/ExampleRunner";
 import { type ExampleEntry, ExampleSelect } from "./components/ExampleSelect";
 import { ProviderSelect, type ProviderSelection } from "./components/ProviderSelect";
-import { ALL_EXAMPLES, CORE_EXAMPLES, DAEMON_EXAMPLES, findProvider } from "./examples";
+import { ALL_EXAMPLES, CORE_EXAMPLES, DAEMON_EXAMPLES, E2E_EXAMPLES, findProvider } from "./examples";
 
 // ---------------------------------------------------------------------------
 // CLI args (passed from main.tsx when --all is used)

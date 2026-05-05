@@ -1,24 +1,10 @@
-// Model resolution — resolves "providerID/modelID" strings into LanguageModel instances.
-//
-// Provides a global model registry for direct LanguageModel mappings (ideal
-// for tests) and provider-based resolution via the global credential store
-// and provider resolver.
-//
-// Resolution order:
-// 1. Direct model registry (registerModel)
-// 2. Provider-based resolution (registerProvider + credential store)
-
 import type { LanguageModel } from "ai";
 import { getGlobalCredentialStore, getGlobalProviderResolver } from "../defaults/defaults";
 import { ModelResolutionError } from "../errors/index";
 import { parseModel } from "./model.utils";
 
-// -- Module state --
-
 /** Direct model registrations — maps full model strings to LanguageModel instances. */
 let modelRegistry = new Map<string, LanguageModel>();
-
-// -- Model registry --
 
 /**
  * Register a LanguageModel instance for a specific model string.
@@ -26,15 +12,16 @@ let modelRegistry = new Map<string, LanguageModel>();
  * Registered models take precedence over provider-based resolution.
  * This is the simplest way to provide mock models for tests.
  *
+ * @param modelString - The full "providerID/modelID" string to register under.
+ * @param model - The LanguageModel instance to associate with the string.
+ *
  * @example
  * ```ts
  * import { registerModel } from "@comma-agents/core";
  *
- * // Register a mock model for testing
  * const mockModel = createSimpleMockModel(["Hello!"]);
  * registerModel("mock/test", mockModel);
  *
- * // Now createAgent can resolve "mock/test" to the mock LanguageModel
  * const agent = createAgent({ name: "test", model: "mock/test" });
  * ```
  */
@@ -44,21 +31,18 @@ export function registerModel(modelString: string, model: LanguageModel): void {
 
 /**
  * Remove a previously registered model.
- * Returns `true` if the model was registered and removed.
+ *
+ * @param modelString - The string originally passed to `registerModel`.
+ * @returns `true` if the model was registered and removed.
  */
 export function unregisterModel(modelString: string): boolean {
   return modelRegistry.delete(modelString);
 }
 
-/**
- * Reset the global model registry to empty state.
- * Primarily for tests.
- */
+/** Reset the global model registry to empty state. Primarily for tests. */
 export function resetModelRegistry(): void {
   modelRegistry = new Map();
 }
-
-// -- Model resolution --
 
 /**
  * Resolve a "providerID/modelID" string into a live LanguageModel instance.
@@ -70,6 +54,7 @@ export function resetModelRegistry(): void {
  *    then known providers, then guesses `@ai-sdk/<id>`), resolves credentials
  *    via `getGlobalCredentialStore()`, and creates the LanguageModel.
  *
+ * @param modelString - The full "providerID/modelID" string to resolve.
  * @throws {ModelResolutionError} If the model string is invalid or no provider can be found.
  *
  * @example
@@ -83,33 +68,31 @@ export function resetModelRegistry(): void {
  * ```
  */
 export async function resolveModel(modelString: string): Promise<LanguageModel> {
-  // 1. Check direct model registry
   const registered = modelRegistry.get(modelString);
   if (registered) return registered;
 
-  // 2. Parse and resolve via provider system
   const parsed = parseModel(modelString);
   const credentialStore = getGlobalCredentialStore();
   const resolver = getGlobalProviderResolver();
 
-  const credential = await credentialStore.resolve(parsed.providerID);
+  const credential = await credentialStore.resolve(parsed.providerId);
   if (!credential) {
     throw new ModelResolutionError(
       modelString,
-      `No credential found for provider "${parsed.providerID}". ` +
+      `No credential found for provider "${parsed.providerId}". ` +
         "Register the model directly with registerModel(), register a provider with " +
         "registerProvider(), or configure credentials via the credential store.",
     );
   }
 
   try {
-    const factory = await resolver(parsed.providerID, credential);
-    return factory(parsed.modelID);
+    const factory = await resolver(parsed.providerId, credential);
+    return factory(parsed.modelId);
   } catch (resolverError) {
     const detail = resolverError instanceof Error ? resolverError.message : String(resolverError);
     throw new ModelResolutionError(
       modelString,
-      `Provider resolution failed for "${parsed.providerID}": ${detail}`,
+      `Provider resolution failed for "${parsed.providerId}": ${detail}`,
       { cause: resolverError },
     );
   }

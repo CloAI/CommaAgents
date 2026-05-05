@@ -4,13 +4,10 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ToolContext } from "../../tool.types";
+import { makeToolContext } from "../../test.utils";
 import { createReadTool } from "./read";
 
-const ctx: ToolContext = {
-  agentName: "test-agent",
-  abort: AbortSignal.timeout(5000),
-};
+const ctx = makeToolContext();
 
 let testDir: string;
 

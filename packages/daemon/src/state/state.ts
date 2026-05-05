@@ -24,7 +24,7 @@ export function createDaemonState(): DaemonState {
   return {
     // -- Runs --
 
-    createRun(strategyPath: string, strategyName: string): RunState {
+    createRun(strategyPath: string, strategyName: string, cwd: string, sessionId: string): RunState {
       const id = crypto.randomUUID();
       const run: RunState = {
         id,
@@ -33,6 +33,8 @@ export function createDaemonState(): DaemonState {
         status: "pending",
         startedAt: new Date(),
         abortController: new AbortController(),
+        cwd,
+        sessionId,
       };
       runs.set(id, run);
       subscriptions.set(id, new Set());

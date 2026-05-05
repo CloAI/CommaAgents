@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useMemo, useState } from "react";
+import type React from "react";
+import { createContext, useCallback, useMemo, useState } from "react";
 
 import type { ModalContextType, ModalEntry, ModalId, ModalProviderProps } from "./useModal.types";
 
@@ -11,6 +12,10 @@ export const ModalContext = createContext<ModalContextType | null>(null);
  * Provides a shared modal registry so any descendant can open, close,
  * or query modals by id without prop-drilling.
  *
+ * Tracks an ordered stack of open modals — the last id in the stack is the
+ * topmost modal and is the only one that should receive input and respond
+ * to Esc.
+ *
  * @param props - Provider props containing children.
  * @example
  * ```tsx
@@ -22,12 +27,18 @@ export const ModalContext = createContext<ModalContextType | null>(null);
 export function ModalProvider(props: ModalProviderProps): React.ReactElement {
   const { children } = props;
   const [modals, setModals] = useState<Map<ModalId, ModalEntry>>(new Map());
+  const [openStack, setOpenStack] = useState<readonly ModalId[]>([]);
 
   const open = useCallback((modalId: ModalId, data?: unknown): void => {
     setModals((previous) => {
       const next = new Map(previous);
       next.set(modalId, { isOpen: true, data });
       return next;
+    });
+    setOpenStack((previous) => {
+      // Move to top if already present, else push.
+      const filtered = previous.filter((id) => id !== modalId);
+      return [...filtered, modalId];
     });
   }, []);
 
@@ -37,17 +48,23 @@ export function ModalProvider(props: ModalProviderProps): React.ReactElement {
       next.set(modalId, { isOpen: false, data: undefined });
       return next;
     });
+    setOpenStack((previous) => previous.filter((id) => id !== modalId));
   }, []);
 
   const toggle = useCallback((modalId: ModalId, data?: unknown): void => {
     setModals((previous) => {
-      const next = new Map(previous);
       const current = previous.get(modalId) ?? CLOSED_ENTRY;
+      const next = new Map(previous);
       next.set(modalId, {
         isOpen: !current.isOpen,
         data: current.isOpen ? undefined : data,
       });
       return next;
+    });
+    setOpenStack((previous) => {
+      const isCurrentlyOpen = previous.includes(modalId);
+      if (isCurrentlyOpen) return previous.filter((id) => id !== modalId);
+      return [...previous, modalId];
     });
   }, []);
 
@@ -58,6 +75,13 @@ export function ModalProvider(props: ModalProviderProps): React.ReactElement {
     [modals],
   );
 
+  const isTopmost = useCallback(
+    (modalId: ModalId): boolean => {
+      return openStack[openStack.length - 1] === modalId;
+    },
+    [openStack],
+  );
+
   const getData = useCallback(
     (modalId: ModalId): unknown => {
       return modals.get(modalId)?.data;
@@ -66,8 +90,8 @@ export function ModalProvider(props: ModalProviderProps): React.ReactElement {
   );
 
   const contextValue = useMemo<ModalContextType>(
-    () => ({ modals, open, close, toggle, isOpen, getData }),
-    [modals, open, close, toggle, isOpen, getData],
+    () => ({ modals, openStack, open, close, toggle, isOpen, isTopmost, getData }),
+    [modals, openStack, open, close, toggle, isOpen, isTopmost, getData],
   );
 
   return <ModalContext.Provider value={contextValue}>{children}</ModalContext.Provider>;

@@ -33,7 +33,7 @@
       "project": ["**/*.{ts,tsx}"],
       "ignoreDependencies": ["@ai-sdk/openai-compatible"]
     },
-    "end-to-end-tests": {
+    "examples/e2e": {
       "entry": ["**/*.test.ts", "**/*.ts"],
       "project": ["**/*.ts"]
     }

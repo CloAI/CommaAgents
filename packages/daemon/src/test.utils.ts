@@ -13,6 +13,8 @@ import { registerModel } from "@comma-agents/core";
 import type { EventSink } from "./executor/event-sink";
 import type { Logger } from "./logger/logger.types";
 import type { DaemonMessage } from "./server/protocol/messages";
+import type { PersistedSession, SessionStore } from "./sessions";
+import { SESSION_SCHEMA_VERSION } from "./sessions";
 
 // Mock model registration
 
@@ -91,6 +93,101 @@ export function mockLogger(): Logger {
     },
     flush: noop,
     close: noop,
+  };
+}
+
+// Strategy fixtures
+
+/**
+ * Minimal in-memory SessionStore for executor/dispatcher tests.
+ *
+ * One session per cwd (auto-created on access). All operations succeed
+ * synchronously and are observable via the returned `sessions` map.
+ */
+export function mockSessionStore(): SessionStore & {
+  sessions: Map<string, PersistedSession>;
+} {
+  const sessions = new Map<string, PersistedSession>();
+  const cwdToId = new Map<string, string>();
+
+  function ensure(cwd: string): PersistedSession {
+    const existing = cwdToId.get(cwd);
+    if (existing) {
+      const session = sessions.get(existing);
+      if (session) return session;
+    }
+    const id = `session-${crypto.randomUUID()}`;
+    const now = new Date().toISOString();
+    const session: PersistedSession = {
+      metadata: {
+        id,
+        title: id,
+        cwd,
+        cwdHash: "mock",
+        createdAt: now,
+        updatedAt: now,
+        schemaVersion: SESSION_SCHEMA_VERSION,
+      },
+      turns: [],
+      runs: [],
+    };
+    sessions.set(id, session);
+    cwdToId.set(cwd, id);
+    return session;
+  }
+
+  return {
+    sessions,
+    async getOrCreateForCwd(cwd) {
+      return ensure(cwd);
+    },
+    getOrCreateForCwdSync(cwd) {
+      return ensure(cwd);
+    },
+    async load(sessionId) {
+      return sessions.get(sessionId) ?? null;
+    },
+    async list(filter) {
+      const all = Array.from(sessions.values()).map((s) => s.metadata);
+      if (filter?.cwd) return all.filter((m) => m.cwd === filter.cwd);
+      return all;
+    },
+    async appendTurn(sessionId, turn) {
+      const s = sessions.get(sessionId);
+      if (!s) throw new Error(`unknown session ${sessionId}`);
+      sessions.set(sessionId, {
+        ...s,
+        turns: [...s.turns, turn],
+        metadata: { ...s.metadata, updatedAt: new Date().toISOString() },
+      });
+    },
+    async recordRun(sessionId, summary) {
+      const s = sessions.get(sessionId);
+      if (!s) throw new Error(`unknown session ${sessionId}`);
+      const filtered = s.runs.filter((r) => r.runId !== summary.runId);
+      sessions.set(sessionId, {
+        ...s,
+        runs: [...filtered, summary],
+        metadata: { ...s.metadata, updatedAt: new Date().toISOString() },
+      });
+    },
+    async rename(sessionId, title) {
+      const s = sessions.get(sessionId);
+      if (!s) throw new Error(`unknown session ${sessionId}`);
+      const newTitle = title ?? sessionId;
+      const metadata = { ...s.metadata, title: newTitle, updatedAt: new Date().toISOString() };
+      sessions.set(sessionId, { ...s, metadata });
+      return metadata;
+    },
+    async delete(sessionId) {
+      const s = sessions.get(sessionId);
+      if (!s) return false;
+      sessions.delete(sessionId);
+      for (const [cwd, id] of cwdToId.entries()) {
+        if (id === sessionId) cwdToId.delete(cwd);
+      }
+      return true;
+    },
   };
 }
 

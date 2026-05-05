@@ -78,6 +78,33 @@ export class StrategyValidationError extends CommaAgentsError {
 }
 
 /**
+ * Thrown when a sandbox policy rejects a file-system operation.
+ *
+ * The `reason` field indicates why the operation was blocked:
+ * - `"jail"` — the resolved path escapes the sandbox cwd boundary.
+ * - `"read-denied"` — the read policy explicitly denies this path.
+ * - `"write-denied"` — the write policy explicitly denies this path.
+ * - `"ask-no-handler"` — policy is `"ask"` but no PermissionRequester is configured.
+ * - `"ask-aborted"` — the PermissionRequester threw or the AbortSignal fired.
+ */
+export class SandboxViolationError extends CommaAgentsError {
+  readonly path: string;
+  readonly reason: "jail" | "read-denied" | "write-denied" | "ask-no-handler" | "ask-aborted";
+
+  constructor(
+    path: string,
+    reason: "jail" | "read-denied" | "write-denied" | "ask-no-handler" | "ask-aborted",
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super("SANDBOX_VIOLATION", message, options);
+    this.name = "SandboxViolationError";
+    this.path = path;
+    this.reason = reason;
+  }
+}
+
+/**
  * Thrown when a hook function throws during execution.
  */
 export class HookExecutionError extends CommaAgentsError {

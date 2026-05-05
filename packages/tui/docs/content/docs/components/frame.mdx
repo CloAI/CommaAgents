@@ -1,0 +1,57 @@
+---
+title: Frame
+description: Root layout shell with tab bar, content area, and pinned footer.
+---
+
+# Frame
+
+The root layout container for the TUI. Frame provides a tab bar at the top, a flexible content area, and an optional pinned footer. It tracks terminal dimensions and responds to resize events.
+
+```tsx
+import { Frame } from "@comma-agents/tui";
+
+<Frame footer={<StatusBar />}>
+  <MessageList messages={messages} />
+</Frame>
+```
+
+## Tabs
+
+Frame renders three tabs — **Chat**, **Settings**, and **Logs** — switchable via Alt+1, Alt+2, and Alt+3. Only the Chat tab renders children; Settings and Logs show placeholder text.
+
+The tab bar displays each tab label alongside its keyboard shortcut. The active tab is highlighted using the theme's `activeTab` style.
+
+## Terminal Resize
+
+Frame listens for `stdout` resize events and re-renders with the updated `terminalHeight` and `terminalWidth`. The root container sets its `height` to the full terminal height so content fills the screen.
+
+## Props
+
+### FrameProps
+
+| Prop | Type | Description |
+|---|---|---|
+| `children` | `ReactNode` | Content rendered in the body area (grows to fill available space) |
+| `footer` | `ReactNode` | Content rendered at the bottom of the frame, pinned below the content area |
+
+### FrameRenderProps
+
+The pure render function accepts resolved theme, dimensions, and tab state:
+
+| Prop | Type | Description |
+|---|---|---|
+| `theme` | `FrameTheme` | Resolved style objects |
+| `activeTabIndex` | `number` | Currently active tab (0-indexed) |
+| `terminalHeight` | `number` | Terminal height in rows |
+| `terminalWidth` | `number` | Terminal width in columns |
+| `onTabSelect` | `(index: number) => void` | Tab selection callback |
+| `children` | `ReactNode` | Body content for the active tab |
+| `footer` | `ReactNode` | Pinned footer content |
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| Alt+1 | Switch to Chat tab |
+| Alt+2 | Switch to Settings tab |
+| Alt+3 | Switch to Logs tab |

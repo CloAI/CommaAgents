@@ -34,6 +34,9 @@ function createMockCredentialStore(credentials: Record<string, Credential>): Cre
     async listScopes() {
       return ["$global"];
     },
+    async getAuthStatus(providerId: string) {
+      return credentials[providerId] ? ("configured" as const) : ("none" as const);
+    },
   };
 }
 

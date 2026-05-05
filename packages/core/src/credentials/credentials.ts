@@ -6,7 +6,12 @@
 //   3. Global-scoped credential ("$global")
 
 import type { Credential } from "./credentials.schema";
-import type { CreateCredentialStoreOptions, CredentialStore, EnvVarMap } from "./credentials.types";
+import type {
+  AuthStatus,
+  CreateCredentialStoreOptions,
+  CredentialStore,
+  EnvVarMap,
+} from "./credentials.types";
 import { WELL_KNOWN_ENV_VARS } from "./credentials.constants";
 
 // Helpers
@@ -63,26 +68,28 @@ export function createCredentialStore(options: CreateCredentialStoreOptions): Cr
   const envVarMap = buildEnvVarMap(options.envVarOverrides);
   const env = options.env ?? process.env;
 
+  async function resolve(providerId: string, scope?: string): Promise<Credential | undefined> {
+    const data = await backend.readAll();
+
+    // 1. Strategy-scoped credential
+    if (scope && scope !== "$global") {
+      const scopedCred = data[scope]?.[providerId];
+      if (scopedCred) return scopedCred;
+    }
+
+    // 2. Environment variable
+    const envCred = resolveFromEnv(providerId, envVarMap, env);
+    if (envCred) return envCred;
+
+    // 3. Global-scoped credential
+    const globalCred = data.$global?.[providerId];
+    if (globalCred) return globalCred;
+
+    return undefined;
+  }
+
   return {
-    async resolve(providerId: string, scope?: string): Promise<Credential | undefined> {
-      const data = await backend.readAll();
-
-      // 1. Strategy-scoped credential
-      if (scope && scope !== "$global") {
-        const scopedCred = data[scope]?.[providerId];
-        if (scopedCred) return scopedCred;
-      }
-
-      // 2. Environment variable
-      const envCred = resolveFromEnv(providerId, envVarMap, env);
-      if (envCred) return envCred;
-
-      // 3. Global-scoped credential
-      const globalCred = data.$global?.[providerId];
-      if (globalCred) return globalCred;
-
-      return undefined;
-    },
+    resolve,
 
     async get(providerId: string, scope: string): Promise<Credential | undefined> {
       const data = await backend.readAll();
@@ -135,6 +142,11 @@ export function createCredentialStore(options: CreateCredentialStoreOptions): Cr
     async listScopes(): Promise<string[]> {
       const data = await backend.readAll();
       return Object.keys(data);
+    },
+
+    async getAuthStatus(providerId: string, scope?: string): Promise<AuthStatus> {
+      const credential = await resolve(providerId, scope);
+      return credential ? "configured" : "none";
     },
   };
 }

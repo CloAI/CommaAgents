@@ -1,70 +1,47 @@
-import { render } from "ink";
-import yargs from "yargs";
-import { hideBin } from "yargs/helpers";
+// Bootstrap — this file must stay minimal.
+//
+// ES module `import` declarations are hoisted and executed as a static graph
+// before ANY module body code runs. The only way to guarantee the console
+// hijack fires before every other module is to:
+//   1. Import (and therefore execute) logStore.ts synchronously here — and
+//      import NOTHING else statically, so logStore is the first module to run.
+//   2. Register process-level error handlers immediately after.
+//   3. Dynamically import the rest of the app so it loads *after* step 1-2.
+//
+// Do NOT add any other static imports to this file.
 
-import { App } from "./app";
-import { DaemonProvider } from "./hooks/useDaemon";
-import { ThemeProvider } from "./theme";
+import { appendFileSync } from "node:fs";
+import { logStore } from "./hooks/useLogs/logStore";
+import { DEBUG_LOG, LOG_FILE_PATH } from "./utils/debug";
 
-const argv = yargs(hideBin(process.argv))
-  .scriptName("comma-agents-tui")
-  .usage("$0 [options]")
-  .option("strategy", {
-    alias: "s",
-    type: "string",
-    describe: "Strategy to run (plan, build)",
-    choices: ["plan", "build"],
-  })
-  .option("daemon-url", {
-    alias: "d",
-    type: "string",
-    describe: "Daemon WebSocket URL",
-    default: "ws://localhost:7422/ws",
-  })
-  .option("input", {
-    alias: "i",
-    type: "string",
-    describe: "Initial input message (skips first user prompt)",
-  })
-  .example("$0", "Interactive strategy picker")
-  .example("$0 -s plan", "Start with the Plan strategy")
-  .example("$0 -s build -i 'Add a login page'", "Start Build with initial input")
-  .strict()
-  .help()
-  .alias("h", "help")
-  .version(false)
-  .parseSync();
-
-// Ink requires a TTY for raw-mode keyboard input. When stdin is not a TTY
-// (e.g. piped, run via `bun run --filter`, or in CI), try to open /dev/tty
-// as a fallback. If that also fails, bail with a helpful message.
-function resolveStdin(): NodeJS.ReadStream | import("node:tty").ReadStream {
-  if (process.stdin.isTTY) {
-    return process.stdin;
-  }
-  try {
-    const nodeFs = require("node:fs") as typeof import("node:fs");
-    const { ReadStream } = require("node:tty") as typeof import("node:tty");
-    const fileDescriptor = nodeFs.openSync("/dev/tty", "r");
-    return new ReadStream(fileDescriptor);
-  } catch {
-    // No TTY available at all — cannot run interactively.
-    console.error(
-      "Error: comma-agents-tui requires an interactive terminal (TTY).\n" +
-        "Run it directly: bun run packages/tui/src/main.tsx\n" +
-        "Or from the package dir: cd packages/tui && bun run src/main.tsx",
-    );
-    process.exit(1);
+// Step 2 — capture process-level exceptions into the store (and disk fallback).
+function captureException(label: string, err: Error): void {
+  const message = `${label}: ${err.name}: ${err.message}${err.stack ? `\n${err.stack}` : ""}`;
+  logStore.push("error", message);
+  if (DEBUG_LOG) {
+    try {
+      const timestamp = new Date().toISOString();
+      appendFileSync(LOG_FILE_PATH, `[${timestamp}] ERROR ${message}\n`);
+    } catch {
+      // Writing the fallback file failed — nothing more we can do.
+    }
   }
 }
 
-const stdin = resolveStdin();
+process.on("uncaughtException", (err: Error) => {
+  captureException("Uncaught exception", err);
+  process.exit(1);
+});
 
-render(
-  <ThemeProvider>
-    <DaemonProvider url={argv.daemonUrl}>
-      <App strategy={argv.strategy} initialInput={argv.input} />
-    </DaemonProvider>
-  </ThemeProvider>,
-  { stdin },
-);
+process.on("unhandledRejection", (reason: unknown) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  captureException("Unhandled rejection", err);
+});
+
+// Step 3 — dynamically import the rest of the app now that the store is live.
+import("./bootstrap").catch((err: unknown) => {
+  const error = err instanceof Error ? err : new Error(String(err));
+  captureException("Failed to load app", error);
+  // console.log(error);
+  process.exit(1);
+});

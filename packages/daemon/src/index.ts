@@ -50,57 +50,36 @@ export { isRunning, readPid, removePid, writePid } from "./pid";
 export type {
   AgentCallResultWire,
   AgentStreamEventWire,
+  ClientMessage,
+  DaemonMessage,
   ErrorInfo,
   HandlerContext,
   MessageDispatcher,
   RequestResponseMap,
   RunSummary,
   Usage,
+  SessionMetadataWire,
+  SessionTurnWire,
+  SessionRunSummaryWire,
 } from "./server/protocol";
-// -- Protocol --
 export {
-  AgentCallResultSchema,
-  AgentOutputMessage,
-  AgentStreamEventSchema,
-  AgentStreamingMessage,
-  // Shared schemas
-  ClientBase,
-  // Unions + parse helpers
-  ClientMessage,
-  DaemonBase,
-  DaemonMessage,
-  ErrorInfoSchema,
-  ErrorMessage,
-  StrategyCompletedMessage,
-  StrategyErrorMessage,
-  StrategyListMessage,
-  // Daemon message schemas
-  StrategyStartedMessage,
-  ListStrategiesMessage,
-  PingMessage,
-  PongMessage,
   parseClientMessage,
   parseDaemonMessage,
-  RequestInputMessage,
-  RunSummarySchema,
-  // Client message schemas
-  StartStrategyMessage,
-  StepCompletedMessage,
-  StepStartedMessage,
-  StopStrategyMessage,
-  SubscribeMessage,
-  UnsubscribeMessage,
-  UsageSchema,
-  UserInputMessage,
 } from "./server/protocol";
-export { createDaemon } from "./server/server";
-// -- Server --
-export type { CreateDaemonOptions, Daemon } from "./server/server.types";
-export type {
-  DaemonState,
-  RunState,
-  RunStatus,
-  RunUpdate,
-} from "./state";
 // -- State --
-export { createDaemonState } from "./state";
+export type { RunStatus } from "./state";
+// -- Sessions --
+export type {
+  CreateSessionStoreOptions,
+  PersistedSession,
+  SessionMetadata,
+  SessionRunSummary,
+  SessionStore,
+  SessionTurn,
+} from "./sessions";
+export {
+  createSessionStore,
+  hashCwd,
+  normalizeCwd,
+  SESSION_SCHEMA_VERSION,
+} from "./sessions";

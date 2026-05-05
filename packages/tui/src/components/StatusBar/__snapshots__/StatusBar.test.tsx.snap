@@ -1,0 +1,21 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`StatusBar snapshots should match snapshot for idle status 1`] = `" [Ready]"`;
+
+exports[`StatusBar snapshots should match snapshot for pending status 1`] = `" ⠋ [Starting...]"`;
+
+exports[`StatusBar snapshots should match snapshot for running status 1`] = `" ⠋ [Running]"`;
+
+exports[`StatusBar snapshots should match snapshot for waiting_input status 1`] = `" [Waiting for input]"`;
+
+exports[`StatusBar snapshots should match snapshot for completed status 1`] = `" [Done]"`;
+
+exports[`StatusBar snapshots should match snapshot for cancelled status 1`] = `" [Cancelled]"`;
+
+exports[`StatusBar snapshots should match snapshot for error status 1`] = `" [Error]"`;
+
+exports[`StatusBar strategy name should display the strategy name when provided 1`] = `" ⠋ [Running] ReAct"`;
+
+exports[`StatusBar error display should display error text when provided 1`] = `" [Error]  Connection lost"`;
+
+exports[`StatusBar error display should display both strategy name and error together 1`] = `" [Error] CoT  Timeout"`;

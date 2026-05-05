@@ -1,13 +1,5 @@
-export { DaemonProvider } from "./useDaemon.context";
 export { useDaemonContext } from "./useDaemon";
-export { useDaemonCommand } from "./useDaemonCommand";
-export { useDaemonSubscription } from "./useDaemonSubscription";
-
-export type {
-  DaemonCommandMap,
-  DaemonCommandType,
-} from "./useDaemonCommand";
-
+export { DaemonProvider } from "./useDaemon.context";
 export type {
   ClientMessageOf,
   ClientMessageType,
@@ -17,3 +9,9 @@ export type {
   DaemonMessageType,
   DaemonProviderProps,
 } from "./useDaemon.types";
+export type {
+  DaemonCommandMap,
+  DaemonCommandType,
+} from "./useDaemonCommand";
+export { useDaemonCommand } from "./useDaemonCommand";
+export { useDaemonSubscription } from "./useDaemonSubscription";

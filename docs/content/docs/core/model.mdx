@@ -5,7 +5,7 @@ description: Model registry, provider resolution, and model string parsing.
 
 # Model
 
-The model module handles parsing model identifiers (e.g. `openai/gpt-4o`), maintaining a global model registry, and resolving model strings into live `LanguageModel` instances via the provider system.
+The model module handles parsing model identifiers (e.g. `openai/gpt-4o`), maintaining a global model registry, resolving model strings into live `LanguageModel` instances, and listing providers and their available models.
 
 ## How Model Resolution Works
 
@@ -28,7 +28,7 @@ registerProvider("my-llm", {
 const agent2 = createAgent({ name: "custom", model: "my-llm/latest" });
 
 // Option 3: Known providers resolve automatically (openai, anthropic, etc.)
-// Just ensure credentials are configured and @ai-sdk/<provider> is installed.
+// Just ensure credentials are configured and the provider's npm package is installed.
 const agent3 = createAgent({ name: "writer", model: "openai/gpt-4o" });
 ```
 
@@ -57,9 +57,56 @@ Reset the global model registry to empty state. Primarily for tests.
 Providers are resolved via `registerProvider()` in the [defaults](/docs/core/defaults) module. The global provider resolver checks:
 
 1. Custom provider registrations (via `registerProvider()`)
-2. Special handling for `github-copilot`
-3. Built-in `KNOWN_PROVIDERS` map (standard `@ai-sdk/<id>` packages)
+2. Built-in overrides (e.g. `ollama`, `deepseek`, `github-copilot`)
+3. The bundled provider catalog, which maps each provider id to its npm package
 4. Last resort: attempt `@ai-sdk/<providerId>` as a dynamic import guess
+
+## Provider Discovery
+
+The model module also exposes APIs to list known providers and their models. Data comes from three sources merged together:
+
+- **Catalog** — a bundled snapshot of the [models.dev](https://models.dev) catalog, covering 50+ providers and their models. The snapshot is shipped with the package and refreshed on disk every 24 hours.
+- **Built-in overrides** — hardcoded entries for providers that need custom package resolution or live discovery (Ollama, Deepseek, GitHub Copilot).
+- **Live listers** — optional runtime discovery for Ollama (via the local `/api/tags` endpoint) and GitHub Copilot (via the Copilot API). Enabled by passing `{ live: true }`.
+
+### listProviders
+
+Return every known provider enriched with its model list.
+
+```ts
+import { listProviders } from "@comma-agents/core";
+
+const providers = await listProviders();
+for (const provider of providers) {
+  console.log(provider.id, provider.models.length);
+}
+
+// Include live discovery (Ollama + Copilot)
+const liveProviders = await listProviders({ live: true });
+```
+
+### getProviderInfo
+
+Fetch information for a single provider by id.
+
+```ts
+import { getProviderInfo } from "@comma-agents/core";
+
+const info = await getProviderInfo("openai");
+console.log(info?.name, info?.models[0]?.id);
+```
+
+### ProviderInfo
+
+The shape returned by `listProviders` and `getProviderInfo`.
+
+<AutoTypeTable path="../packages/core/src/model/model.types.ts" name="ProviderInfo" />
+
+### ModelInfo
+
+A single model entry in `ProviderInfo.models`.
+
+<AutoTypeTable path="../packages/core/src/model/providers/providers.types.ts" name="ModelInfo" />
 
 ## Types
 
@@ -80,3 +127,4 @@ A function that creates a `LanguageModel` from a model ID.
 A function that translates a `(providerId, credential)` pair into a `ProviderFactory`.
 
 <AutoTypeTable path="../packages/core/src/model/model.types.ts" name="ProviderResolver" />
+

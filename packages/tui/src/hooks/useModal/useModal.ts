@@ -46,10 +46,11 @@ export function useModal(modalId: ModalId): ModalControls {
   );
 
   const isOpen = context.isOpen(modalId);
+  const isTopmost = context.isTopmost(modalId);
   const data = context.getData(modalId);
 
   return useMemo<ModalControls>(
-    () => ({ isOpen, data, open, close, toggle }),
-    [isOpen, data, open, close, toggle],
+    () => ({ isOpen, isTopmost, data, open, close, toggle }),
+    [isOpen, isTopmost, data, open, close, toggle],
   );
 }

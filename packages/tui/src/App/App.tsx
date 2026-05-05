@@ -1,0 +1,311 @@
+import { join } from "node:path";
+import { Box, Text, useApp, useFocusManager, useInput } from "ink";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Route, Routes, useLocation, useNavigate } from "react-router";
+
+import { CommandPalette } from "../components/CommandPalette";
+import { Frame } from "../components/Frame";
+import type { TabDefinition } from "../components/Frame/Frame";
+import { Modal } from "../components/Modal";
+import type { StrategyOption } from "../components/StrategyPicker";
+import { BUILT_IN_STRATEGIES } from "../components/StrategyPicker/StrategyPicker.constants";
+import type { ChatMessage, ChatStatus } from "../hooks";
+import { useChat } from "../hooks";
+import type { LogEntry } from "../hooks/useLogs";
+import { useLogs } from "../hooks/useLogs";
+import { useModal } from "../hooks/useModal";
+import { ChatPage } from "../pages/ChatPage";
+import { IntroPage } from "../pages/IntroPage";
+import { LogsPage } from "../pages/LogsPage";
+
+/** Whether stdin supports raw mode (false in piped/non-TTY contexts). */
+const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
+
+/** Modal id for the command palette. */
+const COMMAND_PALETTE_MODAL_ID = "command-palette";
+
+/** Resolve a built-in strategy key to its absolute strategy file path. */
+function resolveStrategyPath(strategyKey: string): string {
+  return join(import.meta.dir, "..", "..", "strategies", `${strategyKey}.json`);
+}
+
+/** Look up a `StrategyOption` by its key, falling back to the first built-in. */
+function resolveStrategyOption(strategyKey: string): StrategyOption {
+  const matched = BUILT_IN_STRATEGIES.find(
+    (option) => option.value === strategyKey,
+  );
+  return matched ?? BUILT_IN_STRATEGIES[0]!;
+}
+
+/** Tab route definitions. Order determines display order in the Frame header. */
+const BASE_TABS: readonly TabDefinition[] = [
+  { path: "/chat", label: "Chat", shortcut: "Alt+1" },
+  { path: "/settings", label: "Settings", shortcut: "Alt+2" },
+  { path: "/logs", label: "Logs", shortcut: "Alt+3" },
+] as const;
+
+const DEV_TAB: TabDefinition = {
+  path: "/dev",
+  label: "Dev",
+  shortcut: "Alt+4",
+} as const;
+
+export interface AppProps {
+  /** Pre-select a strategy by key (used together with `initialInput` for auto-start). */
+  readonly strategy?: string;
+  /** Initial input message — auto-starts a chat on mount when provided. */
+  readonly initialInput?: string;
+  /** Enable the component playground (Dev tab, Alt+4). */
+  readonly dev?: boolean;
+}
+
+export function App({
+  strategy: preselectedStrategy,
+  initialInput,
+  dev = false,
+}: AppProps): React.ReactElement {
+  const { exit } = useApp();
+  const { enableFocus } = useFocusManager();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const chat = useChat();
+  const { logs, clearLogs } = useLogs();
+  const commandPalette = useModal(COMMAND_PALETTE_MODAL_ID);
+
+  // Ensure Ink's focus system is active for tab-order cycling across inputs.
+  useEffect(() => {
+    enableFocus();
+  }, [enableFocus]);
+
+  const tabs = useMemo<readonly TabDefinition[]>(
+    () => (dev ? [...BASE_TABS, DEV_TAB] : BASE_TABS),
+    [dev],
+  );
+
+  // The active strategy is owned here (not in the chat hook) so the chat
+  // screen label stays visible even if the daemon run completes or errors.
+  const [activeStrategy, setActiveStrategy] = useState<StrategyOption | null>(
+    null,
+  );
+
+  // When a session is loaded from disk, the chat hook surfaces its strategy
+  // name/path. Synthesize a StrategyOption from that so the `/chat` route
+  // renders the loaded transcript instead of falling back to IntroPage.
+  const effectiveActiveStrategy = useMemo<StrategyOption | null>(() => {
+    if (activeStrategy) return activeStrategy;
+    if (chat.strategyName) {
+      return {
+        label: chat.strategyName,
+        value: chat.strategyPath ?? chat.strategyName,
+        description: chat.readOnly ? "loaded session" : "",
+      };
+    }
+    return null;
+  }, [activeStrategy, chat.strategyName, chat.strategyPath, chat.readOnly]);
+
+  const handleStartChat = useCallback(
+    (strategyKey: string, input: string): void => {
+      const strategyPath = resolveStrategyPath(strategyKey);
+      const option = resolveStrategyOption(strategyKey);
+      setActiveStrategy(option);
+      chat.startStrategy(strategyPath, input, process.cwd());
+      navigate("/chat");
+    },
+    [chat, navigate],
+  );
+
+  const handleReplySubmit = useCallback(
+    (text: string): void => {
+      chat.sendInput(text);
+    },
+    [chat],
+  );
+
+  const handlePermissionDecide = useCallback(
+    (decision: "allow" | "deny" | "allow-session" | "deny-session"): void => {
+      chat.sendPermissionDecision(decision);
+    },
+    [chat],
+  );
+
+  const handleResetChat = useCallback((): void => {
+    chat.reset();
+    setActiveStrategy(null);
+    navigate("/intro");
+  }, [chat, navigate]);
+
+  const handleExitApp = useCallback((): void => {
+    chat.reset();
+    exit();
+  }, [chat, exit]);
+
+  const handleTabSelect = useCallback(
+    (path: string): void => {
+      navigate(path);
+    },
+    [navigate],
+  );
+
+  useInput(
+    (input, key) => {
+      if (key.ctrl && input === "c") {
+        handleExitApp();
+      }
+      if (key.ctrl && input === "r") {
+        handleResetChat();
+      }
+      if (key.ctrl && input === "p") {
+        commandPalette.toggle();
+      }
+      // Tab shortcuts — only active when on a tabbed route (not /intro).
+      if (key.meta && input === "1") navigate("/chat");
+      if (key.meta && input === "2") navigate("/settings");
+      if (key.meta && input === "3") navigate("/logs");
+      if (key.meta && input === "4" && dev) navigate("/dev");
+    },
+    { isActive: RAW_MODE_SUPPORTED },
+  );
+
+  // Auto-start with `--input`: fire once on mount, then never again.
+  useEffect(() => {
+    if (!initialInput) return;
+    const strategyKey =
+      preselectedStrategy ?? BUILT_IN_STRATEGIES[0]?.value ?? "plan";
+    handleStartChat(strategyKey, initialInput);
+    // Intentionally one-shot: re-running on prop change would re-trigger
+    // a chat after the user navigated back to the intro screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on mount
+  }, []);
+
+  return (
+    <>
+      <AppRender
+        tabs={tabs}
+        activeTabPath={location.pathname}
+        onTabSelect={handleTabSelect}
+        activeStrategy={effectiveActiveStrategy}
+        chatMessages={chat.messages}
+        chatStatus={chat.status}
+        chatError={chat.error}
+        chatPendingInputAgent={chat.pendingInputAgent}
+        chatPendingPermissionRequest={chat.pendingPermissionRequest}
+        onStartChat={handleStartChat}
+        onReplySubmit={handleReplySubmit}
+        onPermissionDecide={handlePermissionDecide}
+        logs={logs}
+        onClearLogs={clearLogs}
+        dev={dev}
+      />
+      <Modal
+        title="Command Palette"
+        modalId={COMMAND_PALETTE_MODAL_ID}
+        closeOnEsc={true}
+      >
+        <CommandPalette
+          isVisible={commandPalette.isOpen}
+          onClose={commandPalette.close}
+          onExitApp={handleExitApp}
+        />
+      </Modal>
+    </>
+  );
+}
+
+export interface AppRenderProps {
+  /** Tab definitions to pass to Frame. */
+  readonly tabs: readonly TabDefinition[];
+  /** Route path of the currently active tab. */
+  readonly activeTabPath: string;
+  /** Called when a tab is selected. */
+  readonly onTabSelect: (path: string) => void;
+  /** Active strategy (null when no chat has been started). */
+  readonly activeStrategy: StrategyOption | null;
+  /** Chat messages — passed through to ChatPage. */
+  readonly chatMessages: readonly ChatMessage[];
+  /** Chat lifecycle status — passed through to ChatPage. */
+  readonly chatStatus: ChatStatus;
+  /** Current chat error message, or null. */
+  readonly chatError: string | null;
+  /** Agent currently waiting for user input, or null. */
+  readonly chatPendingInputAgent: string | null;
+  /** Pending permission request, or null. */
+  readonly chatPendingPermissionRequest: import("../hooks").PendingPermissionRequest | null;
+  /** Called when the user submits their first prompt on the intro screen. */
+  readonly onStartChat: (strategyKey: string, input: string) => void;
+  /** Called when the user replies to an agent on the chat screen. */
+  readonly onReplySubmit: (text: string) => void;
+  /** Called when the user resolves a permission request. */
+  readonly onPermissionDecide: (decision: "allow" | "deny" | "allow-session" | "deny-session") => void;
+  /** Captured log entries to display in the Logs tab. */
+  readonly logs: readonly LogEntry[];
+  /** Called to clear all captured logs. */
+  readonly onClearLogs: () => void;
+  /** Whether to enable the Dev tab. */
+  readonly dev: boolean;
+}
+
+export function AppRender({
+  tabs,
+  activeTabPath,
+  onTabSelect,
+  activeStrategy,
+  chatMessages,
+  chatStatus,
+  chatError,
+  chatPendingInputAgent,
+  chatPendingPermissionRequest,
+  onStartChat,
+  onReplySubmit,
+  onPermissionDecide,
+  logs,
+  onClearLogs,
+  dev,
+}: AppRenderProps): React.ReactElement {
+  // /intro renders without the Frame tab bar.
+  return (
+    <Frame tabs={tabs} activeTabPath={activeTabPath} onTabSelect={onTabSelect}>
+      <Routes>
+        <Route
+          path="/chat"
+          element={
+            activeStrategy ? (
+              <ChatPage
+                messages={chatMessages}
+                chatStatus={chatStatus}
+                error={chatError}
+                pendingInputAgent={chatPendingInputAgent}
+                pendingPermissionRequest={chatPendingPermissionRequest}
+                onReplySubmit={onReplySubmit}
+                onPermissionDecide={onPermissionDecide}
+                activeStrategy={activeStrategy}
+              />
+            ) : (
+              <IntroPage
+                strategies={BUILT_IN_STRATEGIES}
+                onSubmit={onStartChat}
+              />
+            )
+          }
+        />
+        <Route
+          path="/settings"
+          element={<SettingsPage />}
+        />
+        <Route
+          path="/logs"
+          element={<LogsPage logs={logs} onClear={onClearLogs} />}
+        />
+      </Routes>
+    </Frame>
+  );
+}
+
+function SettingsPage(): React.ReactElement {
+  // Placeholder — settings UI lives here when implemented.
+  return (
+    <Box paddingX={1}>
+      <Text dimColor>Settings — coming soon</Text>
+    </Box>
+  );
+}

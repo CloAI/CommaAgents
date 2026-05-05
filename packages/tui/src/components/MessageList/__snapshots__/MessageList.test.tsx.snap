@@ -1,0 +1,93 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`MessageList empty state should display empty message when there are no messages 1`] = `
+" No messages yet.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"
+`;
+
+exports[`MessageList message rendering should display sender name and text for a single message 1`] = `
+" ┌── you ─────────────────────────────────────────────────────────────────────┐
+ │ Hi there                                                                   │
+ └────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"
+`;
+
+exports[`MessageList message rendering should display messages from all roles 1`] = `
+" ┌── you ─────────────────────────────────────────────────────────────────────┐
+ │ Hello                                                                      │
+ └────────────────────────────────────────────────────────────────────────────┘
+
+ ┌── assistant ───────────────────────────────────────────────────────────────┐
+ │ Hi! How can I help?                                                        │
+ └────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+"
+`;
+
+exports[`MessageList streaming indicator should show streaming cursor for messages that are still streaming 1`] = `
+" ┌── assistant ───────────────────────────────────────────────────────────────┐
+ │ Thinking▍                                                                  │
+ │                                                                            │
+ └────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"
+`;

@@ -9,6 +9,9 @@ import type { ModelMessage, ResponseMessage } from "../../context/conversation-c
 import { runSideEffectHooks } from "../../hooks";
 import { resolveModel } from "../../model/model";
 import { buildMessages, resolveSystemPrompt } from "../../prompts/message-builder";
+import { createSandbox } from "../../sandbox/sandbox";
+import { PERMISSIVE_SANDBOX_CONFIG } from "../../sandbox/sandbox.constants";
+import type { Sandbox } from "../../sandbox/sandbox.types";
 import { resolveTools } from "../../tools/tool.registry";
 import type { ToolContext, ToolDefinition } from "../../tools/tool.types";
 import type { ToolHooks } from "../hooks";
@@ -26,10 +29,14 @@ export function buildAgentToolSet(
   toolDefinitions: Readonly<Record<string, ToolDefinition>> | undefined,
   agentName: string,
   toolHooks?: ToolHooks,
+  sandbox?: Sandbox,
 ): Record<string, ReturnType<typeof aiTool<any, any>>> | undefined {
   if (!toolDefinitions || Object.keys(toolDefinitions).length === 0) {
     return undefined;
   }
+
+  // Fall back to a permissive sandbox so tools always have a sandbox available
+  const effectiveSandbox = sandbox ?? createSandbox(PERMISSIVE_SANDBOX_CONFIG);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics are complex
   const toolSet: Record<string, ReturnType<typeof aiTool<any, any>>> = {};
@@ -52,6 +59,7 @@ export function buildAgentToolSet(
         const toolContext: ToolContext = {
           agentName,
           abort: options.abortSignal ?? AbortSignal.timeout(30_000),
+          sandbox: effectiveSandbox,
         };
 
         const result = await definition.execute(toolArguments, toolContext);
@@ -109,7 +117,7 @@ export async function buildCallOptions(
     : undefined;
 
   const [tools, resolvedSystemPrompt] = await Promise.all([
-    Promise.resolve(buildAgentToolSet(resolvedToolDefinitions, config.name, toolHooks)),
+    Promise.resolve(buildAgentToolSet(resolvedToolDefinitions, config.name, toolHooks, config.sandbox)),
     resolveSystemPrompt({ systemPrompt: config.systemPrompt }),
   ]);
 
@@ -120,6 +128,7 @@ export async function buildCallOptions(
     tools,
     stopWhen: stepCountIs(DEFAULT_MAX_STEPS),
     abortSignal,
+    ...(config.providerOptions ? { providerOptions: config.providerOptions } : {}),
   };
 }
 
@@ -134,11 +143,17 @@ export function mapStreamPart(streamPart: any): AgentStreamEvent | undefined {
   switch (streamPart.type) {
     case "text-delta":
       return { type: "text", text: streamPart.text };
+    case "reasoning-start":
+      return { type: "thinking-start", id: streamPart.id };
+    case "reasoning-delta":
+      return { type: "thinking", id: streamPart.id, text: streamPart.text };
+    case "reasoning-end":
+      return { type: "thinking-end", id: streamPart.id };
     case "tool-call":
       return {
         type: "tool-call",
         toolName: streamPart.toolName,
-        args: JSON.stringify(streamPart.args),
+        args: JSON.stringify(streamPart.args ?? streamPart.input),
       };
     case "tool-result":
       return {

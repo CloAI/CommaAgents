@@ -418,7 +418,7 @@ CommaAgents2/
 │   │   ├── scripts/          # 14 runnable example scripts
 │   │   └── strategies/       # Strategy file examples (JSON)
 │   └── daemon/               # Daemon usage examples
-├── end-to-end-tests/         # E2E tests (Bun)
+│   └── e2e/                  # E2E tests (Bun)
 ├── packages/
 │   ├── core/                 # @comma-agents/core
 │   │   ├── package.json

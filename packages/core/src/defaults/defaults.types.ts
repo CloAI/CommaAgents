@@ -56,6 +56,6 @@ export interface GlobalDefaults {
   readonly credentialStore: CredentialStore;
   /** The current global provider resolver (uses registry + dynamic import fallback). */
   readonly providerResolver: ProviderResolver;
-  /** Snapshot of registered provider IDs (does not include built-in KNOWN_PROVIDERS). */
+  /** Snapshot of registered provider IDs (does not include catalog-derived providers). */
   readonly registeredProviderIds: readonly string[];
 }

@@ -50,7 +50,8 @@ export function useRegion(options: RegionOptions): RegionHandle {
 
     const yoga = ref.current.yogaNode;
     if (yoga) {
-      const measuredWidth = requestedWidth === "auto" ? yoga.getComputedWidth() : requestedWidth;
+      const measuredWidth =
+        requestedWidth === "auto" ? yoga.getComputedWidth() : requestedWidth;
       dimensionsRef.current = { width: measuredWidth, height };
     }
   }, [requestedWidth, height]);

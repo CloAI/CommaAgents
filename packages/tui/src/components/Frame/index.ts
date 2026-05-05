@@ -1,4 +1,4 @@
-export type { FrameProps, FrameRenderProps } from "./Frame";
+export type { FrameProps, FrameRenderProps, TabDefinition } from "./Frame";
 export { Frame, FrameRender } from "./Frame";
 
 export type { FrameTheme } from "./Frame.theme";

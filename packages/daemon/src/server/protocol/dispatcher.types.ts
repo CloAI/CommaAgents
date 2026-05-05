@@ -3,9 +3,15 @@
 
 import type { StrategyExecutor } from "../../executor/executor";
 import type { Logger } from "../../logger/logger.types";
+import type { SessionStore } from "../../sessions";
 import type { DaemonState } from "../../state/state.types";
 import type { DaemonMessage } from "./messages";
 import type { ErrorMessage } from "./responses/error";
+import type { ProviderListMessage } from "./responses/provider-list";
+import type { SessionDeletedMessage } from "./responses/session-deleted";
+import type { SessionListMessage } from "./responses/session-list";
+import type { SessionLoadedMessage } from "./responses/session-loaded";
+import type { SessionRenamedMessage } from "./responses/session-renamed";
 import type { StrategyListMessage } from "./responses/strategy-list";
 import type { PongMessage } from "./responses/pong";
 
@@ -31,9 +37,16 @@ export interface RequestResponseMap {
   readonly start_strategy: never;
   readonly stop_strategy: never;
   readonly user_input: never;
+  readonly permission_decision: never;
+  readonly update_policy: never;
   readonly list_strategies: StrategyListMessage;
+  readonly list_providers: ProviderListMessage;
   readonly subscribe: never;
   readonly unsubscribe: never;
+  readonly list_sessions: SessionListMessage;
+  readonly load_session: SessionLoadedMessage;
+  readonly delete_session: SessionDeletedMessage;
+  readonly rename_session: SessionRenamedMessage;
 }
 
 // Handler context
@@ -71,6 +84,8 @@ export interface HandlerContext<
   readonly executor: StrategyExecutor;
   /** Centralized daemon state for run/client/subscription tracking. */
   readonly state: DaemonState;
+  /** Persistent per-cwd session store for transcript/run history. */
+  readonly sessionStore: SessionStore;
   /** Logger for handler-level diagnostics. */
   readonly logger: Logger;
   /** Send a response to the requesting client. Constrained by `RequestResponseMap`. */

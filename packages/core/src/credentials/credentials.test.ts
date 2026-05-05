@@ -403,3 +403,44 @@ describe("WELL_KNOWN_ENV_VARS", () => {
     }
   });
 });
+
+// getAuthStatus
+
+describe("getAuthStatus", () => {
+  beforeEach(() => {
+    cleanup();
+    mkdirSync(TEST_DIR, { recursive: true });
+  });
+  afterEach(cleanup);
+
+  test("returns 'none' when no credential exists in any source", async () => {
+    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const store = createCredentialStore({ backend, env: {} });
+    expect(await store.getAuthStatus("openai")).toBe("none");
+  });
+
+  test("returns 'configured' when env var is set", async () => {
+    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const store = createCredentialStore({
+      backend,
+      env: { OPENAI_API_KEY: "sk-env" },
+    });
+    expect(await store.getAuthStatus("openai")).toBe("configured");
+  });
+
+  test("returns 'configured' when global-scope credential exists", async () => {
+    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const store = createCredentialStore({ backend, env: {} });
+    await store.set("anthropic", "$global", { type: "api", key: "sk-a" });
+    expect(await store.getAuthStatus("anthropic")).toBe("configured");
+  });
+
+  test("returns 'configured' when strategy-scoped credential exists", async () => {
+    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const store = createCredentialStore({ backend, env: {} });
+    await store.set("openai", "my-strategy", { type: "api", key: "sk-s" });
+    expect(await store.getAuthStatus("openai", "my-strategy")).toBe("configured");
+    // Without scope, still 'none' because strategy-scoped requires scope match.
+    expect(await store.getAuthStatus("openai")).toBe("none");
+  });
+});

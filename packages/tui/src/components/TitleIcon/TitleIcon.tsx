@@ -1,7 +1,4 @@
-import { Box, Text } from "ink";
-import { useEffect, useRef, useState } from "react";
-
-import { useDebugRender } from "../../hooks/useDebugRender";
+import { Box, Text, useAnimation } from "ink";
 import framesData from "./icon-generator/frames.json";
 import { useTitleIconTheme } from "./TitleIcon.theme";
 
@@ -27,58 +24,55 @@ export interface TitleIconProps {
 }
 
 /** Target animation speed in frames per second. */
-const TARGET_FPS = 15;
+const TARGET_FPS = 16;
+
+/** Number of source frames to skip per rendered tick. */
+const FRAME_STEP = Math.max(1, Math.round(fps / TARGET_FPS));
+
+/**
+ * Inner animated body. Lives inside the detached Ink instance owned by
+ * `<DynamicContent>` so its 16fps re-renders never reach the outer tree.
+ *
+ * Split out as its own component because `useAnimation` must run in the
+ * tree that will actually paint — i.e. the detached one — for the frame
+ * advancement to drive only that tree's render cycle.
+ */
+function TitleIconBody({ playing }: { readonly playing: boolean }) {
+  const theme = useTitleIconTheme();
+  const { frame } = useAnimation({
+    interval: 1000 / TARGET_FPS,
+    isActive: playing,
+  });
+
+  const frameIndex = (frame * FRAME_STEP) % totalFrames;
+  const currentFrame = frames[frameIndex];
+
+  return (
+    <Box {...theme.container}>
+      <Box height={frameHeight} width={frameWidth} flexDirection="column">
+        {currentFrame?.map((line, lineIndex) => (
+          // Index-as-key is correct here: each row renders at a fixed line
+          // position every tick — there's no reordering, just content swap.
+          // biome-ignore lint/suspicious/noArrayIndexKey: stable per-row position
+          <Text key={`frame-${lineIndex}`} {...theme.frameLine}>
+            {line}
+          </Text>
+        ))}
+      </Box>
+    </Box>
+  );
+}
 
 /**
  * Animated ASCII art title icon.
  *
- * Renders pre-baked ASCII frames from `frames.json` at 15fps.
- * Each frame is an array of strings (one per row).
+ * The animation runs inside a `<DynamicContent>` boundary so frame ticks
+ * (16fps) repaint only a reserved region of the screen rather than the
+ * whole app. This eliminates the flicker that the title would otherwise
+ * induce in surrounding components on every tick.
  */
 export function TitleIcon({ playing = true }: TitleIconProps) {
-  const debug = useDebugRender("TitleIcon", { props: { playing } });
-  const theme = useTitleIconTheme();
-  const [frameIndex, setFrameIndex] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const frameStep = Math.max(1, Math.round(fps / TARGET_FPS));
-
-  useEffect(() => {
-    if (!playing) {
-      if (timerRef.current !== null) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-
-    const intervalMs = 1000 / TARGET_FPS;
-
-    timerRef.current = setInterval(() => {
-      setFrameIndex((prev) => (prev + frameStep) % totalFrames);
-    }, intervalMs);
-
-    return () => {
-      if (timerRef.current !== null) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [playing, frameStep]);
-
-  const currentFrame = frames[frameIndex];
-  if (!currentFrame) return null;
-
   return (
-    <Box ref={debug.ref} {...theme.container} height={frameHeight} width={frameWidth}>
-      {currentFrame.map((line, index) => {
-        const key = `line-${String(index)}`;
-        return (
-          <Text key={key} {...theme.frameLine}>
-            {line}
-          </Text>
-        );
-      })}
-    </Box>
+      <TitleIconBody playing={playing} />
   );
 }

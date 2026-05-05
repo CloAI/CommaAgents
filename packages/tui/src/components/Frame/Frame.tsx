@@ -1,100 +1,104 @@
-import { Box, Text, useInput, useStdout } from "ink";
+import { type DOMElement, Box, Text, useStdout } from "ink";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDebugRender } from "../../hooks/useDebugRender";
+import { useMouseClick } from "../../hooks/useMouseClick";
+import { useMouseHover } from "../../hooks/useMouseHover";
+import { MeasuredBox } from "../MeasuredBox";
+import { MouseProvider } from "../MouseProvider";
+import { Separator } from "../Separator";
 
 import type { FrameTheme } from "./Frame.theme";
 import { useFrameTheme } from "./Frame.theme";
 
 /** Definition of a single tab in the Frame header. */
-interface TabDefinition {
+export interface TabDefinition {
+  /** Route path this tab navigates to (e.g. "/chat"). */
+  readonly path: string;
   /** Display label for the tab. */
   readonly label: string;
   /** Alt+number shortcut hint (e.g. "Alt+1"). */
   readonly shortcut: string;
 }
 
-/** The tabs shown in the Frame header, in order. */
-const TABS: readonly TabDefinition[] = [
-  { label: "Chat", shortcut: "Alt+1" },
-  { label: "Settings", shortcut: "Alt+2" },
-  { label: "Logs", shortcut: "Alt+3" },
-] as const;
-
-/** Whether stdin supports raw mode (false in piped/non-TTY contexts). */
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 export interface FrameProps {
-  /** Content rendered in the body area (grows to fill available space). */
+  /**
+   * The route path of the currently active tab. Should match one of the
+   * `path` values in `tabs`. Used to highlight the correct tab header.
+   */
+  readonly activeTabPath: string;
+  /** Tab definitions to render in the header. */
+  readonly tabs: readonly TabDefinition[];
+  /** Called when the user selects a tab (by keyboard or click). */
+  readonly onTabSelect: (path: string) => void;
+  /** Content to render in the body area (the active page). */
   readonly children: React.ReactNode;
   /** Content rendered at the bottom of the frame (pinned). */
   readonly footer?: React.ReactNode;
 }
 
-export function Frame({ children, footer }: FrameProps): React.ReactElement {
-  const debug = useDebugRender("Frame", { props: { children, footer } });
+export function Frame({
+  activeTabPath,
+  tabs,
+  onTabSelect,
+  children,
+  footer,
+}: FrameProps): React.ReactElement {
+  const debug = useDebugRender("Frame", {
+    props: { activeTabPath, tabs },
+  });
   const theme = useFrameTheme();
   const { stdout } = useStdout();
-  const [activeTabIndex, setActiveTabIndex] = useState(0);
-  const [terminalHeight, setTerminalHeight] = useState(() => stdout?.rows ?? process.stdout.rows);
-  const [terminalWidth, setTerminalWidth] = useState(
-    () => stdout?.columns ?? process.stdout.columns,
+  const [terminalHeight, setTerminalHeight] = useState(
+    () => stdout?.rows ?? process.stdout.rows,
   );
 
   useEffect(() => {
     if (!stdout) return;
-
-    const handleResize = () => {
-      setTerminalHeight(stdout.rows);
-      setTerminalWidth(stdout.columns);
-    };
-
+    const handleResize = () => setTerminalHeight(stdout.rows);
     stdout.on("resize", handleResize);
     return () => {
       stdout.off("resize", handleResize);
     };
   }, [stdout]);
 
-  useInput(
-    (input, key) => {
-      if (key.meta && input === "1") setActiveTabIndex(0);
-      if (key.meta && input === "2") setActiveTabIndex(1);
-      if (key.meta && input === "3") setActiveTabIndex(2);
-    },
-    { isActive: RAW_MODE_SUPPORTED },
-  );
-
-  const handleTabSelect = useCallback((index: number) => {
-    setActiveTabIndex(index);
+  // Enable SGR mouse mode so the terminal reports click events.
+  useEffect(() => {
+    process.stdout.write("\x1b[?1000h\x1b[?1006h");
+    return () => {
+      process.stdout.write("\x1b[?1000l\x1b[?1006l");
+    };
   }, []);
 
   return (
-    <FrameRender
-      theme={theme}
-      activeTabIndex={activeTabIndex}
-      terminalHeight={terminalHeight}
-      terminalWidth={terminalWidth}
-      onTabSelect={handleTabSelect}
-      footer={footer}
-      debugRef={debug.ref}
-    >
-      {children}
-    </FrameRender>
+    <MouseProvider>
+      <FrameRender
+        theme={theme}
+        activeTabPath={activeTabPath}
+        tabs={tabs}
+        terminalHeight={terminalHeight}
+        onTabSelect={onTabSelect}
+        footer={footer}
+        debugRef={debug.ref}
+      >
+        {children}
+      </FrameRender>
+    </MouseProvider>
   );
 }
 
 export interface FrameRenderProps {
   /** Resolved theme style objects. */
   readonly theme: FrameTheme;
-  /** Index of the currently active tab. */
-  readonly activeTabIndex: number;
+  /** Route path of the currently active tab. */
+  readonly activeTabPath: string;
+  /** Tab definitions to render in the header. */
+  readonly tabs: readonly TabDefinition[];
   /** Terminal height in rows, used to size the root container. */
   readonly terminalHeight: number;
-  /** Terminal width in columns, used for full-width separator. */
-  readonly terminalWidth: number;
-  /** Called when a tab is selected by index. */
-  readonly onTabSelect: (index: number) => void;
-  /** Content rendered in the body area for the active tab. */
+  /** Called when a tab is selected. */
+  readonly onTabSelect: (path: string) => void;
+  /** Content to render in the body area. */
   readonly children: React.ReactNode;
   /** Content rendered at the bottom of the frame (pinned). */
   readonly footer?: React.ReactNode;
@@ -104,57 +108,97 @@ export interface FrameRenderProps {
 
 export function FrameRender({
   theme,
-  activeTabIndex,
+  activeTabPath,
+  tabs,
   terminalHeight,
-  terminalWidth,
+  onTabSelect,
   children,
   footer,
   debugRef,
 }: FrameRenderProps): React.ReactElement {
-  const activeTab = TABS[activeTabIndex];
-  if (!activeTab) {
-    throw new Error(`Invalid tab index: ${activeTabIndex}`);
-  }
-
   return (
     <Box ref={debugRef} {...theme.root} height={terminalHeight}>
-      {/* Tab bar */}
-      <Box {...theme.tabBar}>
-        {TABS.map((tab, index) => {
-          const isActive = index === activeTabIndex;
-          return (
-            <Box key={tab.label} gap={1}>
-              <Text {...(isActive ? theme.activeTab : theme.inactiveTab)}>{tab.label}</Text>
-              <Text {...theme.tabHint}>{tab.shortcut}</Text>
+      <MeasuredBox flexDirection="column" flexGrow={1}>
+        {({ width, height }) => (
+          <>
+            {/*
+              Flood-fill every cell with the theme background color.
+              Ink only paints background where a <Text> node occupies a cell —
+              a Box backgroundColor alone leaves the terminal's own background
+              visible in empty cells. This absolutely-positioned Text covers the
+              full frame area before any other content is rendered.
+            */}
+            <Box position="absolute">
+              <Text backgroundColor={theme.root.backgroundColor}>
+                {Array.from({ length: height })
+                  .map(() => " ".repeat(width))
+                  .join("\n")}
+              </Text>
             </Box>
-          );
-        })}
-      </Box>
 
-      {/* Separator */}
-      <Box {...theme.separator}>
-        <Text {...theme.separator.text}>
-          {theme.separator.char.repeat(Math.max(0, terminalWidth - theme.separator.paddingX * 2))}
-        </Text>
-      </Box>
+            {/* Tab bar */}
+            <Box {...theme.tabBar}>
+              {tabs.map((tab) => (
+                <FrameTab
+                  key={tab.path}
+                  tab={tab}
+                  isActive={tab.path === activeTabPath}
+                  theme={theme}
+                  onSelect={onTabSelect}
+                />
+              ))}
+            </Box>
 
-      {/* Content (grows to fill available space) */}
-      <Box {...theme.content}>
-        {activeTabIndex === 0 ? children : null}
-        {activeTabIndex === 1 ? (
-          <Box paddingX={1}>
-            <Text dimColor>Settings — coming soon</Text>
-          </Box>
-        ) : null}
-        {activeTabIndex === 2 ? (
-          <Box paddingX={1}>
-            <Text dimColor>Logs — coming soon</Text>
-          </Box>
-        ) : null}
-      </Box>
+            {/* Separator */}
+            <Separator />
 
-      {/* Footer (pinned to bottom) */}
-      {footer ? <Box {...theme.footer}>{footer}</Box> : null}
+            {/* Content (grows to fill available space) */}
+            <Box {...theme.content}>{children}</Box>
+
+            {/* Footer (pinned to bottom) */}
+            {footer ? <Box {...theme.footer}>{footer}</Box> : null}
+          </>
+        )}
+      </MeasuredBox>
+    </Box>
+  );
+}
+
+/** Props for the {@link FrameTab} subcomponent. */
+interface FrameTabProps {
+  /** Tab definition (path / label / shortcut). */
+  readonly tab: TabDefinition;
+  /** Whether this tab matches the current active path. */
+  readonly isActive: boolean;
+  /** Resolved Frame theme — supplies active/inactive/hovered styles. */
+  readonly theme: FrameTheme;
+  /** Called with the tab's `path` when the user clicks the row. */
+  readonly onSelect: (path: string) => void;
+}
+
+/**
+ * Single clickable tab in the Frame header.
+ *
+ * Hovering highlights the row by overlaying {@link FrameTheme.hoveredTab} on
+ * top of the active/inactive base style, so the user gets visual affordance
+ * before clicking. Left-click selects the tab. The whole row (label +
+ * shortcut hint) is the hit target so the cursor doesn't have to land on the
+ * label glyphs precisely.
+ */
+function FrameTab({ tab, isActive, theme, onSelect }: FrameTabProps): React.ReactElement {
+  const ref = useRef<DOMElement>(null);
+  const { isHovered } = useMouseHover({ ref });
+  useMouseClick({ ref, onClick: () => onSelect(tab.path) });
+
+  const baseLabelStyle = isActive ? theme.activeTab : theme.inactiveTab;
+  // When hovered, merge the hover style on top so color/bold win without
+  // clobbering underline (active) or dimColor (inactive).
+  const labelStyle = isHovered ? { ...baseLabelStyle, ...theme.hoveredTab } : baseLabelStyle;
+
+  return (
+    <Box ref={ref} gap={1}>
+      <Text {...labelStyle}>{tab.label}</Text>
+      <Text {...theme.tabHint}>{tab.shortcut}</Text>
     </Box>
   );
 }

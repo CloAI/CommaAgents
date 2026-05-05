@@ -1,19 +1,17 @@
-import { Box } from "ink";
-import type { ReactNode } from "react";
-import type { MeasuredDimensions } from "./useMeasure";
-import { useMeasure } from "./useMeasure";
+import { Box, useBoxMetrics } from "ink";
+import type React from "react";
+import { type ReactNode, useRef } from "react";
 
 /** Props accepted by MeasuredBox — same as ink Box plus a render-prop child. */
-export interface MeasuredBoxProps {
+export type MeasuredBoxProps = {
   /** Render prop that receives the measured dimensions. */
-  readonly children: (dimensions: MeasuredDimensions) => ReactNode;
-  /** Width of the outer box. Defaults to "100%". */
-  readonly width?: number | string;
-  /** Flex direction. Defaults to "column". */
-  readonly flexDirection?: "row" | "column" | "row-reverse" | "column-reverse";
-  /** Flex grow factor. */
-  readonly flexGrow?: number;
-}
+  readonly children: (dimensions: {
+    width: number;
+    height: number;
+    left: number;
+    top: number;
+  }) => ReactNode;
+} & Omit<React.ComponentProps<typeof Box>, "children" | "ref">;
 
 /**
  * A `<Box>` wrapper that measures its own rendered dimensions and
@@ -30,17 +28,15 @@ export interface MeasuredBoxProps {
  * </MeasuredBox>
  * ```
  */
-export function MeasuredBox({
-  children,
-  width = "100%",
-  flexDirection = "column",
-  flexGrow,
-}: MeasuredBoxProps) {
-  const { ref, dimensions } = useMeasure();
+export function MeasuredBox({ children, ...boxProps }: MeasuredBoxProps) {
+  const ref = useRef<import("ink").DOMElement | null>(null) as React.RefObject<
+    import("ink").DOMElement
+  >;
+  const { width, height, left, top, hasMeasured } = useBoxMetrics(ref);
 
   return (
-    <Box ref={ref} width={width} flexDirection={flexDirection} flexGrow={flexGrow}>
-      {children(dimensions)}
+    <Box ref={ref} {...boxProps}>
+      {hasMeasured ? children({ width, height, left, top }) : <></>}
     </Box>
   );
 }

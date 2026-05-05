@@ -1,0 +1,178 @@
+---
+title: Sandbox
+description: Declare a working directory and read/write policies for strategy execution.
+---
+
+# Sandbox
+
+A sandbox declares the working directory and file-system access policies for a strategy's execution environment. Every tool receives the sandbox via `ToolContext.sandbox` and must call `authorizeRead` or `authorizeWrite` before performing any file I/O.
+
+```ts
+import { createSandbox, loadStrategyFromString } from "@comma-agents/core";
+
+const sandbox = createSandbox({
+  cwd: "/projects/my-app",
+  jail: true,
+  write: { default: "ask" },
+}, {
+  requestPermission: async (request) => {
+    const answer = prompt(`Allow ${request.operation} on ${request.resource}? [y/n]`);
+    return answer === "y" ? "allow" : "deny";
+  },
+});
+
+const strategy = await loadStrategyFromString(content, "yaml", { sandbox });
+```
+
+When no sandbox is provided, all tools run with a permissive sandbox (`cwd: process.cwd()`, all reads and writes allowed).
+
+## SandboxConfig
+
+Static configuration passed to `createSandbox()`.
+
+<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="SandboxConfig" />
+
+## PathPolicy
+
+Policy applied to a class of file-system operations (read or write).
+
+<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="PathPolicy" />
+
+Pattern matching uses [Bun.Glob](https://bun.sh/docs/api/glob) syntax. Patterns are resolved relative to `cwd`. Evaluation order: deny patterns → allow patterns → default.
+
+## SandboxDependencies
+
+Runtime dependencies injected at creation time.
+
+<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="SandboxDependencies" />
+
+## Sandbox
+
+The runtime sandbox object returned by `createSandbox()`.
+
+<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="Sandbox" />
+
+## Using the Sandbox Directly
+
+You can use `createSandbox()` outside of a strategy loader — for example, in custom scripts or test utilities.
+
+```ts
+import { createSandbox } from "@comma-agents/core";
+
+const sandbox = createSandbox({
+  cwd: "/workspace",
+  jail: true,
+  read: { default: "allow" },
+  write: {
+    default: "deny",
+    allow: ["out/**", "tmp/**"],
+  },
+});
+
+// Synchronous: resolve and check paths without I/O
+const abs = sandbox.resolvePath("src/index.ts"); // "/workspace/src/index.ts"
+console.log(sandbox.canWrite("out/result.txt")); // true
+console.log(sandbox.canWrite("src/index.ts"));   // false
+
+// Synchronous enforcement (throws SandboxViolationError on deny)
+sandbox.assertReadable("src/index.ts");   // ok — read default is "allow"
+sandbox.assertWritable("out/result.txt"); // ok — matches allow pattern
+sandbox.assertWritable("src/index.ts");   // throws — denied
+
+// Async: may prompt the user if policy is "ask"
+const authCtx = { agentName: "writer", toolName: "write-file", signal: new AbortController().signal };
+const resolvedPath = await sandbox.authorizeWrite("out/report.md", authCtx);
+```
+
+## Writing a Tool That Uses the Sandbox
+
+Tools receive the sandbox via `ToolContext`. Call `authorizeRead` or `authorizeWrite` before any file operation.
+
+```ts
+import { createTool } from "@comma-agents/core";
+import { readFileSync } from "node:fs";
+
+export const readFileTool = createTool({
+  name: "read_file",
+  description: "Read a file from disk.",
+  parameters: { path: { type: "string" } },
+  execute: async ({ path }, ctx) => {
+    const abs = await ctx.sandbox.authorizeRead(path, {
+      agentName: ctx.agentName,
+      toolName: "read_file",
+      signal: ctx.signal,
+    });
+    return readFileSync(abs, "utf8");
+  },
+});
+```
+
+Use `assertReadable` / `assertWritable` for synchronous enforcement when interactive prompting is not needed (e.g. glob results, path filtering).
+
+## Runtime Policy Updates
+
+Use `updatePolicy()` to mutate the sandbox's in-memory policy after creation. This is how `"allow-session"` and `"deny-session"` decisions are applied, and how the daemon's `update_policy` message works.
+
+```ts
+sandbox.updatePolicy({
+  mode: "write",
+  allow: ["generated/**"],
+  default: "deny",
+});
+```
+
+Subscribe to policy changes with `onPolicyChange()`:
+
+```ts
+const unsubscribe = sandbox.onPolicyChange((snapshot) => {
+  console.log("Policy changed:", snapshot.read, snapshot.write);
+});
+
+// Later, when cleanup is needed:
+unsubscribe();
+```
+
+## Permission Decisions
+
+When a path's policy is `"ask"`, the sandbox calls the `PermissionRequester` provided via `SandboxDependencies`. The requester returns a `PermissionDecision`:
+
+<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="PermissionDecision" />
+
+`"allow-session"` and `"deny-session"` decisions are stored in-memory and applied as policy patches via `updatePolicy()`. They are not persisted to disk.
+
+If a path resolves to `"ask"` but no `PermissionRequester` is configured, a `SandboxViolationError` with `reason: "ask-no-handler"` is thrown.
+
+## PermissionRequest
+
+The data passed to the `PermissionRequester` when a path resolves to `"ask"`.
+
+<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="PermissionRequest" />
+
+## Jail Mode
+
+When `jail: true`, any path that resolves outside `cwd` (including via symlinks) throws a `SandboxViolationError` with `reason: "jail"`. This prevents tools from escaping the declared working directory.
+
+```ts
+const sandbox = createSandbox({ cwd: "/projects/app", jail: true });
+
+sandbox.resolvePath("../../etc/passwd"); // throws SandboxViolationError { reason: "jail" }
+```
+
+With `jail: false` (the default), paths outside `cwd` are allowed and policies still apply normally.
+
+## SandboxViolationError
+
+Thrown when a path is denied or escapes the jail.
+
+```ts
+import { SandboxViolationError } from "@comma-agents/core";
+
+try {
+  sandbox.assertWritable("src/index.ts");
+} catch (err) {
+  if (err instanceof SandboxViolationError) {
+    console.log(err.path);   // absolute path that was denied
+    console.log(err.reason); // "jail" | "read-denied" | "write-denied" | "ask-no-handler"
+  }
+}
+```

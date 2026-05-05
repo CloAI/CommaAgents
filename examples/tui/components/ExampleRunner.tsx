@@ -119,7 +119,12 @@ export function ExampleRunner({ provider, example, onDone }: ExampleRunnerProps)
       [provider.envVar]: provider.apiKey,
     };
 
-    const child = spawn("bun", ["run", scriptPath], {
+    const args =
+      example.category === "e2e"
+        ? ["test", scriptPath]
+        : ["run", scriptPath];
+
+    const child = spawn("bun", args, {
       cwd: examplesDir,
       env,
       stdio: ["ignore", "pipe", "pipe"],

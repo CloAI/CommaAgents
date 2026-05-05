@@ -22,27 +22,6 @@ import { hideBin } from "yargs/helpers";
 import type { CLIArgs } from "./App";
 import { App } from "./App";
 
-// Enter alternate screen buffer so the TUI uses a clean full-screen canvas
-// and restores the original terminal content on exit.
-const ALT_SCREEN_ON = "\x1b[?1049h";
-const ALT_SCREEN_OFF = "\x1b[?1049l";
-
-process.stdout.write(ALT_SCREEN_ON);
-
-const restoreScreen = () => {
-  process.stdout.write(ALT_SCREEN_OFF);
-};
-
-process.on("exit", restoreScreen);
-process.on("SIGINT", () => {
-  restoreScreen();
-  process.exit(0);
-});
-process.on("SIGTERM", () => {
-  restoreScreen();
-  process.exit(0);
-});
-
 const argv = yargs(hideBin(process.argv))
   .scriptName("comma-agents-tui")
   .usage("$0 [options]")
@@ -95,4 +74,8 @@ const cliArgs: CLIArgs | undefined = argv.all
     }
   : undefined;
 
-render(<App cliArgs={cliArgs} />);
+render(<App cliArgs={cliArgs} />, {
+  alternateScreen: true,
+  incrementalRendering: true,
+  concurrent: true,
+});

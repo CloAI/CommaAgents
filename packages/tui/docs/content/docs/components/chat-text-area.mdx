@@ -1,0 +1,56 @@
+---
+title: ChatTextArea
+description: Strategy-aware prompt input combining TextAreaInput with strategy cycling.
+---
+
+# ChatTextArea
+
+Wraps `TextAreaInput` with strategy selection. The user cycles through available strategies with Tab and submits a message with Meta+Enter. On submit, the selected strategy value and input text are passed to the `onSubmit` callback.
+
+```tsx
+import { ChatTextArea } from "@comma-agents/tui";
+
+<ChatTextArea
+  strategies={[
+    { label: "Plan", value: "plan", description: "Think step-by-step" },
+    { label: "Build", value: "build", description: "Write code directly" },
+  ]}
+  onSubmit={(strategyPath, input) => {
+    startStrategy(strategyPath, input);
+  }}
+/>
+```
+
+## Props
+
+### ChatTextAreaProps
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `strategies` | `readonly StrategyOption[]` | — | Available strategies to cycle through |
+| `onSubmit` | `(strategyPath: string, input: string) => void` | — | Called with the selected strategy value and input text |
+| `focus` | `boolean` | `true` | Whether the input is focused |
+| `width` | `number \| string` | `"100%"` | Width of the text area |
+| `height` | `number` | `10` | Visible row count |
+| `placeholder` | `string` | `"Enter your prompt..."` | Placeholder text |
+
+### StrategyOption
+
+| Field | Type | Description |
+|---|---|---|
+| `label` | `string` | Short display name (e.g. "Plan") |
+| `value` | `string` | Strategy identifier passed to `onSubmit` |
+| `description` | `string` | One-line description shown alongside the label |
+
+## Container / Render Split
+
+`ChatTextArea` manages the strategy index and input value state. `ChatTextAreaRender` is the pure render function that receives resolved values — current strategy label, description, and text area props.
+
+The render function displays the `TextAreaInput` above a strategy row that shows the active strategy label, its description, and keyboard hints (`tab strategy · meta+enter send`).
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| Tab | Cycle to the next strategy |
+| Meta+Enter | Submit the current input with the selected strategy |

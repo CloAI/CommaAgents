@@ -31,6 +31,7 @@ interface StartArgs {
   foreground: boolean;
   port?: number;
   modelOverride?: string;
+  verbose: boolean;
 }
 
 // Command: start
@@ -40,6 +41,9 @@ async function commandStart(args: StartArgs): Promise<void> {
   const envOverrides: Record<string, string | undefined> = { ...process.env };
   if (args.port !== undefined) {
     envOverrides.COMMA_DAEMON_PORT = String(args.port);
+  }
+  if (args.verbose) {
+    envOverrides.COMMA_DAEMON_LOG_LEVEL = "debug";
   }
   const config = loadDaemonConfig({ env: envOverrides });
 
@@ -63,6 +67,9 @@ async function commandStart(args: StartArgs): Promise<void> {
     }
     if (args.modelOverride !== undefined) {
       spawnArgs.push("--model-override", args.modelOverride);
+    }
+    if (args.verbose) {
+      spawnArgs.push("--verbose");
     }
 
     const child = Bun.spawn(spawnArgs, {
@@ -107,7 +114,25 @@ async function commandStart(args: StartArgs): Promise<void> {
   const credentialStore = createCredentialStore({ backend: credentialBackend });
   setGlobalCredentialStore(credentialStore);
 
-  // 3. Create and start daemon
+  // 3. Register global exception handlers so all uncaught errors reach the log
+  process.on("uncaughtException", (err: Error) => {
+    logger.error("Uncaught exception", {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    });
+  });
+
+  process.on("unhandledRejection", (reason: unknown) => {
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    logger.error("Unhandled promise rejection", {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    });
+  });
+
+  // 4. Create and start daemon
   const daemon = createDaemon({
     config,
     logger,
@@ -122,14 +147,14 @@ async function commandStart(args: StartArgs): Promise<void> {
     process.exit(1);
   }
 
-  // 4. Write PID file
+  // 5. Write PID file
   writePid(config.pidFile);
 
   console.log(`Daemon listening on ${config.host}:${daemon.port} (PID: ${process.pid})`);
   if (args.modelOverride) {
     console.log(`  Model override: ${args.modelOverride}`);
   }
-  // 5. Signal handlers for graceful shutdown
+  // 6. Signal handlers for graceful shutdown
   const shutdown = async () => {
     console.log("\nShutting down...");
     await daemon.stop();
@@ -249,6 +274,12 @@ yargs(hideBin(process.argv))
             return val;
           },
         })
+        .option("verbose", {
+          alias: "v",
+          type: "boolean",
+          default: false,
+          describe: "Enable verbose (debug-level) logging",
+        })
         .example("$0 start", "Start in background")
         .example("$0 start --foreground", "Start in foreground")
         .example("$0 start --port 8080", "Start on port 8080")
@@ -261,6 +292,7 @@ yargs(hideBin(process.argv))
         foreground: argv.foreground,
         port: argv.port,
         modelOverride: argv.modelOverride as string | undefined,
+        verbose: argv.verbose,
       });
     },
   )

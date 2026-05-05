@@ -20,6 +20,7 @@ export {
   OAuthCredentialSchema,
 } from "./credentials.schema";
 export type {
+  AuthStatus,
   CreateCredentialStoreOptions,
   CredentialBackend,
   CredentialStore,

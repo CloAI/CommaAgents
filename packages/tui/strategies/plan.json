@@ -12,13 +12,15 @@
     },
     "planner": {
       "description": "Breaks a goal into a clear, actionable step-by-step plan.",
-      "model": "openai/gpt-4o",
-      "systemPrompt": "You are a planning assistant. Given a goal or task description, produce a clear numbered plan with concrete, actionable steps. Be specific about what each step accomplishes. If you receive feedback from a reviewer, revise the plan to address their concerns while keeping it practical."
+      "model": "github-copilot/gpt-4o",
+      "systemPrompt": "You are a planning assistant. Given a goal or task description, produce a clear numbered plan with concrete, actionable steps. Be specific about what each step accomplishes. If you receive feedback from a reviewer, revise the plan to address their concerns while keeping it practical.",
+      "tools": ["read", "glob", "grep", "ls"]
     },
     "reviewer": {
       "description": "Critiques a plan for completeness, feasibility, and clarity.",
-      "model": "openai/gpt-4o",
-      "systemPrompt": "You are a plan reviewer. Evaluate the given plan for completeness, feasibility, ordering, and clarity. Point out any missing steps, unrealistic assumptions, or unclear instructions. Be constructive and specific. If the plan is solid, say so briefly and suggest minor improvements if any."
+      "model": "github-copilot/gpt-4o",
+      "systemPrompt": "You are a plan reviewer. Evaluate the given plan for completeness, feasibility, ordering, and clarity. Point out any missing steps, unrealistic assumptions, or unclear instructions. Be constructive and specific. If the plan is solid, say so briefly and suggest minor improvements if any.",
+      "tools": ["read", "glob", "grep", "ls"]
     }
   },
   "flow": {

@@ -40,7 +40,7 @@ export function findProvider(providerID: string): ProviderConfig | undefined {
 export interface ExampleEntry {
   label: string;
   value: string;
-  category: "core" | "daemon";
+  category: "core" | "daemon" | "e2e";
   /** If true, the example expects interactive stdin input (e.g., readline). */
   interactive?: boolean;
 }
@@ -118,4 +118,22 @@ export const DAEMON_EXAMPLES: ExampleEntry[] = [
   },
 ];
 
-export const ALL_EXAMPLES: ExampleEntry[] = [...CORE_EXAMPLES, ...DAEMON_EXAMPLES];
+export const E2E_EXAMPLES: ExampleEntry[] = [
+  { label: "Agent Conversations", value: "e2e/agent-conversations.e2e.test.ts", category: "e2e" },
+  { label: "Agent Streaming", value: "e2e/agent-streaming.e2e.test.ts", category: "e2e" },
+  { label: "Agent Tool Calling", value: "e2e/agent-tool-calling.e2e.test.ts", category: "e2e" },
+  { label: "Flows Composition", value: "e2e/flows-composition.e2e.test.ts", category: "e2e" },
+  { label: "Strategy Execution", value: "e2e/strategy-execution.e2e.test.ts", category: "e2e" },
+  {
+    label: "Daemon Lifecycle",
+    value: "e2e/daemon/daemon-lifecycle.e2e.test.ts",
+    category: "e2e",
+  },
+  {
+    label: "Daemon Strategies",
+    value: "e2e/daemon/daemon-strategies.e2e.test.ts",
+    category: "e2e",
+  },
+];
+
+export const ALL_EXAMPLES: ExampleEntry[] = [...CORE_EXAMPLES, ...DAEMON_EXAMPLES, ...E2E_EXAMPLES];

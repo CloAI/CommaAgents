@@ -5,6 +5,7 @@ import type { tool as aiTool, LanguageModel, ModelMessage, StepResult } from "ai
 import type { ConversationContext } from "../../context/conversation-context";
 import type { ConversationTurn, ResponseMessage } from "../../context/conversation-context.types";
 import type { PromptTemplate } from "../../prompts/types";
+import type { Sandbox } from "../../sandbox/sandbox.types";
 
 /** Configuration for creating an LLM-backed agent via `createAgent()`. */
 export interface AgentConfig {
@@ -50,6 +51,28 @@ export interface AgentConfig {
    * Built-in tools: "bash", "read", "write", "edit", "glob", "grep".
    */
   readonly tools?: readonly string[];
+  /**
+   * Sandbox governing file-system access for all tools invoked by this agent.
+   * When omitted, a permissive sandbox (no restrictions, cwd = process.cwd())
+   * is used so that existing strategies remain unaffected.
+   */
+  readonly sandbox?: Sandbox;
+  /**
+   * Per-call provider options forwarded to the AI SDK. Used to enable
+   * provider-specific behaviour such as reasoning / extended thinking.
+   *
+   * @example
+   * ```ts
+   * createAgent({
+   *   name: "planner",
+   *   model: "anthropic/claude-sonnet-4-5",
+   *   providerOptions: {
+   *     anthropic: { thinking: { type: "enabled", budgetTokens: 8000 } },
+   *   },
+   * });
+   * ```
+   */
+  readonly providerOptions?: Record<string, Record<string, unknown>>;
   /**
    * Custom execute override — replaces the LLM call with arbitrary logic.
    *
@@ -173,11 +196,22 @@ export interface AgentCallResult {
   readonly steps: ReadonlyArray<StepResult<any>>;
 }
 
-/** Event emitted during a streaming agent call. */
+/**
+ * Event emitted during a streaming agent call.
+ *
+ * Reasoning ("thinking") events come in three parts mirroring the AI SDK
+ * v6 stream: `thinking-start` opens a reasoning block, zero or more
+ * `thinking` deltas append text to it, and `thinking-end` closes it. The
+ * `id` is supplied by the model and lets multiple interleaved reasoning
+ * blocks within a single step be reassembled correctly downstream.
+ */
 export type AgentStreamEvent =
   | { readonly type: "text"; readonly text: string }
   | { readonly type: "tool-call"; readonly toolName: string; readonly args: string }
   | { readonly type: "tool-result"; readonly toolName: string; readonly output: string }
+  | { readonly type: "thinking-start"; readonly id: string }
+  | { readonly type: "thinking"; readonly id: string; readonly text: string }
+  | { readonly type: "thinking-end"; readonly id: string }
   | { readonly type: "step-start" }
   | { readonly type: "done"; readonly result: AgentCallResult };
 
@@ -189,4 +223,11 @@ export interface CallOptions {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
   readonly tools: Record<string, ReturnType<typeof aiTool<any, any>>> | undefined;
   readonly abortSignal: AbortSignal | undefined;
+  /**
+   * Per-call provider options forwarded verbatim to `streamText`. Used to
+   * enable provider-specific features such as Anthropic extended thinking
+   * (`{ anthropic: { thinking: { type: "enabled", budgetTokens: 8000 } } }`)
+   * or OpenAI reasoning effort (`{ openai: { reasoningEffort: "high" } }`).
+   */
+  readonly providerOptions?: Record<string, Record<string, unknown>>;
 }

@@ -8,11 +8,18 @@ export interface RoleStyle {
   readonly color: string;
 }
 
+/** Style for an inline label badge (e.g. "you", "system", agent name). */
+export interface BadgeStyle {
+  readonly bold: boolean;
+  readonly color: string;
+}
+
 /** Spread-ready style objects for the MessageList component. */
 export interface MessageListTheme {
   /** Outer container. */
   readonly container: {
     readonly flexDirection: "column";
+    readonly flexGrow: number;
     readonly paddingX: number;
   };
   /** Empty state wrapper. */
@@ -22,24 +29,135 @@ export interface MessageListTheme {
       readonly dimColor: boolean;
     };
   };
-  /** Individual message row. */
-  readonly messageRow: {
-    readonly flexDirection: "row";
-    readonly marginBottom: number;
+
+  /** User-authored message block. */
+  readonly userMessage: {
+    /** Outer column container. */
+    readonly container: {
+      readonly flexDirection: "column";
+      readonly flex: 1;
+      readonly marginBottom: number;
+    };
+    /** Header row with the "you" label. */
+    readonly header: {
+      readonly flexDirection: "row";
+    };
+    /** "you" label style. */
+    readonly label: BadgeStyle;
+    /** Body row containing the prompt text. */
+    readonly body: {
+      readonly paddingLeft: number;
+    };
+    /** Body text style. */
+    readonly bodyText: {
+      readonly wrap: "wrap";
+    };
+    /** Color used for the wrapping `BorderedPanel` border + header label. */
+    readonly borderColor: string;
   };
-  /** Separator between sender name and text. */
-  readonly messageSeparator: {
-    readonly dimColor: boolean;
+
+  /** Agent-authored message block. */
+  readonly agentMessage: {
+    readonly container: {
+      readonly flexDirection: "column";
+      readonly flex: 1;
+      readonly marginBottom: number;
+    };
+    readonly header: {
+      readonly flexDirection: "row";
+    };
+    readonly label: BadgeStyle;
+    readonly body: {
+      readonly flexDirection: "column";
+      readonly paddingLeft: number;
+    };
+    /** Plain text segment style. */
+    readonly textSegment: {
+      readonly wrap: "wrap";
+    };
+    /** Streaming cursor indicator. */
+    readonly streamingCursor: {
+      readonly dimColor: boolean;
+    };
+    /** Tool-call row container. */
+    readonly toolCall: {
+      readonly container: {
+        readonly flexDirection: "column";
+        readonly marginTop: number;
+      };
+      readonly header: BadgeStyle;
+      readonly label: {
+        readonly dimColor: boolean;
+      };
+      readonly args: {
+        readonly dimColor: boolean;
+      };
+    };
+    /** Tool-result row container. */
+    readonly toolResult: {
+      readonly container: {
+        readonly flexDirection: "column";
+        readonly marginTop: number;
+      };
+      readonly header: BadgeStyle;
+      readonly output: {
+        readonly dimColor: boolean;
+        readonly wrap: "wrap";
+      };
+    };
+    /** Reasoning / "thinking" block. */
+    readonly thinking: {
+      readonly container: {
+        readonly flexDirection: "column";
+        readonly marginTop: number;
+      };
+      readonly header: BadgeStyle;
+      readonly text: {
+        readonly italic: true;
+        readonly dimColor: boolean;
+        readonly wrap: "wrap";
+      };
+    };
+    /** MCP call block. */
+    readonly mcpCall: {
+      readonly container: {
+        readonly flexDirection: "column";
+        readonly marginTop: number;
+      };
+      readonly header: BadgeStyle;
+      readonly args: {
+        readonly dimColor: boolean;
+      };
+      readonly output: {
+        readonly dimColor: boolean;
+        readonly wrap: "wrap";
+      };
+    };
+    /** Color used for the wrapping `BorderedPanel` border + header label. */
+    readonly borderColor: string;
   };
-  /** Message body text. */
-  readonly messageBody: {
-    readonly wrap: "wrap";
+
+  /** System-authored message block. */
+  readonly systemMessage: {
+    readonly container: {
+      readonly flexDirection: "row";
+      readonly flex: 1;
+      readonly marginBottom: number;
+    };
+    readonly bullet: {
+      readonly color: string;
+      readonly dimColor: boolean;
+    };
+    readonly text: {
+      readonly color: string;
+      readonly dimColor: boolean;
+      readonly wrap: "wrap";
+    };
+    /** Color used for the wrapping `BorderedPanel` border + header label. */
+    readonly borderColor: string;
   };
-  /** Streaming cursor indicator. */
-  readonly streamingCursor: {
-    readonly dimColor: boolean;
-  };
-  /** Role-based colors for sender name. */
+
+  /** Role-based colors for sender name (kept for backwards compatibility). */
   readonly roles: {
     readonly user: RoleStyle;
     readonly agent: RoleStyle;
@@ -58,6 +176,7 @@ export function useMessageListTheme(): MessageListTheme {
     () => ({
       container: {
         flexDirection: "column",
+        flexGrow: 1,
         paddingX: tokens.spacing.sm,
       },
       emptyState: {
@@ -66,19 +185,132 @@ export function useMessageListTheme(): MessageListTheme {
           dimColor: tokens.typography.secondaryDim,
         },
       },
-      messageRow: {
-        flexDirection: "row",
-        marginBottom: tokens.spacing.none,
+
+      userMessage: {
+        container: {
+          flexDirection: "column",
+          marginBottom: tokens.spacing.xs,
+        },
+        header: {
+          flexDirection: "row",
+        },
+        label: {
+          bold: tokens.typography.labelBold,
+          color: tokens.colors.userMessage,
+        },
+        body: {
+          paddingLeft: tokens.spacing.md,
+        },
+        bodyText: {
+          wrap: "wrap",
+        },
+        borderColor: tokens.colors.userMessage,
       },
-      messageSeparator: {
-        dimColor: tokens.typography.secondaryDim,
+
+      agentMessage: {
+        container: {
+          flexDirection: "column",
+          marginBottom: tokens.spacing.xs,
+        },
+        header: {
+          flexDirection: "row",
+        },
+        label: {
+          bold: tokens.typography.labelBold,
+          color: tokens.colors.agentMessage,
+        },
+        body: {
+          flexDirection: "column",
+          paddingLeft: tokens.spacing.md,
+        },
+        textSegment: {
+          wrap: "wrap",
+        },
+        streamingCursor: {
+          dimColor: tokens.typography.secondaryDim,
+        },
+        toolCall: {
+          container: {
+            flexDirection: "column",
+            marginTop: tokens.spacing.xs,
+          },
+          header: {
+            bold: tokens.typography.labelBold,
+            color: tokens.colors.primary,
+          },
+          label: {
+            dimColor: tokens.typography.secondaryDim,
+          },
+          args: {
+            dimColor: tokens.typography.secondaryDim,
+          },
+        },
+        toolResult: {
+          container: {
+            flexDirection: "column",
+            marginTop: tokens.spacing.xs,
+          },
+          header: {
+            bold: tokens.typography.labelBold,
+            color: tokens.colors.success,
+          },
+          output: {
+            dimColor: tokens.typography.secondaryDim,
+            wrap: "wrap",
+          },
+        },
+        thinking: {
+          container: {
+            flexDirection: "column",
+            marginTop: tokens.spacing.xs,
+          },
+          header: {
+            bold: tokens.typography.labelBold,
+            color: tokens.colors.muted,
+          },
+          text: {
+            italic: true,
+            dimColor: tokens.typography.secondaryDim,
+            wrap: "wrap",
+          },
+        },
+        mcpCall: {
+          container: {
+            flexDirection: "column",
+            marginTop: tokens.spacing.xs,
+          },
+          header: {
+            bold: tokens.typography.labelBold,
+            color: tokens.colors.warning,
+          },
+          args: {
+            dimColor: tokens.typography.secondaryDim,
+          },
+          output: {
+            dimColor: tokens.typography.secondaryDim,
+            wrap: "wrap",
+          },
+        },
+        borderColor: tokens.colors.agentMessage,
       },
-      messageBody: {
-        wrap: "wrap",
+
+      systemMessage: {
+        container: {
+          flexDirection: "row",
+          marginBottom: tokens.spacing.xs,
+        },
+        bullet: {
+          color: tokens.colors.systemMessage,
+          dimColor: tokens.typography.secondaryDim,
+        },
+        text: {
+          color: tokens.colors.systemMessage,
+          dimColor: tokens.typography.secondaryDim,
+          wrap: "wrap",
+        },
+        borderColor: tokens.colors.systemMessage,
       },
-      streamingCursor: {
-        dimColor: tokens.typography.secondaryDim,
-      },
+
       roles: {
         user: {
           bold: tokens.typography.labelBold,

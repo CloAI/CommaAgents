@@ -17,6 +17,12 @@ export { handleStopStrategy, StopStrategyMessage } from "./requests/stop-strateg
 export { handleSubscribe, SubscribeMessage } from "./requests/subscribe";
 export { handleUnsubscribe, UnsubscribeMessage } from "./requests/unsubscribe";
 export { handleUserInput, UserInputMessage } from "./requests/user-input";
+export { handlePermissionDecision, PermissionDecisionMessage } from "./requests/permission-decision";
+export { handleUpdatePolicy, UpdatePolicyMessage } from "./requests/update-policy";
+export { handleListSessions, ListSessionsMessage } from "./requests/list-sessions";
+export { handleLoadSession, LoadSessionMessage } from "./requests/load-session";
+export { handleDeleteSession, DeleteSessionMessage } from "./requests/delete-session";
+export { handleRenameSession, RenameSessionMessage } from "./requests/rename-session";
 // Daemon → Client response/event schemas
 export { AgentOutputMessage } from "./responses/agent-output";
 export { AgentStreamingMessage } from "./responses/agent-streaming";
@@ -33,10 +39,22 @@ export { RunSummarySchema } from "./responses/strategy-list/strategy-list.schema
 export { StrategyStartedMessage } from "./responses/strategy-started";
 export { PongMessage } from "./responses/pong";
 export { RequestInputMessage } from "./responses/request-input";
+export { RequestPermissionMessage } from "./responses/request-permission";
+export { PolicyUpdatedMessage } from "./responses/policy-updated";
 // Colocated schemas re-exported for public API
 export type { AgentCallResultWire, Usage } from "./responses/shared";
 export { AgentCallResultSchema, UsageSchema } from "./responses/shared";
 export { StepCompletedMessage } from "./responses/step-completed";
 export { StepStartedMessage } from "./responses/step-started";
+export { SessionListMessage, SessionMetadataSchema } from "./responses/session-list";
+export type { SessionMetadataWire } from "./responses/session-list";
+export {
+  SessionLoadedMessage,
+  SessionRunSummarySchema,
+  SessionTurnSchema,
+} from "./responses/session-loaded";
+export type { SessionRunSummaryWire, SessionTurnWire } from "./responses/session-loaded";
+export { SessionDeletedMessage } from "./responses/session-deleted";
+export { SessionRenamedMessage } from "./responses/session-renamed";
 // Shared base envelopes
 export { ClientBase, DaemonBase } from "./shared";

@@ -5,16 +5,6 @@ import { useTheme } from "../../theme";
 
 /** Spread-ready style objects for the Modal component. */
 export interface ModalTheme {
-  /** Full-screen overlay backdrop (absolute, covers entire terminal). */
-  readonly backdrop: {
-    readonly position: "absolute";
-    readonly display: "flex";
-    readonly flexDirection: "column";
-    readonly alignItems: "center";
-    readonly justifyContent: "center";
-  };
-  /** Dimmed background text color for the overlay. */
-  readonly backdropColor: string;
   /** The modal content container. */
   readonly content: {
     readonly flexDirection: "column";
@@ -22,6 +12,9 @@ export interface ModalTheme {
     readonly borderColor: string;
     readonly paddingX: number;
     readonly paddingY: number;
+    readonly overflow: "hidden";
+    readonly flexShrink: 0;
+    readonly backgroundColor: string;
   };
   /** Modal title text style. */
   readonly title: {
@@ -39,20 +32,15 @@ export function useModalTheme(): ModalTheme {
 
   return useMemo<ModalTheme>(
     () => ({
-      backdrop: {
-        position: "absolute",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-      },
-      backdropColor: tokens.colors.muted,
       content: {
         flexDirection: "column",
         borderStyle: tokens.borders.style as BoxProps["borderStyle"],
         borderColor: tokens.borders.color,
         paddingX: tokens.spacing.md,
         paddingY: tokens.spacing.sm,
+        overflow: "hidden",
+        flexShrink: 0,
+        backgroundColor: tokens.colors.background,
       },
       title: {
         bold: tokens.typography.headerBold,

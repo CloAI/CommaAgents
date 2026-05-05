@@ -1,0 +1,21 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`CodeViewRender basic rendering should render plain code without line numbers 1`] = `
+"const greeting = 1;
+const count = 2;"
+`;
+
+exports[`CodeViewRender basic rendering should render empty code without error 1`] = `""`;
+
+exports[`CodeViewRender basic rendering should render single line code correctly 1`] = `"  1 console.log('hello')"`;
+
+exports[`CodeViewRender line numbers should display line numbers when showLineNumbers is true 1`] = `
+"  1 line one
+  2 line two
+  3 line three"
+`;
+
+exports[`CodeViewRender highlighted code should use highlightedCode instead of raw code when provided 1`] = `
+"HIGHLIGHTED_LINE_1
+HIGHLIGHTED_LINE_2"
+`;
