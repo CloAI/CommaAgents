@@ -9,6 +9,7 @@ import { hideBin } from "yargs/helpers";
 import { App } from "./App";
 import { ChatSessionsContextProvider } from "./hooks/useChat";
 import { DaemonProvider } from "./hooks/useDaemon";
+import { logStore } from "./hooks/useLogs/logStore";
 import { ModalProvider } from "./hooks/useModal";
 import { ThemeProvider } from "./theme";
 
@@ -99,3 +100,8 @@ render(
     concurrent: true,
   },
 );
+
+// The app has rendered its first frame — switch the log store from pass-through
+// mode to full capture mode. Any console output from here on is only visible
+// in the Logs tab, keeping the TUI display clean.
+logStore.commit();

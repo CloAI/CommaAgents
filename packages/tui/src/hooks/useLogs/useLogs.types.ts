@@ -26,6 +26,18 @@ export interface LogStore {
   readonly push: (level: LogLevel, message: string) => void;
   /** Clears all captured logs. */
   readonly clear: () => void;
+  /**
+   * Switches from pass-through mode to full capture mode.
+   *
+   * During startup the store buffers log entries AND forwards them to the
+   * original terminal output so that errors are visible if the app crashes
+   * before the UI renders. Call `commit()` once the app is ready — after that
+   * point all console output is captured exclusively into the store and the
+   * Logs tab is the only place to view it.
+   */
+  readonly commit: () => void;
+  /** Whether the store has been committed (true) or is still in pass-through mode. */
+  readonly isCommitted: () => boolean;
   /** Restores original console methods and stops capturing. */
   readonly destroy: () => void;
 }

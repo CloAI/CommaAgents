@@ -1,0 +1,42 @@
+---
+title: todo_add
+description: Add a new item to the agent's todo list.
+---
+
+The todo_add tool appends a new pending item to the agent's todo list and returns its assigned id. Use it to break a larger task into trackable steps before starting work.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "planner",
+  model: "openai/gpt-4o",
+  tools: ["todo_add", "todo_complete", "todo_get", "todo_get_next", "todo_clear"],
+});
+```
+
+## Parameters
+
+The agent provides these parameters when invoking the tool:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `content` | `string` | Description of the todo item to add. Must be non-empty. |
+
+## Behavior
+
+- Each item is assigned a numeric id that increments within the agent's list.
+- The list persists across multiple `run()` calls for the same agent instance within the process lifetime.
+- Todo state is scoped per agent by name — different agents maintain independent lists.
+
+## Related tools
+
+The five todo tools work together as a task management system:
+
+| Tool | Purpose |
+|---|---|
+| `todo_add` | Add a new pending item |
+| `todo_complete` | Mark an item done, get the next pending item |
+| `todo_get` | List all items with status |
+| `todo_get_next` | Peek at the next pending item |
+| `todo_clear` | Remove all items |

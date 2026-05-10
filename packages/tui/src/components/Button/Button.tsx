@@ -1,13 +1,41 @@
-import { Box, Text, useFocus, useFocusManager, useInput, type DOMElement } from "ink";
+import {
+  Box,
+  type DOMElement,
+  Text,
+  useFocus,
+  useFocusManager,
+  useInput,
+} from "ink";
 import type React from "react";
-import { useRef, type RefObject } from "react";
+import { type RefObject, useRef } from "react";
 import { useMouseClick } from "../../hooks/useMouseClick";
 import { useMouseHover } from "../../hooks/useMouseHover";
-import { useButtonTheme } from "./Button.theme";
-import type { ButtonProps, ButtonRenderProps, ButtonVariant } from "./Button.types";
+import { type ButtonTheme, useButtonTheme } from "./Button.theme";
+import type { ButtonVariant } from "./Button.types";
 
-/** Raw-mode availability — required for `useInput` and `useFocus`. */
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
+export interface ButtonProps {
+  /**
+   * Ink focus id. When supplied the button participates in Ink's global focus
+   * cycle. When omitted the button manages its own internal focus zone.
+   */
+  readonly id?: string;
+
+  /** Text label rendered inside the button. */
+  readonly label: string;
+  /**
+   * Visual variant that controls border and text coloring.
+   * @default "primary"
+   */
+  readonly variant?: ButtonVariant;
+  /** Callback invoked when the button is activated (Enter key or left/right click). */
+  readonly onPress: () => void;
+  /**
+   * When `true` the button is rendered as disabled: it does not respond to
+   * clicks or key presses and is visually dimmed.
+   * @default false
+   */
+  readonly disabled?: boolean;
+}
 
 /**
  * Interactive button with focus, hover, and click support.
@@ -33,23 +61,21 @@ const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
  * ```
  */
 export function Button({
+  id,
   label,
   variant = "primary",
   onPress,
   disabled = false,
-  id,
-  isFocused: externalFocused,
 }: ButtonProps): React.ReactElement {
   const theme = useButtonTheme();
-  const boxRef = useRef<DOMElement | null>(null) as RefObject<DOMElement | null>;
+  const boxRef = useRef<DOMElement | null>(
+    null,
+  ) as RefObject<DOMElement | null>;
 
   // Focus management — skip own zone when parent supplies `isFocused`.
-  const ownFocus = useFocus({
+  const { isFocused } = useFocus({
     id,
-    isActive: RAW_MODE_SUPPORTED && externalFocused === undefined,
   });
-  const isFocused = externalFocused ?? ownFocus.isFocused;
-
   const { focus } = useFocusManager();
 
   // Hover tracking via ?1003h mouse mode.
@@ -82,7 +108,7 @@ export function Button({
       if (disabled) return;
       if (key.return) onPress();
     },
-    { isActive: isFocused && RAW_MODE_SUPPORTED },
+    { isActive: isFocused },
   );
 
   return (
@@ -96,6 +122,25 @@ export function Button({
       boxRef={boxRef}
     />
   );
+}
+
+export interface ButtonRenderProps {
+  /** Resolved Button theme. */
+  readonly theme: ButtonTheme;
+  /** Text label rendered inside the button. */
+  readonly label: string;
+  /** Active visual variant. */
+  readonly variant: ButtonVariant;
+  /** Whether the button currently has keyboard focus. */
+  readonly isFocused: boolean;
+  /** Whether the mouse cursor is hovering over the button. */
+  readonly isHovered: boolean;
+  /** Whether the button is disabled. */
+  readonly disabled: boolean;
+  /** Ref attached to the root `<Box>` for AABB hit-testing. */
+  readonly boxRef: RefObject<DOMElement | null>;
+  /** Node rendered inside the box (supplied by the container). */
+  readonly children?: React.ReactNode;
 }
 
 /**
@@ -121,29 +166,14 @@ export function ButtonRender({
   const resolvedColor = isActive ? focusColor : color;
 
   return (
-    <Box ref={boxRef} flexDirection="row" paddingX={theme.paddingX}>
-      {/*
-        Left bracket — part of the visual border drawn with Text glyphs
-        so we avoid Ink box borders (which add layout rows). The bracket
-        is colored like the variant, inverse when active.
-      */}
-      <Text color={resolvedColor} inverse={isActive} dimColor={disabled}>
-        {"["}
-      </Text>
-
+    <Box ref={boxRef} {...theme.buttonContainer}>
       <Text
         color={resolvedColor}
         bold={theme.labelBold && isFocused}
         inverse={isActive}
         dimColor={disabled}
       >
-        {" "}
-        {label}
-        {" "}
-      </Text>
-
-      <Text color={resolvedColor} inverse={isActive} dimColor={disabled}>
-        {"]"}
+        {`[ ${label} ]`}
       </Text>
     </Box>
   );

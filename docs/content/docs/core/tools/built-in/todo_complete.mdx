@@ -1,0 +1,40 @@
+---
+title: todo_complete
+description: Mark a todo item as completed and get the next pending item.
+---
+
+The todo_complete tool marks a todo item done by id and immediately returns the next pending item — or confirms that all items are complete. Use it to advance through a task list one step at a time.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "planner",
+  model: "openai/gpt-4o",
+  tools: ["todo_add", "todo_complete", "todo_get", "todo_get_next", "todo_clear"],
+});
+```
+
+## Parameters
+
+The agent provides these parameters when invoking the tool:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | `string` | The id of the todo item to mark as completed. |
+
+## Behavior
+
+- If the id does not exist, the tool returns a message indicating the item was not found without modifying the list.
+- If the item is already completed, calling this again is a no-op — no error is raised.
+- The output always reports either the next pending item (with a count of remaining items) or an "all done" confirmation, so the agent knows what to do next without an additional `todo_get_next` call.
+
+## Related tools
+
+| Tool | Purpose |
+|---|---|
+| `todo_add` | Add a new pending item |
+| `todo_complete` | Mark an item done, get the next pending item |
+| `todo_get` | List all items with status |
+| `todo_get_next` | Peek at the next pending item |
+| `todo_clear` | Remove all items |

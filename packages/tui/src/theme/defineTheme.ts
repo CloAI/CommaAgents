@@ -21,14 +21,25 @@ export type ThemeBuilder<ThemeShape> = (tokens: Theme) => ThemeShape;
  * was duplicated between the type and the value. `defineTheme` collapses
  * the two: write the value once, the type is the value.
  *
+ * Use `satisfies BoxProps` / `satisfies TextProps` on nested style objects
+ * intended to be spread into Ink `<Box>` / `<Text>`. This gives full
+ * autocomplete on Ink prop names AND keeps literal types narrow without
+ * `as const` — the literal `"column"` is checked against the union
+ * `"row" | "column" | …` so it never widens to `string`.
+ *
  * @param builder - Pure function that maps global tokens to spread-ready style objects.
  * @example
  * ```ts
+ * import type { BoxProps, TextProps } from "ink";
+ *
  * export const useChatPageTheme = defineTheme((tokens) => ({
- *   root: { flexDirection: "column" as const, height: "100%" as const },
+ *   root: { flexDirection: "column", height: "100%" } satisfies BoxProps,
  *   header: {
  *     paddingX: tokens.spacing.sm,
- *     title: { bold: tokens.typography.headerBold, color: tokens.colors.primary },
+ *     title: {
+ *       bold: tokens.typography.headerBold,
+ *       color: tokens.colors.primary,
+ *     } satisfies TextProps,
  *   },
  * }));
  *

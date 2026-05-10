@@ -1,2 +1,5 @@
-export type { TextAreaInputProps } from "./TextAreaInput";
-export { TextAreaInput } from "./TextAreaInput";
+export type {
+  TextAreaInputProps,
+  TextAreaInputRenderProps,
+} from "./TextAreaInput";
+export { TextAreaInput, TextAreaInputRender } from "./TextAreaInput";

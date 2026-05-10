@@ -9,9 +9,6 @@ import type {
   ChatTextAreaRenderProps,
 } from "./ChatTextArea.types";
 
-/** Whether stdin supports raw mode (false in piped/non-TTY contexts). */
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 /**
  * Outer-tree shell that measures the available width and hands a numeric
  * column count down to the detached `<DynamicContent>` boundary.
@@ -37,6 +34,7 @@ export function ChatTextArea({
     placeholder = "Enter your prompt...",
   }: ChatTextAreaProps): React.ReactElement {
 
+  const { isFocused } = useFocus({ id });
   const [inputValue, setInputValue] = useState("");
   const [strategyIndex, setStrategyIndex] = useState(0);
 
@@ -55,53 +53,33 @@ export function ChatTextArea({
     [currentStrategy, onSubmit],
   );
 
-  const { isFocused } = useFocus({ id, isActive: RAW_MODE_SUPPORTED });
-
   // Tab/ctrl+s shortcuts run in the OUTER tree on purpose — they mutate
   // outer state (strategyIndex, inputValue) and we don't want to wait for
   // the detached tree's input forwarding to deliver them. The detached
   // tree gets its own forwarded copy too, but only TextAreaInput's
   // useInput consumes character input there.
   useInput(
-    (input, key) => {
+    (_input, key) => {
       if (key.tab) {
         setStrategyIndex((previous) => (previous + 1) % strategies.length);
       }
-      if (key.ctrl && input === "s") {
-        const trimmed = inputValue.trim();
-        if (trimmed) handleSubmit(trimmed);
-      }
     },
-    { isActive: isFocused && RAW_MODE_SUPPORTED },
+    { isActive: isFocused },
   );
 
-  // Measure the rendered shell so we can give DynamicContent a numeric
-  // width that matches whatever flex sizing the parent imposed.
-  const shellRef = useRef<DOMElement>(null) as React.RefObject<DOMElement>;
-  const { width: measuredWidth } = useBoxMetrics(shellRef);
-
-  // Resolve the width to forward into the detached tree:
-  //   - If caller passed an explicit number, trust it.
-  //   - Otherwise wait until the shell has been measured (>0) and use that.
-  const resolvedWidth =
-    typeof width === "number" ? width : measuredWidth > 0 ? measuredWidth : 0;
-
   return (
-    <Box ref={shellRef} width={width} flexDirection="column">
-      {resolvedWidth > 0 ? (
+    
           <ChatTextAreaRender
             inputValue={inputValue}
             onInputChange={setInputValue}
             onSubmit={handleSubmit}
             strategyLabel={currentStrategy.label}
             strategyDescription={currentStrategy.description}
-            width={resolvedWidth}
+            width={width}
             height={height}
             placeholder={placeholder}
             id={id}
           />
-      ) : null}
-    </Box>
   );
 }
 
@@ -129,29 +107,20 @@ export function ChatTextAreaRender(
 
   const theme = useChatTextAreaTheme();
 
-  // Subtract the double border (1 col on each side) so TextAreaInput's
-  // own width matches the interior of the borderBox exactly.
-  const innerWidth = typeof width === "number" ? Math.max(1, width - 2) : width;
-
   return (
     <Box {...theme.container} width={width}>
-      <Box {...theme.borderBox}>
-        <TextAreaInput
-          value={inputValue}
-          onChange={onInputChange}
-          width={innerWidth}
-          height={height}
-          placeholder={placeholder}
-          onSubmit={onSubmit}
-          id={id}
-        />
-      </Box>
+      <TextAreaInput
+        value={inputValue}
+        onChange={onInputChange}
+        width={"100%"}
+        height={height}
+        placeholder={placeholder}
+        onSubmit={onSubmit}
+        id={id}
+      />
       <Box {...theme.strategyRow}>
-        <Text>
-          <Text {...theme.strategyLabel}>{strategyLabel}</Text>
-          <Text {...theme.hint}> — {strategyDescription}</Text>
-        </Text>
-        <Text {...theme.hint}>tab strategy · ctrl+s submit</Text>
+        <Text {...theme.strategyLabel}>{strategyLabel}<Text {...theme.hint}> — {strategyDescription}</Text></Text>
+        <Text {...theme.hint}>Tab to change strategy · Enter to submit</Text>
       </Box>
     </Box>
   );

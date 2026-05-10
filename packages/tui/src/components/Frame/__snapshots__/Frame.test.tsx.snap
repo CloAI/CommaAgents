@@ -1,8 +1,8 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
 exports[`FrameRender tab rendering should render children (the active page content) 1`] = `
-" Chat Alt+1  Settings Alt+2  Logs Alt+3
- ──────────────────────────────────────────────────────────────────────────────────────────────────
+" Chat  Settings  Logs
+ ──────────────────────────────────────────────────────────────────────────────
 Chat content
 
 
@@ -28,8 +28,8 @@ Chat content
 `;
 
 exports[`FrameRender tab rendering should mark the active tab path as active 1`] = `
-" Chat Alt+1  Settings Alt+2  Logs Alt+3
- ──────────────────────────────────────────────────────────────────────────────────────────────────
+" Chat  Settings  Logs
+ ──────────────────────────────────────────────────────────────────────────────
 Settings content
 
 
@@ -55,8 +55,8 @@ Settings content
 `;
 
 exports[`FrameRender footer should render footer content when provided 1`] = `
-" Chat Alt+1  Settings Alt+2  Logs Alt+3
- ──────────────────────────────────────────────────────────────────────────────────────────────────
+" Chat  Settings  Logs
+ ──────────────────────────────────────────────────────────────────────────────
 Chat content
 
 
@@ -82,8 +82,8 @@ Status: Ready"
 `;
 
 exports[`FrameRender separator should render without crashing 1`] = `
-" Chat Alt+1  Settings Alt+2  Logs Alt+3
- ──────────────────────────────────────────────────────────────────────────────────────────────────
+" Chat  Settings  Logs
+ ──────────────────────────────────────────────────────────────────────────────
 Content
 
 

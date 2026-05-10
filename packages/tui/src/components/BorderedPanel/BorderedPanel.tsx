@@ -102,26 +102,17 @@ export function BorderedPanelRender({
 }: BorderedPanelRenderProps): React.ReactElement {
   return (
     <Box
-      flexDirection="column"
-      width="100%"
-      borderStyle="single"
+      {...theme.container}
       borderColor={borderColor}
       backgroundColor={backgroundColor}
-      paddingX={theme.body.paddingX}
     >
-      <Box position="absolute" marginTop={-1} marginLeft={-1} flexDirection="row">
-        <Text backgroundColor={backgroundColor} color={borderColor}>
-          {" "}
-        </Text>
+      <Box {...theme.header} >
         <Text
+          {...theme.header.text}
           backgroundColor={backgroundColor}
           color={headerColor}
-          bold={theme.headerBold}
         >
-          {header}
-        </Text>
-        <Text backgroundColor={backgroundColor} color={borderColor}>
-          {" "}
+          {` ${header} `}
         </Text>
       </Box>
       {children}

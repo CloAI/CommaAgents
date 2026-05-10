@@ -1,12 +1,8 @@
 import { Box, Text, useInput } from "ink";
 import type React from "react";
-import { useDebugRender } from "../../hooks/useDebugRender";
 import { useModal } from "../../hooks/useModal";
-import { MeasuredBox } from "../MeasuredBox";
 
-import type { ModalTheme } from "./Modal.theme";
 import { useModalTheme } from "./Modal.theme";
-import { resolveSize } from "./Modal.utils";
 
 /** Size as absolute columns/rows (number) or a percentage of the terminal. */
 export type ModalSize = number | `${number}%`;
@@ -22,16 +18,6 @@ export interface ModalProps {
   /** Content rendered inside the modal body. */
   readonly children: React.ReactNode;
   /**
-   * Width of the modal content box. Number = columns, string = percentage.
-   * @default "80%"
-   */
-  readonly width?: ModalSize;
-  /**
-   * Height of the modal content box. Number = rows, string = percentage.
-   * @default "80%"
-   */
-  readonly height?: ModalSize;
-  /**
    * Close the modal when Esc is pressed. Only triggers when this modal is
    * topmost. @default true
    */
@@ -41,10 +27,9 @@ export interface ModalProps {
 /**
  * Full-screen overlay modal for the TUI.
  *
- * Renders an absolute-positioned backdrop that tints the background using
- * `backgroundColor` on a covering `Box`, then centers its children in a
- * bordered content box. The backdrop uses `position: "absolute"` at
- * 100%×100% so it floats above the rest of the layout without displacing it.
+ * Renders the modal content box when open. The backdrop dimming and overlay
+ * centering are handled externally by {@link AlphaDim} — `Modal` is
+ * responsible only for its content box and Esc-to-close behaviour.
  *
  * Visibility is controlled via `useModal(modalId)`. When `closeOnEsc` is
  * true (the default), the modal listens for Esc — but only when it is the
@@ -55,9 +40,15 @@ export interface ModalProps {
  * ```tsx
  * const confirm = useModal("confirm");
  *
- * <Modal modalId="confirm" title="Are you sure?" width="60%">
- *   <Text>This action cannot be undone.</Text>
- * </Modal>
+ * <AlphaDim
+ *   isActive={confirm.isOpen}
+ *   background={<AppContent />}
+ *   overlay={
+ *     <Modal modalId="confirm" title="Are you sure?" width="60%">
+ *       <Text>This action cannot be undone.</Text>
+ *     </Modal>
+ *   }
+ * />
  *
  * // open from anywhere:
  * confirm.open();
@@ -69,7 +60,6 @@ export function Modal({
   children,
   closeOnEsc = true,
 }: ModalProps): React.ReactElement | null {
-  const theme = useModalTheme();
   const { isOpen, isTopmost, close } = useModal(modalId);
 
   useInput(
@@ -82,24 +72,15 @@ export function Modal({
   if (!isOpen) return null;
 
   return (
-    <ModalRender
-      theme={theme}
-      title={title}
-    >
+    <ModalRender title={title}>
       {children}
     </ModalRender>
   );
 }
 
 export interface ModalRenderProps {
-  /** Resolved theme style objects. */
-  readonly theme: ModalTheme;
   /** Optional title displayed at the top of the modal. */
   readonly title?: string;
-  /** Width of the modal content box. Number = columns, string = percentage. */
-  readonly width?: ModalSize;
-  /** Height of the modal content box. Number = rows, string = percentage. */
-  readonly height?: ModalSize;
   /** Content rendered inside the modal body. */
   readonly children: React.ReactNode;
   /** Debug render ref to attach to the root Box. */
@@ -107,28 +88,24 @@ export interface ModalRenderProps {
 }
 
 /**
- * Presentational form of `Modal` — backdrop + centered content box.
+ * Presentational form of `Modal` — the themed content box with optional title.
  *
- * The backdrop is a `position: "absolute"` Box sized 100%×100% with a dark
- * `backgroundColor`. Because Ink paints the background color into every cell
- * of the Box, the underlying content is visually dimmed/tinted without
- * needing to tile space characters. The content box is then centered on top
- * using flexbox alignment on the backdrop layer.
+ * Backdrop dimming and centering are handled by {@link AlphaDim} at a higher
+ * level; this component renders only the bordered inner box.
  */
 export function ModalRender({
-  theme,
   title,
   children,
 }: ModalRenderProps): React.ReactElement {
+  const theme = useModalTheme();
   return (
-    <Box
-      {...theme.content}
-      position="absolute"
-    >
-      {title !== undefined ? (
-        <Text {...theme.title}>{title}</Text>
-      ) : null}
-      {children}
+    <Box {...theme.overlay}>
+      <Box {...theme.content}>
+        {title !== undefined ? (
+          <Text {...theme.title}>{title}</Text>
+        ) : null}
+        {children}
+      </Box>
     </Box>
   );
 }

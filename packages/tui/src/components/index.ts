@@ -1,3 +1,5 @@
+export { AlphaDim } from "./AlphaDim";
+export type { AlphaDimProps } from "./AlphaDim";
 export type {
   BorderedPanelProps,
   BorderedPanelRenderProps,

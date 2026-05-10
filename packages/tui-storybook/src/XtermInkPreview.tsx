@@ -1,12 +1,12 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
 import { render as inkRender } from "ink";
-import { ThemeProvider } from "../../tui/src/theme";
+import { type ReactNode, useEffect, useRef } from "react";
 import { MouseProvider } from "../../tui/src/components/MouseProvider";
 import { ModalProvider } from "../../tui/src/hooks/useModal";
-import { createStdoutShim } from "./shims/stdout";
+import { ThemeProvider } from "../../tui/src/theme";
 import { createStdinShim } from "./shims/stdin";
+import { createStdoutShim } from "./shims/stdout";
 
 /**
  * Wraps story content in the canonical provider tree expected by every
@@ -112,7 +112,7 @@ export function XtermInkPreview({
       term.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [children, cols, fit, rows]);
 
   // Re-render Ink when story children change without remounting the terminal.
   useEffect(() => {

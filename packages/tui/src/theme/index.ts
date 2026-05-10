@@ -1,6 +1,7 @@
 export { defaultTheme } from "./theme";
 export { defineTheme } from "./defineTheme";
 export type { ThemeBuilder, ThemeOf } from "./defineTheme";
+export type { BoxProps, TextProps } from "ink";
 export type {
   BreakpointName,
   Theme,

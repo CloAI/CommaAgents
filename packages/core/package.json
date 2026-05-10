@@ -14,9 +14,13 @@
     "@comma-agents/utils": "workspace:*",
     "ai": "6.0.91",
     "liquidjs": "10.25.0",
+    "turndown": "7.2.4",
     "yaml": "2.7.0",
     "zod": "3.25.76"
   },
   "author": "CloAI",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/turndown": "5.0.6"
+  }
 }

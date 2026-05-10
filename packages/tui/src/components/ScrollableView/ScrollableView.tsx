@@ -80,9 +80,16 @@ export function ScrollableView<ItemType>(
     (index: number): number => {
       const item = items[index];
       if (item === undefined) return 0;
-      return getRowHeight ? Math.max(0, getRowHeight(item, index)) : 1;
+      // Pass `viewportWidth` so callers that rely on soft-wrap aware
+      // measurement (e.g. `MessageList`) get accurate row counts. When
+      // the viewport hasn't been measured yet, `viewportWidth` is 0;
+      // callers must handle that gracefully (typically by falling back
+      // to a hard-newline count).
+      return getRowHeight
+        ? Math.max(0, getRowHeight(item, index, viewportWidth))
+        : 1;
     },
-    [items, getRowHeight],
+    [items, getRowHeight, viewportWidth],
   );
 
   // Total content extent in rows.

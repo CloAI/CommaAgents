@@ -1,177 +1,39 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`ModalContentRender — terminal size matrix should render the home view at 120x30 1`] = `
-"┌──────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                                                                              │
-│  Command Palette                                                                             │
-│                                                                                              │
-│  ╭────────────────────────────────────────────────────────────────────────────────────────╮  │
-│  │ › Type a command...                                                                    │  │
-│  ╰────────────────────────────────────────────────────────────────────────────────────────╯  │
-│                                                                                              │
-│  list-providers — Browse configured LLM providers                                            │
-│  exit — Exit the application                                                                 │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-└──────────────────────────────────────────────────────────────────────────────────────────────┘"
+exports[`ModalRender — title variations should render without a title 1`] = `
+"┌──────────────────────────────────────┐
+│                                      │
+│  body content                        │
+└──────────────────────────────────────┘"
 `;
 
-exports[`ModalContentRender — terminal size matrix should render the home view at 100x28 1`] = `
-"┌──────────────────────────────────────────────────────────────────────────────┐
-│                                                                              │
-│  Command Palette                                                             │
-│                                                                              │
-│  ╭────────────────────────────────────────────────────────────────────────╮  │
-│  │ › Type a command...                                                    │  │
-│  ╰────────────────────────────────────────────────────────────────────────╯  │
-│                                                                              │
-│  list-providers — Browse configured LLM providers                            │
-│  exit — Exit the application                                                 │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘"
+exports[`ModalRender — title variations should render with a title 1`] = `
+"┌──────────────────────────────────────┐
+│                                      │
+│  ╭────────────────────────────────╮  │
+│  │ › Type a command...            │  │
+│                                      │
+└──────────────────────────────────────┘"
 `;
 
-exports[`ModalContentRender — terminal size matrix should render the home view at 80x24 1`] = `
-"┌──────────────────────────────────────────────────────────────┐
-│                                                              │
-│  Command Palette                                             │
-│                                                              │
-│  ╭────────────────────────────────────────────────────────╮  │
-│  │ › Type a command...                                    │  │
-│  ╰────────────────────────────────────────────────────────╯  │
-│                                                              │
-│  list-providers — Browse configured LLM providers            │
-│  exit — Exit the application                                 │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘"
+exports[`ModalRender — title variations should render with a long title 1`] = `
+"┌──────────────────────────────────────┐
+│                                      │
+│  body contentModal Title That Could  │
+└── Plausibly Wrap Across Lines In A ──┘"
 `;
 
-exports[`ModalContentRender — terminal size matrix should render the home view at 60x20 1`] = `
-"┌──────────────────────────────────────────────┐
-│                                              │
-│  Command Palette                             │
-│                                              │
-│  ╭────────────────────────────────────────╮  │
-│  │ › Type a command...                    │  │
-│  ╰────────────────────────────────────────╯  │
-│                                              │
-│  list-provider— Browse configured LLM        │
-│  s            providers                      │
-│  exit — Exit the application                 │
-│                                              │
-│                                              │
-│                                              │
-│                                              │
-└──────────────────────────────────────────────┘"
-`;
-
-exports[`ModalContentRender — title variations should render without a title (no top row, no marginBottom) 1`] = `
-"┌──────────────────────────────────────────────────────────────┐
-│                                                              │
-│  body content                                                │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                                              │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘"
-`;
-
-exports[`ModalContentRender — title variations should render with a long title that may wrap 1`] = `
-"┌──────────────────────────────────────────────┐
-│                                              │
-│  A Very Long Modal Title That Could          │
-│  Plausibly Wrap Across Lines In A Narrow     │
-│  Frame                                       │
-│                                              │
-│  body content                                │
-│                                              │
-│                                              │
-│                                              │
-│                                              │
-│                                              │
-│                                              │
-└──────────────────────────────────────────────┘"
-`;
-
-exports[`ModalContentRender — content edge cases should render an empty content body within the border 1`] = `
+exports[`ModalRender — content edge cases should render an empty content body within the border 1`] = `
 "┌──────────────────────────────────────┐
 │                                      │
 │  Empty                               │
-│                                      │
-│                                      │
-│                                      │
-│                                      │
-│                                      │
-│                                      │
 └──────────────────────────────────────┘"
 `;
 
-exports[`ModalContentRender — content edge cases should clip tall content at the bottom border (overflow:hidden) 1`] = `
+exports[`ModalRender — sub-page (CommandPaletteRender) should render the active sub-page without the home command list 1`] = `
 "┌──────────────────────────────────────┐
 │                                      │
-│  Overflow                            │
-│                                      │
-│  line 8                              │
-│  line 15                             │
-│  line 23                             │
-│  line 30                             │
-│                                      │
+│  ╭────────────────────────────────╮  │
+│  ╰─› Type a command...────────────╯  │
 └──────────────────────────────────────┘"
-`;
-
-exports[`ModalContentRender — sub-page (CommandPaletteRender) should render the active sub-page without the home command list 1`] = `
-"┌──────────────────────────────────────────────────────────────────────────────┐
-│                                                                              │
-│  Command Palette                                                             │
-│                                                                              │
-│  ╭────────────────────────────────────────────────────────────────────────╮  │
-│  │ › Filter providers...                                                  │  │
-│  ╰────────────────────────────────────────────────────────────────────────╯  │
-│  OpenAI                                                                      │
-│  Anthropic                                                                   │
-│  Local                                                                       │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘"
 `;

@@ -1,3 +1,5 @@
+import { inspect } from "node:util";
+
 let logIdCounter = 0;
 
 /** Generate a unique sequential log entry ID. */
@@ -6,16 +8,24 @@ export function nextLogId(): string {
   return `log-${logIdCounter}`;
 }
 
-/** Stringify an array of console arguments into a single space-separated message. */
+/**
+ * Stringify console arguments into a single space-separated message.
+ *
+ * Strings are passed through verbatim. Everything else is rendered with
+ * `util.inspect`, which handles `Error` instances, circular references,
+ * `Symbol`, `BigInt`, and class instances cleanly — JSON.stringify would
+ * either throw or strip these.
+ */
 export function formatArgs(args: readonly unknown[]): string {
   return args
     .map((argument) => {
       if (typeof argument === "string") return argument;
-      try {
-        return JSON.stringify(argument, null, 2);
-      } catch {
-        return String(argument);
-      }
+      return inspect(argument, { depth: 4, breakLength: 120, colors: false });
     })
     .join(" ");
+}
+
+/** @internal Reset the log id counter. Test-only. */
+export function _resetLogIdCounterForTests(): void {
+  logIdCounter = 0;
 }

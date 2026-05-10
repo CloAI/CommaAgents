@@ -1,4 +1,4 @@
-import { defineTheme, type ThemeOf } from "../../theme";
+import { type BoxProps, defineTheme, type ThemeOf } from "../../theme";
 
 /**
  * Memoized themed style objects for the `Button` component.
@@ -7,6 +7,10 @@ import { defineTheme, type ThemeOf } from "../../theme";
  * needs to index by `ButtonVariant` — no conditional logic inside JSX.
  */
 export const useButtonTheme = defineTheme((tokens) => ({
+  buttonContainer: {
+    flexDirection: "row",
+    paddingX: tokens.spacing.md,
+  } satisfies BoxProps,
   /**
    * Per-variant color pairs used to style the border and label text.
    * Both `color` and `focusColor` are terminal color strings passed
@@ -32,9 +36,6 @@ export const useButtonTheme = defineTheme((tokens) => ({
       focusColor: tokens.colors.primary,
     },
   },
-
-  /** Horizontal padding inside the button border on each side. */
-  paddingX: tokens.spacing.md,
 
   /** Label is bold when the button has focus. */
   labelBold: tokens.typography.labelBold,

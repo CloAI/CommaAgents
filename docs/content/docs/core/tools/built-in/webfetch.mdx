@@ -1,0 +1,56 @@
+---
+title: webfetch
+description: Fetch content from a URL and return it as markdown, plain text, or raw HTML.
+---
+
+The webfetch tool retrieves content from a URL and converts it into a format suitable for the agent to read. By default it returns markdown, which strips away navigation chrome and keeps the meaningful content of a page.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "researcher",
+  model: "openai/gpt-4o",
+  tools: ["webfetch"],
+});
+```
+
+## Parameters
+
+The agent provides these parameters when invoking the tool:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `url` | `string` | The fully-qualified URL to fetch. Must be a valid URL. |
+| `format` | `"markdown" \| "text" \| "html"?` | Output format. Defaults to `"markdown"`. |
+| `timeout` | `number?` | Request timeout in seconds. Defaults to 30. |
+
+### Format options
+
+| Value | Description |
+|---|---|
+| `"markdown"` | Converts HTML to Markdown. `<script>`, `<style>`, `<noscript>`, and `<iframe>` elements are stripped. |
+| `"text"` | Converts HTML to Markdown then strips remaining syntax, returning plain readable text. |
+| `"html"` | Returns the raw HTML response body without modification. |
+
+## Behavior
+
+- Redirects are followed automatically.
+- If the response is not OK (status ≥ 400), the output is prefixed with `[HTTP <status> <statusText>]` so the agent knows the request did not succeed.
+- Content is truncated at 50,000 characters by default. A `[Content truncated to N characters]` notice is appended when truncation occurs.
+- The abort signal from the agent context is propagated — cancelling the agent also cancels the in-flight request.
+
+## Metadata
+
+The tool returns the following metadata (not sent to the model):
+
+| Field | Type | Description |
+|---|---|---|
+| `url` | `string` | The original requested URL. |
+| `finalUrl` | `string` | The URL after following any redirects. |
+| `statusCode` | `number` | HTTP response status code. |
+| `contentType` | `string` | Value of the `Content-Type` response header. |
+| `format` | `string` | The format used for this request. |
+| `durationMs` | `number` | Total request duration in milliseconds. |
+| `truncated` | `boolean` | Whether the content was truncated. |
+| `originalLength` | `number` | The full content length before truncation. |

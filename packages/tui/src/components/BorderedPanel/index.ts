@@ -1,10 +1,10 @@
 export {
   BorderedPanel,
-  BorderedPanelRender,
   type BorderedPanelProps,
+  BorderedPanelRender,
   type BorderedPanelRenderProps,
 } from "./BorderedPanel";
 export {
-  useBorderedPanelTheme,
   type BorderedPanelTheme,
+  useBorderedPanelTheme,
 } from "./BorderedPanel.theme";

@@ -44,7 +44,9 @@ export function MessageList({
       <ScrollableView<ChatMessage>
         items={messages}
         getKey={(message) => message.id}
-        getRowHeight={(message) => estimateMessageRowHeight(message)}
+        getRowHeight={(message, _index, viewportWidth) =>
+          estimateMessageRowHeight(message, viewportWidth)
+        }
         renderItem={(message) => <MessageRow message={message} />}
         stickToBottom
       />

@@ -7,15 +7,20 @@ import { DEBUG_LOG, LOG_FILE_PATH } from "../../utils/debug";
 /**
  * Create a log store that hijacks global console methods immediately.
  *
- * All `console.log`, `console.info`, `console.warn`, `console.error`,
- * and `console.debug` output is redirected exclusively to the store --
- * nothing is written to the terminal. The Logs tab is the only place
- * to view captured output.
+ * The store starts in **pass-through mode**: every console call is buffered
+ * into the store AND forwarded to the original terminal output (stderr/stdout).
+ * This ensures that startup errors — import failures, TTY errors, etc. — are
+ * still visible in the terminal if the app crashes before the UI renders.
+ *
+ * Once the app has successfully rendered, call {@link LogStore.commit} to
+ * switch to **capture mode**. After that point all console output is captured
+ * exclusively into the store; the Logs tab is the only place to view it.
  *
  * @param maxEntries - Maximum number of entries to retain. @default 500
  */
 export function createLogStore(maxEntries: number = MAX_LOG_ENTRIES): LogStore {
   let entries: readonly LogEntry[] = [];
+  let committed = false;
   const listeners = new Set<LogStoreListener>();
 
   const original: Record<LogLevel, (...args: unknown[]) => void> = {
@@ -26,9 +31,22 @@ export function createLogStore(maxEntries: number = MAX_LOG_ENTRIES): LogStore {
     debug: console.debug,
   };
 
+  // The terminal streams each level naturally writes to.
+  const stream: Record<LogLevel, NodeJS.WriteStream> = {
+    log: process.stdout,
+    info: process.stdout,
+    warn: process.stderr,
+    error: process.stderr,
+    debug: process.stderr,
+  };
+
   function notifyListeners(): void {
     for (const listener of listeners) {
-      listener();
+      try {
+        listener();
+      } catch {
+        // A misbehaving subscriber must never break the logging pipeline.
+      }
     }
   }
 
@@ -49,14 +67,19 @@ export function createLogStore(maxEntries: number = MAX_LOG_ENTRIES): LogStore {
         const ts = new Date(entry.timestamp).toISOString();
         appendFileSync(LOG_FILE_PATH, `[${ts}] ${level.toUpperCase()} ${message}\n`);
       } catch {
-        // ignore
+        // Writing to disk is best-effort.
       }
     }
   }
 
   function createInterceptor(level: LogLevel) {
     return (...args: unknown[]) => {
-      appendEntry(level, formatArgs(args));
+      const message = formatArgs(args);
+      appendEntry(level, message);
+      // In pass-through mode forward to the terminal so startup errors are visible.
+      if (!committed) {
+        stream[level].write(`${message}\n`);
+      }
     };
   }
 
@@ -85,6 +108,14 @@ export function createLogStore(maxEntries: number = MAX_LOG_ENTRIES): LogStore {
 
     push(level: LogLevel, message: string): void {
       appendEntry(level, message);
+    },
+
+    commit(): void {
+      committed = true;
+    },
+
+    isCommitted(): boolean {
+      return committed;
     },
 
     destroy(): void {

@@ -1,0 +1,36 @@
+---
+title: todo_get_next
+description: Get the next pending todo item without modifying the list.
+---
+
+The todo_get_next tool returns the next pending item without marking it complete or changing the list in any way. Use it when the agent needs to know what to work on next without yet committing to having finished the current step.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "planner",
+  model: "openai/gpt-4o",
+  tools: ["todo_add", "todo_complete", "todo_get", "todo_get_next", "todo_clear"],
+});
+```
+
+## Parameters
+
+This tool takes no parameters.
+
+## Behavior
+
+- Returns the first item in the list whose status is `"pending"`, in insertion order.
+- The list is not modified.
+- If there are no pending items, the tool returns `[No pending todo items]`.
+
+## Related tools
+
+| Tool | Purpose |
+|---|---|
+| `todo_add` | Add a new pending item |
+| `todo_complete` | Mark an item done, get the next pending item |
+| `todo_get` | List all items with status |
+| `todo_get_next` | Peek at the next pending item |
+| `todo_clear` | Remove all items |

@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 export const DEBUG_RENDER = false;
 
 /** When `true`, all log entries are also written to {@link LOG_FILE_PATH} on disk. */
-export const DEBUG_LOG = true;
+export const DEBUG_LOG = false;
 
 /** Absolute path to the debug log file written when {@link DEBUG_LOG} is enabled. */
 export const LOG_FILE_PATH = join(tmpdir(), "comma-agents-tui.log");

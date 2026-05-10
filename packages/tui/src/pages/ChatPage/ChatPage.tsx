@@ -1,5 +1,6 @@
-import { Box, Text } from "ink";
+import { Box, Text, useFocusManager } from "ink";
 import type React from "react";
+import { useEffect } from "react";
 
 import { ChatTextArea, MessageList, PermissionPrompt, Separator, StatusBar } from "../../components";
 import type { PermissionDecision } from "../../components/PermissionPrompt";
@@ -8,6 +9,12 @@ import type { ChatMessage, ChatStatus, PendingPermissionRequest } from "../../ho
 import { useDebugRender } from "../../hooks/useDebugRender";
 import type { ChatPageTheme } from "./ChatPage.theme";
 import { useChatPageTheme } from "./ChatPage.theme";
+
+/**
+ * Ink focus-manager id for the reply input. Stable so we can target it with
+ * `focus(...)` from effects when the agent re-prompts the user.
+ */
+const REPLY_INPUT_ID = "chat-reply";
 
 export interface ChatPageProps {
   /** Chat messages to display. */
@@ -98,6 +105,17 @@ export function ChatPageRender({
     ? `Reply to ${pendingInputAgent}...`
     : "Type your message...";
 
+  // When the agent re-prompts the user (status flips to "waiting_input"),
+  // <ChatTextArea> mounts but Ink's focus manager has no reason to route
+  // focus to it — the previously-focused element is gone, so the new
+  // mount sits inert and ctrl+s/tab won't fire. Explicitly grab focus
+  // every time the reply input appears so the user can immediately type
+  // and submit without manually tabbing into it.
+  const { focus } = useFocusManager();
+  useEffect(() => {
+    if (showInput) focus(REPLY_INPUT_ID);
+  }, [focus, showInput]);
+
   // ChatTextArea emits (strategyPath, input); the active strategy is fixed here,
   // so we discard the first argument and forward the text to the reply handler.
   const handleChatTextAreaSubmit = (_strategyPath: string, text: string): void => {
@@ -106,17 +124,9 @@ export function ChatPageRender({
 
   return (
     <Box ref={debugRef} {...theme.root}>
-      <Box {...theme.header}>
-        <Text {...theme.header.title}>{activeStrategy.label}</Text>
-      </Box>
-
-      <Separator />
-
       <Box {...theme.messageArea}>
         <MessageList messages={messages} />
       </Box>
-
-      <Separator />
 
       {showPermission && pendingPermissionRequest ? (
         <PermissionPrompt request={pendingPermissionRequest} onDecide={onPermissionDecide} />
@@ -125,6 +135,7 @@ export function ChatPageRender({
           strategies={[activeStrategy]}
           onSubmit={handleChatTextAreaSubmit}
           placeholder={replyPlaceholder}
+          id={REPLY_INPUT_ID}
         />
       ) : null}
 

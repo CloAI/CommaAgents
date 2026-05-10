@@ -1,4 +1,4 @@
-import { defineTheme, type ThemeOf } from "../../theme";
+import { defineTheme, type BoxProps, type TextProps, type ThemeOf } from "../../theme";
 
 /**
  * Memoized themed style objects for {@link ScrollableList}.
@@ -14,21 +14,21 @@ export const useScrollableListTheme = defineTheme((tokens) => ({
    * viewport claim whatever vertical space the parent layout offers.
    */
   viewport: {
-    flexDirection: "column" as const,
-    width: "100%" as const,
+    flexDirection: "column",
+    width: "100%",
     flexGrow: 1,
-    overflow: "hidden" as const,
-  },
+    overflow: "hidden",
+  } satisfies BoxProps,
   /** Empty-state container. */
   empty: {
-    flexDirection: "column" as const,
-    width: "100%" as const,
-  },
+    flexDirection: "column",
+    width: "100%",
+  } satisfies BoxProps,
   /** Empty-state text style. */
   emptyText: {
     color: tokens.colors.muted,
     dimColor: tokens.typography.secondaryDim,
-  },
+  } satisfies TextProps,
 }));
 
 /** Resolved style shape returned by {@link useScrollableListTheme}. */

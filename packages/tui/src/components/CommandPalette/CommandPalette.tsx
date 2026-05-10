@@ -13,8 +13,6 @@ import { HelpPage } from "./pages/HelpPage";
 import { ListProvidersPage } from "./pages/ListProvidersPage";
 import { SessionPickerPage } from "./pages/SessionPickerPage";
 
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 /** Map command id → page component for page-type commands. */
 const PAGE_REGISTRY: ReadonlyMap<string, React.ComponentType<{ focusId: string }>> = new Map([
   ["help", HelpPage],
@@ -61,7 +59,7 @@ export function CommandPalette({
   // Single focus zone for the entire palette (home view).
   useFocus({
     id,
-    isActive: RAW_MODE_SUPPORTED && isVisible,
+    isActive: isVisible,
   });
   const { focus, activeId } = useFocusManager();
 
@@ -74,7 +72,7 @@ export function CommandPalette({
 
   // Claim focus whenever the palette becomes visible or returns to home view.
   useEffect(() => {
-    if (RAW_MODE_SUPPORTED && isVisible) {
+    if (isVisible) {
       focus(id);
     }
   }, [focus, id, isVisible]);
@@ -127,27 +125,27 @@ export function CommandPaletteRender({
 
   return (
     <Box {...theme.container}>
-            <Box {...theme.searchWrapper}>
-              <SearchInput id={id} value={query} onChange={onSearchInputChange} placeholder="Type a command..." prompt="› " />
-            </Box>
-            <ScrollableList
-              id={id}
-              items={filtered}
-              getKey={(cmd) => cmd.id}
-              selectedIndex={selectedIndex}
-              onSelectedIndexChange={setSelectedIndex}
-              onSelected={onCommandSelected}
-              emptyText="No commands match"
-              renderItem={(cmd, isSelected) => (
-                <Box {...(isSelected ? theme.itemSelected : theme.item)}>
-                  <Text {...(isSelected ? theme.labelSelected : theme.label)}>
-                    {cmd.label}
-                  </Text>
-                  <Text {...theme.separator}> — </Text>
-                  <Text {...theme.description}>{cmd.description}</Text>
-                </Box>
-              )}
-            />
+      <Box {...theme.searchWrapper}>
+        <SearchInput id={id} value={query} onChange={onSearchInputChange} placeholder="Type a command..." prompt="› " />
+      </Box>
+      <ScrollableList
+        id={id}
+        items={filtered}
+        getKey={(cmd) => cmd.id}
+        selectedIndex={selectedIndex}
+        onSelectedIndexChange={setSelectedIndex}
+        onSelected={onCommandSelected}
+        emptyText="No commands match"
+        renderItem={(cmd, isSelected) => (
+          <Box {...(isSelected ? theme.itemSelected : theme.item)}>
+            <Text {...(isSelected ? theme.labelSelected : theme.label)}>
+              {cmd.label}
+            </Text>
+            <Text {...theme.separator}> — </Text>
+            <Text {...theme.description}>{cmd.description}</Text>
+          </Box>
+        )}
+      />
     </Box>
   );
 }

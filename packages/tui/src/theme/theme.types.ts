@@ -14,6 +14,11 @@ export interface ThemeColors {
   readonly muted: string;
   /** App background color (the global canvas). */
   readonly background: string;
+
+  /** Depth backgrounds for layering multiple widgets */
+  readonly backgroundLayerOne: string;
+  readonly backgroundLayerTwo: string;
+  readonly backgroundLayerThree: string;
   /**
    * Elevated surface background (input fields, modals, panels) — sits one
    * step above {@link ThemeColors.background} so interactive areas read as

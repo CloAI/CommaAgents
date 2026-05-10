@@ -5,6 +5,7 @@
   background: #0b0b0b;
   border-radius: 6px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
 }
 
 .xterm-host .xterm {

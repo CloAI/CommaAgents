@@ -19,6 +19,9 @@ export const defaultTheme: Theme = {
     error: "#ff5f5f", // red
     muted: "#8a8a8a",
     background: "#000000", // black
+    backgroundLayerOne: "#444444",
+    backgroundLayerTwo: "#060606",
+    backgroundLayerThree: "#090909",
     surface: "#303030", // elevated surface (input fields, panels)
     cursor: "#ffffff",
     scrollThumb: "#bcbcbc",

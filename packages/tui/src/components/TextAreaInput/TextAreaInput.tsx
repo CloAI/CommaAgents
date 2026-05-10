@@ -1,195 +1,308 @@
-import { type DOMElement, Box, Text, useBoxMetrics, useFocus, useInput } from "ink";
-import chalk from "chalk";
-import React, { useRef, useState } from "react";
-
+import {
+  Box,
+  type DOMElement,
+  Text,
+  useBoxMetrics,
+  useCursor,
+  useFocus,
+  useInput,
+} from "ink";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
+import stringWidth from "string-width";
+import wrap from "word-wrap";
 import { isMouseEscape } from "../../hooks/useMouse";
-import { useMouseWheelScroll } from "../../hooks/useMouseWheelScroll";
+import { Scrollbar } from "../Scrollbar";
 import { useTextAreaInputTheme } from "./TextAreaInput.theme";
+import {
+  type CursorIntent,
+  computeNextCursorState,
+} from "./TextAreaInput.utils";
 
 export interface TextAreaInputProps {
-	/** Current text value (controlled). */
-	readonly value: string;
-	/** Called when the text value changes. */
-	readonly onChange: (value: string) => void;
-	/** Width — columns (number) or CSS-like string (e.g. "100%"). */
-	readonly width?: number | string;
-	/** Visible row count. */
-	readonly height?: number;
-	/** Placeholder shown when value is empty. */
-	readonly placeholder?: string;
-	/**
-	 * Stable focus ID for programmatic focusing via `useFocusManager().focus(id)`.
-	 * When omitted the component still participates in tab-order cycling.
-	 */
-	readonly id?: string;
-	/** Called on Meta+Enter with the current value. */
-	readonly onSubmit?: (value: string) => void;
+  /** Current text value (controlled). */
+  readonly value: string;
+  /** Called when the text value changes. */
+  readonly onChange: (value: string) => void;
+  /** Width — columns (number) or CSS-like string (e.g. "100%"). */
+  readonly width?: number | string;
+  /** Visible row count. */
+  readonly height?: number;
+  /** Placeholder shown when value is empty. */
+  readonly placeholder?: string;
+  /**
+   * Stable focus ID for programmatic focusing via `useFocusManager().focus(id)`.
+   * When omitted the component still participates in tab-order cycling.
+   */
+  readonly id?: string;
+  /** Called on Enter with the current value. Ctrl/Shift/Meta+Enter inserts a newline. */
+  readonly onSubmit?: (value: string) => void;
 }
 
 /**
- * Wrap text into display lines of at most `cols` characters.
- * Returns lines and parallel offsets (absolute index into `text`).
- */
-function wrap(text: string, cols: number): { lines: string[]; offsets: number[] } {
-	if (text.length === 0) return { lines: [""], offsets: [0] };
-	const lines: string[] = [];
-	const offsets: number[] = [];
-	let abs = 0;
-	for (const hard of text.split("\n")) {
-		if (hard.length === 0) {
-			lines.push("");
-			offsets.push(abs);
-		} else {
-			for (let i = 0; i < hard.length; i += cols) {
-				lines.push(hard.slice(i, i + cols));
-				offsets.push(abs + i);
-			}
-		}
-		abs += hard.length + 1;
-	}
-	return { lines, offsets };
-}
-
-/** Find display line and column for an absolute cursor offset. */
-function locateCursor(cur: number, offsets: number[], lines: string[]): { line: number; col: number } {
-	for (let i = offsets.length - 1; i >= 0; i--) {
-		if (cur >= offsets[i]!) return { line: i, col: Math.min(cur - offsets[i]!, lines[i]!.length) };
-	}
-	return { line: 0, col: 0 };
-}
-
-/**
- * Multi-line text area input with shaded background and scrollbar.
- * Controlled component — parent owns `value`/`onChange`.
+ * Multi-line text area input with a real terminal cursor (via `useCursor`)
+ * and a scrollbar. Controlled — parent owns `value`/`onChange`.
+ *
+ * The cursor's source of truth is `cursorIndex` (an offset into the
+ * normalized raw value). The wrapped display cell + scroll offset are
+ * derived from it each render via {@link computeNextCursorState}.
+ *
+ * Keybindings:
+ * - Enter                 → calls `onSubmit(value.trim())` if provided
+ * - Ctrl/Shift/Meta+Enter → inserts a newline at the cursor
+ * - Arrow keys            → move cursor (preserves column on up/down)
+ * - Backspace/Delete      → delete the character before the cursor
  */
 export function TextAreaInput({
-	value,
-	onChange,
-	width = "100%",
-	height = 10,
-	placeholder = "Type here...",
-	id,
-	onSubmit,
+  value,
+  onChange,
+  width = "100%",
+  height = 5,
+  placeholder = "Type here...",
+  id,
+  onSubmit,
 }: TextAreaInputProps) {
-	const theme = useTextAreaInputTheme();
-	const boxRef = useRef<DOMElement>(null) as React.RefObject<DOMElement>;
-	const { width: measuredWidth } = useBoxMetrics(boxRef);
+  const boxRef = useRef<DOMElement>(null) as React.RefObject<DOMElement>;
+  const { width: measuredWidth } = useBoxMetrics(boxRef);
+  const { isFocused } = useFocus({ id });
+  const { setCursorPosition } = useCursor();
 
-	const { isFocused } = useFocus({ id });
+  /** Cursor offset into the normalized raw value — single source of truth. */
+  const [cursorIndex, setCursorIndex] = useState(0);
+  /** Index of the first visible wrapped row. */
+  const [rowDisplayOffset, setRowDisplayOffset] = useState(0);
 
-	const text = value.replace(/\r/g, "");
-	const [cursor, setCursor] = useState(text.length);
-	const [scroll, setScroll] = useState(0);
+  const textAreaColumns =
+    measuredWidth > 0 ? measuredWidth : typeof width === "number" ? width : 80;
 
-	const cols = measuredWidth > 0 ? measuredWidth : (typeof width === "number" ? width : 80);
-	const cur = Math.min(cursor, text.length);
-	const { lines, offsets } = wrap(text, cols);
-	const total = lines.length;
-	const scrollbar = total > height;
-	const { line: curLine, col: curCol } = locateCursor(cur, offsets, lines);
+  const normalizedValue = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  // Wrap each hard-break segment independently. `word-wrap` strips trailing
+  // newlines from its input, so passing the whole value would lose blank
+  // trailing rows (e.g. "hello\n" → ["hello"] instead of ["hello", ""]).
+  const textLines = normalizedValue.split("\n").flatMap((segment) =>
+    wrap(segment, {
+      width: textAreaColumns,
+      newline: "\n",
+      indent: "",
+    }).split("\n"),
+  );
 
-	// Keep cursor in view.
-	let vis = Math.max(0, Math.min(scroll, total - height));
-	if (curLine < vis) vis = curLine;
-	else if (curLine >= vis + height) vis = curLine - height + 1;
-	if (vis !== scroll) Promise.resolve().then(() => setScroll(vis));
+  // Re-derive cell + scroll offset from `cursorIndex` every render. Edits
+  // and arrow keys both go through `computeNextCursorState`, so we never
+  // store a cell that can drift away from the index.
+  const derivedState = computeNextCursorState({
+    intent: { kind: "snapToCursor" },
+    value: normalizedValue,
+    rows: textLines,
+    currentCursorIndex: cursorIndex,
+    currentRowDisplayOffset: rowDisplayOffset,
+    viewportHeight: height,
+    measureWidth: stringWidth,
+  });
 
-	// Scrollbar geometry.
-	const thumbH = Math.max(1, Math.round((height / total) * height));
-	const thumbY = total > height
-		? Math.round((vis / (total - height)) * (height - thumbH))
-		: 0;
+  // Pull the recomputed scroll offset back into state when the viewport
+  // needs to follow an edit (value change or layout shift).
+  useEffect(() => {
+    if (derivedState.rowDisplayOffset !== rowDisplayOffset) {
+      setRowDisplayOffset(derivedState.rowDisplayOffset);
+    }
+  }, [derivedState.rowDisplayOffset, rowDisplayOffset]);
 
-	useMouseWheelScroll({
-		ref: boxRef,
-		onScroll: (event) => {
-			if (event.direction === "up") {
-				setScroll((s) => Math.max(0, s - 3));
-			} else {
-				setScroll((s) => Math.min(Math.max(0, total - height), s + 3));
-			}
-		},
-	});
+  // Drive the real terminal cursor when focused, hide it otherwise.
+  // `useBoxMetrics` returns coords relative to the parent, but `useCursor`
+  // expects coords relative to the Ink output origin. Walk up the yoga tree
+  // and accumulate every ancestor's offset so nested layouts (Box-in-Box,
+  // bordered parents, sibling rows above us, etc.) land the cursor in the
+  // right cell.
+  useEffect(() => {
+    if (!isFocused) {
+      setCursorPosition(undefined);
+      return;
+    }
+    const absoluteOrigin = computeAbsoluteOrigin(boxRef.current);
+    setCursorPosition({
+      x: absoluteOrigin.x + derivedState.cell.x,
+      y: absoluteOrigin.y + (derivedState.cell.y - derivedState.rowDisplayOffset) + 1,
+    });
+  }, [
+    isFocused, 
+    setCursorPosition, 
+    derivedState.cell.x, 
+    derivedState.cell.y, 
+    derivedState.rowDisplayOffset
+  ]);
 
-	useInput(
-		(input, key) => {
-			// Swallow any mouse escape sequences (clicks, drags, scroll ticks,
-		// release events) so they are not typed into the buffer.
-		if (isMouseEscape(input)) return;
-			if (key.return && key.meta) {
-				const t = text.trim();
-				if (t && onSubmit) onSubmit(t);
-				return;
-			}
-			if (key.return) {
-				onChange(text.slice(0, cur) + "\n" + text.slice(cur));
-				setCursor(cur + 1);
-				return;
-			}
-			if (key.upArrow || key.downArrow) {
-				const t = curLine + (key.upArrow ? -1 : 1);
-				if (t < 0 || t >= total) return;
-				setCursor(offsets[t]! + Math.min(curCol, lines[t]!.length));
-				return;
-			}
-			if (key.leftArrow) { if (cur > 0) setCursor(cur - 1); return; }
-			if (key.rightArrow) { if (cur < text.length) setCursor(cur + 1); return; }
-			if (key.backspace || key.delete) {
-				if (cur > 0) { onChange(text.slice(0, cur - 1) + text.slice(cur)); setCursor(cur - 1); }
-				return;
-			}
-			if (input && !key.ctrl && !key.meta) {
-				onChange(text.slice(0, cur) + input + text.slice(cur));
-				setCursor(cur + input.length);
-			}
-		},
-		{ isActive: isFocused },
-	);
+  function applyMove(intent: CursorIntent): void {
+    const nextState = computeNextCursorState({
+      intent,
+      value: normalizedValue,
+      rows: textLines,
+      currentCursorIndex: cursorIndex,
+      currentRowDisplayOffset: rowDisplayOffset,
+      viewportHeight: height,
+      measureWidth: stringWidth,
+    });
+    setCursorIndex(nextState.cursorIndex);
+    setRowDisplayOffset(nextState.rowDisplayOffset);
+  }
 
-	// Render.
-	const rows: React.ReactNode[] = [];
-	for (let r = 0; r < height; r++) {
-		const idx = vis + r;
-		let row: string;
-		let len: number;
+  function insertAtCursor(text: string): void {
+    const nextValue =
+      normalizedValue.slice(0, cursorIndex) +
+      text +
+      normalizedValue.slice(cursorIndex);
+    setCursorIndex(cursorIndex + text.length);
+    onChange(nextValue);
+  }
 
-		if (text.length === 0 && r === 0) {
-			// Placeholder.
-			const p = placeholder.slice(0, cols);
-			row = isFocused ? chalk.inverse(p[0]!) + chalk.gray(p.slice(1)) : chalk.gray(p);
-			len = p.length;
-		} else if (isFocused && idx === curLine) {
-			// Line with cursor.
-			const ln = idx < total ? lines[idx]! : "";
-			const before = ln.slice(0, curCol);
-			const ch = curCol < ln.length ? ln[curCol]! : " ";
-			const after = curCol < ln.length ? ln.slice(curCol + 1) : "";
-			row = before + chalk.inverse(ch) + after;
-			len = Math.max(ln.length, curCol + 1);
-		} else {
-			const ln = idx < total ? lines[idx]! : "";
-			row = ln;
-			len = ln.length;
-		}
+  function deleteBeforeCursor(): void {
+    if (cursorIndex === 0) return;
+    const nextValue =
+      normalizedValue.slice(0, cursorIndex - 1) +
+      normalizedValue.slice(cursorIndex);
+    setCursorIndex(cursorIndex - 1);
+    onChange(nextValue);
+  }
 
-		// Pad + scrollbar (overwrite last col if needed).
-		if (scrollbar) {
-			const isThumb = r >= thumbY && r < thumbY + thumbH;
-			const sCh = chalk.hex(isThumb ? theme.scrollThumbColor : theme.scrollTrackColor)(
-				isThumb ? theme.scrollThumbChar : theme.scrollTrackChar,
-			);
-			const pad = Math.max(0, cols - 1 - len);
-			row = row + " ".repeat(pad) + sCh;
-		} else if (len < cols) {
-			row += " ".repeat(cols - len);
-		}
+  useInput(
+    (input, key) => {
+      if (isMouseEscape(input)) return;
 
-		rows.push(<Text key={r} wrap="truncate">{row}</Text>);
-	}
+      if (key.return && (key.ctrl || key.shift || key.meta)) {
+        insertAtCursor("\n");
+        return;
+      }
+      if (key.return) {
+        if (onSubmit) onSubmit(value.trim());
+        return;
+      }
 
-	return (
-		<Box ref={boxRef} width={width} height={height} flexDirection="column" backgroundColor={theme.backgroundColor}>
-			{rows}
-		</Box>
-	);
+      if (key.leftArrow) return applyMove({ kind: "left" });
+      if (key.rightArrow) return applyMove({ kind: "right" });
+      if (key.upArrow) return applyMove({ kind: "up" });
+      if (key.downArrow) return applyMove({ kind: "down" });
+
+      if (key.backspace || key.delete) {
+        deleteBeforeCursor();
+        return;
+      }
+
+      if (input && !key.ctrl && !key.meta) {
+        insertAtCursor(input);
+      }
+    },
+    { isActive: isFocused },
+  );
+
+  return (
+    <TextAreaInputRender
+      boxRef={boxRef}
+      width={width}
+      height={height}
+      rows={textLines}
+      rowDisplayOffset={derivedState.rowDisplayOffset}
+      textAreaColumns={textAreaColumns}
+      showScrollbar={textLines.length > height}
+      showPlaceholder={value.length === 0 && !isFocused}
+      placeholder={placeholder}
+    />
+  );
+}
+
+export interface TextAreaInputRenderProps {
+  /** Ref forwarded to the outer Box for layout metrics + mouse wheel. */
+  readonly boxRef: React.RefObject<DOMElement>;
+  /** Width passed through to the outer Box. */
+  readonly width: number | string;
+  /** Visible row count. */
+  readonly height: number;
+  /** Pre-wrapped display rows. */
+  readonly rows: readonly string[];
+  /** Index of the first visible row. */
+  readonly rowDisplayOffset: number;
+  /** Content width in columns (excludes scrollbar column when shown). */
+  readonly textAreaColumns: number;
+  /** Whether to render the scrollbar column. */
+  readonly showScrollbar: boolean;
+  /** Whether to render placeholder text in place of `rows`. */
+  readonly showPlaceholder: boolean;
+  /** Placeholder string. */
+  readonly placeholder: string;
+}
+
+/** Pure presentational form of {@link TextAreaInput}. */
+export function TextAreaInputRender({
+  boxRef,
+  width,
+  height,
+  rows,
+  rowDisplayOffset,
+  textAreaColumns,
+  showScrollbar,
+  showPlaceholder,
+  placeholder,
+}: TextAreaInputRenderProps): React.ReactElement {
+  const theme = useTextAreaInputTheme();
+  const visibleRows = rows.slice(rowDisplayOffset, rowDisplayOffset + height);
+
+  return (
+    <Box
+      ref={boxRef}
+      width={width}
+      height={height}
+      {...theme.textAreaInput}
+    >
+      <Box {...theme.textAreaInputContent} width={textAreaColumns}>
+        {showPlaceholder ? (
+          <Text {...theme.textAreaPlaceholder}>
+            {placeholder.slice(0, textAreaColumns)}
+          </Text>
+        ) : (
+          visibleRows.map((row, visibleRowIndex) => {
+            const absoluteRowIndex = rowDisplayOffset + visibleRowIndex;
+            return (
+              <Text key={`row-${absoluteRowIndex}`}>
+                {row.length === 0 ? " " : row}
+              </Text>
+            );
+          })
+        )}
+      </Box>
+      {showScrollbar && (
+        <Scrollbar
+          total={rows.length}
+          windowSize={height}
+          offset={rowDisplayOffset}
+          height={height}
+        />
+      )}
+    </Box>
+  );
+}
+
+/**
+ * Walk up the yoga tree from `node` and sum each ancestor's computed
+ * `(left, top)` until we reach the Ink root. Returns coords relative to
+ * the Ink output origin — what `useCursor().setCursorPosition` expects.
+ *
+ * Returns `{ x: 0, y: 0 }` when the node is detached or hasn't been
+ * measured yet; the caller will reposition on the next layout commit.
+ */
+function computeAbsoluteOrigin(
+  node: DOMElement | null,
+): { readonly x: number; readonly y: number } {
+  let absoluteX = 0;
+  let absoluteY = 0;
+  let current: DOMElement | undefined = node ?? undefined;
+
+  while (current && current.nodeName !== "ink-root") {
+    const layout = current.yogaNode?.getComputedLayout();
+    if (layout) {
+      absoluteX += layout.left;
+      absoluteY += layout.top;
+    }
+    current = current.parentNode;
+  }
+
+  return { x: absoluteX, y: absoluteY };
 }

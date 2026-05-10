@@ -1,10 +1,9 @@
-import { type DOMElement, Box, Text, useStdout } from "ink";
+import { Box, type DOMElement, Text, useStdout } from "ink";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useDebugRender } from "../../hooks/useDebugRender";
 import { useMouseClick } from "../../hooks/useMouseClick";
 import { useMouseHover } from "../../hooks/useMouseHover";
-import { MeasuredBox } from "../MeasuredBox";
 import { MouseProvider } from "../MouseProvider";
 import { Separator } from "../Separator";
 
@@ -49,13 +48,15 @@ export function Frame({
   });
   const theme = useFrameTheme();
   const { stdout } = useStdout();
-  const [terminalHeight, setTerminalHeight] = useState(
-    () => stdout?.rows ?? process.stdout.rows,
-  );
+  const [terminalSize, setTerminalSize] = useState(() => ({
+    rows: stdout?.rows ?? process.stdout.rows,
+    columns: stdout?.columns ?? process.stdout.columns,
+  }));
 
   useEffect(() => {
     if (!stdout) return;
-    const handleResize = () => setTerminalHeight(stdout.rows);
+    const handleResize = () =>
+      setTerminalSize({ rows: stdout.rows, columns: stdout.columns });
     stdout.on("resize", handleResize);
     return () => {
       stdout.off("resize", handleResize);
@@ -76,7 +77,8 @@ export function Frame({
         theme={theme}
         activeTabPath={activeTabPath}
         tabs={tabs}
-        terminalHeight={terminalHeight}
+        terminalHeight={terminalSize.rows}
+        terminalWidth={terminalSize.columns}
         onTabSelect={onTabSelect}
         footer={footer}
         debugRef={debug.ref}
@@ -96,6 +98,8 @@ export interface FrameRenderProps {
   readonly tabs: readonly TabDefinition[];
   /** Terminal height in rows, used to size the root container. */
   readonly terminalHeight: number;
+  /** Terminal width in columns, used to size the root container. */
+  readonly terminalWidth: number;
   /** Called when a tab is selected. */
   readonly onTabSelect: (path: string) => void;
   /** Content to render in the body area. */
@@ -111,55 +115,41 @@ export function FrameRender({
   activeTabPath,
   tabs,
   terminalHeight,
+  terminalWidth,
   onTabSelect,
   children,
   footer,
   debugRef,
 }: FrameRenderProps): React.ReactElement {
   return (
-    <Box ref={debugRef} {...theme.root} height={terminalHeight}>
-      <MeasuredBox flexDirection="column" flexGrow={1}>
-        {({ width, height }) => (
-          <>
-            {/*
-              Flood-fill every cell with the theme background color.
-              Ink only paints background where a <Text> node occupies a cell —
-              a Box backgroundColor alone leaves the terminal's own background
-              visible in empty cells. This absolutely-positioned Text covers the
-              full frame area before any other content is rendered.
-            */}
-            <Box position="absolute">
-              <Text backgroundColor={theme.root.backgroundColor}>
-                {Array.from({ length: height })
-                  .map(() => " ".repeat(width))
-                  .join("\n")}
-              </Text>
-            </Box>
+    <Box
+      ref={debugRef}
+      {...theme.root}
+      width={terminalWidth}
+      height={terminalHeight}
+      flexDirection="column"
+    >
+      {/* Tab bar */}
+      <Box {...theme.tabBar}>
+        {tabs.map((tab) => (
+          <FrameTab
+            key={tab.path}
+            tab={tab}
+            isActive={tab.path === activeTabPath}
+            theme={theme}
+            onSelect={onTabSelect}
+          />
+        ))}
+      </Box>
 
-            {/* Tab bar */}
-            <Box {...theme.tabBar}>
-              {tabs.map((tab) => (
-                <FrameTab
-                  key={tab.path}
-                  tab={tab}
-                  isActive={tab.path === activeTabPath}
-                  theme={theme}
-                  onSelect={onTabSelect}
-                />
-              ))}
-            </Box>
+      {/* Separator */}
+      <Separator />
 
-            {/* Separator */}
-            <Separator />
+      {/* Content (grows to fill available space) */}
+      <Box {...theme.content}>{children}</Box>
 
-            {/* Content (grows to fill available space) */}
-            <Box {...theme.content}>{children}</Box>
-
-            {/* Footer (pinned to bottom) */}
-            {footer ? <Box {...theme.footer}>{footer}</Box> : null}
-          </>
-        )}
-      </MeasuredBox>
+      {/* Footer (pinned to bottom) */}
+      {footer ? <Box {...theme.footer}>{footer}</Box> : null}
     </Box>
   );
 }
@@ -185,7 +175,12 @@ interface FrameTabProps {
  * shortcut hint) is the hit target so the cursor doesn't have to land on the
  * label glyphs precisely.
  */
-function FrameTab({ tab, isActive, theme, onSelect }: FrameTabProps): React.ReactElement {
+function FrameTab({
+  tab,
+  isActive,
+  theme,
+  onSelect,
+}: FrameTabProps): React.ReactElement {
   const ref = useRef<DOMElement>(null);
   const { isHovered } = useMouseHover({ ref });
   useMouseClick({ ref, onClick: () => onSelect(tab.path) });
@@ -193,12 +188,14 @@ function FrameTab({ tab, isActive, theme, onSelect }: FrameTabProps): React.Reac
   const baseLabelStyle = isActive ? theme.activeTab : theme.inactiveTab;
   // When hovered, merge the hover style on top so color/bold win without
   // clobbering underline (active) or dimColor (inactive).
-  const labelStyle = isHovered ? { ...baseLabelStyle, ...theme.hoveredTab } : baseLabelStyle;
+  const labelStyle = isHovered
+    ? { ...baseLabelStyle, ...theme.hoveredTab }
+    : baseLabelStyle;
 
   return (
     <Box ref={ref} gap={1}>
       <Text {...labelStyle}>{tab.label}</Text>
-      <Text {...theme.tabHint}>{tab.shortcut}</Text>
+      {/* TODO: maybe remove the shortcut: <Text {...theme.tabHint}>{tab.shortcut}</Text> */}
     </Box>
   );
 }

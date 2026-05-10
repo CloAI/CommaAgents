@@ -14,8 +14,13 @@ import { useMessageListTheme } from "../MessageList.theme";
  */
 const STREAMING_CURSOR_CHAR = "\u258D";
 
-/** Truncate long tool-call argument blobs so they fit a single visual line. */
-const MAX_TOOL_ARGS_PREVIEW_LENGTH = 200;
+/**
+ * Truncate long tool-call argument blobs so they fit a single visual line.
+ *
+ * Exported so the row-height estimator in `MessageList.utils.ts` can mirror
+ * the renderer's truncation rule exactly when measuring wrapped output.
+ */
+export const MAX_TOOL_ARGS_PREVIEW_LENGTH = 200;
 
 /**
  * Trailing pad appended to streaming text so an in-flight frame can't leave
@@ -153,10 +158,11 @@ function SegmentView({ segment, theme }: SegmentViewProps): React.ReactElement |
   }
 
   if (segment.type === "tool-result") {
+    const toolResultPreview = truncatePreview(segment.output);
     return (
       <Box {...styles.toolResult.container}>
         <Text {...styles.toolResult.header}>{`\u2190 ${segment.toolName} result`}</Text>
-        <Text {...styles.toolResult.output}>{segment.output}</Text>
+        <Text {...styles.toolResult.output}>{toolResultPreview}</Text>
       </Box>
     );
   }
@@ -200,8 +206,13 @@ function SegmentView({ segment, theme }: SegmentViewProps): React.ReactElement |
   return null;
 }
 
-/** Trim long argument blobs to a single-line preview suffixed with ellipsis. */
-function truncatePreview(value: string): string {
+/**
+ * Trim long argument blobs to a single-line preview suffixed with ellipsis.
+ *
+ * Exported so the row-height estimator can compute heights against the
+ * exact same string the renderer will draw.
+ */
+export function truncatePreview(value: string): string {
   if (value.length <= MAX_TOOL_ARGS_PREVIEW_LENGTH) return value;
   return `${value.slice(0, MAX_TOOL_ARGS_PREVIEW_LENGTH)}\u2026`;
 }

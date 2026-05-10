@@ -1,0 +1,36 @@
+---
+title: todo_clear
+description: Remove all todo items for the current agent.
+---
+
+The todo_clear tool removes every item from the agent's todo list and returns the count of items that were cleared. Use it when starting a fresh task or when the existing list is no longer relevant.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "planner",
+  model: "openai/gpt-4o",
+  tools: ["todo_add", "todo_complete", "todo_get", "todo_get_next", "todo_clear"],
+});
+```
+
+## Parameters
+
+This tool takes no parameters.
+
+## Behavior
+
+- Clears all items regardless of their status (both pending and completed).
+- Returns a confirmation with the number of items removed: `Cleared 3 todo item(s).`
+- After clearing, `todo_get` returns `[No todo items]` and id assignment restarts from 1.
+
+## Related tools
+
+| Tool | Purpose |
+|---|---|
+| `todo_add` | Add a new pending item |
+| `todo_complete` | Mark an item done, get the next pending item |
+| `todo_get` | List all items with status |
+| `todo_get_next` | Peek at the next pending item |
+| `todo_clear` | Remove all items |

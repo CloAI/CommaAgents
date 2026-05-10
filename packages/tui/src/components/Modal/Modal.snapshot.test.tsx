@@ -8,54 +8,22 @@ import { CommandPaletteRender } from "../CommandPalette/CommandPalette";
 import type { CommandPaletteTheme } from "../CommandPalette/CommandPalette.theme";
 import type { Command } from "../CommandPalette/CommandPalette.types";
 
-import { ModalContentRender } from "./Modal";
-import type { ModalTheme } from "./Modal.theme";
+import { ModalRender } from "./Modal";
 
 /**
- * Snapshot tests for the modal **content frame** (the bordered, padded box
- * that holds the modal body) at a range of sizes and content shapes.
+ * Snapshot tests for the modal content box (the bordered, padded box that
+ * holds the modal body) at a range of content shapes.
  *
- * These render `ModalContentRender` directly — the real production
- * component without the `position: "absolute"` backdrop layer that
- * `ink-testing-library` cannot flush. That backdrop is purely visual
- * (a dim full-screen fill), so excluding it doesn't reduce coverage of
- * the actual frame layout.
+ * These render `ModalRender` directly — the real production component. The
+ * backdrop dimming is now handled externally by `AlphaDim`, so these tests
+ * only cover the content frame itself.
  *
  * Scenarios cover:
- * - **Multiple terminal sizes** (120x30 / 100x28 / 80x24 / 60x20):
- *   verifies the resolved width/height behaves at common breakpoints.
- * - **No title / long title**: confirms the optional title row layout.
+ * - **No title / with title**: confirms the optional title row layout.
  * - **Empty content**: confirms the border still renders cleanly.
- * - **Tall content overflow**: confirms `overflow: "hidden"` clips
- *   children and never pushes the bottom border.
  * - **Sub-page view**: snapshots the `CommandPaletteRender` with an
  *   active sub-page, embedded in a modal frame.
  */
-
-const MODAL_THEME: ModalTheme = {
-  backdrop: {
-    position: "absolute",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#1a1a2e",
-  },
-  content: {
-    flexDirection: "column",
-    borderStyle: "single",
-    borderColor: "gray",
-    paddingX: 2,
-    paddingY: 1,
-    overflow: "hidden",
-    flexShrink: 0,
-    backgroundColor: "#000000",
-  },
-  title: {
-    bold: true,
-    color: "cyan",
-  },
-};
 
 const PALETTE_THEME: CommandPaletteTheme = {
   container: { flexDirection: "column", width: "100%", height: "100%" },
@@ -114,7 +82,7 @@ function CommandListMock(): React.ReactElement {
  * Mock sub-page for `CommandPaletteRender` — a fake `ListProvidersPage`
  * shape (filter input + provider list), all static.
  */
-function ProvidersPageMock(): React.ReactElement {
+function ProvidersPageMock(_props: { readonly focusId: string }): React.ReactElement {
   return (
     <Box flexDirection="column" flexGrow={1} overflow="hidden">
       <Box
@@ -143,7 +111,7 @@ function ProvidersPageMock(): React.ReactElement {
 function PaletteRenderWrapper({
   activePage,
 }: {
-  readonly activePage: React.ComponentType | null;
+  readonly activePage: React.ComponentType<{ focusId: string }> | null;
 }): React.ReactElement {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ref = useRef<any>(null);
@@ -156,118 +124,59 @@ function PaletteRenderWrapper({
       onSelectedIndexChange={() => {}}
       filtered={STUB_COMMANDS}
       activePage={activePage}
+      subPageFocusId="test-subpage"
       onActivate={() => {}}
     />
   );
 }
 
-describe("ModalContentRender — terminal size matrix", () => {
-  // Each case mirrors the resolved width/height that `Modal` would compute
-  // from a `width="80%"`, `height="80%"` config at the given terminal size.
-  // (Modal defaults: round(0.8 * cols) / round(0.8 * rows).)
-  const CASES = [
-    { label: "120x30", contentWidth: 96, contentHeight: 24 },
-    { label: "100x28", contentWidth: 80, contentHeight: 22 },
-    { label: "80x24", contentWidth: 64, contentHeight: 19 },
-    { label: "60x20", contentWidth: 48, contentHeight: 16 },
-  ] as const;
-
-  for (const { label, contentWidth, contentHeight } of CASES) {
-    it(`should render the home view at ${label}`, () => {
-      const { lastFrame } = render(
-        <ModalContentRender
-          theme={MODAL_THEME}
-          title="Command Palette"
-          contentWidth={contentWidth}
-          contentHeight={contentHeight}
-        >
-          <CommandListMock />
-        </ModalContentRender>,
-      );
-      expect(lastFrame()).toMatchSnapshot();
-    });
-  }
-});
-
-describe("ModalContentRender — title variations", () => {
-  it("should render without a title (no top row, no marginBottom)", () => {
+describe("ModalRender — title variations", () => {
+  it("should render without a title", () => {
     const { lastFrame } = render(
-      <ModalContentRender
-        theme={MODAL_THEME}
-        contentWidth={64}
-        contentHeight={12}
-      >
+      <ModalRender>
         <Text>body content</Text>
-      </ModalContentRender>,
+      </ModalRender>,
     );
     expect(lastFrame()).toMatchSnapshot();
   });
 
-  it("should render with a long title that may wrap", () => {
+  it("should render with a title", () => {
     const { lastFrame } = render(
-      <ModalContentRender
-        theme={MODAL_THEME}
-        title="A Very Long Modal Title That Could Plausibly Wrap Across Lines In A Narrow Frame"
-        contentWidth={48}
-        contentHeight={14}
-      >
+      <ModalRender title="Command Palette">
+        <CommandListMock />
+      </ModalRender>,
+    );
+    expect(lastFrame()).toMatchSnapshot();
+  });
+
+  it("should render with a long title", () => {
+    const { lastFrame } = render(
+      <ModalRender title="A Very Long Modal Title That Could Plausibly Wrap Across Lines In A Narrow Frame">
         <Text>body content</Text>
-      </ModalContentRender>,
+      </ModalRender>,
     );
     expect(lastFrame()).toMatchSnapshot();
   });
 });
 
-describe("ModalContentRender — content edge cases", () => {
+describe("ModalRender — content edge cases", () => {
   it("should render an empty content body within the border", () => {
     const { lastFrame } = render(
-      <ModalContentRender
-        theme={MODAL_THEME}
-        title="Empty"
-        contentWidth={40}
-        contentHeight={10}
-      >
+      <ModalRender title="Empty">
         <Box />
-      </ModalContentRender>,
-    );
-    expect(lastFrame()).toMatchSnapshot();
-  });
-
-  it("should clip tall content at the bottom border (overflow:hidden)", () => {
-    // 30 rows of body content stuffed into a 10-row frame. The bottom border
-    // must remain visible; rows past the frame must be dropped.
-    const lines = Array.from({ length: 30 }, (_, index) => `line ${index + 1}`);
-    const { lastFrame } = render(
-      <ModalContentRender
-        theme={MODAL_THEME}
-        title="Overflow"
-        contentWidth={40}
-        contentHeight={10}
-      >
-        <Box flexDirection="column">
-          {lines.map((text) => (
-            <Text key={text}>{text}</Text>
-          ))}
-        </Box>
-      </ModalContentRender>,
+      </ModalRender>,
     );
     expect(lastFrame()).toMatchSnapshot();
   });
 });
 
-describe("ModalContentRender — sub-page (CommandPaletteRender)", () => {
+describe("ModalRender — sub-page (CommandPaletteRender)", () => {
   it("should render the active sub-page without the home command list", () => {
     const { lastFrame } = render(
-      <ModalContentRender
-        theme={MODAL_THEME}
-        title="Command Palette"
-        contentWidth={80}
-        contentHeight={22}
-      >
+      <ModalRender title="Command Palette">
         <PaletteRenderWrapper activePage={ProvidersPageMock} />
-      </ModalContentRender>,
+      </ModalRender>,
     );
     expect(lastFrame()).toMatchSnapshot();
   });
 });
-

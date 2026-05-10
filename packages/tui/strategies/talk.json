@@ -1,0 +1,36 @@
+{
+  "name": "Q&A",
+  "version": "1.0",
+  "description": "Interactive planning strategy — user describes a goal, a planner breaks it into steps, then a reviewer critiques the plan. Runs for 2 cycles so the planner can refine based on feedback.",
+  "agents": {
+    "user": {
+      "type": "user",
+      "description": "What is your question?",
+      "config": {
+        "requireInput": true
+      }
+    },
+    "answer": {
+      "description": "Technical Answer",
+      "model": "github-copilot/gpt-4o",
+      "systemPrompt": "You're a highly intelligent agent, that is an expert in fields. You will take the users question and answer it very thoroughly and highly technical"
+    },
+    "refine_answer": {
+      "description": "Simplifier of Answer",
+      "model": "github-copilot/gpt-4o",
+      "systemPrompt": "You take in a complex answer, and summarize and simplify it to be clear for a dumb user.",
+      "tools": ["read", "glob", "grep", "ls"]
+    }
+  },
+  "flow": {
+    "name": "Q&A",
+    "type": "cycle",
+    "description": "User provides a goal, then planner and reviewer iterate.",
+    "steps": [
+      { "agent": "user" },
+      { "agent": "answer" },
+      { "agent": "refine_answer" }
+    ],
+    "cycles": "Infinity"
+  }
+}

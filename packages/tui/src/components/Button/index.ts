@@ -1,3 +1,4 @@
+export type { ButtonProps, ButtonRenderProps } from "./Button";
 export { Button, ButtonRender } from "./Button";
-export type { ButtonVariant, ButtonProps, ButtonRenderProps } from "./Button.types";
-export { useButtonTheme, type ButtonTheme } from "./Button.theme";
+export { type ButtonTheme, useButtonTheme } from "./Button.theme";
+export type { ButtonVariant } from "./Button.types";

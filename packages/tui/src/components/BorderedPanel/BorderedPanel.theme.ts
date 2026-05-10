@@ -1,4 +1,9 @@
-import { defineTheme, type ThemeOf } from "../../theme";
+import {
+  type BoxProps,
+  defineTheme,
+  type TextProps,
+  type ThemeOf,
+} from "../../theme";
 
 /**
  * Memoized themed style objects for the `BorderedPanel` component.
@@ -11,22 +16,21 @@ import { defineTheme, type ThemeOf } from "../../theme";
 export const useBorderedPanelTheme = defineTheme((tokens) => ({
   /** Outer column wrapping the header line and the body. */
   container: {
-    flexDirection: "column" as const,
-    width: "100%" as const,
-  },
+    flexDirection: "column",
+    width: "100%",
+    borderStyle: "round",
+    paddingX: tokens.spacing.sm
+  } satisfies BoxProps,
   /** Single-row header line: `┌─ label ──...──┐`. */
   header: {
-    flexDirection: "row" as const,
-    width: "100%" as const,
-  },
-  /** The body box renders left/right/bottom borders via Ink. */
-  body: {
-    flexDirection: "column" as const,
-    width: "100%" as const,
-    borderStyle: "single" as const,
-    borderTop: false,
-    paddingX: tokens.spacing.sm,
-  },
+    position:"absolute",
+    marginTop:-1,
+    marginLeft: -1,
+    flexDirection: "row",
+    text: {
+      bold: true
+    } satisfies TextProps, 
+  } satisfies BoxProps & {text: TextProps},
   /**
    * Glyphs used to compose the manual header line. Must match the
    * `borderStyle` of the body so the corners line up with the body's
@@ -41,13 +45,13 @@ export const useBorderedPanelTheme = defineTheme((tokens) => ({
     horizontal: "\u2500",
   },
   /**
-   * Default colour applied to every part of the panel border (header
+   * Default color applied to every part of the panel border (header
    * glyphs + body border). Callers override per-message via the
    * `borderColor` prop.
    */
   borderColor: tokens.borders.color,
   /**
-   * Default colour for the header label text. Callers override per
+   * Default color for the header label text. Callers override per
    * message via `headerColor`.
    */
   headerColor: tokens.colors.primary,

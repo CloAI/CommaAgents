@@ -1,0 +1,37 @@
+---
+title: todo_get
+description: List all todo items for the current agent, including completed and pending ones.
+---
+
+The todo_get tool returns the full todo list for the agent — both pending and completed items — with a summary of how many items remain. Use it to review overall progress or to remind the agent of outstanding work.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "planner",
+  model: "openai/gpt-4o",
+  tools: ["todo_add", "todo_complete", "todo_get", "todo_get_next", "todo_clear"],
+});
+```
+
+## Parameters
+
+This tool takes no parameters.
+
+## Behavior
+
+- Items are listed in insertion order with a `[ ]` marker for pending and `[x]` for completed.
+- Each line shows the item's id and content: `[ ] #1: write tests`.
+- The output ends with a summary line: `[2 pending / 5 total]`.
+- If the list is empty, the tool returns `[No todo items]`.
+
+## Related tools
+
+| Tool | Purpose |
+|---|---|
+| `todo_add` | Add a new pending item |
+| `todo_complete` | Mark an item done, get the next pending item |
+| `todo_get` | List all items with status |
+| `todo_get_next` | Peek at the next pending item |
+| `todo_clear` | Remove all items |

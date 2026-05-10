@@ -557,6 +557,20 @@ describe("type guards", () => {
 
 describe("BUILT_IN_TOOL_NAMES", () => {
   it("contains exactly the expected tool names", () => {
-    expect([...BUILT_IN_TOOL_NAMES]).toEqual(["bash", "read", "write", "edit", "glob", "grep", "ls"]);
+    expect([...BUILT_IN_TOOL_NAMES]).toEqual([
+      "bash",
+      "read",
+      "write",
+      "edit",
+      "glob",
+      "grep",
+      "ls",
+      "webfetch",
+      "todo_add",
+      "todo_complete",
+      "todo_get",
+      "todo_get_next",
+      "todo_clear",
+    ]);
   });
 });

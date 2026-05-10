@@ -33,6 +33,7 @@ describe("FrameRender", () => {
           tabs={TEST_TABS}
           activeTabPath="/chat"
           terminalHeight={24}
+          terminalWidth={80}
           onTabSelect={() => {}}
         >
           <Text>Chat content</Text>
@@ -51,6 +52,7 @@ describe("FrameRender", () => {
           tabs={TEST_TABS}
           activeTabPath="/chat"
           terminalHeight={24}
+          terminalWidth={80}
           onTabSelect={() => {}}
         >
           <Text>Chat content</Text>
@@ -68,6 +70,7 @@ describe("FrameRender", () => {
           tabs={TEST_TABS}
           activeTabPath="/settings"
           terminalHeight={24}
+          terminalWidth={80}
           onTabSelect={() => {}}
         >
           <Text>Settings content</Text>
@@ -90,6 +93,7 @@ describe("FrameRender", () => {
           tabs={TEST_TABS}
           activeTabPath="/chat"
           terminalHeight={24}
+          terminalWidth={80}
           onTabSelect={() => {}}
           footer={<Text>Status: Ready</Text>}
         >
@@ -108,6 +112,7 @@ describe("FrameRender", () => {
           tabs={TEST_TABS}
           activeTabPath="/chat"
           terminalHeight={24}
+          terminalWidth={80}
           onTabSelect={() => {}}
         >
           <Text>Chat content</Text>
@@ -126,6 +131,7 @@ describe("FrameRender", () => {
           tabs={TEST_TABS}
           activeTabPath="/chat"
           terminalHeight={24}
+          terminalWidth={80}
           onTabSelect={() => {}}
         >
           <Text>Content</Text>

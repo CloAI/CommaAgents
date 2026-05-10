@@ -28,7 +28,9 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Stateful wrapper so the input behaves as a real controlled field. */
-function ControlledTextAreaInput(args: React.ComponentProps<typeof TextAreaInput>) {
+function ControlledTextAreaInput(
+  args: React.ComponentProps<typeof TextAreaInput>,
+) {
   const [value, setValue] = useState(args.value);
   return <TextAreaInput {...args} value={value} onChange={setValue} />;
 }

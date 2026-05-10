@@ -62,6 +62,7 @@ export function useCommandPaletteTheme(): CommandPaletteTheme {
   return useMemo<CommandPaletteTheme>(
     () => ({
       container: {
+        flexGrow: 1,
         flexDirection: "column",
         width: "100%",
         height: "100%",
