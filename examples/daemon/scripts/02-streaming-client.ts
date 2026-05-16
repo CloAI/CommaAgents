@@ -36,12 +36,15 @@ const DEFAULT_STRATEGY = path.resolve(
 const argv = yargs(hideBin(process.argv))
   .scriptName("02-streaming-client")
   .usage("$0 [strategy-path]")
-  .command("$0 [strategy-path]", "Stream tokens from a daemon strategy execution", (y) =>
-    y.positional("strategy-path", {
-      type: "string",
-      describe: "Path to the strategy file",
-      default: DEFAULT_STRATEGY,
-    }),
+  .command(
+    "$0 [strategy-path]",
+    "Stream tokens from a daemon strategy execution",
+    (y) =>
+      y.positional("strategy-path", {
+        type: "string",
+        describe: "Path to the strategy file",
+        default: DEFAULT_STRATEGY,
+      }),
   )
   .option("daemon-url", {
     alias: "d",
@@ -106,7 +109,9 @@ async function main() {
         break;
 
       case "strategy_started":
-        console.log(`Strategy started: ${msg.strategyName} (run: ${msg.runId})`);
+        console.log(
+          `Strategy started: ${msg.strategyName} (run: ${msg.runId})`,
+        );
         console.log("─".repeat(60));
         break;
 
@@ -127,7 +132,9 @@ async function main() {
             break;
 
           case "tool-result":
-            console.log(`  ✓ tool result [${evt.toolName}]: ${evt.output.slice(0, 100)}`);
+            console.log(
+              `  ✓ tool result [${evt.toolName}]: ${evt.output.slice(0, 100)}`,
+            );
             break;
 
           case "step-start":
@@ -136,7 +143,8 @@ async function main() {
 
           case "done":
             // Stream finished for this agent
-            totalTokens += evt.result.usage.promptTokens + evt.result.usage.completionTokens;
+            totalTokens +=
+              evt.result.usage.promptTokens + evt.result.usage.completionTokens;
             break;
         }
         break;
@@ -154,7 +162,9 @@ async function main() {
       // client for input. We auto-reply with the initial prompt so the
       // flow continues without manual intervention.
       case "request_input":
-        console.log(`\n[request_input] Agent "${msg.agentName}" — auto-replying`);
+        console.log(
+          `\n[request_input] Agent "${msg.agentName}" — auto-replying`,
+        );
         ws.send(
           JSON.stringify({
             type: "user_input",
@@ -177,7 +187,9 @@ async function main() {
         break;
 
       case "strategy_error":
-        console.error(`\nStrategy error: ${msg.error.code} — ${msg.error.message}`);
+        console.error(
+          `\nStrategy error: ${msg.error.code} — ${msg.error.message}`,
+        );
         ws.close();
         process.exit(1);
         break;

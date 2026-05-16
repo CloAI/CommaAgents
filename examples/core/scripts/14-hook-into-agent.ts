@@ -75,7 +75,9 @@ async function main() {
   // 1. Create a plain agent, then attach an alterResponse hook
   // -------------------------------------------------------------------------
 
-  console.log("\n=== Step 1: Create agent and attach an alterResponse hook ===\n");
+  console.log(
+    "\n=== Step 1: Create agent and attach an alterResponse hook ===\n",
+  );
 
   const agent = createAgent({
     name: "demo-agent",

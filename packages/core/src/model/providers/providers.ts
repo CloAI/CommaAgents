@@ -1,5 +1,12 @@
-import type { Credential, CredentialStore } from "../../credentials/credentials.types";
-import { getCatalogModels, getCatalogProviderSync, listCatalogProviders } from "./catalog/index";
+import type {
+  Credential,
+  CredentialStore,
+} from "../../credentials/credentials.types";
+import {
+  getCatalogModels,
+  getCatalogProviderSync,
+  listCatalogProviders,
+} from "./catalog/index";
 import { listCopilotModels, listOllamaModels } from "./listers/index";
 import type {
   ListModelsContext,
@@ -42,9 +49,18 @@ async function registerCatalogProviders(): Promise<void> {
  *   we prefer the dedicated `@ai-sdk/deepseek` package.
  */
 const BUILT_IN_OVERRIDES: readonly ProviderDefinition[] = [
-  { id: "ollama", name: "Ollama", packageName: "ollama-ai-provider", listModels: listOllamaModels },
+  {
+    id: "ollama",
+    name: "Ollama",
+    packageName: "ollama-ai-provider",
+    listModels: listOllamaModels,
+  },
   { id: "deepseek", name: "DeepSeek", packageName: "@ai-sdk/deepseek" },
-  { id: "github-copilot", name: "GitHub Copilot", listModels: listCopilotModels },
+  {
+    id: "github-copilot",
+    name: "GitHub Copilot",
+    listModels: listCopilotModels,
+  },
 ];
 
 function attachBuiltInListers(): void {
@@ -73,7 +89,9 @@ function attachBuiltInListers(): void {
  * });
  * ```
  */
-export function registerProviderDefinition(definition: ProviderDefinition): void {
+export function registerProviderDefinition(
+  definition: ProviderDefinition,
+): void {
   providerRegistry.set(definition.id, { ...definition, isCustom: true });
 }
 
@@ -97,9 +115,13 @@ export async function getProviderDefinition(
 }
 
 /** Every registered provider definition, alphabetically by id. */
-export async function listProviderDefinitions(): Promise<readonly ProviderDefinition[]> {
+export async function listProviderDefinitions(): Promise<
+  readonly ProviderDefinition[]
+> {
   await ensureInitialized();
-  return [...providerRegistry.values()].sort((left, right) => left.id.localeCompare(right.id));
+  return [...providerRegistry.values()].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
 }
 
 /**
@@ -134,15 +156,19 @@ export async function listProviderModels(
   try {
     const liveModels = await definition.listModels(context);
     const merged =
-      catalogModels.length > 0 ? mergeCatalogWithLive(catalogModels, liveModels) : liveModels;
-    const source = catalogModels.length > 0 && liveModels.length > 0 ? "merged" : "live";
+      catalogModels.length > 0
+        ? mergeCatalogWithLive(catalogModels, liveModels)
+        : liveModels;
+    const source =
+      catalogModels.length > 0 && liveModels.length > 0 ? "merged" : "live";
     return {
       models: sortModels(merged),
       source,
       fetchedAt: new Date().toISOString(),
     };
   } catch (caughtError) {
-    const message = caughtError instanceof Error ? caughtError.message : String(caughtError);
+    const message =
+      caughtError instanceof Error ? caughtError.message : String(caughtError);
     if (catalogModels.length > 0) {
       return {
         models: sortModels(catalogModels),
@@ -214,7 +240,9 @@ export function getRegisteredProviderIds(): readonly string[] {
  * Designed for sync paths like the provider resolver; async callers should
  * prefer `getProviderDefinition()` which reflects the live registry.
  */
-export function getProviderPackageNameSync(providerId: string): string | undefined {
+export function getProviderPackageNameSync(
+  providerId: string,
+): string | undefined {
   const override = BUILT_IN_OVERRIDES.find((entry) => entry.id === providerId);
   if (override?.packageName) return override.packageName;
   return getCatalogProviderSync(providerId)?.npm;

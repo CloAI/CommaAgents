@@ -11,13 +11,30 @@ export const AgentStreamEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), text: z.string() }),
   z.object({
     type: z.literal("tool-call"),
+    /**
+     * AI-SDK-supplied correlation id. Pairs this call with its eventual
+     * `tool-result` event so consumers can render a single row per call
+     * even when calls run concurrently or interleave with text/thinking.
+     */
+    toolCallId: z.string(),
     toolName: z.string(),
     args: z.string(),
   }),
   z.object({
     type: z.literal("tool-result"),
+    /** Correlates with the `tool-call` event that started this invocation. */
+    toolCallId: z.string(),
     toolName: z.string(),
+    /**
+     * Raw tool output. For `status: "error"` results this is an empty
+     * string by default — the human-readable failure message lives on
+     * `error`.
+     */
     output: z.string(),
+    /** Outcome of the tool invocation. */
+    status: z.enum(["completed", "error"]),
+    /** Failure message when `status === "error"`. */
+    error: z.string().optional(),
   }),
   z.object({ type: z.literal("thinking-start"), id: z.string() }),
   z.object({ type: z.literal("thinking"), id: z.string(), text: z.string() }),

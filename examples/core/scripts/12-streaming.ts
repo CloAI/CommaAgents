@@ -40,7 +40,9 @@ async function main() {
   console.log("Streaming response:");
   process.stdout.write("  ");
 
-  const stream = agent.stream!("Describe a sunset over the ocean in 3 sentences.");
+  const stream = agent.stream!(
+    "Describe a sunset over the ocean in 3 sentences.",
+  );
 
   let finalResult: any = null;
   for await (const event of stream) {
@@ -67,8 +69,9 @@ async function main() {
   const toolAgent = createAgent({
     name: "explorer",
     model,
-    systemPrompt: "You are a file explorer. Use tools to answer questions about the project.",
-    tools: ["bash", "read", "write", "edit", "glob", "grep"],
+    systemPrompt:
+      "You are a file explorer. Use tools to answer questions about the project.",
+    tools: ["read_file", "list_directory", "search_files", "run_command"],
   });
 
   console.log("Streaming response with tool calls:");
@@ -82,10 +85,14 @@ async function main() {
         process.stdout.write(event.text);
         break;
       case "tool-call":
-        console.log(`\n  [Tool Call] ${event.toolName}(${JSON.stringify(event.args)})`);
+        console.log(
+          `\n  [Tool Call] ${event.toolName}(${JSON.stringify(event.args)})`,
+        );
         break;
       case "tool-result":
-        console.log(`  [Tool Result] ${event.toolName}: ${String(event.output).slice(0, 100)}...`);
+        console.log(
+          `  [Tool Result] ${event.toolName}: ${String(event.output).slice(0, 100)}...`,
+        );
         break;
       case "step-start":
         console.log("  [New Step]");

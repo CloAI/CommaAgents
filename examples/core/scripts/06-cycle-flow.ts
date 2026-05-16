@@ -68,7 +68,9 @@ async function main() {
 
   console.log("Starting poem refinement cycle (3 iterations)...\n");
 
-  const result = await refinementLoop.call("Write a poem about the ocean at dawn");
+  const result = await refinementLoop.call(
+    "Write a poem about the ocean at dawn",
+  );
 
   console.log("\n--- Final Result ---");
   console.log(result.text);

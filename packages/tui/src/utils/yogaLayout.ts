@@ -22,7 +22,10 @@ export interface BoundingBox {
  * Each node's `getComputedTop()` / `getComputedLeft()` is relative to its
  * parent, so we accumulate offsets up to the root.
  */
-export function getAbsolutePosition(node: DOMElement): { top: number; left: number } {
+export function getAbsolutePosition(node: DOMElement): {
+  top: number;
+  left: number;
+} {
   let top = 0;
   let left = 0;
   let current: DOMElement | undefined = node;

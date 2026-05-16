@@ -21,7 +21,12 @@
  */
 
 import type { AgentHooks, ToolHooks } from "@comma-agents/core";
-import { createAgent, defineTool, hookIntoAgent, registerTool } from "@comma-agents/core";
+import {
+  createAgent,
+  defineTool,
+  hookIntoAgent,
+  registerTool,
+} from "@comma-agents/core";
 import { z } from "zod";
 import { getModelString } from "./helpers";
 
@@ -92,7 +97,9 @@ const agentHooks: AgentHooks = {
 
   afterCallResult: [
     async (result) => {
-      console.log(`[hook] afterCallResult — received: "${result.text.slice(0, 50)}..."`);
+      console.log(
+        `[hook] afterCallResult — received: "${result.text.slice(0, 50)}..."`,
+      );
     },
   ],
 };
@@ -110,7 +117,9 @@ const toolHooks: ToolHooks = {
 
   afterToolCall: [
     async ({ name, result }) => {
-      console.log(`[hook] afterToolCall — tool: ${name}, result: ${result.slice(0, 60)}`);
+      console.log(
+        `[hook] afterToolCall — tool: ${name}, result: ${result.slice(0, 60)}`,
+      );
     },
   ],
 };

@@ -1,12 +1,3 @@
-// StderrSink — writes JSON lines to process.stderr.
-//
-// This is the default sink and the foundation for all service managers:
-// - systemd captures stderr → journald (searchable via journalctl)
-// - launchd captures stderr or routes via StandardErrorPath
-// - Docker captures stderr → docker log driver
-// - Windows NSSM routes stderr to a file
-// - Foreground mode → visible in terminal
-
 import type { LogEntry, LogSink } from "../logger.types";
 
 /** Serialize a LogEntry to a single JSON line. */

@@ -1,5 +1,5 @@
-import type React from "react";
 import type { DOMElement } from "ink";
+import type React from "react";
 import type { MouseEvent } from "../useMouse/useMouse.types";
 
 /**

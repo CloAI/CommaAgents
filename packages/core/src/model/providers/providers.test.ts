@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { createJsonFileBackend } from "../../credentials/backends/json-file";
+import { createCredentialStore } from "../../credentials/credentials";
 import {
   getProviderDefinition,
   listAllProviderModels,
@@ -8,12 +12,8 @@ import {
   resetProviderRegistry,
   unregisterProviderDefinition,
 } from "./providers";
-import { mergeCatalogWithLive, mergeModelInfo } from "./providers.utils";
 import type { ModelInfo } from "./providers.types";
-import { createJsonFileBackend } from "../../credentials/backends/json-file";
-import { createCredentialStore } from "../../credentials/credentials";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { mergeCatalogWithLive, mergeModelInfo } from "./providers.utils";
 
 const TEST_DIR = join(import.meta.dir, "__test_providers_registry__");
 const TEST_FILE = join(TEST_DIR, "credentials.json");
@@ -60,7 +60,9 @@ describe("provider registry", () => {
 
 describe("listProviderModels", () => {
   test("returns catalog models when live is disabled", async () => {
-    const result = await listProviderModels("openai", undefined, { live: false });
+    const result = await listProviderModels("openai", undefined, {
+      live: false,
+    });
     expect(result.source).toBe("catalog");
     expect(result.models.length).toBeGreaterThan(0);
   });
@@ -142,7 +144,12 @@ describe("listAllProviderModels", () => {
 describe("mergeCatalogWithLive", () => {
   test("keeps only live-listed ids and overlays capabilities", () => {
     const catalog: ModelInfo[] = [
-      { id: "a", name: "A", cost: { input: 1 }, capabilities: { tools: false } },
+      {
+        id: "a",
+        name: "A",
+        cost: { input: 1 },
+        capabilities: { tools: false },
+      },
       { id: "stale", name: "Stale" },
     ];
     const live: ModelInfo[] = [

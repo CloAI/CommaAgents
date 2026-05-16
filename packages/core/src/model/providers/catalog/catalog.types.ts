@@ -1,4 +1,9 @@
-import type { ModelCapabilities, ModelCost, ModelModalities, ModelStatus } from "../providers.types";
+import type {
+  ModelCapabilities,
+  ModelCost,
+  ModelModalities,
+  ModelStatus,
+} from "../providers.types";
 
 /** Raw model entry shape used by `https://models.dev/api.json`. */
 export interface CatalogModel {

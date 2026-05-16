@@ -6,10 +6,19 @@ import { useTheme } from "../../theme";
 import type { BreakpointState } from "./useBreakpoint.types";
 
 /** Ordered breakpoint names from smallest to largest. */
-const BREAKPOINT_ORDER: readonly BreakpointName[] = ["xs", "sm", "md", "lg", "xl"];
+const BREAKPOINT_ORDER: readonly BreakpointName[] = [
+  "xs",
+  "sm",
+  "md",
+  "lg",
+  "xl",
+];
 
 /** Resolve the active breakpoint name for a given column width (mobile-first). */
-function resolveBreakpoint(columns: number, breakpoints: ThemeBreakpoints): BreakpointName {
+function resolveBreakpoint(
+  columns: number,
+  breakpoints: ThemeBreakpoints,
+): BreakpointName {
   let matched: BreakpointName = "xs";
   for (const name of BREAKPOINT_ORDER) {
     if (columns >= breakpoints[name]) {
@@ -36,7 +45,9 @@ export function useBreakpoint(): BreakpointState {
   const { stdout } = useStdout();
   const { breakpoints, containerWidths } = useTheme();
 
-  const [columns, setColumns] = useState(() => stdout?.columns ?? process.stdout.columns);
+  const [columns, setColumns] = useState(
+    () => stdout?.columns ?? process.stdout.columns,
+  );
   const [rows, setRows] = useState(() => stdout?.rows ?? process.stdout.rows);
 
   useEffect(() => {
@@ -53,9 +64,15 @@ export function useBreakpoint(): BreakpointState {
     };
   }, [stdout]);
 
-  const breakpoint = useMemo(() => resolveBreakpoint(columns, breakpoints), [columns, breakpoints]);
+  const breakpoint = useMemo(
+    () => resolveBreakpoint(columns, breakpoints),
+    [columns, breakpoints],
+  );
 
-  const containerWidth = useMemo(() => containerWidths[breakpoint], [containerWidths, breakpoint]);
+  const containerWidth = useMemo(
+    () => containerWidths[breakpoint],
+    [containerWidths, breakpoint],
+  );
 
   const above = useCallback(
     (name: BreakpointName) => columns >= breakpoints[name],
@@ -74,7 +91,15 @@ export function useBreakpoint(): BreakpointState {
   );
 
   return useMemo(
-    () => ({ columns, rows, breakpoint, containerWidth, above, below, between }),
+    () => ({
+      columns,
+      rows,
+      breakpoint,
+      containerWidth,
+      above,
+      below,
+      between,
+    }),
     [columns, rows, breakpoint, containerWidth, above, below, between],
   );
 }

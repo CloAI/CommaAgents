@@ -8,7 +8,9 @@ import type { WebSocketStatus } from "../useWebSocket/useWebSocket.types";
  * Without this, utility types like `Omit<Extract<...>>` show as-is
  * in hover tooltips instead of the resolved object shape.
  */
-export type Simplify<ObjectType> = { [Key in keyof ObjectType]: ObjectType[Key] } & {};
+export type Simplify<ObjectType> = {
+  [Key in keyof ObjectType]: ObjectType[Key];
+} & {};
 
 /** Extracts the `type` literal from a DaemonMessage variant. */
 export type DaemonMessageType = DaemonMessage["type"];
@@ -44,8 +46,8 @@ export type DaemonMessageListener<MessageKind extends DaemonMessageType> = (
   message: DaemonMessageOf<MessageKind>,
 ) => void;
 
-/** Props for the DaemonProvider component. */
-export interface DaemonProviderProps {
+/** Props for the DaemonContextProvider component. */
+export interface DaemonContextProviderProps {
   /** WebSocket URL for the daemon (e.g. "ws://localhost:7422/ws"). */
   readonly url: string;
   /** Child elements. */

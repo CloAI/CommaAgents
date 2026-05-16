@@ -8,7 +8,13 @@
  * - `"wheel-up"`   — mouse wheel scrolled up (button 64).
  * - `"wheel-down"` — mouse wheel scrolled down (button 65).
  */
-export type MouseEventKind = "press" | "release" | "move" | "drag" | "wheel-up" | "wheel-down";
+export type MouseEventKind =
+  | "press"
+  | "release"
+  | "move"
+  | "drag"
+  | "wheel-up"
+  | "wheel-down";
 
 /**
  * Keyboard modifier keys held at the time of a mouse event.

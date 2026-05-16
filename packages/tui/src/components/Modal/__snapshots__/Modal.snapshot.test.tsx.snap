@@ -37,3 +37,5 @@ exports[`ModalRender — sub-page (CommandPaletteRender) should render the activ
 │  ╰─› Type a command...────────────╯  │
 └──────────────────────────────────────┘"
 `;
+
+exports[`ModalRender — CommandPaletteRender (home view) should render the command palette home view inside a modal 1`] = `""`;

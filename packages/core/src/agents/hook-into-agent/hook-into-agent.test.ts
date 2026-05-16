@@ -50,15 +50,17 @@ describe("hookIntoAgent", () => {
           snapshot: () => [],
           restore: () => {},
           clear: () => {},
-          [Symbol.iterator]: () => ({ next: () => ({ value: undefined, done: true }) }),
+          [Symbol.iterator]: () => ({
+            next: () => ({ value: undefined, done: true }),
+          }),
         }),
         config: {} as any,
         reset: () => {},
       } as Agent;
 
-      expect(() => hookIntoAgent(fake, { beforeCall: [async () => {}] })).toThrow(
-        /does not support appendHook/,
-      );
+      expect(() =>
+        hookIntoAgent(fake, { beforeCall: [async () => {}] }),
+      ).toThrow(/does not support appendHook/);
     });
   });
 

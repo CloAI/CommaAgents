@@ -185,10 +185,7 @@ function cellForIndex(
   indexCellMap: readonly CursorCell[],
 ): CursorCell {
   if (indexCellMap.length === 0) return { x: 0, y: 0 };
-  const clampedIndex = Math.max(
-    0,
-    Math.min(index, indexCellMap.length - 1),
-  );
+  const clampedIndex = Math.max(0, Math.min(index, indexCellMap.length - 1));
   return indexCellMap[clampedIndex] ?? { x: 0, y: 0 };
 }
 

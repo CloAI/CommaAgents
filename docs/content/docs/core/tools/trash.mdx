@@ -1,0 +1,45 @@
+---
+title: Trash
+description: Recoverable deletes are moved to a per-workspace trash directory under the OS temp dir, with seven-day garbage collection.
+---
+
+# Trash
+
+`delete_file` and `apply_patch`'s `*** Delete File` operations are recoverable by default. Instead of unlinking the target, they move it into a per-workspace trash directory so an accidental delete can be reversed. Permanent deletes are an explicit opt-in.
+
+## Location
+
+The trash root lives outside the workspace, under the OS temp directory:
+
+```
+<os.tmpdir>/comma-trash/<sha256(workspaceRoot)>/<timestamp>-<basename>
+```
+
+Each workspace has its own subdirectory keyed by `sha256(workspaceRoot)` so multiple workspaces on the same host do not collide. The leaf name is a timestamp plus the original basename, which keeps trash listings sortable by time and human-readable.
+
+## Garbage collection
+
+Entries older than seven days are removed automatically the next time a delete operation runs. There is no daemon-side scheduler — GC piggybacks on the next destructive call, which keeps the trash bounded without standing infrastructure. If no deletes happen for a long time, old entries persist until the next call.
+
+## Cross-device fallback
+
+When the trash directory lives on a different filesystem than the deleted file, the rename fails with `EXDEV`. In that case the implementation falls back to copy-then-unlink: the file is read, written into the trash, then removed from its original location. The operation appears atomic to the caller and `data.trashedTo` still points to the new location.
+
+## Permanent delete
+
+Passing `permanent: true` to `delete_file` skips the trash entirely. The bytes are unlinked in place; there is no recovery path. Use this only when the file is genuinely disposable (build output, temp scratch files).
+
+## Recovering a deleted file
+
+Trash entries are plain files. To recover one, copy or move it back into the workspace:
+
+```bash
+mv "$TMPDIR/comma-trash/<hash>/<timestamp>-server.ts" src/server.ts
+```
+
+The exact trashed path is included in the `delete_file` result as `data.trashedTo`, and in the audit log entry for the operation.
+
+## Related
+
+- [delete_file](/docs/core/tools/built-in/delete_file) — uses the trash by default.
+- [Audit log](/docs/core/tools/audit-log) — records the trashed-to path for every recoverable delete.

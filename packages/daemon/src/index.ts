@@ -1,13 +1,8 @@
-// @comma-agents/daemon
-// Long-running process that executes agent strategies and exposes a WebSocket API
-// for clients (TUI, Web UI) to connect and interact.
-
 export type {
   DaemonConfig,
   DaemonConfigFile,
   LoadConfigOptions,
 } from "./config";
-// -- Config --
 export {
   DaemonConfigFileSchema,
   loadDaemonConfig,
@@ -21,7 +16,6 @@ export type {
   ProviderResolver,
   StrategyExecutor,
 } from "./executor";
-// -- Executor --
 export {
   createInputBridge,
   createStrategyExecutor,
@@ -34,19 +28,14 @@ export type {
   LogLevel,
   LogSink,
 } from "./logger";
-// -- Logger --
 export {
   createFileSink,
   createLogger,
   createStderrSink,
   createSystemSink,
   describeSystemLogging,
-  formatJsonLine,
-  LOG_LEVELS,
 } from "./logger";
-// -- PID --
 export { isRunning, readPid, removePid, writePid } from "./pid";
-// Shared types
 export type {
   AgentCallResultWire,
   AgentStreamEventWire,
@@ -57,18 +46,15 @@ export type {
   MessageDispatcher,
   RequestResponseMap,
   RunSummary,
-  Usage,
   SessionMetadataWire,
-  SessionTurnWire,
   SessionRunSummaryWire,
+  SessionTurnWire,
+  Usage,
 } from "./server/protocol";
 export {
   parseClientMessage,
   parseDaemonMessage,
 } from "./server/protocol";
-// -- State --
-export type { RunStatus } from "./state";
-// -- Sessions --
 export type {
   CreateSessionStoreOptions,
   PersistedSession,
@@ -76,10 +62,7 @@ export type {
   SessionRunSummary,
   SessionStore,
   SessionTurn,
+  UserMessageSource,
 } from "./sessions";
-export {
-  createSessionStore,
-  hashCwd,
-  normalizeCwd,
-  SESSION_SCHEMA_VERSION,
-} from "./sessions";
+export { createSessionStore } from "./sessions";
+export type { RunStatus } from "./state";

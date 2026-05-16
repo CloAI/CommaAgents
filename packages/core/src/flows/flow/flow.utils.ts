@@ -47,7 +47,10 @@ export function buildFlowResult(
  * as a readonly array. If step hooks are provided, `beforeStep` fires
  * before each step and `afterStep` fires after.
  */
-export function createFlowContext(name: string, hooks?: FlowHooks): FlowContext {
+export function createFlowContext(
+  name: string,
+  hooks?: FlowHooks,
+): FlowContext {
   const collected: AgentCallResult[] = [];
 
   return {
@@ -55,14 +58,21 @@ export function createFlowContext(name: string, hooks?: FlowHooks): FlowContext 
 
     async runStep(step: Agent, message: string): Promise<AgentCallResult> {
       // Step pre-hook
-      await runSideEffectHooks(hooks?.beforeStep, { stepName: step.name, message });
+      await runSideEffectHooks(hooks?.beforeStep, {
+        stepName: step.name,
+        message,
+      });
 
       try {
         const result = await step.call(message);
         collected.push(result);
 
         // Step post-hook
-        await runSideEffectHooks(hooks?.afterStep, { stepName: step.name, message, result });
+        await runSideEffectHooks(hooks?.afterStep, {
+          stepName: step.name,
+          message,
+          result,
+        });
 
         return result;
       } catch (error) {

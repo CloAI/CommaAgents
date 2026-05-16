@@ -12,8 +12,8 @@ export type Usage = z.infer<typeof UsageSchema>;
 
 /**
  * Serialized AgentCallResult — the subset we send over the wire.
- * We intentionally omit `steps` (complex AI SDK internals) and send
- * only the fields clients actually need.
+ * Omits `steps` (internal detail) and sends only the fields
+ * clients actually need.
  */
 export const AgentCallResultSchema = z.object({
   text: z.string(),

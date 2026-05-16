@@ -1,0 +1,113 @@
+---
+title: Patch envelope
+description: Wire grammar accepted by apply_patch — Begin/End markers, Add/Update/Delete/Move directives, and @@ hunks.
+---
+
+# Patch envelope
+
+`apply_patch` accepts a single text envelope that can add, update, delete, and move multiple files in one call. The grammar is adopted verbatim from OpenAI's `apply_patch` v2 spec so models trained against that envelope work without translation.
+
+## Overall shape
+
+```
+*** Begin Patch
+<one or more file sections>
+*** End Patch
+```
+
+A file section is one of `*** Add File`, `*** Update File`, `*** Delete File`, or `*** Move File`. Sections appear in order. The patch is pre-validated as a single plan and committed atomically by default — if any section fails its check, no files are written.
+
+Text before the first `*** Begin Patch` or after the final `*** End Patch` is a `patch_parse_error`.
+
+## Paths
+
+Paths are workspace-relative and forward-slash separated. They are resolved through the guard; escape attempts return `outside_workspace`, and absolute paths return `command_failed`. `apply_patch` never auto-creates parent directories — a missing parent yields `not_found`.
+
+## Add File
+
+```
+*** Add File: path/to/new.txt
++first line
++second line
++
++fourth line (blank line above)
+```
+
+- Every body line starts with `+`. The leading `+` is stripped to recover file bytes.
+- A trailing newline is added if and only if the last `+` line is non-empty. To suppress the trailing newline, end the section with a literal `\ No newline at end of file` line, mirroring unified-diff convention.
+- Fails with `already_exists` if `path` already exists.
+
+## Update File
+
+```
+*** Update File: src/foo.ts
+@@ optional-header
+ context line (unchanged)
+-removed line
++added line
+ context line (unchanged)
+@@ another-hunk-header
+-only-removal
++only-addition
+```
+
+- One or more hunks per file. Each hunk starts with `@@`. Text after `@@` is informational only — `apply_patch` matches by context, never by line number.
+- Each body line is exactly one of `" "` (context), `"-"` (remove), `"+"` (add), or `"\ No newline at end of file"`.
+- Matching is **zero-fuzz**: the concatenation of context and removal lines must appear exactly once in the post-state of all prior hunks for that file.
+- Multiple matches → `multiple_matches`. No match → `patch_apply_error` with `details: { path, hunkIndex, reason: "context_not_found" }`. Overlapping hunks → `overlapping_edits`.
+
+## Delete File
+
+```
+*** Delete File: path/to/old.txt
+```
+
+No body. The pre-image is captured for rollback and the file is moved to the workspace trash on commit (same mechanism as [delete_file](/docs/core/tools/built-in/delete_file)).
+
+## Move File
+
+```
+*** Move File: old/path.ts -> new/path.ts
+@@
+-export const NAME = "old-name";
++export const NAME = "new-name";
+```
+
+Optional `@@` hunks edit the source content before it is written at the destination. Identical `from -> to` returns `command_failed`. Existing destination returns `already_exists`.
+
+## Stale-file checks
+
+The optional `expectedSha256ByPath: Record<path, sha256>` input lets the caller assert the pre-image hash of any file in the patch. Mismatch returns `stale_file` with `details.path`. For `Add File`, supply the sentinel `""` to assert non-existence; any other value is treated as stale. Paths not present in the map skip the check entirely.
+
+## Atomicity
+
+`atomic` (default `true`) controls commit behavior:
+
+- **`atomic: true`** — Plan is dry-run end-to-end. Each write is staged to a sibling tempfile (`<path>.<rand>.apply-patch.tmp`), `fsync`'d, then renamed in plan order. Deletes and moves are deferred to the commit phase. On any commit failure, already-renamed files are reverted from their captured pre-image bytes and staged tempfiles are unlinked.
+- **`atomic: false`** — Apply sequentially, stop on first failure, return partial `changedFiles`.
+
+The flag is echoed in `data.atomic`.
+
+## Full example
+
+```
+*** Begin Patch
+*** Add File: src/utils/clamp.ts
++export const clamp = (n: number, lo: number, hi: number): number =>
++  Math.min(Math.max(n, lo), hi);
+*** Update File: src/index.ts
+@@
+ import { foo } from "./foo";
++import { clamp } from "./utils/clamp";
+
+ export { foo };
++export { clamp };
+*** Delete File: src/legacy.ts
+*** End Patch
+```
+
+## Related
+
+- [apply_patch](/docs/core/tools/built-in/apply_patch) — the tool that consumes this envelope.
+- [Stale file protocol](/docs/core/tools/stale-file-protocol) — `expectedSha256ByPath` semantics.
+- [Error kinds](/docs/core/tools/error-kinds) — `patch_parse_error` and `patch_apply_error` details.

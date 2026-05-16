@@ -1,11 +1,3 @@
-// createConversationContext — Closure-based conversation turn management.
-//
-// Manages conversation turns with configurable strategies (sliding window
-// by count and/or estimated token budget). Returns AI SDK ModelMessage
-// arrays for use with generateText()/streamText().
-//
-// State is captured in closure — no classes.
-
 import type { ModelMessage, UserModelMessage } from "ai";
 
 import type {
@@ -15,12 +7,8 @@ import type {
   ResponseMessage,
 } from "./conversation-context.types";
 
-// -- Constants --
-
 /** Default tokens-per-character ratio for English text. ~4 chars per token. */
 const DEFAULT_TOKENS_PER_CHAR = 0.25;
-
-// -- Internal types --
 
 interface ContextState {
   readonly turns: readonly ConversationTurn[];
@@ -33,9 +21,9 @@ interface ResolvedContextConfig {
   readonly strategy: ContextStrategy;
 }
 
-// -- Config resolution --
-
-function resolveContextConfig(config: ConversationContextConfig = {}): ResolvedContextConfig {
+function resolveContextConfig(
+  config: ConversationContextConfig = {},
+): ResolvedContextConfig {
   const maxTurns = config.maxTurns ?? Number.POSITIVE_INFINITY;
   const maxTokens = config.maxTokens;
   const tokensPerChar = config.tokensPerChar ?? DEFAULT_TOKENS_PER_CHAR;
@@ -51,8 +39,6 @@ function resolveContextConfig(config: ConversationContextConfig = {}): ResolvedC
 
   return { maxTurns, maxTokens, tokensPerChar, strategy };
 }
-
-// -- Pure helpers --
 
 /**
  * Extract the total character count from a ModelMessage's content.
@@ -123,7 +109,8 @@ function applyStrategy(
   if (resolvedConfig.maxTokens !== undefined) {
     while (
       turns.length > 0 &&
-      estimateTokensForTurns(turns, resolvedConfig.tokensPerChar) > resolvedConfig.maxTokens
+      estimateTokensForTurns(turns, resolvedConfig.tokensPerChar) >
+        resolvedConfig.maxTokens
     ) {
       turns = turns.slice(1);
     }
@@ -142,13 +129,18 @@ function appendTurn(
   const user: UserModelMessage =
     typeof userMessage === "string" ? toUserMessage(userMessage) : userMessage;
 
-  const newTurns = [...state.turns, { userMessage: user, responseMessages: [...responseMessages] }];
+  const newTurns = [
+    ...state.turns,
+    { userMessage: user, responseMessages: [...responseMessages] },
+  ];
 
   return applyStrategy({ turns: newTurns }, config);
 }
 
 /** Flatten turns into a sequential ModelMessage array. */
-function turnsToMessages(turns: readonly ConversationTurn[]): readonly ModelMessage[] {
+function turnsToMessages(
+  turns: readonly ConversationTurn[],
+): readonly ModelMessage[] {
   const messages: ModelMessage[] = [];
   for (const turn of turns) {
     messages.push(turn.userMessage);
@@ -164,8 +156,6 @@ function getLastTurn(state: ContextState): ConversationTurn | undefined {
   const { turns } = state;
   return turns.length > 0 ? turns[turns.length - 1] : undefined;
 }
-
-// -- The public interface --
 
 /**
  * The ConversationContext interface — manages the accumulated state of an
@@ -249,7 +239,9 @@ export interface ConversationContext {
  * const full = createConversationContext();
  * ```
  */
-export function createConversationContext(config?: ConversationContextConfig): ConversationContext {
+export function createConversationContext(
+  config?: ConversationContextConfig,
+): ConversationContext {
   const resolvedConfig = resolveContextConfig(config);
   let state: ContextState = { turns: [] };
 

@@ -28,14 +28,31 @@ export type MessageSegment =
     }
   | {
       readonly type: "tool-call";
+      /**
+       * Correlation id from the daemon's `tool-call` wire event. Pairs
+       * this call with its eventual `tool-result` segment so the renderer
+       * can collapse them into a single row even when calls run
+       * concurrently or are interleaved with text/thinking.
+       */
+      readonly toolCallId: string;
       readonly toolName: string;
       /** Raw JSON-encoded arguments string from the wire protocol. */
       readonly args: string;
     }
   | {
       readonly type: "tool-result";
+      /** Correlates with the `tool-call` segment that started this invocation. */
+      readonly toolCallId: string;
       readonly toolName: string;
       readonly output: string;
+      /**
+       * Outcome of the tool invocation. `running` is implicit (no
+       * `tool-result` segment for this `toolCallId` yet); once a result
+       * arrives it is either `completed` or `error`.
+       */
+      readonly status: "completed" | "error";
+      /** Failure message when `status === "error"`. */
+      readonly error?: string;
     }
   | {
       readonly type: "thinking";
@@ -110,7 +127,11 @@ export interface PendingPermissionRequest {
  * - `waiting_input` — derived from an unanswered `request_input`.
  * - `waiting_permission` — derived from an unanswered `request_permission`.
  */
-export type ChatStatus = RunStatus | "idle" | "waiting_input" | "waiting_permission";
+export type ChatStatus =
+  | RunStatus
+  | "idle"
+  | "waiting_input"
+  | "waiting_permission";
 
 /** A single chat session's state — 1:1 with a strategy run. */
 export interface ChatSession {
@@ -165,6 +186,20 @@ export interface CreateSessionInit {
   readonly strategyPath?: string;
 }
 
+/** Lightweight metadata for a daemon-persisted session (from `session_list`). */
+export interface PersistedSessionMeta {
+  /** Stable session identifier from the daemon. */
+  readonly daemonSessionId: string;
+  /** Human-readable title. */
+  readonly title: string;
+  /** Absolute cwd the session belongs to. */
+  readonly cwd: string;
+  /** ISO-8601 creation timestamp. */
+  readonly createdAt: string;
+  /** ISO-8601 last-updated timestamp. */
+  readonly updatedAt: string;
+}
+
 /** Value exposed by `ChatSessionsContext`. */
 export interface ChatSessionsContextType {
   /** All sessions keyed by `ChatSessionId`. */
@@ -176,7 +211,11 @@ export interface ChatSessionsContextType {
   /** Create a session in `idle` state. Returns its id. Does not make it active. */
   readonly createSession: (init?: CreateSessionInit) => ChatSessionId;
   /** Create a session, start a strategy on it, and make it active. Returns its id. */
-  readonly startStrategy: (strategyPath: string, input?: string, cwd?: string) => ChatSessionId;
+  readonly startStrategy: (
+    strategyPath: string,
+    input?: string,
+    cwd?: string,
+  ) => ChatSessionId;
   /**
    * Hydrate a persisted session from a daemon `session_loaded` payload.
    *
@@ -185,7 +224,9 @@ export interface ChatSessionsContextType {
    * session as `readOnly` (no live daemon run), sets it active, and
    * returns its id. Subsequent `sendInput`/`stopSession` calls are no-ops.
    */
-  readonly loadSession: (payload: DaemonMessageOf<"session_loaded">) => ChatSessionId;
+  readonly loadSession: (
+    payload: DaemonMessageOf<"session_loaded">,
+  ) => ChatSessionId;
   /** Send user input into a session that is waiting for it. No-op otherwise. */
   readonly sendInput: (sessionId: ChatSessionId, text: string) => void;
   /** Resolve a pending permission request for a session. */
@@ -199,6 +240,14 @@ export interface ChatSessionsContextType {
   readonly resetSession: (sessionId: ChatSessionId) => void;
   /** Delete the session from the map. Clears `activeSessionId` if it was active. */
   readonly removeSession: (sessionId: ChatSessionId) => void;
+  /** Persisted session metadata fetched from the daemon. */
+  readonly persistedSessions: readonly PersistedSessionMeta[];
+  /** Request the daemon to list persisted sessions for a given cwd (or all). */
+  readonly fetchPersistedSessions: (cwd?: string) => void;
+  /** Load a persisted session from the daemon by its daemon session id. */
+  readonly loadPersistedSession: (daemonSessionId: string) => void;
+  /** Whether a session is currently being loaded from the daemon. */
+  readonly isLoadingSession: boolean;
 }
 
 /** Props for the `ChatSessionsContextProvider` component. */
@@ -234,7 +283,11 @@ export interface UseChatState {
   /** Current daemon WebSocket connection status. */
   readonly connectionStatus: WebSocketStatus;
   /** Create a new session and start a strategy on it. Returns the new session id. */
-  readonly startStrategy: (strategyPath: string, input?: string, cwd?: string) => ChatSessionId;
+  readonly startStrategy: (
+    strategyPath: string,
+    input?: string,
+    cwd?: string,
+  ) => ChatSessionId;
   /** Send user input to the bound session. No-op if no session or no pending input. */
   readonly sendInput: (text: string) => void;
   /** Resolve the pending permission request for the bound session. */

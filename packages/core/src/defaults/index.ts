@@ -1,7 +1,3 @@
-// Defaults module barrel — single import point for global defaults.
-// Public API is exported from the package index.
-
-// Factories / functions
 export {
   getGlobalCredentialStore,
   getGlobalDefaults,

@@ -5,26 +5,51 @@ import { AgentStreamEventSchema } from "./agent-streaming.schema";
 
 describe("AgentStreamEventSchema", () => {
   test("parses text event", () => {
-    expect(AgentStreamEventSchema.parse({ type: "text", text: "hello" })).toEqual({
+    expect(
+      AgentStreamEventSchema.parse({ type: "text", text: "hello" }),
+    ).toEqual({
       type: "text",
       text: "hello",
     });
   });
 
   test("parses tool-call event", () => {
-    expect(
-      AgentStreamEventSchema.parse({ type: "tool-call", toolName: "search", args: '{"q":"test"}' }),
-    ).toEqual({ type: "tool-call", toolName: "search", args: '{"q":"test"}' });
+    const event = {
+      type: "tool-call",
+      toolCallId: "call_abc",
+      toolName: "search",
+      args: '{"q":"test"}',
+    } as const;
+    expect(AgentStreamEventSchema.parse(event)).toEqual(event);
   });
 
-  test("parses tool-result event", () => {
-    expect(
-      AgentStreamEventSchema.parse({ type: "tool-result", toolName: "search", output: "result" }),
-    ).toEqual({ type: "tool-result", toolName: "search", output: "result" });
+  test("parses tool-result event with completed status", () => {
+    const event = {
+      type: "tool-result",
+      toolCallId: "call_abc",
+      toolName: "search",
+      output: "result",
+      status: "completed",
+    } as const;
+    expect(AgentStreamEventSchema.parse(event)).toEqual(event);
+  });
+
+  test("parses tool-result event with error status and message", () => {
+    const event = {
+      type: "tool-result",
+      toolCallId: "call_abc",
+      toolName: "search",
+      output: "",
+      status: "error",
+      error: "ENOENT: no such file",
+    } as const;
+    expect(AgentStreamEventSchema.parse(event)).toEqual(event);
   });
 
   test("parses step-start event", () => {
-    expect(AgentStreamEventSchema.parse({ type: "step-start" })).toEqual({ type: "step-start" });
+    expect(AgentStreamEventSchema.parse({ type: "step-start" })).toEqual({
+      type: "step-start",
+    });
   });
 
   test("parses done event", () => {
@@ -40,18 +65,63 @@ describe("AgentStreamEventSchema", () => {
   });
 
   test("rejects unknown event type", () => {
-    expect(AgentStreamEventSchema.safeParse({ type: "unknown" }).success).toBe(false);
+    expect(AgentStreamEventSchema.safeParse({ type: "unknown" }).success).toBe(
+      false,
+    );
   });
 
   test("rejects text event without text field", () => {
-    expect(AgentStreamEventSchema.safeParse({ type: "text" }).success).toBe(false);
+    expect(AgentStreamEventSchema.safeParse({ type: "text" }).success).toBe(
+      false,
+    );
   });
 
   test("rejects tool-call without toolName", () => {
-    expect(AgentStreamEventSchema.safeParse({ type: "tool-call", args: "{}" }).success).toBe(false);
+    expect(
+      AgentStreamEventSchema.safeParse({
+        type: "tool-call",
+        toolCallId: "c1",
+        args: "{}",
+      }).success,
+    ).toBe(false);
+  });
+
+  test("rejects tool-call without toolCallId", () => {
+    expect(
+      AgentStreamEventSchema.safeParse({
+        type: "tool-call",
+        toolName: "search",
+        args: "{}",
+      }).success,
+    ).toBe(false);
+  });
+
+  test("rejects tool-result without status", () => {
+    expect(
+      AgentStreamEventSchema.safeParse({
+        type: "tool-result",
+        toolCallId: "c1",
+        toolName: "search",
+        output: "ok",
+      }).success,
+    ).toBe(false);
+  });
+
+  test("rejects tool-result with unknown status", () => {
+    expect(
+      AgentStreamEventSchema.safeParse({
+        type: "tool-result",
+        toolCallId: "c1",
+        toolName: "search",
+        output: "ok",
+        status: "running",
+      }).success,
+    ).toBe(false);
   });
 
   test("rejects done event without result", () => {
-    expect(AgentStreamEventSchema.safeParse({ type: "done" }).success).toBe(false);
+    expect(AgentStreamEventSchema.safeParse({ type: "done" }).success).toBe(
+      false,
+    );
   });
 });

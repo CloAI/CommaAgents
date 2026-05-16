@@ -214,7 +214,8 @@ describe("createPromptTemplate", () => {
 
     it("handles if/else", async () => {
       const tpl = createPromptTemplate({
-        template: "{% if verbose %}Detailed mode{% else %}Brief mode{% endif %}",
+        template:
+          "{% if verbose %}Detailed mode{% else %}Brief mode{% endif %}",
       });
 
       expect(await tpl.render({ verbose: true })).toBe("Detailed mode");
@@ -247,7 +248,8 @@ describe("createPromptTemplate", () => {
 
     it("accesses object properties in loops", async () => {
       const tpl = createPromptTemplate({
-        template: "{% for item in items %}{{ item.name }}: {{ item.desc }}; {% endfor %}",
+        template:
+          "{% for item in items %}{{ item.name }}: {{ item.desc }}; {% endfor %}",
         variables: {
           items: [
             { name: "bash", desc: "shell" },
@@ -333,6 +335,90 @@ describe("createPromptTemplate", () => {
       const vars = { name: "Alice", role: "reviewer" };
       const tpl = createPromptTemplate({ template: "test", variables: vars });
       expect(tpl.defaults).toEqual(vars);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // updateVariables
+  // ---------------------------------------------------------------------------
+
+  describe("updatePromptVariables", () => {
+    it("merges new variables into defaults for subsequent renders", async () => {
+      const tpl = createPromptTemplate({
+        template: "You are {{ role }}, reviewing {{ language }} code.",
+        variables: { role: "a reviewer" },
+      });
+
+      tpl.updatePromptVariables({ language: "TypeScript" });
+
+      const result = await tpl.render();
+      expect(result).toBe("You are a reviewer, reviewing TypeScript code.");
+    });
+
+    it("overwrites existing default values", async () => {
+      const tpl = createPromptTemplate({
+        template: "Role: {{ role }}",
+        variables: { role: "initial" },
+      });
+
+      tpl.updatePromptVariables({ role: "updated" });
+
+      expect(await tpl.render()).toBe("Role: updated");
+    });
+
+    it("reflects updated variables in the defaults property", () => {
+      const tpl = createPromptTemplate({
+        template: "{{ greeting }}",
+        variables: { greeting: "Hello" },
+      });
+
+      tpl.updatePromptVariables({ name: "World" });
+
+      expect(tpl.defaults).toEqual({ greeting: "Hello", name: "World" });
+    });
+
+    it("works with function values", async () => {
+      const tpl = createPromptTemplate({
+        template: "Count: {{ count }}",
+      });
+
+      tpl.updatePromptVariables({ count: () => "42" });
+
+      expect(await tpl.render()).toBe("Count: 42");
+    });
+
+    it("render overrides still take precedence over updated defaults", async () => {
+      const tpl = createPromptTemplate({
+        template: "Role: {{ role }}",
+        variables: { role: "default" },
+      });
+
+      tpl.updatePromptVariables({ role: "updated" });
+
+      expect(await tpl.render({ role: "override" })).toBe("Role: override");
+    });
+
+    it("accumulates multiple update calls", async () => {
+      const tpl = createPromptTemplate({
+        template: "{{ a }} {{ b }} {{ c }}",
+        variables: { a: "one" },
+      });
+
+      tpl.updatePromptVariables({ b: "two" });
+      tpl.updatePromptVariables({ c: "three" });
+
+      expect(await tpl.render()).toBe("one two three");
+    });
+
+    it("is a no-op when called with an empty object", async () => {
+      const tpl = createPromptTemplate({
+        template: "Name: {{ name }}",
+        variables: { name: "Alice" },
+      });
+
+      tpl.updatePromptVariables({});
+
+      expect(await tpl.render()).toBe("Name: Alice");
     });
   });
 });

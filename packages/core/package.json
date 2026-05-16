@@ -12,7 +12,9 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.30",
     "@comma-agents/utils": "workspace:*",
+    "@types/diff": "8.0.0",
     "ai": "6.0.91",
+    "diff": "9.0.0",
     "liquidjs": "10.25.0",
     "turndown": "7.2.4",
     "yaml": "2.7.0",

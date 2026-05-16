@@ -1,15 +1,17 @@
-// Conversation context types — turn formats, strategy, and configuration.
-//
-// These types describe the structure of an ongoing conversation between
-// a user and an AI agent. ConversationTurn stores native AI SDK
-// ModelMessage objects to preserve tool calls, reasoning, multi-modal
-// content, and proper multi-turn context.
-
-import type { AssistantModelMessage, ToolModelMessage, UserModelMessage } from "ai";
+import type {
+  AssistantModelMessage,
+  ToolModelMessage,
+  UserModelMessage,
+} from "ai";
 
 // Re-export AI SDK message types for consumer convenience.
 // These are the building blocks of conversation turns.
-export type { AssistantModelMessage, ModelMessage, ToolModelMessage, UserModelMessage } from "ai";
+export type {
+  AssistantModelMessage,
+  ModelMessage,
+  ToolModelMessage,
+  UserModelMessage,
+} from "ai";
 
 /**
  * A message generated during an AI SDK call — either an assistant message
@@ -20,8 +22,6 @@ export type { AssistantModelMessage, ModelMessage, ToolModelMessage, UserModelMe
  * does not export it, so we define it here.
  */
 export type ResponseMessage = AssistantModelMessage | ToolModelMessage;
-
-// Conversation Turn
 
 /**
  * A complete conversation turn: user message paired with the model's response.
@@ -40,8 +40,6 @@ export interface ConversationTurn {
   readonly responseMessages: readonly ResponseMessage[];
 }
 
-// Context Strategy
-
 /**
  * Strategy for managing conversation context when it grows too large.
  *
@@ -52,8 +50,6 @@ export interface ConversationTurn {
  * added to this union as the system evolves.
  */
 export type ContextStrategy = "sliding-window" | "none";
-
-// Context Configuration
 
 /**
  * Configuration for `ConversationContext` behavior.

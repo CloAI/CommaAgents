@@ -7,6 +7,7 @@
 import { z } from "zod";
 
 import type { BUILT_IN_TOOL_NAMES } from "../tools/tool.constants";
+import { ModelOptionsSchema } from "../agents/loader/loader.schema";
 
 export type BuiltInToolName = (typeof BUILT_IN_TOOL_NAMES)[number];
 
@@ -59,6 +60,12 @@ export const LLMAgentDefSchema = z
      * `{ <providerId>: { <option>: <value>, ... }, ... }`.
      */
     providerOptions: z.record(z.record(z.unknown())).optional(),
+    /**
+     * Model-level generation parameters (temperature, maxOutputTokens, topP, seed,
+     * etc.). Forwarded to `streamText` as top-level options. Provider-specific
+     * features should use `providerOptions` instead.
+     */
+    modelOptions: ModelOptionsSchema.optional(),
   })
   .strict();
 
@@ -83,7 +90,9 @@ export const AgentStepSchema = z
  * A flow step is either an agent reference or a nested flow definition.
  * Uses z.lazy() to support recursive nesting.
  */
-export const FlowStepSchema: z.ZodType = z.lazy(() => z.union([AgentStepSchema, FlowDefSchema]));
+export const FlowStepSchema: z.ZodType = z.lazy(() =>
+  z.union([AgentStepSchema, FlowDefSchema]),
+);
 
 // Flow definitions (recursive via FlowStepSchema)
 
@@ -104,7 +113,9 @@ export const CycleFlowDefSchema = z
   .object({
     ...BaseFlowFields,
     type: z.literal("cycle"),
-    cycles: z.union([z.number().int().positive(), z.literal("Infinity")]).optional(),
+    cycles: z
+      .union([z.number().int().positive(), z.literal("Infinity")])
+      .optional(),
     observer: z.string().optional(),
   })
   .strict();
@@ -151,12 +162,16 @@ export type Strategy = z.infer<typeof StrategySchema>;
 // Type guards
 
 /** Check if an agent definition is a user agent. */
-export function isUserAgentDef(agentDefinition: AgentDef): agentDefinition is UserAgentDef {
+export function isUserAgentDef(
+  agentDefinition: AgentDef,
+): agentDefinition is UserAgentDef {
   return "type" in agentDefinition && agentDefinition.type === "user";
 }
 
 /** Check if an agent definition is an LLM agent. */
-export function isLLMAgentDef(agentDefinition: AgentDef): agentDefinition is LLMAgentDef {
+export function isLLMAgentDef(
+  agentDefinition: AgentDef,
+): agentDefinition is LLMAgentDef {
   return (
     !("type" in agentDefinition) ||
     agentDefinition.type === undefined ||

@@ -20,7 +20,12 @@ const mockResult: AgentCallResult = {
 describe("DaemonState — runs", () => {
   test("createRun returns a run with pending status", () => {
     const state = createDaemonState();
-    const run = state.createRun("/path/to/strategy.json", "test-strategy", "/tmp/cwd", "session-test");
+    const run = state.createRun(
+      "/path/to/strategy.json",
+      "test-strategy",
+      "/tmp/cwd",
+      "session-test",
+    );
 
     expect(run.id).toBeTruthy();
     expect(run.strategyPath).toBe("/path/to/strategy.json");
@@ -296,7 +301,9 @@ describe("DaemonState — subscriptions", () => {
   test("subscribe throws for unknown run", () => {
     const state = createDaemonState();
     state.addClient("client-1");
-    expect(() => state.subscribe("client-1", "unknown-run")).toThrow("Run not found: unknown-run");
+    expect(() => state.subscribe("client-1", "unknown-run")).toThrow(
+      "Run not found: unknown-run",
+    );
   });
 
   test("unsubscribe removes a subscription", () => {
@@ -394,7 +401,9 @@ describe("DaemonState — cleanup", () => {
     state.addClient("client-1");
     state.removeClient("client-1");
 
-    expect(() => state.subscribe("client-1", run.id)).toThrow("Client not found: client-1");
+    expect(() => state.subscribe("client-1", run.id)).toThrow(
+      "Client not found: client-1",
+    );
   });
 
   test("removeRun then subscribe throws for that run", () => {

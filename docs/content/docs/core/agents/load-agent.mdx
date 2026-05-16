@@ -14,7 +14,9 @@ console.log(result.text);
 
 ## Agent Description File
 
-A description file defines a single agent — its name, model, optional system prompt, and optional tools. The schema is strict: unknown fields are rejected.
+A description file defines a single agent — its name, model, optional system prompt, optional tools, and optional generation parameters. The schema is strict: unknown fields are rejected.
+
+Model strings support two formats: explicit `"providerID/modelID"` (e.g. `"openai/gpt-4o"`) or bare model IDs (e.g. `"gpt-4o"`) where the provider is auto-resolved from the catalog. See [Model Resolution](/docs/core/model) for details.
 
 ### YAML
 
@@ -25,6 +27,12 @@ systemPrompt: You are a research assistant.
 tools:
   - read
   - grep
+providerOptions:
+  openai:
+    reasoningEffort: high
+modelOptions:
+  temperature: 0.7
+  maxOutputTokens: 4096
 ```
 
 ### JSON
@@ -34,9 +42,43 @@ tools:
   "name": "researcher",
   "model": "openai/gpt-4o",
   "systemPrompt": "You are a research assistant.",
-  "tools": ["read", "grep"]
+  "tools": ["read_file", "search_files"],
+  "providerOptions": {
+    "openai": { "reasoningEffort": "high" }
+  },
+  "modelOptions": {
+    "temperature": 0.7,
+    "maxOutputTokens": 4096
+  }
 }
 ```
+
+### providerOptions
+
+Provider-specific options forwarded verbatim to the AI SDK. The outer key is the provider ID (e.g. `"openai"`, `"anthropic"`) and the inner record contains the provider's specific options.
+
+```yaml
+providerOptions:
+  anthropic:
+    thinking: { type: enabled, budgetTokens: 8000 }
+  openai:
+    reasoningEffort: high
+```
+
+### modelOptions
+
+Provider-agnostic generation parameters forwarded to every call. These map directly to the AI SDK's `streamText` options.
+
+| Field | Type | Description |
+|---|---|---|
+| `temperature` | `number?` | Sampling temperature (0–2). Higher = more creative. |
+| `topP` | `number?` | Nucleus sampling cumulative probability cutoff (0–1). |
+| `topK` | `number?` | Top-K sampling — limits the pool to K tokens. |
+| `maxOutputTokens` | `number?` | Maximum output tokens per completion. |
+| `maxRetries` | `number?` | Maximum retry attempts on transient failures. |
+| `frequencyPenalty` | `number?` | Frequency penalty (−2 to 2). Reduces repetition. |
+| `presencePenalty` | `number?` | Presence penalty (−2 to 2). Encourages new topics. |
+| `seed` | `number?` | Deterministic seed for reproducible outputs. |
 
 ## AgentDescriptionSchema
 
@@ -46,7 +88,7 @@ Zod schema used to validate agent description files. Requires `name` and `model`
 
 ## LoadAgentOptions
 
-Options passed to `loadAgent` or `loadAgentFromString`. Currently reserved for future use.
+Options passed to `loadAgent` or `loadAgentFromString`.
 
 <AutoTypeTable path="../packages/core/src/agents/loader/loader.types.ts" name="LoadAgentOptions" />
 

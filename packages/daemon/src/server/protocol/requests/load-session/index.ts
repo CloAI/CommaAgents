@@ -18,7 +18,9 @@ export async function handleLoadSession(
       code: "SESSION_NOT_FOUND",
       message: `Session not found: ${message.sessionId}`,
       ts: new Date().toISOString(),
-      ...(message.requestId !== undefined ? { requestId: message.requestId } : {}),
+      ...(message.requestId !== undefined
+        ? { requestId: message.requestId }
+        : {}),
     });
     return;
   }
@@ -31,6 +33,8 @@ export async function handleLoadSession(
     })),
     runs: session.runs.map((run) => ({ ...run })),
     ts: new Date().toISOString(),
-    ...(message.requestId !== undefined ? { requestId: message.requestId } : {}),
+    ...(message.requestId !== undefined
+      ? { requestId: message.requestId }
+      : {}),
   });
 }

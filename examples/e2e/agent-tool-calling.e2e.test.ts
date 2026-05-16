@@ -20,17 +20,17 @@
  */
 
 import { afterEach, describe, expect, it } from "bun:test";
-import { z } from "zod";
+import type { AgentHooks, ToolHooks } from "@comma-agents/core";
 import {
   createAgent,
   defineTool,
   hookIntoAgent,
   registerModel,
-  resetModelRegistry,
   registerTool,
+  resetModelRegistry,
   resetToolRegistry,
 } from "@comma-agents/core";
-import type { AgentHooks, ToolHooks } from "@comma-agents/core";
+import { z } from "zod";
 import { createToolCallingMockModel } from "./helpers/mock-model";
 import {
   createCounterTool,
@@ -61,7 +61,9 @@ describe("E2E: Agent Tool Calling", () => {
         rounds: [
           // Round 1: model requests the echo tool
           {
-            toolCalls: [{ id: "call-1", name: "echo", args: { message: "hello world" } }],
+            toolCalls: [
+              { id: "call-1", name: "echo", args: { message: "hello world" } },
+            ],
           },
           // Round 2: model receives tool result and returns final text
           { text: "The echo tool said: hello world" },
@@ -91,7 +93,9 @@ describe("E2E: Agent Tool Calling", () => {
       const model = createToolCallingMockModel({
         rounds: [
           {
-            toolCalls: [{ id: "c1", name: "recorder", args: { input: "test-input" } }],
+            toolCalls: [
+              { id: "c1", name: "recorder", args: { input: "test-input" } },
+            ],
           },
           { text: "Done" },
         ],
@@ -404,7 +408,9 @@ describe("E2E: Agent Tool Calling", () => {
     it("should stop after the internal max steps even if model keeps requesting tools", async () => {
       // Create a model that always requests tool calls (never returns text)
       const infiniteToolCalls = Array.from({ length: 20 }, (_, stepIndex) => ({
-        toolCalls: [{ id: `c${stepIndex}`, name: "counter", args: {} }] as const,
+        toolCalls: [
+          { id: `c${stepIndex}`, name: "counter", args: {} },
+        ] as const,
       }));
 
       const model = createToolCallingMockModel({

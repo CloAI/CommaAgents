@@ -19,7 +19,7 @@ export const SessionTurnSchema = z.object({
   }),
   finishReason: z.string(),
   userMessage: z.string(),
-  /** Provider-native message array; opaque to the daemon. */
+  userMessageSource: z.enum(["human", "agent"]).optional(),
   responseMessages: z.array(z.unknown()),
 });
 export type SessionTurnWire = z.infer<typeof SessionTurnSchema>;

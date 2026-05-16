@@ -114,9 +114,12 @@ export async function loadStrategyFromString(
     const issues = result.error.issues
       .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
       .join("\n");
-    throw new StrategyValidationError(`Strategy validation failed:\n${issues}`, {
-      cause: result.error,
-    });
+    throw new StrategyValidationError(
+      `Strategy validation failed:\n${issues}`,
+      {
+        cause: result.error,
+      },
+    );
   }
 
   const strategy = result.data;

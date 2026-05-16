@@ -41,14 +41,15 @@ async function main() {
     role: "security auditor",
     language: "TypeScript",
     focus: "security vulnerabilities, input validation, and injection risks",
-    tools: ["bash", "read"],
+    tools: ["run_command", "read_file"],
   });
 
   // Performance-focused review
   const performancePrompt = await codeReviewTemplate.render({
     role: "performance engineer",
     language: "TypeScript",
-    focus: "performance bottlenecks, unnecessary allocations, and algorithmic complexity",
+    focus:
+      "performance bottlenecks, unnecessary allocations, and algorithmic complexity",
     tools: [],
   });
 

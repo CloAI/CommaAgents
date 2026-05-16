@@ -1,5 +1,5 @@
-import { Readable } from "readable-stream";
 import type { Terminal } from "@xterm/xterm";
+import { Readable } from "readable-stream";
 
 /**
  * A `process.stdin`-compatible Readable backed by xterm.js keyboard / mouse data.

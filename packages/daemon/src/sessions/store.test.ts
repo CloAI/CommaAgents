@@ -2,12 +2,12 @@
 //
 // Each test uses a fresh temp directory so writes don't collide.
 
+import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "bun:test";
+import { createSessionStore } from "./sessions";
 import type { SessionRunSummary, SessionTurn } from "./sessions.types";
-import { createSessionStore } from "./store";
 
 const tempRoots: string[] = [];
 
@@ -22,7 +22,10 @@ afterEach(() => {
   tempRoots.length = 0;
 });
 
-function newStore(): { store: ReturnType<typeof createSessionStore>; sessionsDir: string } {
+function newStore(): {
+  store: ReturnType<typeof createSessionStore>;
+  sessionsDir: string;
+} {
   const sessionsDir = mkdtempSync(join(tmpdir(), "session-store-"));
   tempRoots.push(sessionsDir);
   return { store: createSessionStore({ sessionsDir }), sessionsDir };
@@ -44,7 +47,10 @@ function turnFor(runId: string, agentName: string, text: string): SessionTurn {
   };
 }
 
-function runFor(runId: string, status: SessionRunSummary["status"]): SessionRunSummary {
+function runFor(
+  runId: string,
+  status: SessionRunSummary["status"],
+): SessionRunSummary {
   const now = new Date().toISOString();
   return {
     runId,
@@ -115,10 +121,16 @@ describe("createSessionStore", () => {
 
       const { metadata } = await store.getOrCreateForCwd(cwd);
       await store.appendTurn(metadata.id, turnFor("run-1", "writer", "first"));
-      await store.appendTurn(metadata.id, turnFor("run-1", "reviewer", "second"));
+      await store.appendTurn(
+        metadata.id,
+        turnFor("run-1", "reviewer", "second"),
+      );
 
       const reloaded = await store.load(metadata.id);
-      expect(reloaded?.turns.map((turn) => turn.text)).toEqual(["first", "second"]);
+      expect(reloaded?.turns.map((turn) => turn.text)).toEqual([
+        "first",
+        "second",
+      ]);
     });
 
     it("rejects unknown sessions", async () => {

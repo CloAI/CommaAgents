@@ -39,12 +39,15 @@ const DEFAULT_STRATEGY = path.resolve(
 const argv = yargs(hideBin(process.argv))
   .scriptName("04-multi-flow")
   .usage("$0 [strategy-path]")
-  .command("$0 [strategy-path]", "Run multiple flows concurrently through the daemon", (y) =>
-    y.positional("strategy-path", {
-      type: "string",
-      describe: "Path to the strategy file",
-      default: DEFAULT_STRATEGY,
-    }),
+  .command(
+    "$0 [strategy-path]",
+    "Run multiple flows concurrently through the daemon",
+    (y) =>
+      y.positional("strategy-path", {
+        type: "string",
+        describe: "Path to the strategy file",
+        default: DEFAULT_STRATEGY,
+      }),
   )
   .option("daemon-url", {
     alias: "d",
@@ -86,7 +89,11 @@ const flows = new Map<string, FlowTracker>();
 // Map requestId → tracker so we can assign the runId when flow_started arrives
 const pendingByRequestId = new Map<string, FlowTracker>();
 
-function createTracker(requestId: string, label: string, input: string): FlowTracker {
+function createTracker(
+  requestId: string,
+  label: string,
+  input: string,
+): FlowTracker {
   const tracker: FlowTracker = {
     requestId,
     label,
@@ -110,7 +117,9 @@ function printStatus() {
   console.log("\n┌─ Flow Status ─────────────────────────────────────┐");
   for (const t of flows.values()) {
     const id = t.runId ? t.runId.slice(0, 8) : "pending ";
-    console.log(`│  [${id}] ${t.label.padEnd(20)} ${t.status.padEnd(10)} steps: ${t.stepCount}`);
+    console.log(
+      `│  [${id}] ${t.label.padEnd(20)} ${t.status.padEnd(10)} steps: ${t.stepCount}`,
+    );
   }
   console.log("└───────────────────────────────────────────────────┘\n");
 }
@@ -186,7 +195,9 @@ async function main() {
           pending.status = "running";
           pendingByRequestId.delete(pending.requestId);
         }
-        console.log(`[strategy_started] ${msg.strategyName} → run ${msg.runId.slice(0, 8)}`);
+        console.log(
+          `[strategy_started] ${msg.strategyName} → run ${msg.runId.slice(0, 8)}`,
+        );
         break;
       }
 
@@ -199,7 +210,9 @@ async function main() {
       case "step_completed": {
         const t = findTracker(msg.runId);
         if (t) {
-          console.log(`  [${t.label}] step done: ${msg.result.text.slice(0, 60)}...`);
+          console.log(
+            `  [${t.label}] step done: ${msg.result.text.slice(0, 60)}...`,
+          );
         }
         break;
       }
@@ -255,7 +268,9 @@ async function main() {
         completedCount++;
 
         const label = t?.label ?? msg.runId.slice(0, 8);
-        console.error(`\n✗ [${label}] error: ${msg.error.code} — ${msg.error.message}`);
+        console.error(
+          `\n✗ [${label}] error: ${msg.error.code} — ${msg.error.message}`,
+        );
 
         if (completedCount >= totalFlows) {
           printStatus();
@@ -267,7 +282,9 @@ async function main() {
       case "strategy_list": {
         console.log(`\n[strategy_list] Active runs: ${msg.runs.length}`);
         for (const run of msg.runs) {
-          console.log(`  ${run.runId.slice(0, 8)} — ${run.strategyName} (${run.status})`);
+          console.log(
+            `  ${run.runId.slice(0, 8)} — ${run.strategyName} (${run.status})`,
+          );
         }
         break;
       }

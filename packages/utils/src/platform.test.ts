@@ -22,7 +22,9 @@ describe("isSystemd", () => {
 
   it("should detect based on JOURNAL_STREAM or INVOCATION_ID", () => {
     // On non-systemd environments (macOS, CI), this should be false
-    const expected = !!(process.env.JOURNAL_STREAM || process.env.INVOCATION_ID);
+    const expected = !!(
+      process.env.JOURNAL_STREAM || process.env.INVOCATION_ID
+    );
     expect(isSystemd()).toBe(expected);
   });
 });

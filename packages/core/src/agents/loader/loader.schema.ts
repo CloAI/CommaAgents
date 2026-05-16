@@ -20,9 +20,35 @@ export const SystemPromptTemplateSchema = z
     template: z.string(),
     variables: z
       .record(
-        z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.record(z.string())]),
+        z.union([
+          z.string(),
+          z.number(),
+          z.boolean(),
+          z.array(z.string()),
+          z.record(z.string()),
+        ]),
       )
       .optional(),
+  })
+  .strict();
+
+/**
+ * Model-level generation parameters forwarded to `streamText`.
+ *
+ * These are provider-agnostic options supported by virtually every LLM
+ * provider. Provider-specific features (extended thinking, reasoning
+ * effort) should use `providerOptions` instead.
+ */
+export const ModelOptionsSchema = z
+  .object({
+    temperature: z.number().optional(),
+    topP: z.number().optional(),
+    topK: z.number().optional(),
+    maxOutputTokens: z.number().optional(),
+    maxRetries: z.number().optional(),
+    frequencyPenalty: z.number().optional(),
+    presencePenalty: z.number().optional(),
+    seed: z.number().optional(),
   })
   .strict();
 
@@ -53,6 +79,15 @@ export const AgentDescriptionSchema = z
     systemPromptTemplate: SystemPromptTemplateSchema.optional(),
     /** Tool names to make available to the agent. */
     tools: z.array(z.string()).optional(),
+    /**
+     * Per-call provider options forwarded verbatim to the AI SDK. Used to
+     * enable provider-specific features such as Anthropic extended thinking
+     * or OpenAI reasoning effort. Shape:
+     * `{ <providerId>: { <option>: <value>, ... }, ... }`.
+     */
+    providerOptions: z.record(z.record(z.unknown())).optional(),
+    /** Model-level generation parameters (temperature, maxTokens, etc.). */
+    modelOptions: ModelOptionsSchema.optional(),
   })
   .strict();
 

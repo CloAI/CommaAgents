@@ -49,7 +49,8 @@ async function main() {
     agents: {
       analyzer: {
         model: modelString,
-        systemPrompt: "You analyze code for potential issues. Be concise (2-3 bullet points).",
+        systemPrompt:
+          "You analyze code for potential issues. Be concise (2-3 bullet points).",
       },
       reviewer: {
         model: modelString,
@@ -111,7 +112,9 @@ flow:
   console.log(`Flow: ${yamlLoaded.flow.name}\n`);
 
   console.log("Running strategy...\n");
-  const yamlResult = await yamlLoaded.flow.call("Building a social media app for pets");
+  const yamlResult = await yamlLoaded.flow.call(
+    "Building a social media app for pets",
+  );
   console.log("--- Result ---");
   console.log(yamlResult.text);
 

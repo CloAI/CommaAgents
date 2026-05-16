@@ -18,7 +18,10 @@ function withMockedFetch(
 ): { restore: () => void; calls: MockCall[] } {
   const calls: MockCall[] = [];
   const original = globalThis.fetch;
-  globalThis.fetch = (async (input: unknown, init?: RequestInit): Promise<Response> => {
+  globalThis.fetch = (async (
+    input: unknown,
+    init?: RequestInit,
+  ): Promise<Response> => {
     const url = typeof input === "string" ? input : String(input);
     const headers = (init?.headers ?? {}) as Record<string, string>;
     const call = { url, headers };
@@ -128,7 +131,9 @@ describe("listCopilotModels", () => {
 
     try {
       await expect(
-        listCopilotModels({ credential: { type: "oauth", accessToken: "bad" } }),
+        listCopilotModels({
+          credential: { type: "oauth", accessToken: "bad" },
+        }),
       ).rejects.toThrow(/401/);
     } finally {
       restore();

@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { getCatalogModels, getCatalogProvider, listCatalogProviders, loadCatalog } from "./catalog";
-import { resolveCatalogCachePath, toModelInfo } from "./catalog.utils";
+import {
+  getCatalogModels,
+  getCatalogProvider,
+  listCatalogProviders,
+  loadCatalog,
+} from "./catalog";
 import type { CatalogModel } from "./catalog.types";
+import { resolveCatalogCachePath, toModelInfo } from "./catalog.utils";
 
 describe("loadCatalog (bundled snapshot)", () => {
   test("returns an object keyed by provider id", async () => {
@@ -98,7 +103,10 @@ describe("toModelInfo", () => {
       release_date: "2025-01-01",
       last_updated: "2025-01-01",
       status: "preview",
-      modalities: { input: ["text", "hologram" as unknown as string], output: ["text"] },
+      modalities: {
+        input: ["text", "hologram" as unknown as string],
+        output: ["text"],
+      },
       limit: { context: 1000, output: 100 },
     };
 
@@ -111,22 +119,32 @@ describe("toModelInfo", () => {
 
 describe("resolveCatalogCachePath", () => {
   test("honors XDG_CACHE_HOME on Linux", () => {
-    const path = resolveCatalogCachePath({ XDG_CACHE_HOME: "/tmp/xdg" }, "linux");
+    const path = resolveCatalogCachePath(
+      { XDG_CACHE_HOME: "/tmp/xdg" },
+      "linux",
+    );
     expect(path).toBe("/tmp/xdg/comma-agents/models-catalog.json");
   });
 
   test("falls back to ~/.cache on Linux when XDG_CACHE_HOME is unset", () => {
     const path = resolveCatalogCachePath({}, "linux");
-    expect(path.endsWith("/.cache/comma-agents/models-catalog.json")).toBe(true);
+    expect(path.endsWith("/.cache/comma-agents/models-catalog.json")).toBe(
+      true,
+    );
   });
 
   test("uses ~/Library/Caches on macOS", () => {
     const path = resolveCatalogCachePath({}, "darwin");
-    expect(path.endsWith("/Library/Caches/comma-agents/models-catalog.json")).toBe(true);
+    expect(
+      path.endsWith("/Library/Caches/comma-agents/models-catalog.json"),
+    ).toBe(true);
   });
 
   test("honors LOCALAPPDATA on Windows", () => {
-    const path = resolveCatalogCachePath({ LOCALAPPDATA: "C:\\Users\\a\\AppData\\Local" }, "win32");
+    const path = resolveCatalogCachePath(
+      { LOCALAPPDATA: "C:\\Users\\a\\AppData\\Local" },
+      "win32",
+    );
     expect(path).toContain("comma-agents");
     expect(path).toContain("Cache");
     expect(path.endsWith("models-catalog.json")).toBe(true);

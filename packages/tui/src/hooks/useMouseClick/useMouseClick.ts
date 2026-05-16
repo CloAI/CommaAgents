@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef } from "react";
 import { MouseContext } from "../../components/MouseProvider/MouseContext";
-import { isInsideRef } from "../useMouse/useMouse.utils";
 import type { MouseEvent } from "../useMouse/useMouse.types";
+import { isInsideRef } from "../useMouse/useMouse.utils";
 import type { UseMouseClickOptions } from "./useMouseClick.types";
 
 /** Default: react to left-button presses only. */
@@ -33,17 +33,23 @@ export function useMouseClick({
   onClick,
   buttons = DEFAULT_BUTTONS,
 }: UseMouseClickOptions): void {
-  const { subscribe } = useContext(MouseContext);
+  const contextValue = useContext(MouseContext);
+  const subscribe = contextValue?.subscribe;
 
   // Stable ref for the callback so we don't re-subscribe when it changes.
   const onClickRef = useRef(onClick);
-  useEffect(() => { onClickRef.current = onClick; }, [onClick]);
+  useEffect(() => {
+    onClickRef.current = onClick;
+  }, [onClick]);
 
   // Stable ref for buttons array — compare by identity, not contents.
   const buttonsRef = useRef(buttons);
-  useEffect(() => { buttonsRef.current = buttons; }, [buttons]);
+  useEffect(() => {
+    buttonsRef.current = buttons;
+  }, [buttons]);
 
   useEffect(() => {
+    if (!subscribe) return;
     return subscribe((event: MouseEvent) => {
       if (event.kind !== "press") return;
       if (event.button === null) return;

@@ -55,7 +55,10 @@ describe("createCycleFlow", () => {
   it("runs multiple steps per cycle in sequence", async () => {
     const flow = createCycleFlow({
       name: "multi",
-      steps: [makeAgent("a", (msg) => `A(${msg})`), makeAgent("b", (msg) => `B(${msg})`)],
+      steps: [
+        makeAgent("a", (msg) => `A(${msg})`),
+        makeAgent("b", (msg) => `B(${msg})`),
+      ],
       cycles: 2,
     });
 
@@ -101,7 +104,9 @@ describe("createCycleFlow", () => {
   });
 
   it("throws for empty steps", () => {
-    expect(() => createCycleFlow({ name: "empty", steps: [] })).toThrow(FlowExecutionError);
+    expect(() => createCycleFlow({ name: "empty", steps: [] })).toThrow(
+      FlowExecutionError,
+    );
   });
 });
 
@@ -330,9 +335,13 @@ describe("createCycleFlow (composition)", () => {
     });
 
     // Manually compose: pre → cycle → post
-    const preResult = await makeAgent("pre", (msg) => `pre:${msg}`).call("start");
+    const preResult = await makeAgent("pre", (msg) => `pre:${msg}`).call(
+      "start",
+    );
     const cycleResult = await cycle.call(preResult.text);
-    const postResult = await makeAgent("post", (msg) => `post:${msg}`).call(cycleResult.text);
+    const postResult = await makeAgent("post", (msg) => `post:${msg}`).call(
+      cycleResult.text,
+    );
 
     // pre:start → ((pre:start)) → post:((pre:start))
     expect(postResult.text).toBe("post:((pre:start))");
@@ -366,7 +375,12 @@ describe("createCycleFlow (step hooks)", () => {
 
     await flow.call("x");
 
-    expect(events).toEqual(["before:a:x", "after:a:A(x)", "before:a:A(x)", "after:a:A(A(x))"]);
+    expect(events).toEqual([
+      "before:a:x",
+      "after:a:A(x)",
+      "before:a:A(x)",
+      "after:a:A(A(x))",
+    ]);
   });
 
   it("step hooks fire alongside cycle-level hooks in correct order", async () => {
@@ -422,7 +436,10 @@ describe("createCycleFlow (step hooks)", () => {
 
     const flow = createCycleFlow({
       name: "multi-step",
-      steps: [makeAgent("a", (msg) => `A(${msg})`), makeAgent("b", (msg) => `B(${msg})`)],
+      steps: [
+        makeAgent("a", (msg) => `A(${msg})`),
+        makeAgent("b", (msg) => `B(${msg})`),
+      ],
       cycles: 1,
     });
 

@@ -1,0 +1,49 @@
+---
+title: Error kinds
+description: The closed set of ToolErrorKind values returned by built-in file tools, with recovery suggestions.
+---
+
+# Error kinds
+
+Every built-in tool returns a structured `ToolError` with a stable `kind` value from a closed enumeration. Agents and orchestration code can switch on `kind` without parsing message strings; recoverable errors include a `suggestedNextAction` describing what to do next.
+
+## ToolError
+
+The full structured failure value.
+
+<AutoTypeTable path="../packages/core/src/tools/tool.types.ts" name="ToolError" />
+
+## Kind reference
+
+| `error.kind` | Typical cause | Recoverable? | Suggested action |
+|---|---|---|---|
+| `not_found` | A path does not exist (or is the wrong kind — file vs. directory). | Sometimes | Call `read_file` or `list_directory` to confirm what exists, then retry with the correct path. |
+| `already_exists` | A destination path is occupied (`create_file`, `move_file` without `overwrite`, `*** Add File`). | Yes | Switch to `write_file` or `edit_file`, or move the existing file aside first. |
+| `permission_denied` | A path matches `forbiddenGlobs` or the guard's policy chain denied the operation. | No | Use a different path, or grant access via an `update_policy` message to the guard's chain. |
+| `outside_workspace` | A path escapes the workspace jail, or is absolute when `allowAbsolutePaths` is not set. | No | Use a workspace-relative path. |
+| `binary_file` | `read_file` detected binary content without `allowBinary: true`. | Yes | Re-call `read_file` with `allowBinary: true`. |
+| `file_too_large` | A file exceeds the sandbox-configured size limit. | No | Read or write the file in slices, or raise the configured cap. |
+| `stale_file` | `expectedSha256` does not match the on-disk content. | Yes | Re-read the file to obtain the current sha256 and re-apply your edit. |
+| `old_text_not_found` | An `edit_file` edit's `oldText` was not present in the file. | Yes | Re-read the file and pick text that exists. |
+| `multiple_matches` | An `edit_file` edit's `oldText` matched more than once and `replaceAll` was not set. | Yes | Make `oldText` more specific, or pass `replaceAll: true`. |
+| `overlapping_edits` | Two `edit_file` edits would replace intersecting byte ranges. | Yes | Combine the edits or apply them in separate calls. |
+| `patch_parse_error` | An `apply_patch` envelope is malformed. | Yes | Fix the envelope grammar (see [Patch envelope](/docs/core/tools/patch-envelope)). |
+| `patch_apply_error` | A hunk did not match, or an add/delete/move pre-check failed. | Yes | Re-read the affected files and regenerate the patch against the current content. |
+| `command_failed` | `run_command` could not spawn or was aborted; `move_file` got identical from/to or a directory destination; `delete_file` got a directory without `recursive`. | Sometimes | Read the message for the specific failure mode. |
+| `timeout` | `run_command` exceeded its `timeoutMs`. | Yes | Increase the timeout, narrow the command, or split it into smaller steps. |
+| `skill_unavailable` | `load_skill` was called but no [skill registry](/docs/core/skills) is wired into the agent. | No | Stop attempting to load skills for the rest of the turn. |
+| `unknown` | An unexpected internal failure. | No | File an issue with the captured `details`. |
+
+## Result invariant
+
+For every `ToolResult`:
+
+- When `ok` is `false`, `error` is set.
+- When `ok` is `true`, `error` is undefined.
+
+`data` may be present in either case — for example, `run_command` returns the partial stdout/stderr captured up to a timeout alongside `error.kind: "timeout"`.
+
+## Related
+
+- [Stale file protocol](/docs/core/tools/stale-file-protocol) — the most common recoverable error.
+- [Patch envelope](/docs/core/tools/patch-envelope) — drives the `patch_parse_error` / `patch_apply_error` kinds.

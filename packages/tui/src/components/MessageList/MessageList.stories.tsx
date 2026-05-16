@@ -45,13 +45,16 @@ const sampleMessages: readonly ChatMessage[] = [
       },
       {
         type: "tool-call",
+        toolCallId: "call_pkg_read",
         toolName: "fs.read",
         args: '{"path":"/repo/packages/tui/package.json"}',
       },
       {
         type: "tool-result",
+        toolCallId: "call_pkg_read",
         toolName: "fs.read",
         output: '{\n  "name": "@comma-agents/tui",\n  "version": "0.4.2"\n}',
+        status: "completed",
       },
     ],
     streaming: false,
@@ -70,9 +73,7 @@ const sampleMessages: readonly ChatMessage[] = [
     role: "agent",
     sender: "builder",
     text: "Streaming output now",
-    segments: [
-      { type: "text", text: "Streaming output now", streaming: true },
-    ],
+    segments: [{ type: "text", text: "Streaming output now", streaming: true }],
     streaming: true,
     timestamp: 1_730_491_212_000,
   },

@@ -1,5 +1,9 @@
 /** Lifecycle states of a WebSocket connection. */
-export type WebSocketStatus = "disconnected" | "connecting" | "connected" | "error";
+export type WebSocketStatus =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "error";
 
 /** Configuration for the `useWebSocket` hook. */
 export interface UseWebSocketConfig {

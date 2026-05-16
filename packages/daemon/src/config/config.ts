@@ -1,15 +1,3 @@
-// Daemon configuration with layered resolution: defaults → JSON file → env vars.
-//
-// Platform-aware defaults use core's resolveDataDir():
-//   Linux:   ~/.local/share/comma-agents/
-//   macOS:   ~/Library/Application Support/comma-agents/
-//   Windows: %LOCALAPPDATA%/comma-agents/
-//
-// Resolution order (highest priority wins):
-//   1. Environment variables (COMMA_DAEMON_PORT, etc.)
-//   2. JSON config file (~/.local/share/comma-agents/daemon.json or platform equiv)
-//   3. Built-in defaults
-
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveDataDir } from "@comma-agents/core";
@@ -18,8 +6,6 @@ import type { LogLevel } from "../logger/logger.types";
 
 // Re-export resolveDataDir so existing daemon consumers keep working.
 export { resolveDataDir } from "@comma-agents/core";
-
-// Config Zod schema
 
 const LogLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 
@@ -42,8 +28,6 @@ export const DaemonConfigFileSchema = z
 
 export type DaemonConfigFile = z.infer<typeof DaemonConfigFileSchema>;
 
-// Resolved config — all fields are required (defaults filled in)
-
 /** Fully resolved daemon configuration. Every field has a value. */
 export interface DaemonConfig {
   /** WebSocket server port. Default: 7422. Env: COMMA_DAEMON_PORT. */
@@ -64,8 +48,6 @@ export interface DaemonConfig {
   readonly sessionsDir: string;
 }
 
-// Defaults
-
 function buildDefaults(): DaemonConfig {
   const dataDir = resolveDataDir();
   return {
@@ -80,24 +62,48 @@ function buildDefaults(): DaemonConfig {
   };
 }
 
-// Environment variable overrides
-
 /** Map of env var names → config keys + parsers. */
 const ENV_MAP: Array<{
   env: string;
   key: keyof DaemonConfig;
   parse: (val: string) => unknown;
 }> = [
-  { env: "COMMA_DAEMON_PORT", key: "port", parse: (v) => parseInt(v, 10) },
-  { env: "COMMA_DAEMON_HOST", key: "host", parse: (v) => v },
-  { env: "COMMA_DAEMON_LOG_LEVEL", key: "logLevel", parse: (v) => v },
-  { env: "COMMA_DAEMON_LOG_FILE", key: "logFile", parse: (v) => v },
-  { env: "COMMA_DAEMON_PROVIDER_CACHE_DIR", key: "providerCacheDir", parse: (v) => v },
-  { env: "COMMA_DAEMON_PID_FILE", key: "pidFile", parse: (v) => v },
-  { env: "COMMA_DAEMON_SESSIONS_DIR", key: "sessionsDir", parse: (v) => v },
+  {
+    env: "COMMA_DAEMON_PORT",
+    key: "port",
+    parse: (rawValue) => parseInt(rawValue, 10),
+  },
+  { env: "COMMA_DAEMON_HOST", key: "host", parse: (rawValue) => rawValue },
+  {
+    env: "COMMA_DAEMON_LOG_LEVEL",
+    key: "logLevel",
+    parse: (rawValue) => rawValue,
+  },
+  {
+    env: "COMMA_DAEMON_LOG_FILE",
+    key: "logFile",
+    parse: (rawValue) => rawValue,
+  },
+  {
+    env: "COMMA_DAEMON_PROVIDER_CACHE_DIR",
+    key: "providerCacheDir",
+    parse: (rawValue) => rawValue,
+  },
+  {
+    env: "COMMA_DAEMON_PID_FILE",
+    key: "pidFile",
+    parse: (rawValue) => rawValue,
+  },
+  {
+    env: "COMMA_DAEMON_SESSIONS_DIR",
+    key: "sessionsDir",
+    parse: (rawValue) => rawValue,
+  },
 ];
 
-function readEnvOverrides(env: Record<string, string | undefined>): Partial<DaemonConfig> {
+function readEnvOverrides(
+  env: Record<string, string | undefined>,
+): Partial<DaemonConfig> {
   const overrides: Record<string, unknown> = {};
   for (const { env: envKey, key, parse } of ENV_MAP) {
     const raw = env[envKey];
@@ -107,8 +113,6 @@ function readEnvOverrides(env: Record<string, string | undefined>): Partial<Daem
   }
   return overrides as Partial<DaemonConfig>;
 }
-
-// JSON config file loader
 
 function readConfigFile(filePath: string): Partial<DaemonConfig> {
   if (!existsSync(filePath)) {
@@ -129,14 +133,12 @@ function readConfigFile(filePath: string): Partial<DaemonConfig> {
   return result as Partial<DaemonConfig>;
 }
 
-// loadDaemonConfig() — the public API
-
 /** Options for loadDaemonConfig. Mostly for testing. */
 export interface LoadConfigOptions {
   /** Override the config file path. */
-  configFile?: string;
+  readonly configFile?: string;
   /** Override process.env for testing. */
-  env?: Record<string, string | undefined>;
+  readonly env?: Record<string, string | undefined>;
 }
 
 /**
@@ -154,7 +156,8 @@ export function loadDaemonConfig(options?: LoadConfigOptions): DaemonConfig {
   const env = options?.env ?? process.env;
 
   // Determine config file path: explicit option > env var > default
-  const configFile = options?.configFile ?? env.COMMA_DAEMON_CONFIG_FILE ?? defaults.configFile;
+  const configFile =
+    options?.configFile ?? env.COMMA_DAEMON_CONFIG_FILE ?? defaults.configFile;
 
   // Layer 1: defaults
   let config: DaemonConfig = { ...defaults, configFile };
@@ -168,8 +171,14 @@ export function loadDaemonConfig(options?: LoadConfigOptions): DaemonConfig {
   config = { ...config, ...envOverrides, configFile };
 
   // Validate the final port is in range
-  if (config.port < 1 || config.port > 65535 || !Number.isInteger(config.port)) {
-    throw new Error(`Invalid port: ${config.port}. Must be an integer between 1 and 65535.`);
+  if (
+    config.port < 1 ||
+    config.port > 65535 ||
+    !Number.isInteger(config.port)
+  ) {
+    throw new Error(
+      `Invalid port: ${config.port}. Must be an integer between 1 and 65535.`,
+    );
   }
 
   // Validate logLevel

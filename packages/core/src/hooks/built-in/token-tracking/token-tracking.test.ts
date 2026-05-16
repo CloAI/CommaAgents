@@ -183,12 +183,17 @@ describe("createTokenTracker", () => {
 // -- useTokenTracking tests --
 
 /** Create a mock agent with custom execute that reports specific token usage. */
-function makeMockAgent(name: string, usage: { promptTokens: number; completionTokens: number }) {
+function makeMockAgent(
+  name: string,
+  usage: { promptTokens: number; completionTokens: number },
+) {
   return createAgent({
     name,
     execute: async (message) => ({
       text: `Response to: ${message}`,
-      responseMessages: [{ role: "assistant" as const, content: `Response to: ${message}` }],
+      responseMessages: [
+        { role: "assistant" as const, content: `Response to: ${message}` },
+      ],
       steps: [],
       usage,
       finishReason: "stop",
@@ -198,7 +203,10 @@ function makeMockAgent(name: string, usage: { promptTokens: number; completionTo
 
 describe("useTokenTracking", () => {
   it("should return a TokenTracker that records usage from agent calls", async () => {
-    const agent = makeMockAgent("test", { promptTokens: 150, completionTokens: 50 });
+    const agent = makeMockAgent("test", {
+      promptTokens: 150,
+      completionTokens: 50,
+    });
     const tracker = useTokenTracking(agent);
 
     await agent.call("hello");
@@ -211,7 +219,10 @@ describe("useTokenTracking", () => {
   });
 
   it("should accumulate across multiple calls", async () => {
-    const agent = makeMockAgent("test", { promptTokens: 100, completionTokens: 25 });
+    const agent = makeMockAgent("test", {
+      promptTokens: 100,
+      completionTokens: 25,
+    });
     const tracker = useTokenTracking(agent);
 
     await agent.call("first");
@@ -228,7 +239,10 @@ describe("useTokenTracking", () => {
   });
 
   it("should include context budget when model metadata is provided via config", async () => {
-    const agent = makeMockAgent("test", { promptTokens: 64_000, completionTokens: 1_000 });
+    const agent = makeMockAgent("test", {
+      promptTokens: 64_000,
+      completionTokens: 1_000,
+    });
     const tracker = useTokenTracking(agent, { model: "openai/gpt-4o" });
 
     await agent.call("test");
@@ -240,7 +254,10 @@ describe("useTokenTracking", () => {
   });
 
   it("should accept explicit modelMetadata to override catalog", async () => {
-    const agent = makeMockAgent("test", { promptTokens: 5_000, completionTokens: 200 });
+    const agent = makeMockAgent("test", {
+      promptTokens: 5_000,
+      completionTokens: 200,
+    });
     const tracker = useTokenTracking(agent, {
       modelMetadata: { contextWindow: 10_000, maxOutputTokens: 2_000 },
     });
@@ -255,7 +272,10 @@ describe("useTokenTracking", () => {
   });
 
   it("should work with no context budget for unknown models", async () => {
-    const agent = makeMockAgent("test", { promptTokens: 1_000, completionTokens: 200 });
+    const agent = makeMockAgent("test", {
+      promptTokens: 1_000,
+      completionTokens: 200,
+    });
     const tracker = useTokenTracking(agent);
 
     await agent.call("test");
@@ -284,7 +304,9 @@ describe("useTokenTracking", () => {
     });
 
     hookIntoAgent(agent, {
-      afterCallResult: [async (result) => log.push(`afterCallResult: ${result.text}`)],
+      afterCallResult: [
+        async (result) => log.push(`afterCallResult: ${result.text}`),
+      ],
     });
 
     const tracker = useTokenTracking(agent);
@@ -296,7 +318,10 @@ describe("useTokenTracking", () => {
   });
 
   it("should respect tracker reset", async () => {
-    const agent = makeMockAgent("test", { promptTokens: 100, completionTokens: 50 });
+    const agent = makeMockAgent("test", {
+      promptTokens: 100,
+      completionTokens: 50,
+    });
     const tracker = useTokenTracking(agent);
 
     await agent.call("first");

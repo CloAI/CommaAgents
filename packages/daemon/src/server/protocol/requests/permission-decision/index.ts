@@ -28,7 +28,9 @@ export function handlePermissionDecision(
       code: "NO_PENDING_PERMISSION",
       message: `No pending permission request ${message.permissionRequestId} for run ${message.runId}`,
       ts: new Date().toISOString(),
-      ...(message.requestId !== undefined ? { requestId: message.requestId } : {}),
+      ...(message.requestId !== undefined
+        ? { requestId: message.requestId }
+        : {}),
     });
   }
 }

@@ -49,6 +49,8 @@ All daemon-to-client messages include a `ts` field (ISO-8601 timestamp) and an o
 | [`start_strategy`](/docs/daemon/protocol/strategy-execution) | `strategy_started`, `strategy_completed`, `strategy_error` | Fire-and-forget + async events |
 | [`stop_strategy`](/docs/daemon/protocol/strategy-execution) | `strategy_error` (code: `CANCELLED`) | Fire-and-forget |
 | [`list_strategies`](/docs/daemon/protocol/list-and-subscribe) | `strategy_list` | Request/Reply |
+| [`list_providers`](/docs/daemon/protocol/list-providers) | `provider_list` | Request/Reply |
+| [`get_available_models`](/docs/daemon/protocol/get-available-models) | `available_models` | Request/Reply |
 | [`subscribe`](/docs/daemon/protocol/list-and-subscribe) | `error` (only on failure) | Silent success |
 | [`unsubscribe`](/docs/daemon/protocol/list-and-subscribe) | _(none)_ | Silent |
 | [`user_input`](/docs/daemon/protocol/user-input) | `error` (only if no pending request) | Silent success |

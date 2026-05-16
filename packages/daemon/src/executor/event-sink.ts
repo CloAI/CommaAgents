@@ -1,11 +1,4 @@
-// EventSink — abstraction for sending daemon messages to clients.
-//
-// Decouples the strategy executor from WebSocket transport.
-// The server (8h) implements this interface; tests use a mock.
-
 import type { DaemonMessage } from "../server/protocol/messages";
-
-// EventSink interface
 
 /**
  * Abstraction for delivering daemon messages to connected clients.

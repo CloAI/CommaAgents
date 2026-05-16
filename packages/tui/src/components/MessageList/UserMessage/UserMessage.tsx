@@ -18,11 +18,12 @@ export interface UserMessageProps {
  * without consuming an extra row, and the prompt body is rendered inside
  * the panel's body box.
  */
-export function UserMessage({ text, label = "you" }: UserMessageProps): React.ReactElement {
+export function UserMessage({
+  text,
+  label = "you",
+}: UserMessageProps): React.ReactElement {
   const theme = useMessageListTheme();
-  return (
-    <UserMessageRender theme={theme} text={text} label={label} />
-  );
+  return <UserMessageRender theme={theme} text={text} label={label} />;
 }
 
 export interface UserMessageRenderProps {

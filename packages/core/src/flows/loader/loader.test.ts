@@ -311,29 +311,41 @@ describe("loadFlowFromString", () => {
 
     it("should throw on invalid YAML", () => {
       const options = createTestAgentRegistry();
-      expect(() => loadFlowFromString(":\n  - :\n    :", "yaml", options)).toThrow(
-        StrategyValidationError,
-      );
+      expect(() =>
+        loadFlowFromString(":\n  - :\n    :", "yaml", options),
+      ).toThrow(StrategyValidationError);
     });
   });
 
   describe("validation", () => {
     it("should throw on missing name", () => {
-      const json = JSON.stringify({ type: "sequential", steps: [{ agent: "writer" }] });
+      const json = JSON.stringify({
+        type: "sequential",
+        steps: [{ agent: "writer" }],
+      });
       const options = createTestAgentRegistry();
-      expect(() => loadFlowFromString(json, "json", options)).toThrow(StrategyValidationError);
+      expect(() => loadFlowFromString(json, "json", options)).toThrow(
+        StrategyValidationError,
+      );
     });
 
     it("should throw on missing type", () => {
-      const json = JSON.stringify({ name: "test", steps: [{ agent: "writer" }] });
+      const json = JSON.stringify({
+        name: "test",
+        steps: [{ agent: "writer" }],
+      });
       const options = createTestAgentRegistry();
-      expect(() => loadFlowFromString(json, "json", options)).toThrow(StrategyValidationError);
+      expect(() => loadFlowFromString(json, "json", options)).toThrow(
+        StrategyValidationError,
+      );
     });
 
     it("should throw on missing steps", () => {
       const json = JSON.stringify({ name: "test", type: "sequential" });
       const options = createTestAgentRegistry();
-      expect(() => loadFlowFromString(json, "json", options)).toThrow(StrategyValidationError);
+      expect(() => loadFlowFromString(json, "json", options)).toThrow(
+        StrategyValidationError,
+      );
     });
 
     it("should throw on unknown fields", () => {
@@ -344,18 +356,25 @@ describe("loadFlowFromString", () => {
         unknownField: true,
       });
       const options = createTestAgentRegistry();
-      expect(() => loadFlowFromString(json, "json", options)).toThrow(StrategyValidationError);
+      expect(() => loadFlowFromString(json, "json", options)).toThrow(
+        StrategyValidationError,
+      );
     });
 
     it("should include validation issue details in error message", () => {
-      const json = JSON.stringify({ type: "sequential", steps: [{ agent: "writer" }] });
+      const json = JSON.stringify({
+        type: "sequential",
+        steps: [{ agent: "writer" }],
+      });
       const options = createTestAgentRegistry();
       try {
         loadFlowFromString(json, "json", options);
         expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(StrategyValidationError);
-        expect((error as StrategyValidationError).message).toContain("validation failed");
+        expect((error as StrategyValidationError).message).toContain(
+          "validation failed",
+        );
       }
     });
   });
@@ -371,9 +390,9 @@ describe("loadFlowFromString", () => {
 
     it("should throw when an agent reference is not in the registry", () => {
       const options: LoadFlowOptions = { agents: {} };
-      expect(() => loadFlowFromString(MINIMAL_SEQUENTIAL_JSON, "json", options)).toThrow(
-        StrategyValidationError,
-      );
+      expect(() =>
+        loadFlowFromString(MINIMAL_SEQUENTIAL_JSON, "json", options),
+      ).toThrow(StrategyValidationError);
     });
 
     it("should include available agent names in error for missing reference", () => {
@@ -390,7 +409,9 @@ describe("loadFlowFromString", () => {
         expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(StrategyValidationError);
-        expect((error as StrategyValidationError).message).toContain("missing-agent");
+        expect((error as StrategyValidationError).message).toContain(
+          "missing-agent",
+        );
         expect((error as StrategyValidationError).message).toContain("writer");
       }
     });
@@ -415,8 +436,10 @@ describe("loadFlowFromString", () => {
 
   describe("cycle flow", () => {
     it("should create a cycle flow with specified cycles", async () => {
-      const { agent: writer, getCount: getWriterCount } = makeCountingAgent("writer");
-      const { agent: reviewer, getCount: getReviewerCount } = makeCountingAgent("reviewer");
+      const { agent: writer, getCount: getWriterCount } =
+        makeCountingAgent("writer");
+      const { agent: reviewer, getCount: getReviewerCount } =
+        makeCountingAgent("reviewer");
       const options: LoadFlowOptions = { agents: { writer, reviewer } };
       const flow = loadFlowFromString(CYCLE_JSON, "json", options);
       await flow.call("start");
@@ -426,10 +449,16 @@ describe("loadFlowFromString", () => {
     });
 
     it("should resolve observer agent for cycle flows", async () => {
-      const { agent: writer, getCount: getWriterCount } = makeCountingAgent("writer");
-      const { agent: reviewer, getCount: getReviewerCount } = makeCountingAgent("reviewer");
+      const { agent: writer, getCount: getWriterCount } =
+        makeCountingAgent("writer");
+      const { agent: reviewer, getCount: getReviewerCount } =
+        makeCountingAgent("reviewer");
       const options: LoadFlowOptions = { agents: { writer, reviewer } };
-      const flow = loadFlowFromString(CYCLE_WITH_OBSERVER_JSON, "json", options);
+      const flow = loadFlowFromString(
+        CYCLE_WITH_OBSERVER_JSON,
+        "json",
+        options,
+      );
       await flow.call("start");
       // 2 cycles with 1 step each, observer runs after each cycle
       expect(getWriterCount()).toBe(2);
@@ -469,7 +498,11 @@ describe("loadFlowFromString", () => {
 
     it("should use custom separator for broadcast flow", async () => {
       const options = createTestAgentRegistry();
-      const flow = loadFlowFromString(BROADCAST_WITH_SEPARATOR_JSON, "json", options);
+      const flow = loadFlowFromString(
+        BROADCAST_WITH_SEPARATOR_JSON,
+        "json",
+        options,
+      );
       const result = await flow.call("input");
       expect(result.text).toBe("written: input\n---\nreviewed: input");
     });
@@ -525,12 +558,16 @@ describe("loadFlowFromString", () => {
 describe("loadFlow", () => {
   it("should throw on unsupported file extension", async () => {
     const options = createTestAgentRegistry();
-    await expect(loadFlow("test.txt", options)).rejects.toThrow(StrategyValidationError);
+    await expect(loadFlow("test.txt", options)).rejects.toThrow(
+      StrategyValidationError,
+    );
   });
 
   it("should throw on missing file", async () => {
     const options = createTestAgentRegistry();
-    await expect(loadFlow("nonexistent.yaml", options)).rejects.toThrow(StrategyValidationError);
+    await expect(loadFlow("nonexistent.yaml", options)).rejects.toThrow(
+      StrategyValidationError,
+    );
   });
 
   it("should include file extension in error message for unsupported types", async () => {
@@ -551,7 +588,9 @@ describe("loadFlow", () => {
       expect.unreachable("should have thrown");
     } catch (error) {
       expect(error).toBeInstanceOf(StrategyValidationError);
-      expect((error as StrategyValidationError).message).toContain("missing-flow.yaml");
+      expect((error as StrategyValidationError).message).toContain(
+        "missing-flow.yaml",
+      );
     }
   });
 });

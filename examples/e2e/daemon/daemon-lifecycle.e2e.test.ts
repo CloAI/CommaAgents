@@ -183,7 +183,11 @@ describe("E2E: Daemon Lifecycle", () => {
       client.send({ type: "ping", requestId: "p3" });
 
       // All three pongs should arrive
-      const pongs = await client.waitForN(3, (m: any) => m?.type === "pong", 5000);
+      const pongs = await client.waitForN(
+        3,
+        (m: any) => m?.type === "pong",
+        5000,
+      );
 
       expect(pongs.length).toBe(3);
       const requestIds = pongs.map((p: any) => p.requestId);

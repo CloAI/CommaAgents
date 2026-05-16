@@ -1,9 +1,3 @@
-// FileSink — writes JSON lines to a file.
-//
-// Used when the daemon needs a persistent log file in addition to stderr.
-// Common for debugging, audit trails, or when the service manager doesn't
-// capture stderr (e.g., some Windows service wrappers).
-
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { LogEntry, LogSink } from "../logger.types";

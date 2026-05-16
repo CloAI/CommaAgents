@@ -1,7 +1,16 @@
-import type React from "react";
 import type { DOMElement } from "ink";
+import type React from "react";
+import {
+  isMouseEscape,
+  SGR_MOUSE_PREFIX,
+  SGR_MOUSE_TAIL_PATTERN,
+} from "../../utils/mouseEscape";
 import { getBoundingBox } from "../../utils/yogaLayout";
-import type { MouseEvent, MouseEventKind, MouseModifiers } from "./useMouse.types";
+import type {
+  MouseEvent,
+  MouseEventKind,
+  MouseModifiers,
+} from "./useMouse.types";
 
 // ---------------------------------------------------------------------------
 // SGR mouse parsing
@@ -20,9 +29,6 @@ import type { MouseEvent, MouseEventKind, MouseModifiers } from "./useMouse.type
  * sequence bundled into one chunk.
  */
 const SGR_MOUSE_TOKEN = /\[<(\d+);(\d+);(\d+)([Mm])/g;
-
-/** Quick bail-out: all SGR mouse sequences contain this prefix. */
-const SGR_MOUSE_PREFIX = "[<";
 
 /** SGR button-byte bit masks. */
 const BUTTON_MASK = 0b00000011; // low 2 bits = button index (0/1/2)
@@ -149,45 +155,9 @@ export function isInsideRef(
   const col0 = column - 1;
   const row0 = row - 1;
 
-  return col0 >= left && col0 < left + width && row0 >= top && row0 < top + height;
+  return (
+    col0 >= left && col0 < left + width && row0 >= top && row0 < top + height
+  );
 }
 
-// ---------------------------------------------------------------------------
-// Mouse escape swallow predicate
-// ---------------------------------------------------------------------------
-
-/**
- * Tail-fragment heuristic: a run of digits, semicolons, and an optional
- * trailing `M`/`m`. When Ink's CSI parser consumes the `\x1b[<` opener
- * but the rest of the event arrives on a later read (rare but observed in
- * practice), the tail looks like `5;47;30M`. Requires at least one `;` so
- * plain numeric typing isn't swallowed.
- */
-const SGR_MOUSE_TAIL_PATTERN = /^[\d;]+[Mm]?$/;
-
-/**
- * Returns `true` when `input` looks like an SGR mouse escape sequence (or a
- * fragment thereof) and should be swallowed by text-consuming inputs before
- * they treat the chunk as typed characters.
- *
- * Matches:
- * - Complete SGR sequence: `[<BTN;COL;ROW(M|m)`
- * - Several concatenated sequences (Node's stdin decoder can bundle rapid
- *   mouse events into one chunk)
- * - A partial sequence starting with `[<` (event split across two reads)
- * - A tail fragment like `5;47;30M` — observed when Ink's CSI parser
- *   consumes the `\x1b[<` opener but the numeric payload arrives separately.
- *   Recognised by the digits/semicolons-only shape with an optional trailing
- *   `M`/`m`; requires at least one `;` so plain numeric typing is not swallowed.
- *
- * Deliberately permissive: the `[<` opener and the tail shape are vanishingly
- * unlikely in real typing, and it is better to occasionally swallow an exotic
- * keystroke than to let mouse noise leak into a search box.
- */
-export function isMouseEscape(input: string): boolean {
-  if (input.length === 0) return false;
-  if (input.startsWith(SGR_MOUSE_PREFIX)) return true;
-  if (input.includes(SGR_MOUSE_PREFIX)) return true;
-  if (SGR_MOUSE_TAIL_PATTERN.test(input) && input.includes(";")) return true;
-  return false;
-}
+export { isMouseEscape, SGR_MOUSE_PREFIX, SGR_MOUSE_TAIL_PATTERN };

@@ -1,9 +1,5 @@
-// Flow type definitions — the contracts for flow orchestration.
-
 import type { Agent, AgentCallResult } from "../../agents/agent/agent.types";
 import type { SideEffectHook, TransformHook } from "../../hooks";
-
-// FlowHooks
 
 /**
  * Flow lifecycle hooks.
@@ -38,8 +34,6 @@ export interface FlowHooks {
   >;
 }
 
-// CycleHooks
-
 /**
  * Additional hooks for cycle-based flows.
  */
@@ -49,8 +43,6 @@ export interface CycleHooks extends FlowHooks {
   /** Transform the message after each cycle iteration. */
   readonly alterMessageAfterCycle?: ReadonlyArray<TransformHook<string>>;
 }
-
-// FlowResult — richer return type for flows
 
 /**
  * Result from a flow execution. Extends `AgentCallResult` with
@@ -70,8 +62,6 @@ export interface FlowResult extends AgentCallResult {
   /** Results from each step execution, in the order they ran. */
   readonly stepResults: ReadonlyArray<AgentCallResult>;
 }
-
-// FlowContext — provided to custom flow executors
 
 /**
  * Context provided to the flow executor function.
@@ -94,8 +84,6 @@ export interface FlowContext {
   /** All results collected so far (for inspection mid-flow). */
   readonly results: ReadonlyArray<AgentCallResult>;
 }
-
-// FlowExecutor — the orchestration function
 
 /**
  * The function that defines how a flow orchestrates its steps.
@@ -123,8 +111,6 @@ export type FlowExecutor = (
   flowContext: FlowContext,
 ) => Promise<string>;
 
-// FlowConfig — base configuration for all flows
-
 /** Base configuration shared by all flow types. */
 export interface FlowConfig {
   /** Unique name for this flow. */
@@ -132,8 +118,6 @@ export interface FlowConfig {
   /** The steps (agents or nested flows) this flow orchestrates. */
   readonly steps: ReadonlyArray<Agent>;
 }
-
-// CycleFlowConfig — configuration for cycle flows
 
 /**
  * Configuration for cycle-based flows.
@@ -156,8 +140,6 @@ export interface CycleFlowConfig extends FlowConfig {
   readonly observer?: Agent;
 }
 
-// BroadcastFlowConfig — configuration for broadcast flows
-
 /** Configuration for broadcast flows. */
 export interface BroadcastFlowConfig extends FlowConfig {
   /**
@@ -166,8 +148,6 @@ export interface BroadcastFlowConfig extends FlowConfig {
    */
   readonly separator?: string;
 }
-
-// CustomFlowConfig — for one-off createFlow()
 
 /** Configuration for a one-off custom flow. */
 export interface CustomFlowConfig extends FlowConfig {

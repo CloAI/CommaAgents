@@ -7,7 +7,9 @@ import { AgentCallResultSchema, UsageSchema } from "./shared";
 
 describe("UsageSchema", () => {
   test("parses valid usage", () => {
-    expect(UsageSchema.parse({ promptTokens: 10, completionTokens: 20 })).toEqual({
+    expect(
+      UsageSchema.parse({ promptTokens: 10, completionTokens: 20 }),
+    ).toEqual({
       promptTokens: 10,
       completionTokens: 20,
     });
@@ -19,7 +21,10 @@ describe("UsageSchema", () => {
   });
 
   test("rejects non-number tokens", () => {
-    expect(UsageSchema.safeParse({ promptTokens: "10", completionTokens: 20 }).success).toBe(false);
+    expect(
+      UsageSchema.safeParse({ promptTokens: "10", completionTokens: 20 })
+        .success,
+    ).toBe(false);
   });
 });
 

@@ -12,7 +12,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { z } from "zod";
 import { CredentialSchema } from "../credentials.schema";
-import type { CredentialBackend, CredentialStoreData } from "../credentials.types";
+import type {
+  CredentialBackend,
+  CredentialStoreData,
+} from "../credentials.types";
 
 // Validation schema for the persisted file
 
@@ -45,7 +48,9 @@ export interface JsonFileBackendOptions {
  * const data = await backend.readAll();
  * ```
  */
-export function createJsonFileBackend(options: JsonFileBackendOptions): CredentialBackend {
+export function createJsonFileBackend(
+  options: JsonFileBackendOptions,
+): CredentialBackend {
   const { filePath } = options;
 
   return {

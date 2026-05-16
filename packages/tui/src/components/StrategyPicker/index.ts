@@ -1,2 +1,2 @@
 export type { StrategyOption } from "./StrategyPicker";
-export { StrategyPicker } from "./StrategyPicker";
+export { StrategyPicker, StrategyPickerRender } from "./StrategyPicker";

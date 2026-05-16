@@ -2,10 +2,20 @@ import { Box, Text, useFocusManager } from "ink";
 import type React from "react";
 import { useEffect } from "react";
 
-import { ChatTextArea, MessageList, PermissionPrompt, Separator, StatusBar } from "../../components";
+import {
+  ChatTextArea,
+  MessageList,
+  PermissionPrompt,
+  Separator,
+  StatusBar,
+} from "../../components";
 import type { PermissionDecision } from "../../components/PermissionPrompt";
 import type { StrategyOption } from "../../components/StrategyPicker";
-import type { ChatMessage, ChatStatus, PendingPermissionRequest } from "../../hooks";
+import type {
+  ChatMessage,
+  ChatStatus,
+  PendingPermissionRequest,
+} from "../../hooks";
 import { useDebugRender } from "../../hooks/useDebugRender";
 import type { ChatPageTheme } from "./ChatPage.theme";
 import { useChatPageTheme } from "./ChatPage.theme";
@@ -45,7 +55,9 @@ export function ChatPage({
   onPermissionDecide,
   activeStrategy,
 }: ChatPageProps): React.ReactElement {
-  const debug = useDebugRender("ChatPage", { props: { chatStatus, messages, error } });
+  const debug = useDebugRender("ChatPage", {
+    props: { chatStatus, messages, error },
+  });
   const theme = useChatPageTheme();
 
   return (
@@ -100,7 +112,8 @@ export function ChatPageRender({
   debugRef,
 }: ChatPageRenderProps): React.ReactElement {
   const showInput = chatStatus === "waiting_input";
-  const showPermission = chatStatus === "waiting_permission" && pendingPermissionRequest !== null;
+  const showPermission =
+    chatStatus === "waiting_permission" && pendingPermissionRequest !== null;
   const replyPlaceholder = pendingInputAgent
     ? `Reply to ${pendingInputAgent}...`
     : "Type your message...";
@@ -118,7 +131,10 @@ export function ChatPageRender({
 
   // ChatTextArea emits (strategyPath, input); the active strategy is fixed here,
   // so we discard the first argument and forward the text to the reply handler.
-  const handleChatTextAreaSubmit = (_strategyPath: string, text: string): void => {
+  const handleChatTextAreaSubmit = (
+    _strategyPath: string,
+    text: string,
+  ): void => {
     onReplySubmit(text);
   };
 
@@ -129,7 +145,10 @@ export function ChatPageRender({
       </Box>
 
       {showPermission && pendingPermissionRequest ? (
-        <PermissionPrompt request={pendingPermissionRequest} onDecide={onPermissionDecide} />
+        <PermissionPrompt
+          request={pendingPermissionRequest}
+          onDecide={onPermissionDecide}
+        />
       ) : showInput ? (
         <ChatTextArea
           strategies={[activeStrategy]}
@@ -139,10 +158,16 @@ export function ChatPageRender({
         />
       ) : null}
 
-      <StatusBar status={chatStatus} error={error} strategyName={activeStrategy.label} />
+      <StatusBar
+        status={chatStatus}
+        error={error}
+        strategyName={activeStrategy.label}
+      />
 
       <Box {...theme.footer}>
-        <Text {...theme.footer.text}>ctrl+c exit | ctrl+r reset | ctrl+p commands</Text>
+        <Text {...theme.footer.text}>
+          ctrl+c exit | ctrl+r reset | ctrl+p commands
+        </Text>
       </Box>
     </Box>
   );

@@ -29,7 +29,9 @@ export type {
  * }
  * ```
  */
-export type CredentialStoreData = Readonly<Record<string, Record<string, Credential>>>;
+export type CredentialStoreData = Readonly<
+  Record<string, Record<string, Credential>>
+>;
 
 // Backend interface (storage abstraction)
 

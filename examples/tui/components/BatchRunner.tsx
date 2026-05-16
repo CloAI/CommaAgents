@@ -199,7 +199,9 @@ export function BatchRunner({ provider, examples, onDone }: BatchRunnerProps) {
   const chromeLines = 8 + results.length;
   const maxOutputLines = Math.max(5, rows - chromeLines);
   const visibleOutput =
-    currentOutput.length > maxOutputLines ? currentOutput.slice(-maxOutputLines) : currentOutput;
+    currentOutput.length > maxOutputLines
+      ? currentOutput.slice(-maxOutputLines)
+      : currentOutput;
 
   // ---------------------------------------------------------------------------
   // Summary view
@@ -421,7 +423,9 @@ function startDaemon(provider: ProviderSelection): Promise<ChildProcess> {
     child.on("close", (code) => {
       if (!settled) {
         settled = true;
-        reject(new Error(`Daemon process exited prematurely with code ${code}`));
+        reject(
+          new Error(`Daemon process exited prematurely with code ${code}`),
+        );
       }
     });
 
@@ -449,7 +453,11 @@ function startDaemon(provider: ProviderSelection): Promise<ChildProcess> {
       if (!settled) {
         settled = true;
         child.kill("SIGTERM");
-        reject(new Error(`Daemon did not become healthy within 15s (${DAEMON_HEALTH_URL})`));
+        reject(
+          new Error(
+            `Daemon did not become healthy within 15s (${DAEMON_HEALTH_URL})`,
+          ),
+        );
       }
     };
 
@@ -476,7 +484,10 @@ function stopDaemon(child: ChildProcess): void {
  * Write a log file containing all errors from the batch run.
  * Returns the path to the log file, or null if writing failed.
  */
-function writeErrorLog(results: ExampleResult[], provider: ProviderSelection): string | null {
+function writeErrorLog(
+  results: ExampleResult[],
+  provider: ProviderSelection,
+): string | null {
   try {
     const examplesDir = path.resolve(import.meta.dir, "../..");
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");

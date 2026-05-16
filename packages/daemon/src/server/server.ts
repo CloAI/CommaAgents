@@ -1,15 +1,3 @@
-// WebSocket server — the daemon's network layer.
-//
-// `createDaemon()` builds a Bun-native HTTP + WebSocket server that:
-//   1. Accepts client connections at `/ws` (WebSocket upgrade)
-//   2. Exposes a health check at `/health`
-//   3. Delegates all message handling to the dispatcher
-//   4. Implements EventSink so the executor can broadcast events
-//   5. Manages client lifecycle (connect/disconnect → state tracking)
-//
-// The daemon internally constructs the DaemonState, EventSink, and
-// StrategyExecutor so there are no circular dependency issues.
-
 import type { Server, ServerWebSocket } from "bun";
 
 import type { EventSink } from "../executor/event-sink";
@@ -20,26 +8,31 @@ import { createDispatcher } from "./protocol/dispatcher";
 import type { DaemonMessage } from "./protocol/messages";
 import type { CreateDaemonOptions, Daemon, WsData } from "./server.types";
 
-// createDaemon()
-
 /**
  * Create a daemon instance.
  *
  * The daemon owns the DaemonState, EventSink, and StrategyExecutor.
  * Call `start()` to begin listening and `stop()` to shut down.
+ *
+ * @param options - Configuration for the daemon instance.
+ *
+ * @example
+ * ```ts
+ * const daemon = createDaemon({
+ *   config: { port: 3000, host: "127.0.0.1", sessionsDir: "/tmp/sessions" },
+ *   logger: consoleLogger,
+ * });
+ * await daemon.start();
+ * ```
  */
 export function createDaemon(options: CreateDaemonOptions): Daemon {
   const { config, logger, bridgeTimeout = 0, modelOverride } = options;
-
-  // -- Internal state --
 
   const state = createDaemonState();
   const wsMap = new Map<string, ServerWebSocket<WsData>>();
   const startTime = Date.now();
   let server: Server | null = null;
   let boundPort = 0;
-
-  // -- EventSink implementation --
 
   const sink: EventSink = {
     broadcast(runId: string, message: DaemonMessage): void {
@@ -53,7 +46,9 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
           } catch {
             // Client may have disconnected between getSubscribers and send.
             // The close handler will clean up.
-            logger.debug(`Failed to send to client ${clientId}, likely disconnected`);
+            logger.debug(
+              `Failed to send to client ${clientId}, likely disconnected`,
+            );
           }
         }
       }
@@ -73,11 +68,7 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
     },
   };
 
-  // -- Session store (per-cwd persistence) --
-
   const sessionStore = createSessionStore({ sessionsDir: config.sessionsDir });
-
-  // -- Strategy executor --
 
   const executor = createStrategyExecutor({
     state,
@@ -88,8 +79,6 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
     modelOverride,
   });
 
-  // -- Message dispatcher --
-
   const dispatch = createDispatcher({
     executor,
     state,
@@ -97,15 +86,13 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
     logger: logger.child("dispatcher"),
   });
 
-  // -- HTTP fetch handler --
-
-  function handleFetch(request: Request, srv: Server): Response | undefined {
+  function handleFetch(request: Request, server: Server): Response | undefined {
     const url = new URL(request.url);
 
     // WebSocket upgrade at /ws
     if (url.pathname === "/ws") {
       const clientId = crypto.randomUUID();
-      const upgraded = srv.upgrade<WsData>(request, { data: { clientId } });
+      const upgraded = server.upgrade<WsData>(request, { data: { clientId } });
       if (!upgraded) {
         return new Response("WebSocket upgrade failed", { status: 400 });
       }
@@ -135,8 +122,6 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
     return new Response("Not Found", { status: 404 });
   }
 
-  // -- Daemon public API --
-
   const daemon: Daemon = {
     async start(): Promise<void> {
       if (server) {
@@ -147,8 +132,8 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
         port: config.port,
         hostname: config.host,
 
-        fetch(request, srv) {
-          return handleFetch(request, srv);
+        fetch(request, server) {
+          return handleFetch(request, server);
         },
 
         websocket: {
@@ -167,8 +152,12 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
             const preview =
               typeof raw === "string" ? raw : raw.toString("utf-8");
             const truncated =
-              preview.length > 500 ? `${preview.slice(0, 500)}...[+${preview.length - 500}]` : preview;
-            logger.debug(`ws.message from ${clientId} (${preview.length} bytes): ${truncated}`);
+              preview.length > 500
+                ? `${preview.slice(0, 500)}...[+${preview.length - 500}]`
+                : preview;
+            logger.debug(
+              `ws.message from ${clientId} (${preview.length} bytes): ${truncated}`,
+            );
             dispatch(clientId, raw, (message) => {
               try {
                 websocket.send(JSON.stringify(message));

@@ -21,4 +21,6 @@ export const PermissionDecisionMessage = ClientBase.extend({
   decision: z.enum(["allow", "deny", "allow-session", "deny-session"]),
 });
 
-export type PermissionDecisionMessage = z.infer<typeof PermissionDecisionMessage>;
+export type PermissionDecisionMessage = z.infer<
+  typeof PermissionDecisionMessage
+>;

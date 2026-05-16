@@ -17,10 +17,17 @@ function registerMockModel(modelString: string): void {
     provider: "mock",
     defaultObjectGenerationMode: undefined,
     doGenerate: async () => ({
-      content: [{ type: "text" as const, text: `response from ${modelString}` }],
+      content: [
+        { type: "text" as const, text: `response from ${modelString}` },
+      ],
       finishReason: { unified: "stop" as const, raw: undefined },
       usage: {
-        inputTokens: { total: 10, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+        inputTokens: {
+          total: 10,
+          noCache: undefined,
+          cacheRead: undefined,
+          cacheWrite: undefined,
+        },
         outputTokens: { total: 20, text: undefined, reasoning: undefined },
       },
       warnings: [],
@@ -106,7 +113,10 @@ describe("exportStrategy", () => {
   describe("JSON export", () => {
     it("exports a minimal strategy as valid JSON", async () => {
       setupMockModels();
-      const loaded = await loadStrategyFromString(JSON.stringify(MINIMAL_STRATEGY), "json");
+      const loaded = await loadStrategyFromString(
+        JSON.stringify(MINIMAL_STRATEGY),
+        "json",
+      );
 
       const json = exportStrategy(loaded);
       const parsed = JSON.parse(json);
@@ -119,7 +129,10 @@ describe("exportStrategy", () => {
 
     it("exports a complex strategy as valid JSON", async () => {
       setupMockModels();
-      const loaded = await loadStrategyFromString(JSON.stringify(COMPLEX_STRATEGY), "json");
+      const loaded = await loadStrategyFromString(
+        JSON.stringify(COMPLEX_STRATEGY),
+        "json",
+      );
 
       const json = exportStrategy(loaded);
       const parsed = JSON.parse(json);
@@ -132,7 +145,10 @@ describe("exportStrategy", () => {
 
     it("uses default format (JSON) when no format specified", async () => {
       setupMockModels();
-      const loaded = await loadStrategyFromString(JSON.stringify(MINIMAL_STRATEGY), "json");
+      const loaded = await loadStrategyFromString(
+        JSON.stringify(MINIMAL_STRATEGY),
+        "json",
+      );
 
       const output = exportStrategy(loaded);
       // Should be valid JSON
@@ -141,7 +157,10 @@ describe("exportStrategy", () => {
 
     it("respects custom indent", async () => {
       setupMockModels();
-      const loaded = await loadStrategyFromString(JSON.stringify(MINIMAL_STRATEGY), "json");
+      const loaded = await loadStrategyFromString(
+        JSON.stringify(MINIMAL_STRATEGY),
+        "json",
+      );
 
       const json4 = exportStrategy(loaded, { indent: 4 });
       const json2 = exportStrategy(loaded, { indent: 2 });
@@ -158,7 +177,10 @@ describe("exportStrategy", () => {
   describe("YAML export", () => {
     it("exports a strategy as valid YAML", async () => {
       setupMockModels();
-      const loaded = await loadStrategyFromString(JSON.stringify(MINIMAL_STRATEGY), "json");
+      const loaded = await loadStrategyFromString(
+        JSON.stringify(MINIMAL_STRATEGY),
+        "json",
+      );
 
       const yamlStr = exportStrategy(loaded, { format: "yaml" });
       const parsed = YAML.parse(yamlStr);
@@ -170,7 +192,10 @@ describe("exportStrategy", () => {
 
     it("exports a complex strategy as valid YAML", async () => {
       setupMockModels();
-      const loaded = await loadStrategyFromString(JSON.stringify(COMPLEX_STRATEGY), "json");
+      const loaded = await loadStrategyFromString(
+        JSON.stringify(COMPLEX_STRATEGY),
+        "json",
+      );
 
       const yamlStr = exportStrategy(loaded, { format: "yaml" });
       const parsed = YAML.parse(yamlStr);
@@ -266,7 +291,10 @@ flow:
         },
       };
 
-      const loaded = await loadStrategyFromString(JSON.stringify(strategy), "json");
+      const loaded = await loadStrategyFromString(
+        JSON.stringify(strategy),
+        "json",
+      );
       const exported = exportStrategy(loaded);
       const reparsed = JSON.parse(exported);
 

@@ -33,7 +33,10 @@ import type { ExportStrategyOptions } from "./exporter.types";
  * const yaml = exportStrategy(strategy, { format: "yaml" });
  * ```
  */
-export function exportStrategy(strategy: LoadedStrategy, options?: ExportStrategyOptions): string {
+export function exportStrategy(
+  strategy: LoadedStrategy,
+  options?: ExportStrategyOptions,
+): string {
   const format = options?.format ?? "json";
   const indent = options?.indent ?? 2;
 

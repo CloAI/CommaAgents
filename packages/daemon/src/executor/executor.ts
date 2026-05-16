@@ -1,28 +1,30 @@
-// Strategy executor — the bridge between the WebSocket layer and core's
-// loadStrategy(). Manages strategy loading, event forwarding, user input
-// collection, and state tracking.
-//
-// The executor orchestrates strategy execution at the highest level:
-// 1. Pre-parses the strategy file to determine format and extract metadata.
-// 2. Loads the strategy via core's loadStrategyFromString. Model and tool
-//    resolution happen via global registries (registerModel / registerProvider /
-//    registerTool / setGlobalCredentialStore).
-// 3. Executes `strategy.flow.call(input)` in the background (fire-and-forget).
-// 4. Updates DaemonState and broadcasts protocol messages as execution proceeds.
-
-import type { AgentCallResult, AgentHooks, AgentStreamEvent, FlowHooks, PermissionDecision, PolicyPatch, Sandbox } from "@comma-agents/core";
-import { createSandbox, hookIntoAgent, loadStrategyFromString } from "@comma-agents/core";
+import type {
+  AgentCallResult,
+  AgentHooks,
+  AgentStreamEvent,
+  FlowHooks,
+  PermissionDecision,
+  PolicyPatch,
+  Sandbox,
+} from "@comma-agents/core";
+import {
+  getSandbox,
+  hookIntoAgent,
+  inSandbox,
+  loadSkills,
+  loadStrategyFromString,
+  pathPolicy,
+} from "@comma-agents/core";
 import YAML from "yaml";
 import type { Logger } from "../logger";
 import type { SessionStore } from "../sessions";
+import type { UserMessageSource } from "../sessions/sessions.types";
 import type { DaemonState, RunState } from "../state/state.types";
 import type { EventSink } from "./event-sink";
 import type { InputBridge } from "./input-bridge";
 import { createInputBridge } from "./input-bridge";
 import type { PermissionBridge } from "./permission-bridge";
 import { createPermissionBridge } from "./permission-bridge";
-
-// Types
 
 /**
  * Options for creating a strategy executor.
@@ -62,6 +64,13 @@ interface RunContext {
   sandbox?: Sandbox;
   /** Set after the strategy is loaded; used when persisting turns. */
   strategyName?: string;
+  /**
+   * Last agent output text from any agent in this run, used to detect
+   * agent-to-agent handoffs in `beforeCall`. When the message passed to
+   * `beforeCall` matches this text, the `userMessageSource` is tagged
+   * `"agent"` instead of `"human"`.
+   */
+  lastAgentOutputText: string | null;
 }
 
 /** The strategy executor instance. */
@@ -105,25 +114,35 @@ export interface StrategyExecutor {
    *
    * @returns `true` if a pending permission request was found and resolved.
    */
-  handlePermissionDecision(runId: string, permissionRequestId: string, decision: import("@comma-agents/core").PermissionDecision): boolean;
+  handlePermissionDecision(
+    runId: string,
+    permissionRequestId: string,
+    decision: import("@comma-agents/core").PermissionDecision,
+  ): boolean;
 
   /**
    * Apply a policy patch from an `update_policy` client message to the run's sandbox.
+   * @param toolName - Optional tool name to target. If omitted, applies to all guards.
+   * @param toolName - Optional tool name to target. If omitted, applies to all guards.
    *
    * @returns `true` if the run was found and the policy was updated.
    */
-  handleUpdatePolicy(runId: string, patch: import("@comma-agents/core").PolicyPatch): boolean;
+  handleUpdatePolicy(
+    runId: string,
+    patch: import("@comma-agents/core").PolicyPatch,
+    toolName?: string,
+  ): boolean;
 }
-
-// parseStrategyFile() — read and JSON/YAML parse a strategy file
 
 /**
  * Read a strategy file and return the raw parsed object + format.
  * Does NOT validate with Zod — that's done by loadStrategyFromString.
  */
-async function parseStrategyFile(
-  filePath: string,
-): Promise<{ raw: Record<string, unknown>; content: string; format: "json" | "yaml" }> {
+async function parseStrategyFile(filePath: string): Promise<{
+  raw: Record<string, unknown>;
+  content: string;
+  format: "json" | "yaml";
+}> {
   const ext = filePath.split(".").pop()?.toLowerCase();
 
   let format: "json" | "yaml";
@@ -145,8 +164,6 @@ async function parseStrategyFile(
 
   return { raw, content, format };
 }
-
-// Helper: serialize AgentCallResult for wire
 
 function toWireResult(result: AgentCallResult): {
   text: string;
@@ -172,8 +189,6 @@ function toWireStreamEvent(event: AgentStreamEvent): Record<string, unknown> {
   return { ...event };
 }
 
-// createStrategyExecutor()
-
 /**
  * Create a strategy executor.
  *
@@ -182,14 +197,27 @@ function toWireStreamEvent(event: AgentStreamEvent): Record<string, unknown> {
  * full lifecycle: credential resolution, hook injection, event forwarding,
  * input/auth bridging, and state updates.
  */
-export function createStrategyExecutor(options: CreateStrategyExecutorOptions): StrategyExecutor {
-  const { state, sink, logger, sessionStore, bridgeTimeout = 0, modelOverride } = options;
+export function createStrategyExecutor(
+  options: CreateStrategyExecutorOptions,
+): StrategyExecutor {
+  const {
+    state,
+    sink,
+    logger,
+    sessionStore,
+    bridgeTimeout = 0,
+    modelOverride,
+  } = options;
 
   /** runId → per-run context (bridge, client). */
   const runContexts = new Map<string, RunContext>();
 
   /** Persist a run summary to its session. Logs but never throws. */
-  function persistRunSummary(run: RunState, completedAt: Date | null, errorInfo?: { code: string; message: string }): void {
+  function persistRunSummary(
+    run: RunState,
+    completedAt: Date | null,
+    errorInfo?: { code: string; message: string },
+  ): void {
     const summary = {
       runId: run.id,
       strategyName: runContexts.get(run.id)?.strategyName ?? run.strategyName,
@@ -205,8 +233,6 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       );
     });
   }
-
-  // -- Private: build hooks that forward events to subscribers --
 
   //AI: Make this function name more descriptive
   function buildFlowHooks(runId: string): FlowHooks {
@@ -260,7 +286,11 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
    * are intentionally skipped — they're already broadcast to clients and
    * logging them on the daemon side would flood the log.
    */
-  function logToolEvent(runId: string, agentName: string, event: AgentStreamEvent): void {
+  function logToolEvent(
+    runId: string,
+    agentName: string,
+    event: AgentStreamEvent,
+  ): void {
     const runTag = `[run ${runId.slice(0, 8)}]`;
     if (event.type === "tool-call") {
       logger.info(
@@ -277,16 +307,30 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
   }
 
   //AI: Make this function name more descriptive
-  function buildAgentHooks(runId: string, agentName: string, run: RunState): AgentHooks {
-    /** Most recent message captured at beforeCall, paired with afterCallResult. */
+  function buildAgentHooks(
+    runId: string,
+    agentName: string,
+    run: RunState,
+  ): AgentHooks {
     let pendingUserMessage: string | null = null;
     let pendingStartedAt: string | null = null;
+    let pendingUserMessageSource: UserMessageSource = "human";
 
     return {
       beforeCall: [
         (message: string) => {
           pendingUserMessage = message;
           pendingStartedAt = new Date().toISOString();
+          const ctx = runContexts.get(run.id);
+          if (
+            ctx &&
+            ctx.lastAgentOutputText !== null &&
+            message === ctx.lastAgentOutputText
+          ) {
+            pendingUserMessageSource = "agent";
+          } else {
+            pendingUserMessageSource = "human";
+          }
         },
       ],
       onStreamEvent: [
@@ -296,7 +340,7 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
             type: "agent_streaming" as const,
             runId,
             agentName,
-            event: toWireStreamEvent(event) as any,
+            event: toWireStreamEvent(event) as Record<string, unknown>,
             ts: new Date().toISOString(),
           });
         },
@@ -316,15 +360,17 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
             ts: completedAt,
           });
 
-          // Auto-save the completed turn. Errors are logged but never bubble
-          // into the strategy execution path — disk failures must not abort
-          // a live run.
           const ctx = runContexts.get(run.id);
           const strategyName = ctx?.strategyName ?? run.strategyName;
           const userMessage = pendingUserMessage ?? "";
           const startedAt = pendingStartedAt ?? completedAt;
+          const userMessageSource = pendingUserMessageSource;
           pendingUserMessage = null;
           pendingStartedAt = null;
+
+          if (ctx) {
+            ctx.lastAgentOutputText = result.text;
+          }
 
           sessionStore
             .appendTurn(run.sessionId, {
@@ -340,7 +386,9 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
               },
               finishReason: result.finishReason,
               userMessage,
-              responseMessages: result.responseMessages as ReadonlyArray<unknown>,
+              userMessageSource,
+              responseMessages:
+                result.responseMessages as ReadonlyArray<unknown>,
             })
             .catch((appendError) => {
               logger.warn(
@@ -351,8 +399,6 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       ],
     };
   }
-
-  // -- Private: executeRun — the async background task --
 
   async function executeRun(
     run: RunState,
@@ -369,7 +415,9 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       logger.debug(`run ${run.id}: parsing strategy file ${strategyPath}`);
       // 1. Parse the strategy file
       const { content, format } = await parseStrategyFile(strategyPath);
-      logger.debug(`run ${run.id}: parsed (${format}, ${content.length} bytes); loading strategy`);
+      logger.debug(
+        `run ${run.id}: parsed (${format}, ${content.length} bytes); loading strategy`,
+      );
 
       // 2. Build a seed-aware collector. The TUI sends the first user prompt
       //    via `start_strategy.input`. If the strategy's first step is a
@@ -383,59 +431,88 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
 
       // AI: this should be at the startRun function layer, not sure why we have it on execute...
       let seed: string | null = input.length > 0 ? input : null;
-      const wrappedCollector = seed !== null
-        ? (request: { agentName: string; prompt: string }): Promise<string> => {
-            if (seed !== null) {
-              const value = seed;
-              seed = null;
-              logger.debug(
-                `run ${run.id}: pre-seeding first user input for agent "${request.agentName}" (${value.length} bytes)`,
-              );
-              return Promise.resolve(value);
+      const wrappedCollector =
+        seed !== null
+          ? (request: {
+              agentName: string;
+              prompt: string;
+            }): Promise<string> => {
+              if (seed !== null) {
+                const value = seed;
+                seed = null;
+                logger.debug(
+                  `run ${run.id}: pre-seeding first user input for agent "${request.agentName}" (${value.length} bytes)`,
+                );
+                return Promise.resolve(value);
+              }
+              return ctx.inputBridge.collector(request);
             }
-            return ctx.inputBridge.collector(request);
-          }
-        : ctx.inputBridge.collector;
+          : ctx.inputBridge.collector;
 
-      // 3. Create a sandbox for this run, backed by the permission bridge.
-      // Default policy is "ask" for all operations — the TUI permission prompt
-      // handles every access unless the user has already granted session permission.
-      const sandbox = createSandbox(
-        {
-          cwd: runCwd,
-          jail: false,
-          read: { default: "ask" },
-          write: { default: "ask" },
-        },
-        {
-          requestPermission: ctx.permissionBridge.requester,
-        },
-      );
-
-      // Subscribe to policy changes and broadcast policy_updated to subscribers
-      sandbox.onPolicyChange((snapshot) => {
-        sink.broadcast(run.id, {
-          type: "policy_updated" as const,
-          runId: run.id,
-          read: snapshot.read as { default: "allow" | "deny" | "ask"; allow?: string[]; deny?: string[] },
-          write: snapshot.write as { default: "allow" | "deny" | "ask"; allow?: string[]; deny?: string[] },
-          ts: new Date().toISOString(),
-        });
-      });
-
-      // Store sandbox on context for handleUpdatePolicy
-      ctx.sandbox = sandbox;
+      // 3. Discover skills for this workspace (global + project). Missing
+      // directories are silently ignored; malformed skills surface as
+      // non-fatal warnings, which we log but do not propagate.
+      const { registry: skillRegistry, warnings: skillWarnings } =
+        await loadSkills(runCwd ?? process.cwd());
+      for (const warning of skillWarnings) {
+        logger.warn(
+          `run ${run.id}: skill warning at ${warning.sourcePath}: ${warning.message}`,
+        );
+      }
+      if (!skillRegistry.isEmpty()) {
+        logger.debug(
+          `run ${run.id}: loaded ${skillRegistry.list().length} skill(s): [${skillRegistry
+            .list()
+            .map((s) => s.name)
+            .join(",")}]`,
+        );
+      }
 
       // 4. Load the strategy — model and tool resolution happen via global registries
       const strategy = await loadStrategyFromString(content, format, {
         inputCollector: wrappedCollector,
         flowHooks: buildFlowHooks(run.id),
         modelOverride: runModelOverride ?? modelOverride,
-        sandbox,
+        skillRegistry,
       });
       logger.debug(
         `run ${run.id}: strategy loaded (name="${strategy.name}", agents=[${Object.keys(strategy.agents).join(",")}])`,
       );
+
+      // 5. Apply sandbox to the loaded strategy.
+      //
+      // Policy shape:
+      //   - `allowAbsolutePaths: true`     — tools may pass absolute paths.
+      //   - `read/write.allow: ["**"]`     — all paths inside cwd are auto-allowed
+      //                                       (no prompt). cwd is "free game".
+      //   - `read/write.default: "ask"`    — anything resolving outside cwd falls
+      //                                       through to the default and triggers
+      //                                       the TUI permission prompt.
+      //   - `forbiddenGlobs` (defaults)    — still enforced for `.git`, `.env*`,
+      //                                       keys, secrets, regardless of cwd.
+      inSandbox(strategy, {
+        cwd: runCwd,
+        jail: false,
+        allowAbsolutePaths: true,
+        read: { default: "ask", allow: ["**"] },
+        write: { default: "ask", allow: ["**"] },
+      }, {
+        onAsk: ctx.permissionBridge.requester,
+        onPolicyChange: (snapshot) => {
+          sink.broadcast(run.id, {
+            type: "policy_updated" as const,
+            runId: run.id,
+            tool: snapshot.toolName,
+            policies: snapshot.policies,
+            ts: new Date().toISOString(),
+          });
+        },
+      });
+
+      const sandbox = getSandbox(strategy)!;
+
+      // Store sandbox on context for handleUpdatePolicy
+      ctx.sandbox = sandbox;
 
       // 5. Inject agent hooks into all loaded agents via hookIntoAgent
       for (const [agentName, loadedAgent] of Object.entries(strategy.agents)) {
@@ -466,7 +543,9 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       });
 
       // 6. Execute the strategy's entry flow
-      logger.debug(`run ${run.id}: invoking strategy.flow.call(input.length=${input.length})`);
+      logger.debug(
+        `run ${run.id}: invoking strategy.flow.call(input.length=${input.length})`,
+      );
       const result = await strategy.flow.call(input);
       logger.debug(`run ${run.id}: flow.call resolved`);
 
@@ -544,8 +623,6 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
     }
   }
 
-  // -- Public API --
-
   return {
     startRun(
       clientId: string,
@@ -564,7 +641,12 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       // 1. Create run in state (status: "pending")
       // Use the file path as a temporary name — the real name comes
       // from the strategy file after parsing.
-      const run = state.createRun(strategyPath, strategyPath, session.metadata.cwd, session.metadata.id);
+      const run = state.createRun(
+        strategyPath,
+        strategyPath,
+        session.metadata.cwd,
+        session.metadata.id,
+      );
       logger.info(
         `startRun: client=${clientId} run=${run.id} path=${strategyPath} cwd=${session.metadata.cwd} session=${session.metadata.id}`,
       );
@@ -589,16 +671,28 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       });
 
       // 5. Store run context
-      runContexts.set(run.id, { inputBridge, permissionBridge, clientId });
+      runContexts.set(run.id, {
+        inputBridge,
+        permissionBridge,
+        clientId,
+        lastAgentOutputText: null,
+      });
 
       // 5. Kick off execution (fire-and-forget)
-      executeRun(run, strategyPath, input ?? "", requestId, runModelOverride, runCwd).catch(
-        (caughtError) => {
-          // This should never happen — executeRun has its own try/catch.
-          // But log just in case.
-          logger.error(`Unexpected error in executeRun for ${run.id}: ${caughtError}`);
-        },
-      );
+      executeRun(
+        run,
+        strategyPath,
+        input ?? "",
+        requestId,
+        runModelOverride,
+        runCwd,
+      ).catch((caughtError) => {
+        // This should never happen — executeRun has its own try/catch.
+        // But log just in case.
+        logger.error(
+          `Unexpected error in executeRun for ${run.id}: ${caughtError}`,
+        );
+      });
 
       return run.id;
     },
@@ -644,16 +738,40 @@ export function createStrategyExecutor(options: CreateStrategyExecutorOptions): 
       return ctx.inputBridge.resolveInput(agentName, text);
     },
 
-    handlePermissionDecision(runId: string, permissionRequestId: string, decision: PermissionDecision): boolean {
+    handlePermissionDecision(
+      runId: string,
+      permissionRequestId: string,
+      decision: PermissionDecision,
+    ): boolean {
       const ctx = runContexts.get(runId);
       if (!ctx) return false;
-      return ctx.permissionBridge.resolvePermission(permissionRequestId, decision);
+      return ctx.permissionBridge.resolvePermission(
+        permissionRequestId,
+        decision,
+      );
     },
 
-    handleUpdatePolicy(runId: string, patch: PolicyPatch): boolean {
+    handleUpdatePolicy(runId: string, patch: PolicyPatch, toolName?: string): boolean {
       const ctx = runContexts.get(runId);
       if (!ctx?.sandbox) return false;
-      ctx.sandbox.updatePolicy(patch);
+
+      const cwd = ctx.sandbox.cwd;
+      const policy = pathPolicy(patch.mode, {
+        default: patch.default as "allow" | "deny" | "ask" | undefined,
+        allow: patch.allow,
+        deny: patch.deny,
+      }, cwd);
+
+      if (toolName) {
+        // Apply to specific tool's guard
+        const guard = ctx.sandbox.guardFor(toolName);
+        guard.addPolicy(policy);
+      } else {
+        // Apply to all existing guards
+        for (const [, guard] of ctx.sandbox.guards) {
+          guard.addPolicy(policy);
+        }
+      }
       return true;
     },
   };

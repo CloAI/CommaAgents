@@ -1,24 +1,22 @@
 // Daemon → Client: policy_updated
-// Broadcast when the sandbox's in-memory policy changes (e.g. after
+// Broadcast when a guard's policy chain changes (e.g. after
 // an "allow-session" or "deny-session" decision, or an update_policy message).
 
 import { z } from "zod";
 import { DaemonBase } from "../../shared";
 
-const PathPolicyWire = z.object({
-  default: z.enum(["allow", "deny", "ask"]),
-  allow: z.array(z.string()).optional(),
-  deny: z.array(z.string()).optional(),
+const PolicyWire = z.object({
+  name: z.string(),
 });
 
 export const PolicyUpdatedMessage = DaemonBase.extend({
   type: z.literal("policy_updated"),
-  /** The run ID whose sandbox policy changed. */
+  /** The run ID whose guard policy changed. */
   runId: z.string(),
-  /** Current read policy snapshot after the update. */
-  read: PathPolicyWire,
-  /** Current write policy snapshot after the update. */
-  write: PathPolicyWire,
+  /** Which tool's guard changed. */
+  tool: z.string(),
+  /** Current policy chain snapshot after the update. */
+  policies: z.array(PolicyWire),
 });
 
 export type PolicyUpdatedMessage = z.infer<typeof PolicyUpdatedMessage>;

@@ -74,7 +74,9 @@ describe("createSequentialFlow", () => {
   });
 
   it("throws for empty steps", () => {
-    expect(() => createSequentialFlow({ name: "empty", steps: [] })).toThrow(FlowExecutionError);
+    expect(() => createSequentialFlow({ name: "empty", steps: [] })).toThrow(
+      FlowExecutionError,
+    );
   });
 
   it("wraps step errors in FlowExecutionError", async () => {

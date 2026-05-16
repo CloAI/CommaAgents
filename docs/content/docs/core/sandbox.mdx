@@ -1,60 +1,89 @@
 ---
 title: Sandbox
-description: Declare a working directory and read/write policies for strategy execution.
+description: Declare a working directory and access policies for strategy execution.
 ---
 
 # Sandbox
 
-A sandbox declares the working directory and file-system access policies for a strategy's execution environment. Every tool receives the sandbox via `ToolContext.sandbox` and must call `authorizeRead` or `authorizeWrite` before performing any file I/O.
+A sandbox declares the working directory, jail boundary, and read/write policies for a strategy's execution environment. Use `inSandbox()` to apply enforcement — it creates per-tool guards internally and wires them into every agent. Tools call `ctx.guard.authorize()` before file I/O to resolve paths and check policies.
 
 ```ts
-import { createSandbox, loadStrategyFromString } from "@comma-agents/core";
+import { inSandbox, loadStrategyFromString } from "@comma-agents/core";
 
-const sandbox = createSandbox({
+const strategy = await loadStrategyFromString(content, "yaml");
+inSandbox(strategy, {
   cwd: "/projects/my-app",
   jail: true,
   write: { default: "ask" },
 }, {
-  requestPermission: async (request) => {
-    const answer = prompt(`Allow ${request.operation} on ${request.resource}? [y/n]`);
+  onAsk: async (request) => {
+    const answer = prompt(`Allow ${request.operation} on ${request.resource}?`);
     return answer === "y" ? "allow" : "deny";
   },
 });
-
-const strategy = await loadStrategyFromString(content, "yaml", { sandbox });
 ```
 
-When no sandbox is provided, all tools run with a permissive sandbox (`cwd: process.cwd()`, all reads and writes allowed).
+When no sandbox is configured, all tools run with a permissive sandbox (no restrictions, `cwd: process.cwd()`).
 
-## SandboxConfig
+## Pre-built Configs
 
-Static configuration passed to `createSandbox()`.
+Three configs cover common scenarios. Pass them to `inSandbox()` or `createSandbox()`.
 
-<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="SandboxConfig" />
+```ts
+import {
+  inSandbox,
+  DEFAULT_SANDBOX_CONFIG,
+  PERMISSIVE_SANDBOX_CONFIG,
+  DEFAULT_DAEMON_SANDBOX_CONFIG,
+} from "@comma-agents/core";
+```
 
-## PathPolicy
+**`DEFAULT_SANDBOX_CONFIG`** — jailed to `process.cwd()`, absolute paths rejected, standard forbidden globs (`.git/**`, `.env*`, keys, certs), reads and writes allowed within the boundary. Recommended for most projects.
 
-Policy applied to a class of file-system operations (read or write).
+**`PERMISSIVE_SANDBOX_CONFIG`** — no jail, absolute paths allowed, no forbidden globs, all reads and writes allowed. Used as the fallback when no sandbox is configured.
 
-<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="PathPolicy" />
+**`DEFAULT_DAEMON_SANDBOX_CONFIG`** — jailed to cwd, absolute paths allowed (daemon passes absolute paths), in-cwd paths auto-allowed via `allow: ["**"]`, anything outside cwd triggers `"ask"` via the permission bridge. Leaves `cwd` unset so the daemon supplies it at runtime.
 
-Pattern matching uses [Bun.Glob](https://bun.sh/docs/api/glob) syntax. Patterns are resolved relative to `cwd`. Evaluation order: deny patterns → allow patterns → default.
+## inSandbox()
 
-## SandboxDependencies
+Apply sandbox enforcement to a strategy or agent. Creates the sandbox internally and mutates the entity in-place so all agents receive per-tool guards.
 
-Runtime dependencies injected at creation time.
+```ts
+import { inSandbox } from "@comma-agents/core";
 
-<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="SandboxDependencies" />
+// Apply to a strategy (mutates all agents)
+inSandbox(strategy, { cwd: "/workspace", jail: true });
 
-## Sandbox
+// Apply to a single agent
+inSandbox(agent, { write: { default: "ask" } });
 
-The runtime sandbox object returned by `createSandbox()`.
+// With callbacks for interactive "ask" prompts
+inSandbox(strategy, config, {
+  onAsk: async (request) => { /* prompt user */ return "allow"; },
+  onPolicyChange: (snapshot) => { /* broadcast policy changes */ },
+});
+```
 
-<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="Sandbox" />
+Returns the same entity. Use `getSandbox(entity)` to retrieve the `Sandbox` instance.
 
-## Using the Sandbox Directly
+## getSandbox()
 
-You can use `createSandbox()` outside of a strategy loader — for example, in custom scripts or test utilities.
+Retrieve the `Sandbox` from a previously sandboxed entity. Returns `undefined` if `inSandbox()` was never called.
+
+```ts
+import { getSandbox } from "@comma-agents/core";
+
+const sandbox = getSandbox(strategy);
+if (sandbox) {
+  // Access a tool's guard for policy management
+  const guard = sandbox.guardFor("read_file");
+  guard.addPolicy(myCustomPolicy);
+}
+```
+
+## createSandbox()
+
+Low-level factory — creates a standalone `Sandbox` instance without attaching it to agents. Prefer `inSandbox()` for normal usage.
 
 ```ts
 import { createSandbox } from "@comma-agents/core";
@@ -62,117 +91,227 @@ import { createSandbox } from "@comma-agents/core";
 const sandbox = createSandbox({
   cwd: "/workspace",
   jail: true,
-  read: { default: "allow" },
-  write: {
-    default: "deny",
-    allow: ["out/**", "tmp/**"],
-  },
 });
-
-// Synchronous: resolve and check paths without I/O
-const abs = sandbox.resolvePath("src/index.ts"); // "/workspace/src/index.ts"
-console.log(sandbox.canWrite("out/result.txt")); // true
-console.log(sandbox.canWrite("src/index.ts"));   // false
-
-// Synchronous enforcement (throws SandboxViolationError on deny)
-sandbox.assertReadable("src/index.ts");   // ok — read default is "allow"
-sandbox.assertWritable("out/result.txt"); // ok — matches allow pattern
-sandbox.assertWritable("src/index.ts");   // throws — denied
-
-// Async: may prompt the user if policy is "ask"
-const authCtx = { agentName: "writer", toolName: "write-file", signal: new AbortController().signal };
-const resolvedPath = await sandbox.authorizeWrite("out/report.md", authCtx);
 ```
 
-## Writing a Tool That Uses the Sandbox
+## SandboxConfig
 
-Tools receive the sandbox via `ToolContext`. Call `authorizeRead` or `authorizeWrite` before any file operation.
+Configuration passed to `inSandbox()` or `createSandbox()`. All fields default to permissive values when omitted.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `cwd` | `string` | `process.cwd()` | Workspace root for path resolution and jail boundary |
+| `jail` | `boolean` | `false` | When true, paths that resolve outside `cwd` are rejected |
+| `allowAbsolutePaths` | `boolean` | `true` | When false, absolute path arguments are rejected |
+| `forbiddenGlobs` | `readonly string[]` | `[]` | Always-deny glob patterns (`.git/**`, `.env*`, keys, certs). Cannot be overridden by allow patterns. |
+| `read` | `PathPolicy` | `{ default: "allow" }` | Read-access policy: deny patterns → allow patterns → default |
+| `write` | `PathPolicy` | `{ default: "allow" }` | Write-access policy: deny patterns → allow patterns → default |
+
+## PathPolicy
+
+Policy applied to a class of file-system operations. Patterns use [Bun.Glob](https://bun.sh/docs/api/glob) syntax relative to `cwd`. Evaluation order: deny patterns → allow patterns → default.
 
 ```ts
-import { createTool } from "@comma-agents/core";
-import { readFileSync } from "node:fs";
+{
+  default: "ask",                    // "allow" | "deny" | "ask"
+  allow: ["out/**", "tmp/**"],       // globs that are explicitly allowed
+  deny: ["secrets/**", "*.pem"],     // deny wins over allow
+}
+```
 
-export const readFileTool = createTool({
-  name: "read_file",
+## Guard
+
+Every tool in a sandboxed strategy gets its own `Guard`. The guard resolves paths against `cwd`, enforces the jail boundary, evaluates the policy chain, and dispatches `"ask"` prompts via the `onAsk` callback. Session-memory decisions (`"allow-session"`, `"deny-session"`) are scoped per-tool.
+
+<AutoTypeTable path="../packages/core/src/guard/guard.types.ts" name="Guard" />
+
+Tools call `ctx.guard.authorize()` before file I/O:
+
+```ts
+const abs = await ctx.guard.authorize(
+  { type: "fs.read", resource: "src/index.ts" },
+  { agentName: ctx.agentName, toolName: "read_file", signal: ctx.abort },
+);
+// abs is the resolved absolute path — jail-checked, policy-approved
+```
+
+Non-throwing inspection for filtering:
+
+```ts
+const ok = ctx.guard.canAccess({ type: "fs.read", resource: "src/config.ts" });
+if (!ok) continue;  // skip blocked entries during traversal
+```
+
+## Policy
+
+Each guard maintains an ordered chain of `Policy` objects. When a tool requests access, the guard evaluates the chain — the first policy that returns non-`"pass"` decides the outcome. Built-in policies ship by default; tool-level and runtime policies extend the chain.
+
+<AutoTypeTable path="../packages/core/src/guard/guard.types.ts" name="Policy" />
+
+Built-in policy factories:
+- `forbiddenGlobsPolicy(globs, cwd)` — always-deny for secret/sensitive patterns
+- `readPathPolicy(config, cwd)` — deny > allow > default for `fs.read`
+- `writePathPolicy(config, cwd)` — deny > allow > default for `fs.write`
+- `denyCommandsPolicy(patterns)` — always-deny for matching commands (regex)
+- `approveCommandsPolicy(patterns)` — return `"ask"` for matching commands
+
+## AccessRequest
+
+Tools declare what access they need by constructing `AccessRequest` objects.
+
+<AutoTypeTable path="../packages/core/src/guard/guard.types.ts" name="AccessRequest" />
+
+```ts
+// File read
+{ type: "fs.read", resource: "src/config.ts" }
+
+// File write
+{ type: "fs.write", resource: "out/report.md" }
+
+// Command execution (used by run_command)
+{ type: "command.execute", resource: "git push --force" }
+```
+
+## GuardCallbacks
+
+Callbacks injected into every guard at creation time. Passed to `inSandbox()`.
+
+<AutoTypeTable path="../packages/core/src/guard/guard.types.ts" name="GuardCallbacks" />
+
+```ts
+inSandbox(strategy, config, {
+  onAsk: async (request) => {
+    // request.agentName, request.toolName, request.operation, request.resource
+    const decision = await showPermissionPrompt(request);
+    return decision; // "allow" | "deny" | "allow-session" | "deny-session"
+  },
+
+  onPolicyChange: (snapshot) => {
+    // snapshot.toolName, snapshot.policies
+    console.log(`${snapshot.toolName} policy chain changed`);
+  },
+});
+```
+
+## Tool-Level Policies
+
+Tools define additional policies that get added to their guard's chain. Use this for tool-specific rules like command deny/approval patterns.
+
+```ts
+import { approveCommandsPolicy, denyCommandsPolicy, defineTool } from "@comma-agents/core";
+
+const myTool = defineTool({
+  description: "...",
+  parameters: z.object({ /* ... */ }),
+  policies: [
+    denyCommandsPolicy(["rm -rf /", "sudo shutdown"]),
+    approveCommandsPolicy(["git push --force", "npm publish"]),
+  ],
+  execute: async (args, ctx) => {
+    // ctx.guard handles deny/approval automatically
+    await ctx.guard.authorize(
+      { type: "command.execute", resource: args.command },
+      { agentName: ctx.agentName, toolName: "my_tool", signal: ctx.abort },
+    );
+  },
+});
+```
+
+## Writing a Tool That Uses the Guard
+
+Tools receive their guard via `ToolContext.guard`. Call `guard.authorize()` before any file I/O. Throw `SandboxViolationError` on deny — the centralized catch in the agent framework converts it to a structured `ToolError` for the LLM.
+
+```ts
+import { defineTool } from "@comma-agents/core";
+import { z } from "zod";
+
+export const readFileTool = defineTool({
   description: "Read a file from disk.",
-  parameters: { path: { type: "string" } },
-  execute: async ({ path }, ctx) => {
-    const abs = await ctx.sandbox.authorizeRead(path, {
-      agentName: ctx.agentName,
-      toolName: "read_file",
-      signal: ctx.signal,
-    });
-    return readFileSync(abs, "utf8");
+  parameters: z.object({ path: z.string() }),
+  execute: async (args, ctx) => {
+    const abs = await ctx.guard.authorize(
+      { type: "fs.read", resource: args.path },
+      { agentName: ctx.agentName, toolName: "read_file", signal: ctx.abort },
+    );
+    return okResult(await Bun.file(abs).text());
   },
 });
 ```
 
-Use `assertReadable` / `assertWritable` for synchronous enforcement when interactive prompting is not needed (e.g. glob results, path filtering).
-
-## Runtime Policy Updates
-
-Use `updatePolicy()` to mutate the sandbox's in-memory policy after creation. This is how `"allow-session"` and `"deny-session"` decisions are applied, and how the daemon's `update_policy` message works.
+Use `guard.canAccess()` for non-throwing filtering during traversal:
 
 ```ts
-sandbox.updatePolicy({
-  mode: "write",
-  allow: ["generated/**"],
-  default: "deny",
-});
+// Inside search_files / list_directory — skip blocked entries silently
+if (!ctx.guard.canAccess({ type: "fs.read", resource: relativePath })) continue;
 ```
-
-Subscribe to policy changes with `onPolicyChange()`:
-
-```ts
-const unsubscribe = sandbox.onPolicyChange((snapshot) => {
-  console.log("Policy changed:", snapshot.read, snapshot.write);
-});
-
-// Later, when cleanup is needed:
-unsubscribe();
-```
-
-## Permission Decisions
-
-When a path's policy is `"ask"`, the sandbox calls the `PermissionRequester` provided via `SandboxDependencies`. The requester returns a `PermissionDecision`:
-
-<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="PermissionDecision" />
-
-`"allow-session"` and `"deny-session"` decisions are stored in-memory and applied as policy patches via `updatePolicy()`. They are not persisted to disk.
-
-If a path resolves to `"ask"` but no `PermissionRequester` is configured, a `SandboxViolationError` with `reason: "ask-no-handler"` is thrown.
-
-## PermissionRequest
-
-The data passed to the `PermissionRequester` when a path resolves to `"ask"`.
-
-<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="PermissionRequest" />
 
 ## Jail Mode
 
-When `jail: true`, any path that resolves outside `cwd` (including via symlinks) throws a `SandboxViolationError` with `reason: "jail"`. This prevents tools from escaping the declared working directory.
+When `jail: true`, paths that resolve outside `cwd` (including via symlinks) throw `SandboxViolationError` with `reason: "jail"`. The jail check runs inside the guard before the policy chain.
 
 ```ts
-const sandbox = createSandbox({ cwd: "/projects/app", jail: true });
+import { inSandbox } from "@comma-agents/core";
 
-sandbox.resolvePath("../../etc/passwd"); // throws SandboxViolationError { reason: "jail" }
+inSandbox(strategy, { cwd: "/projects/app", jail: true });
+// Tools cannot read or write anything outside /projects/app
 ```
 
-With `jail: false` (the default), paths outside `cwd` are allowed and policies still apply normally.
+With `jail: false`, paths resolve freely and policies still apply normally.
+
+## Absolute Paths
+
+Set `allowAbsolutePaths: false` to force tools to use cwd-relative paths. Absolute path arguments throw `SandboxViolationError` with `reason: "absolute-path"`. When `allowAbsolutePaths: true` (the default for backward compatibility), tools can pass absolute paths directly.
+
+```ts
+inSandbox(strategy, {
+  cwd: "/projects/app",
+  jail: true,
+  allowAbsolutePaths: false,   // reject absolute path arguments
+});
+```
+
+## Forbidden Globs
+
+`forbiddenGlobs` is an always-deny layer — paths matching any pattern return `permission_denied` regardless of read/write policy or user approval. Use this for secrets, build caches, or anything that must never be touched.
+
+```ts
+inSandbox(strategy, {
+  cwd: "/projects/app",
+  jail: true,
+  forbiddenGlobs: ["**/.env", "**/.env.*", "**/node_modules/**"],
+});
+```
+
+Forbidden globs apply to both reads and writes and cannot be overridden by `allow` patterns or session decisions.
 
 ## SandboxViolationError
 
-Thrown when a path is denied or escapes the jail.
+Thrown when a path is denied, escapes the jail, or matches a forbidden glob.
 
 ```ts
 import { SandboxViolationError } from "@comma-agents/core";
 
 try {
-  sandbox.assertWritable("src/index.ts");
+  await guard.authorize(
+    { type: "fs.read", resource: "../../etc/passwd" },
+    { agentName: "reader", toolName: "read_file", signal: new AbortController().signal },
+  );
 } catch (err) {
   if (err instanceof SandboxViolationError) {
     console.log(err.path);   // absolute path that was denied
-    console.log(err.reason); // "jail" | "read-denied" | "write-denied" | "ask-no-handler"
+    console.log(err.reason); // "jail" | "read-denied" | "write-denied" | "forbidden-glob" | "absolute-path" | "ask-no-handler" | "ask-aborted"
   }
 }
 ```
+
+## PermissionDecision
+
+Returned by the `onAsk` callback. One-shot decisions don't persist; session decisions are remembered in the guard's chain for the lifetime of the run.
+
+<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="PermissionDecision" />
+
+## PermissionRequest
+
+The data dispatched to the `onAsk` callback when a policy returns `"ask"`.
+
+<AutoTypeTable path="../packages/core/src/sandbox/sandbox.types.ts" name="PermissionRequest" />

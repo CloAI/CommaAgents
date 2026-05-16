@@ -8,7 +8,9 @@
  * actually invokes these, and otherwise return safe defaults.
  */
 const stub = (name: string) => () => {
-  throw new Error(`[tui-storybook] node:child_process.${name} is not available in the browser preview`);
+  throw new Error(
+    `[tui-storybook] node:child_process.${name} is not available in the browser preview`,
+  );
 };
 
 export const execFileSync = stub("execFileSync");

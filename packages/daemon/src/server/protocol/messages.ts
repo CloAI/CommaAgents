@@ -1,45 +1,41 @@
-// Protocol message unions — discriminated unions + parse helpers for both
-// client -> daemon and daemon -> client messages.
-
 import { z } from "zod";
-
+import { DeleteSessionMessage } from "./requests/delete-session/delete-session.schema";
+import { GetAvailableModelsMessage } from "./requests/get-available-models/get-available-models.schema";
 import { ListProvidersMessage } from "./requests/list-providers/list-providers.schema";
 import { ListSessionsMessage } from "./requests/list-sessions/list-sessions.schema";
 import { ListStrategiesMessage } from "./requests/list-strategies/list-strategies.schema";
 import { LoadSessionMessage } from "./requests/load-session/load-session.schema";
-import { DeleteSessionMessage } from "./requests/delete-session/delete-session.schema";
-import { RenameSessionMessage } from "./requests/rename-session/rename-session.schema";
+import { PermissionDecisionMessage } from "./requests/permission-decision/permission-decision.schema";
 import { PingMessage } from "./requests/ping/ping.schema";
+import { RenameSessionMessage } from "./requests/rename-session/rename-session.schema";
 import { StartStrategyMessage } from "./requests/start-strategy/start-strategy.schema";
 import { StopStrategyMessage } from "./requests/stop-strategy/stop-strategy.schema";
 import { SubscribeMessage } from "./requests/subscribe/subscribe.schema";
 import { UnsubscribeMessage } from "./requests/unsubscribe/unsubscribe.schema";
-import { UserInputMessage } from "./requests/user-input/user-input.schema";
-import { PermissionDecisionMessage } from "./requests/permission-decision/permission-decision.schema";
 import { UpdatePolicyMessage } from "./requests/update-policy/update-policy.schema";
+import { UserInputMessage } from "./requests/user-input/user-input.schema";
 
 import {
   AgentOutputMessage,
   AgentStreamingMessage,
+  AvailableModelsMessage,
   ErrorMessage,
+  PolicyUpdatedMessage,
+  PongMessage,
   ProviderListMessage,
+  RequestInputMessage,
+  RequestPermissionMessage,
   SessionDeletedMessage,
   SessionListMessage,
   SessionLoadedMessage,
   SessionRenamedMessage,
+  StepCompletedMessage,
+  StepStartedMessage,
   StrategyCompletedMessage,
   StrategyErrorMessage,
   StrategyListMessage,
   StrategyStartedMessage,
-  PongMessage,
-  RequestInputMessage,
-  RequestPermissionMessage,
-  PolicyUpdatedMessage,
-  StepCompletedMessage,
-  StepStartedMessage,
 } from "./responses";
-
-// Client -> Daemon discriminated union
 
 export const ClientMessage = z.discriminatedUnion("type", [
   StartStrategyMessage,
@@ -48,6 +44,7 @@ export const ClientMessage = z.discriminatedUnion("type", [
   PermissionDecisionMessage,
   UpdatePolicyMessage,
   ListStrategiesMessage,
+  GetAvailableModelsMessage,
   ListProvidersMessage,
   ListSessionsMessage,
   LoadSessionMessage,
@@ -59,8 +56,6 @@ export const ClientMessage = z.discriminatedUnion("type", [
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessage>;
-
-// Daemon -> Client discriminated union
 
 export const DaemonMessage = z.discriminatedUnion("type", [
   StrategyStartedMessage,
@@ -74,6 +69,7 @@ export const DaemonMessage = z.discriminatedUnion("type", [
   RequestPermissionMessage,
   PolicyUpdatedMessage,
   StrategyListMessage,
+  AvailableModelsMessage,
   ProviderListMessage,
   SessionListMessage,
   SessionLoadedMessage,
@@ -84,8 +80,6 @@ export const DaemonMessage = z.discriminatedUnion("type", [
 ]);
 
 export type DaemonMessage = z.infer<typeof DaemonMessage>;
-
-// Parse helpers — validate raw JSON from the WebSocket
 
 /**
  * Safely parse an unknown value as a ClientMessage.

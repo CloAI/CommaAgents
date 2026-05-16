@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { Box, Text, useApp, useFocusManager, useInput } from "ink";
+import { useApp, useFocusManager, useInput } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router";
@@ -7,6 +7,7 @@ import { Route, Routes, useLocation, useNavigate } from "react-router";
 import { CommandPalette } from "../components/CommandPalette";
 import { Frame } from "../components/Frame";
 import type { TabDefinition } from "../components/Frame/Frame";
+import { OutputModal } from "../components/MessageList";
 import { Modal } from "../components/Modal";
 import type { StrategyOption } from "../components/StrategyPicker";
 import { BUILT_IN_STRATEGIES } from "../components/StrategyPicker/StrategyPicker.constants";
@@ -41,14 +42,13 @@ function resolveStrategyOption(strategyKey: string): StrategyOption {
 /** Tab route definitions. Order determines display order in the Frame header. */
 const BASE_TABS: readonly TabDefinition[] = [
   { path: "/chat", label: "Chat", shortcut: "Alt+1" },
-  { path: "/settings", label: "Settings", shortcut: "Alt+2" },
-  { path: "/logs", label: "Logs", shortcut: "Alt+3" },
+  { path: "/logs", label: "Logs", shortcut: "Alt+2" },
 ] as const;
 
 const DEV_TAB: TabDefinition = {
   path: "/dev",
   label: "Dev",
-  shortcut: "Alt+4",
+  shortcut: "Alt+3",
 } as const;
 
 export interface AppProps {
@@ -160,9 +160,8 @@ export function App({
       }
       // Tab shortcuts — only active when on a tabbed route (not /intro).
       if (key.meta && input === "1") navigate("/chat");
-      if (key.meta && input === "2") navigate("/settings");
-      if (key.meta && input === "3") navigate("/logs");
-      if (key.meta && input === "4" && dev) navigate("/dev");
+      if (key.meta && input === "2") navigate("/logs");
+      if (key.meta && input === "3" && dev) navigate("/dev");
     },
     { isActive: RAW_MODE_SUPPORTED },
   );
@@ -195,12 +194,11 @@ export function App({
         onPermissionDecide={handlePermissionDecide}
         logs={logs}
         onClearLogs={clearLogs}
-        dev={dev}
       />
       <Modal
         title="Command Palette"
         modalId={COMMAND_PALETTE_MODAL_ID}
-        closeOnEsc={true}
+        closeOnEsc={false}
       >
         <CommandPalette
           isVisible={commandPalette.isOpen}
@@ -208,6 +206,7 @@ export function App({
           onExitApp={handleExitApp}
         />
       </Modal>
+      <OutputModal />
     </>
   );
 }
@@ -230,19 +229,21 @@ export interface AppRenderProps {
   /** Agent currently waiting for user input, or null. */
   readonly chatPendingInputAgent: string | null;
   /** Pending permission request, or null. */
-  readonly chatPendingPermissionRequest: import("../hooks").PendingPermissionRequest | null;
+  readonly chatPendingPermissionRequest:
+    | import("../hooks").PendingPermissionRequest
+    | null;
   /** Called when the user submits their first prompt on the intro screen. */
   readonly onStartChat: (strategyKey: string, input: string) => void;
   /** Called when the user replies to an agent on the chat screen. */
   readonly onReplySubmit: (text: string) => void;
   /** Called when the user resolves a permission request. */
-  readonly onPermissionDecide: (decision: "allow" | "deny" | "allow-session" | "deny-session") => void;
+  readonly onPermissionDecide: (
+    decision: "allow" | "deny" | "allow-session" | "deny-session",
+  ) => void;
   /** Captured log entries to display in the Logs tab. */
   readonly logs: readonly LogEntry[];
   /** Called to clear all captured logs. */
   readonly onClearLogs: () => void;
-  /** Whether to enable the Dev tab. */
-  readonly dev: boolean;
 }
 
 export function AppRender({
@@ -260,7 +261,6 @@ export function AppRender({
   onPermissionDecide,
   logs,
   onClearLogs,
-  dev,
 }: AppRenderProps): React.ReactElement {
   // /intro renders without the Frame tab bar.
   return (
@@ -289,23 +289,10 @@ export function AppRender({
           }
         />
         <Route
-          path="/settings"
-          element={<SettingsPage />}
-        />
-        <Route
           path="/logs"
           element={<LogsPage logs={logs} onClear={onClearLogs} />}
         />
       </Routes>
     </Frame>
-  );
-}
-
-function SettingsPage(): React.ReactElement {
-  // Placeholder — settings UI lives here when implemented.
-  return (
-    <Box paddingX={1}>
-      <Text dimColor>Settings — coming soon</Text>
-    </Box>
   );
 }

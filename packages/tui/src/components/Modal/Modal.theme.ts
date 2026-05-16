@@ -1,4 +1,9 @@
-import { defineTheme, type BoxProps, type TextProps, type ThemeOf } from "../../theme";
+import {
+  type BoxProps,
+  defineTheme,
+  type TextProps,
+  type ThemeOf,
+} from "../../theme";
 
 /**
  * Returns themed style objects for the Modal component.

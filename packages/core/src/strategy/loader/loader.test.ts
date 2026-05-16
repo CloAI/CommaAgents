@@ -7,6 +7,7 @@ import { StrategyValidationError } from "../../errors/index";
 import type { FlowHooks } from "../../flows/flow/flow.types";
 import { registerModel, resetModelRegistry } from "../../model/model";
 import { extractProviderIds } from "../../model/model.utils";
+import { okResult } from "../../tools/result";
 import { registerTool, resetToolRegistry } from "../../tools/tool.registry";
 import type { ToolDefinition } from "../../tools/tool.types";
 import { loadStrategy, loadStrategyFromString } from "./loader";
@@ -21,10 +22,17 @@ function registerMockModel(modelString: string): void {
     provider: "mock",
     defaultObjectGenerationMode: undefined,
     doGenerate: async () => ({
-      content: [{ type: "text" as const, text: `response from ${modelString}` }],
+      content: [
+        { type: "text" as const, text: `response from ${modelString}` },
+      ],
       finishReason: { unified: "stop" as const, raw: undefined },
       usage: {
-        inputTokens: { total: 10, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+        inputTokens: {
+          total: 10,
+          noCache: undefined,
+          cacheRead: undefined,
+          cacheWrite: undefined,
+        },
         outputTokens: { total: 20, text: undefined, reasoning: undefined },
       },
       warnings: [],
@@ -74,7 +82,10 @@ const COMPLEX_JSON = JSON.stringify({
   version: "2.0",
   description: "Multi-agent review",
   agents: {
-    user: { type: "user", config: { requireInput: false, presetMessage: "Review this." } },
+    user: {
+      type: "user",
+      config: { requireInput: false, presetMessage: "Review this." },
+    },
     writer: {
       model: "openai/gpt-4o",
       systemPrompt: "You write code.",
@@ -129,15 +140,15 @@ describe("loadStrategyFromString", () => {
     });
 
     it("throws StrategyValidationError for invalid JSON syntax", async () => {
-      await expect(loadStrategyFromString("not { json", "json")).rejects.toThrow(
-        StrategyValidationError,
-      );
+      await expect(
+        loadStrategyFromString("not { json", "json"),
+      ).rejects.toThrow(StrategyValidationError);
     });
 
     it("throws StrategyValidationError for invalid structure", async () => {
-      await expect(loadStrategyFromString(JSON.stringify({ name: "Bad" }), "json")).rejects.toThrow(
-        StrategyValidationError,
-      );
+      await expect(
+        loadStrategyFromString(JSON.stringify({ name: "Bad" }), "json"),
+      ).rejects.toThrow(StrategyValidationError);
     });
   });
 
@@ -163,9 +174,9 @@ flow:
     });
 
     it("throws StrategyValidationError for invalid YAML syntax", async () => {
-      await expect(loadStrategyFromString(":\n  - :\n  bad: [", "yaml")).rejects.toThrow(
-        StrategyValidationError,
-      );
+      await expect(
+        loadStrategyFromString(":\n  - :\n  bad: [", "yaml"),
+      ).rejects.toThrow(StrategyValidationError);
     });
   });
 });
@@ -187,7 +198,10 @@ describe("agent instantiation", () => {
       name: "Test",
       version: "1.0",
       agents: {
-        user: { type: "user", config: { requireInput: false, presetMessage: "Hi" } },
+        user: {
+          type: "user",
+          config: { requireInput: false, presetMessage: "Hi" },
+        },
       },
       flow: {
         name: "Main",
@@ -206,7 +220,10 @@ describe("agent instantiation", () => {
       name: "Test",
       version: "1.0",
       agents: {
-        user: { type: "user", config: { requireInput: false, presetMessage: "Hello!" } },
+        user: {
+          type: "user",
+          config: { requireInput: false, presetMessage: "Hello!" },
+        },
       },
       flow: {
         name: "Main",
@@ -235,7 +252,9 @@ describe("agent instantiation", () => {
       },
     });
 
-    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(StrategyValidationError);
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+      StrategyValidationError,
+    );
   });
 
   it("rejects strategies with useDefaults (removed feature)", async () => {
@@ -252,7 +271,9 @@ describe("agent instantiation", () => {
       },
     });
 
-    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(StrategyValidationError);
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+      StrategyValidationError,
+    );
   });
 });
 
@@ -265,7 +286,10 @@ describe("tool resolution", () => {
       name: "Test",
       version: "1.0",
       agents: {
-        agent: { model: "openai/gpt-4o", tools: ["bash", "read", "write", "edit", "glob", "grep"] },
+        agent: {
+          model: "openai/gpt-4o",
+          tools: ["bash", "read", "write", "edit", "glob", "grep"],
+        },
       },
       flow: {
         name: "Main",
@@ -283,7 +307,7 @@ describe("tool resolution", () => {
     const customTool: ToolDefinition = {
       description: "A custom tool",
       parameters: {} as any,
-      execute: async () => ({ output: "done" }),
+      execute: async () => okResult("done"),
     };
 
     // Register the custom tool globally
@@ -326,7 +350,9 @@ describe("tool resolution", () => {
     const result = await loadStrategyFromString(json, "json");
     expect(result.agents.agent).toBeDefined();
 
-    await expect(result.agents.agent!.call("test")).rejects.toThrow(/nonexistent/);
+    await expect(result.agents.agent!.call("test")).rejects.toThrow(
+      /nonexistent/,
+    );
   });
 });
 
@@ -346,7 +372,9 @@ describe("model resolution", () => {
     expect(result.agents.agent).toBeDefined();
 
     // Calling the agent fails — resolveModel() rejects the format
-    await expect(result.agents.agent!.call("test")).rejects.toThrow(/providerID\/modelID/);
+    await expect(result.agents.agent!.call("test")).rejects.toThrow(
+      /providerID\/modelID/,
+    );
   });
 
   it("throws for empty model ID after slash at call time", async () => {
@@ -389,8 +417,12 @@ describe("model resolution", () => {
       flow: { name: "Main", type: "sequential", steps: [{ agent: "agent" }] },
     });
 
-    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(StrategyValidationError);
-    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/no model/);
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+      StrategyValidationError,
+    );
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+      /no model/,
+    );
   });
 });
 
@@ -523,8 +555,12 @@ describe("flow tree building", () => {
       },
     });
 
-    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(StrategyValidationError);
-    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/nonexistent/);
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+      StrategyValidationError,
+    );
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+      /nonexistent/,
+    );
   });
 
   it("throws when cycle observer references undefined agent", async () => {
@@ -542,8 +578,12 @@ describe("flow tree building", () => {
       },
     });
 
-    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(StrategyValidationError);
-    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/nonexistent/);
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+      StrategyValidationError,
+    );
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+      /nonexistent/,
+    );
   });
 });
 
@@ -570,7 +610,9 @@ describe("loadStrategy (file-based)", () => {
   });
 
   it("throws for unsupported file extension", async () => {
-    await expect(loadStrategy("/some/file.toml")).rejects.toThrow(StrategyValidationError);
+    await expect(loadStrategy("/some/file.toml")).rejects.toThrow(
+      StrategyValidationError,
+    );
     await expect(loadStrategy("/some/file.toml")).rejects.toThrow(/extension/);
   });
 });
@@ -584,7 +626,10 @@ describe("end-to-end execution", () => {
       name: "E2E",
       version: "1.0",
       agents: {
-        user: { type: "user", config: { requireInput: false, presetMessage: "Hello" } },
+        user: {
+          type: "user",
+          config: { requireInput: false, presetMessage: "Hello" },
+        },
         assistant: { model: "openai/gpt-4o", systemPrompt: "You are helpful." },
       },
       flow: {
@@ -883,7 +928,10 @@ describe("hook injection", () => {
       name: "User Agent Test",
       version: "1.0",
       agents: {
-        user: { type: "user", config: { requireInput: false, presetMessage: "Hi" } },
+        user: {
+          type: "user",
+          config: { requireInput: false, presetMessage: "Hi" },
+        },
       },
       flow: {
         name: "Main",

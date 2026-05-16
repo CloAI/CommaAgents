@@ -19,10 +19,7 @@ export interface ScrollableListProps<ItemType> {
    * this row is currently selected — the caller is responsible for any
    * visual selection treatment (typically `inverse` text).
    */
-  readonly renderItem: (
-    item: ItemType,
-    isSelected: boolean,
-  ) => React.ReactNode;
+  readonly renderItem: (item: ItemType, isSelected: boolean) => React.ReactNode;
   /** Currently selected index (controlled). Clamped to `[0, items.length-1]`. */
   readonly selectedIndex: number;
   /** Invoked when Up/Down moves the selection. */
@@ -45,4 +42,26 @@ export interface ScrollableListProps<ItemType> {
    * separately.
    */
   readonly isFocused?: boolean;
+}
+
+/**
+ * Props for {@link ScrollableListRender}.
+ *
+ * Pure render props — all hook-derived values are computed by the
+ * container and passed down.
+ */
+export interface ScrollableListRenderProps<ItemType> {
+  /** The full list of items to render. */
+  readonly items: readonly ItemType[];
+  /** Stable key for each item. */
+  readonly getKey: (item: ItemType, index: number) => string;
+  /**
+   * Renders a single row. Receives the item and a flag indicating whether
+   * this row is currently selected.
+   */
+  readonly renderItem: (item: ItemType, isSelected: boolean) => React.ReactNode;
+  /** Clamped selected index. */
+  readonly clampedSelected: number;
+  /** Text shown when `items` is empty. */
+  readonly emptyText?: string;
 }

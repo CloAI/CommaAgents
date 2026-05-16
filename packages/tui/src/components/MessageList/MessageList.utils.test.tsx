@@ -1,9 +1,10 @@
-import React from "react";
+import { describe, expect, test } from "bun:test";
 import { Box, Text } from "ink";
 import { render } from "ink-testing-library";
-import { describe, expect, test } from "bun:test";
+import type React from "react";
 
 import type { ChatMessage } from "../../hooks/useChat/useChat.types";
+import { ModalContextProvider } from "../../hooks/useModal";
 import { AgentMessage } from "./AgentMessage";
 import { estimateMessageRowHeight } from "./MessageList.utils";
 import { UserMessage } from "./UserMessage";
@@ -64,12 +65,14 @@ async function measure(
 ): Promise<number> {
   const messageElement = renderRole(message);
   const result = render(
-    <Box width={viewportWidth} flexDirection="column">
-      <Box flexDirection="column" width="100%">
-        {messageElement}
+    <ModalContextProvider>
+      <Box width={viewportWidth} flexDirection="column">
+        <Box flexDirection="column" width="100%">
+          {messageElement}
+        </Box>
+        <Text>{SENTINEL}</Text>
       </Box>
-      <Text>{SENTINEL}</Text>
-    </Box>,
+    </ModalContextProvider>,
   );
   await flushFrames();
   const rows = measureMessageRows(result.lastFrame() ?? "");
@@ -196,14 +199,25 @@ const CASES: readonly Case[] = [
   {
     name: "agent: single tool-call",
     message: agentMessage([
-      { type: "tool-call", toolName: "read_file", args: '{"path":"x"}' },
+      {
+        type: "tool-call",
+        toolCallId: "call_1",
+        toolName: "read_file",
+        args: '{"path":"x"}',
+      },
     ]),
     viewportWidth: WIDE,
   },
   {
     name: "agent: single tool-result short",
     message: agentMessage([
-      { type: "tool-result", toolName: "read_file", output: "ok" },
+      {
+        type: "tool-result",
+        toolCallId: "call_1",
+        toolName: "read_file",
+        output: "ok",
+        status: "completed",
+      },
     ]),
     viewportWidth: WIDE,
   },
@@ -212,8 +226,10 @@ const CASES: readonly Case[] = [
     message: agentMessage([
       {
         type: "tool-result",
+        toolCallId: "call_1",
         toolName: "read_file",
         output: "out-line-1\nout-line-2",
+        status: "completed",
       },
     ]),
     viewportWidth: WIDE,
@@ -221,7 +237,12 @@ const CASES: readonly Case[] = [
   {
     name: "agent: single thinking",
     message: agentMessage([
-      { type: "thinking", id: "t1", text: "step one\nstep two", streaming: false },
+      {
+        type: "thinking",
+        id: "t1",
+        text: "step one\nstep two",
+        streaming: false,
+      },
     ]),
     viewportWidth: WIDE,
   },
@@ -250,11 +271,18 @@ const CASES: readonly Case[] = [
     name: "agent: text + tool-call + tool-result",
     message: agentMessage([
       { type: "text", text: "intro", streaming: false },
-      { type: "tool-call", toolName: "read_file", args: '{"path":"x"}' },
+      {
+        type: "tool-call",
+        toolCallId: "call_1",
+        toolName: "read_file",
+        args: '{"path":"x"}',
+      },
       {
         type: "tool-result",
+        toolCallId: "call_1",
         toolName: "read_file",
         output: "out-line-1\nout-line-2",
+        status: "completed",
       },
     ]),
     viewportWidth: WIDE,
@@ -270,10 +298,95 @@ const CASES: readonly Case[] = [
   {
     name: "agent: tool-call + text",
     message: agentMessage([
-      { type: "tool-call", toolName: "r", args: "{}" },
+      { type: "tool-call", toolCallId: "call_1", toolName: "r", args: "{}" },
       { type: "text", text: "after", streaming: false },
     ]),
     viewportWidth: WIDE,
+  },
+  // ===== Agent: tool-call pairing variants (Phase 1) =====
+  {
+    name: "agent: paired tool-call + tool-result (one collapsed row)",
+    message: agentMessage([
+      {
+        type: "tool-call",
+        toolCallId: "call_1",
+        toolName: "read_file",
+        args: '{"path":"x"}',
+      },
+      {
+        type: "tool-result",
+        toolCallId: "call_1",
+        toolName: "read_file",
+        output: "line-a\nline-b\nline-c",
+        status: "completed",
+      },
+    ]),
+    viewportWidth: WIDE,
+  },
+  {
+    name: "agent: running tool-call (no paired result yet)",
+    message: agentMessage([
+      {
+        type: "tool-call",
+        toolCallId: "call_running",
+        toolName: "read_file",
+        args: '{"path":"y"}',
+      },
+    ]),
+    viewportWidth: WIDE,
+  },
+  {
+    name: "agent: errored tool-call + tool-result with message",
+    message: agentMessage([
+      {
+        type: "tool-call",
+        toolCallId: "call_err",
+        toolName: "write_file",
+        args: '{"path":"z"}',
+      },
+      {
+        type: "tool-result",
+        toolCallId: "call_err",
+        toolName: "write_file",
+        output: "",
+        status: "error",
+        error: "ENOENT: no such file or directory",
+      },
+    ]),
+    viewportWidth: WIDE,
+  },
+  {
+    name: "agent: orphan tool-result (no matching tool-call)",
+    message: agentMessage([
+      {
+        type: "tool-result",
+        toolCallId: "call_orphan",
+        toolName: "read_file",
+        output: "stranded\noutput",
+        status: "completed",
+      },
+    ]),
+    viewportWidth: WIDE,
+  },
+  {
+    name: "agent: paired tool-call wraps to multiple rows at narrow width",
+    // Long tool name + args make the collapsed row exceed wrap width.
+    message: agentMessage([
+      {
+        type: "tool-call",
+        toolCallId: "call_wide",
+        toolName: "fetch_remote_resource_with_long_name",
+        args: '{"url":"https://example.com/a/b/c/d/e/f"}',
+      },
+      {
+        type: "tool-result",
+        toolCallId: "call_wide",
+        toolName: "fetch_remote_resource_with_long_name",
+        output: "x\ny\nz",
+        status: "completed",
+      },
+    ]),
+    viewportWidth: 30,
   },
   // ===== Agent: wrapping in segments =====
   {
@@ -295,12 +408,86 @@ const CASES: readonly Case[] = [
     ]),
     viewportWidth: 26,
   },
+  // ===== Agent: markdown content (Phase 2) =====
+  {
+    name: "agent: markdown heading in text segment",
+    message: agentMessage([
+      { type: "text", text: "## Heading\nbody", streaming: false },
+    ]),
+    viewportWidth: WIDE,
+  },
+  {
+    name: "agent: markdown unordered list in text segment",
+    message: agentMessage([
+      {
+        type: "text",
+        text: "- one\n- two\n- three",
+        streaming: false,
+      },
+    ]),
+    viewportWidth: WIDE,
+  },
+  {
+    name: "agent: markdown ordered list in text segment",
+    message: agentMessage([
+      {
+        type: "text",
+        text: "1. alpha\n2. beta\n3. gamma",
+        streaming: false,
+      },
+    ]),
+    viewportWidth: WIDE,
+  },
+  {
+    name: "agent: markdown blockquote in text segment",
+    message: agentMessage([
+      {
+        type: "text",
+        text: "> quoted line\n> second quoted line",
+        streaming: false,
+      },
+    ]),
+    viewportWidth: WIDE,
+  },
+  {
+    name: "agent: markdown horizontal rule in text segment",
+    message: agentMessage([
+      { type: "text", text: "before\n\n---\n\nafter", streaming: false },
+    ]),
+    viewportWidth: WIDE,
+  },
+  {
+    name: "agent: markdown heading + list combined",
+    message: agentMessage([
+      {
+        type: "text",
+        text: "# Title\n\n- item one\n- item two",
+        streaming: false,
+      },
+    ]),
+    viewportWidth: WIDE,
+  },
+  {
+    name: "agent: markdown thinking body (heading + list, truncated)",
+    message: agentMessage([
+      {
+        type: "thinking",
+        id: "tmd",
+        text: "## reasoning\n- step a\n- step b",
+        streaming: false,
+      },
+    ]),
+    viewportWidth: WIDE,
+  },
 ];
 
 describe("estimateMessageRowHeight (render-anchored)", () => {
   for (const testCase of CASES) {
     test(testCase.name, async () => {
-      const actualRows = await measure(testCase.message, testCase.viewportWidth);
+      const actualRows = await measure(
+        testCase.message,
+        testCase.viewportWidth,
+      );
       const estimated = estimateMessageRowHeight(
         testCase.message,
         testCase.viewportWidth,

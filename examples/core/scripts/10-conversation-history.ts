@@ -45,8 +45,12 @@ async function main() {
 
   // --- Turn 2: follow-up that requires context from turn 1 ---
   console.log("--- Turn 2 ---");
-  console.log("User: What is the difference between a balanced and unbalanced one?");
-  const r2 = await agent.call("What is the difference between a balanced and unbalanced one?");
+  console.log(
+    "User: What is the difference between a balanced and unbalanced one?",
+  );
+  const r2 = await agent.call(
+    "What is the difference between a balanced and unbalanced one?",
+  );
   console.log(`Tutor: ${r2.text}`);
   console.log(
     `  (tokens: ${r2.usage.promptTokens} prompt, ${r2.usage.completionTokens} completion)\n`,
@@ -55,7 +59,9 @@ async function main() {
   // --- Turn 3: another follow-up ---
   console.log("--- Turn 3 ---");
   console.log("User: Give me a real-world use case for the balanced variant.");
-  const r3 = await agent.call("Give me a real-world use case for the balanced variant.");
+  const r3 = await agent.call(
+    "Give me a real-world use case for the balanced variant.",
+  );
   console.log(`Tutor: ${r3.text}`);
   console.log(
     `  (tokens: ${r3.usage.promptTokens} prompt, ${r3.usage.completionTokens} completion)\n`,

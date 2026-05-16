@@ -1,0 +1,86 @@
+---
+title: search_files
+description: Search the workspace by path glob, literal text, or regex; returns structured match locations with optional context lines.
+---
+
+# search_files
+
+Search across workspace files in one of three modes — glob over file paths, literal substring search inside file contents, or JavaScript regex search inside file contents. Results come back as a structured array of match locations with optional context lines, capped at a configurable maximum.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "searcher",
+  model: "openai/gpt-4o",
+  tools: ["search_files"],
+});
+```
+
+## SearchFilesToolConfig
+
+Optional caps for the factory.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/search-files/search-files.types.ts" name="SearchFilesToolConfig" />
+
+## SearchFilesMatch
+
+One match in `data.matches`.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/search-files/search-files.types.ts" name="SearchFilesMatch" />
+
+## SearchFilesData
+
+The full structured payload.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/search-files/search-files.types.ts" name="SearchFilesData" />
+
+## Modes
+
+| Mode | Query is interpreted as | `line` / `column` set? |
+|---|---|---|
+| `"path"` | A glob over file paths relative to `root`. | No — one match per file. |
+| `"text"` | A case-sensitive literal substring. | Yes — 1-indexed. |
+| `"regex"` | A JavaScript regex compiled with the `m` flag (so `^`/`$` anchor on lines). | Yes — 1-indexed. |
+
+```ts
+// Find all TypeScript files under src.
+await tool.search_files({ mode: "path", query: "src/**/*.ts" });
+
+// Find every TODO comment.
+await tool.search_files({ mode: "text", query: "TODO", contextLines: 1 });
+
+// Find async function declarations.
+await tool.search_files({ mode: "regex", query: "^\\s*async function" });
+```
+
+## Include and exclude globs
+
+Both `includeGlobs` and `excludeGlobs` use Bun's glob syntax. `excludeGlobs` replaces the default exclude set (`node_modules`, `.git`, `dist`, `build`, `.next`, `.turbo`, `coverage`) — pass `[]` to disable filtering entirely.
+
+```ts
+await tool.search_files({
+  mode: "text",
+  query: "useState",
+  includeGlobs: ["src/**/*.tsx"],
+  excludeGlobs: ["src/**/*.test.tsx"],
+});
+```
+
+## Result caps and binary skipping
+
+`maxResults` (default 100) caps total matches; `data.truncated` is set when the cap is hit. Files larger than 4 MiB are skipped, as are files detected as binary via a NUL-byte heuristic.
+
+## Errors
+
+| Kind | When |
+|---|---|
+| `not_found` | `root` is missing or is not a directory. |
+| `outside_workspace` | `root` escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `permission_denied` | `root` is read-blocked by the sandbox. |
+| `command_failed` | `query` is not a valid regex (regex mode only). |
+
+## Related
+
+- [list_directory](/docs/core/tools/built-in/list_directory) — enumerate a single directory when you don't need a search.
+- [read_file](/docs/core/tools/built-in/read_file) — read the matched file once you've located it.

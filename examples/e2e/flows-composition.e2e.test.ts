@@ -19,6 +19,14 @@
  */
 
 import { afterEach, describe, expect, it } from "bun:test";
+import type {
+  Agent,
+  AgentCallResult,
+  AgentHooks,
+  CycleHooks,
+  FlowResult,
+  ToolHooks,
+} from "@comma-agents/core";
 import {
   createAgent,
   createBroadcastFlow,
@@ -31,15 +39,10 @@ import {
   resetModelRegistry,
   resetToolRegistry,
 } from "@comma-agents/core";
-import type {
-  Agent,
-  AgentCallResult,
-  AgentHooks,
-  ToolHooks,
-  CycleHooks,
-  FlowResult,
-} from "@comma-agents/core";
-import { createSimpleMockModel, createToolCallingMockModel } from "./helpers/mock-model";
+import {
+  createSimpleMockModel,
+  createToolCallingMockModel,
+} from "./helpers/mock-model";
 import { createEchoTool } from "./helpers/test-tools";
 
 // Helpers
@@ -83,7 +86,13 @@ function makeToolAgent(name: string, echoMessage: string, finalText: string) {
     createToolCallingMockModel({
       rounds: [
         {
-          toolCalls: [{ id: `${name}-c1`, name: toolName, args: { message: echoMessage } }],
+          toolCalls: [
+            {
+              id: `${name}-c1`,
+              name: toolName,
+              args: { message: echoMessage },
+            },
+          ],
         },
         { text: finalText },
       ],
@@ -155,7 +164,11 @@ describe("E2E: Flow Composition", () => {
       const cycleOutputs: string[] = [];
 
       // Main worker: appends "-work" to input
-      const worker = makeMultiResponseAgent("worker", ["draft-v1", "draft-v2", "draft-v3"]);
+      const worker = makeMultiResponseAgent("worker", [
+        "draft-v1",
+        "draft-v2",
+        "draft-v3",
+      ]);
 
       // Observer: appends "-reviewed" to input
       const observer = makeMultiResponseAgent("observer", [
@@ -190,7 +203,11 @@ describe("E2E: Flow Composition", () => {
     });
 
     it("should work without observer for simple N-cycle repetition", async () => {
-      const worker = makeMultiResponseAgent("counter", ["count-1", "count-2", "count-3"]);
+      const worker = makeMultiResponseAgent("counter", [
+        "count-1",
+        "count-2",
+        "count-3",
+      ]);
 
       const flow = createCycleFlow({
         name: "simple-cycle",
@@ -250,8 +267,16 @@ describe("E2E: Flow Composition", () => {
     });
 
     it("should work with tool-calling agents in broadcast", async () => {
-      const agentA = makeToolAgent("tool-reviewer-1", "analyzing", "Tool Review A: passed");
-      const agentB = makeToolAgent("tool-reviewer-2", "checking", "Tool Review B: passed");
+      const agentA = makeToolAgent(
+        "tool-reviewer-1",
+        "analyzing",
+        "Tool Review A: passed",
+      );
+      const agentB = makeToolAgent(
+        "tool-reviewer-2",
+        "checking",
+        "Tool Review B: passed",
+      );
 
       const flow = createBroadcastFlow({
         name: "tool-broadcast",
@@ -261,7 +286,9 @@ describe("E2E: Flow Composition", () => {
       const result = (await flow.call("Check code quality")) as FlowResult;
 
       // Default separator is \n\n
-      expect(result.text).toBe("Tool Review A: passed\n\nTool Review B: passed");
+      expect(result.text).toBe(
+        "Tool Review A: passed\n\nTool Review B: passed",
+      );
       expect(result.stepResults.length).toBe(2);
     });
 
@@ -290,8 +317,14 @@ describe("E2E: Flow Composition", () => {
       const analyzer = makeAgent("analyzer", "Analysis: code has 3 functions");
 
       // Step 2: broadcast flow fans out to multiple reviewers
-      const reviewer1 = makeAgent("reviewer-1", "Reviewer 1: all functions look correct");
-      const reviewer2 = makeAgent("reviewer-2", "Reviewer 2: consider renaming func2");
+      const reviewer1 = makeAgent(
+        "reviewer-1",
+        "Reviewer 1: all functions look correct",
+      );
+      const reviewer2 = makeAgent(
+        "reviewer-2",
+        "Reviewer 2: consider renaming func2",
+      );
       const broadcastReview = createBroadcastFlow({
         name: "parallel-review",
         steps: [reviewer1, reviewer2],
@@ -299,7 +332,10 @@ describe("E2E: Flow Composition", () => {
       });
 
       // Step 3: single agent produces final summary
-      const summarizer = makeAgent("summarizer", "Summary: code reviewed, one rename suggestion");
+      const summarizer = makeAgent(
+        "summarizer",
+        "Summary: code reviewed, one rename suggestion",
+      );
 
       const pipeline = createSequentialFlow({
         name: "review-pipeline",
@@ -320,7 +356,10 @@ describe("E2E: Flow Composition", () => {
       const writer = makeAgent("writer", "Initial draft of the document");
 
       // Step 2: cycle flow refines the draft 2 times
-      const refiner = makeMultiResponseAgent("refiner", ["Refined draft v1", "Refined draft v2"]);
+      const refiner = makeMultiResponseAgent("refiner", [
+        "Refined draft v1",
+        "Refined draft v2",
+      ]);
       const refinementLoop = createCycleFlow({
         name: "refine-loop",
         steps: [refiner],
@@ -351,7 +390,10 @@ describe("E2E: Flow Composition", () => {
       });
 
       const track2Step1 = makeAgent("track2-security", "Security: 1 warning");
-      const track2Step2 = makeAgent("track2-summary", "Track 2: 1 warning found");
+      const track2Step2 = makeAgent(
+        "track2-summary",
+        "Track 2: 1 warning found",
+      );
       const track2 = createSequentialFlow({
         name: "security-track",
         steps: [track2Step1, track2Step2],
@@ -365,7 +407,9 @@ describe("E2E: Flow Composition", () => {
 
       const result = await broadcast.call("Analyze this codebase");
 
-      expect(result.text).toBe("Track 1: all clear\n===\nTrack 2: 1 warning found");
+      expect(result.text).toBe(
+        "Track 1: all clear\n===\nTrack 2: 1 warning found",
+      );
     });
   });
 
@@ -620,7 +664,9 @@ describe("E2E: Flow Composition", () => {
         createToolCallingMockModel({
           rounds: [
             {
-              toolCalls: [{ id: "c1", name: toolName, args: { message: "hi" } }],
+              toolCalls: [
+                { id: "c1", name: toolName, args: { message: "hi" } },
+              ],
             },
             { text: "Done" },
           ],
@@ -817,8 +863,12 @@ describe("E2E: Flow Composition", () => {
 
       // First call builds up context
       await flow.call("First run");
-      expect(agentA.getConversationContext!().allMessages().length).toBeGreaterThan(0);
-      expect(agentB.getConversationContext!().allMessages().length).toBeGreaterThan(0);
+      expect(
+        agentA.getConversationContext!().allMessages().length,
+      ).toBeGreaterThan(0);
+      expect(
+        agentB.getConversationContext!().allMessages().length,
+      ).toBeGreaterThan(0);
 
       // Reset flow — should reset all child agents
       flow.reset();
@@ -829,7 +879,10 @@ describe("E2E: Flow Composition", () => {
 
     it("should reset nested flows recursively", async () => {
       const innerModelId = uniqueName("mock/inner-agent");
-      registerModel(innerModelId, createSimpleMockModel(["Inner result", "Inner result 2"]));
+      registerModel(
+        innerModelId,
+        createSimpleMockModel(["Inner result", "Inner result 2"]),
+      );
 
       const innerAgent = createAgent({
         name: "inner-agent",
@@ -842,7 +895,10 @@ describe("E2E: Flow Composition", () => {
       });
 
       const outerModelId = uniqueName("mock/outer-agent");
-      registerModel(outerModelId, createSimpleMockModel(["Outer result", "Outer result 2"]));
+      registerModel(
+        outerModelId,
+        createSimpleMockModel(["Outer result", "Outer result 2"]),
+      );
 
       const outerAgent = createAgent({
         name: "outer-agent",
@@ -856,8 +912,12 @@ describe("E2E: Flow Composition", () => {
 
       await outerFlow.call("Run");
 
-      expect(innerAgent.getConversationContext!().allMessages().length).toBeGreaterThan(0);
-      expect(outerAgent.getConversationContext!().allMessages().length).toBeGreaterThan(0);
+      expect(
+        innerAgent.getConversationContext!().allMessages().length,
+      ).toBeGreaterThan(0);
+      expect(
+        outerAgent.getConversationContext!().allMessages().length,
+      ).toBeGreaterThan(0);
 
       outerFlow.reset();
 
@@ -868,8 +928,14 @@ describe("E2E: Flow Composition", () => {
     it("should reset cycle flow including observer", async () => {
       const workerModelId = uniqueName("mock/cycle-worker");
       const observerModelId = uniqueName("mock/cycle-observer");
-      registerModel(workerModelId, createSimpleMockModel(["Work done", "Work done 2"]));
-      registerModel(observerModelId, createSimpleMockModel(["Feedback", "Feedback 2"]));
+      registerModel(
+        workerModelId,
+        createSimpleMockModel(["Work done", "Work done 2"]),
+      );
+      registerModel(
+        observerModelId,
+        createSimpleMockModel(["Feedback", "Feedback 2"]),
+      );
 
       const worker = createAgent({
         name: "cycle-worker",
@@ -890,7 +956,9 @@ describe("E2E: Flow Composition", () => {
       await flow.call("Run cycle");
 
       // Both should have context
-      expect(worker.getConversationContext!().allMessages().length).toBeGreaterThan(0);
+      expect(
+        worker.getConversationContext!().allMessages().length,
+      ).toBeGreaterThan(0);
 
       flow.reset();
 

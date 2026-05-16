@@ -1,17 +1,17 @@
-// createDaemonState() — in-memory daemon state backed by Maps and Sets.
-//
-// All operations are synchronous. No persistence, no event emission.
-// See types.ts for the DaemonState interface contract and invariants.
-
 import type { DaemonState, RunState, RunUpdate } from "./state.types";
-
-// createDaemonState()
 
 /**
  * Create a new in-memory daemon state instance.
  *
  * Tracks runs, connected clients, and per-run subscriptions.
  * All operations are synchronous (single-threaded event loop).
+ *
+ * @example
+ * ```ts
+ * const state = createDaemonState();
+ * const run = state.createRun("./strategy.ts", "myStrategy", "/cwd", "session-1");
+ * state.updateRun(run.id, { status: "running" });
+ * ```
  */
 export function createDaemonState(): DaemonState {
   /** Run ID → RunState. */
@@ -22,9 +22,12 @@ export function createDaemonState(): DaemonState {
   const subscriptions = new Map<string, Set<string>>();
 
   return {
-    // -- Runs --
-
-    createRun(strategyPath: string, strategyName: string, cwd: string, sessionId: string): RunState {
+    createRun(
+      strategyPath: string,
+      strategyName: string,
+      cwd: string,
+      sessionId: string,
+    ): RunState {
       const id = crypto.randomUUID();
       const run: RunState = {
         id,
@@ -56,7 +59,8 @@ export function createDaemonState(): DaemonState {
       }
 
       if (update.status !== undefined) run.status = update.status;
-      if (update.completedAt !== undefined) run.completedAt = update.completedAt;
+      if (update.completedAt !== undefined)
+        run.completedAt = update.completedAt;
       if (update.result !== undefined) run.result = update.result;
       if (update.error !== undefined) run.error = update.error;
     },
@@ -67,8 +71,6 @@ export function createDaemonState(): DaemonState {
       subscriptions.delete(runId);
       return true;
     },
-
-    // -- Clients --
 
     addClient(clientId: string): void {
       clients.add(clientId);
@@ -86,8 +88,6 @@ export function createDaemonState(): DaemonState {
     getClients(): ReadonlyArray<string> {
       return Array.from(clients);
     },
-
-    // -- Subscriptions --
 
     subscribe(clientId: string, runId: string): void {
       if (!clients.has(clientId)) {

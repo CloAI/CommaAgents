@@ -46,7 +46,10 @@ import type { LoadFlowOptions } from "./loader.types";
  * const result = await flow.call("Write a function that adds two numbers");
  * ```
  */
-export async function loadFlow(filePath: string, options: LoadFlowOptions): Promise<Agent> {
+export async function loadFlow(
+  filePath: string,
+  options: LoadFlowOptions,
+): Promise<Agent> {
   // Validate extension first (cheap check)
   const fileExtension = filePath.split(".").pop()?.toLowerCase();
 
@@ -64,7 +67,9 @@ export async function loadFlow(filePath: string, options: LoadFlowOptions): Prom
   // Read the file
   const file = Bun.file(filePath);
   if (!(await file.exists())) {
-    throw new StrategyValidationError(`Flow description file not found: ${filePath}`);
+    throw new StrategyValidationError(
+      `Flow description file not found: ${filePath}`,
+    );
   }
 
   const content = await file.text();
@@ -126,9 +131,12 @@ export function loadFlowFromString(
     const issues = result.error.issues
       .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
       .join("\n");
-    throw new StrategyValidationError(`Flow description validation failed:\n${issues}`, {
-      cause: result.error,
-    });
+    throw new StrategyValidationError(
+      `Flow description validation failed:\n${issues}`,
+      {
+        cause: result.error,
+      },
+    );
   }
 
   const description = result.data;
@@ -145,7 +153,10 @@ export function loadFlowFromString(
  * Resolves agent references from the options registry and recurses
  * into nested flow definitions.
  */
-function buildFlowFromDescription(description: FlowDescription, options: LoadFlowOptions): Agent {
+function buildFlowFromDescription(
+  description: FlowDescription,
+  options: LoadFlowOptions,
+): Agent {
   const steps = resolveSteps(description.steps, description.name, options);
 
   let flow: Agent;
@@ -159,11 +170,18 @@ function buildFlowFromDescription(description: FlowDescription, options: LoadFlo
       break;
 
     case "cycle": {
-      const cycles = description.cycles === "Infinity" ? Infinity : (description.cycles ?? 1);
+      const cycles =
+        description.cycles === "Infinity"
+          ? Infinity
+          : (description.cycles ?? 1);
 
       // Resolve observer agent if specified
       const observer = description.observer
-        ? resolveAgentReference(description.observer, description.name, options.agents)
+        ? resolveAgentReference(
+            description.observer,
+            description.name,
+            options.agents,
+          )
         : undefined;
 
       flow = createCycleFlow({

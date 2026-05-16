@@ -63,7 +63,9 @@ export const CycleFlowDescriptionSchema = z
      * Number of cycle iterations. Use `"Infinity"` for infinite loops.
      * @default 1
      */
-    cycles: z.union([z.number().int().positive(), z.literal("Infinity")]).optional(),
+    cycles: z
+      .union([z.number().int().positive(), z.literal("Infinity")])
+      .optional(),
     /** Name of an observer agent that runs after each cycle. */
     observer: z.string().optional(),
   })

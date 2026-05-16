@@ -1,12 +1,4 @@
-// Daemon state types — run tracking, client tracking, subscriptions.
-//
-// All operations are synchronous (in-memory, single-threaded event loop).
-// The state module is a dumb data store — no event emission, no protocol
-// knowledge. The executor and server decide when to send messages.
-
 import type { AgentCallResult } from "@comma-agents/core";
-
-// Run status
 
 /**
  * Lifecycle status of a strategy run.
@@ -14,9 +6,12 @@ import type { AgentCallResult } from "@comma-agents/core";
  * Matches the protocol's `RunSummarySchema.status` enum so conversion
  * to wire format is trivial.
  */
-export type RunStatus = "pending" | "running" | "completed" | "error" | "cancelled";
-
-// Run state
+export type RunStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "error"
+  | "cancelled";
 
 /**
  * Internal state of a single strategy run.
@@ -52,8 +47,6 @@ export interface RunState {
   error?: { readonly code: string; readonly message: string };
 }
 
-// Run update — only mutable fields
-
 /**
  * Mutable fields that can be changed via `DaemonState.updateRun()`.
  * Prevents accidental mutation of immutable fields like `id` or `startedAt`.
@@ -64,8 +57,6 @@ export interface RunUpdate {
   result?: AgentCallResult;
   error?: { readonly code: string; readonly message: string };
 }
-
-// DaemonState interface
 
 /**
  * Centralized daemon state — tracks active runs, connected clients,
@@ -82,10 +73,13 @@ export interface RunUpdate {
  * - `removeClient()` and `unsubscribe()` are no-ops for unknown entries.
  */
 export interface DaemonState {
-  // -- Runs --
-
   /** Create a new run with status "pending". Returns the created RunState. */
-  createRun(strategyPath: string, strategyName: string, cwd: string, sessionId: string): RunState;
+  createRun(
+    strategyPath: string,
+    strategyName: string,
+    cwd: string,
+    sessionId: string,
+  ): RunState;
 
   /** Get a run by ID, or undefined if not found. */
   getRun(runId: string): RunState | undefined;
@@ -105,8 +99,6 @@ export interface DaemonState {
    */
   removeRun(runId: string): boolean;
 
-  // -- Clients --
-
   /** Register a connected client. Idempotent. */
   addClient(clientId: string): void;
 
@@ -118,8 +110,6 @@ export interface DaemonState {
 
   /** List all connected client IDs. */
   getClients(): ReadonlyArray<string>;
-
-  // -- Subscriptions --
 
   /**
    * Subscribe a client to a run's events.

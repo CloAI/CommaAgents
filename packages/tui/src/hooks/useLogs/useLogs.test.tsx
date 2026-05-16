@@ -1,10 +1,19 @@
 // Enable React act() environment for bun:test
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
-import React, { act } from "react";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "bun:test";
 import { Text } from "ink";
 import { render } from "ink-testing-library";
+import type React from "react";
+import { act } from "react";
 
 import { logStore } from "./logStore";
 import { useLogs } from "./useLogs";
@@ -30,7 +39,11 @@ beforeAll(() => {
   // beforeEach/afterEach intentionally are not, and those produce noise.
   const realConsoleError = console.error;
   console.error = (...args: unknown[]) => {
-    if (typeof args[0] === "string" && args[0].includes("was not wrapped in act")) return;
+    if (
+      typeof args[0] === "string" &&
+      args[0].includes("was not wrapped in act")
+    )
+      return;
     realConsoleError(...args);
   };
 });
@@ -51,11 +64,15 @@ afterAll(() => {
  */
 function LogProbe(): React.ReactElement {
   const { logs } = useLogs();
-  const summary = logs.map((entry) => `${entry.level}:${entry.message}`).join("|");
+  const summary = logs
+    .map((entry) => `${entry.level}:${entry.message}`)
+    .join("|");
   return <Text>{`count=${logs.length} ${summary}`}</Text>;
 }
 
-function ClearProbe(props: { readonly onReady: (clear: () => void) => void }): React.ReactElement {
+function ClearProbe(props: {
+  readonly onReady: (clear: () => void) => void;
+}): React.ReactElement {
   const { logs, clearLogs } = useLogs();
   // Hand the clear function up to the test on every render — React guarantees
   // the same identity across renders thanks to useCallback in the hook.
@@ -111,33 +128,59 @@ describe("useLogs", () => {
   it("should expose a clearLogs callback that empties the store", () => {
     let capturedClear: (() => void) | undefined;
     const { lastFrame, rerender } = render(
-      <ClearProbe onReady={(clear) => { capturedClear = clear; }} />,
+      <ClearProbe
+        onReady={(clear) => {
+          capturedClear = clear;
+        }}
+      />,
     );
 
     act(() => {
       logStore.push("log", "a");
       logStore.push("log", "b");
     });
-    rerender(<ClearProbe onReady={(clear) => { capturedClear = clear; }} />);
+    rerender(
+      <ClearProbe
+        onReady={(clear) => {
+          capturedClear = clear;
+        }}
+      />,
+    );
     expect(lastFrame()).toContain("count=2");
 
     act(() => {
       capturedClear?.();
     });
-    rerender(<ClearProbe onReady={(clear) => { capturedClear = clear; }} />);
+    rerender(
+      <ClearProbe
+        onReady={(clear) => {
+          capturedClear = clear;
+        }}
+      />,
+    );
     expect(lastFrame()).toContain("count=0");
   });
 
   it("should keep the same clearLogs reference across renders", () => {
     const seen: Array<() => void> = [];
     const { rerender } = render(
-      <ClearProbe onReady={(clear) => { seen.push(clear); }} />,
+      <ClearProbe
+        onReady={(clear) => {
+          seen.push(clear);
+        }}
+      />,
     );
 
     act(() => {
       logStore.push("log", "x");
     });
-    rerender(<ClearProbe onReady={(clear) => { seen.push(clear); }} />);
+    rerender(
+      <ClearProbe
+        onReady={(clear) => {
+          seen.push(clear);
+        }}
+      />,
+    );
 
     expect(seen.length).toBeGreaterThanOrEqual(2);
     expect(seen[0]).toBe(seen[seen.length - 1]);

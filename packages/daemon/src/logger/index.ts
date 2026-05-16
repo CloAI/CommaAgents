@@ -1,12 +1,4 @@
-// Logger barrel — re-exports all public APIs.
-
-// Core factory
 export { createLogger } from "./logger";
-export { createFileSink } from "./sinks/file";
-// Sinks
-export { createStderrSink, formatJsonLine } from "./sinks/stderr";
-export { createSystemSink, describeSystemLogging } from "./sinks/system";
-// Types
 export type {
   CreateLoggerOptions,
   LogEntry,
@@ -14,4 +6,6 @@ export type {
   LogLevel,
   LogSink,
 } from "./logger.types";
-export { LOG_LEVELS } from "./logger.types";
+export { createFileSink } from "./sinks/file";
+export { createStderrSink } from "./sinks/stderr";
+export { createSystemSink, describeSystemLogging } from "./sinks/system";

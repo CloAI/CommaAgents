@@ -4,12 +4,15 @@
     "agents",
     "flows",
     "strategy",
-    "tools",
+    "prompts",
     "hooks",
+    "tools",
+    "skills",
+    "context",
     "credentials",
     "sandbox",
     "model",
-    "prompts",
+    "defaults",
     "errors"
   ]
 }

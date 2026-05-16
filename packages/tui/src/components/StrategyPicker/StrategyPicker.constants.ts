@@ -10,11 +10,13 @@ export const BUILT_IN_STRATEGIES: readonly StrategyOption[] = [
   {
     label: "Build",
     value: "build",
-    description: "Describe what to build — a coder implements, a tester reviews",
+    description:
+      "Describe what to build — a coder implements, a tester reviews",
   },
   {
     label: "Q&A",
     value: "talk",
-    description: "Describe what to build — a coder implements, a tester reviews",
+    description:
+      "Describe what to build — a coder implements, a tester reviews",
   },
 ] as const;

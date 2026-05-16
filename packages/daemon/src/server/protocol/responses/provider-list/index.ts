@@ -1,11 +1,11 @@
 // Provider-list response barrel.
 
+export type { ModelInfoWire, ProviderInfoWire } from "./provider-list.schema";
 export {
   ModalitySchema,
   ModelInfoSchema,
-  ModelsSourceSchema,
   ModelStatusSchema,
+  ModelsSourceSchema,
   ProviderInfoSchema,
   ProviderListMessage,
 } from "./provider-list.schema";
-export type { ModelInfoWire, ProviderInfoWire } from "./provider-list.schema";

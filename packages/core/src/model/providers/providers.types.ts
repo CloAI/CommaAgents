@@ -100,7 +100,9 @@ export interface ListModelsContext {
  * Implementations should return the raw list from the provider's API.
  * Merge with the catalog baseline is handled by the registry, not here.
  */
-export type ListModelsFn = (context: ListModelsContext) => Promise<readonly ModelInfo[]>;
+export type ListModelsFn = (
+  context: ListModelsContext,
+) => Promise<readonly ModelInfo[]>;
 
 /**
  * Full result of resolving the model list for a single provider.

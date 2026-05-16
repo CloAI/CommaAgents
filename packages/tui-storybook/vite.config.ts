@@ -1,6 +1,6 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
-import { fileURLToPath } from "node:url";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -33,14 +33,25 @@ export default defineConfig({
       // — that's important so our shim itself can `import nodeProcess
       // from "process"` without creating a self-referential alias loop.
       { find: /^node:process$/, replacement: r("./src/shims/process.ts") },
-      { find: /^node:child_process$/, replacement: r("./src/shims/child_process.ts") },
+      {
+        find: /^node:child_process$/,
+        replacement: r("./src/shims/child_process.ts"),
+      },
     ],
   },
   define: {
-    "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV ?? "development"),
+    "process.env.NODE_ENV": JSON.stringify(
+      process.env.NODE_ENV ?? "development",
+    ),
   },
   optimizeDeps: {
-    include: ["ink", "react", "react/jsx-runtime", "@xterm/xterm", "@xterm/addon-fit"],
+    include: [
+      "ink",
+      "react",
+      "react/jsx-runtime",
+      "@xterm/xterm",
+      "@xterm/addon-fit",
+    ],
     esbuildOptions: {
       target: "es2022",
       supported: { "top-level-await": true },
@@ -49,5 +60,3 @@ export default defineConfig({
   build: { target: "es2022" },
   esbuild: { target: "es2022", supported: { "top-level-await": true } },
 });
-
-

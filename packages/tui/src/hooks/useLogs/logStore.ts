@@ -1,8 +1,13 @@
 import { appendFileSync } from "node:fs";
-import { MAX_LOG_ENTRIES } from "./useLogs.constants";
-import type { LogEntry, LogLevel, LogStore, LogStoreListener } from "./useLogs.types";
-import { formatArgs, nextLogId } from "./useLogs.utils";
 import { DEBUG_LOG, LOG_FILE_PATH } from "../../utils/debug";
+import { MAX_LOG_ENTRIES } from "./useLogs.constants";
+import type {
+  LogEntry,
+  LogLevel,
+  LogStore,
+  LogStoreListener,
+} from "./useLogs.types";
+import { formatArgs, nextLogId } from "./useLogs.utils";
 
 /**
  * Create a log store that hijacks global console methods immediately.
@@ -65,7 +70,10 @@ export function createLogStore(maxEntries: number = MAX_LOG_ENTRIES): LogStore {
     if (DEBUG_LOG) {
       try {
         const ts = new Date(entry.timestamp).toISOString();
-        appendFileSync(LOG_FILE_PATH, `[${ts}] ${level.toUpperCase()} ${message}\n`);
+        appendFileSync(
+          LOG_FILE_PATH,
+          `[${ts}] ${level.toUpperCase()} ${message}\n`,
+        );
       } catch {
         // Writing to disk is best-effort.
       }

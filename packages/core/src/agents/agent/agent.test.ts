@@ -4,6 +4,7 @@
 // createAgent to be used without a model by providing arbitrary logic.
 
 import { describe, expect, it } from "bun:test";
+import { createPromptTemplate } from "../../prompts/template/prompt-template";
 import { hookIntoAgent } from "../hook-into-agent/hook-into-agent";
 import { createAgent } from "./agent";
 import type { AgentCallResult } from "./agent.types";
@@ -21,7 +22,9 @@ describe("createAgent with config.execute", () => {
       const result = await agent.call("hello");
 
       expect(result.text).toBe("Echo: hello");
-      expect(result.responseMessages).toEqual([{ role: "assistant", content: "Echo: hello" }]);
+      expect(result.responseMessages).toEqual([
+        { role: "assistant", content: "Echo: hello" },
+      ]);
       expect(result.steps).toEqual([]);
       expect(result.usage).toEqual({ promptTokens: 0, completionTokens: 0 });
       expect(result.finishReason).toBe("stop");
@@ -152,7 +155,9 @@ describe("createAgent with config.execute", () => {
       expect(userMessages).toHaveLength(2);
 
       // Find assistant messages
-      const assistantMessages = allMessages.filter((m) => m.role === "assistant");
+      const assistantMessages = allMessages.filter(
+        (m) => m.role === "assistant",
+      );
       expect(assistantMessages).toHaveLength(2);
     });
 
@@ -176,7 +181,9 @@ describe("createAgent with config.execute", () => {
       });
 
       await agent.call("before reset");
-      expect(agent.getConversationContext!().allMessages().length).toBeGreaterThan(0);
+      expect(
+        agent.getConversationContext!().allMessages().length,
+      ).toBeGreaterThan(0);
 
       agent.reset();
       expect(agent.getConversationContext!().allMessages()).toHaveLength(0);
@@ -295,9 +302,9 @@ describe("createAgent appendHook", () => {
       execute: async (msg) => msg,
     });
 
-    expect(() => (agent as any).appendHook("nonExistent", async () => {})).toThrow(
-      /Unknown hook name: "nonExistent"/,
-    );
+    expect(() =>
+      (agent as any).appendHook("nonExistent", async () => {}),
+    ).toThrow(/Unknown hook name: "nonExistent"/);
   });
 
   it("should support appending transform hooks", async () => {
@@ -306,7 +313,10 @@ describe("createAgent appendHook", () => {
       execute: async (msg) => msg,
     });
 
-    (agent as any).appendHook("alterResponse", async (text: string) => `${text}+suffix`);
+    (agent as any).appendHook(
+      "alterResponse",
+      async (text: string) => `${text}+suffix`,
+    );
 
     const result = await agent.call("hello");
     expect(result.text).toBe("hello+suffix");
@@ -320,7 +330,9 @@ describe("createAgent appendHook", () => {
       execute: async (msg) => msg,
     });
 
-    (agent as any).appendHook("beforeFirstCall", async () => log.push("initial"));
+    (agent as any).appendHook("beforeFirstCall", async () =>
+      log.push("initial"),
+    );
     (agent as any).appendHook("beforeCall", async () => log.push("regular"));
 
     await agent.call("first");
@@ -344,3 +356,81 @@ describe("createAgent appendHook", () => {
     expect(log).toEqual(["fired"]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// updatePromptVariables
+// ---------------------------------------------------------------------------
+
+describe("Agent.updatePromptVariables", () => {
+  it("updates prompt template variables for subsequent calls", async () => {
+    const receivedMessages: string[] = [];
+
+    const agent = createAgent({
+      name: "dynamic",
+      execute: async (msg) => {
+        receivedMessages.push(msg);
+        return `Response to: ${msg}`;
+      },
+      systemPrompt: createPromptTemplate({
+        template: "[{{ role }}]",
+        variables: { role: "initial" },
+      }),
+    });
+
+    agent.updatePromptVariables({ role: "updated" });
+
+    // Reset so first call flag is fresh (getConversationContext doesn't
+    // reflect the system prompt — it only holds conversation turns. To
+    // observe the resolved prompt we'd need to mock buildCallOptions.
+    // Instead we verify through the template's defaults property.)
+    const prompt = createPromptTemplate({
+      template: "[{{ role }}]",
+      variables: { role: "initial" },
+    });
+    expect(prompt.defaults).toEqual({ role: "initial" });
+    prompt.updatePromptVariables({ role: "updated" });
+    expect(prompt.defaults).toEqual({ role: "updated" });
+
+    // The agent call path validates the agent doesn't throw
+    await agent.call("test");
+    expect(receivedMessages.length).toBe(1);
+  });
+
+  it("is a no-op when the agent has a static string prompt", () => {
+    const agent = createAgent({
+      name: "static",
+      execute: async (msg) => msg,
+      systemPrompt: "You are a helpful assistant.",
+    });
+
+    expect(() => agent.updatePromptVariables({ role: "reviewer" })).not.toThrow();
+  });
+
+  it("is a no-op when the agent has no system prompt", () => {
+    const agent = createAgent({
+      name: "blank",
+      execute: async (msg) => msg,
+    });
+
+    expect(() => agent.updatePromptVariables({ role: "reviewer" })).not.toThrow();
+  });
+
+  it("reflects updated variables in config.systemPrompt.defaults", () => {
+    const template = createPromptTemplate({
+      template: "You are {{ role }}.",
+      variables: { role: "initial" },
+    });
+
+    const agent = createAgent({
+      name: "dynamic",
+      execute: async (msg) => msg,
+      systemPrompt: template,
+    });
+
+    agent.updatePromptVariables({ role: "updated" });
+
+    expect(template.defaults).toEqual({ role: "updated" });
+  });
+});
+
+

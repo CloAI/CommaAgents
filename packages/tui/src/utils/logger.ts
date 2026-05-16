@@ -37,7 +37,10 @@ export function createTuiLogger(store: LogStore, prefix?: string): TuiLogger {
 
     if (fileSinkReady) {
       const timestamp = new Date().toISOString();
-      appendFileSync(LOG_FILE_PATH, `[${timestamp}] ${level.toUpperCase()} ${formatted}\n`);
+      appendFileSync(
+        LOG_FILE_PATH,
+        `[${timestamp}] ${level.toUpperCase()} ${formatted}\n`,
+      );
     }
   }
 

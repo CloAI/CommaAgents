@@ -44,7 +44,11 @@ function ControlledList({
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   return (
-    <Box width={40} height={Math.min(itemsArg.length + 2, 12)} flexDirection="column">
+    <Box
+      width={40}
+      height={Math.min(itemsArg.length + 2, 12)}
+      flexDirection="column"
+    >
       <ScrollableList<MenuItem>
         items={itemsArg}
         getKey={(item) => item.id}

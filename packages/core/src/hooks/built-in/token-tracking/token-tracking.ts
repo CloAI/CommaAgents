@@ -22,7 +22,9 @@ import type {
 // Helpers
 
 /** Look up model metadata from the built-in catalog. */
-function resolveModelMetadata(config: TokenTrackerConfig): ModelMetadata | undefined {
+function resolveModelMetadata(
+  config: TokenTrackerConfig,
+): ModelMetadata | undefined {
   if (config.modelMetadata) {
     return config.modelMetadata;
   }
@@ -122,7 +124,9 @@ function resolveModelString(agent: Agent): string | undefined {
  * const tracker = createTokenTracker({});
  * ```
  */
-export function createTokenTracker(config: TokenTrackerConfig = {}): TokenTracker {
+export function createTokenTracker(
+  config: TokenTrackerConfig = {},
+): TokenTracker {
   // -- Closure state --
   const metadata = resolveModelMetadata(config);
   let calls: TokenUsageRecord[] = [];
@@ -194,7 +198,10 @@ export function createTokenTracker(config: TokenTrackerConfig = {}): TokenTracke
  * });
  * ```
  */
-export function useTokenTracking(agent: Agent, config?: UseTokenTrackingConfig): TokenTracker {
+export function useTokenTracking(
+  agent: Agent,
+  config?: UseTokenTrackingConfig,
+): TokenTracker {
   // Resolve model string: explicit config > auto-detect from agent
   const modelString = config?.model ?? resolveModelString(agent);
 
@@ -206,7 +213,10 @@ export function useTokenTracking(agent: Agent, config?: UseTokenTrackingConfig):
   hookIntoAgent(agent, {
     afterCallResult: [
       (result) => {
-        tracker.record(result.usage.promptTokens, result.usage.completionTokens);
+        tracker.record(
+          result.usage.promptTokens,
+          result.usage.completionTokens,
+        );
       },
     ],
   });

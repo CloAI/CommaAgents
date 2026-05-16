@@ -1,8 +1,10 @@
 ---
 title: createAgent
-description: Factory function for creating LLM-backed agents with string-based model and tool resolution.
+description: Factory function for creating LLM-backed agents with model resolution, provider options, and generation parameters.
 ---
 `createAgent` is the primary factory for building LLM-backed agents. It accepts a declarative configuration object and returns a fully functional `Agent` with conversation history, tool calling, streaming, and lifecycle hooks.
+
+Model strings support two formats: explicit `"providerID/modelID"` or bare model IDs like `"gpt-4o"` where the provider is auto-resolved from the catalog. See [Model Resolution](/docs/core/model) for details.
 
 ```ts
 import { createAgent } from "@comma-agents/core";
@@ -11,9 +13,45 @@ const agent = createAgent({
   name: "assistant",
   model: "openai/gpt-4o",
   systemPrompt: "You are a helpful coding assistant.",
-  tools: ["bash", "read", "edit"],
+  tools: ["run_command", "read_file", "edit_file"],
 });
 ```
+
+## Provider and Model Options
+
+Two complementary fields control generation behavior:
+
+### providerOptions
+
+Provider-specific features forwarded verbatim to the AI SDK. Use this for capabilities like Anthropic extended thinking or OpenAI reasoning effort:
+
+```ts
+const thinker = createAgent({
+  name: "planner",
+  model: "anthropic/claude-sonnet-4-5",
+  providerOptions: {
+    anthropic: { thinking: { type: "enabled", budgetTokens: 8000 } },
+  },
+});
+```
+
+### modelOptions
+
+Provider-agnostic generation parameters forwarded to `streamText`. Use this for temperature, token limits, and sampling:
+
+```ts
+const creative = createAgent({
+  name: "writer",
+  model: "openai/gpt-4o",
+  modelOptions: {
+    temperature: 0.9,
+    maxOutputTokens: 4096,
+    seed: 42,
+  },
+});
+```
+
+For supported fields, see the [modelOptions table](/docs/core/agents/load-agent#modelOptions) in the load agent docs.
 
 ## AgentConfig
 

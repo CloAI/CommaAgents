@@ -1,0 +1,199 @@
+---
+title: Skills
+description: Reusable instruction bundles that agents load on demand via the load_skill tool.
+---
+
+Skills are reusable instruction bundles — TypeScript conventions, React patterns, review checklists, domain-specific procedures — that agents discover at startup and load on demand. Each skill is a directory containing a single `SKILL.md` file with YAML frontmatter and a markdown body.
+
+The framework ships no built-in skills. You author them; they are discovered automatically from two locations and surfaced to every agent's system prompt as a compact one-line summary. The agent decides when to load the full content by calling the [`load_skill`](/docs/core/tools/built-in/load_skill) tool.
+
+## Quick Start
+
+Create a skill by adding a `SKILL.md` file in a named directory:
+
+```
+~/.config/comma-agents/skills/ts-patterns/SKILL.md
+```
+
+```md
+---
+name: ts-patterns
+description: TypeScript conventions for new modules — file layout, naming, barrel exports.
+---
+
+# TypeScript Patterns
+
+Follow these rules for all new TypeScript code:
+
+1. One exported value per file. The filename matches the export.
+2. ...
+```
+
+Skills are loaded automatically the next time a strategy runs in this workspace. Agents see them advertised in their system prompt:
+
+```
+## Available Skills
+Call the `load_skill` tool with one of these names to load its full instructions before doing related work:
+- ts-patterns: TypeScript conventions for new modules — file layout, naming, barrel exports.
+```
+
+The agent calls `load_skill` with `{ name: "ts-patterns" }` to read the body when it needs to.
+
+## Discovery
+
+Skills are discovered from two roots. Both are scanned on every strategy run; project skills override global skills with the same `name`.
+
+| Location | Path | Purpose |
+|---|---|---|
+| Global | `<configRoot>/comma-agents/skills/` | Personal skills available across all projects. |
+| Project | `<workspaceRoot>/.comma/skills/` | Project-specific skills checked into the repo. |
+
+The config root is platform-specific:
+
+| Platform | Config root |
+|---|---|
+| macOS | `~/Library/Application Support` |
+| Windows | `%APPDATA%` (falls back to `~/AppData/Roaming`) |
+| Linux / other | `$XDG_CONFIG_HOME` or `~/.config` |
+
+Each direct subdirectory containing a `SKILL.md` becomes a skill. Deeper nesting is ignored. Subdirectories without a `SKILL.md` are silently skipped, so you can keep supporting files (scripts, examples) alongside the skill.
+
+## SKILL.md Format
+
+A `SKILL.md` file consists of YAML frontmatter followed by the markdown body:
+
+```md
+---
+name: react-practices
+description: React component patterns — PascalCase files, container/render split, SCSS modules.
+---
+
+# React Practices
+
+## Component Organization
+
+...
+```
+
+### Frontmatter fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Unique identifier. Must be kebab-case (lowercase letters, digits, hyphens; 1–64 chars). |
+| `description` | `string` | Yes | One-line summary shown to the LLM in the system prompt. Used to decide whether to call `load_skill`. |
+
+Unknown frontmatter keys are ignored, so you can add fields for tooling without breaking discovery.
+
+### Writing a useful description
+
+The description is the only thing the LLM sees until it loads the skill, so it must answer "when should I load this?". Aim for one specific, action-oriented line:
+
+```md
+# GOOD
+description: TypeScript conventions for new modules — file layout, naming, barrel exports.
+description: React component patterns — PascalCase files, container/render split, SCSS modules.
+
+# BAD
+description: TypeScript skill.
+description: Best practices for writing code in our codebase.
+```
+
+### Body
+
+Everything after the closing `---` is the skill body. It is parsed as markdown but never rendered by the framework — it is passed verbatim to the agent as the `content` field of the `load_skill` tool result. Structure it however helps the LLM follow your conventions: numbered rules, headed sections, checklists, examples.
+
+There is no hard format requirement. The 256 KiB file-size cap is enforced to prevent runaway loads; in practice most useful skills are well under 10 KiB.
+
+## Conflict Resolution
+
+When a global and project skill share the same `name`, the project skill wins. This lets you ship a personal default globally and override it per-repo when a project needs a stricter or different version.
+
+The override is enforced both by load order (project skills are registered last) and defensively by the registry itself, so the result is deterministic regardless of how the loader is invoked.
+
+## Validation and Warnings
+
+Malformed or oversized skills are skipped rather than aborting discovery. Each problem becomes a non-fatal warning that the daemon logs:
+
+- Missing or malformed YAML frontmatter
+- Missing `name` or `description`
+- `name` that is not kebab-case or exceeds 64 characters
+- `SKILL.md` files larger than 256 KiB
+- YAML lists (`- item`) inside frontmatter — frontmatter must use simple `key: value` pairs
+
+The other skills in the directory continue to load normally. Check the daemon log if a skill you expect is not appearing in the agent's prompt.
+
+## How Agents Use Skills
+
+The strategy loader builds a `## Available Skills` block from the registry and prepends it to every agent's system prompt. Agents call the [`load_skill`](/docs/core/tools/built-in/load_skill) tool to fetch the body of a skill they recognise as relevant.
+
+Skills are not auto-injected — the LLM decides what to load and when. This keeps the system prompt small (one line per skill) while still giving the agent access to detailed instructions when it needs them.
+
+A typical interaction:
+
+1. Agent sees `- ts-patterns: TypeScript conventions ...` in its system prompt.
+2. User asks the agent to create a new module.
+3. Agent calls `load_skill({ name: "ts-patterns" })`.
+4. The tool returns the full markdown body, which now sits in the agent's context.
+5. Agent follows the conventions when generating files.
+
+Loading is cheap, but the content stays in context for the rest of the turn — so agents should only load skills they intend to use.
+
+## Programmatic Access
+
+The skill loader is exposed from `@comma-agents/core` for integrations that want to discover skills outside the standard daemon flow:
+
+```ts
+import { loadSkills } from "@comma-agents/core";
+
+const { registry, warnings } = await loadSkills(process.cwd());
+
+for (const skill of registry.list()) {
+  console.log(`${skill.name}: ${skill.description}`);
+}
+
+for (const warning of warnings) {
+  console.warn(`${warning.sourcePath}: ${warning.message}`);
+}
+```
+
+Pass the resulting registry to the strategy loader through `LoadStrategyOptions.skillRegistry` to wire skills into agent tool execution. The daemon does this automatically per run, using the run's working directory as the workspace root.
+
+### Customising discovery roots
+
+Both roots can be overridden or disabled via `LoadSkillsOptions`:
+
+```ts
+import { loadSkills } from "@comma-agents/core";
+
+// Only project skills — skip the global directory.
+const { registry } = await loadSkills(process.cwd(), {
+  globalSkillsDir: null,
+});
+
+// Custom global location.
+const result = await loadSkills(process.cwd(), {
+  globalSkillsDir: "/etc/comma-agents/skills",
+});
+```
+
+<AutoTypeTable path="../packages/core/src/skills/skills.types.ts" name="LoadSkillsOptions" />
+
+## Types
+
+### Skill
+
+A fully loaded skill.
+
+<AutoTypeTable path="../packages/core/src/skills/skills.types.ts" name="Skill" />
+
+### SkillRegistry
+
+In-memory registry returned by `loadSkills`.
+
+<AutoTypeTable path="../packages/core/src/skills/skills.types.ts" name="SkillRegistry" />
+
+### SkillMetadata
+
+The parsed frontmatter of a `SKILL.md` file.
+
+<AutoTypeTable path="../packages/core/src/skills/skills.types.ts" name="SkillMetadata" />

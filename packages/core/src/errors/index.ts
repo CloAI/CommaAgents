@@ -1,5 +1,3 @@
-// Domain-specific error classes for CommaAgents
-
 /**
  * Base error for all CommaAgents errors.
  * Provides a consistent `code` field for programmatic handling.
@@ -86,14 +84,33 @@ export class StrategyValidationError extends CommaAgentsError {
  * - `"write-denied"` — the write policy explicitly denies this path.
  * - `"ask-no-handler"` — policy is `"ask"` but no PermissionRequester is configured.
  * - `"ask-aborted"` — the PermissionRequester threw or the AbortSignal fired.
+ * - `"forbidden-glob"` — the path matches a sandbox-level forbidden glob (e.g. `.git/**`, `.env*`).
+ *   These are always-deny patterns evaluated before the read/write policies and
+ *   cannot be overridden by `allow` patterns or session decisions.
+ * - `"absolute-path"` — the input was an absolute path while the sandbox has
+ *   `allowAbsolutePaths: false` (the default). Tools must use relative paths.
  */
 export class SandboxViolationError extends CommaAgentsError {
   readonly path: string;
-  readonly reason: "jail" | "read-denied" | "write-denied" | "ask-no-handler" | "ask-aborted";
+  readonly reason:
+    | "jail"
+    | "read-denied"
+    | "write-denied"
+    | "ask-no-handler"
+    | "ask-aborted"
+    | "forbidden-glob"
+    | "absolute-path";
 
   constructor(
     path: string,
-    reason: "jail" | "read-denied" | "write-denied" | "ask-no-handler" | "ask-aborted",
+    reason:
+      | "jail"
+      | "read-denied"
+      | "write-denied"
+      | "ask-no-handler"
+      | "ask-aborted"
+      | "forbidden-glob"
+      | "absolute-path",
     message: string,
     options?: ErrorOptions,
   ) {

@@ -5,6 +5,7 @@
 //   2. Environment variable (well-known or custom mapping) → synthesized ApiCredential
 //   3. Global-scoped credential ("$global")
 
+import { WELL_KNOWN_ENV_VARS } from "./credentials.constants";
 import type { Credential } from "./credentials.schema";
 import type {
   AuthStatus,
@@ -12,7 +13,6 @@ import type {
   CredentialStore,
   EnvVarMap,
 } from "./credentials.types";
-import { WELL_KNOWN_ENV_VARS } from "./credentials.constants";
 
 // Helpers
 
@@ -63,12 +63,17 @@ function resolveFromEnv(
  * const credential = await store.resolve("openai", "my-strategy");
  * ```
  */
-export function createCredentialStore(options: CreateCredentialStoreOptions): CredentialStore {
+export function createCredentialStore(
+  options: CreateCredentialStoreOptions,
+): CredentialStore {
   const { backend } = options;
   const envVarMap = buildEnvVarMap(options.envVarOverrides);
   const env = options.env ?? process.env;
 
-  async function resolve(providerId: string, scope?: string): Promise<Credential | undefined> {
+  async function resolve(
+    providerId: string,
+    scope?: string,
+  ): Promise<Credential | undefined> {
     const data = await backend.readAll();
 
     // 1. Strategy-scoped credential
@@ -91,16 +96,25 @@ export function createCredentialStore(options: CreateCredentialStoreOptions): Cr
   return {
     resolve,
 
-    async get(providerId: string, scope: string): Promise<Credential | undefined> {
+    async get(
+      providerId: string,
+      scope: string,
+    ): Promise<Credential | undefined> {
       const data = await backend.readAll();
       return data[scope]?.[providerId];
     },
 
-    async set(providerId: string, scope: string, credential: Credential): Promise<void> {
+    async set(
+      providerId: string,
+      scope: string,
+      credential: Credential,
+    ): Promise<void> {
       const data = await backend.readAll();
 
       // Create a mutable copy for modification
-      const mutableData: Record<string, Record<string, Credential>> = { ...data };
+      const mutableData: Record<string, Record<string, Credential>> = {
+        ...data,
+      };
 
       if (!mutableData[scope]) {
         mutableData[scope] = {};
@@ -118,7 +132,9 @@ export function createCredentialStore(options: CreateCredentialStoreOptions): Cr
       }
 
       // Create a mutable copy for modification
-      const mutableData: Record<string, Record<string, Credential>> = { ...data };
+      const mutableData: Record<string, Record<string, Credential>> = {
+        ...data,
+      };
       mutableData[scope] = { ...mutableData[scope] };
 
       delete mutableData[scope][providerId];
@@ -144,7 +160,10 @@ export function createCredentialStore(options: CreateCredentialStoreOptions): Cr
       return Object.keys(data);
     },
 
-    async getAuthStatus(providerId: string, scope?: string): Promise<AuthStatus> {
+    async getAuthStatus(
+      providerId: string,
+      scope?: string,
+    ): Promise<AuthStatus> {
       const credential = await resolve(providerId, scope);
       return credential ? "configured" : "none";
     },

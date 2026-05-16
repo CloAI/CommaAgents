@@ -1,9 +1,15 @@
-import { Box, Text } from "ink";
+import { Box, type DOMElement, Text } from "ink";
 import type React from "react";
+import { useRef } from "react";
 
 import type { MessageSegment } from "../../../hooks/useChat/useChat.types";
+import { useModal } from "../../../hooks/useModal";
+import { useMouseClick } from "../../../hooks/useMouseClick";
 import { BorderedPanel } from "../../BorderedPanel";
+import { MarkdownView, truncateThinking } from "../MarkdownView";
 import { useMessageListTheme } from "../MessageList.theme";
+import { OUTPUT_MODAL_ID, type OutputModalPayload } from "../OutputModal";
+import { ToolCallView } from "../ToolCallView";
 
 /**
  * Streaming-cursor glyph appended to in-flight text/thinking segments.
@@ -21,19 +27,6 @@ const STREAMING_CURSOR_CHAR = "\u258D";
  * the renderer's truncation rule exactly when measuring wrapped output.
  */
 export const MAX_TOOL_ARGS_PREVIEW_LENGTH = 200;
-
-/**
- * Trailing pad appended to streaming text so an in-flight frame can't leave
- * ghost characters behind from the previous (longer) frame.
- *
- * Ink's incremental renderer only redraws cells that change. When a streaming
- * text block shrinks between ticks (rare, but happens when e.g. the model
- * rewrites a partial token), the leftover characters from the previous frame
- * stay on screen until something else overwrites them. Appending a newline
- * forces Ink to clear the rest of the visual line and the next row, so
- * shrinking content can't bleed through.
- */
-const STREAMING_TRAILING_PAD = "\n";
 
 export interface AgentMessageProps {
   /** Display name of the agent (e.g. "planner", "builder"). */
@@ -98,6 +91,24 @@ export function AgentMessageRender({
   streaming,
 }: AgentMessageRenderProps): React.ReactElement {
   const styles = theme.agentMessage;
+
+  // Build a `toolCallId → tool-result` index so each tool-call row can
+  // render with its paired result inline (single collapsed row),
+  // regardless of whether the result arrived adjacent to the call or
+  // was interleaved with text/thinking from concurrent tool runs. The
+  // index is intentionally rebuilt per render — `segments` is
+  // append-only and short (tens of entries at most), so an O(n) walk is
+  // cheaper than the bookkeeping needed to memoize it.
+  const resultsByCallId = new Map<
+    string,
+    Extract<MessageSegment, { readonly type: "tool-result" }>
+  >();
+  for (const segment of segments) {
+    if (segment.type === "tool-result") {
+      resultsByCallId.set(segment.toolCallId, segment);
+    }
+  }
+
   return (
     <Box {...styles.container}>
       <BorderedPanel
@@ -105,15 +116,38 @@ export function AgentMessageRender({
         borderColor={styles.borderColor}
         headerColor={styles.label.color}
       >
-        {segments.map((segment, segmentIndex) => (
-          <SegmentView
-            // Position-based key is acceptable because segments are
-            // append-only — we never reorder or remove them.
-            key={`${segmentIndex}-${segment.type}`}
-            segment={segment}
-            theme={theme}
-          />
-        ))}
+        {segments.map((segment, segmentIndex) => {
+          // Skip tool-result segments that have a matching tool-call —
+          // they render as the trailing summary of that call's row.
+          // Orphan tool-results (no preceding tool-call with the same
+          // id) still render via `SegmentView` so we never silently drop
+          // a daemon event.
+          if (
+            segment.type === "tool-result" &&
+            segments.some(
+              (other) =>
+                other.type === "tool-call" &&
+                other.toolCallId === segment.toolCallId,
+            )
+          ) {
+            return null;
+          }
+
+          return (
+            <SegmentView
+              // Position-based key is acceptable because segments are
+              // append-only — we never reorder or remove them.
+              key={`${segmentIndex}-${segment.type}`}
+              segment={segment}
+              theme={theme}
+              pairedResult={
+                segment.type === "tool-call"
+                  ? resultsByCallId.get(segment.toolCallId)
+                  : undefined
+              }
+            />
+          );
+        })}
         {streaming && segments.length === 0 ? (
           <Text {...styles.streamingCursor}>{STREAMING_CURSOR_CHAR}</Text>
         ) : null}
@@ -125,61 +159,120 @@ export function AgentMessageRender({
 interface SegmentViewProps {
   readonly segment: MessageSegment;
   readonly theme: ReturnType<typeof useMessageListTheme>;
+  /**
+   * Tool-result paired with this segment by `toolCallId`. Only set when
+   * `segment.type === "tool-call"` and a matching `tool-result` has
+   * arrived. Drives the trailing `\u2192 N lines` summary on the
+   * call's row.
+   */
+  readonly pairedResult?: Extract<
+    MessageSegment,
+    { readonly type: "tool-result" }
+  >;
 }
 
-function SegmentView({ segment, theme }: SegmentViewProps): React.ReactElement | null {
+function SegmentView({
+  segment,
+  theme,
+  pairedResult,
+}: SegmentViewProps): React.ReactElement | null {
   const styles = theme.agentMessage;
+  const { open } = useModal(OUTPUT_MODAL_ID);
+
+  // Refs + click handlers for the two expandable segment kinds. The hooks
+  // are declared unconditionally (rules of hooks); the refs only attach
+  // to a real `<Box>` for the relevant branches below, and `useMouseClick`
+  // simply never fires for un-attached refs because hit-testing fails.
+  const toolCallRef = useRef<DOMElement | null>(null);
+  const thinkingRef = useRef<DOMElement | null>(null);
+
+  useMouseClick({
+    ref: toolCallRef,
+    onClick: () => {
+      if (segment.type !== "tool-call") return;
+      const payload: OutputModalPayload = {
+        kind: "tool-result",
+        title: segment.toolName,
+        body: toolCallBody(pairedResult),
+      };
+      open(payload);
+    },
+  });
+
+  useMouseClick({
+    ref: thinkingRef,
+    onClick: () => {
+      if (segment.type !== "thinking") return;
+      const payload: OutputModalPayload = {
+        kind: "thinking",
+        title: "thinking",
+        body: segment.text,
+      };
+      open(payload);
+    },
+  });
 
   if (segment.type === "text") {
+    // Markdown segments are re-lexed on every delta — `marked.lexer`
+    // is fast enough to call from the render path, and it auto-closes
+    // unfinished fences/lists so partial output never visually
+    // corrupts. The streaming cursor is appended as a sibling
+    // element rather than inlined into the markdown source so it
+    // never participates in tokenisation.
     return (
-      <Text {...styles.textSegment}>
-        {segment.text}
+      <Box flexDirection="column">
+        <MarkdownView markdown={segment.text} />
         {segment.streaming ? (
-          <>
-            <Text {...styles.streamingCursor}>{STREAMING_CURSOR_CHAR}</Text>
-            {STREAMING_TRAILING_PAD}
-          </>
+          <Text {...styles.streamingCursor}>{STREAMING_CURSOR_CHAR}</Text>
         ) : null}
-      </Text>
+      </Box>
     );
   }
 
   if (segment.type === "tool-call") {
-    const argsPreview = truncatePreview(segment.args);
     return (
-      <Box {...styles.toolCall.container}>
-        <Text>
-          <Text {...styles.toolCall.header}>{"\u2192 tool "}</Text>
-          <Text {...styles.toolCall.label}>{segment.toolName}</Text>
-        </Text>
-        <Text {...styles.toolCall.args}>{argsPreview}</Text>
+      <Box ref={toolCallRef} flexDirection="column">
+        <ToolCallView
+          toolName={segment.toolName}
+          args={segment.args}
+          status={pairedResult === undefined ? "running" : pairedResult.status}
+          output={pairedResult?.output}
+          error={pairedResult?.error}
+        />
       </Box>
     );
   }
 
   if (segment.type === "tool-result") {
+    // Orphan tool-result (no matching tool-call segment in this
+    // message). Should be rare — emitted defensively so a malformed
+    // stream still surfaces something rather than silently dropping
+    // the result. Reuses the legacy two-row layout.
     const toolResultPreview = truncatePreview(segment.output);
     return (
       <Box {...styles.toolResult.container}>
-        <Text {...styles.toolResult.header}>{`\u2190 ${segment.toolName} result`}</Text>
+        <Text
+          {...styles.toolResult.header}
+        >{`\u2190 ${segment.toolName} result`}</Text>
         <Text {...styles.toolResult.output}>{toolResultPreview}</Text>
       </Box>
     );
   }
 
   if (segment.type === "thinking") {
+    // Truncate to the last N rendered lines so a long deliberation
+    // can't dominate the viewport, then render the (truncated) text
+    // via Markdown so embedded code fences / lists keep their shape.
+    const truncated = truncateThinking(segment.text);
     return (
-      <Box {...styles.thinking.container}>
+      <Box ref={thinkingRef} {...styles.thinking.container}>
         <Text {...styles.thinking.header}>thinking</Text>
-        <Text {...styles.thinking.text}>
-          {segment.text}
+        <Box flexDirection="column">
+          <MarkdownView markdown={truncated} />
           {segment.streaming ? (
-            <>
-              <Text {...styles.streamingCursor}>{STREAMING_CURSOR_CHAR}</Text>
-              {STREAMING_TRAILING_PAD}
-            </>
+            <Text {...styles.streamingCursor}>{STREAMING_CURSOR_CHAR}</Text>
           ) : null}
-        </Text>
+        </Box>
       </Box>
     );
   }
@@ -189,7 +282,9 @@ function SegmentView({ segment, theme }: SegmentViewProps): React.ReactElement |
     return (
       <Box {...styles.mcpCall.container}>
         <Text>
-          <Text {...styles.mcpCall.header}>{`\u2192 mcp ${segment.serverName} `}</Text>
+          <Text
+            {...styles.mcpCall.header}
+          >{`\u2192 mcp ${segment.serverName} `}</Text>
           <Text>{segment.toolName}</Text>
         </Text>
         <Text {...styles.mcpCall.args}>{argsPreview}</Text>
@@ -215,4 +310,28 @@ function SegmentView({ segment, theme }: SegmentViewProps): React.ReactElement |
 export function truncatePreview(value: string): string {
   if (value.length <= MAX_TOOL_ARGS_PREVIEW_LENGTH) return value;
   return `${value.slice(0, MAX_TOOL_ARGS_PREVIEW_LENGTH)}\u2026`;
+}
+
+/**
+ * Resolve the body shown when a user expands a tool-call row in the
+ * OutputModal.
+ *
+ * Pre-result rows show a placeholder so the modal still has something
+ * to grep over instead of opening blank. When the result has arrived,
+ * we surface the error first (if any) since that's what the user is
+ * almost always after, with the output as a trailing context block.
+ * For successful results we fall through to the raw output verbatim.
+ */
+function toolCallBody(
+  pairedResult:
+    | Extract<MessageSegment, { readonly type: "tool-result" }>
+    | undefined,
+): string {
+  if (pairedResult === undefined) return "(tool still running)";
+  if (pairedResult.status === "error") {
+    const error = pairedResult.error ?? "(no error message)";
+    if (pairedResult.output.length === 0) return error;
+    return `${error}\n\n--- output ---\n${pairedResult.output}`;
+  }
+  return pairedResult.output;
 }

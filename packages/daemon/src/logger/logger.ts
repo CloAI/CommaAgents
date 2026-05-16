@@ -1,23 +1,28 @@
-// createLogger() — the main logger factory.
-//
-// Multi-sink, level-filtered, with child logger support.
-// Zero external dependencies.
-
 import { isoNow } from "@comma-agents/utils";
-import { createStderrSink } from "./sinks/stderr";
-import type { CreateLoggerOptions, LogEntry, Logger, LogLevel, LogSink } from "./logger.types";
+import type {
+  CreateLoggerOptions,
+  LogEntry,
+  Logger,
+  LogLevel,
+  LogSink,
+} from "./logger.types";
 import { LOG_LEVELS } from "./logger.types";
-
-// Internal helpers
+import { createStderrSink } from "./sinks/stderr";
 
 function shouldLog(entryLevel: LogLevel, minLevel: LogLevel): boolean {
   return LOG_LEVELS[entryLevel] >= LOG_LEVELS[minLevel];
 }
 
-// Logger implementation
-
-function createLoggerImpl(sinks: LogSink[], minLevel: LogLevel, component?: string): Logger {
-  function emit(level: LogLevel, msg: string, meta?: Record<string, unknown>): void {
+function createLoggerImpl(
+  sinks: LogSink[],
+  minLevel: LogLevel,
+  component?: string,
+): Logger {
+  function emit(
+    level: LogLevel,
+    msg: string,
+    meta?: Record<string, unknown>,
+  ): void {
     if (!shouldLog(level, minLevel)) return;
 
     const entry: LogEntry = {
@@ -53,7 +58,9 @@ function createLoggerImpl(sinks: LogSink[], minLevel: LogLevel, component?: stri
     },
     child(childComponent: string): Logger {
       // Chain component names: "server" → "server.ws"
-      const fullComponent = component ? `${component}.${childComponent}` : childComponent;
+      const fullComponent = component
+        ? `${component}.${childComponent}`
+        : childComponent;
       return createLoggerImpl(sinks, minLevel, fullComponent);
     },
     flush(): void {
@@ -77,8 +84,6 @@ function createLoggerImpl(sinks: LogSink[], minLevel: LogLevel, component?: stri
     },
   };
 }
-
-// Public factory
 
 /**
  * Create a structured logger.

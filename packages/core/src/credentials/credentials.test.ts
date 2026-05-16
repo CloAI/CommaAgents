@@ -1,13 +1,23 @@
 // Tests for the credential store: JsonFileBackend + createCredentialStore.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { createJsonFileBackend } from "./backends/json-file";
 import { createCredentialStore } from "./credentials";
 import { WELL_KNOWN_ENV_VARS } from "./credentials.constants";
 import type { Credential } from "./credentials.schema";
-import type { CredentialBackend, CredentialStoreData } from "./credentials.types";
+import type {
+  CredentialBackend,
+  CredentialStoreData,
+} from "./credentials.types";
 
 // Test helpers
 
@@ -33,7 +43,9 @@ const customCred: Credential = {
 };
 
 /** In-memory backend for store tests (avoids filesystem coupling). */
-function createMemoryBackend(initial: CredentialStoreData = {}): CredentialBackend {
+function createMemoryBackend(
+  initial: CredentialStoreData = {},
+): CredentialBackend {
   let data = structuredClone(initial);
   return {
     async readAll() {
@@ -105,7 +117,11 @@ describe("JsonFileBackend", () => {
   test("readAll returns empty for valid JSON but invalid schema", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
     // Valid JSON but wrong shape — credentials should have a type field
-    writeFileSync(TEST_FILE, JSON.stringify({ $global: { openai: "just-a-string" } }), "utf-8");
+    writeFileSync(
+      TEST_FILE,
+      JSON.stringify({ $global: { openai: "just-a-string" } }),
+      "utf-8",
+    );
     const backend = createJsonFileBackend({ filePath: TEST_FILE });
     expect(await backend.readAll()).toEqual({});
   });
@@ -389,7 +405,9 @@ describe("WELL_KNOWN_ENV_VARS", () => {
   test("contains expected providers", () => {
     expect(WELL_KNOWN_ENV_VARS.openai).toEqual(["OPENAI_API_KEY"]);
     expect(WELL_KNOWN_ENV_VARS.anthropic).toEqual(["ANTHROPIC_API_KEY"]);
-    expect(WELL_KNOWN_ENV_VARS.google).toContain("GOOGLE_GENERATIVE_AI_API_KEY");
+    expect(WELL_KNOWN_ENV_VARS.google).toContain(
+      "GOOGLE_GENERATIVE_AI_API_KEY",
+    );
   });
 
   test("all entries are non-empty arrays of strings", () => {
@@ -439,7 +457,9 @@ describe("getAuthStatus", () => {
     const backend = createJsonFileBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
     await store.set("openai", "my-strategy", { type: "api", key: "sk-s" });
-    expect(await store.getAuthStatus("openai", "my-strategy")).toBe("configured");
+    expect(await store.getAuthStatus("openai", "my-strategy")).toBe(
+      "configured",
+    );
     // Without scope, still 'none' because strategy-scoped requires scope match.
     expect(await store.getAuthStatus("openai")).toBe("none");
   });

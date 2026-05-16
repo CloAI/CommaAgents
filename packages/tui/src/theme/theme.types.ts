@@ -95,7 +95,9 @@ export type ThemeBreakpoints = Readonly<Record<BreakpointName, number>>;
  * `undefined` means full terminal width (no max constraint).
  * A number means a fixed column width.
  */
-export type ThemeContainerWidths = Readonly<Record<BreakpointName, number | undefined>>;
+export type ThemeContainerWidths = Readonly<
+  Record<BreakpointName, number | undefined>
+>;
 
 /** Complete theme token set. */
 export interface Theme {

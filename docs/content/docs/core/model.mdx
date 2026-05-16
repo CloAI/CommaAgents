@@ -1,18 +1,24 @@
 ---
 title: Model
-description: Model registry, provider resolution, and model string parsing.
+description: Model registry, provider resolution, model metadata lookup, and model string parsing.
 ---
 
 # Model
 
-The model module handles parsing model identifiers (e.g. `openai/gpt-4o`), maintaining a global model registry, resolving model strings into live `LanguageModel` instances, and listing providers and their available models.
+The model module handles parsing model identifiers (e.g. `openai/gpt-4o`), auto-resolving bare model IDs, maintaining a global model registry, resolving model strings into live `LanguageModel` instances, and listing providers and their available models.
 
 ## How Model Resolution Works
 
-When `createAgent()` receives a model string like `"openai/gpt-4o"`, it calls `resolveModel()` internally. Resolution follows this order:
+When `createAgent()` receives a model string, `resolveModel()` resolves it into a live `LanguageModel`. Two formats are supported:
 
-1. **Direct model registry** — exact match via `registerModel()`. Ideal for tests and mocking.
-2. **Provider-based resolution** — parses the string into provider/model parts, looks up credentials via the global credential store, then creates a `LanguageModel` via the global provider resolver.
+1. **Explicit** `"providerID/modelID"` — e.g. `"openai/gpt-4o"`. The provider is used directly.
+2. **Bare model ID** — e.g. `"gpt-4o"`. The model catalog is queried to find all providers that list the model. Each candidate provider is checked for configured credentials; the first one with a matching credential wins.
+
+Resolution order for both formats:
+
+1. **Direct model registry** — exact match via `registerModel()`. Ideal for tests and mocking. Checked first, before any parsing or catalog lookup.
+2. **Explicit provider** (contains `/`) — parses the string into provider/model parts, looks up credentials via the global credential store, then creates a `LanguageModel` via the global provider resolver.
+3. **Auto-resolution** (no `/`) — queries the reverse model index for candidate providers (sorted alphabetically), checks credentials for each candidate, and resolves the first one with configured credentials.
 
 ```ts
 import { registerModel, registerProvider, createAgent } from "@comma-agents/core";
@@ -30,7 +36,13 @@ const agent2 = createAgent({ name: "custom", model: "my-llm/latest" });
 // Option 3: Known providers resolve automatically (openai, anthropic, etc.)
 // Just ensure credentials are configured and the provider's npm package is installed.
 const agent3 = createAgent({ name: "writer", model: "openai/gpt-4o" });
+
+// Option 4: Bare model ID — auto-resolves provider from catalog
+// The first provider with credentials for "gpt-4o" wins
+const agent4 = createAgent({ name: "assistant", model: "gpt-4o" });
 ```
+
+When no provider has credentials for a bare model ID, `resolveModel` throws a `ModelResolutionError` listing all providers that support the model, so you know exactly which credentials to configure.
 
 ## Model Registry
 
@@ -52,6 +64,41 @@ Remove a previously registered model. Returns `true` if it was registered and re
 
 Reset the global model registry to empty state. Primarily for tests.
 
+## Model Metadata Lookup
+
+Query the catalog for metadata about a specific model by its bare ID.
+
+### getModelMetadata
+
+Returns full `ModelInfo` for a bare model ID — capabilities, modalities, cost, context window, and more. The catalog is checked for the first provider that lists the model.
+
+```ts
+import { getModelMetadata } from "@comma-agents/core";
+
+const info = getModelMetadata("gpt-4o");
+console.log(info?.contextWindow);              // 128000
+console.log(info?.capabilities?.reasoning);    // true
+console.log(info?.cost?.input);                // 2.5 (USD per 1M tokens)
+```
+
+Returns `undefined` if the model is not found in any provider catalog.
+
+### getModelCapabilities
+
+Convenience wrapper for checking capability flags. Returns `ModelCapabilities | undefined` for a bare model ID.
+
+```ts
+import { getModelCapabilities } from "@comma-agents/core";
+
+const caps = getModelCapabilities("gpt-4o");
+if (caps?.reasoning) {
+  // Use reasoning-related provider options
+}
+if (caps?.vision) {
+  // Send image inputs
+}
+```
+
 ## Provider Resolution
 
 Providers are resolved via `registerProvider()` in the [defaults](/docs/core/defaults) module. The global provider resolver checks:
@@ -59,7 +106,7 @@ Providers are resolved via `registerProvider()` in the [defaults](/docs/core/def
 1. Custom provider registrations (via `registerProvider()`)
 2. Built-in overrides (e.g. `ollama`, `deepseek`, `github-copilot`)
 3. The bundled provider catalog, which maps each provider id to its npm package
-4. Last resort: attempt `@ai-sdk/<providerId>` as a dynamic import guess
+4. Last resort: attempt a dynamic import for the provider package
 
 ## Provider Discovery
 

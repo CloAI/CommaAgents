@@ -2,8 +2,8 @@ import { useInput, useStdout } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { parseMouseEvents } from "../../hooks/useMouse/useMouse.utils";
-import { MouseContext } from "./MouseContext";
 import type { MouseListener } from "./MouseContext";
+import { MouseContext } from "./MouseContext";
 
 /** Whether stdin supports raw mode (false in piped / non-TTY contexts). */
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
@@ -27,7 +27,9 @@ export interface MouseProviderProps {
  * Consumer hooks ({@link useMouseHover}, {@link useMouseClick}) use the
  * context provided here rather than subscribing to `useInput` individually.
  */
-export function MouseProvider({ children }: MouseProviderProps): React.ReactElement {
+export function MouseProvider({
+  children,
+}: MouseProviderProps): React.ReactElement {
   const { stdout } = useStdout();
 
   // Stable set of listeners — mutated via ref so subscribe/unsubscribe
@@ -101,8 +103,6 @@ export function MouseProvider({ children }: MouseProviderProps): React.ReactElem
   );
 
   return (
-    <MouseContext.Provider value={value}>
-      {children}
-    </MouseContext.Provider>
+    <MouseContext.Provider value={value}>{children}</MouseContext.Provider>
   );
 }

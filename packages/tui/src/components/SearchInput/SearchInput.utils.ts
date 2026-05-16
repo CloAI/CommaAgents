@@ -39,5 +39,4 @@ export function filterByQuery<ItemType>(
   return items.filter((item) => matchesQuery(getHaystack(item), query));
 }
 
-export { isMouseEscape } from "../../hooks/useMouse";
-
+export { isMouseEscape } from "../../utils/mouseEscape";

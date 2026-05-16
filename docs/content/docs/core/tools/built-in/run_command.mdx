@@ -1,0 +1,83 @@
+---
+title: run_command
+description: Execute a shell command inside the workspace with timeout, output caps, and configurable approval gates.
+---
+
+# run_command
+
+Run an arbitrary shell command inside the workspace. The command executes through the host's default shell — `sh` on POSIX, `cmd.exe` on Windows — and the call captures stdout and stderr up to configurable caps. Timeouts kill the process tree, and the agent can be required to request explicit approval for sensitive command patterns.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "builder",
+  model: "openai/gpt-4o",
+  tools: ["run_command"],
+});
+```
+
+## PlatformInfo
+
+Snapshot of the host platform; included in `data.platform` so the model can adapt its command idioms.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/run-command/run-command.types.ts" name="PlatformInfo" />
+
+## RunCommandToolConfig
+
+Configuration for the factory. Policy patterns and capture caps belong here.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/run-command/run-command.types.ts" name="RunCommandToolConfig" />
+
+## RunCommandData
+
+The structured payload returned in `data`.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/run-command/run-command.types.ts" name="RunCommandData" />
+
+## Result conventions
+
+- **Clean exit (any exit code)** returns `ok: true`. Non-zero exits are signalled via `data.exitCode`, not via an error — the tool itself succeeded in running the command.
+- **Spawn failure** (e.g. shell not found) returns `ok: false` with `command_failed`.
+- **Timeout** returns `ok: false` with `timeout`, plus `data.timedOut: true` and the partial stdout/stderr captured up to the kill.
+- **Caller abort** kills the process tree and returns `command_failed`.
+
+```ts
+const result = await tool.run_command({
+  command: "bun test packages/core/src",
+  timeoutMs: 120_000,
+});
+
+if (result.ok && result.data.exitCode !== 0) {
+  // Build failed — inspect data.stderr.
+}
+```
+
+## Policy gates
+
+Two regex lists run before the process is spawned:
+
+- **`denyPatterns`** — matched commands return `permission_denied` immediately. The default list blocks obviously destructive shells (`rm -rf /`, etc.).
+- **`requireApprovalPatterns`** — matched commands are routed through the guard's `onAsk` callback with operation `"command.execute"`. If no `onAsk` handler is configured, the call fails closed with `permission_denied`.
+
+## Output truncation
+
+stdout and stderr are captured in memory up to `maxStdoutBytes` / `maxStderrBytes`. When either cap is hit, the stream is truncated with a marker (`\n…[output truncated by run_command]`) and `data.stdoutTruncated` / `data.stderrTruncated` is set.
+
+## Process group and signals
+
+On POSIX hosts, `run_command` spawns the shell with its own process group so timeouts and aborts terminate the entire tree, not just the shell. Termination uses `SIGTERM`, escalating to `SIGKILL` after a short grace period. Windows uses a single-process `child.kill()` since process groups are not honored for signal semantics.
+
+## Errors
+
+| Kind | When |
+|---|---|
+| `outside_workspace` | `cwd` escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `permission_denied` | The command matches a deny pattern, or matches an approval-required pattern without a requester (or the user denied the request). |
+| `command_failed` | The shell could not be spawned, or the operation was aborted. |
+| `timeout` | The command exceeded `timeoutMs` and was killed. |
+
+## Related
+
+- [Error kinds](/docs/core/tools/error-kinds) — full table of `ToolErrorKind` values.
+- [sandbox](/docs/core/sandbox) — how `fs.exec` approval is wired up.

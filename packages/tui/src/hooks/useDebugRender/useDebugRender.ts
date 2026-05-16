@@ -2,7 +2,10 @@ import { type DOMElement, useStdout } from "ink";
 import { useEffect, useRef } from "react";
 import { DEBUG_RENDER } from "../../utils/debug";
 import { FLASH_DURATION_MS } from "./useDebugRender.constants";
-import type { DebugRenderOptions, DebugRenderRef } from "./useDebugRender.types";
+import type {
+  DebugRenderOptions,
+  DebugRenderRef,
+} from "./useDebugRender.types";
 import {
   buildLabelLine,
   clearHighlight,
@@ -48,11 +51,16 @@ import {
  * });
  * ```
  */
-export function useDebugRender(label: string, options?: DebugRenderOptions): DebugRenderRef {
+export function useDebugRender(
+  label: string,
+  options?: DebugRenderOptions,
+): DebugRenderRef {
   const { stdout } = useStdout();
   const nodeRef = useRef<DOMElement | null>(null);
   const renderCount = useRef(0);
-  const previousPropsRef = useRef<Record<string, unknown> | undefined>(undefined);
+  const previousPropsRef = useRef<Record<string, unknown> | undefined>(
+    undefined,
+  );
   const mountedRef = useRef(false);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -69,7 +77,11 @@ export function useDebugRender(label: string, options?: DebugRenderOptions): Deb
   const backgroundColors = mergeBackgroundColors(options?.colors?.bg);
   const labelColors = mergeLabelColors(options?.colors?.label);
 
-  const rawReasons = detectReasons(mountedRef.current, props, previousPropsRef.current);
+  const rawReasons = detectReasons(
+    mountedRef.current,
+    props,
+    previousPropsRef.current,
+  );
   const reasons = filterReasons(rawReasons, enabledReasons);
   previousPropsRef.current = props ? { ...props } : undefined;
 
@@ -81,8 +93,17 @@ export function useDebugRender(label: string, options?: DebugRenderOptions): Deb
     const node = nodeRef.current;
     if (!node || reasons.length === 0) return;
 
-    const line = buildLabelLine(label, renderCount.current, reasons, labelColors);
-    const visibleWidth = labelLineVisibleWidth(label, renderCount.current, reasons);
+    const line = buildLabelLine(
+      label,
+      renderCount.current,
+      reasons,
+      labelColors,
+    );
+    const visibleWidth = labelLineVisibleWidth(
+      label,
+      renderCount.current,
+      reasons,
+    );
 
     if (flashTimerRef.current !== null) {
       clearTimeout(flashTimerRef.current);
@@ -90,7 +111,14 @@ export function useDebugRender(label: string, options?: DebugRenderOptions): Deb
 
     // Defer so Ink finishes its synchronous repaint first.
     setTimeout(() => {
-      paintHighlight(target, node, reasons, line, backgroundColors, showBackground);
+      paintHighlight(
+        target,
+        node,
+        reasons,
+        line,
+        backgroundColors,
+        showBackground,
+      );
     }, 0);
 
     flashTimerRef.current = setTimeout(() => {
@@ -116,14 +144,34 @@ export function useDebugRender(label: string, options?: DebugRenderOptions): Deb
 
       const unmountReasons = filterReasons(["unmount"], enabledReasons);
       if (unmountReasons.length === 0) return;
-      const line = buildLabelLine(label, renderCount.current, unmountReasons, labelColors);
-      paintHighlight(target, node, unmountReasons, line, backgroundColors, showBackground);
+      const line = buildLabelLine(
+        label,
+        renderCount.current,
+        unmountReasons,
+        labelColors,
+      );
+      paintHighlight(
+        target,
+        node,
+        unmountReasons,
+        line,
+        backgroundColors,
+        showBackground,
+      );
 
       setTimeout(() => {
         clearHighlight(target, node);
       }, flashMs);
     };
-  }, [label, stdout, flashMs, backgroundColors, labelColors, enabledReasons, showBackground]);
+  }, [
+    label,
+    stdout,
+    flashMs,
+    backgroundColors,
+    labelColors,
+    enabledReasons,
+    showBackground,
+  ]);
 
   return { ref: refCallback };
 }

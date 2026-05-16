@@ -18,9 +18,9 @@
  * ```
  */
 
-import { z } from "zod";
-import { defineTool } from "@comma-agents/core";
 import type { ToolDef } from "@comma-agents/core";
+import { defineTool } from "@comma-agents/core";
+import { z } from "zod";
 
 // Echo tool — returns its input as output
 
@@ -99,7 +99,9 @@ export function createLookupTool(
  * A tool that always throws an error. Useful for testing error handling
  * and error propagation through the agent/flow system.
  */
-export function createFailingTool(errorMessage = "Tool execution failed"): ToolDef {
+export function createFailingTool(
+  errorMessage = "Tool execution failed",
+): ToolDef {
   return defineTool({
     description: "A tool that always fails. For testing error handling.",
     parameters: z.object({
@@ -121,7 +123,10 @@ export function createSlowTool(delayMs: number): ToolDef {
   return defineTool({
     description: `A tool that takes ${delayMs}ms to complete. For testing timeouts.`,
     parameters: z.object({
-      input: z.string().optional().describe("Optional input to echo after delay"),
+      input: z
+        .string()
+        .optional()
+        .describe("Optional input to echo after delay"),
     }),
     execute: async (args, ctx) => {
       await new Promise<void>((resolve, reject) => {

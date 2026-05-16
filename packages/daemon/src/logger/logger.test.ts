@@ -6,11 +6,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createLogger } from "./logger";
+import type { LogEntry, LogSink } from "./logger.types";
+import { LOG_LEVELS } from "./logger.types";
 import { createFileSink } from "./sinks/file";
 import { createStderrSink, formatJsonLine } from "./sinks/stderr";
 import { createSystemSink, describeSystemLogging } from "./sinks/system";
-import type { LogEntry, LogSink } from "./logger.types";
-import { LOG_LEVELS } from "./logger.types";
 
 // Helpers
 
@@ -51,10 +51,18 @@ describe("LOG_LEVELS", () => {
 
 describe("formatJsonLine", () => {
   test("formats basic entry", () => {
-    const entry: LogEntry = { ts: "2026-03-01T12:00:00.000Z", level: "info", msg: "hello" };
+    const entry: LogEntry = {
+      ts: "2026-03-01T12:00:00.000Z",
+      level: "info",
+      msg: "hello",
+    };
     const line = formatJsonLine(entry);
     const parsed = JSON.parse(line);
-    expect(parsed).toEqual({ ts: "2026-03-01T12:00:00.000Z", level: "info", msg: "hello" });
+    expect(parsed).toEqual({
+      ts: "2026-03-01T12:00:00.000Z",
+      level: "info",
+      msg: "hello",
+    });
   });
 
   test("includes component when present", () => {
@@ -83,7 +91,12 @@ describe("formatJsonLine", () => {
   });
 
   test("omits empty meta", () => {
-    const entry: LogEntry = { ts: "2026-03-01T12:00:00.000Z", level: "debug", msg: "x", meta: {} };
+    const entry: LogEntry = {
+      ts: "2026-03-01T12:00:00.000Z",
+      level: "debug",
+      msg: "x",
+      meta: {},
+    };
     const line = formatJsonLine(entry);
     expect(line).not.toContain("meta");
   });
@@ -338,7 +351,9 @@ describe("createLogger flush and close", () => {
 
 describe("createLogger default sink", () => {
   test("writes to stderr when no sinks specified", () => {
-    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(() => true);
+    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(
+      () => true,
+    );
 
     try {
       const log = createLogger();
@@ -359,11 +374,17 @@ describe("createLogger default sink", () => {
 
 describe("createStderrSink", () => {
   test("writes JSON lines to stderr", () => {
-    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(() => true);
+    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(
+      () => true,
+    );
 
     try {
       const sink = createStderrSink();
-      const entry: LogEntry = { ts: "2026-03-01T12:00:00.000Z", level: "warn", msg: "test" };
+      const entry: LogEntry = {
+        ts: "2026-03-01T12:00:00.000Z",
+        level: "warn",
+        msg: "test",
+      };
       sink.write(entry);
 
       expect(stderrWrite).toHaveBeenCalledTimes(1);
@@ -394,7 +415,11 @@ describe("createFileSink", () => {
     const logFile = join(tempDir, "test.log");
     const sink = createFileSink(logFile);
 
-    const entry: LogEntry = { ts: "2026-03-01T12:00:00.000Z", level: "info", msg: "file test" };
+    const entry: LogEntry = {
+      ts: "2026-03-01T12:00:00.000Z",
+      level: "info",
+      msg: "file test",
+    };
     sink.write(entry);
 
     const content = readFileSync(logFile, "utf-8");
@@ -408,7 +433,11 @@ describe("createFileSink", () => {
     const sink = createFileSink(logFile);
 
     sink.write({ ts: "2026-03-01T12:00:00.000Z", level: "info", msg: "first" });
-    sink.write({ ts: "2026-03-01T12:00:01.000Z", level: "warn", msg: "second" });
+    sink.write({
+      ts: "2026-03-01T12:00:01.000Z",
+      level: "warn",
+      msg: "second",
+    });
 
     const lines = readFileSync(logFile, "utf-8").trim().split("\n");
     expect(lines).toHaveLength(2);
@@ -420,7 +449,11 @@ describe("createFileSink", () => {
     const logFile = join(tempDir, "nested", "deep", "test.log");
     const sink = createFileSink(logFile);
 
-    sink.write({ ts: "2026-03-01T12:00:00.000Z", level: "info", msg: "nested" });
+    sink.write({
+      ts: "2026-03-01T12:00:00.000Z",
+      level: "info",
+      msg: "nested",
+    });
 
     expect(existsSync(logFile)).toBe(true);
     const parsed = JSON.parse(readFileSync(logFile, "utf-8").trim());
@@ -448,12 +481,18 @@ describe("createFileSink", () => {
 
 describe("createSystemSink", () => {
   test("without forcePrefix writes plain JSON to stderr", () => {
-    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(() => true);
+    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(
+      () => true,
+    );
 
     try {
       // On macOS/non-systemd, no prefix
       const sink = createSystemSink();
-      sink.write({ ts: "2026-03-01T12:00:00.000Z", level: "error", msg: "test" });
+      sink.write({
+        ts: "2026-03-01T12:00:00.000Z",
+        level: "error",
+        msg: "test",
+      });
 
       const written = stderrWrite.mock.calls[0][0] as string;
       // Should not have syslog prefix unless running under systemd
@@ -466,15 +505,25 @@ describe("createSystemSink", () => {
   });
 
   test("with forcePrefix adds syslog severity prefix", () => {
-    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(() => true);
+    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(
+      () => true,
+    );
 
     try {
       const sink = createSystemSink({ forcePrefix: true });
 
-      sink.write({ ts: "2026-03-01T12:00:00.000Z", level: "error", msg: "err" });
+      sink.write({
+        ts: "2026-03-01T12:00:00.000Z",
+        level: "error",
+        msg: "err",
+      });
       sink.write({ ts: "2026-03-01T12:00:00.000Z", level: "warn", msg: "wrn" });
       sink.write({ ts: "2026-03-01T12:00:00.000Z", level: "info", msg: "inf" });
-      sink.write({ ts: "2026-03-01T12:00:00.000Z", level: "debug", msg: "dbg" });
+      sink.write({
+        ts: "2026-03-01T12:00:00.000Z",
+        level: "debug",
+        msg: "dbg",
+      });
 
       const calls = stderrWrite.mock.calls.map((c) => c[0] as string);
 
@@ -494,11 +543,17 @@ describe("createSystemSink", () => {
   });
 
   test("forcePrefix entries end with newline", () => {
-    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(() => true);
+    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(
+      () => true,
+    );
 
     try {
       const sink = createSystemSink({ forcePrefix: true });
-      sink.write({ ts: "2026-03-01T12:00:00.000Z", level: "info", msg: "test" });
+      sink.write({
+        ts: "2026-03-01T12:00:00.000Z",
+        level: "info",
+        msg: "test",
+      });
 
       const written = stderrWrite.mock.calls[0][0] as string;
       expect(written.endsWith("\n")).toBe(true);
@@ -574,7 +629,9 @@ describe("createLogger with FileSink integration", () => {
   });
 
   test("multi-sink: stderr + file", () => {
-    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(() => true);
+    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(
+      () => true,
+    );
 
     try {
       const logFile = join(tempDir, "multi.log");
@@ -600,7 +657,9 @@ describe("createLogger with FileSink integration", () => {
 
 describe("createLogger with SystemSink integration", () => {
   test("system sink with forced prefix through logger", () => {
-    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(() => true);
+    const stderrWrite = spyOn(process.stderr, "write").mockImplementation(
+      () => true,
+    );
 
     try {
       const log = createLogger({

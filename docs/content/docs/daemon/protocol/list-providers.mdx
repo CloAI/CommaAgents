@@ -132,3 +132,7 @@ Provider data is merged from up to three sources:
 - **Live listers** — runtime discovery for Ollama (local `/api/tags`) and GitHub Copilot (Copilot API). Only invoked when `live: true` is set on the request.
 
 When live discovery fails, the daemon silently falls back to catalog data and sets the `error` field on the affected provider.
+
+## See Also
+
+- **[`get_available_models`](/docs/daemon/protocol/get-available-models)** — returns models grouped by model ID with credential availability. Better suited for UIs that present a model-first picker rather than a provider-first view.

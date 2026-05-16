@@ -1,11 +1,44 @@
-// Agent types — all agent-domain type definitions.
-
-import type { AbortableAsyncGenerator, AbortablePromise } from "@comma-agents/utils";
-import type { tool as aiTool, LanguageModel, ModelMessage, StepResult } from "ai";
+import type {
+  AbortableAsyncGenerator,
+  AbortablePromise,
+} from "@comma-agents/utils";
+import type {
+  CallSettings,
+  tool as aiTool,
+  LanguageModel,
+  ModelMessage,
+  StepResult,
+} from "ai";
 import type { ConversationContext } from "../../context/conversation-context";
-import type { ConversationTurn, ResponseMessage } from "../../context/conversation-context.types";
-import type { PromptTemplate } from "../../prompts/types";
+import type {
+  ConversationTurn,
+  ResponseMessage,
+} from "../../context/conversation-context.types";
+import type { PromptTemplate, TemplateVariables } from "../../prompts/types";
 import type { Sandbox } from "../../sandbox/sandbox.types";
+import type { SkillRegistry } from "../../skills/skills.types";
+
+/**
+ * Model-level generation parameters forwarded to `streamText`.
+ *
+ * Derived from the AI SDK's `CallSettings` to stay in sync with
+ * upstream changes. Provider-specific features (extended thinking,
+ * reasoning effort) should use {@link AgentConfig.providerOptions} instead.
+ *
+ * Excludes runtime-only fields (`abortSignal`, `timeout`, `headers`,
+ * `stopSequences`) that are managed by the agent lifecycle, not user config.
+ */
+export type ModelOptions = Pick<
+  CallSettings,
+  | "temperature"
+  | "topP"
+  | "topK"
+  | "maxOutputTokens"
+  | "maxRetries"
+  | "frequencyPenalty"
+  | "presencePenalty"
+  | "seed"
+>;
 
 /** Configuration for creating an LLM-backed agent via `createAgent()`. */
 export interface AgentConfig {
@@ -48,7 +81,6 @@ export interface AgentConfig {
   /**
    * Tool names the agent can invoke during a call.
    * Resolved internally by `createAgent()` via the tool registry.
-   * Built-in tools: "bash", "read", "write", "edit", "glob", "grep".
    */
   readonly tools?: readonly string[];
   /**
@@ -58,7 +90,14 @@ export interface AgentConfig {
    */
   readonly sandbox?: Sandbox;
   /**
-   * Per-call provider options forwarded to the AI SDK. Used to enable
+   * Skill registry exposed to the `load_skill` tool when included in `tools`.
+   * When omitted, `load_skill` returns `skill_unavailable` for every call.
+   * Typically populated by the strategy loader from
+   * `<configRoot>/comma-agents/skills/` plus `./.comma/skills/`.
+   */
+  readonly skillRegistry?: SkillRegistry;
+  /**
+   * Per-call provider options forwarded to the model provider. Used to enable
    * provider-specific behaviour such as reasoning / extended thinking.
    *
    * @example
@@ -73,6 +112,22 @@ export interface AgentConfig {
    * ```
    */
   readonly providerOptions?: Record<string, Record<string, unknown>>;
+  /**
+   * Model-level generation parameters forwarded to `streamText`.
+   *
+   * Provider-agnostic options like `temperature`, `maxOutputTokens`, `topP`, and
+   * `seed`. Provider-specific features should use `providerOptions` instead.
+   *
+   * @example
+   * ```ts
+   * createAgent({
+   *   name: "creative-writer",
+   *   model: "openai/gpt-4o",
+   *   modelOptions: { temperature: 0.9, maxOutputTokens: 4096 },
+   * });
+   * ```
+   */
+  readonly modelOptions?: ModelOptions;
   /**
    * Custom execute override — replaces the LLM call with arbitrary logic.
    *
@@ -152,6 +207,31 @@ export interface Agent {
   reset(): void;
 
   /**
+   * Update variables used by this agent's prompt template.
+   *
+   * When the agent was configured with a `PromptTemplate` (via
+   * `systemPrompt`), calling this merges new variables into the template's
+   * defaults — matching keys are overwritten, the rest are kept.
+   * If the agent uses a static string prompt, this is a no-op.
+   *
+   * @example
+   * ```ts
+   * const agent = createAgent({
+   *   name: "reviewer",
+   *   model: "openai/gpt-4o",
+   *   systemPrompt: createPromptTemplate({
+   *     template: "You are {{ role }}, reviewing {{ language }} code.",
+   *     variables: { role: "a reviewer" },
+   *   }),
+   * });
+   *
+   * agent.updatePromptVariables({ language: "TypeScript" });
+   * // Next call renders: "You are a reviewer, reviewing TypeScript code."
+   * ```
+   */
+  updatePromptVariables(variables: TemplateVariables): void;
+
+  /**
    * Append a hook callback to this agent's lifecycle.
    * Used internally by `hookIntoAgent` — not part of the public API.
    * @internal
@@ -205,10 +285,42 @@ export interface AgentCallResult {
  * `id` is supplied by the model and lets multiple interleaved reasoning
  * blocks within a single step be reassembled correctly downstream.
  */
+/**
+ * Lifecycle status of a tool invocation. `running` is implicit (no
+ * `tool-result` has been emitted yet for the matching `toolCallId`);
+ * `completed` and `error` arrive on the `tool-result` event.
+ */
+export type ToolCallStatus = "completed" | "error";
+
 export type AgentStreamEvent =
   | { readonly type: "text"; readonly text: string }
-  | { readonly type: "tool-call"; readonly toolName: string; readonly args: string }
-  | { readonly type: "tool-result"; readonly toolName: string; readonly output: string }
+  | {
+      readonly type: "tool-call";
+      /**
+       * Correlation id assigned by the model. Pairs this call with its eventual
+       * `tool-result` event so consumers can render a single row per call
+       * even when calls run concurrently or interleave with text/thinking.
+       */
+      readonly toolCallId: string;
+      readonly toolName: string;
+      readonly args: string;
+    }
+  | {
+      readonly type: "tool-result";
+      /** Correlates with the `tool-call` event that started this invocation. */
+      readonly toolCallId: string;
+      readonly toolName: string;
+      /**
+       * Raw tool output. For `status: "error"` results this is an empty
+       * string by default — the human-readable failure message lives on
+       * `error`.
+       */
+      readonly output: string;
+      /** Outcome of the tool invocation. */
+      readonly status: ToolCallStatus;
+      /** Failure message when `status === "error"`. */
+      readonly error?: string;
+    }
   | { readonly type: "thinking-start"; readonly id: string }
   | { readonly type: "thinking"; readonly id: string; readonly text: string }
   | { readonly type: "thinking-end"; readonly id: string }
@@ -221,7 +333,9 @@ export interface CallOptions {
   readonly system: string | undefined;
   readonly messages: ModelMessage[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
-  readonly tools: Record<string, ReturnType<typeof aiTool<any, any>>> | undefined;
+  readonly tools:
+    | Record<string, ReturnType<typeof aiTool<any, any>>>
+    | undefined;
   readonly abortSignal: AbortSignal | undefined;
   /**
    * Per-call provider options forwarded verbatim to `streamText`. Used to
@@ -230,4 +344,11 @@ export interface CallOptions {
    * or OpenAI reasoning effort (`{ openai: { reasoningEffort: "high" } }`).
    */
   readonly providerOptions?: Record<string, Record<string, unknown>>;
+  /**
+   * Model-level generation parameters forwarded to `streamText`.
+   * Maps directly to the AI SDK's `temperature`, `maxOutputTokens`, `topP`,
+   * `topK`, `maxRetries`, `frequencyPenalty`, `presencePenalty`, and
+   * `seed` options.
+   */
+  readonly modelOptions?: ModelOptions;
 }

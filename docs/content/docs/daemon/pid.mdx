@@ -1,0 +1,77 @@
+---
+title: PID File
+description: Process ID file management for daemon lifecycle tracking.
+---
+
+# PID File
+
+The PID file stores the daemon's process ID at a configurable path. It's used by the CLI to detect running instances, avoid duplicate starts, and perform graceful shutdowns.
+
+## writePid
+
+Writes the current process PID to a file. Creates parent directories if they don't exist.
+
+```ts
+import { writePid } from "@comma-agents/daemon";
+
+writePid("/home/user/.local/share/comma-agents/daemon.pid");
+```
+
+## readPid
+
+Reads a PID from a file. Returns `undefined` if the file doesn't exist or contains non-numeric content.
+
+```ts
+import { readPid } from "@comma-agents/daemon";
+
+const pid = readPid("/home/user/.local/share/comma-agents/daemon.pid");
+// => 12345 | undefined
+```
+
+## isRunning
+
+Checks whether a process with the given PID is currently alive. Uses `process.kill(pid, 0)` — signal 0 checks existence without actually sending a signal.
+
+```ts
+import { isRunning, readPid } from "@comma-agents/daemon";
+
+const pid = readPid(pidFile);
+if (pid !== undefined && isRunning(pid)) {
+  console.log(`Daemon is running (PID: ${pid})`);
+}
+```
+
+EPERM is treated as "running" to avoid false negatives when the caller lacks permission to signal.
+
+## removePid
+
+Removes the PID file. No-op if the file doesn't exist.
+
+```ts
+import { removePid } from "@comma-agents/daemon";
+
+removePid("/home/user/.local/share/comma-agents/daemon.pid");
+```
+
+## Typical Daemon Usage
+
+Startup writes the PID file, shutdown removes it. The CLI uses this to detect running instances:
+
+```ts
+// On startup
+writePid(config.pidFile);
+
+// Graceful shutdown handler
+process.on("SIGTERM", () => {
+  cleanup();
+  removePid(config.pidFile);
+  process.exit(0);
+});
+
+// Prevent duplicate starts
+const existingPid = readPid(config.pidFile);
+if (existingPid !== undefined && isRunning(existingPid)) {
+  console.error("Daemon is already running");
+  process.exit(1);
+}
+```

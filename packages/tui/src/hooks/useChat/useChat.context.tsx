@@ -1,11 +1,18 @@
 import { appendFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createContext, useCallback, useMemo, useRef, useState } from "react";
-
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useDaemon } from "../useDaemon/useDaemon";
+import type { DaemonMessageOf } from "../useDaemon/useDaemon.types";
 import { useDaemonCommand } from "../useDaemon/useDaemonCommand/useDaemonCommand";
 import { useDaemonSubscription } from "../useDaemon/useDaemonSubscription/useDaemonSubscription";
-import type { DaemonMessageOf } from "../useDaemon/useDaemon.types";
 import type {
   ChatMessage,
   ChatSession,
@@ -15,9 +22,11 @@ import type {
   CreateSessionInit,
   MessageSegment,
   PendingPermissionRequest,
+  PersistedSessionMeta,
 } from "./useChat.types";
 
-export const ChatSessionsContext = createContext<ChatSessionsContextType | null>(null);
+export const ChatSessionsContext =
+  createContext<ChatSessionsContextType | null>(null);
 
 /** Diagnostic log file — bypasses console interception so writes always land. */
 const DEBUG_FILE = join(tmpdir(), "comma-agents-chat-debug.log");
@@ -43,12 +52,19 @@ function deriveLabelFromPath(strategyPath: string): string {
 }
 
 /** Construct a fresh session in idle state. */
-function createInitialSession(id: ChatSessionId, init: CreateSessionInit): ChatSession {
+function createInitialSession(
+  id: ChatSessionId,
+  init: CreateSessionInit,
+): ChatSession {
   const now = Date.now();
   return {
     id,
     daemonRunId: null,
-    label: init.label ?? (init.strategyPath ? deriveLabelFromPath(init.strategyPath) : "New session"),
+    label:
+      init.label ??
+      (init.strategyPath
+        ? deriveLabelFromPath(init.strategyPath)
+        : "New session"),
     strategyPath: init.strategyPath ?? null,
     strategyName: null,
     readOnly: false,
@@ -71,17 +87,19 @@ function createInitialSession(id: ChatSessionId, init: CreateSessionInit): ChatS
  * messages to the correct session by `daemonRunId`. Messages without a
  * `runId` (generic `error`, etc.) are routed to the active session.
  *
- * Must be mounted inside a `<DaemonProvider>`.
+ * Must be mounted inside a `<DaemonContextProvider>`.
  */
 export function ChatSessionsContextProvider(
   props: ChatSessionsContextProviderProps,
 ): React.ReactElement {
   const { children } = props;
 
-  const [sessions, setSessions] = useState<ReadonlyMap<ChatSessionId, ChatSession>>(
-    () => new Map(),
+  const [sessions, setSessions] = useState<
+    ReadonlyMap<ChatSessionId, ChatSession>
+  >(() => new Map());
+  const [activeSessionId, setActiveSessionId] = useState<ChatSessionId | null>(
+    null,
   );
-  const [activeSessionId, setActiveSessionId] = useState<ChatSessionId | null>(null);
 
   /** Per-session message id counter, kept in a ref to avoid re-renders. */
   const messageCountersRef = useRef<Map<ChatSessionId, number>>(new Map());
@@ -94,6 +112,55 @@ export function ChatSessionsContextProvider(
   const sendUserInputCommand = useDaemonCommand("user_input");
   const stopStrategyCommand = useDaemonCommand("stop_strategy");
   const permissionDecisionCommand = useDaemonCommand("permission_decision");
+  const listSessionsCommand = useDaemonCommand("list_sessions");
+  const loadSessionCommand = useDaemonCommand("load_session");
+
+  const { status: daemonConnectionStatus } = useDaemon();
+
+  const [persistedSessions, setPersistedSessions] = useState<
+    readonly PersistedSessionMeta[]
+  >([]);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
+
+  useDaemonSubscription("session_list", (message) => {
+    const mapped: PersistedSessionMeta[] = message.sessions.map((session) => ({
+      daemonSessionId: session.id,
+      title: session.title,
+      cwd: session.cwd,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    }));
+    setPersistedSessions(mapped);
+  });
+
+  useDaemonSubscription("session_loaded", (message) => {
+    setIsLoadingSession(false);
+    loadSession(message);
+  });
+
+  const fetchPersistedSessions = useCallback(
+    (cwd?: string): void => {
+      listSessionsCommand(cwd !== undefined ? { cwd } : {});
+    },
+    [listSessionsCommand],
+  );
+
+  const loadPersistedSession = useCallback(
+    (daemonSessionId: string): void => {
+      setIsLoadingSession(true);
+      const sent = loadSessionCommand({ sessionId: daemonSessionId });
+      if (!sent) {
+        setIsLoadingSession(false);
+      }
+    },
+    [loadSessionCommand],
+  );
+
+  useEffect(() => {
+    if (daemonConnectionStatus === "connected") {
+      fetchPersistedSessions(process.cwd());
+    }
+  }, [daemonConnectionStatus, fetchPersistedSessions]);
 
   // -- Mutation helpers --
 
@@ -124,7 +191,10 @@ export function ChatSessionsContextProvider(
    * Reads the latest state via a functional setter trick to avoid stale closures.
    */
   const findSessionIdByRunId = useCallback(
-    (sessionsMap: ReadonlyMap<ChatSessionId, ChatSession>, runId: string): ChatSessionId | null => {
+    (
+      sessionsMap: ReadonlyMap<ChatSessionId, ChatSession>,
+      runId: string,
+    ): ChatSessionId | null => {
       for (const session of sessionsMap.values()) {
         if (session.daemonRunId === runId) return session.id;
       }
@@ -143,7 +213,8 @@ export function ChatSessionsContextProvider(
         if (
           session.daemonRunId === null &&
           session.status === "running" &&
-          (pendingSession === null || session.createdAt > pendingSession.createdAt)
+          (pendingSession === null ||
+            session.createdAt > pendingSession.createdAt)
         ) {
           pendingSession = session;
         }
@@ -241,7 +312,8 @@ export function ChatSessionsContextProvider(
       // an agent's turn into a single message with ordered segments, so
       // the UI can render tool calls inline with the prose.
       const lastAgentIndex = session.messages.findLastIndex(
-        (existing) => existing.sender === message.agentName && existing.streaming,
+        (existing) =>
+          existing.sender === message.agentName && existing.streaming,
       );
 
       debugLog("[useChat] agent_streaming event", {
@@ -291,7 +363,9 @@ export function ChatSessionsContextProvider(
       };
 
       if (message.event.type === "text") {
-        const { messages: nextMessages, index } = ensureAgentMessage(session.messages);
+        const { messages: nextMessages, index } = ensureAgentMessage(
+          session.messages,
+        );
         const target = nextMessages[index]!;
         const segments = target.segments ?? [];
         const lastSegment = segments[segments.length - 1];
@@ -317,61 +391,98 @@ export function ChatSessionsContextProvider(
           segments: nextSegments,
         };
         const next = new Map(previousSessions);
-        next.set(sessionId, { ...session, messages: nextMessages, updatedAt: Date.now() });
+        next.set(sessionId, {
+          ...session,
+          messages: nextMessages,
+          updatedAt: Date.now(),
+        });
         return next;
       }
 
       if (message.event.type === "tool-call") {
-        const { messages: nextMessages, index } = ensureAgentMessage(session.messages);
+        const { messages: nextMessages, index } = ensureAgentMessage(
+          session.messages,
+        );
         nextMessages[index] = appendSegment(nextMessages[index]!, {
           type: "tool-call",
+          toolCallId: message.event.toolCallId,
           toolName: message.event.toolName,
           args: message.event.args,
         });
         const next = new Map(previousSessions);
-        next.set(sessionId, { ...session, messages: nextMessages, updatedAt: Date.now() });
+        next.set(sessionId, {
+          ...session,
+          messages: nextMessages,
+          updatedAt: Date.now(),
+        });
         return next;
       }
 
       if (message.event.type === "tool-result") {
-        const { messages: nextMessages, index } = ensureAgentMessage(session.messages);
+        const { messages: nextMessages, index } = ensureAgentMessage(
+          session.messages,
+        );
         nextMessages[index] = appendSegment(nextMessages[index]!, {
           type: "tool-result",
+          toolCallId: message.event.toolCallId,
           toolName: message.event.toolName,
           output: message.event.output,
+          status: message.event.status,
+          ...(message.event.error !== undefined
+            ? { error: message.event.error }
+            : {}),
         });
         const next = new Map(previousSessions);
-        next.set(sessionId, { ...session, messages: nextMessages, updatedAt: Date.now() });
+        next.set(sessionId, {
+          ...session,
+          messages: nextMessages,
+          updatedAt: Date.now(),
+        });
         return next;
       }
 
       if (message.event.type === "thinking-start") {
-        const { messages: nextMessages, index } = ensureAgentMessage(session.messages);
+        const { messages: nextMessages, index } = ensureAgentMessage(
+          session.messages,
+        );
         const target = nextMessages[index]!;
         const segments = target.segments ?? [];
         nextMessages[index] = {
           ...target,
           segments: [
             ...segments,
-            { type: "thinking", id: message.event.id, text: "", streaming: true },
+            {
+              type: "thinking",
+              id: message.event.id,
+              text: "",
+              streaming: true,
+            },
           ],
         };
         const next = new Map(previousSessions);
-        next.set(sessionId, { ...session, messages: nextMessages, updatedAt: Date.now() });
+        next.set(sessionId, {
+          ...session,
+          messages: nextMessages,
+          updatedAt: Date.now(),
+        });
         return next;
       }
 
       if (message.event.type === "thinking") {
         const eventId = message.event.id;
         const eventText = message.event.text;
-        const { messages: nextMessages, index } = ensureAgentMessage(session.messages);
+        const { messages: nextMessages, index } = ensureAgentMessage(
+          session.messages,
+        );
         const target = nextMessages[index]!;
         const segments = target.segments ?? [];
         // Find the open thinking segment with this id (most recent match wins
         // if the model reuses ids — that should not happen but is harmless).
         const thinkingIndex = segments.findLastIndex(
           (segment) =>
-            segment.type === "thinking" && segment.id === eventId && segment.streaming,
+            segment.type === "thinking" &&
+            segment.id === eventId &&
+            segment.streaming,
         );
         let nextSegments: readonly MessageSegment[];
         if (thinkingIndex >= 0) {
@@ -405,18 +516,26 @@ export function ChatSessionsContextProvider(
         }
         nextMessages[index] = { ...target, segments: nextSegments };
         const next = new Map(previousSessions);
-        next.set(sessionId, { ...session, messages: nextMessages, updatedAt: Date.now() });
+        next.set(sessionId, {
+          ...session,
+          messages: nextMessages,
+          updatedAt: Date.now(),
+        });
         return next;
       }
 
       if (message.event.type === "thinking-end") {
         const eventId = message.event.id;
-        const { messages: nextMessages, index } = ensureAgentMessage(session.messages);
+        const { messages: nextMessages, index } = ensureAgentMessage(
+          session.messages,
+        );
         const target = nextMessages[index]!;
         const segments = target.segments ?? [];
         const thinkingIndex = segments.findLastIndex(
           (segment) =>
-            segment.type === "thinking" && segment.id === eventId && segment.streaming,
+            segment.type === "thinking" &&
+            segment.id === eventId &&
+            segment.streaming,
         );
         if (thinkingIndex < 0) {
           return previousSessions;
@@ -435,7 +554,11 @@ export function ChatSessionsContextProvider(
           ],
         };
         const next = new Map(previousSessions);
-        next.set(sessionId, { ...session, messages: nextMessages, updatedAt: Date.now() });
+        next.set(sessionId, {
+          ...session,
+          messages: nextMessages,
+          updatedAt: Date.now(),
+        });
         return next;
       }
 
@@ -447,15 +570,18 @@ export function ChatSessionsContextProvider(
           lastAgentIndex,
           totalMessages: session.messages.length,
           lastAgentTextLength:
-            lastAgentIndex >= 0 ? session.messages[lastAgentIndex]!.text.length : null,
+            lastAgentIndex >= 0
+              ? session.messages[lastAgentIndex]!.text.length
+              : null,
         });
         if (lastAgentIndex < 0) return previousSessions;
         const mutableMessages = [...session.messages];
         const target = mutableMessages[lastAgentIndex]!;
-        const finalSegments = (target.segments ?? []).map<MessageSegment>((segment) =>
-          segment.type === "text" || segment.type === "thinking"
-            ? { ...segment, streaming: false }
-            : segment,
+        const finalSegments = (target.segments ?? []).map<MessageSegment>(
+          (segment) =>
+            segment.type === "text" || segment.type === "thinking"
+              ? { ...segment, streaming: false }
+              : segment,
         );
         mutableMessages[lastAgentIndex] = {
           ...target,
@@ -463,7 +589,11 @@ export function ChatSessionsContextProvider(
           segments: finalSegments,
         };
         const next = new Map(previousSessions);
-        next.set(sessionId, { ...session, messages: mutableMessages, updatedAt: Date.now() });
+        next.set(sessionId, {
+          ...session,
+          messages: mutableMessages,
+          updatedAt: Date.now(),
+        });
         return next;
       }
 
@@ -491,9 +621,11 @@ export function ChatSessionsContextProvider(
       // streamed message is typically still `streaming: true` at this point —
       // we must NOT gate on `!streaming` here.
       const lastAgentIndex = session.messages.findLastIndex(
-        (existing) => existing.role === "agent" && existing.sender === message.agentName,
+        (existing) =>
+          existing.role === "agent" && existing.sender === message.agentName,
       );
-      const lastAgentMessage = lastAgentIndex >= 0 ? session.messages[lastAgentIndex]! : null;
+      const lastAgentMessage =
+        lastAgentIndex >= 0 ? session.messages[lastAgentIndex]! : null;
       debugLog("[useChat] agent_output received", {
         sessionId,
         runId: message.runId,
@@ -509,11 +641,17 @@ export function ChatSessionsContextProvider(
         lastAgentSender: lastAgentMessage?.sender ?? null,
       });
       if (lastAgentMessage && lastAgentMessage.text.length > 0) {
-        debugLog("[useChat] agent_output skipped — duplicate of streamed message", {});
+        debugLog(
+          "[useChat] agent_output skipped — duplicate of streamed message",
+          {},
+        );
         return previousSessions;
       }
 
-      debugLog("[useChat] agent_output appending new message (no streamed match)", {});
+      debugLog(
+        "[useChat] agent_output appending new message (no streamed match)",
+        {},
+      );
       const counter = (messageCountersRef.current.get(sessionId) ?? 0) + 1;
       messageCountersRef.current.set(sessionId, counter);
       const agentMessage: ChatMessage = {
@@ -613,7 +751,10 @@ export function ChatSessionsContextProvider(
       next.set(sessionId, {
         ...session,
         status: "waiting_permission",
-        pendingPermissionRequests: [...session.pendingPermissionRequests, newRequest],
+        pendingPermissionRequests: [
+          ...session.pendingPermissionRequests,
+          newRequest,
+        ],
         updatedAt: Date.now(),
       });
       return next;
@@ -662,7 +803,8 @@ export function ChatSessionsContextProvider(
     setSessions((previousSessions) => {
       const session = previousSessions.get(targetSessionId);
       if (!session) return previousSessions;
-      const counter = (messageCountersRef.current.get(targetSessionId) ?? 0) + 1;
+      const counter =
+        (messageCountersRef.current.get(targetSessionId) ?? 0) + 1;
       messageCountersRef.current.set(targetSessionId, counter);
       const systemMessage: ChatMessage = {
         id: `${targetSessionId}-msg-${counter}`,
@@ -773,7 +915,7 @@ export function ChatSessionsContextProvider(
       };
 
       for (const turn of turns) {
-        if (turn.userMessage.length > 0) {
+        if (turn.userMessage.length > 0 && turn.userMessageSource !== "agent") {
           projected.push({
             id: nextId(),
             role: "user",
@@ -842,7 +984,8 @@ export function ChatSessionsContextProvider(
       setSessions((previousSessions) => {
         const session = previousSessions.get(sessionId);
         if (!session) return previousSessions;
-        if (!session.daemonRunId || !session.pendingInputAgent) return previousSessions;
+        if (!session.daemonRunId || !session.pendingInputAgent)
+          return previousSessions;
 
         const counter = (messageCountersRef.current.get(sessionId) ?? 0) + 1;
         messageCountersRef.current.set(sessionId, counter);
@@ -882,7 +1025,11 @@ export function ChatSessionsContextProvider(
     ): void => {
       setSessions((previousSessions) => {
         const session = previousSessions.get(sessionId);
-        if (!session || session.pendingPermissionRequests.length === 0 || !session.daemonRunId)
+        if (
+          !session ||
+          session.pendingPermissionRequests.length === 0 ||
+          !session.daemonRunId
+        )
           return previousSessions;
 
         const head = session.pendingPermissionRequests[0]!;
@@ -942,21 +1089,18 @@ export function ChatSessionsContextProvider(
     [updateSession],
   );
 
-  const removeSession = useCallback(
-    (sessionId: ChatSessionId): void => {
-      setSessions((previousSessions) => {
-        if (!previousSessions.has(sessionId)) return previousSessions;
-        const next = new Map(previousSessions);
-        next.delete(sessionId);
-        return next;
-      });
-      messageCountersRef.current.delete(sessionId);
-      setActiveSessionId((currentActive) =>
-        currentActive === sessionId ? null : currentActive,
-      );
-    },
-    [],
-  );
+  const removeSession = useCallback((sessionId: ChatSessionId): void => {
+    setSessions((previousSessions) => {
+      if (!previousSessions.has(sessionId)) return previousSessions;
+      const next = new Map(previousSessions);
+      next.delete(sessionId);
+      return next;
+    });
+    messageCountersRef.current.delete(sessionId);
+    setActiveSessionId((currentActive) =>
+      currentActive === sessionId ? null : currentActive,
+    );
+  }, []);
 
   const contextValue = useMemo<ChatSessionsContextType>(
     () => ({
@@ -971,6 +1115,10 @@ export function ChatSessionsContextProvider(
       stopSession,
       resetSession,
       removeSession,
+      persistedSessions,
+      fetchPersistedSessions,
+      loadPersistedSession,
+      isLoadingSession,
     }),
     [
       sessions,
@@ -983,10 +1131,16 @@ export function ChatSessionsContextProvider(
       stopSession,
       resetSession,
       removeSession,
+      persistedSessions,
+      fetchPersistedSessions,
+      loadPersistedSession,
+      isLoadingSession,
     ],
   );
 
   return (
-    <ChatSessionsContext.Provider value={contextValue}>{children}</ChatSessionsContext.Provider>
+    <ChatSessionsContext.Provider value={contextValue}>
+      {children}
+    </ChatSessionsContext.Provider>
   );
 }

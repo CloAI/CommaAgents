@@ -1,0 +1,63 @@
+---
+title: move_file
+description: Move or rename a workspace file, with strict no-overwrite semantics.
+---
+
+# move_file
+
+Move or rename a file within the workspace. The destination's parent directory must exist — `move_file` never auto-creates parents — and the destination must not already exist as a directory. By default the call refuses to overwrite an existing file; pass `overwrite: true` to allow it.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "refactorer",
+  model: "openai/gpt-4o",
+  tools: ["move_file"],
+});
+```
+
+## MoveFileToolConfig
+
+Optional configuration for the factory.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/move-file/move-file.types.ts" name="MoveFileToolConfig" />
+
+## MoveFileData
+
+The structured payload returned on success.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/move-file/move-file.types.ts" name="MoveFileData" />
+
+## Semantics
+
+- `fromPath` and `toPath` must be different. Identical paths return `command_failed`.
+- The destination's parent directory must exist. Missing parents return `not_found`.
+- The destination must not be a directory. Directory destinations always return `command_failed`, even with `overwrite: true`.
+- If the destination is a regular file, the call returns `already_exists` unless `overwrite: true` is set.
+
+```ts
+await tool.move_file({
+  fromPath: "src/old-name.ts",
+  toPath: "src/new-name.ts",
+});
+```
+
+## Cross-device fallback
+
+`move_file` uses an atomic rename when source and destination live on the same filesystem. When the filesystems differ (an `EXDEV` rename error), it transparently falls back to copy-then-unlink while preserving the original sha256, returning the same structured payload either way.
+
+## Errors
+
+| Kind | When |
+|---|---|
+| `not_found` | The source path does not exist, or the destination's parent directory is missing. |
+| `already_exists` | The destination already exists as a file and `overwrite: true` was not passed. |
+| `outside_workspace` | Either path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `permission_denied` | Either path is write-blocked by `forbiddenGlobs` or sandbox policy. |
+| `command_failed` | The destination is a directory, or `fromPath` and `toPath` are equal. |
+
+## Related
+
+- [delete_file](/docs/core/tools/built-in/delete_file) — when you want to remove the file instead of relocate it.
+- [apply_patch](/docs/core/tools/built-in/apply_patch) — for multi-file moves combined with edits.

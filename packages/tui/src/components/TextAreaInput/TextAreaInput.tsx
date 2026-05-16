@@ -1,9 +1,9 @@
+import chalk from "chalk";
 import {
   Box,
   type DOMElement,
   Text,
   useBoxMetrics,
-  useCursor,
   useFocus,
   useInput,
 } from "ink";
@@ -11,10 +11,11 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import stringWidth from "string-width";
 import wrap from "word-wrap";
-import { isMouseEscape } from "../../hooks/useMouse";
+import { isMouseEscape } from "../../utils/mouseEscape";
 import { Scrollbar } from "../Scrollbar";
 import { useTextAreaInputTheme } from "./TextAreaInput.theme";
 import {
+  type CursorCell,
   type CursorIntent,
   computeNextCursorState,
 } from "./TextAreaInput.utils";
@@ -40,8 +41,9 @@ export interface TextAreaInputProps {
 }
 
 /**
- * Multi-line text area input with a real terminal cursor (via `useCursor`)
- * and a scrollbar. Controlled — parent owns `value`/`onChange`.
+ * Multi-line text area input with an inline rendered cursor (a gray
+ * background on the character at `cursorIndex`). Controlled — parent owns
+ * `value`/`onChange`.
  *
  * The cursor's source of truth is `cursorIndex` (an offset into the
  * normalized raw value). The wrapped display cell + scroll offset are
@@ -65,7 +67,6 @@ export function TextAreaInput({
   const boxRef = useRef<DOMElement>(null) as React.RefObject<DOMElement>;
   const { width: measuredWidth } = useBoxMetrics(boxRef);
   const { isFocused } = useFocus({ id });
-  const { setCursorPosition } = useCursor();
 
   /** Cursor offset into the normalized raw value — single source of truth. */
   const [cursorIndex, setCursorIndex] = useState(0);
@@ -107,30 +108,6 @@ export function TextAreaInput({
       setRowDisplayOffset(derivedState.rowDisplayOffset);
     }
   }, [derivedState.rowDisplayOffset, rowDisplayOffset]);
-
-  // Drive the real terminal cursor when focused, hide it otherwise.
-  // `useBoxMetrics` returns coords relative to the parent, but `useCursor`
-  // expects coords relative to the Ink output origin. Walk up the yoga tree
-  // and accumulate every ancestor's offset so nested layouts (Box-in-Box,
-  // bordered parents, sibling rows above us, etc.) land the cursor in the
-  // right cell.
-  useEffect(() => {
-    if (!isFocused) {
-      setCursorPosition(undefined);
-      return;
-    }
-    const absoluteOrigin = computeAbsoluteOrigin(boxRef.current);
-    setCursorPosition({
-      x: absoluteOrigin.x + derivedState.cell.x,
-      y: absoluteOrigin.y + (derivedState.cell.y - derivedState.rowDisplayOffset) + 1,
-    });
-  }, [
-    isFocused, 
-    setCursorPosition, 
-    derivedState.cell.x, 
-    derivedState.cell.y, 
-    derivedState.rowDisplayOffset
-  ]);
 
   function applyMove(intent: CursorIntent): void {
     const nextState = computeNextCursorState({
@@ -201,9 +178,11 @@ export function TextAreaInput({
       height={height}
       rows={textLines}
       rowDisplayOffset={derivedState.rowDisplayOffset}
+      cursorCell={derivedState.cell}
+      showCursor={isFocused}
       textAreaColumns={textAreaColumns}
       showScrollbar={textLines.length > height}
-      showPlaceholder={value.length === 0 && !isFocused}
+      showPlaceholder={value.length === 0}
       placeholder={placeholder}
     />
   );
@@ -220,6 +199,10 @@ export interface TextAreaInputRenderProps {
   readonly rows: readonly string[];
   /** Index of the first visible row. */
   readonly rowDisplayOffset: number;
+  /** Cell of the cursor on the wrapped grid (absolute, not viewport-relative). */
+  readonly cursorCell: CursorCell;
+  /** Whether to render the cursor highlight. */
+  readonly showCursor: boolean;
   /** Content width in columns (excludes scrollbar column when shown). */
   readonly textAreaColumns: number;
   /** Whether to render the scrollbar column. */
@@ -237,6 +220,8 @@ export function TextAreaInputRender({
   height,
   rows,
   rowDisplayOffset,
+  cursorCell,
+  showCursor,
   textAreaColumns,
   showScrollbar,
   showPlaceholder,
@@ -246,12 +231,7 @@ export function TextAreaInputRender({
   const visibleRows = rows.slice(rowDisplayOffset, rowDisplayOffset + height);
 
   return (
-    <Box
-      ref={boxRef}
-      width={width}
-      height={height}
-      {...theme.textAreaInput}
-    >
+    <Box ref={boxRef} width={width} height={height} {...theme.textAreaInput}>
       <Box {...theme.textAreaInputContent} width={textAreaColumns}>
         {showPlaceholder ? (
           <Text {...theme.textAreaPlaceholder}>
@@ -260,9 +240,14 @@ export function TextAreaInputRender({
         ) : (
           visibleRows.map((row, visibleRowIndex) => {
             const absoluteRowIndex = rowDisplayOffset + visibleRowIndex;
+            const isCursorRow = showCursor && cursorCell.y === absoluteRowIndex;
             return (
               <Text key={`row-${absoluteRowIndex}`}>
-                {row.length === 0 ? " " : row}
+                {isCursorRow
+                  ? renderRowWithCursor(row, cursorCell.x)
+                  : row.length === 0
+                    ? " "
+                    : row}
               </Text>
             );
           })
@@ -281,28 +266,16 @@ export function TextAreaInputRender({
 }
 
 /**
- * Walk up the yoga tree from `node` and sum each ancestor's computed
- * `(left, top)` until we reach the Ink root. Returns coords relative to
- * the Ink output origin — what `useCursor().setCursorPosition` expects.
+ * Render a row with a gray-background "cursor" cell at column `cursorX`.
  *
- * Returns `{ x: 0, y: 0 }` when the node is detached or hasn't been
- * measured yet; the caller will reposition on the next layout commit.
+ * When the cursor sits past the last character of the row (or the row is
+ * empty), pad with a trailing space so the highlight is still visible.
+ * Uses `chalk.bgGray` so the highlight survives ink's text composition.
  */
-function computeAbsoluteOrigin(
-  node: DOMElement | null,
-): { readonly x: number; readonly y: number } {
-  let absoluteX = 0;
-  let absoluteY = 0;
-  let current: DOMElement | undefined = node ?? undefined;
-
-  while (current && current.nodeName !== "ink-root") {
-    const layout = current.yogaNode?.getComputedLayout();
-    if (layout) {
-      absoluteX += layout.left;
-      absoluteY += layout.top;
-    }
-    current = current.parentNode;
-  }
-
-  return { x: absoluteX, y: absoluteY };
+function renderRowWithCursor(row: string, cursorX: number): string {
+  const padded = row.length <= cursorX ? row.padEnd(cursorX + 1, " ") : row;
+  const before = padded.slice(0, cursorX);
+  const cursorChar = padded.slice(cursorX, cursorX + 1) || " ";
+  const after = padded.slice(cursorX + 1);
+  return before + chalk.bgGray(cursorChar) + after;
 }

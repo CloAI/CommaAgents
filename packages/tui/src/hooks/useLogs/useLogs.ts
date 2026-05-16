@@ -1,7 +1,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 import { logStore } from "./logStore";
-import type { LogEntry, LogsState, LogStoreListener } from "./useLogs.types";
+import type { LogEntry, LogStoreListener, LogsState } from "./useLogs.types";
 
 // Stable references for useSyncExternalStore — passing methods directly off
 // `logStore` would create new bound functions on every render only if we used

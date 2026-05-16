@@ -1,8 +1,11 @@
 import { useContext, useEffect, useRef } from "react";
 import { MouseContext } from "../../components/MouseProvider/MouseContext";
-import { isInsideRef } from "../useMouse/useMouse.utils";
 import type { MouseEvent } from "../useMouse/useMouse.types";
-import type { MouseScrollEvent, UseMouseWheelScrollOptions } from "./useMouseWheelScroll.types";
+import { isInsideRef } from "../useMouse/useMouse.utils";
+import type {
+  MouseScrollEvent,
+  UseMouseWheelScrollOptions,
+} from "./useMouseWheelScroll.types";
 
 /**
  * Subscribe to mouse-wheel scroll events via the global {@link MouseProvider}
@@ -30,19 +33,27 @@ import type { MouseScrollEvent, UseMouseWheelScrollOptions } from "./useMouseWhe
  * return <Box ref={ref}>...</Box>;
  * ```
  */
-export function useMouseWheelScroll({ onScroll, ref }: UseMouseWheelScrollOptions): void {
-  const { subscribe } = useContext(MouseContext);
+export function useMouseWheelScroll({
+  onScroll,
+  ref,
+}: UseMouseWheelScrollOptions): void {
+  const contextValue = useContext(MouseContext);
+  const subscribe = contextValue?.subscribe;
 
   // Stable ref so we don't re-subscribe when the callback identity changes.
   const onScrollRef = useRef(onScroll);
-  useEffect(() => { onScrollRef.current = onScroll; }, [onScroll]);
+  useEffect(() => {
+    onScrollRef.current = onScroll;
+  }, [onScroll]);
 
   useEffect(() => {
+    if (!subscribe) return;
     return subscribe((event: MouseEvent) => {
       if (event.kind !== "wheel-up" && event.kind !== "wheel-down") return;
 
       // If a ref was provided, gate on whether the tick lands inside the box.
-      if (ref !== undefined && !isInsideRef(ref, event.column, event.row)) return;
+      if (ref !== undefined && !isInsideRef(ref, event.column, event.row))
+        return;
 
       const scrollEvent: MouseScrollEvent = {
         direction: event.kind === "wheel-up" ? "up" : "down",

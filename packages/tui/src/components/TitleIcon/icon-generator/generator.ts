@@ -338,10 +338,14 @@ function generate(): void {
     modelViews.push(mv);
 
     const frameBounds = computeViewBounds(vertices, mv);
-    if (frameBounds.minX < globalBounds.minX) globalBounds.minX = frameBounds.minX;
-    if (frameBounds.maxX > globalBounds.maxX) globalBounds.maxX = frameBounds.maxX;
-    if (frameBounds.minY < globalBounds.minY) globalBounds.minY = frameBounds.minY;
-    if (frameBounds.maxY > globalBounds.maxY) globalBounds.maxY = frameBounds.maxY;
+    if (frameBounds.minX < globalBounds.minX)
+      globalBounds.minX = frameBounds.minX;
+    if (frameBounds.maxX > globalBounds.maxX)
+      globalBounds.maxX = frameBounds.maxX;
+    if (frameBounds.minY < globalBounds.minY)
+      globalBounds.minY = frameBounds.minY;
+    if (frameBounds.maxY > globalBounds.maxY)
+      globalBounds.maxY = frameBounds.maxY;
   }
 
   // -----------------------------------------------------------------------
@@ -371,7 +375,13 @@ function generate(): void {
 
   for (let i = 0; i < TOTAL_FRAMES; i++) {
     const mv = modelViews[i]!;
-    const frameLines = renderFrame(vertices, facesIndices, facesNormals, mv, viewport);
+    const frameLines = renderFrame(
+      vertices,
+      facesIndices,
+      facesNormals,
+      mv,
+      viewport,
+    );
     frames.push(frameLines);
   }
 
@@ -387,7 +397,9 @@ function generate(): void {
 
   writeFileSync(outputPath, JSON.stringify(output, null, 2), "utf-8");
 
-  console.log(`Generated ${TOTAL_FRAMES} frames (${WIDTH}×${HEIGHT}) at ${FPS}fps → ${outputPath}`);
+  console.log(
+    `Generated ${TOTAL_FRAMES} frames (${WIDTH}×${HEIGHT}) at ${FPS}fps → ${outputPath}`,
+  );
 }
 
 generate();

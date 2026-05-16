@@ -11,7 +11,8 @@ import { createUserAgent } from "./user-agent";
 function createMockCollector(responses: string[]): InputCollector {
   let callIndex = 0;
   return async (_request: InputRequest): Promise<string> => {
-    const response = responses[callIndex] ?? responses[responses.length - 1] ?? "";
+    const response =
+      responses[callIndex] ?? responses[responses.length - 1] ?? "";
     callIndex++;
     return response;
   };
@@ -147,7 +148,9 @@ describe("createUserAgent", () => {
       // steps is empty — no LLM round-trips occurred
       expect((result as any).steps).toEqual([]);
       // responseMessages contains the synthetic assistant message
-      expect((result as any).responseMessages).toEqual([{ role: "assistant", content: "msg" }]);
+      expect((result as any).responseMessages).toEqual([
+        { role: "assistant", content: "msg" },
+      ]);
     });
 
     it("should return zero token usage", async () => {
@@ -212,7 +215,10 @@ describe("createUserAgent", () => {
       });
 
       hookIntoAgent(agent, {
-        alterCallMessage: [(message) => `A:${message}`, (message) => `B:${message}`],
+        alterCallMessage: [
+          (message) => `A:${message}`,
+          (message) => `B:${message}`,
+        ],
       });
 
       const result = await agent.call("start");

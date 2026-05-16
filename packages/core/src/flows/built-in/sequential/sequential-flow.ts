@@ -32,12 +32,17 @@ import type { FlowConfig } from "../../flow/flow.types";
  * ```
  */
 export function createSequentialFlow(config: FlowConfig): Agent {
-  return buildFlowAgent(config, "sequential", {}, async (steps, message, flowContext) => {
-    let current = message;
-    for (const step of steps) {
-      const result = await flowContext.runStep(step, current);
-      current = result.text;
-    }
-    return current;
-  });
+  return buildFlowAgent(
+    config,
+    "sequential",
+    {},
+    async (steps, message, flowContext) => {
+      let current = message;
+      for (const step of steps) {
+        const result = await flowContext.runStep(step, current);
+        current = result.text;
+      }
+      return current;
+    },
+  );
 }

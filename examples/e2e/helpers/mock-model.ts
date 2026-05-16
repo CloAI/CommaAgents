@@ -104,7 +104,9 @@ function makeFinishReason(reason: "stop" | "tool-calls") {
  * Each call to doGenerate/doStream consumes the next round from the config.
  * If the rounds are exhausted, the last round is repeated.
  */
-export function createToolCallingMockModel(config: MockModelConfig): LanguageModel {
+export function createToolCallingMockModel(
+  config: MockModelConfig,
+): LanguageModel {
   const { rounds, modelId = "mock-tool-model", tokensPerRound } = config;
   const inputTokens = tokensPerRound?.input ?? 10;
   const outputTokens = tokensPerRound?.output ?? 20;
@@ -172,7 +174,11 @@ export function createToolCallingMockModel(config: MockModelConfig): LanguageMod
               if (round.text) {
                 const textId = "text-0";
                 controller.enqueue({ type: "text-start" as const, id: textId });
-                controller.enqueue({ type: "text-delta" as const, delta: round.text, id: textId });
+                controller.enqueue({
+                  type: "text-delta" as const,
+                  delta: round.text,
+                  id: textId,
+                });
                 controller.enqueue({ type: "text-end" as const, id: textId });
               }
               // Emit tool calls
@@ -268,7 +274,8 @@ export function createSpyMockModel(responses: string[]): {
     defaultObjectGenerationMode: undefined,
 
     doGenerate: async (options: Record<string, unknown>) => {
-      const text = responses[callIndex] ?? responses[responses.length - 1] ?? "";
+      const text =
+        responses[callIndex] ?? responses[responses.length - 1] ?? "";
       callIndex++;
       const prompt = options.prompt as readonly any[];
       calls.push({
@@ -285,7 +292,8 @@ export function createSpyMockModel(responses: string[]): {
     },
 
     doStream: async (options: Record<string, unknown>) => {
-      const text = responses[callIndex] ?? responses[responses.length - 1] ?? "";
+      const text =
+        responses[callIndex] ?? responses[responses.length - 1] ?? "";
       callIndex++;
       const prompt = options.prompt as readonly any[];
       calls.push({
@@ -298,7 +306,11 @@ export function createSpyMockModel(responses: string[]): {
           start(controller) {
             const textId = "text-0";
             controller.enqueue({ type: "text-start" as const, id: textId });
-            controller.enqueue({ type: "text-delta" as const, delta: text, id: textId });
+            controller.enqueue({
+              type: "text-delta" as const,
+              delta: text,
+              id: textId,
+            });
             controller.enqueue({ type: "text-end" as const, id: textId });
             controller.enqueue({
               type: "finish" as const,

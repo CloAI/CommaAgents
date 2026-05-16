@@ -33,14 +33,13 @@ async function main(): Promise<void> {
   const parsed = JSON.parse(body) as Record<string, unknown>;
   const providerCount = Object.keys(parsed).length;
   const modelCount = Object.values(parsed).reduce<number>((total, provider) => {
-    const models = (provider as { models?: Record<string, unknown> }).models ?? {};
+    const models =
+      (provider as { models?: Record<string, unknown> }).models ?? {};
     return total + Object.keys(models).length;
   }, 0);
 
   writeFileSync(OUTPUT_PATH, body, "utf8");
-  console.log(
-    `Wrote ${body.length.toLocaleString()} bytes to ${OUTPUT_PATH}`,
-  );
+  console.log(`Wrote ${body.length.toLocaleString()} bytes to ${OUTPUT_PATH}`);
   console.log(`  providers: ${providerCount}`);
   console.log(`  models:    ${modelCount}`);
 }

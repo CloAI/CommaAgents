@@ -6,7 +6,10 @@
 export { createAbortableGenerator, createAbortablePromise } from "./abortable";
 
 // Abortable types
-export type { AbortableAsyncGenerator, AbortablePromise } from "./abortable.types";
+export type {
+  AbortableAsyncGenerator,
+  AbortablePromise,
+} from "./abortable.types";
 
 // Async
 export { sleep } from "./async";
@@ -17,4 +20,10 @@ export { isLinux, isSystemd } from "./platform";
 // Process
 export { isRunning, readPid, removePid, writePid } from "./process";
 // String
-export { breakLines, capitalize, collapseNewlines, countOccurrences, truncateText } from "./string";
+export {
+  breakLines,
+  capitalize,
+  collapseNewlines,
+  countOccurrences,
+  truncateText,
+} from "./string";

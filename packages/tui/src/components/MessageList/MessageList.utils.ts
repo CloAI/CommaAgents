@@ -1,7 +1,25 @@
 import wrap from "word-wrap";
 
-import type { ChatMessage, MessageSegment } from "../../hooks/useChat/useChat.types";
+import type {
+  ChatMessage,
+  MessageSegment,
+} from "../../hooks/useChat/useChat.types";
+import { TOOL_SPINNER_FRAMES } from "../../hooks/useToolSpinner";
 import { truncatePreview } from "./AgentMessage/AgentMessage";
+import type { MdBlock, MdListItem } from "./MarkdownView";
+import {
+  inlineSpansToPlainText,
+  LIST_INDENT_PER_LEVEL,
+  renderTableToText,
+  tokenizeMarkdown,
+  truncateThinking,
+  UNORDERED_LIST_BULLET,
+} from "./MarkdownView";
+import {
+  formatArgsPreview,
+  formatResultSummary,
+  staticGlyphForStatus,
+} from "./ToolCallView/index";
 
 /**
  * Top + bottom border rows contributed by `BorderedPanel`'s frame.
@@ -26,11 +44,18 @@ const MESSAGE_BOTTOM_MARGIN_ROWS = 1;
 
 /**
  * `marginTop` rows applied by the segment's own theme container. From
- * `MessageList.theme.ts`:
+ * `MessageList.theme.ts` and `ToolCallView.theme.ts`:
  *
  * - `text`        — no container, no marginTop ⇒ 0 rows
- * - `tool-call`   — `marginTop: spacing.xs` ⇒ 1 row
- * - `tool-result` — `marginTop: spacing.xs` ⇒ 1 row
+ * - `tool-call`   — `marginTop: spacing.xs` ⇒ 1 row (rendered via
+ *                   `ToolCallView` whose container applies the same
+ *                   `spacing.xs` top margin as the legacy two-row
+ *                   layout, so this entry stays 1 even after the
+ *                   collapsed-row refactor).
+ * - `tool-result` — `marginTop: spacing.xs` ⇒ 1 row (only counted for
+ *                   *orphan* results that don't pair with a preceding
+ *                   `tool-call`; paired results contribute 0 rows
+ *                   because they render inside the call's row).
  * - `thinking`    — `marginTop: spacing.xs` ⇒ 1 row
  * - `mcp-call`    — `marginTop: spacing.xs` ⇒ 1 row
  *
@@ -121,10 +146,35 @@ export function estimateMessageRowHeight(
       ? message.segments
       : [{ type: "text", text: message.text, streaming: message.streaming }];
 
+  // Build the same `toolCallId → tool-result` index the renderer uses
+  // (see `AgentMessageRender` in `AgentMessage.tsx`) so we can:
+  //   1. Render each `tool-call` row with its trailing `→ N lines`
+  //      summary baked into the wrapped width calculation.
+  //   2. Skip *paired* `tool-result` segments entirely — they render
+  //      as part of the call's row and contribute 0 standalone rows.
+  // Orphan tool-results (no matching call in the same message) still
+  // count via the legacy two-row layout to match the renderer.
+  const toolCallIds = new Set<string>();
+  const resultsByCallId = new Map<
+    string,
+    Extract<MessageSegment, { readonly type: "tool-result" }>
+  >();
+  for (const segment of segments) {
+    if (segment.type === "tool-call") {
+      toolCallIds.add(segment.toolCallId);
+    } else if (segment.type === "tool-result") {
+      resultsByCallId.set(segment.toolCallId, segment);
+    }
+  }
+
   let bodyRows = 0;
   for (const segment of segments) {
+    if (segment.type === "tool-result" && toolCallIds.has(segment.toolCallId)) {
+      // Paired result — fully accounted for by its tool-call row.
+      continue;
+    }
     bodyRows += segmentMarginTopRows(segment);
-    bodyRows += estimateSegmentBodyRows(segment, wrapWidth);
+    bodyRows += estimateSegmentBodyRows(segment, wrapWidth, resultsByCallId);
   }
   return PANEL_FRAME_ROWS + bodyRows + MESSAGE_BOTTOM_MARGIN_ROWS;
 }
@@ -134,35 +184,78 @@ export function estimateMessageRowHeight(
  * inside the segment's own `Box`, NOT including the segment's
  * `marginTop` (caller adds that).
  *
- * Mirrors the renderer in `AgentMessage.tsx` exactly: tool-call args
- * and tool-result output are passed through `truncatePreview` (clipped
- * to 200 chars + ellipsis) before counting rows; mcp-call output is
- * NOT truncated by the renderer and so isn't truncated here either.
+ * Mirrors the renderer in `AgentMessage.tsx` exactly:
+ *
+ * - `tool-call`: rendered as ONE wrapped logical row composed of
+ *   `<glyph> <toolName> <argsPreview>  <resultSummary>`. We rebuild the
+ *   exact string `ToolCallView` will draw (using `formatArgsPreview`,
+ *   `formatResultSummary`, and the static glyph for the resolved
+ *   status — the spinner glyph is one cell wide so its substitution
+ *   doesn't change wrap counts) and pass it through `countWrappedLines`.
+ * - `tool-result` (orphan only — paired results are filtered out by
+ *   the caller): legacy two-row layout (header + wrapped output).
+ * - `thinking`, `text`, `mcp-call`: unchanged from the pre-Phase-1
+ *   layout.
  */
-function estimateSegmentBodyRows(segment: MessageSegment, wrapWidth: number): number {
+function estimateSegmentBodyRows(
+  segment: MessageSegment,
+  wrapWidth: number,
+  resultsByCallId: ReadonlyMap<
+    string,
+    Extract<MessageSegment, { readonly type: "tool-result" }>
+  >,
+): number {
   if (segment.type === "text") {
-    // Plain text segment — just the wrapped lines; no header.
-    return countWrappedLines(segment.text, wrapWidth);
+    // Plain text segments are rendered through `MarkdownView`; we
+    // mirror that geometry by tokenising and summing per-block rows.
+    return estimateMarkdownRows(segment.text, wrapWidth);
   }
   if (segment.type === "thinking") {
-    // 1 row for the "thinking" header + the wrapped body text.
-    return 1 + countWrappedLines(segment.text, wrapWidth);
+    // 1 row for the "thinking" header + the truncated, Markdown-
+    // rendered body.
+    return 1 + estimateMarkdownRows(truncateThinking(segment.text), wrapWidth);
   }
   if (segment.type === "tool-call") {
-    // 1 row for the "→ tool <name>" header + the wrapped, truncated args.
-    return 1 + countWrappedLines(truncatePreview(segment.args), wrapWidth);
+    const pairedResult = resultsByCallId.get(segment.toolCallId);
+    const status = pairedResult === undefined ? "running" : pairedResult.status;
+    // Substitute a static glyph for the spinner — both are single-cell
+    // wide so the wrap count is identical regardless of which animation
+    // frame happens to be rendered when the layout is measured.
+    const glyph =
+      status === "running"
+        ? TOOL_SPINNER_FRAMES[0]
+        : staticGlyphForStatus(status);
+    const argsPreview = formatArgsPreview(segment.args);
+    const resultSummary = formatResultSummary(
+      status,
+      pairedResult?.output,
+      pairedResult?.error,
+    );
+    // Reproduce the renderer's spacing exactly: single space after the
+    // glyph and tool name; double space before the result summary
+    // (matches the `<Text>  </Text>` separator in `ToolCallView`).
+    let line = `${glyph} ${segment.toolName}`;
+    if (argsPreview.length > 0) line += ` ${argsPreview}`;
+    if (resultSummary.length > 0) line += `  ${resultSummary}`;
+    return countWrappedLines(line, wrapWidth);
   }
   if (segment.type === "tool-result") {
-    // 1 row for the "← <name> result" header + the wrapped, truncated output.
+    // Orphan tool-result — legacy two-row layout (header + wrapped,
+    // truncated output). Paired results are filtered upstream.
     return 1 + countWrappedLines(truncatePreview(segment.output), wrapWidth);
   }
   if (segment.type === "mcp-call") {
     // 1 row for the "→ mcp <server> <tool>" header
     //   + wrapped, truncated args
     //   + wrapped (untruncated) output, when present.
-    const argsRows = countWrappedLines(truncatePreview(segment.args), wrapWidth);
+    const argsRows = countWrappedLines(
+      truncatePreview(segment.args),
+      wrapWidth,
+    );
     const outputRows =
-      segment.output !== undefined ? countWrappedLines(segment.output, wrapWidth) : 0;
+      segment.output !== undefined
+        ? countWrappedLines(segment.output, wrapWidth)
+        : 0;
     return 1 + argsRows + outputRows;
   }
   // Unknown / future segment kinds — contribute one row so the list
@@ -217,6 +310,131 @@ function countWrappedLines(text: string, width: number): number {
       indent: "",
     });
     total += wrapped.split("\n").length;
+  }
+  return total;
+}
+
+/**
+ * Estimate the row count of a Markdown-rendered body to mirror what
+ * {@link import("./MarkdownView").MarkdownView} draws.
+ *
+ * The function tokenises the source the same way the renderer does
+ * and walks each top-level block, summing per-block heights. Inline
+ * formatting is collapsed to its plain-text projection (via
+ * {@link inlineSpansToPlainText}) for wrapping calculations because
+ * style escapes don't widen the visible cell count, and that's what
+ * Ink measures against. This means the estimate is exact for plain
+ * prose and a close upper-bound for content that fits within the
+ * blocks we model.
+ */
+function estimateMarkdownRows(source: string, wrapWidth: number): number {
+  if (source.length === 0) return 0;
+  const blocks = tokenizeMarkdown(source);
+  let total = 0;
+  for (const block of blocks) {
+    total += estimateMarkdownBlockRows(block, wrapWidth);
+  }
+  return total;
+}
+
+function estimateMarkdownBlockRows(block: MdBlock, wrapWidth: number): number {
+  switch (block.kind) {
+    case "paragraph":
+      return countWrappedLines(
+        inlineSpansToPlainText(block.children),
+        wrapWidth,
+      );
+    case "heading": {
+      // The renderer prefixes the heading with `<#…> ` so the column
+      // budget shrinks by that fixed amount before wrapping.
+      const prefixWidth = block.depth + 1;
+      const text = inlineSpansToPlainText(block.children);
+      return countWrappedLines(
+        text,
+        Math.max(MIN_WRAP_WIDTH, wrapWidth - prefixWidth),
+      );
+    }
+    case "list":
+      return estimateListRows(
+        block.items,
+        block.ordered,
+        block.start,
+        wrapWidth,
+        0,
+      );
+    case "blockquote": {
+      // Each child paragraph keeps its line count (`│ ` prefix is
+      // applied per source line). Other nested blocks recurse.
+      let total = 0;
+      const markerWidth = 2; /* `│ ` */
+      for (const child of block.children) {
+        if (child.kind === "paragraph") {
+          const text = inlineSpansToPlainText(child.children);
+          total += countWrappedLines(
+            text,
+            Math.max(MIN_WRAP_WIDTH, wrapWidth - markerWidth),
+          );
+        } else {
+          total += estimateMarkdownBlockRows(child, wrapWidth - markerWidth);
+        }
+      }
+      return total;
+    }
+    case "code":
+      // CodeView wraps each source line in its own row; line numbers
+      // are off in our embed so the row count equals the source's
+      // line count (an empty line from a trailing newline counts).
+      return block.value.length === 0 ? 1 : block.value.split("\n").length;
+    case "table": {
+      // cli-table3 emits a fixed border layout: one top border row,
+      // one header row, one separator, then 2 rows per data row
+      // (content + separator), and finally a closing border row.
+      // Easiest exact count: render and split.
+      const text = renderTableToText(block.header, block.rows);
+      return text.split("\n").length;
+    }
+    case "hr":
+      return 1;
+  }
+}
+
+function estimateListRows(
+  items: readonly MdListItem[],
+  ordered: boolean,
+  start: number,
+  wrapWidth: number,
+  depth: number,
+): number {
+  // Mirror the renderer's per-row marker layout:
+  //   [indent][marker][space][content]
+  const indent = depth * LIST_INDENT_PER_LEVEL;
+  const markerWidth = ordered
+    ? String(start + items.length - 1).length + 1 /* trailing dot */
+    : UNORDERED_LIST_BULLET.length;
+  const contentWidth = Math.max(
+    MIN_WRAP_WIDTH,
+    wrapWidth - indent - markerWidth - 1 /* gap */,
+  );
+
+  let total = 0;
+  for (const item of items) {
+    total += countWrappedLines(
+      inlineSpansToPlainText(item.children),
+      contentWidth,
+    );
+    for (const nested of item.nested) {
+      if (nested.kind === "list") {
+        total += estimateListRows(
+          nested.items,
+          nested.ordered,
+          nested.start,
+          wrapWidth,
+          depth + 1,
+        );
+      } else {
+        total += estimateMarkdownBlockRows(nested, contentWidth);
+      }
+    }
   }
   return total;
 }

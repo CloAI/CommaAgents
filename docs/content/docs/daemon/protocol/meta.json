@@ -1,4 +1,4 @@
 {
   "title": "Protocol",
-  "pages": ["ping", "strategy-execution", "strategy-observation", "user-input", "sandbox-permissions", "list-and-subscribe", "list-providers", "shared-types"]
+  "pages": ["ping", "strategy-execution", "strategy-observation", "user-input", "sandbox-permissions", "list-and-subscribe", "list-providers", "get-available-models", "shared-types"]
 }

@@ -1,7 +1,10 @@
 // Tests for global defaults — credential store, provider registry, and resolver.
 
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import type { Credential, CredentialStore } from "../credentials/credentials.types";
+import type {
+  Credential,
+  CredentialStore,
+} from "../credentials/credentials.types";
 import type { ProviderFactory } from "../model/model.types";
 import {
   getGlobalCredentialStore,
@@ -16,7 +19,9 @@ import {
 // -- Helpers --
 
 /** Create a mock credential store that resolves specific providers. */
-function createMockCredentialStore(credentials: Record<string, Credential>): CredentialStore {
+function createMockCredentialStore(
+  credentials: Record<string, Credential>,
+): CredentialStore {
   return {
     async resolve(providerId: string) {
       return credentials[providerId];
@@ -35,7 +40,9 @@ function createMockCredentialStore(credentials: Record<string, Credential>): Cre
       return ["$global"];
     },
     async getAuthStatus(providerId: string) {
-      return credentials[providerId] ? ("configured" as const) : ("none" as const);
+      return credentials[providerId]
+        ? ("configured" as const)
+        : ("none" as const);
     },
   };
 }
@@ -70,7 +77,9 @@ describe("getGlobalCredentialStore", () => {
   });
 
   it("should return custom store when one is set", () => {
-    const customStore = createMockCredentialStore({ openai: testApiCredential });
+    const customStore = createMockCredentialStore({
+      openai: testApiCredential,
+    });
     setGlobalCredentialStore(customStore);
 
     const store = getGlobalCredentialStore();
@@ -148,7 +157,8 @@ describe("getGlobalProviderResolver", () => {
   });
 
   it("should resolve a registered provider with direct factory", async () => {
-    const mockFactory: ProviderFactory = (modelId: string) => ({ modelId, mock: true }) as any;
+    const mockFactory: ProviderFactory = (modelId: string) =>
+      ({ modelId, mock: true }) as any;
 
     registerProvider("test-provider", {
       factory: (_credential: Credential) => mockFactory,
@@ -163,7 +173,8 @@ describe("getGlobalProviderResolver", () => {
   });
 
   it("should resolve a registered provider with async factory", async () => {
-    const mockFactory: ProviderFactory = (modelId: string) => ({ modelId, async: true }) as any;
+    const mockFactory: ProviderFactory = (modelId: string) =>
+      ({ modelId, async: true }) as any;
 
     registerProvider("async-provider", {
       factory: async (_credential: Credential) => {
@@ -181,13 +192,14 @@ describe("getGlobalProviderResolver", () => {
   it("should throw for unresolvable provider when package does not exist", async () => {
     const resolver = getGlobalProviderResolver();
 
-    await expect(resolver("nonexistent-provider-xyz", testApiCredential)).rejects.toThrow(
-      /Failed to load provider package/,
-    );
+    await expect(
+      resolver("nonexistent-provider-xyz", testApiCredential),
+    ).rejects.toThrow(/Failed to load provider package/);
   });
 
   it("should prefer registered providers over built-in known providers", async () => {
-    const customFactory: ProviderFactory = (modelId: string) => ({ modelId, custom: true }) as any;
+    const customFactory: ProviderFactory = (modelId: string) =>
+      ({ modelId, custom: true }) as any;
 
     // Register a custom "openai" that takes precedence over built-in
     registerProvider("openai", {

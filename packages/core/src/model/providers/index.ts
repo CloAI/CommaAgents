@@ -1,3 +1,26 @@
+export type {
+  CatalogData,
+  CatalogModel,
+  CatalogProvider,
+} from "./catalog/index";
+export {
+  CATALOG_CACHE_TTL_MS,
+  CATALOG_SOURCE_URL,
+  getCatalogModels,
+  getCatalogProvider,
+  getCatalogProviderSync,
+  getCatalogSnapshot,
+  getProvidersForModel,
+  getReverseModelIndex,
+  listCatalogProviders,
+  loadCatalog,
+  refreshCatalog,
+  resetCatalog,
+  resolveCatalogCachePath,
+  toModelInfo,
+} from "./catalog/index";
+export { listCopilotModels, listOllamaModels } from "./listers/index";
+export type { ProviderWithModels } from "./providers";
 export {
   getProviderDefinition,
   getProviderPackageNameSync,
@@ -11,26 +34,6 @@ export {
   resolveCredentialForProvider,
   unregisterProviderDefinition,
 } from "./providers";
-export type { ProviderWithModels } from "./providers";
-
-export {
-  CATALOG_CACHE_TTL_MS,
-  CATALOG_SOURCE_URL,
-  getCatalogModels,
-  getCatalogProvider,
-  getCatalogProviderSync,
-  getCatalogSnapshot,
-  listCatalogProviders,
-  loadCatalog,
-  refreshCatalog,
-  resetCatalog,
-} from "./catalog/index";
-export type { CatalogData, CatalogModel, CatalogProvider } from "./catalog/index";
-
-export { listCopilotModels, listOllamaModels } from "./listers/index";
-
-export { mergeCatalogWithLive, mergeModelInfo, sortModels } from "./providers.utils";
-
 export type {
   ListModelsContext,
   ListModelsFn,
@@ -40,7 +43,12 @@ export type {
   ModelCost,
   ModelInfo,
   ModelModalities,
-  ModelsSource,
   ModelStatus,
+  ModelsSource,
   ProviderDefinition,
 } from "./providers.types";
+export {
+  mergeCatalogWithLive,
+  mergeModelInfo,
+  sortModels,
+} from "./providers.utils";

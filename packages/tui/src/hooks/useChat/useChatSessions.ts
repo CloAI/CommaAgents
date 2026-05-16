@@ -15,7 +15,9 @@ import type { ChatSessionsContextType } from "./useChat.types";
 export function useChatSessions(): ChatSessionsContextType {
   const contextValue = useContext(ChatSessionsContext);
   if (!contextValue) {
-    throw new Error("useChatSessions must be used within a <ChatSessionsContextProvider>");
+    throw new Error(
+      "useChatSessions must be used within a <ChatSessionsContextProvider>",
+    );
   }
   return contextValue;
 }

@@ -61,7 +61,9 @@ export function createCycleFlow(config: CycleFlowConfig): Agent {
 
   // If observer is provided, prepend it as the first alterMessageAfterCycle hook.
   if (config.observer) {
-    const observerHook: TransformHook<string> = async (message: string): Promise<string> => {
+    const observerHook: TransformHook<string> = async (
+      message: string,
+    ): Promise<string> => {
       // Observer is guaranteed non-null by the enclosing `if` guard.
       const result = await config.observer!.call(message);
       return result.text;
@@ -85,7 +87,10 @@ export function createCycleFlow(config: CycleFlowConfig): Agent {
         }
 
         // Cycle pre-hooks: alterMessageBeforeCycle (reads from mutable store)
-        current = await runTransformHooks(store.alterMessageBeforeCycle, current);
+        current = await runTransformHooks(
+          store.alterMessageBeforeCycle,
+          current,
+        );
 
         // Run all steps sequentially within this cycle
         for (const step of steps) {
@@ -94,7 +99,10 @@ export function createCycleFlow(config: CycleFlowConfig): Agent {
         }
 
         // Cycle post-hooks: alterMessageAfterCycle (reads from mutable store)
-        current = await runTransformHooks(store.alterMessageAfterCycle, current);
+        current = await runTransformHooks(
+          store.alterMessageAfterCycle,
+          current,
+        );
       }
 
       return current;

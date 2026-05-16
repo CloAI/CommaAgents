@@ -41,7 +41,10 @@ import type { LoadAgentOptions } from "./loader.types";
  * const result = await agent.call("What is TypeScript?");
  * ```
  */
-export async function loadAgent(filePath: string, options: LoadAgentOptions = {}): Promise<Agent> {
+export async function loadAgent(
+  filePath: string,
+  options: LoadAgentOptions = {},
+): Promise<Agent> {
   // Validate extension first (cheap check)
   const fileExtension = filePath.split(".").pop()?.toLowerCase();
 
@@ -59,7 +62,9 @@ export async function loadAgent(filePath: string, options: LoadAgentOptions = {}
   // Read the file
   const file = Bun.file(filePath);
   if (!(await file.exists())) {
-    throw new StrategyValidationError(`Agent description file not found: ${filePath}`);
+    throw new StrategyValidationError(
+      `Agent description file not found: ${filePath}`,
+    );
   }
 
   const content = await file.text();
@@ -118,9 +123,12 @@ export async function loadAgentFromString(
     const issues = result.error.issues
       .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
       .join("\n");
-    throw new StrategyValidationError(`Agent description validation failed:\n${issues}`, {
-      cause: result.error,
-    });
+    throw new StrategyValidationError(
+      `Agent description validation failed:\n${issues}`,
+      {
+        cause: result.error,
+      },
+    );
   }
 
   const description = result.data;
@@ -139,5 +147,11 @@ export async function loadAgentFromString(
     model: description.model,
     systemPrompt,
     tools: description.tools,
+    ...(description.providerOptions
+      ? { providerOptions: description.providerOptions }
+      : {}),
+    ...(description.modelOptions
+      ? { modelOptions: description.modelOptions }
+      : {}),
   });
 }

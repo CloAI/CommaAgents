@@ -1,4 +1,7 @@
+import type { DOMElement } from "ink";
 import type React from "react";
+
+import type { ScrollableViewTheme } from "./ScrollableView.theme";
 
 /**
  * Snapshot of {@link ScrollableView}'s scroll state, delivered to
@@ -33,20 +36,26 @@ export interface ScrollableViewProps<ItemType> {
   /** Renders a single row. */
   readonly renderItem: (item: ItemType, index: number) => React.ReactNode;
   /**
-   * Returns the height of a row in terminal rows. Defaults to `1` per
-   * item — fine for single-line lists. Multi-line content (e.g. wrapped
-   * messages) must supply this so the scrollbar geometry, `scrollToRow`,
-   * and `stickToBottom` all behave correctly.
+   * Fallback row-height estimate used before Ink's Yoga layout produces
+   * a real measurement. `ScrollableView` measures every row with
+   * `useBoxMetrics` after the first layout pass and uses the measured
+   * heights for all scroll geometry; this callback is only consulted
+   * when a row has not yet been measured (e.g. on the very first render
+   * or when the viewport width is still 0).
+   *
+   * Defaults to `1` per item — fine for single-line lists. Multi-line
+   * content (e.g. wrapped messages) should supply a reasonable estimate
+   * so the initial scroll position is close to correct before measurement
+   * arrives.
    *
    * The third argument `viewportWidth` is the measured viewport width in
-   * columns at the time of the call. Use it to account for soft-wrap when
-   * estimating multi-line content.
-   *
-   * MUST return the same value for the same `(item, index, viewportWidth)`
-   * between renders unless the row's actual height changed — `ScrollableView`
-   * does not memoize this.
+   * columns at the time of the call.
    */
-  readonly getRowHeight?: (item: ItemType, index: number, viewportWidth: number) => number;
+  readonly getRowHeight?: (
+    item: ItemType,
+    index: number,
+    viewportWidth: number,
+  ) => number;
   /**
    * When set, the view auto-scrolls so the row at this index is visible
    * after every layout commit. Use this to implement "follow the selected
@@ -64,4 +73,37 @@ export interface ScrollableViewProps<ItemType> {
   readonly onScrollChange?: (state: ScrollableViewState) => void;
   /** Text shown when `items` is empty. Defaults to "No items." */
   readonly emptyText?: string;
+}
+
+/**
+ * Props for {@link ScrollableViewRender}.
+ *
+ * Pure render props — all hook-derived values are computed by the
+ * container and passed down.
+ */
+export interface ScrollableViewRenderProps<ItemType> {
+  /** The items to render. */
+  readonly items: readonly ItemType[];
+  /** Stable key for each item. */
+  readonly getKey: (item: ItemType, index: number) => string;
+  /** Renders a single row. */
+  readonly renderItem: (item: ItemType, index: number) => React.ReactNode;
+  /** Total number of items. */
+  readonly totalCount: number;
+  /** Measured viewport height in rows. */
+  readonly viewportHeight: number;
+  /** Total content height in rows. */
+  readonly totalRows: number;
+  /** Current scroll offset in rows. */
+  readonly rowOffset: number;
+  /** Whether the scrollbar should be visible. */
+  readonly showScrollbar: boolean;
+  /** Text shown when items is empty. */
+  readonly emptyText: string;
+  /** Spread-ready theme style objects. */
+  readonly theme: ScrollableViewTheme;
+  /** Ref for the viewport box, attached by this render. */
+  readonly viewportRef: React.RefObject<DOMElement>;
+  /** Called after each row is measured by Yoga. */
+  readonly onRowMeasured: (index: number, height: number) => void;
 }

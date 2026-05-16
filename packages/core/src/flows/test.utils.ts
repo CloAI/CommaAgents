@@ -24,7 +24,8 @@ export function makeAgent(
   return {
     name,
     async call(message: string): Promise<AgentCallResult> {
-      const text = typeof response === "function" ? response(message) : response;
+      const text =
+        typeof response === "function" ? response(message) : response;
       return {
         text,
         usage: tokens,
@@ -59,7 +60,10 @@ export function makeFailingAgent(name: string, error: Error): Agent {
  *
  * Returns the agent and a `getCount()` accessor.
  */
-export function makeCountingAgent(name: string): { agent: Agent; getCount: () => number } {
+export function makeCountingAgent(name: string): {
+  agent: Agent;
+  getCount: () => number;
+} {
   let count = 0;
   const agent: Agent = {
     name,

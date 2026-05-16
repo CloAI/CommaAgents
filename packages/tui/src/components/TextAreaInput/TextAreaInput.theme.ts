@@ -7,7 +7,7 @@ export const useTextAreaInputTheme = defineTheme((tokens) => ({
   } satisfies BoxProps,
   textAreaInputContent: {
     flexDirection: "column",
-    flexGrow: 1
+    flexGrow: 1,
   } satisfies BoxProps,
   textAreaPlaceholder: {
     color: tokens.colors.muted,

@@ -19,18 +19,21 @@ export const useBorderedPanelTheme = defineTheme((tokens) => ({
     flexDirection: "column",
     width: "100%",
     borderStyle: "round",
-    paddingX: tokens.spacing.sm
+    borderBottom: false,
+    borderRight: false,
+    // borderLeft: false,
+    paddingX: tokens.spacing.sm,
   } satisfies BoxProps,
   /** Single-row header line: `┌─ label ──...──┐`. */
   header: {
-    position:"absolute",
-    marginTop:-1,
+    position: "absolute",
+    marginTop: -1,
     marginLeft: -1,
     flexDirection: "row",
     text: {
-      bold: true
-    } satisfies TextProps, 
-  } satisfies BoxProps & {text: TextProps},
+      bold: true,
+    } satisfies TextProps,
+  } satisfies BoxProps & { text: TextProps },
   /**
    * Glyphs used to compose the manual header line. Must match the
    * `borderStyle` of the body so the corners line up with the body's

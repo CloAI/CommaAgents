@@ -35,10 +35,7 @@ export interface MouseContextValue {
 
 /**
  * React context for the global mouse event bus.
- * Default value is a no-op stub — components must be inside
- * {@link MouseProvider} for real events to flow.
+ * `null` when no {@link MouseProvider} is mounted — consumer hooks
+ * should gracefully degrade (e.g. return a disabled state).
  */
-export const MouseContext = createContext<MouseContextValue>({
-  subscribe: () => () => undefined,
-  registerHoverConsumer: () => () => undefined,
-});
+export const MouseContext = createContext<MouseContextValue | null>(null);

@@ -1,0 +1,55 @@
+---
+title: Sessions
+description: Persistent session storage for run history and conversation transcripts.
+---
+
+# Sessions
+
+Sessions provide persistent storage for conversation history and run metadata. Each session is keyed by the working directory (`cwd`) — multiple runs in the same directory append turns to the same session.
+
+## SessionStore
+
+The session store interface for reading, writing, and managing persisted sessions.
+
+<AutoTypeTable path="../packages/daemon/src/sessions/store.types.ts" name="SessionStore" />
+
+## CreateSessionStoreOptions
+
+Options for creating a file-backed session store.
+
+<AutoTypeTable path="../packages/daemon/src/sessions/store.types.ts" name="CreateSessionStoreOptions" />
+
+## PersistedSession
+
+The full persisted session payload, containing metadata, turns, and run summaries.
+
+<AutoTypeTable path="../packages/daemon/src/sessions/sessions.types.ts" name="PersistedSession" />
+
+## SessionMetadata
+
+Lightweight metadata describing a saved session. Returned by `list()` so clients can render a picker without loading every full transcript.
+
+<AutoTypeTable path="../packages/daemon/src/sessions/sessions.types.ts" name="SessionMetadata" />
+
+## SessionTurn
+
+A single completed agent call within a session — captured after each strategy step completes.
+
+<AutoTypeTable path="../packages/daemon/src/sessions/sessions.types.ts" name="SessionTurn" />
+
+## SessionRunSummary
+
+Audit summary of a single strategy run that contributed to a session.
+
+<AutoTypeTable path="../packages/daemon/src/sessions/sessions.types.ts" name="SessionRunSummary" />
+
+## Session Lifecycle
+
+Sessions follow this lifecycle:
+
+1. **Create** — `getOrCreateForCwd(cwd)` creates or retrieves a session keyed by the working directory. There's at most one active session per `cwd`.
+2. **Record runs** — When a strategy run starts, `recordRun()` inserts a `SessionRunSummary` with status `"running"`. When the run completes or errors, `recordRun()` is called again to update the summary.
+3. **Append turns** — After each agent call completes, `appendTurn()` records the user message, agent response, token usage, and finish reason.
+4. **List and load** — Use `list()` to browse session metadata, then `load(sessionId)` to retrieve the full transcript with all turns and runs.
+5. **Rename** — `rename()` sets a human-readable title.
+6. **Delete** — `delete()` removes a session and its on-disk storage.

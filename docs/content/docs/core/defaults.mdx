@@ -1,0 +1,162 @@
+---
+title: Global Defaults
+description: Global credential store, provider registry, and resolver setup.
+---
+
+# Global Defaults
+
+Global defaults provide a shared credential store and provider resolver so that loading strategies and creating agents work with zero configuration when credentials are stored on disk and provider packages are installed. All state is module-scoped.
+
+## Credential Store
+
+### getGlobalCredentialStore
+
+Returns the global credential store. If no custom store has been set, creates a lazy default backed by the platform-specific credentials file (`credentials.json`).
+
+```ts
+import { getGlobalCredentialStore } from "@comma-agents/core";
+
+const store = getGlobalCredentialStore();
+const credential = await store.resolve("openai");
+```
+
+### setGlobalCredentialStore
+
+Overrides the global credential store. All subsequent calls to `getGlobalCredentialStore` and any strategy loading that relies on global defaults will use this store instead. Pass `undefined` to revert to the default file-backed store.
+
+```ts
+import { setGlobalCredentialStore, createCredentialStore } from "@comma-agents/core";
+
+// In-memory store for testing
+const testStore = createCredentialStore({ backend: myBackend });
+setGlobalCredentialStore(testStore);
+
+// Revert to default
+setGlobalCredentialStore(undefined);
+```
+
+## Provider Registry
+
+### registerProvider
+
+Register a custom provider with the global resolver. Registered providers take precedence over the built-in catalog and the default dynamic import convention. You can supply either a direct factory function or a package name and export name for dynamic import resolution.
+
+```ts
+import { registerProvider } from "@comma-agents/core";
+
+// Direct factory — full control
+registerProvider("my-custom-llm", {
+  factory: (credential) => {
+    const apiKey = credential.type === "api" ? credential.key : undefined;
+    return (modelId) => myProvider({ apiKey, model: modelId });
+  },
+});
+
+// Package-based — dynamic import with custom export name
+registerProvider("deepinfra", {
+  packageName: "@deepinfra/ai-sdk",
+  factoryName: "createDeepInfra",
+});
+```
+
+### unregisterProvider
+
+Remove a previously registered custom provider. Returns `true` if the provider was registered and removed.
+
+```ts
+import { unregisterProvider } from "@comma-agents/core";
+
+unregisterProvider("deepinfra"); // true
+```
+
+## Provider Resolver
+
+### getGlobalProviderResolver
+
+Returns the global provider resolver. The resolver translates a `(providerId, credential)` pair into a provider factory using this resolution order:
+
+1. Custom registrations with direct `factory`
+2. Custom registrations with `packageName`/`factoryName`
+3. GitHub Copilot special-case
+4. Built-in catalog and overrides
+5. Last resort: `@ai-sdk/<providerId>` dynamic import
+
+```ts
+import { getGlobalProviderResolver, getGlobalCredentialStore } from "@comma-agents/core";
+
+const resolver = getGlobalProviderResolver();
+const store = getGlobalCredentialStore();
+
+// Resolve a provider to get a factory, then create a model
+const credential = await store.resolve("openai");
+const factory = await resolver("openai", credential!);
+const model = factory("gpt-4o");
+```
+
+## Inspection and Reset
+
+### getGlobalDefaults
+
+Returns a snapshot of the current global defaults state for inspection or testing.
+
+```ts
+import { getGlobalDefaults } from "@comma-agents/core";
+
+const defaults = getGlobalDefaults();
+console.log(defaults.registeredProviderIds); // ["my-custom-llm", ...]
+```
+
+### resetGlobalDefaults
+
+Resets all global defaults to their initial state. Clears the provider registry, removes custom credential stores, and discards lazy instances. Primarily for tests.
+
+```ts
+import { resetGlobalDefaults } from "@comma-agents/core";
+
+resetGlobalDefaults();
+```
+
+## Daemon/CLI Setup
+
+The global defaults are designed so that a daemon or CLI process can set everything up once at startup:
+
+```ts
+import {
+  setGlobalCredentialStore,
+  registerProvider,
+  getGlobalCredentialStore,
+  getGlobalProviderResolver,
+  createCredentialStore,
+  createJsonFileBackend,
+  resolveCredentialsPath,
+} from "@comma-agents/core";
+
+// 1. Configure a custom credential store
+const store = createCredentialStore({
+  backend: createJsonFileBackend({ filePath: resolveCredentialsPath() }),
+});
+setGlobalCredentialStore(store);
+
+// 2. Register any custom providers
+registerProvider("deepinfra", {
+  packageName: "@deepinfra/ai-sdk",
+  factoryName: "createDeepInfra",
+});
+
+// 3. Both are now available to all agents and strategies
+// No further configuration needed — createAgent() works directly
+```
+
+## Types
+
+### GlobalDefaults
+
+Snapshot of the global defaults state returned by `getGlobalDefaults`.
+
+<AutoTypeTable path="../packages/core/src/defaults/defaults.types.ts" name="GlobalDefaults" />
+
+### ProviderRegistration
+
+Configuration for registering a custom provider with the global resolver.
+
+<AutoTypeTable path="../packages/core/src/defaults/defaults.types.ts" name="ProviderRegistration" />

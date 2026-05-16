@@ -6,13 +6,12 @@ import { useDebugRender } from "../../hooks/useDebugRender";
 import { ScrollableView } from "../ScrollableView";
 import { AgentMessage } from "./AgentMessage";
 import { useMessageListTheme } from "./MessageList.theme";
+import type {
+  MessageListProps,
+  MessageListRenderProps,
+} from "./MessageList.types";
 import { estimateMessageRowHeight } from "./MessageList.utils";
 import { UserMessage } from "./UserMessage";
-
-export interface MessageListProps {
-  /** Messages to render in chronological order. */
-  readonly messages: readonly ChatMessage[];
-}
 
 /**
  * Scrollable, role-dispatching message list.
@@ -31,16 +30,34 @@ export function MessageList({
   });
   const theme = useMessageListTheme();
 
+  return (
+    <MessageListRender
+      messages={messages}
+      debugRef={debug.ref}
+      containerProps={theme.container}
+      emptyStateProps={theme.emptyState}
+      emptyStateTextProps={theme.emptyState.text}
+    />
+  );
+}
+
+export function MessageListRender({
+  messages,
+  debugRef,
+  containerProps,
+  emptyStateProps,
+  emptyStateTextProps,
+}: MessageListRenderProps): React.ReactElement {
   if (messages.length === 0) {
     return (
-      <Box {...theme.emptyState}>
-        <Text {...theme.emptyState.text}>No messages yet.</Text>
+      <Box {...emptyStateProps}>
+        <Text {...emptyStateTextProps}>No messages yet.</Text>
       </Box>
     );
   }
 
   return (
-    <Box ref={debug.ref} {...theme.container}>
+    <Box ref={debugRef} {...containerProps}>
       <ScrollableView<ChatMessage>
         items={messages}
         getKey={(message) => message.id}
@@ -73,8 +90,5 @@ function MessageRow({ message }: MessageRowProps): React.ReactElement | null {
       />
     );
   }
-  // if (message.role === "system") {
-  //   return <SystemMessage text={message.text} />;
-  // }
   return null;
 }

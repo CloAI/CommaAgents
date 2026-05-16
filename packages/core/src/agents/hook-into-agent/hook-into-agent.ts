@@ -37,7 +37,10 @@ import type { AgentHooks, ToolHooks } from "../hooks";
  * const result = await agent.call("hello");
  * ```
  */
-export function hookIntoAgent(agent: Agent, hooks: AgentHooks & ToolHooks): void {
+export function hookIntoAgent(
+  agent: Agent,
+  hooks: AgentHooks & ToolHooks,
+): void {
   if (!agent.appendHook) {
     throw new Error(
       `hookIntoAgent requires an agent created by createAgent(). ` +

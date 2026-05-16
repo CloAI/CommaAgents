@@ -1,4 +1,5 @@
 import type { SideEffectHook, TransformHook } from "../../hooks";
+import type { ToolContext } from "../../tools/tool.types";
 import type { AgentCallResult, AgentStreamEvent } from "../agent/agent.types";
 
 /**
@@ -16,7 +17,7 @@ export interface AgentHooks {
 
   /** Transform the message before subsequent calls. */
   readonly alterCallMessage?: ReadonlyArray<TransformHook<string>>;
-  
+
   /** Side-effect before the first call. Falls back to `beforeCall`. */
   readonly beforeFirstCall?: ReadonlyArray<SideEffectHook<string>>;
 
@@ -27,7 +28,9 @@ export interface AgentHooks {
    * Side-effect after the first call, receiving the full result including
    * token usage, finish reason, and response text. Falls back to `afterCallResult`.
    */
-  readonly afterFirstCallResult?: ReadonlyArray<SideEffectHook<AgentCallResult>>;
+  readonly afterFirstCallResult?: ReadonlyArray<
+    SideEffectHook<AgentCallResult>
+  >;
 
   /**
    * Side-effect fired after the call completes, receiving the full result
@@ -59,16 +62,21 @@ export interface AgentHooks {
  * Executed around each individual tool invocation within an agent call.
  */
 export interface ToolHooks {
-  /** Called before a tool is executed. Receives tool name and stringified args. */
+  /** Called before a tool is executed. */
   readonly beforeToolCall?: ReadonlyArray<
-    SideEffectHook<{ readonly name: string; readonly args: string }>
+    SideEffectHook<{
+      readonly name: string;
+      readonly args: string;
+      readonly toolContext: ToolContext;
+    }>
   >;
-  /** Called after a tool is executed. Receives tool name, args, and result. */
+  /** Called after a tool is executed. */
   readonly afterToolCall?: ReadonlyArray<
     SideEffectHook<{
       readonly name: string;
       readonly args: string;
       readonly result: string;
+      readonly toolContext: ToolContext;
     }>
   >;
 }

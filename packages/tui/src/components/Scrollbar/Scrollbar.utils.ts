@@ -35,7 +35,8 @@ export function computeScrollbarGeometry(params: {
   const slack = height - thumbHeight;
   const maxOffset = total - windowSize;
   const clampedOffset = Math.max(0, Math.min(offset, maxOffset));
-  const rawThumbTop = maxOffset === 0 ? 0 : Math.round((clampedOffset / maxOffset) * slack);
+  const rawThumbTop =
+    maxOffset === 0 ? 0 : Math.round((clampedOffset / maxOffset) * slack);
   const thumbTop = Math.max(0, Math.min(slack, rawThumbTop));
 
   return { height, thumbTop, thumbHeight };

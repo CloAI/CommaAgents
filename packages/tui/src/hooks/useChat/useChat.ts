@@ -1,8 +1,12 @@
 import { useCallback, useContext, useMemo } from "react";
 
-import { useDaemonContext } from "../useDaemon/useDaemon";
+import { useDaemon } from "../useDaemon/useDaemon";
 import { ChatSessionsContext } from "./useChat.context";
-import type { ChatSessionId, ChatSessionsContextType, UseChatState } from "./useChat.types";
+import type {
+  ChatSessionId,
+  ChatSessionsContextType,
+  UseChatState,
+} from "./useChat.types";
 
 /** Empty-messages singleton used when no session is bound (stable reference). */
 const EMPTY_MESSAGES = Object.freeze([]) as UseChatState["messages"];
@@ -32,16 +36,18 @@ function useChatSessionsContext(): ChatSessionsContextType {
  * view exposes empty values; `startStrategy` is still functional and will
  * create a new session.
  *
- * Must be called inside both a `<DaemonProvider>` and a
+ * Must be called inside both a `<DaemonContextProvider>` and a
  * `<ChatSessionsContextProvider>`.
  */
 export function useChat(sessionId?: ChatSessionId): UseChatState {
   const context = useChatSessionsContext();
-  const { status: connectionStatus } = useDaemonContext();
+  const { status: connectionStatus } = useDaemon();
 
   const resolvedSessionId: ChatSessionId | null =
     sessionId ?? context.activeSessionId;
-  const session = resolvedSessionId ? context.sessions.get(resolvedSessionId) ?? null : null;
+  const session = resolvedSessionId
+    ? (context.sessions.get(resolvedSessionId) ?? null)
+    : null;
 
   const startStrategy = context.startStrategy;
 

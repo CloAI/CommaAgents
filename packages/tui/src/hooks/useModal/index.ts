@@ -1,10 +1,10 @@
 export { useModal } from "./useModal";
-export { ModalProvider } from "./useModal.context";
+export { ModalContextProvider } from "./useModal.context";
 
 export type {
+  ModalContextProviderProps,
   ModalContextType,
   ModalControls,
   ModalEntry,
   ModalId,
-  ModalProviderProps,
 } from "./useModal.types";

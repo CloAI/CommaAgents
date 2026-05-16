@@ -16,7 +16,9 @@ export interface SystemMessageProps {
  * and surfaced errors. The panel header is fixed to "system" so the role
  * is unambiguous in the scrollback.
  */
-export function SystemMessage({ text }: SystemMessageProps): React.ReactElement {
+export function SystemMessage({
+  text,
+}: SystemMessageProps): React.ReactElement {
   const theme = useMessageListTheme();
   return <SystemMessageRender theme={theme} text={text} />;
 }

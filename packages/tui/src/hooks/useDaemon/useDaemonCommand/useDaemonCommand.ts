@@ -1,7 +1,10 @@
 import { useCallback } from "react";
 
-import { useDaemonContext } from "../useDaemon";
-import type { DaemonCommandMap, DaemonCommandType } from "./useDaemonCommand.types";
+import { useDaemon } from "../useDaemon";
+import type {
+  DaemonCommandMap,
+  DaemonCommandType,
+} from "./useDaemonCommand.types";
 
 /**
  * React hook that returns a function to send a specific command type
@@ -24,7 +27,7 @@ import type { DaemonCommandMap, DaemonCommandType } from "./useDaemonCommand.typ
 export function useDaemonCommand<CommandKind extends DaemonCommandType>(
   type: CommandKind,
 ): (payload: DaemonCommandMap[CommandKind]) => string | null {
-  const { send } = useDaemonContext();
+  const { send } = useDaemon();
 
   return useCallback(
     (payload: DaemonCommandMap[CommandKind]): string | null => {

@@ -1,5 +1,5 @@
-import { Writable } from "readable-stream";
 import type { Terminal } from "@xterm/xterm";
+import { Writable } from "readable-stream";
 
 /**
  * A `process.stdout`-compatible Writable backed by an xterm.js `Terminal`.
@@ -23,8 +23,13 @@ export interface StdoutShim extends Writable {
 export function createStdoutShim(term: Terminal): StdoutShim {
   const stream = new Writable({
     decodeStrings: false,
-    write(chunk: unknown, _enc: BufferEncoding, cb: (err?: Error | null) => void) {
-      const text = typeof chunk === "string" ? chunk : (chunk as Buffer).toString("utf8");
+    write(
+      chunk: unknown,
+      _enc: BufferEncoding,
+      cb: (err?: Error | null) => void,
+    ) {
+      const text =
+        typeof chunk === "string" ? chunk : (chunk as Buffer).toString("utf8");
       term.write(text);
       cb();
     },

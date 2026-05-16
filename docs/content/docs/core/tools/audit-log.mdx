@@ -1,0 +1,48 @@
+---
+title: Audit log
+description: Every destructive file tool appends a structured JSONL entry to a per-session audit log under .comma/audit.
+---
+
+# Audit log
+
+Every successful (and failed) call to a destructive file tool — `create_file`, `write_file`, `edit_file`, `delete_file`, `move_file`, and `apply_patch` — appends a structured entry to a per-session audit log. The log is JSON Lines (`.jsonl`), one entry per line, fsync'd on every write so a daemon crash never loses the trailing record.
+
+## Location
+
+Logs live under the workspace at:
+
+```
+<workspaceRoot>/.comma/audit/<sessionId>.jsonl
+```
+
+Sessions are scoped to an agent run. When the tool context has no `sessionId`, entries are routed to `default.jsonl` so they still survive across processes. If the workspace is read-only or otherwise unable to host a file sink, the runtime falls back to an in-memory sink whose contents can still be inspected programmatically during the session.
+
+## Entry shape
+
+Each line decodes to an `AuditEntry`:
+
+| Field | Type | Description |
+|---|---|---|
+| `timestamp` | `string` | ISO-8601 timestamp of the operation. |
+| `sessionId` | `string` | Session that produced the entry. |
+| `agentName` | `string` | Name of the agent that invoked the tool. |
+| `toolName` | `string` | One of the destructive tool names. |
+| `operation` | `string` | `"create" \| "write" \| "edit" \| "delete" \| "move" \| "patch"`. |
+| `path` | `string` | Workspace-relative path (source path for moves). |
+| `toPath` | `string?` | Destination path for moves and patch moves. |
+| `beforeSha256` | `string?` | Pre-image sha256 (omitted for creates). |
+| `afterSha256` | `string?` | Post-image sha256 (omitted for deletes). |
+| `diff` | `string?` | Unified diff describing the change. |
+| `ok` | `boolean` | Whether the call succeeded. |
+| `errorKind` | `string?` | `ToolErrorKind` value when `ok` is `false`. |
+
+`diff` is truncated to 64 KiB by default with a `…(truncated)` marker so a single huge rewrite cannot bloat the log.
+
+## Replay
+
+The audit log is structured precisely so the sequence of changes within a session can be replayed without re-running the agent. Consumers can `readFile` the JSONL, parse each line, and reconstruct what was changed, by whom, and when.
+
+## Related
+
+- [delete_file](/docs/core/tools/built-in/delete_file) · [apply_patch](/docs/core/tools/built-in/apply_patch) — every successful operation is journaled.
+- [Trash](/docs/core/tools/trash) — recoverable-delete companion to the audit log.

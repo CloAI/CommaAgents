@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Box, Text } from "ink";
 import { useState } from "react";
-import { Frame } from "./Frame";
 import type { TabDefinition } from "./Frame";
+import { Frame } from "./Frame";
 
 /**
  * `Frame` is the top-level app chrome — a tab bar, separator, content
@@ -43,7 +43,9 @@ function FrameHarness({
       activeTabPath={activeTabPath}
       onTabSelect={setActiveTabPath}
       footer={
-        showFooter ? <Text dimColor>Connected · ws://localhost:8080</Text> : undefined
+        showFooter ? (
+          <Text dimColor>Connected · ws://localhost:8080</Text>
+        ) : undefined
       }
     >
       <Box flexDirection="column" padding={1}>

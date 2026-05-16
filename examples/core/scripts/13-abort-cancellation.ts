@@ -120,7 +120,9 @@ async function main() {
     await doomedCall;
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === "AbortError") {
-      console.log("  Agent rejected immediately — aborted before execution could start.");
+      console.log(
+        "  Agent rejected immediately — aborted before execution could start.",
+      );
     } else {
       throw err;
     }

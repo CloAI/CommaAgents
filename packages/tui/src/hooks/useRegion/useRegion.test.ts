@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-  fitToWidth,
-  padToWidth,
-  visibleLength,
-} from "./useRegion.utils";
+import { fitToWidth, padToWidth, visibleLength } from "./useRegion.utils";
 
 describe("visibleLength", () => {
   it("should return character count for plain strings", () => {

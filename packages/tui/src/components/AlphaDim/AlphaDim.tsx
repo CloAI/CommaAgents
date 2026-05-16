@@ -1,15 +1,14 @@
-import { Box, measureElement, useStdout, type DOMElement } from "ink";
+import { Box, type DOMElement, measureElement, useStdout } from "ink";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-
+import type { AlphaDimProps } from "./AlphaDim.types";
 import {
   dimFrame,
   dimIncrementalChunk,
-  scaleRgb,
   type Rgb,
   type RowRange,
+  scaleRgb,
 } from "./AlphaDim.utils";
-import type { AlphaDimProps } from "./AlphaDim.types";
 
 /** Default channel scale factor when `dimFactor` is not provided. */
 const DEFAULT_DIM_FACTOR = 0.4;

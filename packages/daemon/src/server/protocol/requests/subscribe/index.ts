@@ -23,9 +23,14 @@ export function handleSubscribe(
     context.reply({
       type: "error" as const,
       code: SUBSCRIBE_ERROR,
-      message: caughtError instanceof Error ? caughtError.message : String(caughtError),
+      message:
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError),
       ts: new Date().toISOString(),
-      ...(message.requestId !== undefined ? { requestId: message.requestId } : {}),
+      ...(message.requestId !== undefined
+        ? { requestId: message.requestId }
+        : {}),
     });
   }
 }

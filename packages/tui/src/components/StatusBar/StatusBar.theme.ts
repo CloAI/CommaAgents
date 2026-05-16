@@ -58,8 +58,16 @@ export function useStatusBarTheme(): StatusBarTheme {
       },
       statusMap: {
         idle: { label: "Ready", color: tokens.colors.muted, spinning: false },
-        pending: { label: "Starting...", color: tokens.colors.warning, spinning: true },
-        running: { label: "Running", color: tokens.colors.success, spinning: true },
+        pending: {
+          label: "Starting...",
+          color: tokens.colors.warning,
+          spinning: true,
+        },
+        running: {
+          label: "Running",
+          color: tokens.colors.success,
+          spinning: true,
+        },
         waiting_input: {
           label: "Waiting for input",
           color: tokens.colors.waitingInput,
@@ -70,8 +78,16 @@ export function useStatusBarTheme(): StatusBarTheme {
           color: tokens.colors.warning,
           spinning: false,
         },
-        completed: { label: "Done", color: tokens.colors.success, spinning: false },
-        cancelled: { label: "Cancelled", color: tokens.colors.muted, spinning: false },
+        completed: {
+          label: "Done",
+          color: tokens.colors.success,
+          spinning: false,
+        },
+        cancelled: {
+          label: "Cancelled",
+          color: tokens.colors.muted,
+          spinning: false,
+        },
         error: { label: "Error", color: tokens.colors.error, spinning: false },
       },
     }),

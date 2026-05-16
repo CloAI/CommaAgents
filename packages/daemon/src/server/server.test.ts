@@ -5,7 +5,14 @@
 // pipeline: WS message → routing → executor → loadStrategy → mock model
 // → events back over WebSocket.
 
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resetGlobalDefaults, resetModelRegistry } from "@comma-agents/core";
@@ -36,7 +43,10 @@ afterEach(() => {
 const tempFiles: string[] = [];
 
 /** Write a strategy to a temp file, tracking it for cleanup. */
-async function writeTrackedTempStrategy(content: string, extension = "json"): Promise<string> {
+async function writeTrackedTempStrategy(
+  content: string,
+  extension = "json",
+): Promise<string> {
   const filePath = await writeTempStrategy(content, extension);
   tempFiles.push(filePath);
   return filePath;
@@ -45,7 +55,9 @@ async function writeTrackedTempStrategy(content: string, extension = "json"): Pr
 // Helpers — daemon + WebSocket lifecycle
 
 /** Create and start a daemon on a random port. */
-async function startDaemon(overrides?: { bridgeTimeout?: number }): Promise<Daemon> {
+async function startDaemon(overrides?: {
+  bridgeTimeout?: number;
+}): Promise<Daemon> {
   const daemon = createDaemon({
     config: {
       port: 0, // Random available port
@@ -70,7 +82,10 @@ async function startDaemon(overrides?: { bridgeTimeout?: number }): Promise<Daem
 function connectClient(daemon: Daemon): Promise<{
   ws: WebSocket;
   messages: unknown[];
-  waitForMessage: (predicate: (msg: unknown) => boolean, timeoutMs?: number) => Promise<unknown>;
+  waitForMessage: (
+    predicate: (msg: unknown) => boolean,
+    timeoutMs?: number,
+  ) => Promise<unknown>;
   waitForType: (type: string, timeoutMs?: number) => Promise<unknown>;
   send: (msg: unknown) => void;
   close: () => void;
@@ -128,7 +143,10 @@ function connectClient(daemon: Daemon): Promise<{
           });
         },
         waitForType(type: string, timeoutMs = 5000) {
-          return this.waitForMessage((m: any) => m?.type === type, timeoutMs);
+          return this.waitForMessage(
+            (message: any) => message?.type === type,
+            timeoutMs,
+          );
         },
         send(msg: unknown) {
           ws.send(JSON.stringify(msg));
@@ -394,7 +412,8 @@ describe("subscribe / unsubscribe", () => {
 
     // Should not have received an error for the subscribe
     const subErrors = c2.messages.filter(
-      (m: any) => m.type === "error" && m.code === "SUBSCRIBE_ERROR",
+      (message: any) =>
+        message.type === "error" && message.code === "SUBSCRIBE_ERROR",
     );
     expect(subErrors.length).toBe(0);
 
@@ -431,7 +450,9 @@ describe("subscribe / unsubscribe", () => {
     // Give time for any error
     await settle(200);
 
-    const errors = client.messages.filter((m: any) => m.type === "error");
+    const errors = client.messages.filter(
+      (message: any) => message.type === "error",
+    );
     expect(errors.length).toBe(0);
     client.close();
   });
@@ -600,7 +621,9 @@ describe("EventSink broadcast routing", () => {
     // We verify at minimum c2 received at least one event for this run
     // by checking for any message with the matching runId
     await settle(200);
-    const c2RunMsgs = c2.messages.filter((m: any) => m.runId === started.runId);
+    const c2RunMsgs = c2.messages.filter(
+      (message: any) => message.runId === started.runId,
+    );
     // c2 should have received at least strategy_completed
     // (since mock models are nearly instant, strategy_completed may arrive after subscribe)
     expect(c2RunMsgs.length).toBeGreaterThanOrEqual(0);
@@ -639,7 +662,9 @@ describe("EventSink broadcast routing", () => {
 
     // c2 should NOT have received the strategy_error
     const c2NewMsgs = c2.messages.slice(c2MsgCountBefore);
-    const c2FlowErrors = c2NewMsgs.filter((m: any) => m.type === "strategy_error");
+    const c2FlowErrors = c2NewMsgs.filter(
+      (message: any) => message.type === "strategy_error",
+    );
     expect(c2FlowErrors.length).toBe(0);
 
     c1.close();
@@ -688,18 +713,33 @@ describe("Edge cases", () => {
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
 
     // Fire 3 start_strategy requests in rapid succession
-    client.send({ type: "start_strategy", strategyPath: stratPath, requestId: "r1" });
-    client.send({ type: "start_strategy", strategyPath: stratPath, requestId: "r2" });
-    client.send({ type: "start_strategy", strategyPath: stratPath, requestId: "r3" });
+    client.send({
+      type: "start_strategy",
+      strategyPath: stratPath,
+      requestId: "r1",
+    });
+    client.send({
+      type: "start_strategy",
+      strategyPath: stratPath,
+      requestId: "r2",
+    });
+    client.send({
+      type: "start_strategy",
+      strategyPath: stratPath,
+      requestId: "r3",
+    });
 
     // Collect strategy_started messages
     const s1: any = await client.waitForType("strategy_started");
     const s2: any = await client.waitForMessage(
-      (m: any) => m.type === "strategy_started" && m.runId !== s1.runId,
+      (message: any) =>
+        message.type === "strategy_started" && message.runId !== s1.runId,
     );
     const s3: any = await client.waitForMessage(
       (m: any) =>
-        m.type === "strategy_started" && m.runId !== s1.runId && m.runId !== (s2 as any).runId,
+        m.type === "strategy_started" &&
+        m.runId !== s1.runId &&
+        m.runId !== (s2 as any).runId,
     );
 
     // All should have unique run IDs

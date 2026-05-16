@@ -6,7 +6,10 @@ import { useTheme } from "../../theme";
 import type { BreakpointOrColumns, HideProps } from "./Hide.types";
 
 /** Resolve a breakpoint name or raw column number to a column threshold. */
-function resolveThreshold(value: BreakpointOrColumns, breakpoints: Readonly<Record<BreakpointName, number>>): number {
+function resolveThreshold(
+  value: BreakpointOrColumns,
+  breakpoints: Readonly<Record<BreakpointName, number>>,
+): number {
   return typeof value === "number" ? value : breakpoints[value];
 }
 
@@ -31,8 +34,10 @@ export function Hide({ below, above, children }: HideProps): React.ReactNode {
   const { columns } = useBreakpoint();
   const { breakpoints } = useTheme();
 
-  if (below !== undefined && columns < resolveThreshold(below, breakpoints)) return null;
-  if (above !== undefined && columns >= resolveThreshold(above, breakpoints)) return null;
+  if (below !== undefined && columns < resolveThreshold(below, breakpoints))
+    return null;
+  if (above !== undefined && columns >= resolveThreshold(above, breakpoints))
+    return null;
 
   return children;
 }

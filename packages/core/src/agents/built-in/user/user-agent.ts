@@ -47,7 +47,8 @@ export type {
  */
 export function createUserAgent(config: UserAgentConfig): Agent {
   const requireInput = config.requireInput ?? true;
-  const collector: InputCollector = config.inputCollector ?? defaultInputCollector;
+  const collector: InputCollector =
+    config.inputCollector ?? defaultInputCollector;
 
   const agent = createAgent({
     name: config.name,

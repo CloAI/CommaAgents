@@ -5,7 +5,9 @@ import { ErrorInfoSchema } from "./strategy-error.schema";
 
 describe("ErrorInfoSchema", () => {
   test("parses valid error info", () => {
-    expect(ErrorInfoSchema.parse({ code: "NOT_FOUND", message: "Run not found" })).toEqual({
+    expect(
+      ErrorInfoSchema.parse({ code: "NOT_FOUND", message: "Run not found" }),
+    ).toEqual({
       code: "NOT_FOUND",
       message: "Run not found",
     });

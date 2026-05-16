@@ -36,19 +36,23 @@ const EXAMPLES: Record<string, { path: string; description: string }> = {
   },
   code_review: {
     path: "code-review/strategy.json",
-    description: "Sequential pipeline: analyzer identifies issues, reviewer suggests fixes",
+    description:
+      "Sequential pipeline: analyzer identifies issues, reviewer suggests fixes",
   },
   research_team: {
     path: "research-team/strategy.yaml",
-    description: "Broadcast flow: technical, business, and risk researchers analyze in parallel",
+    description:
+      "Broadcast flow: technical, business, and risk researchers analyze in parallel",
   },
   iterative_refinement: {
     path: "iterative-refinement/strategy.json",
-    description: "Cycle flow: writer and critic iterate until content is approved",
+    description:
+      "Cycle flow: writer and critic iterate until content is approved",
   },
   tool_agent: {
     path: "tool-agent/strategy.yaml",
-    description: "Single agent with built-in tools (read, glob, grep) for codebase exploration",
+    description:
+      "Single agent with built-in tools (read, glob, grep) for codebase exploration",
   },
 };
 
@@ -114,7 +118,9 @@ if (!(await file.exists())) {
 // Simple terminal input collector for user agents
 // ---------------------------------------------------------------------------
 
-function createTerminalInputCollector(): (request: InputRequest) => Promise<string> {
+function createTerminalInputCollector(): (
+  request: InputRequest,
+) => Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -150,4 +156,6 @@ console.log("Running strategy...\n");
 const result = await strategy.flow.call("Start");
 
 console.log("\n--- Result ---");
-console.log(typeof result === "string" ? result : JSON.stringify(result, null, 2));
+console.log(
+  typeof result === "string" ? result : JSON.stringify(result, null, 2),
+);

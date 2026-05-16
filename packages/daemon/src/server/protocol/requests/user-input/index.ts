@@ -28,7 +28,9 @@ export function handleUserInput(
       code: NO_PENDING_INPUT,
       message: `No pending input request for run ${message.runId} agent ${message.agentName}`,
       ts: new Date().toISOString(),
-      ...(message.requestId !== undefined ? { requestId: message.requestId } : {}),
+      ...(message.requestId !== undefined
+        ? { requestId: message.requestId }
+        : {}),
     });
   }
 }

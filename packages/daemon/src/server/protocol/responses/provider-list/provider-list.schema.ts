@@ -5,13 +5,24 @@ import { z } from "zod";
 import { DaemonBase } from "../../shared";
 
 /** Supported modality identifiers mirrored from the models.dev catalog. */
-export const ModalitySchema = z.enum(["text", "image", "audio", "video", "pdf"]);
+export const ModalitySchema = z.enum([
+  "text",
+  "image",
+  "audio",
+  "video",
+  "pdf",
+]);
 
 /** Release status for a model, when known. */
 export const ModelStatusSchema = z.enum(["alpha", "beta", "deprecated"]);
 
 /** Provenance of the model list for a provider. */
-export const ModelsSourceSchema = z.enum(["catalog", "live", "merged", "error"]);
+export const ModelsSourceSchema = z.enum([
+  "catalog",
+  "live",
+  "merged",
+  "error",
+]);
 
 /** Normalized model metadata sent over the wire. */
 export const ModelInfoSchema = z.object({

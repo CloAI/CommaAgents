@@ -1,0 +1,75 @@
+---
+title: CLI
+description: Command-line interface for starting, stopping, and checking daemon status.
+---
+
+# CLI
+
+The `comma-agents-daemon` binary provides three subcommands for managing the daemon process: `start`, `stop`, and `status`.
+
+## start
+
+Starts the daemon. By default, it detaches and runs in the background. Pass `--foreground` to run in the current terminal.
+
+```bash
+# Background mode (default)
+comma-agents-daemon start
+
+# Foreground mode
+comma-agents-daemon start --foreground
+```
+
+**Flags**
+
+| Option | Alias | Type | Default | Description |
+|---|---|---|---|---|
+| `--foreground` | `-f` | boolean | `false` | Run in the foreground (don't daemonize) |
+| `--port` | `-p` | number | from config | Override the listening port |
+| `--model-override` | | string | — | Override model for all agents (e.g. `github-copilot/gpt-4o`) |
+| `--verbose` | `-v` | boolean | `false` | Enable debug-level logging |
+
+```bash
+# Start on a custom port
+comma-agents-daemon start --port 9090
+
+# Start in foreground with model override and verbose logging
+comma-agents-daemon start --foreground --model-override github-copilot/gpt-4o --verbose
+```
+
+If the daemon is already running, `start` exits with an error message and exit code 1.
+
+## stop
+
+Stops a running daemon by sending SIGTERM to the process recorded in the PID file. It polls for up to 5 seconds for the process to exit.
+
+```bash
+# Stop the daemon
+comma-agents-daemon stop
+```
+
+If no PID file is found (or it's stale), the command exits cleanly with status code 0.
+
+## status
+
+Reports whether the daemon is running, and if so, prints configuration details.
+
+```bash
+# Check daemon status
+comma-agents-daemon status
+```
+
+**Sample output (running)**
+
+```
+Daemon is running (PID: 12345)
+  Config: /home/user/.config/comma-agents/daemon.toml
+  PID file: /home/user/.local/share/comma-agents/daemon.pid
+  Port: 7422
+  Host: 127.0.0.1
+```
+
+**Sample output (not running)**
+
+```
+Daemon is not running
+```

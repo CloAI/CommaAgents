@@ -1,6 +1,6 @@
-import React from "react";
-import { render } from "ink-testing-library";
 import { describe, expect, it } from "bun:test";
+import { render } from "ink-testing-library";
+import React from "react";
 
 import { SearchInputRender } from "./SearchInput";
 import type { SearchInputTheme } from "./SearchInput.theme";
@@ -97,7 +97,11 @@ describe("filterByQuery", () => {
 
   it("should filter by the projected haystack and preserve order", () => {
     const filtered = filterByQuery(items, "o", (item) => item.name);
-    expect(filtered.map((item) => item.id)).toEqual(["openai", "anthropic", "ollama"]);
+    expect(filtered.map((item) => item.id)).toEqual([
+      "openai",
+      "anthropic",
+      "ollama",
+    ]);
 
     const narrower = filterByQuery(items, "ol", (item) => item.name);
     expect(narrower.map((item) => item.id)).toEqual(["ollama"]);

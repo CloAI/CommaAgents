@@ -1,4 +1,11 @@
 export { createSandbox } from "./sandbox";
+export { inSandbox, getSandbox } from "./in-sandbox";
+export {
+  DEFAULT_DAEMON_SANDBOX_CONFIG,
+  DEFAULT_FORBIDDEN_GLOBS,
+  DEFAULT_SANDBOX_CONFIG,
+  PERMISSIVE_SANDBOX_CONFIG,
+} from "./sandbox.constants";
 
 export type {
   AccessMode,
@@ -8,10 +15,7 @@ export type {
   PermissionOperation,
   PermissionRequest,
   PermissionRequester,
-  PolicyChangeListener,
   PolicyPatch,
-  PolicySnapshot,
   Sandbox,
   SandboxConfig,
-  SandboxDependencies,
 } from "./sandbox.types";

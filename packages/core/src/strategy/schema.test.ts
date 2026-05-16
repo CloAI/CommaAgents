@@ -494,7 +494,9 @@ describe("type guards", () => {
     });
 
     it("returns false for LLM agents with type: llm", () => {
-      expect(isUserAgentDef({ type: "llm", model: "openai/gpt-4o" })).toBe(false);
+      expect(isUserAgentDef({ type: "llm", model: "openai/gpt-4o" })).toBe(
+        false,
+      );
     });
   });
 
@@ -558,14 +560,18 @@ describe("type guards", () => {
 describe("BUILT_IN_TOOL_NAMES", () => {
   it("contains exactly the expected tool names", () => {
     expect([...BUILT_IN_TOOL_NAMES]).toEqual([
-      "bash",
-      "read",
-      "write",
-      "edit",
-      "glob",
-      "grep",
-      "ls",
+      "read_file",
+      "list_directory",
+      "search_files",
+      "create_file",
+      "write_file",
+      "edit_file",
+      "delete_file",
+      "move_file",
+      "apply_patch",
+      "run_command",
       "webfetch",
+      "load_skill",
       "todo_add",
       "todo_complete",
       "todo_get",

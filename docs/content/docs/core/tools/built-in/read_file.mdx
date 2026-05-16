@@ -1,0 +1,75 @@
+---
+title: read_file
+description: Read a text file from the workspace with line-range slicing, byte caps, and a sha256 checksum for stale-file detection.
+---
+
+# read_file
+
+Read the contents of a workspace file and receive a structured payload with line metadata, a sha256 of the on-disk bytes, and the (optionally sliced) text content. The sha256 is what every later write/edit tool uses to detect stale state — agents should keep it from each read for any file they intend to modify.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  tools: ["read_file"],
+});
+```
+
+Binary files require a two-step opt-in: the first call returns the `binary_file` error with the file's size and sha256, and the agent must re-call with `allowBinary: true` to receive base64 content.
+
+## ReadFileToolConfig
+
+Optional configuration for the factory. Most callers do not need this — the defaults are tuned for typical source files.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/read-file/read-file.types.ts" name="ReadFileToolConfig" />
+
+## ReadFileData
+
+The structured payload returned in `data` on success.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/read-file/read-file.types.ts" name="ReadFileData" />
+
+## Line slicing
+
+Pass `startLine` and/or `endLine` (1-indexed, inclusive) to read a window instead of the whole file. `endLine` greater than the file's `lineCount` clamps to the end. A `startLine` past the end of the file returns an empty slice with `truncated: false` — it is not an error.
+
+```ts
+// Read lines 50-150 of a long file.
+await tool.read_file({ path: "src/server.ts", startLine: 50, endLine: 150 });
+```
+
+## Byte cap and truncation
+
+`maxBytes` caps the UTF-8 byte length of the returned `content`. When the slice exceeds the cap, content is byte-truncated at the cap and `data.truncated` is set to `true`. The default cap is 256 KiB. The `sha256` is always computed over the full on-disk bytes, regardless of slicing or truncation.
+
+## Binary files
+
+If the file's first 8 KiB contains a NUL byte it is treated as binary. The first call returns the `binary_file` error containing the size and sha256:
+
+```ts
+const first = await tool.read_file({ path: "assets/icon.png" });
+// → ok: false, error.kind: "binary_file"
+
+const second = await tool.read_file({
+  path: "assets/icon.png",
+  allowBinary: true,
+});
+// → ok: true, data.contentBase64: "...", data.encoding: "base64"
+```
+
+## Errors
+
+| Kind | When |
+|---|---|
+| `not_found` | The path does not exist or is a directory. The error suggests `list_directory` for directories. |
+| `outside_workspace` | The path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `permission_denied` | The path is blocked by `forbiddenGlobs` or sandbox read policy. |
+| `binary_file` | Binary content detected without `allowBinary: true`. Re-call with the flag to receive base64. |
+| `file_too_large` | The file exceeds the sandbox-configured size limit (separate from `maxBytes`). |
+
+## Related
+
+- [list_directory](/docs/core/tools/built-in/list_directory) — enumerate a directory instead of reading a single file.
+- [Stale file protocol](/docs/core/tools/stale-file-protocol) — how `sha256` flows from read into write/edit/apply_patch.

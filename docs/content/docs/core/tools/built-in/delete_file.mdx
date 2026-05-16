@@ -1,0 +1,63 @@
+---
+title: delete_file
+description: Remove a workspace file, recoverable by default via a per-workspace trash directory.
+---
+
+# delete_file
+
+Delete a file from the workspace. By default the file is moved into a per-workspace trash directory instead of being unlinked outright, so the operation is recoverable. Pass `permanent: true` to skip the trash. Recursive directory deletion is supported via `recursive: true` but is **never** the default — a missing flag against a directory returns an error.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "janitor",
+  model: "openai/gpt-4o",
+  tools: ["delete_file"],
+});
+```
+
+## DeleteFileToolConfig
+
+Optional configuration for the factory.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/delete-file/delete-file.types.ts" name="DeleteFileToolConfig" />
+
+## DeleteFileData
+
+The structured payload returned on success.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/delete-file/delete-file.types.ts" name="DeleteFileData" />
+
+## Trash semantics
+
+Recoverable deletes move the target into `<os.tmpdir>/comma-trash/<sha256(workspaceRoot)>/<timestamp>-<basename>`. The trash is keyed by a hash of the workspace root so multiple workspaces do not collide. Entries older than seven days are garbage-collected automatically the next time `delete_file` runs.
+
+```ts
+// Recoverable (default).
+await tool.delete_file({ path: "tmp/scratch.log" });
+
+// Permanent — no trash.
+await tool.delete_file({ path: "tmp/scratch.log", permanent: true });
+
+// Recursive directory delete.
+await tool.delete_file({ path: "build", recursive: true });
+```
+
+## Cross-device fallback
+
+If the trash directory lives on a different filesystem than the target (an `EXDEV` rename error), `delete_file` falls back to copy-then-unlink. The deleted bytes still reach the trash and the operation appears atomic to the caller.
+
+## Errors
+
+| Kind | When |
+|---|---|
+| `not_found` | The path does not exist. |
+| `permission_denied` | The path is write-blocked by `forbiddenGlobs` or sandbox policy. |
+| `outside_workspace` | The path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `command_failed` | The target is a directory and `recursive: true` was not passed. |
+
+## Related
+
+- [Trash](/docs/core/tools/trash) — how recoverable deletes are stored and reclaimed.
+- [move_file](/docs/core/tools/built-in/move_file) — to relocate instead of delete.

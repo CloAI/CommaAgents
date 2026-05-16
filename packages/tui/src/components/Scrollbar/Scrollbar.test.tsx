@@ -1,5 +1,5 @@
-import { render } from "ink-testing-library";
 import { describe, expect, it } from "bun:test";
+import { render } from "ink-testing-library";
 
 import { ScrollbarRender } from "./Scrollbar";
 import type { ScrollbarTheme } from "./Scrollbar.theme";
@@ -15,16 +15,31 @@ const TEST_THEME: ScrollbarTheme = {
 describe("computeScrollbarGeometry", () => {
   it("should return a zero-height geometry for height=0", () => {
     expect(
-      computeScrollbarGeometry({ total: 10, windowSize: 5, offset: 0, height: 0 }),
+      computeScrollbarGeometry({
+        total: 10,
+        windowSize: 5,
+        offset: 0,
+        height: 0,
+      }),
     ).toEqual({ height: 0, thumbTop: 0, thumbHeight: 0 });
   });
 
   it("should fill the track when content fits (total <= windowSize)", () => {
     expect(
-      computeScrollbarGeometry({ total: 5, windowSize: 10, offset: 0, height: 10 }),
+      computeScrollbarGeometry({
+        total: 5,
+        windowSize: 10,
+        offset: 0,
+        height: 10,
+      }),
     ).toEqual({ height: 10, thumbTop: 0, thumbHeight: 10 });
     expect(
-      computeScrollbarGeometry({ total: 10, windowSize: 10, offset: 0, height: 10 }),
+      computeScrollbarGeometry({
+        total: 10,
+        windowSize: 10,
+        offset: 0,
+        height: 10,
+      }),
     ).toEqual({ height: 10, thumbTop: 0, thumbHeight: 10 });
   });
 
@@ -84,7 +99,12 @@ describe("computeScrollbarGeometry", () => {
 describe("ScrollbarRender", () => {
   it("should render `height` rows of thumb/track characters", () => {
     const result = render(
-      <ScrollbarRender theme={TEST_THEME} height={5} thumbTop={1} thumbHeight={2} />,
+      <ScrollbarRender
+        theme={TEST_THEME}
+        height={5}
+        thumbTop={1}
+        thumbHeight={2}
+      />,
     );
     const frame = result.lastFrame() ?? "";
     // Expect 5 rows: track, thumb, thumb, track, track.
@@ -100,7 +120,12 @@ describe("ScrollbarRender", () => {
 
   it("should render an all-thumb column when thumbHeight === height", () => {
     const result = render(
-      <ScrollbarRender theme={TEST_THEME} height={3} thumbTop={0} thumbHeight={3} />,
+      <ScrollbarRender
+        theme={TEST_THEME}
+        height={3}
+        thumbTop={0}
+        thumbHeight={3}
+      />,
     );
     const frame = result.lastFrame() ?? "";
     const rows = frame.split("\n");

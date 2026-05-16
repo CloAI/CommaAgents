@@ -1,7 +1,3 @@
-// Strategy loader utilities — internal helpers for agent, model, tool,
-// and flow instantiation. Model parsing primitives live in the model/
-// module; tool resolution lives in tools/tool.registry.
-
 import { createAgent } from "../../agents/agent/agent";
 import type { Agent } from "../../agents/agent/agent.types";
 import { createUserAgent } from "../../agents/built-in/user/user-agent";
@@ -11,31 +7,24 @@ import { createCycleFlow } from "../../flows/built-in/cycle/cycle-flow";
 import { createSequentialFlow } from "../../flows/built-in/sequential/sequential-flow";
 import { hookIntoFlow } from "../../flows/hook-into-flow/hook-into-flow";
 import { createPromptTemplate } from "../../prompts/template/prompt-template";
-import { createSandbox } from "../../sandbox/sandbox";
-import type { Sandbox, SandboxConfig } from "../../sandbox/sandbox.types";
-import type { CycleFlowDef, FlowDef, LLMAgentDef, Strategy, UserAgentDef } from "../schema";
-import { isAgentStep, isFlowDef, isLLMAgentDef, isUserAgentDef } from "../schema";
+import { buildSkillsPromptHeader } from "../../skills/skills.loader";
+import type { SkillRegistry } from "../../skills/skills.types";
+import type {
+  CycleFlowDef,
+  FlowDef,
+  LLMAgentDef,
+  Strategy,
+  UserAgentDef,
+} from "../schema";
+import {
+  isAgentStep,
+  isFlowDef,
+  isLLMAgentDef,
+  isUserAgentDef,
+} from "../schema";
 import type { LoadStrategyOptions } from "./loader.types";
 
 // Agent instantiation
-
-/**
- * Resolve the sandbox option from LoadStrategyOptions into a single Sandbox
- * instance, constructing one from SandboxConfig when necessary.
- */
-function resolveSandbox(options: LoadStrategyOptions): Sandbox | undefined {
-  if (!options.sandbox) return undefined;
-
-  // If it already has the Sandbox interface methods, use it directly
-  if (typeof (options.sandbox as Sandbox).resolvePath === "function") {
-    return options.sandbox as Sandbox;
-  }
-
-  // Otherwise treat it as a SandboxConfig and construct the sandbox
-  return createSandbox(options.sandbox as SandboxConfig, {
-    requestPermission: options.permissionRequester,
-  });
-}
 
 /**
  * Build all agents defined in the strategy into live Agent instances.
@@ -48,13 +37,12 @@ export async function buildAgentRegistry(
   options: LoadStrategyOptions,
 ): Promise<Record<string, Agent>> {
   const registry: Record<string, Agent> = {};
-  const sandbox = resolveSandbox(options);
 
   for (const [name, agentDefinition] of Object.entries(strategy.agents)) {
     if (isUserAgentDef(agentDefinition)) {
       registry[name] = buildUserAgent(name, agentDefinition, options);
     } else if (isLLMAgentDef(agentDefinition)) {
-      registry[name] = buildLLMAgent(name, agentDefinition, options, sandbox);
+      registry[name] = buildLLMAgent(name, agentDefinition, options);
     }
   }
 
@@ -85,7 +73,6 @@ function buildLLMAgent(
   name: string,
   agentDefinition: LLMAgentDef,
   options: LoadStrategyOptions,
-  sandbox?: Sandbox,
 ): Agent {
   // modelOverride replaces whatever the strategy file specifies
   const effectiveModel = options.modelOverride ?? agentDefinition.model;
@@ -97,13 +84,20 @@ function buildLLMAgent(
     );
   }
 
-  // Build system prompt — template takes precedence over static string
+  // Build system prompt — template takes precedence over static string.
+  // When a skill registry is supplied, prepend a compact "## Available
+  // Skills" block to string prompts so the model knows what it can call
+  // `load_skill` with. Template-based prompts are left untouched so
+  // authors retain full control over template variables and ordering.
+  const skillsHeader = options.skillRegistry
+    ? buildSkillsPromptHeader(options.skillRegistry)
+    : "";
   const systemPrompt = agentDefinition.systemPromptTemplate
     ? createPromptTemplate({
         template: agentDefinition.systemPromptTemplate.template,
         variables: agentDefinition.systemPromptTemplate.variables,
       })
-    : agentDefinition.systemPrompt;
+    : prependSkillsHeader(agentDefinition.systemPrompt, skillsHeader);
 
   // Pass string model and tool names directly — createAgent resolves internally
   return createAgent({
@@ -114,8 +108,30 @@ function buildLLMAgent(
     ...(agentDefinition.providerOptions
       ? { providerOptions: agentDefinition.providerOptions }
       : {}),
-    ...(sandbox ? { sandbox } : {}),
+    ...(agentDefinition.modelOptions
+      ? { modelOptions: agentDefinition.modelOptions }
+      : {}),
+    ...(options.skillRegistry ? { skillRegistry: options.skillRegistry } : {}),
   });
+}
+
+/**
+ * Concatenate the skills header onto a static system prompt. Used by
+ * `buildLLMAgent` so callers don't have to remember to inject skills into
+ * every prompt themselves.
+ */
+function prependSkillsHeader(
+  systemPrompt: string | undefined,
+  skillsHeader: string,
+): string | undefined {
+  if (skillsHeader.length === 0) return systemPrompt;
+  if (!systemPrompt || systemPrompt.length === 0) return skillsHeader;
+  return `${systemPrompt}\n\n${skillsHeader}`;
+}
+
+/** @internal Used by tests to assert the header gets attached. */
+export function previewSkillsHeader(registry: SkillRegistry): string {
+  return buildSkillsPromptHeader(registry);
 }
 
 // Flow tree building
@@ -145,7 +161,8 @@ export function buildFlow(
 
     case "cycle": {
       const cycleDef = flowDef as CycleFlowDef;
-      const cycles = cycleDef.cycles === "Infinity" ? Infinity : (cycleDef.cycles ?? 1);
+      const cycles =
+        cycleDef.cycles === "Infinity" ? Infinity : (cycleDef.cycles ?? 1);
 
       // Resolve observer agent if specified
       const observer = cycleDef.observer

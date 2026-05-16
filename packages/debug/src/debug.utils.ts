@@ -2,7 +2,11 @@
 // Internal helpers, not exported from the package barrel.
 
 import type { Agent } from "@comma-agents/core";
-import { breakLines, collapseNewlines, truncateText } from "@comma-agents/utils";
+import {
+  breakLines,
+  collapseNewlines,
+  truncateText,
+} from "@comma-agents/utils";
 import { DEFAULTS } from "./debug.constants";
 import type { DebugOptions, ResolvedDebugOptions } from "./debug.types";
 
@@ -53,8 +57,12 @@ export function formatTokens(usage: {
  * with system prompt, tools, etc. For flow agents or user agents without
  * config, only the name is printed.
  */
-export function describeAgentConfig(agent: Agent, opts: ResolvedDebugOptions): void {
-  const emit = (line: string) => opts.output(breakLines(line, opts.breakLineAfter));
+export function describeAgentConfig(
+  agent: Agent,
+  opts: ResolvedDebugOptions,
+): void {
+  const emit = (line: string) =>
+    opts.output(breakLines(line, opts.breakLineAfter));
   const cfg = agent.config;
 
   if (!cfg) {

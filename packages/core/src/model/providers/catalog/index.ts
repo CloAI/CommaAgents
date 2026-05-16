@@ -5,11 +5,19 @@ export {
   getCatalogProvider,
   getCatalogProviderSync,
   getCatalogSnapshot,
+  getProvidersForModel,
+  getReverseModelIndex,
   listCatalogProviders,
   loadCatalog,
   refreshCatalog,
   resetCatalog,
 } from "./catalog";
-export { resolveCatalogCachePath, toModelInfo } from "./catalog.utils";
-
-export type { CatalogData, CatalogModel, CatalogProvider } from "./catalog.types";
+export {
+  resolveCatalogCachePath,
+  toModelInfo,
+} from "./catalog.utils";
+export type {
+  CatalogData,
+  CatalogModel,
+  CatalogProvider,
+} from "./catalog.types";

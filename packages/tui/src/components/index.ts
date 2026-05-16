@@ -1,5 +1,5 @@
-export { AlphaDim } from "./AlphaDim";
 export type { AlphaDimProps } from "./AlphaDim";
+export { AlphaDim } from "./AlphaDim";
 export type {
   BorderedPanelProps,
   BorderedPanelRenderProps,
@@ -13,8 +13,8 @@ export {
 export type {
   ButtonProps,
   ButtonRenderProps,
-  ButtonVariant,
   ButtonTheme,
+  ButtonVariant,
 } from "./Button";
 export { Button, ButtonRender, useButtonTheme } from "./Button";
 export type {
@@ -51,6 +51,7 @@ export type {
   AgentMessageProps,
   AgentMessageRenderProps,
   MessageListProps,
+  MessageListRenderProps,
   SystemMessageProps,
   SystemMessageRenderProps,
   UserMessageProps,
@@ -60,6 +61,7 @@ export {
   AgentMessage,
   AgentMessageRender,
   MessageList,
+  MessageListRender,
   SystemMessage,
   SystemMessageRender,
   UserMessage,
@@ -74,19 +76,38 @@ export type { ModalProps, ModalRenderProps, ModalSize } from "./Modal";
 export { Modal, ModalRender } from "./Modal";
 export type { ModalTheme } from "./Modal/Modal.theme";
 export { useModalTheme } from "./Modal/Modal.theme";
-export type { ScrollableListProps } from "./ScrollableList";
-export { ScrollableList } from "./ScrollableList";
+export type {
+  MouseContextValue,
+  MouseListener,
+  MouseProviderProps,
+} from "./MouseProvider";
+export { MouseProvider } from "./MouseProvider";
+export type {
+  PermissionDecision,
+  PermissionPromptProps,
+  PermissionPromptRenderProps,
+} from "./PermissionPrompt";
+export { PermissionPrompt, PermissionPromptRender } from "./PermissionPrompt";
+export type {
+  ScrollableListProps,
+  ScrollableListRenderProps,
+} from "./ScrollableList";
+export { ScrollableList, ScrollableListRender } from "./ScrollableList";
 export type { ScrollableListTheme } from "./ScrollableList/ScrollableList.theme";
 export { useScrollableListTheme } from "./ScrollableList/ScrollableList.theme";
 export type {
   ScrollableViewProps,
+  ScrollableViewRenderProps,
   ScrollableViewState,
   ScrollableViewTheme,
 } from "./ScrollableView";
-export { ScrollableView, useScrollableViewTheme } from "./ScrollableView";
+export {
+  ScrollableView,
+  ScrollableViewRender,
+  useScrollableViewTheme,
+} from "./ScrollableView";
 export type { ScrollbarProps, ScrollbarRenderProps } from "./Scrollbar";
 export {
-  computeScrollbarGeometry,
   Scrollbar,
   ScrollbarRender,
 } from "./Scrollbar";
@@ -96,22 +117,19 @@ export type { SearchInputProps, SearchInputRenderProps } from "./SearchInput";
 export { SearchInput, SearchInputRender } from "./SearchInput";
 export type { SearchInputTheme } from "./SearchInput/SearchInput.theme";
 export { useSearchInputTheme } from "./SearchInput/SearchInput.theme";
-export {
-  filterByQuery,
-  matchesQuery,
-  tokenizeQuery,
-} from "./SearchInput/SearchInput.utils";
+export { filterByQuery } from "./SearchInput/SearchInput.utils";
 export type {
   SeparatorProps,
   SeparatorRenderProps,
   SeparatorTheme,
 } from "./Separator";
 export { Separator, SeparatorRender, useSeparatorTheme } from "./Separator";
-export { StatusBar } from "./StatusBar";
+export type { StatusBarProps, StatusBarRenderProps } from "./StatusBar";
+export { StatusBar, StatusBarRender } from "./StatusBar";
 export type { StatusBarTheme, StatusInfo } from "./StatusBar/StatusBar.theme";
 export { useStatusBarTheme } from "./StatusBar/StatusBar.theme";
 export type { StrategyOption } from "./StrategyPicker";
-export { StrategyPicker } from "./StrategyPicker";
+export { StrategyPicker, StrategyPickerRender } from "./StrategyPicker";
 export type { StrategyPickerTheme } from "./StrategyPicker/StrategyPicker.theme";
 export { useStrategyPickerTheme } from "./StrategyPicker/StrategyPicker.theme";
 export type { TextAreaInputProps } from "./TextAreaInput";
@@ -121,8 +139,3 @@ export { useTextAreaInputTheme } from "./TextAreaInput/TextAreaInput.theme";
 export { TitleIcon } from "./TitleIcon";
 export type { TitleIconTheme } from "./TitleIcon/TitleIcon.theme";
 export { useTitleIconTheme } from "./TitleIcon/TitleIcon.theme";
-
-export { MouseProvider } from "./MouseProvider";
-export type { MouseProviderProps, MouseContextValue, MouseListener } from "./MouseProvider";
-export type { PermissionDecision, PermissionPromptProps } from "./PermissionPrompt";
-export { PermissionPrompt } from "./PermissionPrompt";

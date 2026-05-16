@@ -1,0 +1,102 @@
+---
+title: defineTool
+description: Create custom tools with schema validation and lifecycle hooks.
+---
+
+# defineTool
+
+`defineTool` creates a typed tool definition with full parameter inference from a Zod schema. The execute function receives validated arguments and a `ToolContext`, and must return a `ToolResult`.
+
+## defineTool
+
+Creates a `ToolDefinition` with full type inference from the Zod schema.
+
+```ts
+import { z } from "zod";
+import { defineTool, okResult, errorResult } from "@comma-agents/core";
+
+const weatherTool = defineTool({
+  description: "Get the current weather for a location",
+  parameters: z.object({
+    location: z.string().describe("City name"),
+    unit: z.enum(["celsius", "fahrenheit"]).optional(),
+  }),
+  execute: async (validatedArguments, toolContext) => {
+    const { location, unit } = validatedArguments;
+
+    // Access agent context
+    console.log(`Tool called by agent: ${toolContext.agentName}`);
+
+    // Access the per-tool guard for authorization
+    const abs = await toolContext.guard.authorize(
+      { type: "fs.read", resource: "data/cache.json" },
+      { agentName: toolContext.agentName, toolName: "weather", signal: toolContext.abort },
+    );
+
+    try {
+      const weather = await fetchWeather(location, unit ?? "celsius");
+      return okResult(weather.summary, {
+        data: { temp: weather.temp, humidity: weather.humidity },
+      });
+    } catch (err) {
+      return errorResult({
+        kind: "unknown",
+        message: `Weather fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+        recoverable: true,
+        suggestedNextAction: "Retry with a different location name or check connectivity.",
+      });
+    }
+  },
+});
+```
+
+## Result Helpers
+
+### okResult
+
+Builds a successful `ToolResult`. The `output` field is the text returned to the model.
+
+```ts
+import { okResult } from "@comma-agents/core";
+
+// Basic success
+return okResult("Wrote 12 bytes");
+
+// With structured data
+return okResult("File saved successfully", {
+  data: { sha256: "abc123", sizeBytes: 4096 },
+  metadata: { durationMs: 15 },
+});
+```
+
+### errorResult
+
+Builds a failure `ToolResult` from a structured `ToolError`. If no `output` override is provided, it defaults to `error.message`.
+
+```ts
+import { errorResult } from "@comma-agents/core";
+
+return errorResult({
+  kind: "stale_file",
+  message: "File changed since last read",
+  path: "/workspace/src/index.ts",
+  recoverable: true,
+  suggestedNextAction: "Re-read the file to get the latest content before editing.",
+});
+```
+
+### toolError
+
+Utility for constructing a `ToolError` without repeating the `kind` as a literal.
+
+```ts
+import { toolError } from "@comma-agents/core";
+
+const err = toolError("not_found", "No such file", {
+  path: "/workspace/missing.txt",
+  recoverable: true,
+  suggestedNextAction: "Check the path and try again.",
+});
+```
+
+

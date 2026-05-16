@@ -1,0 +1,91 @@
+---
+title: Get Available Models
+description: Query which models the user can use given their current credential configuration.
+---
+
+Whereas [`list_providers`](/docs/daemon/protocol/list-providers) returns providers grouped by provider, `get_available_models` returns models grouped by model ID, with credential availability flags for each. This makes it ideal for UIs that present a model-first picker: "Which models can I actually use right now?"
+
+## Request: `get_available_models`
+
+```json
+{
+  "type": "get_available_models",
+  "requestId": "models-1",
+  "modelId": "gpt",
+  "scope": "my-strategy"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"get_available_models"` | yes | Message type discriminator |
+| `requestId` | `string` | no | Echoed on the response for correlation |
+| `modelId` | `string` | no | Substring filter — only return models whose ID contains this string. Useful for narrowing a large catalog. |
+| `scope` | `string` | no | Strategy scope for credential resolution. When provided, strategy-scoped credentials are checked before falling back to environment variables and the global scope. |
+
+## Response: `available_models`
+
+```json
+{
+  "type": "available_models",
+  "models": [
+    {
+      "id": "gpt-4o",
+      "name": "GPT-4o",
+      "contextWindow": 128000,
+      "capabilities": { "tools": true, "reasoning": true, "vision": true },
+      "hasCredentials": true,
+      "providers": ["github-copilot", "openai", "openrouter"],
+      "configuredProviders": ["openai"]
+    },
+    {
+      "id": "gpt-4o-mini",
+      "name": "GPT-4o Mini",
+      "contextWindow": 128000,
+      "capabilities": { "tools": true, "vision": true },
+      "hasCredentials": true,
+      "providers": ["github-copilot", "openai", "openrouter"],
+      "configuredProviders": ["github-copilot", "openai"]
+    }
+  ],
+  "requestId": "models-1",
+  "ts": "2025-01-15T10:30:05.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"available_models"` | Message type discriminator |
+| `models` | `AvailableModel[]` | Alphabetically sorted list of models from the catalog |
+| `requestId` | `string?` | Echoed from the request |
+| `ts` | `string` | ISO-8601 timestamp |
+
+### AvailableModel
+
+Each model entry includes all fields from [ModelInfo](/docs/daemon/protocol/list-providers#modelinfo) plus the following credential-awareness fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `hasCredentials` | `boolean` | `true` when at least one provider has a configured credential for this model |
+| `providers` | `string[]` | All provider IDs that list this model in the catalog |
+| `configuredProviders` | `string[]` | Subset of `providers` that have a configured credential (env var, strategy scope, or global scope) |
+
+### How It Works
+
+The handler:
+
+1. Builds a reverse index from the models.dev catalog (`modelId → providerId[]`).
+2. For each model (optionally filtered by `modelId`), checks credential status for every provider.
+3. Returns the full catalog model metadata plus `hasCredentials`, `providers`, and `configuredProviders`.
+
+Models are sorted alphabetically by ID. The response includes every model found in the catalog, not only those with credentials — `hasCredentials` lets the client decide what to show.
+
+## Comparison to `list_providers`
+
+| | `list_providers` | `get_available_models` |
+|---|---|---|
+| **Grouping** | By provider | By model |
+| **Credential info** | Per provider (`authStatus`) | Per model (`hasCredentials`, `configuredProviders`) |
+| **Use case** | Provider config/debugging | Model picker UIs, "what can I use?" queries |
+| **Live discovery** | Supported (`live: true`) | Not yet supported |
+| **Filtering** | `scope` | `scope` + `modelId` |

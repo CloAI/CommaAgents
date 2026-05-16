@@ -1,21 +1,20 @@
-// @comma-agents/core
-// Composable agent orchestration framework
+export type {
+  AbortableAsyncGenerator,
+  AbortablePromise,
+} from "@comma-agents/utils";
+export {
+  createAbortableGenerator,
+  createAbortablePromise,
+} from "@comma-agents/utils";
 
-export type { AbortableAsyncGenerator, AbortablePromise } from "@comma-agents/utils";
-// -- Abortable utilities (re-exported from @comma-agents/utils) --
-export { createAbortableGenerator, createAbortablePromise } from "@comma-agents/utils";
-
-// -- Agent composition --
 export { createAgent } from "./agents/agent/agent";
-// -- Agents --
-// -- Agent types (the core contracts) --
 export type {
   Agent,
   AgentCallResult,
   AgentConfig,
   AgentStreamEvent,
+  ModelOptions,
 } from "./agents/agent/agent.types";
-// -- Agent hook middleware --
 export { createUserAgent } from "./agents/built-in/user/user-agent";
 export type {
   InputCollector,
@@ -23,12 +22,14 @@ export type {
   UserAgentConfig,
 } from "./agents/built-in/user/user-agent.types";
 export { hookIntoAgent } from "./agents/hook-into-agent/hook-into-agent";
-// -- Hooks --
 // Agent-specific hook types (co-located with agent code)
 export type { AgentHooks, ToolHooks } from "./agents/hooks/hooks.types";
 export type { AgentDescription, LoadAgentOptions } from "./agents/loader/index";
-// -- Agent loader (standalone agent files) --
-export { AgentDescriptionSchema, loadAgent, loadAgentFromString } from "./agents/loader/index";
+export {
+  AgentDescriptionSchema,
+  loadAgent,
+  loadAgentFromString,
+} from "./agents/loader/index";
 // Re-export AI SDK message types and our ResponseMessage alias for consumer convenience
 export type {
   AssistantModelMessage,
@@ -43,9 +44,7 @@ export type {
   ConversationContextConfig,
   ConversationTurn,
 } from "./context/index";
-// -- Context (conversation state management) --
 export { createConversationContext } from "./context/index";
-// -- Credentials --
 export type {
   ApiCredential,
   AuthStatus,
@@ -56,7 +55,6 @@ export type {
   CredentialStoreData,
   CustomCredential,
   EnvVarMap,
-  JsonFileBackendOptions,
   OAuthCredential,
 } from "./credentials/index";
 export {
@@ -68,9 +66,7 @@ export {
   OAuthCredentialSchema,
   resolveCredentialsPath,
   resolveDataDir,
-  WELL_KNOWN_ENV_VARS,
 } from "./credentials/index";
-// -- Global Defaults --
 export type { GlobalDefaults, ProviderRegistration } from "./defaults/index";
 export {
   getGlobalCredentialStore,
@@ -81,7 +77,6 @@ export {
   setGlobalCredentialStore,
   unregisterProvider,
 } from "./defaults/index";
-// -- Errors --
 export {
   AgentCallError,
   CommaAgentsError,
@@ -103,7 +98,6 @@ export type {
   FlowHooks,
   FlowResult,
 } from "./flows/index";
-// -- Flows (Phase 4) --
 export {
   buildFlowAgent,
   createBroadcastFlow,
@@ -113,8 +107,11 @@ export {
   hookIntoFlow,
 } from "./flows/index";
 export type { FlowDescription, LoadFlowOptions } from "./flows/loader/index";
-// -- Flow loader (standalone flow files) --
-export { FlowDescriptionSchema, loadFlow, loadFlowFromString } from "./flows/loader/index";
+export {
+  FlowDescriptionSchema,
+  loadFlow,
+  loadFlowFromString,
+} from "./flows/loader/index";
 // Shared hook infrastructure
 export type { SideEffectHook, TransformHook } from "./hooks";
 export { runSideEffectHooks, runTransformHooks } from "./hooks";
@@ -126,9 +123,10 @@ export type {
   TokenUsageRecord,
   UseTokenTrackingConfig,
 } from "./hooks/built-in/token-tracking/index";
-// -- Token Tracking --
-export { createTokenTracker, useTokenTracking } from "./hooks/built-in/token-tracking/index";
-// -- Model resolution --
+export {
+  createTokenTracker,
+  useTokenTracking,
+} from "./hooks/built-in/token-tracking/index";
 export type {
   CatalogData,
   CatalogModel,
@@ -141,8 +139,8 @@ export type {
   ModelCost,
   ModelInfo,
   ModelModalities,
-  ModelsSource,
   ModelStatus,
+  ModelsSource,
   ParsedModel,
   ProviderDefinition,
   ProviderFactory,
@@ -156,9 +154,13 @@ export {
   getCatalogProvider,
   getCatalogProviderSync,
   getCatalogSnapshot,
+  getModelCapabilities,
+  getModelMetadata,
   getProviderDefinition,
   getProviderInfo,
   getProviderPackage,
+  getProvidersForModel,
+  getReverseModelIndex,
   isKnownProvider,
   listAllProviderModels,
   listCatalogProviders,
@@ -173,7 +175,9 @@ export {
   resetCatalog,
   resetModelRegistry,
   resetProviderRegistry,
+  resolveCatalogCachePath,
   resolveModel,
+  toModelInfo,
   unregisterModel,
   unregisterProviderDefinition,
 } from "./model/index";
@@ -181,9 +185,65 @@ export type {
   BuildMessagesOptions,
   SystemPromptOptions,
 } from "./prompts/message-builder";
-// -- Prompts --
 export { buildMessages, resolveSystemPrompt } from "./prompts/message-builder";
 export { createPromptTemplate } from "./prompts/template/prompt-template";
+export type {
+  PromptTemplate,
+  PromptTemplateConfig,
+  TemplateValue,
+  TemplateVariables,
+} from "./prompts/types";
+export type {
+  AccessMode,
+  PathPolicy,
+  PermissionDecision,
+  PermissionOperation,
+  PermissionRequest,
+  PermissionRequester,
+  PolicyPatch,
+  Sandbox,
+  SandboxConfig,
+} from "./sandbox/index";
+export {
+  createSandbox,
+  getSandbox,
+  inSandbox,
+  DEFAULT_DAEMON_SANDBOX_CONFIG,
+  DEFAULT_FORBIDDEN_GLOBS,
+  DEFAULT_SANDBOX_CONFIG,
+  PERMISSIVE_SANDBOX_CONFIG,
+} from "./sandbox/index";
+export type {
+  AccessRequest,
+  AccessType,
+  Guard,
+  GuardCallbacks,
+  GuardPermissionRequest,
+  GuardPolicySnapshot,
+  Policy,
+  PolicyDecision,
+} from "./guard/index";
+export {
+  approveCommandsPolicy,
+  buildDefaultPolicies,
+  createGuard,
+  denyCommandsPolicy,
+  forbiddenGlobsPolicy,
+  pathPolicy,
+} from "./guard/index";
+export type {
+  LoadSkillsOptions,
+  Skill,
+  SkillLoadResult,
+  SkillLoadWarning,
+  SkillMetadata,
+  SkillRegistry,
+} from "./skills/index";
+export {
+  buildSkillsPromptHeader,
+  createSkillRegistry,
+  loadSkills,
+} from "./skills/index";
 export type {
   AgentDef,
   AgentStep,
@@ -199,7 +259,6 @@ export type {
   Strategy,
   UserAgentDef,
 } from "./strategy/index";
-// -- Strategy (Phase 7) --
 export {
   exportStrategy,
   isAgentStep,
@@ -210,9 +269,39 @@ export {
   loadStrategyFromString,
   StrategySchema,
 } from "./strategy/index";
-// -- Tools --
 export { defineTool } from "./tools/define/define-tool";
-// -- Tool registry --
+export type {
+  AuditEntry,
+  AuditOperation,
+  AuditSink,
+  FileAuditSinkOptions,
+  NewlineStyle,
+  SessionFileEntry,
+  SessionFileState,
+  UnifiedDiffOptions,
+  WriteAtomicOptions,
+} from "./tools/io";
+export {
+  applyBom,
+  applyNewline,
+  BINARY_DETECTION_SAMPLE_BYTES,
+  BOM,
+  buildSessionFileState,
+  createFileAuditSink,
+  createMemoryAuditSink,
+  detectNewline,
+  hasBom,
+  isLikelyBinary,
+  STALE_FILE_RECOVERY_HINT,
+  sha256OfBuffer,
+  sha256OfFile,
+  stripBom,
+  toLF,
+  unifiedDiff,
+  verifySessionFileState,
+  writeAtomic,
+} from "./tools/io";
+export { errorResult, okResult, toolError } from "./tools/result";
 export {
   getRegisteredToolNames,
   registerTool,
@@ -220,22 +309,10 @@ export {
   resolveTools,
   unregisterTool,
 } from "./tools/tool.registry";
-export type { ToolContext, ToolDefinition as ToolDef, ToolResult } from "./tools/tool.types";
-// -- Sandbox --
-export { createSandbox } from "./sandbox/index";
-export { DEFAULT_SANDBOX_CONFIG, PERMISSIVE_SANDBOX_CONFIG } from "./sandbox/sandbox.constants";
 export type {
-  AccessMode,
-  AuthorizationContext,
-  PathPolicy,
-  PermissionDecision,
-  PermissionOperation,
-  PermissionRequest,
-  PermissionRequester,
-  PolicyChangeListener,
-  PolicyPatch,
-  PolicySnapshot,
-  Sandbox,
-  SandboxConfig,
-  SandboxDependencies,
-} from "./sandbox/index";
+  ToolContext,
+  ToolDefinition as ToolDef,
+  ToolError,
+  ToolErrorKind,
+  ToolResult,
+} from "./tools/tool.types";

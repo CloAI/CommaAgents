@@ -3,7 +3,7 @@
 import type { Agent } from "../../agents/agent/agent.types";
 import type { InputCollector } from "../../agents/built-in/user/user-agent.types";
 import type { FlowHooks } from "../../flows/flow/flow.types";
-import type { Sandbox, SandboxConfig, PermissionRequester } from "../../sandbox/sandbox.types";
+import type { SkillRegistry } from "../../skills/skills.types";
 import type { Strategy } from "../schema";
 
 /**
@@ -43,25 +43,15 @@ export interface LoadStrategyOptions {
   readonly modelOverride?: string;
 
   /**
-   * Sandbox to apply to all agents in this strategy.
+   * Skill registry to make available to every LLM agent in this strategy.
    *
-   * Accepts either a fully constructed `Sandbox` instance or a `SandboxConfig`
-   * object. When a `SandboxConfig` is provided, `createSandbox()` is called
-   * once with `permissionRequester` (if supplied) and the resulting sandbox is
-   * shared across all agents.
-   *
-   * When omitted, each agent receives a permissive sandbox (no restrictions,
-   * cwd = process.cwd()), preserving existing behavior.
+   * When provided, every agent that lists `load_skill` in its `tools`
+   * array can resolve skill names against this registry. The loader also
+   * prepends a compact `## Available Skills` block to each agent's
+   * `systemPrompt` so the model knows what to ask for. Build the
+   * registry with `loadSkills(workspaceRoot)`.
    */
-  readonly sandbox?: Sandbox | SandboxConfig;
-
-  /**
-   * Permission requester to attach when `sandbox` is a `SandboxConfig`.
-   * Ignored if `sandbox` is already a constructed `Sandbox` instance.
-   *
-   * Called by the sandbox whenever a path's policy resolves to `"ask"`.
-   */
-  readonly permissionRequester?: PermissionRequester;
+  readonly skillRegistry?: SkillRegistry;
 }
 
 /**

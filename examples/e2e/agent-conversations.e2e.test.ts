@@ -17,8 +17,17 @@
  */
 
 import { afterEach, describe, expect, it } from "bun:test";
-import { createAgent, createPromptTemplate, hookIntoAgent, registerModel, resetModelRegistry } from "@comma-agents/core";
-import { createSimpleMockModel, createSpyMockModel } from "./helpers/mock-model";
+import {
+  createAgent,
+  createPromptTemplate,
+  hookIntoAgent,
+  registerModel,
+  resetModelRegistry,
+} from "@comma-agents/core";
+import {
+  createSimpleMockModel,
+  createSpyMockModel,
+} from "./helpers/mock-model";
 
 // Tests
 
@@ -81,8 +90,12 @@ describe("E2E: Agent Conversations", () => {
       await agent.call("How are you?");
 
       // Both calls should have the system prompt
-      expect(calls[0]!.system).toBe("You are a pirate. Speak in pirate language.");
-      expect(calls[1]!.system).toBe("You are a pirate. Speak in pirate language.");
+      expect(calls[0]!.system).toBe(
+        "You are a pirate. Speak in pirate language.",
+      );
+      expect(calls[1]!.system).toBe(
+        "You are a pirate. Speak in pirate language.",
+      );
     });
   });
 
@@ -92,7 +105,9 @@ describe("E2E: Agent Conversations", () => {
 
   describe("system prompt templates", () => {
     it("should resolve template variables in system prompt", async () => {
-      const { model, calls } = createSpyMockModel(["I'll review your TypeScript code."]);
+      const { model, calls } = createSpyMockModel([
+        "I'll review your TypeScript code.",
+      ]);
 
       registerModel("mock/spy-template", model);
 
@@ -112,7 +127,9 @@ describe("E2E: Agent Conversations", () => {
 
       await agent.call("Review my code");
 
-      expect(calls[0]!.system).toBe("You are a senior engineer, reviewing TypeScript code.");
+      expect(calls[0]!.system).toBe(
+        "You are a senior engineer, reviewing TypeScript code.",
+      );
     });
 
     it("should resolve PromptTemplate when passed as systemPrompt", async () => {
@@ -174,8 +191,14 @@ describe("E2E: Agent Conversations", () => {
       };
 
       // Two independent agents with identical config and identical mock models
-      registerModel("mock/factory-1", createSimpleMockModel(["Hello from factory"]));
-      registerModel("mock/factory-2", createSimpleMockModel(["Hello from factory"]));
+      registerModel(
+        "mock/factory-1",
+        createSimpleMockModel(["Hello from factory"]),
+      );
+      registerModel(
+        "mock/factory-2",
+        createSimpleMockModel(["Hello from factory"]),
+      );
 
       const agent1 = createAgent({
         ...config,
@@ -220,7 +243,10 @@ describe("E2E: Agent Conversations", () => {
     it("should clear history and reset first-call state", async () => {
       const hookLog: string[] = [];
 
-      registerModel("mock/resettable", createSimpleMockModel(["R1", "R2", "R3"]));
+      registerModel(
+        "mock/resettable",
+        createSimpleMockModel(["R1", "R2", "R3"]),
+      );
 
       const agent = createAgent({
         name: "resettable",

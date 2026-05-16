@@ -1,8 +1,3 @@
-// Flow factories — the core flow API.
-//
-// buildFlowAgent() is the workhorse: takes a config + executor, returns an Agent.
-// createFlow() is the public one-off API (sugar over buildFlowAgent).
-
 import type { Agent } from "../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../errors/index";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
@@ -32,8 +27,6 @@ import { buildFlowResult, createFlowContext } from "./flow.utils";
 export type HookStore<HookType extends FlowHooks = FlowHooks> = {
   -readonly [HookKey in keyof HookType]: HookType[HookKey];
 };
-
-// buildFlowAgent — the workhorse
 
 /**
  * Build an `Agent` from a flow config, a hooks store, and an executor.
@@ -79,7 +72,10 @@ export function buildFlowAgent<HookType extends FlowHooks = FlowHooks>(
   onReset?: () => void,
 ): Agent {
   if (config.steps.length === 0) {
-    throw new FlowExecutionError(config.name, `${typeName} flow requires at least one step`);
+    throw new FlowExecutionError(
+      config.name,
+      `${typeName} flow requires at least one step`,
+    );
   }
 
   // The store is typed as HookStore<H> which extends FlowHooks, so
@@ -93,7 +89,10 @@ export function buildFlowAgent<HookType extends FlowHooks = FlowHooks>(
 
     async call(message: string): Promise<FlowResult> {
       // 1. Alter message before flow
-      const alteredMessage = await runTransformHooks(hooks.alterMessageBeforeFlow, message);
+      const alteredMessage = await runTransformHooks(
+        hooks.alterMessageBeforeFlow,
+        message,
+      );
 
       // 2. Before flow (side-effect)
       await runSideEffectHooks(hooks.beforeFlow, alteredMessage);
@@ -107,7 +106,10 @@ export function buildFlowAgent<HookType extends FlowHooks = FlowHooks>(
       await runSideEffectHooks(hooks.afterFlow, result.text);
 
       // 5. Alter message after flow
-      const alteredText = await runTransformHooks(hooks.alterMessageAfterFlow, result.text);
+      const alteredText = await runTransformHooks(
+        hooks.alterMessageAfterFlow,
+        result.text,
+      );
 
       return { ...result, text: alteredText };
     },
@@ -129,8 +131,6 @@ export function buildFlowAgent<HookType extends FlowHooks = FlowHooks>(
 
   return agent;
 }
-
-// createFlow — one-off custom flow
 
 /**
  * Create a one-off custom flow with inline orchestration logic.

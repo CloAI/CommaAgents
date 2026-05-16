@@ -19,7 +19,12 @@ interface ExampleSelectProps {
   onBack: () => void;
 }
 
-export function ExampleSelect({ provider, onSelect, onRunAll, onBack }: ExampleSelectProps) {
+export function ExampleSelect({
+  provider,
+  onSelect,
+  onRunAll,
+  onBack,
+}: ExampleSelectProps) {
   const { rows } = useTerminalSize();
   const allItems = [
     { label: "\u25b6 Run All Examples", value: "__run_all__" },
@@ -49,7 +54,9 @@ export function ExampleSelect({ provider, onSelect, onRunAll, onBack }: ExampleS
     }
     const entry =
       CORE_EXAMPLES.find((exampleEntry) => exampleEntry.value === item.value) ??
-      DAEMON_EXAMPLES.find((exampleEntry) => exampleEntry.value === item.value) ??
+      DAEMON_EXAMPLES.find(
+        (exampleEntry) => exampleEntry.value === item.value,
+      ) ??
       E2E_EXAMPLES.find((exampleEntry) => exampleEntry.value === item.value);
     if (entry) {
       onSelect(entry);

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { UseWebSocketConfig, WebSocketState, WebSocketStatus } from "./useWebSocket.types";
+import type {
+  UseWebSocketConfig,
+  WebSocketState,
+  WebSocketStatus,
+} from "./useWebSocket.types";
 
 /**
  * Generic WebSocket connection hook.
@@ -44,6 +48,25 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
     onStatusRef.current?.(nextStatus);
   }, []);
 
+  const send = useCallback((data: string): boolean => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState === WebSocket.CONNECTING) {
+      pendingMessagesRef.current.push(data);
+      return true;
+    }
+    if (socket.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+    socket.send(data);
+    return true;
+  }, []);
+
+  const close = useCallback((): void => {
+    pendingMessagesRef.current = [];
+    socketRef.current?.close();
+    socketRef.current = null;
+  }, []);
+
   useEffect(() => {
     updateStatus("connecting");
 
@@ -83,29 +106,6 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
       socketRef.current = null;
     };
   }, [url, updateStatus]);
-
-  const send = useCallback((data: string): boolean => {
-    const socket = socketRef.current;
-    // Queue messages sent before OPEN so submitting a prompt during the
-    // brief connecting window — or before the connect effect has even run
-    // (possible in concurrent mode where effects may be deferred) — doesn't
-    // silently drop the first attempt. The `open` handler drains the queue.
-    if (!socket || socket.readyState === WebSocket.CONNECTING) {
-      pendingMessagesRef.current.push(data);
-      return true;
-    }
-    if (socket.readyState !== WebSocket.OPEN) {
-      return false;
-    }
-    socket.send(data);
-    return true;
-  }, []);
-
-  const close = useCallback((): void => {
-    pendingMessagesRef.current = [];
-    socketRef.current?.close();
-    socketRef.current = null;
-  }, []);
 
   return { status, send, close };
 }

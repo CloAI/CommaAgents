@@ -7,7 +7,11 @@
 
 import { readFile } from "node:fs/promises";
 import { Liquid } from "liquidjs";
-import type { PromptTemplate, PromptTemplateConfig, TemplateVariables } from "../types";
+import type {
+  PromptTemplate,
+  PromptTemplateConfig,
+  TemplateVariables,
+} from "../types";
 
 // Liquid engine singleton
 
@@ -15,7 +19,9 @@ const engine = new Liquid({
   strictVariables: false,
   strictFilters: true,
   outputEscape: (outputValue) =>
-    outputValue === undefined || outputValue === null ? "" : String(outputValue),
+    outputValue === undefined || outputValue === null
+      ? ""
+      : String(outputValue),
 });
 
 // -- env filter --
@@ -30,7 +36,8 @@ engine.registerFilter("env", (varName: unknown) => {
 // -- file filter (async) --
 engine.registerFilter("file", async (filePath: unknown) => {
   const resolvedPath = String(filePath ?? "");
-  if (!resolvedPath) throw new Error('{{ "/path" | file }} requires a file path');
+  if (!resolvedPath)
+    throw new Error('{{ "/path" | file }} requires a file path');
   try {
     const content = await readFile(resolvedPath, "utf-8");
     return content.split("\n")[0]?.trim() ?? "";
@@ -56,7 +63,10 @@ engine.registerFilter("exec", async (command: unknown) => {
       return trimmed;
     }
     const { execSync } = await import("node:child_process");
-    const output = execSync(shellCommand, { encoding: "utf-8", timeout: 10_000 }).trim();
+    const output = execSync(shellCommand, {
+      encoding: "utf-8",
+      timeout: 10_000,
+    }).trim();
     if (!output) throw new Error("empty output");
     return output;
   } catch (error) {
@@ -88,8 +98,12 @@ engine.registerFilter("exec", async (command: unknown) => {
  * await tpl.render({ language: "Rust" }); // "You are a code reviewer, an expert in Rust."
  * ```
  */
-export function createPromptTemplate(config: PromptTemplateConfig): PromptTemplate {
-  const defaults: TemplateVariables = config.variables ?? {};
+export function createPromptTemplate(
+  config: PromptTemplateConfig,
+): PromptTemplate {
+  const defaults: Record<string, TemplateValue> = config.variables
+    ? { ...config.variables }
+    : {};
 
   return {
     template: config.template,
@@ -100,7 +114,10 @@ export function createPromptTemplate(config: PromptTemplateConfig): PromptTempla
         const out: Record<string, unknown> = {};
         await Promise.all(
           Object.entries(vars).map(async ([key, variableValue]) => {
-            out[key] = typeof variableValue === "function" ? await variableValue() : variableValue;
+            out[key] =
+              typeof variableValue === "function"
+                ? await variableValue()
+                : variableValue;
           }),
         );
         return out;
@@ -112,6 +129,10 @@ export function createPromptTemplate(config: PromptTemplateConfig): PromptTempla
       ]);
 
       return engine.parseAndRender(config.template, { ...base, ...over });
+    },
+
+    updatePromptVariables(variables: TemplateVariables): void {
+      Object.assign(defaults, variables);
     },
   };
 }

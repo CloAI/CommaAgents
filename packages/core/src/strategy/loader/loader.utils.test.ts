@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { ModelResolutionError } from "../../errors/index";
-import { getProviderPackage, isKnownProvider, parseModel } from "../../model/model.utils";
+import {
+  getProviderPackage,
+  isKnownProvider,
+  parseModel,
+} from "../../model/model.utils";
 
 describe("parseModel", () => {
   it("should parse a simple provider/model string", () => {

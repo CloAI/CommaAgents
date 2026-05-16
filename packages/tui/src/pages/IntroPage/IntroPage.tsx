@@ -1,4 +1,4 @@
-import { Box, useFocusManager } from "ink";
+import { Box, Spacer, useFocusManager } from "ink";
 import type React from "react";
 import { useEffect } from "react";
 import { ChatTextArea } from "../../components";
@@ -55,10 +55,12 @@ export function IntroPageRender({
   return (
     <Box {...theme.root}>
       <TitleIcon />
+      <Box marginBottom={4}></Box>
+      {/* Too lazy for margin and boxing */}
       <ChatTextArea
         strategies={strategies}
         onSubmit={onSubmit}
-        width="75%"
+        width="%50"
         placeholder="Enter your prompt..."
         id="chat"
       />

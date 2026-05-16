@@ -47,8 +47,8 @@ export interface ModalContextType {
   readonly getData: (modalId: ModalId) => unknown;
 }
 
-/** Props for the ModalProvider component. */
-export interface ModalProviderProps {
+/** Props for the ModalContextProvider component. */
+export interface ModalContextProviderProps {
   /** Child components that can consume the modal context. */
   readonly children: React.ReactNode;
 }

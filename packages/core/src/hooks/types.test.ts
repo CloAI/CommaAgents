@@ -1,7 +1,12 @@
 // Tests for hook utility functions
 
 import { describe, expect, it } from "bun:test";
-import { runSideEffectHooks, runTransformHooks, type SideEffectHook, type TransformHook } from ".";
+import {
+  runSideEffectHooks,
+  runTransformHooks,
+  type SideEffectHook,
+  type TransformHook,
+} from ".";
 
 describe("runSideEffectHooks", () => {
   it("should do nothing when hooks are undefined", async () => {
@@ -87,7 +92,11 @@ describe("runTransformHooks", () => {
   });
 
   it("should chain transforms in order", async () => {
-    const hooks: TransformHook<string>[] = [(v) => `${v}A`, (v) => `${v}B`, (v) => `${v}C`];
+    const hooks: TransformHook<string>[] = [
+      (v) => `${v}A`,
+      (v) => `${v}B`,
+      (v) => `${v}C`,
+    ];
 
     const result = await runTransformHooks(hooks, "start-");
     expect(result).toBe("start-ABC");

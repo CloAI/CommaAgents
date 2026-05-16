@@ -1,14 +1,3 @@
-// Shared protocol primitives — base envelopes only.
-//
-// ClientBase and DaemonBase are the two fields-objects that every
-// request and response schema extends. Everything else has been
-// colocated to its natural home:
-//   - Credential schemas  → credentials/credentials.schema.ts
-//   - UsageSchema, AgentCallResultSchema → responses/shared.ts
-//   - ErrorInfoSchema     → responses/strategy-error/strategy-error.schema.ts
-//   - RunSummarySchema    → responses/strategy-list/strategy-list.schema.ts
-//   - AgentStreamEventSchema → responses/agent-streaming/agent-streaming.schema.ts
-
 import { z } from "zod";
 
 /**

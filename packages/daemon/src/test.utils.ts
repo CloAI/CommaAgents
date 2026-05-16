@@ -31,7 +31,9 @@ export function registerMockModel(modelString: string): void {
     provider: "mock",
     defaultObjectGenerationMode: undefined,
     doGenerate: async () => ({
-      content: [{ type: "text" as const, text: `response from ${modelString}` }],
+      content: [
+        { type: "text" as const, text: `response from ${modelString}` },
+      ],
       finishReason: { unified: "stop" as const, raw: undefined },
       usage: {
         inputTokens: {
@@ -175,7 +177,11 @@ export function mockSessionStore(): SessionStore & {
       const s = sessions.get(sessionId);
       if (!s) throw new Error(`unknown session ${sessionId}`);
       const newTitle = title ?? sessionId;
-      const metadata = { ...s.metadata, title: newTitle, updatedAt: new Date().toISOString() };
+      const metadata = {
+        ...s.metadata,
+        title: newTitle,
+        updatedAt: new Date().toISOString(),
+      };
       sessions.set(sessionId, { ...s, metadata });
       return metadata;
     },
@@ -213,7 +219,10 @@ export const MULTI_AGENT_STRATEGY = JSON.stringify({
   version: "1.0",
   agents: {
     writer: { model: "openai/gpt-4o", systemPrompt: "You write code." },
-    reviewer: { model: "anthropic/claude-3.5-sonnet", systemPrompt: "You review code." },
+    reviewer: {
+      model: "anthropic/claude-3.5-sonnet",
+      systemPrompt: "You review code.",
+    },
   },
   flow: {
     name: "Review",
@@ -259,7 +268,9 @@ export async function waitForBroadcasts(
   const start = Date.now();
   while (sink.broadcasts.length < count) {
     if (Date.now() - start > timeoutMs) {
-      throw new Error(`Timed out waiting for ${count} broadcasts (got ${sink.broadcasts.length})`);
+      throw new Error(
+        `Timed out waiting for ${count} broadcasts (got ${sink.broadcasts.length})`,
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }

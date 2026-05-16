@@ -170,11 +170,19 @@ describe("E2E: Daemon Strategy Execution", () => {
       expect(started.agents).toContain("reviewer");
 
       // Should get two step_started events (writer, then reviewer)
-      const steps = await client.waitForN(2, (m: any) => m?.type === "step_started", 5000);
+      const steps = await client.waitForN(
+        2,
+        (m: any) => m?.type === "step_started",
+        5000,
+      );
       expect(steps.length).toBe(2);
 
       // Should get two step_completed events
-      const completions = await client.waitForN(2, (m: any) => m?.type === "step_completed", 5000);
+      const completions = await client.waitForN(
+        2,
+        (m: any) => m?.type === "step_completed",
+        5000,
+      );
       expect(completions.length).toBe(2);
 
       const completed: any = await client.waitForType("strategy_completed");
@@ -191,7 +199,11 @@ describe("E2E: Daemon Strategy Execution", () => {
       await client.waitForType("strategy_started");
 
       // Wait for two agent_output events
-      const outputs = await client.waitForN(2, (m: any) => m?.type === "agent_output", 5000);
+      const outputs = await client.waitForN(
+        2,
+        (m: any) => m?.type === "agent_output",
+        5000,
+      );
       expect(outputs.length).toBe(2);
       for (const output of outputs) {
         expect((output as any).text).toContain("response from");
@@ -401,7 +413,9 @@ describe("E2E: Daemon Strategy Execution", () => {
 
       // c2 should NOT have received the strategy_error
       const c2NewMsgs = c2.messages.slice(c2MsgCountBefore);
-      const c2StrategyErrors = c2NewMsgs.filter((m: any) => m.type === "strategy_error");
+      const c2StrategyErrors = c2NewMsgs.filter(
+        (m: any) => m.type === "strategy_error",
+      );
       expect(c2StrategyErrors.length).toBe(0);
 
       c1.close();
@@ -464,19 +478,39 @@ describe("E2E: Daemon Strategy Execution", () => {
       const stratPath = await writeTempStrategy(MINIMAL_STRATEGY);
 
       // Fire 3 start_strategy requests in rapid succession
-      client.send({ type: "start_strategy", strategyPath: stratPath, requestId: "r1" });
-      client.send({ type: "start_strategy", strategyPath: stratPath, requestId: "r2" });
-      client.send({ type: "start_strategy", strategyPath: stratPath, requestId: "r3" });
+      client.send({
+        type: "start_strategy",
+        strategyPath: stratPath,
+        requestId: "r1",
+      });
+      client.send({
+        type: "start_strategy",
+        strategyPath: stratPath,
+        requestId: "r2",
+      });
+      client.send({
+        type: "start_strategy",
+        strategyPath: stratPath,
+        requestId: "r3",
+      });
 
       // Collect all strategy_started messages
-      const starts = await client.waitForN(3, (m: any) => m?.type === "strategy_started", 5000);
+      const starts = await client.waitForN(
+        3,
+        (m: any) => m?.type === "strategy_started",
+        5000,
+      );
 
       // All should have unique run IDs
       const runIds = new Set(starts.map((s: any) => s.runId));
       expect(runIds.size).toBe(3);
 
       // All should complete
-      const completions = await client.waitForN(3, (m: any) => m?.type === "strategy_completed", 5000);
+      const completions = await client.waitForN(
+        3,
+        (m: any) => m?.type === "strategy_completed",
+        5000,
+      );
       expect(completions.length).toBe(3);
 
       client.close();
@@ -490,8 +524,16 @@ describe("E2E: Daemon Strategy Execution", () => {
       const stratPath = await writeTempStrategy(MINIMAL_STRATEGY);
 
       // Each client starts their own flow
-      c1.send({ type: "start_strategy", strategyPath: stratPath, requestId: "c1-flow" });
-      c2.send({ type: "start_strategy", strategyPath: stratPath, requestId: "c2-flow" });
+      c1.send({
+        type: "start_strategy",
+        strategyPath: stratPath,
+        requestId: "c1-flow",
+      });
+      c2.send({
+        type: "start_strategy",
+        strategyPath: stratPath,
+        requestId: "c2-flow",
+      });
 
       const s1: any = await c1.waitForType("strategy_started");
       const s2: any = await c2.waitForType("strategy_started");
@@ -507,8 +549,12 @@ describe("E2E: Daemon Strategy Execution", () => {
       expect(comp2.runId).toBe(s2.runId);
 
       // c1 should NOT have c2's run events (and vice versa)
-      const c1RunIds = c1.messages.filter((m: any) => m.runId).map((m: any) => m.runId);
-      const c2RunIds = c2.messages.filter((m: any) => m.runId).map((m: any) => m.runId);
+      const c1RunIds = c1.messages
+        .filter((m: any) => m.runId)
+        .map((m: any) => m.runId);
+      const c2RunIds = c2.messages
+        .filter((m: any) => m.runId)
+        .map((m: any) => m.runId);
 
       expect(c1RunIds.every((id: string) => id === s1.runId)).toBe(true);
       expect(c2RunIds.every((id: string) => id === s2.runId)).toBe(true);
@@ -546,7 +592,9 @@ describe("E2E: Daemon Strategy Execution", () => {
       const client = await connectTestClient(daemon);
 
       // Write invalid strategy content
-      const stratPath = await writeTempStrategy(JSON.stringify({ name: "Bad", version: "1.0" }));
+      const stratPath = await writeTempStrategy(
+        JSON.stringify({ name: "Bad", version: "1.0" }),
+      );
 
       client.send({
         type: "start_strategy",

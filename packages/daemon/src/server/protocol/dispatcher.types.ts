@@ -1,21 +1,17 @@
-// Dispatcher types — shared context, handler signatures, and the
-// request-to-response map that constrains what each handler may reply with.
-
 import type { StrategyExecutor } from "../../executor/executor";
 import type { Logger } from "../../logger/logger.types";
 import type { SessionStore } from "../../sessions";
 import type { DaemonState } from "../../state/state.types";
 import type { DaemonMessage } from "./messages";
+import type { AvailableModelsMessage } from "./responses/available-models";
 import type { ErrorMessage } from "./responses/error";
+import type { PongMessage } from "./responses/pong";
 import type { ProviderListMessage } from "./responses/provider-list";
 import type { SessionDeletedMessage } from "./responses/session-deleted";
 import type { SessionListMessage } from "./responses/session-list";
 import type { SessionLoadedMessage } from "./responses/session-loaded";
 import type { SessionRenamedMessage } from "./responses/session-renamed";
 import type { StrategyListMessage } from "./responses/strategy-list";
-import type { PongMessage } from "./responses/pong";
-
-// Request → Response map
 
 /**
  * Compile-time map from each client request type literal to the success
@@ -40,6 +36,7 @@ export interface RequestResponseMap {
   readonly permission_decision: never;
   readonly update_policy: never;
   readonly list_strategies: StrategyListMessage;
+  readonly get_available_models: AvailableModelsMessage;
   readonly list_providers: ProviderListMessage;
   readonly subscribe: never;
   readonly unsubscribe: never;
@@ -48,8 +45,6 @@ export interface RequestResponseMap {
   readonly delete_session: SessionDeletedMessage;
   readonly rename_session: SessionRenamedMessage;
 }
-
-// Handler context
 
 /**
  * Context passed to every request handler.
@@ -91,8 +86,6 @@ export interface HandlerContext<
   /** Send a response to the requesting client. Constrained by `RequestResponseMap`. */
   reply(message: RequestResponseMap[RequestType] | ErrorMessage): void;
 }
-
-// Dispatcher
 
 /**
  * A dispatcher function produced by `createDispatcher()`.

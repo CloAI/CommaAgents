@@ -33,12 +33,15 @@ const DEFAULT_STRATEGY = path.resolve(
 const argv = yargs(hideBin(process.argv))
   .scriptName("01-basic-client")
   .usage("$0 [strategy-path]")
-  .command("$0 [strategy-path]", "Connect to the daemon and run a strategy", (y) =>
-    y.positional("strategy-path", {
-      type: "string",
-      describe: "Path to the strategy file",
-      default: DEFAULT_STRATEGY,
-    }),
+  .command(
+    "$0 [strategy-path]",
+    "Connect to the daemon and run a strategy",
+    (y) =>
+      y.positional("strategy-path", {
+        type: "string",
+        describe: "Path to the strategy file",
+        default: DEFAULT_STRATEGY,
+      }),
   )
   .option("daemon-url", {
     alias: "d",
@@ -55,7 +58,10 @@ const argv = yargs(hideBin(process.argv))
   })
   .example("$0", "Run with default strategy")
   .example("$0 path/to/strategy.json", "Run a specific strategy")
-  .example("$0 --daemon-url ws://localhost:8080/ws", "Connect to a custom daemon")
+  .example(
+    "$0 --daemon-url ws://localhost:8080/ws",
+    "Connect to a custom daemon",
+  )
   .strict()
   .help()
   .alias("h", "help")
@@ -137,7 +143,9 @@ async function main() {
       // client for input. We auto-reply with the initial prompt so the
       // flow continues without manual intervention.
       case "request_input":
-        console.log(`[request_input] Agent "${msg.agentName}" asks for input — auto-replying`);
+        console.log(
+          `[request_input] Agent "${msg.agentName}" asks for input — auto-replying`,
+        );
         ws.send(
           JSON.stringify({
             type: "user_input",

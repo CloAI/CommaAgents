@@ -58,7 +58,8 @@ type Step =
 export function ProviderSelect({ onSelect }: ProviderSelectProps) {
   const { rows } = useTerminalSize();
   const [step, setStep] = useState<Step>("loading");
-  const [selectedProvider, setSelectedProvider] = useState<ProviderConfig | null>(null);
+  const [selectedProvider, setSelectedProvider] =
+    useState<ProviderConfig | null>(null);
   const [modelInput, setModelInput] = useState("");
   const [apiKeyInput, setApiKeyInput] = useState("");
 
@@ -143,7 +144,10 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
     const model = modelInput.trim() || selectedProvider.defaultModel;
 
     if (item.value === "yes") {
-      await store.set(selectedProvider.providerID, { type: "api", key: pendingApiKey });
+      await store.set(selectedProvider.providerID, {
+        type: "api",
+        key: pendingApiKey,
+      });
     }
 
     onSelect({
@@ -174,7 +178,8 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
         // Save the OAuth tokens
         await store.set("github-copilot", result.auth);
 
-        const model = modelInput.trim() || selectedProvider?.defaultModel || "gpt-4o";
+        const model =
+          modelInput.trim() || selectedProvider?.defaultModel || "gpt-4o";
         onSelect({
           providerID: "github-copilot",
           model,
@@ -199,7 +204,8 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
 
   const handleRetry = (item: { label: string; value: string }) => {
     if (item.value === "retry") {
-      const model = modelInput.trim() || selectedProvider?.defaultModel || "gpt-4o";
+      const model =
+        modelInput.trim() || selectedProvider?.defaultModel || "gpt-4o";
       startCopilotFlow(model);
     } else {
       setStep("provider");
@@ -246,7 +252,11 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
           <Text>Enter model ID (press Enter for default):</Text>
           <Box marginTop={1}>
             <Text color="gray">{">"} </Text>
-            <TextInput value={modelInput} onChange={setModelInput} onSubmit={handleModelSubmit} />
+            <TextInput
+              value={modelInput}
+              onChange={setModelInput}
+              onSubmit={handleModelSubmit}
+            />
           </Box>
         </Box>
       )}
@@ -258,10 +268,14 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
             Provider: <Text color="green">{selectedProvider.label}</Text>
           </Text>
           <Text>
-            Model: <Text color="green">{modelInput || selectedProvider.defaultModel}</Text>
+            Model:{" "}
+            <Text color="green">
+              {modelInput || selectedProvider.defaultModel}
+            </Text>
           </Text>
           <Text color="yellow">
-            No {selectedProvider.envVar} found in environment or saved credentials.
+            No {selectedProvider.envVar} found in environment or saved
+            credentials.
           </Text>
           <Text>Enter your API key:</Text>
           <Box marginTop={1}>
@@ -280,7 +294,9 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
       {step === "saveKey" && selectedProvider && (
         <Box flexDirection="column" marginTop={1}>
           <Text>Save this key for future sessions?</Text>
-          <Text dimColor>(Stored in platform credentials file with 0600 perms)</Text>
+          <Text dimColor>
+            (Stored in platform credentials file with 0600 perms)
+          </Text>
           <Box marginTop={1}>
             <SelectInput
               items={[
@@ -301,7 +317,9 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
           </Text>
           <Text>
             Model:{" "}
-            <Text color="green">{modelInput || selectedProvider?.defaultModel || "gpt-4o"}</Text>
+            <Text color="green">
+              {modelInput || selectedProvider?.defaultModel || "gpt-4o"}
+            </Text>
           </Text>
 
           {!deviceInfo && (

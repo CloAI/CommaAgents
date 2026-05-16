@@ -1,13 +1,9 @@
-export { useDaemonContext } from "./useDaemon";
-export { DaemonProvider } from "./useDaemon.context";
+export { useDaemon } from "./useDaemon";
+export { DaemonContextProvider } from "./useDaemon.context";
+
 export type {
-  ClientMessageOf,
-  ClientMessageType,
+  DaemonContextProviderProps,
   DaemonContextValue,
-  DaemonMessageListener,
-  DaemonMessageOf,
-  DaemonMessageType,
-  DaemonProviderProps,
 } from "./useDaemon.types";
 export type {
   DaemonCommandMap,

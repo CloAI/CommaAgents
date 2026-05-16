@@ -1,14 +1,8 @@
-// Permission bridge — bridges sandbox permission requests over the WebSocket.
-//
-// When a tool calls `authorizeRead` or `authorizeWrite` and the policy resolves
-// to `"ask"`, the sandbox calls the `PermissionRequester` provided by this
-// bridge. The bridge:
-// 1. Broadcasts `request_permission` to all subscribers of the run.
-// 2. Returns a Promise that resolves when `resolvePermission()` is called
-//    (triggered by the server when a `permission_decision` client message arrives).
-// 3. Supports timeout and abort-signal cancellation.
-
-import type { PermissionDecision, PermissionRequest, PermissionRequester } from "@comma-agents/core";
+import type {
+  PermissionDecision,
+  PermissionRequest,
+  PermissionRequester,
+} from "@comma-agents/core";
 
 import type { EventSink } from "./event-sink";
 
@@ -37,7 +31,7 @@ interface PendingPermission {
 /** The permission bridge instance. */
 export interface PermissionBridge {
   /**
-   * PermissionRequester function that can be passed to `createSandbox()`.
+   * PermissionRequester function that can be passed to `inSandbox()`. 
    * When invoked by the sandbox (policy resolves to `"ask"`), it broadcasts
    * `request_permission` and returns a Promise that resolves when the client
    * sends a `permission_decision` response.
@@ -69,7 +63,9 @@ export interface PermissionBridge {
  * (policy is `"ask"`), the bridge broadcasts a `request_permission` message
  * to all subscribers of the run, then waits for `resolvePermission()` to be called.
  */
-export function createPermissionBridge(options: CreatePermissionBridgeOptions): PermissionBridge {
+export function createPermissionBridge(
+  options: CreatePermissionBridgeOptions,
+): PermissionBridge {
   const { sink, runId, timeout = 0, abort } = options;
 
   /** requestId → pending decision. */
@@ -80,9 +76,13 @@ export function createPermissionBridge(options: CreatePermissionBridgeOptions): 
 
   // -- PermissionRequester implementation --
 
-  const requester: PermissionRequester = (request: PermissionRequest): Promise<PermissionDecision> => {
+  const requester: PermissionRequester = (
+    request: PermissionRequest,
+  ): Promise<PermissionDecision> => {
     if (destroyed) {
-      return Promise.reject(new DOMException("Permission bridge destroyed", "AbortError"));
+      return Promise.reject(
+        new DOMException("Permission bridge destroyed", "AbortError"),
+      );
     }
 
     // If the run is already aborted, reject immediately
@@ -104,7 +104,11 @@ export function createPermissionBridge(options: CreatePermissionBridgeOptions): 
       if (timeout > 0) {
         timer = setTimeout(() => {
           pending.delete(requestId);
-          reject(new Error(`Permission request ${requestId} timed out after ${timeout}ms`));
+          reject(
+            new Error(
+              `Permission request ${requestId} timed out after ${timeout}ms`,
+            ),
+          );
         }, timeout);
       }
 
@@ -125,7 +129,8 @@ export function createPermissionBridge(options: CreatePermissionBridgeOptions): 
           "abort",
           () => {
             if (timer) clearTimeout(timer);
-            if (abortHandler && abort) abort.removeEventListener("abort", abortHandler);
+            if (abortHandler && abort)
+              abort.removeEventListener("abort", abortHandler);
             pending.delete(requestId);
             reject(new DOMException("Tool aborted", "AbortError"));
           },
@@ -154,7 +159,10 @@ export function createPermissionBridge(options: CreatePermissionBridgeOptions): 
 
   // -- resolvePermission() --
 
-  function resolvePermission(requestId: string, decision: PermissionDecision): boolean {
+  function resolvePermission(
+    requestId: string,
+    decision: PermissionDecision,
+  ): boolean {
     const entry = pending.get(requestId);
     if (!entry) return false;
 

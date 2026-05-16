@@ -1,5 +1,10 @@
 import type { Credential } from "../../../credentials/credentials.types";
-import type { ListModelsContext, ListModelsFn, ModelCapabilities, ModelInfo } from "../providers.types";
+import type {
+  ListModelsContext,
+  ListModelsFn,
+  ModelCapabilities,
+  ModelInfo,
+} from "../providers.types";
 
 const COPILOT_DEFAULT_BASE = "https://api.githubcopilot.com";
 const COPILOT_FETCH_TIMEOUT_MS = 5_000;
@@ -35,7 +40,9 @@ interface CopilotModelEntry {
 }
 
 /** Extract a Bearer token from a credential, preferring OAuth access tokens. */
-function extractBearerToken(credential: Credential | undefined): string | undefined {
+function extractBearerToken(
+  credential: Credential | undefined,
+): string | undefined {
   if (!credential) return undefined;
   if (credential.type === "oauth") return credential.accessToken;
   if (credential.type === "api") return credential.key;
@@ -55,7 +62,9 @@ function resolveCopilotBase(context: ListModelsContext): string {
   if (context.credential?.type === "oauth") {
     const rawDomain = context.credential.metadata?.enterpriseDomain;
     if (typeof rawDomain === "string" && rawDomain.length > 0) {
-      const normalized = rawDomain.replace(/^https?:\/\//, "").replace(/\/$/, "");
+      const normalized = rawDomain
+        .replace(/^https?:\/\//, "")
+        .replace(/\/$/, "");
       return `https://copilot-api.${normalized}`;
     }
   }
@@ -76,12 +85,15 @@ export const listCopilotModels: ListModelsFn = async (
 ): Promise<readonly ModelInfo[]> => {
   const token = extractBearerToken(context.credential);
   if (!token) {
-    throw new Error("GitHub Copilot listing requires an OAuth or API credential");
+    throw new Error(
+      "GitHub Copilot listing requires an OAuth or API credential",
+    );
   }
 
   const base = resolveCopilotBase(context);
   const url = `${base}/models`;
-  const signal = context.signal ?? AbortSignal.timeout(COPILOT_FETCH_TIMEOUT_MS);
+  const signal =
+    context.signal ?? AbortSignal.timeout(COPILOT_FETCH_TIMEOUT_MS);
 
   const response = await fetch(url, {
     signal,
@@ -92,7 +104,9 @@ export const listCopilotModels: ListModelsFn = async (
   });
 
   if (!response.ok) {
-    throw new Error(`GitHub Copilot ${response.status} ${response.statusText} at ${url}`);
+    throw new Error(
+      `GitHub Copilot ${response.status} ${response.statusText} at ${url}`,
+    );
   }
 
   const payload = (await response.json()) as CopilotModelsResponse;
@@ -108,20 +122,29 @@ export const listCopilotModels: ListModelsFn = async (
     const limits = entry.capabilities?.limits;
 
     const capabilities: ModelCapabilities = {
-      ...(supports?.tool_calls !== undefined ? { tools: supports.tool_calls } : {}),
+      ...(supports?.tool_calls !== undefined
+        ? { tools: supports.tool_calls }
+        : {}),
       ...(supports?.vision !== undefined ? { vision: supports.vision } : {}),
       ...(supports?.structured_outputs !== undefined
         ? { structuredOutput: supports.structured_outputs }
         : {}),
-      ...(supports?.reasoning_effort !== undefined || supports?.adaptive_thinking !== undefined
-        ? { reasoning: Boolean(supports?.adaptive_thinking || supports?.reasoning_effort?.length) }
+      ...(supports?.reasoning_effort !== undefined ||
+      supports?.adaptive_thinking !== undefined
+        ? {
+            reasoning: Boolean(
+              supports?.adaptive_thinking || supports?.reasoning_effort?.length,
+            ),
+          }
         : {}),
     };
 
     return {
       id: entry.id,
       ...(entry.name ? { name: entry.name } : {}),
-      ...(entry.capabilities?.family ? { family: entry.capabilities.family } : {}),
+      ...(entry.capabilities?.family
+        ? { family: entry.capabilities.family }
+        : {}),
       ...(limits?.max_context_window_tokens !== undefined
         ? { contextWindow: limits.max_context_window_tokens }
         : {}),

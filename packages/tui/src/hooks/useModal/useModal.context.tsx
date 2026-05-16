@@ -1,7 +1,12 @@
 import type React from "react";
 import { createContext, useCallback, useMemo, useState } from "react";
 
-import type { ModalContextType, ModalEntry, ModalId, ModalProviderProps } from "./useModal.types";
+import type {
+  ModalContextProviderProps,
+  ModalContextType,
+  ModalEntry,
+  ModalId,
+} from "./useModal.types";
 
 /** Default closed state for any unregistered modal. */
 const CLOSED_ENTRY: ModalEntry = { isOpen: false, data: undefined };
@@ -19,12 +24,14 @@ export const ModalContext = createContext<ModalContextType | null>(null);
  * @param props - Provider props containing children.
  * @example
  * ```tsx
- * <ModalProvider>
+ * <ModalContextProvider>
  *   <App />
- * </ModalProvider>
+ * </ModalContextProvider>
  * ```
  */
-export function ModalProvider(props: ModalProviderProps): React.ReactElement {
+export function ModalContextProvider(
+  props: ModalContextProviderProps,
+): React.ReactElement {
   const { children } = props;
   const [modals, setModals] = useState<Map<ModalId, ModalEntry>>(new Map());
   const [openStack, setOpenStack] = useState<readonly ModalId[]>([]);
@@ -90,9 +97,22 @@ export function ModalProvider(props: ModalProviderProps): React.ReactElement {
   );
 
   const contextValue = useMemo<ModalContextType>(
-    () => ({ modals, openStack, open, close, toggle, isOpen, isTopmost, getData }),
+    () => ({
+      modals,
+      openStack,
+      open,
+      close,
+      toggle,
+      isOpen,
+      isTopmost,
+      getData,
+    }),
     [modals, openStack, open, close, toggle, isOpen, isTopmost, getData],
   );
 
-  return <ModalContext.Provider value={contextValue}>{children}</ModalContext.Provider>;
+  return (
+    <ModalContext.Provider value={contextValue}>
+      {children}
+    </ModalContext.Provider>
+  );
 }

@@ -32,6 +32,8 @@ export function handleListStrategies(
     type: "strategy_list" as const,
     runs: summaries,
     ts: new Date().toISOString(),
-    ...(message.requestId !== undefined ? { requestId: message.requestId } : {}),
+    ...(message.requestId !== undefined
+      ? { requestId: message.requestId }
+      : {}),
   });
 }

@@ -1,6 +1,9 @@
 // Global defaults types — provider registration and default overrides.
 
-import type { Credential, CredentialStore } from "../credentials/credentials.types";
+import type {
+  Credential,
+  CredentialStore,
+} from "../credentials/credentials.types";
 import type { ProviderFactory, ProviderResolver } from "../model/model.types";
 
 // Provider registration
@@ -30,7 +33,9 @@ export interface ProviderRegistration {
    * Direct factory function — given a credential, returns a ProviderFactory.
    * When set, `packageName` and `factoryName` are ignored.
    */
-  readonly factory?: (credential: Credential) => ProviderFactory | Promise<ProviderFactory>;
+  readonly factory?: (
+    credential: Credential,
+  ) => ProviderFactory | Promise<ProviderFactory>;
 
   /**
    * npm package name to dynamically import.

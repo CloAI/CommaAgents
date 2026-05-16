@@ -1,4 +1,8 @@
-import type { ListModelsContext, ListModelsFn, ModelInfo } from "../providers.types";
+import type {
+  ListModelsContext,
+  ListModelsFn,
+  ModelInfo,
+} from "../providers.types";
 
 const OLLAMA_DEFAULT_BASE_URL = "http://localhost:11434";
 const OLLAMA_FETCH_TIMEOUT_MS = 5_000;
@@ -35,7 +39,9 @@ export const listOllamaModels: ListModelsFn = async (
 
   const response = await fetch(url, { signal });
   if (!response.ok) {
-    throw new Error(`Ollama ${response.status} ${response.statusText} at ${url}`);
+    throw new Error(
+      `Ollama ${response.status} ${response.statusText} at ${url}`,
+    );
   }
 
   const payload = (await response.json()) as OllamaTagsResponse;
@@ -47,7 +53,9 @@ export const listOllamaModels: ListModelsFn = async (
       id,
       name: entry.name,
       ...(entry.details?.family ? { family: entry.details.family } : {}),
-      ...(entry.modified_at ? { lastUpdated: entry.modified_at.slice(0, 10) } : {}),
+      ...(entry.modified_at
+        ? { lastUpdated: entry.modified_at.slice(0, 10) }
+        : {}),
     };
   });
 };

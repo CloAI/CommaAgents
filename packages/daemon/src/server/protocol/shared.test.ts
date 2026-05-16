@@ -45,6 +45,8 @@ describe("DaemonBase", () => {
 
   test("rejects ts without time zone", () => {
     // datetime() requires a timezone offset
-    expect(DaemonBase.safeParse({ ts: "2026-03-01T12:00:00" }).success).toBe(false);
+    expect(DaemonBase.safeParse({ ts: "2026-03-01T12:00:00" }).success).toBe(
+      false,
+    );
   });
 });

@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
+import { okResult } from "../result";
 import { makeToolContext } from "../test.utils";
 import { defineTool } from "./define-tool";
 
@@ -12,9 +13,8 @@ describe("defineTool", () => {
       parameters: z.object({
         location: z.string(),
       }),
-      execute: async ({ location }) => ({
-        output: `Weather in ${location}: sunny`,
-      }),
+      execute: async ({ location }) =>
+        okResult(`Weather in ${location}: sunny`),
     });
 
     expect(tool.description).toBe("Get the weather");
@@ -29,15 +29,14 @@ describe("defineTool", () => {
         a: z.number(),
         b: z.number(),
       }),
-      execute: async ({ a, b }, ctx) => ({
-        output: `${a + b}`,
-        metadata: { agent: ctx.agentName },
-      }),
+      execute: async ({ a, b }, ctx) =>
+        okResult(`${a + b}`, { metadata: { agent: ctx.agentName } }),
     });
 
     const ctx = makeToolContext();
 
     const result = await tool.execute({ a: 3, b: 4 }, ctx);
+    expect(result.ok).toBe(true);
     expect(result.output).toBe("7");
     expect(result.metadata).toEqual({ agent: "test-agent" });
   });
@@ -51,7 +50,7 @@ describe("defineTool", () => {
     const tool = defineTool({
       description: "Search",
       parameters: schema,
-      execute: async () => ({ output: "results" }),
+      execute: async () => okResult("results"),
     });
 
     // The schema should work for validation
@@ -66,7 +65,7 @@ describe("defineTool", () => {
     const tool = defineTool({
       description: "No metadata",
       parameters: z.object({}),
-      execute: async () => ({ output: "done" }),
+      execute: async () => okResult("done"),
     });
 
     const ctx = makeToolContext();
@@ -84,11 +83,14 @@ describe("defineTool", () => {
       parameters: z.object({}),
       execute: async (_args, ctx) => {
         capturedFlowName = ctx.flowName;
-        return { output: "ok" };
+        return okResult("ok");
       },
     });
 
-    const ctx = makeToolContext({ agentName: "test", flowName: "review-pipeline" });
+    const ctx = makeToolContext({
+      agentName: "test",
+      flowName: "review-pipeline",
+    });
 
     await tool.execute({}, ctx);
     expect(capturedFlowName).toBe("review-pipeline");

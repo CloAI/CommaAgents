@@ -5,7 +5,7 @@ description: Define custom tools and give agents the ability to interact with th
 
 Tools give agents the ability to interact with the outside world. Each tool has a Zod schema for its parameters and an execute function that runs when the agent invokes it.
 
-Comma Agents ships with 6 [built-in tools](/docs/core/tools/built-in) for filesystem and shell operations. You can also define custom tools and register them in the [tool registry](/docs/core/tools/tool-registry).
+Comma Agents ships with [built-in tools](/docs/core/tools/built-in) for filesystem search, file I/O, multi-file patches, and shell execution. You can also define custom tools and register them in the [tool registry](/docs/core/tools/tool-registry).
 
 ## Quick Start
 
@@ -17,9 +17,38 @@ import { createAgent } from "@comma-agents/core";
 const agent = createAgent({
   name: "coder",
   model: "openai/gpt-4o",
-  tools: ["bash", "read", "write", "edit", "glob", "grep"],
+  tools: [
+    "read_file",
+    "list_directory",
+    "search_files",
+    "create_file",
+    "write_file",
+    "edit_file",
+    "delete_file",
+    "move_file",
+    "apply_patch",
+    "run_command",
+  ],
 });
 ```
+
+## Built-in tools at a glance
+
+| Tool | Purpose |
+|---|---|
+| [`read_file`](/docs/core/tools/built-in/read_file) | Read a text file with line slicing and a sha256 for stale-file checks. |
+| [`list_directory`](/docs/core/tools/built-in/list_directory) | Enumerate a directory, optionally recursive. |
+| [`search_files`](/docs/core/tools/built-in/search_files) | Glob, text, or regex search across many files. |
+| [`create_file`](/docs/core/tools/built-in/create_file) | Create a new file; fails if it exists. |
+| [`write_file`](/docs/core/tools/built-in/write_file) | Overwrite an existing file, gated by sha256. |
+| [`edit_file`](/docs/core/tools/built-in/edit_file) | Apply exact-string edits to a file, gated by sha256. |
+| [`delete_file`](/docs/core/tools/built-in/delete_file) | Delete a file, recoverable via the workspace trash. |
+| [`move_file`](/docs/core/tools/built-in/move_file) | Move or rename a file with strict no-overwrite semantics. |
+| [`apply_patch`](/docs/core/tools/built-in/apply_patch) | Apply a multi-file unified-diff envelope atomically. |
+| [`run_command`](/docs/core/tools/built-in/run_command) | Execute a shell command with timeout, output caps, and approval gates. |
+| [`load_skill`](/docs/core/tools/built-in/load_skill) | Load the full instructions of a named [skill](/docs/core/skills) advertised in the system prompt. |
+
+Cross-cutting reference: [stale-file protocol](/docs/core/tools/stale-file-protocol), [audit log](/docs/core/tools/audit-log), [trash](/docs/core/tools/trash), [patch envelope](/docs/core/tools/patch-envelope), [error kinds](/docs/core/tools/error-kinds).
 
 To add a custom tool, define it with `defineTool`, register it in the [tool registry](/docs/core/tools/tool-registry), and reference it by name:
 

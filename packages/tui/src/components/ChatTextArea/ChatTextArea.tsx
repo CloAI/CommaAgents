@@ -1,4 +1,11 @@
-import { Box, type DOMElement, Text, useBoxMetrics, useFocus, useInput } from "ink";
+import {
+  Box,
+  type DOMElement,
+  Text,
+  useBoxMetrics,
+  useFocus,
+  useInput,
+} from "ink";
 import type React from "react";
 import { useCallback, useRef, useState } from "react";
 
@@ -26,14 +33,13 @@ import type {
  * but the JS closures still work normally.
  */
 export function ChatTextArea({
-    strategies,
-    onSubmit,
-    id,
-    width = "100%",
-    height = 5,
-    placeholder = "Enter your prompt...",
-  }: ChatTextAreaProps): React.ReactElement {
-
+  strategies,
+  onSubmit,
+  id,
+  width = "100%",
+  height = 5,
+  placeholder = "Enter your prompt...",
+}: ChatTextAreaProps): React.ReactElement {
   const { isFocused } = useFocus({ id });
   const [inputValue, setInputValue] = useState("");
   const [strategyIndex, setStrategyIndex] = useState(0);
@@ -43,15 +49,6 @@ export function ChatTextArea({
   if (!currentStrategy) {
     throw new Error("ChatTextArea requires at least one strategy");
   }
-
-  const handleSubmit = useCallback(
-    (text: string) => {
-      if (!currentStrategy) return;
-      setInputValue("");
-      onSubmit(currentStrategy.value, text);
-    },
-    [currentStrategy, onSubmit],
-  );
 
   // Tab/ctrl+s shortcuts run in the OUTER tree on purpose — they mutate
   // outer state (strategyIndex, inputValue) and we don't want to wait for
@@ -67,19 +64,27 @@ export function ChatTextArea({
     { isActive: isFocused },
   );
 
+  const handleSubmit = useCallback(
+    (text: string) => {
+      if (!currentStrategy) return;
+      setInputValue("");
+      onSubmit(currentStrategy.value, text);
+    },
+    [currentStrategy, onSubmit],
+  );
+
   return (
-    
-          <ChatTextAreaRender
-            inputValue={inputValue}
-            onInputChange={setInputValue}
-            onSubmit={handleSubmit}
-            strategyLabel={currentStrategy.label}
-            strategyDescription={currentStrategy.description}
-            width={width}
-            height={height}
-            placeholder={placeholder}
-            id={id}
-          />
+    <ChatTextAreaRender
+      inputValue={inputValue}
+      onInputChange={setInputValue}
+      onSubmit={handleSubmit}
+      strategyLabel={currentStrategy.label}
+      strategyDescription={currentStrategy.description}
+      width={width}
+      height={height}
+      placeholder={placeholder}
+      id={id}
+    />
   );
 }
 
@@ -90,21 +95,17 @@ export function ChatTextArea({
  * `useBoxMetrics` measurement inside the detached tree (which would race
  * against the first frame and produce a one-tick layout flash).
  */
-export function ChatTextAreaRender(
-  props: ChatTextAreaRenderProps,
-): React.ReactElement {
-  const {
-    inputValue,
-    onInputChange,
-    onSubmit,
-    strategyLabel,
-    strategyDescription,
-    width,
-    height,
-    placeholder,
-    id
-  } = props;
-
+export function ChatTextAreaRender({
+  inputValue,
+  onInputChange,
+  onSubmit,
+  strategyLabel,
+  strategyDescription,
+  width,
+  height,
+  placeholder,
+  id,
+}: ChatTextAreaRenderProps): React.ReactElement {
   const theme = useChatTextAreaTheme();
 
   return (
@@ -112,14 +113,19 @@ export function ChatTextAreaRender(
       <TextAreaInput
         value={inputValue}
         onChange={onInputChange}
-        width={"100%"}
+        width={width}
         height={height}
         placeholder={placeholder}
         onSubmit={onSubmit}
         id={id}
       />
       <Box {...theme.strategyRow}>
-        <Text {...theme.strategyLabel}>{strategyLabel}<Text {...theme.hint}> — {strategyDescription}</Text></Text>
+        <Box maxWidth={42}>
+        <Text {...theme.strategyLabel}>
+          {strategyLabel}
+          <Text {...theme.hint} wrap="wrap"> — {strategyDescription}</Text>
+        </Text>
+        </Box>
         <Text {...theme.hint}>Tab to change strategy · Enter to submit</Text>
       </Box>
     </Box>

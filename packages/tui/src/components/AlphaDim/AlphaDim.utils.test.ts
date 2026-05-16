@@ -26,7 +26,11 @@ describe("scaleRgb", () => {
   });
 
   test("factor of 0 produces black", () => {
-    expect(scaleRgb({ r: 200, g: 100, b: 50 }, 0)).toEqual({ r: 0, g: 0, b: 0 });
+    expect(scaleRgb({ r: 200, g: 100, b: 50 }, 0)).toEqual({
+      r: 0,
+      g: 0,
+      b: 0,
+    });
   });
 });
 

@@ -1,1 +1,0 @@
-import{r as o}from"./index-C-D8K_XC.js";import{u as t}from"./useTheme-Cgx5yjbn.js";import"./useTheme.context-BL1VLgZE.js";function i(r){return function(){const e=t();return o.useMemo(()=>r(e),[e])}}export{i as d};

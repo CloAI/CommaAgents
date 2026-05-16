@@ -18,7 +18,7 @@
  */
 
 import { afterEach, describe, expect, it } from "bun:test";
-import { z } from "zod";
+import type { AgentHooks, FlowHooks } from "@comma-agents/core";
 import {
   defineTool,
   exportStrategy,
@@ -30,8 +30,11 @@ import {
   resetModelRegistry,
   resetToolRegistry,
 } from "@comma-agents/core";
-import type { AgentHooks, FlowHooks } from "@comma-agents/core";
-import { createSimpleMockModel, createToolCallingMockModel } from "./helpers/mock-model";
+import { z } from "zod";
+import {
+  createSimpleMockModel,
+  createToolCallingMockModel,
+} from "./helpers/mock-model";
 
 // Cleanup — reset global registries after each test
 
@@ -51,7 +54,9 @@ afterEach(() => {
  */
 function registerMockModels(modelResponses: Record<string, string[]>): void {
   for (const [modelString, responses] of Object.entries(modelResponses)) {
-    const fullModelString = modelString.includes("/") ? modelString : `mock/${modelString}`;
+    const fullModelString = modelString.includes("/")
+      ? modelString
+      : `mock/${modelString}`;
     registerModel(fullModelString, createSimpleMockModel(responses));
   }
 }
@@ -63,7 +68,9 @@ function registerToolCallingModel(
   modelString: string,
   rounds: Parameters<typeof createToolCallingMockModel>[0]["rounds"],
 ): void {
-  const fullModelString = modelString.includes("/") ? modelString : `mock/${modelString}`;
+  const fullModelString = modelString.includes("/")
+    ? modelString
+    : `mock/${modelString}`;
   registerModel(fullModelString, createToolCallingMockModel({ rounds }));
 }
 
@@ -250,7 +257,9 @@ flow:
         },
       });
 
-      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/validation/i);
+      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+        /validation/i,
+      );
     });
 
     it("should reject strategy with useDefaults on an agent", async () => {
@@ -270,7 +279,9 @@ flow:
         },
       });
 
-      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/validation/i);
+      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+        /validation/i,
+      );
     });
 
     it("should fail if agent has no model", async () => {
@@ -289,7 +300,9 @@ flow:
         },
       });
 
-      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(/model/i);
+      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+        /model/i,
+      );
     });
   });
 
@@ -404,7 +417,9 @@ flow:
       const loaded = await loadStrategyFromString(json, "json");
 
       // Calling the flow fails because the tool can't be resolved
-      await expect(loaded.flow.call("Test")).rejects.toThrow(/nonexistent-tool/);
+      await expect(loaded.flow.call("Test")).rejects.toThrow(
+        /nonexistent-tool/,
+      );
     });
   });
 
@@ -667,9 +682,9 @@ flow:
       const json = JSON.stringify({
         // Missing name, version, agents, flow
       });
-      await expect(
-        loadStrategyFromString(json, "json"),
-      ).rejects.toThrow(/validation/i);
+      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+        /validation/i,
+      );
     });
 
     it("should reject agent referencing unknown provider", async () => {
@@ -690,7 +705,9 @@ flow:
       const loaded = await loadStrategyFromString(json, "json");
 
       // Calling fails because no model or provider is registered
-      await expect(loaded.flow.call("Test")).rejects.toThrow(/unknown-provider/i);
+      await expect(loaded.flow.call("Test")).rejects.toThrow(
+        /unknown-provider/i,
+      );
     });
 
     it("should reject flow referencing undefined agent", async () => {
@@ -709,9 +726,9 @@ flow:
 
       registerMockModels({ "mock/model": ["Response"] });
 
-      await expect(
-        loadStrategyFromString(json, "json"),
-      ).rejects.toThrow(/nonexistent/);
+      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+        /nonexistent/,
+      );
     });
   });
 });

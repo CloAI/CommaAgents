@@ -22,7 +22,12 @@ import { computeScrollbarGeometry } from "./Scrollbar.utils";
 export function Scrollbar(props: ScrollbarProps): React.ReactElement {
   const { total, windowSize, offset, height = windowSize } = props;
   const theme = useScrollbarTheme();
-  const geometry = computeScrollbarGeometry({ total, windowSize, offset, height });
+  const geometry = computeScrollbarGeometry({
+    total,
+    windowSize,
+    offset,
+    height,
+  });
 
   return <ScrollbarRender theme={theme} {...geometry} />;
 }
@@ -37,7 +42,10 @@ export function ScrollbarRender(
   for (let rowIndex = 0; rowIndex < height; rowIndex += 1) {
     const isThumb = rowIndex >= thumbTop && rowIndex < thumbTop + thumbHeight;
     rows.push(
-      <Text key={rowIndex} color={isThumb ? theme.thumbColor : theme.trackColor}>
+      <Text
+        key={rowIndex}
+        color={isThumb ? theme.thumbColor : theme.trackColor}
+      >
         {isThumb ? theme.thumbChar : theme.trackChar}
       </Text>,
     );

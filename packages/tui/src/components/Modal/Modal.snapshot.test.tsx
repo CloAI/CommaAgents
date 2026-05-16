@@ -2,10 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { Box, Text } from "ink";
 import { render } from "ink-testing-library";
 import type React from "react";
-import { useRef } from "react";
 
 import { CommandPaletteRender } from "../CommandPalette/CommandPalette";
-import type { CommandPaletteTheme } from "../CommandPalette/CommandPalette.theme";
 import type { Command } from "../CommandPalette/CommandPalette.types";
 
 import { ModalRender } from "./Modal";
@@ -21,25 +19,18 @@ import { ModalRender } from "./Modal";
  * Scenarios cover:
  * - **No title / with title**: confirms the optional title row layout.
  * - **Empty content**: confirms the border still renders cleanly.
- * - **Sub-page view**: snapshots the `CommandPaletteRender` with an
- *   active sub-page, embedded in a modal frame.
+ * - **Home view**: snapshots the `CommandPaletteRender` (home command list)
+ *   embedded in a modal frame.
  */
-
-const PALETTE_THEME: CommandPaletteTheme = {
-  container: { flexDirection: "column", width: "100%", height: "100%" },
-  searchWrapper: { flexShrink: 0, marginBottom: 1 },
-  item: { flexDirection: "row", paddingX: 1, paddingY: 0 },
-  itemSelected: { flexDirection: "row", paddingX: 1, paddingY: 0, backgroundColor: "#303030" },
-  label: { bold: false, color: "#00d7d7" },
-  labelSelected: { bold: true, color: "#00d7d7" },
-  separator: { color: "#666666" },
-  description: { color: "#666666" },
-  empty: { color: "#666666", dimColor: true },
-};
 
 const STUB_COMMANDS: readonly Command[] = [
   { id: "help", label: "Help", description: "Show keyboard shortcuts" },
-  { id: "exit", label: "Exit", description: "Quit the application", action: () => {} },
+  {
+    id: "exit",
+    label: "Exit",
+    description: "Quit the application",
+    action: () => {},
+  },
 ];
 
 /**
@@ -75,58 +66,6 @@ function CommandListMock(): React.ReactElement {
         </Box>
       </Box>
     </Box>
-  );
-}
-
-/**
- * Mock sub-page for `CommandPaletteRender` — a fake `ListProvidersPage`
- * shape (filter input + provider list), all static.
- */
-function ProvidersPageMock(_props: { readonly focusId: string }): React.ReactElement {
-  return (
-    <Box flexDirection="column" flexGrow={1} overflow="hidden">
-      <Box
-        borderStyle="round"
-        borderColor="cyan"
-        paddingX={1}
-        width="100%"
-        flexShrink={0}
-      >
-        <Text color="cyan">{"\u203A "}</Text>
-        <Text dimColor>Filter providers...</Text>
-      </Box>
-      <Box flexDirection="column" flexGrow={1} overflow="hidden">
-        <Text bold color="cyan" inverse>OpenAI</Text>
-        <Text>Anthropic</Text>
-        <Text>Local</Text>
-      </Box>
-    </Box>
-  );
-}
-
-/**
- * Thin wrapper so we can pass a stable `containerRef` to `CommandPaletteRender`
- * in tests (the render function requires a `React.RefObject<DOMElement>`).
- */
-function PaletteRenderWrapper({
-  activePage,
-}: {
-  readonly activePage: React.ComponentType<{ focusId: string }> | null;
-}): React.ReactElement {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ref = useRef<any>(null);
-  return (
-    <CommandPaletteRender
-      theme={PALETTE_THEME}
-      containerRef={ref}
-      query=""
-      selectedIndex={0}
-      onSelectedIndexChange={() => {}}
-      filtered={STUB_COMMANDS}
-      activePage={activePage}
-      subPageFocusId="test-subpage"
-      onActivate={() => {}}
-    />
   );
 }
 
@@ -170,11 +109,17 @@ describe("ModalRender — content edge cases", () => {
   });
 });
 
-describe("ModalRender — sub-page (CommandPaletteRender)", () => {
-  it("should render the active sub-page without the home command list", () => {
+describe("ModalRender — CommandPaletteRender (home view)", () => {
+  it("should render the command palette home view inside a modal", () => {
     const { lastFrame } = render(
       <ModalRender title="Command Palette">
-        <PaletteRenderWrapper activePage={ProvidersPageMock} />
+        <CommandPaletteRender
+          id="snapshot-palette"
+          query=""
+          onSearchInputChange={() => {}}
+          filtered={STUB_COMMANDS}
+          onCommandSelected={() => {}}
+        />
       </ModalRender>,
     );
     expect(lastFrame()).toMatchSnapshot();

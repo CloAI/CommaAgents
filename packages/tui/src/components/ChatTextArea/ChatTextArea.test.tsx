@@ -1,6 +1,6 @@
-import React from "react";
-import { render } from "ink-testing-library";
 import { describe, expect, it, mock } from "bun:test";
+import { render } from "ink-testing-library";
+import React from "react";
 
 import { ChatTextAreaRender } from "./ChatTextArea";
 

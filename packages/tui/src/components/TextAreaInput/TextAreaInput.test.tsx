@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  type CursorIntent,
   buildIndexCellMap,
+  type CursorIntent,
   computeNextCursorState,
 } from "./TextAreaInput.utils";
 
@@ -41,7 +41,11 @@ describe("buildIndexCellMap", () => {
   });
 
   it("should account for the newline character occupying its own raw index", () => {
-    const indexCellMap = buildIndexCellMap("ab\ncd", ["ab", "cd"], measureAscii);
+    const indexCellMap = buildIndexCellMap(
+      "ab\ncd",
+      ["ab", "cd"],
+      measureAscii,
+    );
     expect(indexCellMap).toEqual([
       { x: 0, y: 0 },
       { x: 1, y: 0 },

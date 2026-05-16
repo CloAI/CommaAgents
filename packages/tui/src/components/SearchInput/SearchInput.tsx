@@ -5,7 +5,10 @@ import { useDebugRender } from "../../hooks/useDebugRender";
 
 import type { SearchInputTheme } from "./SearchInput.theme";
 import { useSearchInputTheme } from "./SearchInput.theme";
-import type { SearchInputProps, SearchInputRenderProps } from "./SearchInput.types";
+import type {
+  SearchInputProps,
+  SearchInputRenderProps,
+} from "./SearchInput.types";
 import { isMouseEscape } from "./SearchInput.utils";
 
 /** Raw mode check for safe `useInput` activation. */
@@ -45,7 +48,8 @@ export function SearchInput({
       }
       // Ignore control keys that the parent likely wants to handle
       // (arrows, Enter, Escape, Tab). Only accept printable input.
-      if (key.upArrow || key.downArrow || key.leftArrow || key.rightArrow) return;
+      if (key.upArrow || key.downArrow || key.leftArrow || key.rightArrow)
+        return;
       if (key.return || key.escape || key.tab) return;
       // Swallow SGR mouse escape sequences (scroll wheel, clicks) so they
       // don't get typed into the query.
@@ -59,7 +63,12 @@ export function SearchInput({
 
   return (
     <Box ref={debug.ref} width="100%" flexShrink={0}>
-      <SearchInputRender theme={theme} value={value} placeholder={placeholder} prompt={prompt} />
+      <SearchInputRender
+        theme={theme}
+        value={value}
+        placeholder={placeholder}
+        prompt={prompt}
+      />
     </Box>
   );
 }

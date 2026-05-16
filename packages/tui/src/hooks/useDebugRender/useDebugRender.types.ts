@@ -6,7 +6,13 @@ export type { BoundingBox } from "../../utils/yogaLayout";
  * Every detectable reason a component rendered.
  * Multiple can be true simultaneously (e.g. props changed *and* rerender).
  */
-export type RenderReason = "mount" | "unmount" | "props" | "state" | "context" | "rerender";
+export type RenderReason =
+  | "mount"
+  | "unmount"
+  | "props"
+  | "state"
+  | "context"
+  | "rerender";
 
 /**
  * Custom ANSI SGR color strings keyed by render reason.

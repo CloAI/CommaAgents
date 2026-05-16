@@ -5,11 +5,11 @@ description: The request_permission / permission_decision message pair for inter
 
 # Sandbox Permissions
 
-When a strategy's sandbox policy is set to `"ask"` for a path, the daemon pauses the tool execution and asks the client for a permission decision. The client responds with `allow`, `deny`, `allow-session`, or `deny-session`, and execution resumes.
+When a guard's policy chain returns `"ask"` for an access request, the daemon pauses the tool and asks the client for a permission decision via the `onAsk` callback. The client responds with `allow`, `deny`, `allow-session`, or `deny-session`, and execution resumes.
 
 ## Event: `request_permission`
 
-Sent by the daemon when a tool needs authorization for a file-system operation. Broadcast to all subscribers of the run.
+Sent by the daemon when a tool needs authorization. Broadcast to all subscribers of the run.
 
 ```json
 {
@@ -32,14 +32,14 @@ Sent by the daemon when a tool needs authorization for a file-system operation. 
 | `requestId` | `string` | Unique ID for this request — echo back in `permission_decision` |
 | `agentName` | `string` | Name of the agent that triggered the operation |
 | `toolName` | `string?` | Name of the tool that triggered the operation |
-| `operation` | `"fs.read" \| "fs.write" \| "fs.exec"` | Category of the operation |
-| `resource` | `string` | Resolved absolute path being accessed |
+| `operation` | `"fs.read" \| "fs.write" \| "fs.exec" \| "command.execute"` | Category of the operation |
+| `resource` | `string` | Resolved absolute path or command being accessed |
 | `reason` | `"policy-ask" \| "policy-deny-override"` | Why this request was raised |
 | `details` | `Record<string, unknown>?` | Optional extra context (e.g. content about to be written) |
 | `ts` | `string` | ISO-8601 timestamp |
 
 `reason` values:
-- `"policy-ask"` — the sandbox policy for this path is set to `"ask"`.
+- `"policy-ask"` — the guard's policy chain for this request returned `"ask"`.
 - `"policy-deny-override"` — a session-level deny is in place, but the tool is requesting a one-time override.
 
 ## Request: `permission_decision`
@@ -65,9 +65,9 @@ Sent by the client to deliver the decision. The `runId` and `permissionRequestId
 
 Decision semantics:
 - `"allow"` / `"deny"` — one-shot for this invocation only.
-- `"allow-session"` / `"deny-session"` — remembered for the lifetime of this run (stored in-memory, not persisted to disk). Triggers a `policy_updated` broadcast.
+- `"allow-session"` / `"deny-session"` — remembered in the tool's guard for the lifetime of this run (stored in-memory, not persisted to disk). Triggers a `policy_updated` broadcast for that tool.
 
-On success, there is no direct response — the sandbox unblocks and the tool continues execution.
+On success, there is no direct response — the guard unblocks and the tool continues execution.
 
 If no pending request matches the `permissionRequestId`, the daemon replies with an error:
 
@@ -82,14 +82,18 @@ If no pending request matches the `permissionRequestId`, the daemon replies with
 
 ## Event: `policy_updated`
 
-Broadcast to all subscribers of the run whenever the sandbox's in-memory policy changes. This happens after `"allow-session"` / `"deny-session"` decisions and after `update_policy` messages.
+Broadcast to all subscribers of the run whenever a tool's guard policy chain changes. This happens after `"allow-session"` / `"deny-session"` decisions and after `update_policy` messages. Each tool's guard emits its own event.
 
 ```json
 {
   "type": "policy_updated",
   "runId": "run_abc123",
-  "read": { "default": "allow" },
-  "write": { "default": "ask", "allow": ["out/**"] },
+  "tool": "write_file",
+  "policies": [
+    { "name": "forbidden-globs" },
+    { "name": "write-path-policy" },
+    { "name": "session-allow-write-generated---json" }
+  ],
   "ts": "2025-01-15T10:30:02.500Z"
 }
 ```
@@ -97,22 +101,21 @@ Broadcast to all subscribers of the run whenever the sandbox's in-memory policy 
 | Field | Type | Description |
 |---|---|---|
 | `type` | `"policy_updated"` | Message type discriminator |
-| `runId` | `string` | The run whose sandbox policy changed |
-| `read` | `PathPolicyWire` | Current read policy snapshot |
-| `write` | `PathPolicyWire` | Current write policy snapshot |
+| `runId` | `string` | The run whose guard policy changed |
+| `tool` | `string` | Which tool's guard emitted the change |
+| `policies` | `{ name: string }[]` | Current policy chain (ordered) |
 | `ts` | `string` | ISO-8601 timestamp |
-
-`PathPolicyWire` shape: `{ default: "allow" | "deny" | "ask", allow?: string[], deny?: string[] }`.
 
 ## Request: `update_policy`
 
-Sent by the client to patch the sandbox's in-memory policy for a run. Useful for pre-approving or pre-denying paths before execution reaches them.
+Sent by the client to add a policy to a tool's guard chain. Useful for pre-approving or pre-denying paths before execution reaches them. If `tool` is omitted, the policy is applied to all existing guards.
 
 ```json
 {
   "type": "update_policy",
   "runId": "run_abc123",
-  "mode": "write",
+  "tool": "read_file",
+  "mode": "read",
   "allow": ["generated/**", "tmp/**"]
 }
 ```
@@ -120,10 +123,11 @@ Sent by the client to patch the sandbox's in-memory policy for a run. Useful for
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `type` | `"update_policy"` | yes | Message type discriminator |
-| `runId` | `string` | yes | The run whose sandbox to update |
+| `runId` | `string` | yes | The run whose guard to update |
+| `tool` | `string` | no | Tool to target. Omitted = all existing guards |
 | `mode` | `"read" \| "write"` | yes | Which policy dimension to update |
-| `allow` | `string[]` | no | Glob patterns to append to the allow list |
-| `deny` | `string[]` | no | Glob patterns to append to the deny list |
+| `allow` | `string[]` | no | Glob patterns to add to the allow list |
+| `deny` | `string[]` | no | Glob patterns to add to the deny list |
 | `default` | `"allow" \| "deny" \| "ask"` | no | Replace the default decision for this dimension |
 
 On success, the daemon applies the patch and broadcasts `policy_updated` to all subscribers.
@@ -161,6 +165,7 @@ Client                          Daemon
   |------------------------------>|
   |                               |
   |     policy_updated            |
+  |  (tool: "write_file")         |
   |<------------------------------|
   |                               |
   |  agent_output, ...            |

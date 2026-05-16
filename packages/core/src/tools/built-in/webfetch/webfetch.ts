@@ -1,25 +1,15 @@
-// webfetch — fetch content from URLs and return it as markdown, plain text, or HTML
-
-import TurndownService from "turndown";
 import { z } from "zod";
+
 import { defineTool } from "../../define/define-tool";
+import { okResult } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
-
-/**
- * Configuration for the webfetch tool.
- */
-export interface WebFetchToolConfig {
-  /** Default per-request timeout in seconds (default: 30). */
-  readonly defaultTimeout?: number;
-  /** Maximum length of the returned content in characters (default: 50_000). */
-  readonly maxContentLength?: number;
-  /** Custom user-agent header (default: "CommaAgents-WebFetch/1.0"). */
-  readonly userAgent?: string;
-}
-
-const DEFAULT_TIMEOUT_SECONDS = 30;
-const DEFAULT_MAX_CONTENT_LENGTH = 50_000;
-const DEFAULT_USER_AGENT = "CommaAgents-WebFetch/1.0";
+import {
+  DEFAULT_MAX_CONTENT_LENGTH,
+  DEFAULT_TIMEOUT_SECONDS,
+  DEFAULT_USER_AGENT,
+} from "./webfetch.constants";
+import type { WebFetchToolConfig } from "./webfetch.types";
+import { mergeAbortSignals, transformContent } from "./webfetch.utils";
 
 const webFetchParams = z.object({
   url: z.string().url().describe("The fully-qualified URL to fetch."),
@@ -39,68 +29,9 @@ const webFetchParams = z.object({
 });
 
 /**
- * Combine multiple AbortSignals into one. Aborts as soon as any input aborts.
- */
-function mergeAbortSignals(signals: readonly AbortSignal[]): AbortSignal {
-  const controller = new AbortController();
-  for (const signal of signals) {
-    if (signal.aborted) {
-      controller.abort(signal.reason);
-      return controller.signal;
-    }
-    signal.addEventListener("abort", () => controller.abort(signal.reason), { once: true });
-  }
-  return controller.signal;
-}
-
-/**
- * Lazily-instantiated Turndown service. Strips script/style noise and
- * uses sensible defaults for LLM-friendly markdown output.
- */
-let turndownService: TurndownService | undefined;
-function getTurndown(): TurndownService {
-  if (!turndownService) {
-    turndownService = new TurndownService({
-      headingStyle: "atx",
-      codeBlockStyle: "fenced",
-      bulletListMarker: "-",
-    });
-    turndownService.remove(["script", "style", "noscript", "iframe"]);
-  }
-  return turndownService;
-}
-
-/**
- * Strip common Markdown syntax from text, leaving readable plain text.
- * Used for the "text" output format.
- */
-function stripMarkdown(markdown: string): string {
-  return markdown
-    .replace(/^#{1,6}\s+/gm, "") // headings
-    .replace(/\*\*([^*]+)\*\*/g, "$1") // bold
-    .replace(/\*([^*]+)\*/g, "$1") // italic
-    .replace(/__([^_]+)__/g, "$1")
-    .replace(/_([^_]+)_/g, "$1")
-    .replace(/`([^`]+)`/g, "$1") // inline code
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // images → alt text
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // links → text
-    .replace(/^\s*[-*+]\s+/gm, "") // bullet markers
-    .replace(/^\s*>\s?/gm, "") // blockquotes
-    .replace(/\n{3,}/g, "\n\n");
-}
-
-/**
- * Convert HTML into the requested output format.
- */
-function transformContent(html: string, format: "text" | "markdown" | "html"): string {
-  if (format === "html") return html;
-  const markdown = getTurndown().turndown(html);
-  return format === "text" ? stripMarkdown(markdown) : markdown;
-}
-
-/**
  * Create a webfetch tool for retrieving and converting web content.
  *
+ * @param config - Optional configuration overriding default timeout, content length, and user-agent.
  * @example
  * ```ts
  * const webfetch = createWebFetchTool();
@@ -116,7 +47,8 @@ export function createWebFetchTool(
   config?: WebFetchToolConfig,
 ): ToolDefinition<typeof webFetchParams> {
   const defaultTimeout = config?.defaultTimeout ?? DEFAULT_TIMEOUT_SECONDS;
-  const maxContentLength = config?.maxContentLength ?? DEFAULT_MAX_CONTENT_LENGTH;
+  const maxContentLength =
+    config?.maxContentLength ?? DEFAULT_MAX_CONTENT_LENGTH;
   const userAgent = config?.userAgent ?? DEFAULT_USER_AGENT;
 
   return defineTool({
@@ -144,7 +76,9 @@ export function createWebFetchTool(
       const rawBody = await response.text();
       const transformed = transformContent(rawBody, format);
       const truncated = transformed.length > maxContentLength;
-      const output = truncated ? transformed.slice(0, maxContentLength) : transformed;
+      const output = truncated
+        ? transformed.slice(0, maxContentLength)
+        : transformed;
 
       const durationMs = Date.now() - startTime;
 
@@ -155,8 +89,7 @@ export function createWebFetchTool(
         ? `\n\n[Content truncated to ${maxContentLength} characters]`
         : "";
 
-      return {
-        output: `${header}${output}${footer}`,
+      return okResult(`${header}${output}${footer}`, {
         metadata: {
           url: validatedArguments.url,
           finalUrl: response.url,
@@ -167,7 +100,7 @@ export function createWebFetchTool(
           truncated,
           originalLength: transformed.length,
         },
-      };
+      });
     },
   });
 }

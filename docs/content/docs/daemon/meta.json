@@ -4,6 +4,9 @@
     "server",
     "executor",
     "protocol",
-    "logger"
+    "logger",
+    "cli",
+    "sessions",
+    "pid"
   ]
 }

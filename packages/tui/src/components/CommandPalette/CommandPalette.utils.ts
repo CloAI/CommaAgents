@@ -3,7 +3,9 @@ import type { Command } from "./CommandPalette.types";
 
 /** Build the searchable haystack for a command: label + description + keywords. */
 function commandHaystack(command: Command): string {
-  return [command.label, command.description, ...(command.keywords ?? [])].join(" ");
+  return [command.label, command.description, ...(command.keywords ?? [])].join(
+    " ",
+  );
 }
 
 /**

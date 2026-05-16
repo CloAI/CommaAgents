@@ -18,7 +18,10 @@ import type { Logger } from "@comma-agents/daemon";
  * @param modelString - Model identifier (e.g. "openai/gpt-4o")
  * @param responseText - Optional fixed response text (defaults to "response from {modelString}")
  */
-export function registerMockModel(modelString: string, responseText?: string): void {
+export function registerMockModel(
+  modelString: string,
+  responseText?: string,
+): void {
   const text = responseText ?? `response from ${modelString}`;
 
   registerModel(modelString, {
@@ -45,7 +48,11 @@ export function registerMockModel(modelString: string, responseText?: string): v
         start(controller) {
           const textId = "text-0";
           controller.enqueue({ type: "text-start" as const, id: textId });
-          controller.enqueue({ type: "text-delta" as const, delta: text, id: textId });
+          controller.enqueue({
+            type: "text-delta" as const,
+            delta: text,
+            id: textId,
+          });
           controller.enqueue({ type: "text-end" as const, id: textId });
           controller.enqueue({
             type: "finish" as const,
@@ -57,7 +64,11 @@ export function registerMockModel(modelString: string, responseText?: string): v
                 cacheRead: undefined,
                 cacheWrite: undefined,
               },
-              outputTokens: { total: 20, text: undefined, reasoning: undefined },
+              outputTokens: {
+                total: 20,
+                text: undefined,
+                reasoning: undefined,
+              },
             },
           });
           controller.close();
@@ -180,7 +191,7 @@ export const TOOL_AGENT_STRATEGY = JSON.stringify({
     coder: {
       model: "openai/gpt-4o",
       systemPrompt: "You are a coding assistant.",
-      tools: ["read", "grep", "glob"],
+      tools: ["read_file", "search_files", "list_directory"],
     },
   },
   flow: {

@@ -31,7 +31,7 @@ let toolRegistry = new Map<string, ToolDefinition>();
  * const myTool = defineTool({
  *   description: "Fetch a URL",
  *   parameters: z.object({ url: z.string() }),
- *   execute: async ({ url }) => ({ output: await fetch(url).then(r => r.text()) }),
+ *   execute: async ({ url }) => okResult(await fetch(url).then(r => r.text())),
  * });
  *
  * registerTool("fetch", myTool);
@@ -69,7 +69,7 @@ export function unregisterTool(name: string): boolean {
  *
  * Resolution order for each name:
  * 1. Global tool registry (custom tools via `registerTool()`)
- * 2. Built-in tool factories (`bash`, `read`, `write`, `edit`, `glob`, `grep`)
+ * 2. Built-in tool factories (see `BUILT_IN_TOOL_NAMES` in `tool.constants.ts`)
  * 3. Explicit `customTools` parameter (passed by the strategy loader / description loader)
  * 4. Error — unknown tool name
  *
@@ -109,8 +109,11 @@ export function resolveTools(
     // 4. Unknown tool
     const registeredList = [...toolRegistry.keys()];
     const builtInList = BUILT_IN_TOOL_NAMES.join(", ");
-    const customList = customTools ? Object.keys(customTools).join(", ") : "(none)";
-    const registeredDisplay = registeredList.length > 0 ? registeredList.join(", ") : "(none)";
+    const customList = customTools
+      ? Object.keys(customTools).join(", ")
+      : "(none)";
+    const registeredDisplay =
+      registeredList.length > 0 ? registeredList.join(", ") : "(none)";
     throw new StrategyValidationError(
       `Agent "${agentName}" references unknown tool "${name}". ` +
         `Built-in tools: [${builtInList}]. ` +

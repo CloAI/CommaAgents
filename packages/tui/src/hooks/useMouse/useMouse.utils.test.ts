@@ -61,7 +61,11 @@ describe("parseMouseEvents", () => {
   it("decodes shift modifier (bit 2)", () => {
     // shift bit = 4, so button byte = 0 | 4 = 4
     const events = parseMouseEvents("[<4;1;1M");
-    expect(events[0]?.modifiers).toMatchObject({ shift: true, meta: false, ctrl: false });
+    expect(events[0]?.modifiers).toMatchObject({
+      shift: true,
+      meta: false,
+      ctrl: false,
+    });
     expect(events[0]?.button).toBe(0);
     expect(events[0]?.kind).toBe("press");
   });
@@ -69,19 +73,31 @@ describe("parseMouseEvents", () => {
   it("decodes meta modifier (bit 3)", () => {
     // meta bit = 8
     const events = parseMouseEvents("[<8;1;1M");
-    expect(events[0]?.modifiers).toMatchObject({ shift: false, meta: true, ctrl: false });
+    expect(events[0]?.modifiers).toMatchObject({
+      shift: false,
+      meta: true,
+      ctrl: false,
+    });
   });
 
   it("decodes ctrl modifier (bit 4)", () => {
     // ctrl bit = 16
     const events = parseMouseEvents("[<16;1;1M");
-    expect(events[0]?.modifiers).toMatchObject({ shift: false, meta: false, ctrl: true });
+    expect(events[0]?.modifiers).toMatchObject({
+      shift: false,
+      meta: false,
+      ctrl: true,
+    });
   });
 
   it("decodes combined modifiers", () => {
     // shift + ctrl = 4 + 16 = 20, right button = 2 → 22
     const events = parseMouseEvents("[<22;5;5M");
-    expect(events[0]?.modifiers).toMatchObject({ shift: true, meta: false, ctrl: true });
+    expect(events[0]?.modifiers).toMatchObject({
+      shift: true,
+      meta: false,
+      ctrl: true,
+    });
     expect(events[0]?.button).toBe(2);
   });
 
@@ -91,7 +107,12 @@ describe("parseMouseEvents", () => {
 
   it("parses wheel-up (button 64)", () => {
     const events = parseMouseEvents("[<64;20;10M");
-    expect(events[0]).toMatchObject({ kind: "wheel-up", button: null, column: 20, row: 10 });
+    expect(events[0]).toMatchObject({
+      kind: "wheel-up",
+      button: null,
+      column: 20,
+      row: 10,
+    });
   });
 
   it("parses wheel-down (button 65)", () => {
@@ -106,7 +127,12 @@ describe("parseMouseEvents", () => {
   it("parses motion-without-button (button 35 = 0x20 | 3)", () => {
     // MOTION_BIT = 32, button bits = 3 → 35
     const events = parseMouseEvents("[<35;15;8M");
-    expect(events[0]).toMatchObject({ kind: "move", button: null, column: 15, row: 8 });
+    expect(events[0]).toMatchObject({
+      kind: "move",
+      button: null,
+      column: 15,
+      row: 8,
+    });
   });
 
   it("parses drag (motion + button held, button 32 = 0x20 | 0 = left drag)", () => {

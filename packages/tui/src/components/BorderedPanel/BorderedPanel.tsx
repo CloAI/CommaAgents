@@ -106,7 +106,7 @@ export function BorderedPanelRender({
       borderColor={borderColor}
       backgroundColor={backgroundColor}
     >
-      <Box {...theme.header} >
+      <Box {...theme.header}>
         <Text
           {...theme.header.text}
           backgroundColor={backgroundColor}

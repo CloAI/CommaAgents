@@ -27,11 +27,14 @@ async function main() {
   const agent = createAgent({
     name: "greeter",
     model,
-    systemPrompt: "You are a friendly assistant. Keep responses concise — one paragraph max.",
+    systemPrompt:
+      "You are a friendly assistant. Keep responses concise — one paragraph max.",
   });
 
   // Send a message and await the complete result.
-  const result = await agent.call("What is the Fibonacci sequence? Explain it simply.");
+  const result = await agent.call(
+    "What is the Fibonacci sequence? Explain it simply.",
+  );
 
   // The result contains the response text, step details, and token usage.
   console.log("\n--- Response ---");

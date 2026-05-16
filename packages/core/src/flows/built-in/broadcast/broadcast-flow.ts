@@ -38,12 +38,17 @@ import { DEFAULT_SEPARATOR } from "./broadcast-flow.constants";
  */
 export function createBroadcastFlow(config: BroadcastFlowConfig): Agent {
   const separator = config.separator ?? DEFAULT_SEPARATOR;
-  return buildFlowAgent(config, "broadcast", {}, async (steps, message, flowContext) => {
-    const texts: string[] = [];
-    for (const step of steps) {
-      const result = await flowContext.runStep(step, message);
-      texts.push(result.text);
-    }
-    return texts.join(separator);
-  });
+  return buildFlowAgent(
+    config,
+    "broadcast",
+    {},
+    async (steps, message, flowContext) => {
+      const texts: string[] = [];
+      for (const step of steps) {
+        const result = await flowContext.runStep(step, message);
+        texts.push(result.text);
+      }
+      return texts.join(separator);
+    },
+  );
 }

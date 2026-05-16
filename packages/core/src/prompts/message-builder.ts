@@ -76,7 +76,9 @@ export interface SystemPromptOptions {
  * });
  * ```
  */
-export function buildMessages(options: BuildMessagesOptions): readonly ModelMessage[] {
+export function buildMessages(
+  options: BuildMessagesOptions,
+): readonly ModelMessage[] {
   const messages: ModelMessage[] = [];
 
   // 1. Prefix messages

@@ -14,6 +14,7 @@
  */
 
 import { afterEach, describe, expect, it } from "bun:test";
+import type { AgentHooks, AgentStreamEvent } from "@comma-agents/core";
 import {
   createAgent,
   hookIntoAgent,
@@ -22,8 +23,10 @@ import {
   resetModelRegistry,
   resetToolRegistry,
 } from "@comma-agents/core";
-import type { AgentStreamEvent, AgentHooks } from "@comma-agents/core";
-import { createSimpleMockModel, createToolCallingMockModel } from "./helpers/mock-model";
+import {
+  createSimpleMockModel,
+  createToolCallingMockModel,
+} from "./helpers/mock-model";
 import { createEchoTool } from "./helpers/test-tools";
 
 // Tests
@@ -97,7 +100,9 @@ describe("E2E: Agent Streaming", () => {
       const model = createToolCallingMockModel({
         rounds: [
           {
-            toolCalls: [{ id: "c1", name: "echo", args: { message: "streamed" } }],
+            toolCalls: [
+              { id: "c1", name: "echo", args: { message: "streamed" } },
+            ],
           },
           { text: "Echo returned: streamed" },
         ],
@@ -124,17 +129,15 @@ describe("E2E: Agent Streaming", () => {
       expect(eventTypes).toContain("done");
 
       // Verify tool-call event content
-      const toolCallEvent = events.find((e) => e.type === "tool-call") as Extract<
-        AgentStreamEvent,
-        { type: "tool-call" }
-      >;
+      const toolCallEvent = events.find(
+        (e) => e.type === "tool-call",
+      ) as Extract<AgentStreamEvent, { type: "tool-call" }>;
       expect(toolCallEvent.toolName).toBe("echo");
 
       // Verify tool-result event content
-      const toolResultEvent = events.find((e) => e.type === "tool-result") as Extract<
-        AgentStreamEvent,
-        { type: "tool-result" }
-      >;
+      const toolResultEvent = events.find(
+        (e) => e.type === "tool-result",
+      ) as Extract<AgentStreamEvent, { type: "tool-result" }>;
       expect(toolResultEvent).toBeDefined();
       expect(toolResultEvent.toolName).toBe("echo");
       expect(toolResultEvent.output).toBe("echo: streamed");
@@ -175,7 +178,9 @@ describe("E2E: Agent Streaming", () => {
 
       // Hook should have received the same events as the generator
       expect(hookEvents.length).toBe(directEvents.length);
-      expect(hookEvents.map((e) => e.type)).toEqual(directEvents.map((e) => e.type));
+      expect(hookEvents.map((e) => e.type)).toEqual(
+        directEvents.map((e) => e.type),
+      );
     });
   });
 

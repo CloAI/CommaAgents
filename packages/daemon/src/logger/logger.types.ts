@@ -1,10 +1,3 @@
-// Logger type definitions — contracts for the daemon logging system.
-//
-// The logger uses a sink-based architecture so output can be directed to
-// multiple destinations simultaneously (stderr, file, OS logging system).
-
-// LogLevel — severity levels, ordered from most to least verbose
-
 /** Log severity levels. Numeric values used for filtering. */
 export const LOG_LEVELS = {
   debug: 0,
@@ -14,8 +7,6 @@ export const LOG_LEVELS = {
 } as const;
 
 export type LogLevel = keyof typeof LOG_LEVELS;
-
-// LogEntry — a single structured log record
 
 /** A structured log entry passed to sinks. */
 export interface LogEntry {
@@ -31,8 +22,6 @@ export interface LogEntry {
   readonly component?: string;
 }
 
-// LogSink — destination for log entries
-
 /**
  * A log sink receives formatted entries and writes them to a destination.
  * Sinks should not filter by level — the logger handles that.
@@ -45,8 +34,6 @@ export interface LogSink {
   /** Close the sink and release resources (optional). */
   close?(): void;
 }
-
-// Logger — the public API
 
 /** Structured logger with level filtering and child logger support. */
 export interface Logger {
@@ -72,15 +59,13 @@ export interface Logger {
   close(): void;
 }
 
-// CreateLoggerOptions — configuration for createLogger()
-
 /** Options for creating a logger instance. */
 export interface CreateLoggerOptions {
-  /** Minimum severity level to emit. Messages below this are dropped. Default: "info". */
-  level?: LogLevel;
+  /** Minimum severity level to emit. Messages below this are dropped. @default "info" */
+  readonly level?: LogLevel;
   /**
    * Output sinks. If not specified, defaults to stderr.
    * Pass an array of sinks to write to multiple destinations.
    */
-  sinks?: LogSink[];
+  readonly sinks?: readonly LogSink[];
 }

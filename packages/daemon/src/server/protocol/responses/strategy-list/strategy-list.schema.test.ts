@@ -27,10 +27,14 @@ describe("RunSummarySchema", () => {
   });
 
   test("rejects invalid status", () => {
-    expect(RunSummarySchema.safeParse({ ...valid, status: "paused" }).success).toBe(false);
+    expect(
+      RunSummarySchema.safeParse({ ...valid, status: "paused" }).success,
+    ).toBe(false);
   });
 
   test("rejects non-ISO startedAt", () => {
-    expect(RunSummarySchema.safeParse({ ...valid, startedAt: "yesterday" }).success).toBe(false);
+    expect(
+      RunSummarySchema.safeParse({ ...valid, startedAt: "yesterday" }).success,
+    ).toBe(false);
   });
 });

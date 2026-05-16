@@ -82,9 +82,12 @@ export const env = nodeProcess.env;
 export const platform = nodeProcess.platform;
 export const cwd = () => nodeProcess.cwd();
 export const nextTick = nodeProcess.nextTick.bind(nodeProcess);
-export const stdout = (nodeProcess as unknown as { stdout: NodeJS.WriteStream }).stdout;
-export const stderr = (nodeProcess as unknown as { stderr: NodeJS.WriteStream }).stderr;
-export const stdin = (nodeProcess as unknown as { stdin: NodeJS.ReadStream }).stdin;
+export const stdout = (nodeProcess as unknown as { stdout: NodeJS.WriteStream })
+  .stdout;
+export const stderr = (nodeProcess as unknown as { stderr: NodeJS.WriteStream })
+  .stderr;
+export const stdin = (nodeProcess as unknown as { stdin: NodeJS.ReadStream })
+  .stdin;
 export const versions = nodeProcess.versions;
 export const version = nodeProcess.version;
 export const argv = nodeProcess.argv;

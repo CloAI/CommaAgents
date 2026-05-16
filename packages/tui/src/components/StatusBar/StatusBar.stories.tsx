@@ -58,7 +58,11 @@ export const WaitingInput: Story = {
 };
 
 export const WaitingPermission: Story = {
-  args: { status: "waiting_permission", error: null, strategyName: "planner-v2" },
+  args: {
+    status: "waiting_permission",
+    error: null,
+    strategyName: "planner-v2",
+  },
 };
 
 export const Completed: Story = {

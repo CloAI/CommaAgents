@@ -18,8 +18,8 @@ export interface ParsedModel {
  *
  * @example
  * ```ts
- * import { openai } from "@ai-sdk/openai";
- * const providers = { openai: (id) => openai(id) };
+ * import { createOpenAI } from "@ai-sdk/openai";
+ * const providers = { openai: (id) => createOpenAI({ apiKey: "...", model: id }) };
  * ```
  */
 export type ProviderFactory = (modelId: string) => LanguageModel;
@@ -30,14 +30,14 @@ export type ProviderFactory = (modelId: string) => LanguageModel;
  * from a CredentialStore and create provider instances on demand.
  *
  * Implementations are supplied by the consuming layer (daemon, CLI, examples)
- * to keep `@ai-sdk/*` imports out of core.
+ * so that core remains provider-agnostic.
  *
  * @example
  * ```ts
  * const resolver: ProviderResolver = async (providerId, credential) => {
  *   if (credential.type !== "api") throw new Error("Only API keys supported");
- *   const mod = await import(`@ai-sdk/${providerId}`);
- *   return (modelId) => mod.default({ apiKey: credential.key })(modelId);
+ *   const { createOpenAI } = await import("@ai-sdk/openai");
+ *   return (modelId) => createOpenAI({ apiKey: credential.key })(modelId);
  * };
  * ```
  */

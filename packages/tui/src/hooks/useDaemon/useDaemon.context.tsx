@@ -4,10 +4,10 @@ import { createContext, useCallback, useMemo, useRef } from "react";
 
 import { useWebSocket } from "../useWebSocket/useWebSocket";
 import type {
+  DaemonContextProviderProps,
   DaemonContextValue,
   DaemonMessageListener,
   DaemonMessageType,
-  DaemonProviderProps,
 } from "./useDaemon.types";
 
 export const DaemonContext = createContext<DaemonContextValue | null>(null);
@@ -22,19 +22,20 @@ export const DaemonContext = createContext<DaemonContextValue | null>(null);
  * @param props - Provider configuration including the daemon WebSocket URL.
  * @example
  * ```tsx
- * <DaemonProvider url="ws://localhost:7422/ws">
+ * <DaemonContextProvider url="ws://localhost:7422/ws">
  *   <App />
- * </DaemonProvider>
+ * </DaemonContextProvider>
  * ```
  */
-export function DaemonProvider(props: DaemonProviderProps) {
-  const { url, children } = props;
-
+export function DaemonContextProvider({
+  url,
+  children,
+}: DaemonContextProviderProps) {
   // Listener registry: type -> Set of callbacks.
   // Using a ref so we don't trigger re-renders when listeners change.
-  const listenersRef = useRef<Map<string, Set<DaemonMessageListener<DaemonMessageType>>>>(
-    new Map(),
-  );
+  const listenersRef = useRef<
+    Map<string, Set<DaemonMessageListener<DaemonMessageType>>>
+  >(new Map());
 
   // Stable dispatch — fans out a daemon message to all matching listeners.
   const dispatch = useCallback((message: DaemonMessage) => {
@@ -42,7 +43,9 @@ export function DaemonProvider(props: DaemonProviderProps) {
     if (!set) return;
     for (const listener of set) {
       // biome-ignore lint: The listener is already narrowed by the consumer's generic
-      (listener as DaemonMessageListener<typeof message.type>)(message as never);
+      (listener as DaemonMessageListener<typeof message.type>)(
+        message as never,
+      );
     }
   }, []);
 
@@ -88,7 +91,9 @@ export function DaemonProvider(props: DaemonProviderProps) {
       const set = map.get(type)!;
       set.add(listener as unknown as DaemonMessageListener<DaemonMessageType>);
       return () => {
-        set.delete(listener as unknown as DaemonMessageListener<DaemonMessageType>);
+        set.delete(
+          listener as unknown as DaemonMessageListener<DaemonMessageType>,
+        );
       };
     },
     [],
@@ -101,7 +106,9 @@ export function DaemonProvider(props: DaemonProviderProps) {
     ): void => {
       const set = listenersRef.current.get(type);
       if (set) {
-        set.delete(listener as unknown as DaemonMessageListener<DaemonMessageType>);
+        set.delete(
+          listener as unknown as DaemonMessageListener<DaemonMessageType>,
+        );
       }
     },
     [],
@@ -113,5 +120,7 @@ export function DaemonProvider(props: DaemonProviderProps) {
     [status, send, on, off],
   );
 
-  return <DaemonContext.Provider value={value}>{children}</DaemonContext.Provider>;
+  return (
+    <DaemonContext.Provider value={value}>{children}</DaemonContext.Provider>
+  );
 }

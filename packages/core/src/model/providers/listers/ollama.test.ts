@@ -8,7 +8,9 @@ interface MockResponse {
   readonly json: () => Promise<unknown>;
 }
 
-function withMockedFetch(mock: (url: string) => MockResponse | Promise<MockResponse>): () => void {
+function withMockedFetch(
+  mock: (url: string) => MockResponse | Promise<MockResponse>,
+): () => void {
   const original = globalThis.fetch;
   globalThis.fetch = (async (input: unknown): Promise<Response> => {
     const url = typeof input === "string" ? input : String(input);
@@ -43,7 +45,9 @@ describe("listOllamaModels", () => {
     });
 
     try {
-      const models = await listOllamaModels({ baseURL: "http://localhost:11434" });
+      const models = await listOllamaModels({
+        baseURL: "http://localhost:11434",
+      });
       expect(seenUrl).toBe("http://localhost:11434/api/tags");
       expect(models).toHaveLength(2);
       expect(models[0]?.id).toBe("llama3.3:latest");
@@ -64,7 +68,9 @@ describe("listOllamaModels", () => {
     }));
 
     try {
-      await expect(listOllamaModels({ baseURL: "http://localhost:11434" })).rejects.toThrow(/503/);
+      await expect(
+        listOllamaModels({ baseURL: "http://localhost:11434" }),
+      ).rejects.toThrow(/503/);
     } finally {
       restore();
     }
@@ -74,7 +80,12 @@ describe("listOllamaModels", () => {
     let seenUrl = "";
     const restore = withMockedFetch((url) => {
       seenUrl = url;
-      return { ok: true, status: 200, statusText: "OK", json: async () => ({ models: [] }) };
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({ models: [] }),
+      };
     });
 
     try {

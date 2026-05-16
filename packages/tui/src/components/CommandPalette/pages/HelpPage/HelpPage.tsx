@@ -22,7 +22,9 @@ const SHORTCUTS: readonly ShortcutEntry[] = [
  * Lists keyboard shortcuts and brief usage tips.
  * `focusId` is accepted for API consistency but not used (static page).
  */
-export function HelpPage(_props: { readonly focusId: string }): React.ReactElement {
+export function HelpPage(_props: {
+  readonly focusId: string;
+}): React.ReactElement {
   const tokens = useTheme();
 
   return (

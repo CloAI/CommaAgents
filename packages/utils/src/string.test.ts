@@ -1,7 +1,13 @@
 // Tests for string utilities.
 
 import { describe, expect, it } from "bun:test";
-import { breakLines, capitalize, collapseNewlines, countOccurrences, truncateText } from "./string";
+import {
+  breakLines,
+  capitalize,
+  collapseNewlines,
+  countOccurrences,
+  truncateText,
+} from "./string";
 
 describe("capitalize", () => {
   it("should capitalize the first letter", () => {
@@ -81,7 +87,10 @@ describe("breakLines", () => {
   });
 
   it("should preserve leading whitespace as continuation indent", () => {
-    const result = breakLines("  indented text that is longer than the width", 20);
+    const result = breakLines(
+      "  indented text that is longer than the width",
+      20,
+    );
     const lines = result.split("\n");
     // Continuation lines should also have the leading indent
     if (lines.length > 1) {

@@ -1,28 +1,30 @@
-// createAgent — Closure-based LLM agent factory.
-//
-// The single core factory for LLM-backed agents. Returns an Agent with
-// all optional LLM fields populated (stream, getConversationContext, config).
-//
-// State is captured in closure — no classes.
-//
-// Internally, `stream()` is the single LLM execution path. `call()`
-// delegates to `stream()` for LLM-backed agents (consuming events
-// silently and returning the final result), while handling the
-// `execute` override directly without streaming.
-
-import type { AbortableAsyncGenerator, AbortablePromise } from "@comma-agents/utils";
-import { createAbortableGenerator, createAbortablePromise } from "@comma-agents/utils";
+import type {
+  AbortableAsyncGenerator,
+  AbortablePromise,
+} from "@comma-agents/utils";
+import {
+  createAbortableGenerator,
+  createAbortablePromise,
+} from "@comma-agents/utils";
 import { streamText } from "ai";
 import { createConversationContext } from "../../context/conversation-context";
 import { AgentCallError } from "../../errors/index";
 import type { SideEffectHook, TransformHook } from "../../hooks";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
+import type { TemplateVariables } from "../../prompts/types";
 import type { ToolHooks } from "../hooks";
 import { resolveHook } from "../hooks";
-import type { Agent, AgentCallResult, AgentConfig, AgentStreamEvent } from "./agent.types";
-import { buildCallOptions, buildStreamCallResult, mapStreamPart } from "./agent.utils";
-
-// createAgent
+import type {
+  Agent,
+  AgentCallResult,
+  AgentConfig,
+  AgentStreamEvent,
+} from "./agent.types";
+import {
+  buildCallOptions,
+  buildStreamCallResult,
+  mapStreamPart,
+} from "./agent.utils";
 
 /**
  * Create an LLM-backed agent using closure-based state management.
@@ -47,7 +49,6 @@ import { buildCallOptions, buildStreamCallResult, mapStreamPart } from "./agent.
  * ```
  */
 export function createAgent(config: AgentConfig): Agent {
-  // -- Closure state --
   const context = createConversationContext();
   let firstCall = true;
 
@@ -92,7 +93,7 @@ export function createAgent(config: AgentConfig): Agent {
     afterToolCall: undefined,
   };
 
-  // -- Internal helpers --
+  // Internal helpers
 
   function consumeFirstCall(): boolean {
     const wasFirstCall = firstCall;
@@ -116,7 +117,10 @@ export function createAgent(config: AgentConfig): Agent {
    * message and the first-call flag. Shared by both `call()` (execute
    * override path) and `stream()` (LLM path).
    */
-  async function runPreCallHooks(message: string, isFirst: boolean): Promise<string> {
+  async function runPreCallHooks(
+    message: string,
+    isFirst: boolean,
+  ): Promise<string> {
     // 1. Alter message
     const alteredMessage = await runTransformHooks(
       resolveHook(hooks.alterFirstCallMessage, hooks.alterCallMessage, isFirst),
@@ -152,25 +156,29 @@ export function createAgent(config: AgentConfig): Agent {
     return { ...result, text: alteredText };
   }
 
-  // -- The agent object --
+  // The agent object
 
   const agent: Agent = {
     name: config.name,
     config,
 
     call(message: string): AbortablePromise<AgentCallResult> {
-      return createAbortablePromise(async (signal): Promise<AgentCallResult> => {
-        const streamGenerator = agent.stream!(message);
-        signal.addEventListener("abort", () => streamGenerator.abort(), { once: true });
+      return createAbortablePromise(
+        async (signal): Promise<AgentCallResult> => {
+          const streamGenerator = agent.stream!(message);
+          signal.addEventListener("abort", () => streamGenerator.abort(), {
+            once: true,
+          });
 
-        let finalResult: AgentCallResult | undefined;
-        for await (const event of streamGenerator) {
-          if (event.type === "done") {
-            finalResult = event.result;
+          let finalResult: AgentCallResult | undefined;
+          for await (const event of streamGenerator) {
+            if (event.type === "done") {
+              finalResult = event.result;
+            }
           }
-        }
-        return finalResult!;
-      });
+          return finalResult!;
+        },
+      );
     },
 
     // TODO: Right now the stream is the main function for execution, however,
@@ -201,7 +209,9 @@ export function createAgent(config: AgentConfig): Agent {
               typeof rawExecuteResult === "string"
                 ? {
                     text: rawExecuteResult,
-                    responseMessages: [{ role: "assistant", content: rawExecuteResult }],
+                    responseMessages: [
+                      { role: "assistant", content: rawExecuteResult },
+                    ],
                     steps: [],
                     usage: { promptTokens: 0, completionTokens: 0 },
                     finishReason: "stop",
@@ -286,6 +296,13 @@ export function createAgent(config: AgentConfig): Agent {
     reset(): void {
       firstCall = true;
       context.clear();
+    },
+
+    updatePromptVariables(variables: TemplateVariables): void {
+      const prompt = config.systemPrompt;
+      if (prompt && typeof prompt !== "string") {
+        prompt.updatePromptVariables(variables);
+      }
     },
   };
 

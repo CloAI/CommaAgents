@@ -59,7 +59,7 @@ The executor must return the final output text as a string. The context also exp
 
 ## buildFlowAgent
 
-`buildFlowAgent` is the lower-level builder that all built-in flow factories delegate to. Use it when you want to create a reusable flow factory with custom hook types or reset behavior:
+`buildFlowAgent` builds a flow from a config, typed name, and executor function. Use it to create reusable flow factories with custom orchestration logic:
 
 ```ts
 import { createAgent, buildFlowAgent } from "@comma-agents/core";
@@ -83,9 +83,3 @@ function createMyCustomFlow(config) {
 }
 ```
 
-The `buildFlowAgent` signature accepts:
-- `config` — the `FlowConfig` (name, steps)
-- `typeName` — identifier for error messages (e.g., `"my-custom"`)
-- `store` — mutable hooks store (starts empty; hooks are added via `hookIntoFlow`)
-- `executor` — the `FlowExecutor` function
-- `onReset` — optional callback fired after steps are reset

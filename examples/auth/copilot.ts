@@ -86,7 +86,9 @@ export async function startDeviceFlow(): Promise<{
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(`Failed to initiate device authorization (HTTP ${response.status}): ${body}`);
+    throw new Error(
+      `Failed to initiate device authorization (HTTP ${response.status}): ${body}`,
+    );
   }
 
   const data = (await response.json()) as {
@@ -171,7 +173,11 @@ async function pollForToken(device: DeviceCodeResponse): Promise<PollResult> {
       // RFC 8628 section 3.5: add 5 seconds to the interval
       interval += 5;
       // GitHub may also return a new interval value — prefer that if provided
-      if (data.interval && typeof data.interval === "number" && data.interval > 0) {
+      if (
+        data.interval &&
+        typeof data.interval === "number" &&
+        data.interval > 0
+      ) {
         interval = data.interval;
       }
       continue;
@@ -299,14 +305,19 @@ function buildOAuthCredential(
 
   const metadata: Record<string, unknown> = {};
   if (refreshExpiresIn != null && refreshExpiresIn > 0) {
-    metadata.refreshExpiresAt = new Date(now + refreshExpiresIn * 1_000).toISOString();
+    metadata.refreshExpiresAt = new Date(
+      now + refreshExpiresIn * 1_000,
+    ).toISOString();
   }
 
   return {
     type: "oauth",
     accessToken: data.access_token!,
     refreshToken: data.refresh_token ?? fallbackRefreshToken,
-    expiresAt: expiresIn > 0 ? new Date(now + expiresIn * 1_000).toISOString() : undefined,
+    expiresAt:
+      expiresIn > 0
+        ? new Date(now + expiresIn * 1_000).toISOString()
+        : undefined,
     ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
   };
 }

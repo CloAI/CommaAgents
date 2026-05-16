@@ -14,7 +14,9 @@ export function mergeCatalogWithLive(
   catalogModels: readonly ModelInfo[],
   liveModels: readonly ModelInfo[],
 ): readonly ModelInfo[] {
-  const catalogById = new Map<string, ModelInfo>(catalogModels.map((model) => [model.id, model]));
+  const catalogById = new Map<string, ModelInfo>(
+    catalogModels.map((model) => [model.id, model]),
+  );
 
   return liveModels.map((liveModel) => {
     const catalogModel = catalogById.get(liveModel.id);

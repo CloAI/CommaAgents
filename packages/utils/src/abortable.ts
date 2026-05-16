@@ -1,6 +1,9 @@
 // Abortable wrapper factories for promises and async generators.
 
-import type { AbortableAsyncGenerator, AbortablePromise } from "./abortable.types";
+import type {
+  AbortableAsyncGenerator,
+  AbortablePromise,
+} from "./abortable.types";
 
 /**
  * Create an `AbortablePromise` from an executor that receives an `AbortSignal`.
@@ -44,11 +47,14 @@ export function createAbortablePromise<ResultType>(
  * ```
  */
 export function createAbortableGenerator<YieldType>(
-  generatorFactory: (signal: AbortSignal) => AsyncGenerator<YieldType, void, undefined>,
+  generatorFactory: (
+    signal: AbortSignal,
+  ) => AsyncGenerator<YieldType, void, undefined>,
 ): AbortableAsyncGenerator<YieldType> {
   const controller = new AbortController();
   const innerGenerator = generatorFactory(controller.signal);
-  const abortableGenerator = innerGenerator as AbortableAsyncGenerator<YieldType>;
+  const abortableGenerator =
+    innerGenerator as AbortableAsyncGenerator<YieldType>;
   abortableGenerator.abort = () => controller.abort();
   return abortableGenerator;
 }

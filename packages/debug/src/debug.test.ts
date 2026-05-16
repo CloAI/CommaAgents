@@ -202,7 +202,9 @@ describe("debugFlow", () => {
 
     await flow.call("hello");
 
-    expect(lines.some((l) => l.includes("Flow: pipe") && l.includes("Done"))).toBe(true);
+    expect(
+      lines.some((l) => l.includes("Flow: pipe") && l.includes("Done")),
+    ).toBe(true);
   });
 
   it("should log each step with name and input/output", async () => {
@@ -216,13 +218,21 @@ describe("debugFlow", () => {
 
     // Step 1: writer
     expect(lines.some((l) => l.includes("Step: writer"))).toBe(true);
-    expect(lines.some((l) => l.includes("Input:") && l.includes("write something"))).toBe(true);
-    expect(lines.some((l) => l.includes("Output:") && l.includes("draft text"))).toBe(true);
+    expect(
+      lines.some((l) => l.includes("Input:") && l.includes("write something")),
+    ).toBe(true);
+    expect(
+      lines.some((l) => l.includes("Output:") && l.includes("draft text")),
+    ).toBe(true);
 
     // Step 2: editor (receives writer's output as input)
     expect(lines.some((l) => l.includes("Step: editor"))).toBe(true);
-    expect(lines.some((l) => l.includes("Input:") && l.includes("draft text"))).toBe(true);
-    expect(lines.some((l) => l.includes("Output:") && l.includes("final text"))).toBe(true);
+    expect(
+      lines.some((l) => l.includes("Input:") && l.includes("draft text")),
+    ).toBe(true);
+    expect(
+      lines.some((l) => l.includes("Output:") && l.includes("final text")),
+    ).toBe(true);
   });
 
   it("should print token usage per step when showTokens is true", async () => {

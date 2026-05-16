@@ -5,14 +5,14 @@ import { DaemonMessage, parseDaemonMessage } from "./messages";
 import { AgentOutputMessage } from "./responses/agent-output";
 import { AgentStreamingMessage } from "./responses/agent-streaming";
 import { ErrorMessage } from "./responses/error";
-import { StrategyCompletedMessage } from "./responses/strategy-completed";
-import { StrategyErrorMessage } from "./responses/strategy-error";
-import { StrategyListMessage } from "./responses/strategy-list";
-import { StrategyStartedMessage } from "./responses/strategy-started";
 import { PongMessage } from "./responses/pong";
 import { RequestInputMessage } from "./responses/request-input";
 import { StepCompletedMessage } from "./responses/step-completed";
 import { StepStartedMessage } from "./responses/step-started";
+import { StrategyCompletedMessage } from "./responses/strategy-completed";
+import { StrategyErrorMessage } from "./responses/strategy-error";
+import { StrategyListMessage } from "./responses/strategy-list";
+import { StrategyStartedMessage } from "./responses/strategy-started";
 
 const ts = "2026-03-01T12:00:00.000Z";
 const usage = { promptTokens: 10, completionTokens: 5 };
@@ -72,14 +72,24 @@ describe("StrategyStartedMessage", () => {
 
 describe("StrategyCompletedMessage", () => {
   test("parses valid message", () => {
-    const msg = { type: "strategy_completed", ts, runId: "run-1", result: "final output", usage };
+    const msg = {
+      type: "strategy_completed",
+      ts,
+      runId: "run-1",
+      result: "final output",
+      usage,
+    };
     expect(StrategyCompletedMessage.parse(msg)).toEqual(msg);
   });
 
   test("rejects missing result", () => {
     expect(
-      StrategyCompletedMessage.safeParse({ type: "strategy_completed", ts, runId: "r", usage })
-        .success,
+      StrategyCompletedMessage.safeParse({
+        type: "strategy_completed",
+        ts,
+        runId: "r",
+        usage,
+      }).success,
     ).toBe(false);
   });
 
@@ -133,8 +143,13 @@ describe("AgentOutputMessage", () => {
 
   test("rejects missing agentName", () => {
     expect(
-      AgentOutputMessage.safeParse({ type: "agent_output", ts, runId: "r", text: "t", usage })
-        .success,
+      AgentOutputMessage.safeParse({
+        type: "agent_output",
+        ts,
+        runId: "r",
+        text: "t",
+        usage,
+      }).success,
     ).toBe(false);
   });
 });
@@ -157,7 +172,12 @@ describe("AgentStreamingMessage", () => {
       ts,
       runId: "run-1",
       agentName: "coder",
-      event: { type: "tool-call", toolName: "exec", args: '{"cmd":"ls"}' },
+      event: {
+        type: "tool-call",
+        toolCallId: "call_1",
+        toolName: "exec",
+        args: '{"cmd":"ls"}',
+      },
     };
     expect(AgentStreamingMessage.parse(msg)).toEqual(msg);
   });
@@ -168,7 +188,13 @@ describe("AgentStreamingMessage", () => {
       ts,
       runId: "run-1",
       agentName: "coder",
-      event: { type: "tool-result", toolName: "exec", output: "files" },
+      event: {
+        type: "tool-result",
+        toolCallId: "call_1",
+        toolName: "exec",
+        output: "files",
+        status: "completed",
+      },
     };
     expect(AgentStreamingMessage.parse(msg)).toEqual(msg);
   });
@@ -221,13 +247,24 @@ describe("AgentStreamingMessage", () => {
 
 describe("StepStartedMessage", () => {
   test("parses valid message", () => {
-    const msg = { type: "step_started", ts, runId: "run-1", stepName: "agent-a", message: "hello" };
+    const msg = {
+      type: "step_started",
+      ts,
+      runId: "run-1",
+      stepName: "agent-a",
+      message: "hello",
+    };
     expect(StepStartedMessage.parse(msg)).toEqual(msg);
   });
 
   test("rejects missing stepName", () => {
     expect(
-      StepStartedMessage.safeParse({ type: "step_started", ts, runId: "r", message: "m" }).success,
+      StepStartedMessage.safeParse({
+        type: "step_started",
+        ts,
+        runId: "r",
+        message: "m",
+      }).success,
     ).toBe(false);
   });
 });
@@ -246,8 +283,12 @@ describe("StepCompletedMessage", () => {
 
   test("rejects missing result", () => {
     expect(
-      StepCompletedMessage.safeParse({ type: "step_completed", ts, runId: "r", stepName: "s" })
-        .success,
+      StepCompletedMessage.safeParse({
+        type: "step_completed",
+        ts,
+        runId: "r",
+        stepName: "s",
+      }).success,
     ).toBe(false);
   });
 
@@ -266,7 +307,12 @@ describe("StepCompletedMessage", () => {
 
 describe("RequestInputMessage", () => {
   test("parses valid message without prompt", () => {
-    const msg = { type: "request_input", ts, runId: "run-1", agentName: "user-agent" };
+    const msg = {
+      type: "request_input",
+      ts,
+      runId: "run-1",
+      agentName: "user-agent",
+    };
     expect(RequestInputMessage.parse(msg)).toEqual(msg);
   });
 
@@ -282,9 +328,10 @@ describe("RequestInputMessage", () => {
   });
 
   test("rejects missing agentName", () => {
-    expect(RequestInputMessage.safeParse({ type: "request_input", ts, runId: "r" }).success).toBe(
-      false,
-    );
+    expect(
+      RequestInputMessage.safeParse({ type: "request_input", ts, runId: "r" })
+        .success,
+    ).toBe(false);
   });
 });
 
@@ -311,7 +358,9 @@ describe("StrategyListMessage", () => {
   });
 
   test("rejects missing runs array", () => {
-    expect(StrategyListMessage.safeParse({ type: "strategy_list", ts }).success).toBe(false);
+    expect(
+      StrategyListMessage.safeParse({ type: "strategy_list", ts }).success,
+    ).toBe(false);
   });
 
   test("rejects run with invalid status", () => {
@@ -319,7 +368,9 @@ describe("StrategyListMessage", () => {
       StrategyListMessage.safeParse({
         type: "strategy_list",
         ts,
-        runs: [{ runId: "r", strategyName: "s", status: "paused", startedAt: ts }],
+        runs: [
+          { runId: "r", strategyName: "s", status: "paused", startedAt: ts },
+        ],
       }).success,
     ).toBe(false);
   });
@@ -327,11 +378,16 @@ describe("StrategyListMessage", () => {
 
 describe("PongMessage", () => {
   test("parses valid message", () => {
-    expect(PongMessage.parse({ type: "pong", ts })).toEqual({ type: "pong", ts });
+    expect(PongMessage.parse({ type: "pong", ts })).toEqual({
+      type: "pong",
+      ts,
+    });
   });
 
   test("accepts requestId", () => {
-    expect(PongMessage.parse({ type: "pong", ts, requestId: "req-1" }).requestId).toBe("req-1");
+    expect(
+      PongMessage.parse({ type: "pong", ts, requestId: "req-1" }).requestId,
+    ).toBe("req-1");
   });
 
   test("rejects missing ts", () => {
@@ -341,21 +397,36 @@ describe("PongMessage", () => {
 
 describe("ErrorMessage", () => {
   test("parses valid message", () => {
-    const msg = { type: "error", ts, code: "INVALID_MESSAGE", message: "Bad JSON" };
+    const msg = {
+      type: "error",
+      ts,
+      code: "INVALID_MESSAGE",
+      message: "Bad JSON",
+    };
     expect(ErrorMessage.parse(msg)).toEqual(msg);
   });
 
   test("accepts requestId for correlation", () => {
-    const msg = { type: "error", ts, code: "NOT_FOUND", message: "No run", requestId: "req-5" };
+    const msg = {
+      type: "error",
+      ts,
+      code: "NOT_FOUND",
+      message: "No run",
+      requestId: "req-5",
+    };
     expect(ErrorMessage.parse(msg).requestId).toBe("req-5");
   });
 
   test("rejects missing code", () => {
-    expect(ErrorMessage.safeParse({ type: "error", ts, message: "oops" }).success).toBe(false);
+    expect(
+      ErrorMessage.safeParse({ type: "error", ts, message: "oops" }).success,
+    ).toBe(false);
   });
 
   test("rejects missing message", () => {
-    expect(ErrorMessage.safeParse({ type: "error", ts, code: "ERR" }).success).toBe(false);
+    expect(
+      ErrorMessage.safeParse({ type: "error", ts, code: "ERR" }).success,
+    ).toBe(false);
   });
 });
 
@@ -475,7 +546,9 @@ describe("DaemonMessage union", () => {
   });
 
   test("rejects unknown type", () => {
-    expect(DaemonMessage.safeParse({ type: "unknown_msg", ts }).success).toBe(false);
+    expect(DaemonMessage.safeParse({ type: "unknown_msg", ts }).success).toBe(
+      false,
+    );
   });
 
   test("rejects missing type", () => {

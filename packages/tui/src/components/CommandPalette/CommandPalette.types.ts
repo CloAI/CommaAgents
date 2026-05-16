@@ -18,6 +18,15 @@ export interface CommandActionContext {
 export type CommandAction = (context: CommandActionContext) => void;
 
 /**
+ * Component rendered for a page-style command. Receives `focusId` so it can
+ * register exactly one Ink focus zone and consume keyboard input from the
+ * palette without competing with sibling components.
+ */
+export type PaletteSubPageComponent = React.ComponentType<{
+  readonly focusId: string;
+}>;
+
+/**
  * A single entry in the command registry.
  *
  * Commands are one of two kinds:
@@ -38,7 +47,7 @@ export interface Command {
   /** Extra search keywords that fuzzy-match user input (lower-cased). */
   readonly keywords?: readonly string[];
   /** Sub-page component mounted when this command is selected. */
-  readonly page?: React.ComponentType;
+  readonly page?: PaletteSubPageComponent;
   /** Callback invoked when this command is selected instead of navigating. */
   readonly action?: CommandAction;
 }

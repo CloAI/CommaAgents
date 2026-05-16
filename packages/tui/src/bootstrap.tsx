@@ -8,10 +8,11 @@ import { hideBin } from "yargs/helpers";
 
 import { App } from "./App";
 import { ChatSessionsContextProvider } from "./hooks/useChat";
-import { DaemonProvider } from "./hooks/useDaemon";
+import { DaemonContextProvider } from "./hooks/useDaemon";
 import { logStore } from "./hooks/useLogs/logStore";
-import { ModalProvider } from "./hooks/useModal";
-import { ThemeProvider } from "./theme";
+import { ModalContextProvider } from "./hooks/useModal";
+import { UserConfigContextProvider } from "./hooks/useUserConfig";
+import { ThemeContextProvider } from "./theme";
 
 const argv = yargs(hideBin(process.argv))
   .scriptName("comma-agents-tui")
@@ -80,19 +81,21 @@ const stdin = resolveStdin();
 
 render(
   <MemoryRouter initialEntries={["/chat"]}>
-    <ThemeProvider>
-      <DaemonProvider url={argv.daemonUrl}>
-        <ChatSessionsContextProvider>
-          <ModalProvider>
-            <App
-              strategy={argv.strategy}
-              initialInput={argv.input}
-              dev={argv.dev}
-            />
-          </ModalProvider>
-        </ChatSessionsContextProvider>
-      </DaemonProvider>
-    </ThemeProvider>
+    <UserConfigContextProvider>
+      <ThemeContextProvider>
+        <DaemonContextProvider url={argv.daemonUrl}>
+          <ChatSessionsContextProvider>
+            <ModalContextProvider>
+              <App
+                strategy={argv.strategy}
+                initialInput={argv.input}
+                dev={argv.dev}
+              />
+            </ModalContextProvider>
+          </ChatSessionsContextProvider>
+        </DaemonContextProvider>
+      </ThemeContextProvider>
+    </UserConfigContextProvider>
   </MemoryRouter>,
   {
     stdin,

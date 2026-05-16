@@ -292,7 +292,13 @@ function transformSgrParams(params: string, factor: number): string {
       const g = parseChannel(tokens[i + 3]);
       const b = parseChannel(tokens[i + 4]);
       const scaled = scaleRgb({ r, g, b }, factor);
-      out.push(token, "2", String(scaled.r), String(scaled.g), String(scaled.b));
+      out.push(
+        token,
+        "2",
+        String(scaled.r),
+        String(scaled.g),
+        String(scaled.b),
+      );
       i += 5;
       continue;
     }
@@ -301,7 +307,13 @@ function transformSgrParams(params: string, factor: number): string {
       const idx = parseChannel(tokens[i + 2]);
       const rgb = xterm256ToRgb(idx);
       const scaled = scaleRgb(rgb, factor);
-      out.push(token, "2", String(scaled.r), String(scaled.g), String(scaled.b));
+      out.push(
+        token,
+        "2",
+        String(scaled.r),
+        String(scaled.g),
+        String(scaled.b),
+      );
       i += 3;
       continue;
     }

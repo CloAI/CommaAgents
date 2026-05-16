@@ -4,14 +4,15 @@
 // Suppress React act() warnings from ink-testing-library's internal renders
 const originalConsoleError = console.error;
 console.error = (...args: unknown[]) => {
-  if (typeof args[0] === "string" && args[0].includes("was not wrapped in act")) return;
+  if (typeof args[0] === "string" && args[0].includes("was not wrapped in act"))
+    return;
   originalConsoleError(...args);
 };
 
-import React, { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { render } from "ink-testing-library";
 import { Text } from "ink";
+import { render } from "ink-testing-library";
+import React, { act } from "react";
 
 import { useWebSocket } from "./useWebSocket";
 import type { WebSocketState } from "./useWebSocket.types";
@@ -83,7 +84,13 @@ afterEach(() => {
  * Capture the latest hook state into a ref-like holder so tests can call
  * `state.send(...)` from outside the React tree.
  */
-function HookHarness({ url, capture }: { url: string; capture: { current: WebSocketState | null } }) {
+function HookHarness({
+  url,
+  capture,
+}: {
+  url: string;
+  capture: { current: WebSocketState | null };
+}) {
   const state = useWebSocket({ url, onMessage: () => {} });
   capture.current = state;
   return <Text>ws</Text>;

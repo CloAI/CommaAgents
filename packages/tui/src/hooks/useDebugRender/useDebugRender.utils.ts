@@ -1,5 +1,5 @@
 import type { DOMElement } from "ink";
-import { getBoundingBox, getAbsolutePosition } from "../../utils/yogaLayout";
+import { getAbsolutePosition, getBoundingBox } from "../../utils/yogaLayout";
 import {
   CURSOR_RESTORE,
   CURSOR_SAVE,
@@ -31,7 +31,9 @@ export function buildLabelLine(
   labelColors: Record<RenderReason, string>,
 ): string {
   const header = `\x1b[1m ${name} #${String(count)} ${ANSI_RESET}`;
-  const pills = reasons.map((reason) => buildPill(reason, labelColors[reason])).join(" ");
+  const pills = reasons
+    .map((reason) => buildPill(reason, labelColors[reason]))
+    .join(" ");
   return `${header} ${pills}`;
 }
 
@@ -68,7 +70,8 @@ export function paintHighlight(
 
   if (showBackground && width >= 2 && height >= 2) {
     const color = bgColors[reasons[0] ?? "rerender"];
-    const { topLeft, topRight, bottomLeft, bottomRight, horizontal, vertical } = BORDER_CHARS;
+    const { topLeft, topRight, bottomLeft, bottomRight, horizontal, vertical } =
+      BORDER_CHARS;
     const innerWidth = width - 2;
 
     // Top edge
@@ -103,11 +106,16 @@ export function clearLabelLine(
 ): void {
   const { top, left } = getAbsolutePosition(node);
   const blanks = " ".repeat(visibleWidth);
-  stdout.write(`${CURSOR_SAVE}${cursorTo(top + 1, left + 1)}${blanks}${CURSOR_RESTORE}`);
+  stdout.write(
+    `${CURSOR_SAVE}${cursorTo(top + 1, left + 1)}${blanks}${CURSOR_RESTORE}`,
+  );
 }
 
 /** Clear the border outline by overwriting border cells with spaces. */
-export function clearHighlight(stdout: NodeJS.WriteStream, node: DOMElement): void {
+export function clearHighlight(
+  stdout: NodeJS.WriteStream,
+  node: DOMElement,
+): void {
   const { top, left, width, height } = getBoundingBox(node);
   if (width < 2 || height < 2) return;
 
@@ -153,7 +161,9 @@ export function detectReasons(
   let propsChanged = false;
   if (props && previousProps) {
     const allKeys = Object.keys({ ...previousProps, ...props });
-    propsChanged = allKeys.some((key) => !Object.is(previousProps[key], props[key]));
+    propsChanged = allKeys.some(
+      (key) => !Object.is(previousProps[key], props[key]),
+    );
     if (propsChanged) {
       reasons.push("props");
     }

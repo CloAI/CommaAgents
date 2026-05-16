@@ -7,7 +7,7 @@ import { Modal } from "./Modal";
 /**
  * `Modal` renders a centered, bordered content box over a dimmed full-screen
  * backdrop. Visibility is driven entirely by `useModal(modalId)` from
- * `ModalProvider` (already wired globally in Storybook) — `<Modal>` returns
+ * `ModalContextProvider` (already wired globally in Storybook) — `<Modal>` returns
  * null when `!isOpen`. Esc closes the topmost modal by default.
  *
  * Stories use a small `OpenOnMount` harness to ask `useModal` to open the

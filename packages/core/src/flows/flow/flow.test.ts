@@ -49,16 +49,24 @@ describe("buildFlowAgent", () => {
   it("creates an Agent from config + executor", async () => {
     const config: FlowConfig = {
       name: "my-pipe",
-      steps: [makeAgent("a", (msg) => `A(${msg})`), makeAgent("b", (msg) => `B(${msg})`)],
+      steps: [
+        makeAgent("a", (msg) => `A(${msg})`),
+        makeAgent("b", (msg) => `B(${msg})`),
+      ],
     };
-    const flow = buildFlowAgent(config, "pipeline", {}, async (steps, message, ctx) => {
-      let current = message;
-      for (const step of steps) {
-        const r = await ctx.runStep(step, current);
-        current = r.text;
-      }
-      return current;
-    });
+    const flow = buildFlowAgent(
+      config,
+      "pipeline",
+      {},
+      async (steps, message, ctx) => {
+        let current = message;
+        for (const step of steps) {
+          const r = await ctx.runStep(step, current);
+          current = r.text;
+        }
+        return current;
+      },
+    );
 
     expect(flow.name).toBe("my-pipe");
 
@@ -71,14 +79,19 @@ describe("buildFlowAgent", () => {
       name: "pipe",
       steps: [makeAgent("a", "hello"), makeAgent("b", "world")],
     };
-    const flow = buildFlowAgent(config, "pipeline", {}, async (steps, message, ctx) => {
-      let current = message;
-      for (const step of steps) {
-        const r = await ctx.runStep(step, current);
-        current = r.text;
-      }
-      return current;
-    });
+    const flow = buildFlowAgent(
+      config,
+      "pipeline",
+      {},
+      async (steps, message, ctx) => {
+        let current = message;
+        for (const step of steps) {
+          const r = await ctx.runStep(step, current);
+          current = r.text;
+        }
+        return current;
+      },
+    );
 
     const result = (await flow.call("start")) as FlowResult;
     expect(result.stepResults).toHaveLength(2);
@@ -90,10 +103,20 @@ describe("buildFlowAgent", () => {
 
   it("throws FlowExecutionError for empty steps", () => {
     expect(() =>
-      buildFlowAgent({ name: "empty", steps: [] }, "test", {}, async (_s, msg, _ctx) => msg),
+      buildFlowAgent(
+        { name: "empty", steps: [] },
+        "test",
+        {},
+        async (_s, msg, _ctx) => msg,
+      ),
     ).toThrow(FlowExecutionError);
     expect(() =>
-      buildFlowAgent({ name: "empty", steps: [] }, "test", {}, async (_s, msg, _ctx) => msg),
+      buildFlowAgent(
+        { name: "empty", steps: [] },
+        "test",
+        {},
+        async (_s, msg, _ctx) => msg,
+      ),
     ).toThrow("test flow requires at least one step");
   });
 
@@ -105,11 +128,16 @@ describe("buildFlowAgent", () => {
       steps: [makeAgent("a", "response")],
     };
 
-    const flow = buildFlowAgent(config, "test", {}, async (steps, message, ctx) => {
-      order.push("execute");
-      const r = await ctx.runStep(steps[0]!, message);
-      return r.text;
-    });
+    const flow = buildFlowAgent(
+      config,
+      "test",
+      {},
+      async (steps, message, ctx) => {
+        order.push("execute");
+        const r = await ctx.runStep(steps[0]!, message);
+        return r.text;
+      },
+    );
 
     hookIntoFlow(flow, {
       alterMessageBeforeFlow: [
@@ -138,7 +166,13 @@ describe("buildFlowAgent", () => {
 
     await flow.call("input");
 
-    expect(order).toEqual(["alter-before", "before", "execute", "after", "alter-after"]);
+    expect(order).toEqual([
+      "alter-before",
+      "before",
+      "execute",
+      "after",
+      "alter-after",
+    ]);
   });
 
   it("reset() resets all steps", () => {
@@ -171,7 +205,12 @@ describe("buildFlowAgent", () => {
     };
 
     const config: FlowConfig = { name: "f", steps: [agent1, agent2] };
-    const flow = buildFlowAgent(config, "test", {}, async (_s, msg, _ctx) => msg);
+    const flow = buildFlowAgent(
+      config,
+      "test",
+      {},
+      async (_s, msg, _ctx) => msg,
+    );
 
     flow.reset();
 
@@ -209,7 +248,10 @@ describe("buildFlowAgent", () => {
   });
 
   it("wraps step errors in FlowExecutionError", async () => {
-    const config: FlowConfig = { name: "f", steps: [makeFailingAgent("bad", new Error("boom"))] };
+    const config: FlowConfig = {
+      name: "f",
+      steps: [makeFailingAgent("bad", new Error("boom"))],
+    };
     const flow = buildFlowAgent(config, "test", {}, async (steps, msg, ctx) => {
       const r = await ctx.runStep(steps[0]!, msg);
       return r.text;
@@ -246,7 +288,9 @@ describe("createFlow", () => {
     const flow = createFlow({
       name: "conditional",
       steps: [
-        makeAgent("check", (msg) => (msg.includes("skip") ? "SKIP" : "CONTINUE")),
+        makeAgent("check", (msg) =>
+          msg.includes("skip") ? "SKIP" : "CONTINUE",
+        ),
         makeAgent("work", "done"),
       ],
       execute: async (steps, message, ctx) => {
@@ -302,11 +346,16 @@ describe("step hooks", () => {
       steps: [makeAgent("agent-a", "hello"), makeAgent("agent-b", "world")],
     };
 
-    const flow = buildFlowAgent(config, "test", {}, async (steps, _msg, ctx) => {
-      await ctx.runStep(steps[0]!, "input1");
-      await ctx.runStep(steps[1]!, "input2");
-      return "done";
-    });
+    const flow = buildFlowAgent(
+      config,
+      "test",
+      {},
+      async (steps, _msg, ctx) => {
+        await ctx.runStep(steps[0]!, "input1");
+        await ctx.runStep(steps[1]!, "input2");
+        return "done";
+      },
+    );
 
     hookIntoFlow(flow, {
       beforeStep: [
@@ -339,14 +388,19 @@ describe("step hooks", () => {
       steps: [makeAgent("a", "first"), makeAgent("b", "second")],
     };
 
-    const flow = buildFlowAgent(config, "pipeline", {}, async (steps, message, ctx) => {
-      let current = message;
-      for (const step of steps) {
-        const r = await ctx.runStep(step, current);
-        current = r.text;
-      }
-      return current;
-    });
+    const flow = buildFlowAgent(
+      config,
+      "pipeline",
+      {},
+      async (steps, message, ctx) => {
+        let current = message;
+        for (const step of steps) {
+          const r = await ctx.runStep(step, current);
+          current = r.text;
+        }
+        return current;
+      },
+    );
 
     hookIntoFlow(flow, {
       beforeStep: [
@@ -363,7 +417,12 @@ describe("step hooks", () => {
 
     await flow.call("start");
 
-    expect(events).toEqual(["before:a", "after:a:first", "before:b", "after:b:second"]);
+    expect(events).toEqual([
+      "before:a",
+      "after:a:first",
+      "before:b",
+      "after:b:second",
+    ]);
   });
 
   it("fires step hooks within createFlow-based flows", async () => {
@@ -404,10 +463,15 @@ describe("step hooks", () => {
       steps: [makeAgent("a", "response")],
     };
 
-    const flow = buildFlowAgent(config, "test", {}, async (steps, message, ctx) => {
-      const r = await ctx.runStep(steps[0]!, message);
-      return r.text;
-    });
+    const flow = buildFlowAgent(
+      config,
+      "test",
+      {},
+      async (steps, message, ctx) => {
+        const r = await ctx.runStep(steps[0]!, message);
+        return r.text;
+      },
+    );
 
     hookIntoFlow(flow, {
       beforeFlow: [
@@ -434,7 +498,12 @@ describe("step hooks", () => {
 
     await flow.call("input");
 
-    expect(order).toEqual(["flow-before", "step-before:a", "step-after:a", "flow-after"]);
+    expect(order).toEqual([
+      "flow-before",
+      "step-before:a",
+      "step-after:a",
+      "flow-after",
+    ]);
   });
 
   it("afterStep does not fire if step throws", async () => {

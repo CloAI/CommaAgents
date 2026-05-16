@@ -25,11 +25,15 @@ interface CapturedOutput {
 function captureStdio(): CapturedOutput {
   const captured: CapturedOutput = { stdout: [], stderr: [] };
   process.stdout.write = ((chunk: string | Uint8Array) => {
-    captured.stdout.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+    captured.stdout.push(
+      typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"),
+    );
     return true;
   }) as typeof process.stdout.write;
   process.stderr.write = ((chunk: string | Uint8Array) => {
-    captured.stderr.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+    captured.stderr.push(
+      typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"),
+    );
     return true;
   }) as typeof process.stderr.write;
   return captured;
@@ -95,7 +99,13 @@ describe("createLogStore", () => {
         "error",
         "debug",
       ]);
-      expect(entries.map((entry) => entry.message)).toEqual(["a", "b", "c", "d", "e"]);
+      expect(entries.map((entry) => entry.message)).toEqual([
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+      ]);
     });
 
     it("should format multi-argument calls into a single space-separated message", () => {
@@ -169,7 +179,10 @@ describe("createLogStore", () => {
       store.commit();
       console.log("after");
       const entries = store.getSnapshot();
-      expect(entries.map((entry) => entry.message)).toEqual(["before", "after"]);
+      expect(entries.map((entry) => entry.message)).toEqual([
+        "before",
+        "after",
+      ]);
     });
   });
 

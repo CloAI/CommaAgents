@@ -1,4 +1,13 @@
 {
   "title": "Tools",
-  "pages": ["built-in", "tool-registry"]
+  "pages": [
+    "built-in",
+    "define-tool",
+    "tool-registry",
+    "stale-file-protocol",
+    "audit-log",
+    "trash",
+    "patch-envelope",
+    "error-kinds"
+  ]
 }

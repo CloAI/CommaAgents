@@ -6,9 +6,13 @@ import { ThemeContext } from "./useTheme.context";
 /**
  * Access the current theme tokens.
  *
- * Returns the `Theme` object from the nearest `<ThemeProvider>`.
- * Falls back to `defaultTheme` if no provider is present.
+ * Returns the `Theme` object from the nearest `<ThemeContextProvider>`.
+ * Throws if no provider is mounted in the tree.
  */
 export function useTheme(): Theme {
-  return useContext(ThemeContext);
+  const contextValue = useContext(ThemeContext);
+  if (contextValue === null) {
+    throw new Error("useTheme must be used within a ThemeContextProvider");
+  }
+  return contextValue;
 }

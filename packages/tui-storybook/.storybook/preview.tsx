@@ -13,8 +13,8 @@ const preview: Preview = {
     backgrounds: {
       options: {
         terminal: { name: "terminal", value: "#0b0b0b" },
-        light: { name: "light", value: "#f6f6f6" }
-      }
+        light: { name: "light", value: "#f6f6f6" },
+      },
     },
   },
 
@@ -31,9 +31,9 @@ const preview: Preview = {
 
   initialGlobals: {
     backgrounds: {
-      value: "terminal"
-    }
-  }
+      value: "terminal",
+    },
+  },
 };
 
 export default preview;

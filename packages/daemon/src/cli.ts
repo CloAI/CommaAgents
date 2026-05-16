@@ -1,13 +1,4 @@
 #!/usr/bin/env bun
-// CLI entry point for the comma-agents daemon.
-//
-// Commands:
-//   start [--foreground] [--port PORT] [--model-override P/M]   Start the daemon
-//   stop                                                         Stop the daemon
-//   status                                                       Show daemon status
-//
-// The daemon process is launched with `bun -i` (--install=fallback) so that
-// missing @ai-sdk/* provider packages are auto-installed at import time.
 
 import { join } from "node:path";
 import {
@@ -61,7 +52,14 @@ async function commandStart(args: StartArgs): Promise<void> {
 
   // Background mode: spawn a detached child and exit
   if (!args.foreground) {
-    const spawnArgs = ["bun", "-i", "run", import.meta.path, "start", "--foreground"];
+    const spawnArgs = [
+      "bun",
+      "-i",
+      "run",
+      import.meta.path,
+      "start",
+      "--foreground",
+    ];
     if (args.port !== undefined) {
       spawnArgs.push("--port", String(args.port));
     }
@@ -92,7 +90,9 @@ async function commandStart(args: StartArgs): Promise<void> {
     }
 
     if (!started) {
-      console.log("Daemon may still be starting. Check status with: comma-agents-daemon status");
+      console.log(
+        "Daemon may still be starting. Check status with: comma-agents-daemon status",
+      );
     }
 
     process.exit(0);
@@ -115,11 +115,11 @@ async function commandStart(args: StartArgs): Promise<void> {
   setGlobalCredentialStore(credentialStore);
 
   // 3. Register global exception handlers so all uncaught errors reach the log
-  process.on("uncaughtException", (err: Error) => {
+  process.on("uncaughtException", (caughtError: Error) => {
     logger.error("Uncaught exception", {
-      name: err.name,
-      message: err.message,
-      stack: err.stack,
+      name: caughtError.name,
+      message: caughtError.message,
+      stack: caughtError.stack,
     });
   });
 
@@ -141,16 +141,20 @@ async function commandStart(args: StartArgs): Promise<void> {
 
   try {
     await daemon.start();
-  } catch (err) {
-    logger.error(`Failed to start daemon: ${err}`);
-    console.error(`Failed to start daemon: ${err instanceof Error ? err.message : err}`);
+  } catch (caughtError) {
+    logger.error(`Failed to start daemon: ${caughtError}`);
+    console.error(
+      `Failed to start daemon: ${caughtError instanceof Error ? caughtError.message : caughtError}`,
+    );
     process.exit(1);
   }
 
   // 5. Write PID file
   writePid(config.pidFile);
 
-  console.log(`Daemon listening on ${config.host}:${daemon.port} (PID: ${process.pid})`);
+  console.log(
+    `Daemon listening on ${config.host}:${daemon.port} (PID: ${process.pid})`,
+  );
   if (args.modelOverride) {
     console.log(`  Model override: ${args.modelOverride}`);
   }
@@ -188,8 +192,10 @@ async function commandStop(): Promise<void> {
   console.log(`Stopping daemon (PID: ${pid})...`);
   try {
     process.kill(pid, "SIGTERM");
-  } catch (err) {
-    console.error(`Failed to send SIGTERM: ${err instanceof Error ? err.message : err}`);
+  } catch (caughtError) {
+    console.error(
+      `Failed to send SIGTERM: ${caughtError instanceof Error ? caughtError.message : caughtError}`,
+    );
     process.exit(1);
   }
 
@@ -204,7 +210,9 @@ async function commandStop(): Promise<void> {
     await new Promise((r) => setTimeout(r, 200));
   }
 
-  console.error("Daemon did not stop within 5 seconds. You may need to kill it manually.");
+  console.error(
+    "Daemon did not stop within 5 seconds. You may need to kill it manually.",
+  );
   console.error(`  kill -9 ${pid}`);
   process.exit(1);
 }
@@ -243,8 +251,8 @@ yargs(hideBin(process.argv))
   .command(
     "start",
     "Start the daemon",
-    (y) =>
-      y
+    (commandArguments) =>
+      commandArguments
         .option("foreground", {
           alias: "f",
           type: "boolean",
@@ -257,14 +265,17 @@ yargs(hideBin(process.argv))
           describe: "Override the listening port",
           coerce: (val: number) => {
             if (val < 1 || val > 65535) {
-              throw new Error(`Invalid port: ${val}. Must be between 1 and 65535.`);
+              throw new Error(
+                `Invalid port: ${val}. Must be between 1 and 65535.`,
+              );
             }
             return val;
           },
         })
         .option("model-override", {
           type: "string",
-          describe: "Override model for all agents (e.g., github-copilot/gpt-4o)",
+          describe:
+            "Override model for all agents (e.g., github-copilot/gpt-4o)",
           coerce: (val: string) => {
             if (!val.includes("/")) {
               throw new Error(

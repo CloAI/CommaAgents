@@ -1,9 +1,9 @@
 // Unit tests for the cwd normalization & hashing helpers.
 
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { hashCwd, normalizeCwd } from "./sessions.utils";
 
 const tempRoots: string[] = [];

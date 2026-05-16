@@ -39,11 +39,14 @@ import { hideBin } from "yargs/helpers";
 const argv = yargs(hideBin(process.argv))
   .scriptName("03-interactive-flow")
   .usage("$0 [strategy-path]")
-  .command("$0 [strategy-path]", "Run an interactive flow with user input via the daemon", (y) =>
-    y.positional("strategy-path", {
-      type: "string",
-      describe: "Path to a strategy file (writes a temp one if omitted)",
-    }),
+  .command(
+    "$0 [strategy-path]",
+    "Run an interactive flow with user input via the daemon",
+    (y) =>
+      y.positional("strategy-path", {
+        type: "string",
+        describe: "Path to a strategy file (writes a temp one if omitted)",
+      }),
   )
   .option("daemon-url", {
     alias: "d",
@@ -78,7 +81,8 @@ const INTERACTIVE_STRATEGY = {
   agents: {
     assistant: {
       model: "openai/gpt-4o",
-      systemPrompt: "You are a helpful assistant. Answer the user's question concisely.",
+      systemPrompt:
+        "You are a helpful assistant. Answer the user's question concisely.",
     },
     user: {
       type: "user",
@@ -99,8 +103,15 @@ function getStrategyPath(): string {
   if (explicit) return path.resolve(explicit);
 
   // Write a temporary strategy file
-  const tmpPath = path.join(os.tmpdir(), "comma-agents-interactive-strategy.json");
-  fs.writeFileSync(tmpPath, JSON.stringify(INTERACTIVE_STRATEGY, null, 2), "utf-8");
+  const tmpPath = path.join(
+    os.tmpdir(),
+    "comma-agents-interactive-strategy.json",
+  );
+  fs.writeFileSync(
+    tmpPath,
+    JSON.stringify(INTERACTIVE_STRATEGY, null, 2),
+    "utf-8",
+  );
   console.log(`Wrote temporary strategy to ${tmpPath}`);
   return tmpPath;
 }
@@ -226,7 +237,9 @@ async function main() {
         break;
 
       case "strategy_error":
-        console.error(`\nStrategy error: ${msg.error.code} — ${msg.error.message}`);
+        console.error(
+          `\nStrategy error: ${msg.error.code} — ${msg.error.message}`,
+        );
         ws.close();
         process.exit(1);
         break;

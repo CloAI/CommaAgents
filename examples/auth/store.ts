@@ -16,7 +16,11 @@ import {
   resolveCredentialsPath,
 } from "@comma-agents/core";
 
-export type { ApiCredential, Credential, OAuthCredential } from "@comma-agents/core";
+export type {
+  ApiCredential,
+  Credential,
+  OAuthCredential,
+} from "@comma-agents/core";
 
 /** Default scope used for all example credential operations. */
 const GLOBAL_SCOPE = "$global";
@@ -48,7 +52,10 @@ export async function get(providerID: string): Promise<Credential | undefined> {
  * Store a credential for a provider.
  * Overwrites any existing credential for that provider.
  */
-export async function set(providerID: string, credential: Credential): Promise<void> {
+export async function set(
+  providerID: string,
+  credential: Credential,
+): Promise<void> {
   await getStore().set(providerID, GLOBAL_SCOPE, credential);
 }
 
@@ -80,7 +87,10 @@ export async function all(): Promise<Record<string, Credential>> {
  * Resolve the best credential for a provider using the core resolution chain.
  * Checks: strategy scope -> env vars -> $global scope.
  */
-export async function resolve(providerID: string, scope?: string): Promise<Credential | undefined> {
+export async function resolve(
+  providerID: string,
+  scope?: string,
+): Promise<Credential | undefined> {
   return getStore().resolve(providerID, scope);
 }
 

@@ -1,0 +1,52 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`MarkdownViewRender snapshots paragraph with mixed inline spans 1`] = `"bold em \`code\`"`;
+
+exports[`MarkdownViewRender snapshots heading depths 1..6 1`] = `
+"# h1
+## h2
+### h3
+#### h4
+##### h5
+###### h6"
+`;
+
+exports[`MarkdownViewRender snapshots ordered list with two-digit ordinal alignment 1`] = `
+" 9. item 0
+10. item 1
+11. item 2"
+`;
+
+exports[`MarkdownViewRender snapshots nested unordered list 1`] = `
+"• outer a
+    • inner a
+    • inner b
+• outer b"
+`;
+
+exports[`MarkdownViewRender snapshots blockquote with two paragraph lines 1`] = `
+"│ first quoted line
+│ second quoted line"
+`;
+
+exports[`MarkdownViewRender snapshots horizontal rule at width 20 1`] = `"────────────────────"`;
+
+exports[`MarkdownViewRender snapshots table with header and two rows 1`] = `
+"┌───────┬─────────┐
+│ Name  │ Role    │
+├───────┼─────────┤
+│ alice │ planner │
+├───────┼─────────┤
+│ bob   │ builder │
+└───────┴─────────┘"
+`;
+
+exports[`MarkdownViewRender snapshots link inline span with href 1`] = `"see docs (https://example.com)"`;
+
+exports[`MarkdownViewRender snapshots multi-block document (heading + paragraph + list + hr) 1`] = `
+"## Title
+intro paragraph
+• one
+• two
+────────────────────"
+`;

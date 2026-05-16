@@ -46,7 +46,8 @@ import {
  */
 export function debugAgent(agent: Agent, options?: DebugOptions): void {
   const opts = resolveOptions(options);
-  const emit = (line: string) => opts.output(breakLines(line, opts.breakLineAfter));
+  const emit = (line: string) =>
+    opts.output(breakLines(line, opts.breakLineAfter));
 
   // Print static config description immediately
   describeAgentConfig(agent, opts);
@@ -64,8 +65,16 @@ export function debugAgent(agent: Agent, options?: DebugOptions): void {
       },
     ],
     beforeToolCall: [
-      async ({ name, args }: { readonly name: string; readonly args: string }) => {
-        emit(`  [${name}] called by "${agent.name}" with ${formatText(args, opts)}`);
+      async ({
+        name,
+        args,
+      }: {
+        readonly name: string;
+        readonly args: string;
+      }) => {
+        emit(
+          `  [${name}] called by "${agent.name}" with ${formatText(args, opts)}`,
+        );
       },
     ],
     afterToolCall: [
@@ -116,7 +125,8 @@ export function debugAgent(agent: Agent, options?: DebugOptions): void {
  */
 export function debugFlow(flow: Agent, options?: DebugOptions): void {
   const opts = resolveOptions(options);
-  const emit = (line: string) => opts.output(breakLines(line, opts.breakLineAfter));
+  const emit = (line: string) =>
+    opts.output(breakLines(line, opts.breakLineAfter));
 
   // Hook lifecycle logging
   hookIntoFlow(flow, {
@@ -128,7 +138,13 @@ export function debugFlow(flow: Agent, options?: DebugOptions): void {
       },
     ],
     beforeStep: [
-      async ({ stepName, message }: { readonly stepName: string; readonly message: string }) => {
+      async ({
+        stepName,
+        message,
+      }: {
+        readonly stepName: string;
+        readonly message: string;
+      }) => {
         emit("");
         emit(`  ── Step: ${stepName} ──`);
         emit(`    Input:  "${formatText(message, opts)}"`);
@@ -142,7 +158,10 @@ export function debugFlow(flow: Agent, options?: DebugOptions): void {
         readonly message: string;
         readonly result: {
           readonly text: string;
-          readonly usage: { readonly promptTokens: number; readonly completionTokens: number };
+          readonly usage: {
+            readonly promptTokens: number;
+            readonly completionTokens: number;
+          };
         };
       }) => {
         emit(`    Output: "${formatText(result.text, opts)}"`);

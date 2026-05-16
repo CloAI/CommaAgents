@@ -1,0 +1,64 @@
+---
+title: load_skill
+description: Load the full instructions of a named skill discovered from the workspace.
+---
+
+The `load_skill` tool returns the full markdown body of a [skill](/docs/core/skills) that has been advertised in the agent's system prompt under `## Available Skills`. The framework discovers skills at strategy load time; this tool is how the agent reads them on demand.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "coder",
+  model: "openai/gpt-4o",
+  tools: ["load_skill", "read_file", "edit_file"],
+});
+```
+
+The tool is included in agent tool sets by name like any other built-in. It only succeeds when the strategy loader has wired a `SkillRegistry` into the agent — otherwise every call returns `skill_unavailable`.
+
+## Parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `name` | `string` | Identifier of the skill, exactly as listed under `## Available Skills` in the agent's system prompt. Kebab-case. |
+
+## Returns
+
+On success the tool returns the skill's markdown body as the text output, plus a structured metadata payload:
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/load-skill/load-skill.types.ts" name="LoadSkillData" />
+
+The text output is the skill's body verbatim, prefixed with a short provenance header so the agent can see where the instructions came from:
+
+```
+Loaded skill "ts-patterns" (project, source: /repo/.comma/skills/ts-patterns/SKILL.md).
+
+# TypeScript Patterns
+...
+```
+
+## Errors
+
+| Error kind | Recoverable | When |
+|---|---|---|
+| `not_found` | When other skills exist | The requested name is not in the registry. The error message lists available skill names so the agent can retry with a valid one. |
+| `skill_unavailable` | No | No skill registry is wired into this agent. The agent should stop attempting to load skills for the rest of the turn. |
+
+See [error kinds](/docs/core/tools/error-kinds) for the full taxonomy.
+
+## When to load skills
+
+Skills are advertised — not auto-injected — so the LLM decides when to load them. Two rules of thumb:
+
+1. **Load before related work, not speculatively.** The skill's `description` answers "when should I load this?". If the current task matches the description, load it. If not, leave it alone.
+2. **Load each skill at most once per turn.** The body stays in context after the first call, so a second call costs context without adding information.
+
+## Context cost
+
+Loading is cheap — one tool call, no network — but the body remains in the agent's context for the rest of the turn. Keep `SKILL.md` files focused; the framework enforces a 256 KiB hard cap to prevent runaway loads, but most useful skills are under 10 KiB.
+
+## Related
+
+- [Skills concept](/docs/core/skills) — how skills are authored and discovered.
+- [Built-in tools overview](/docs/core/tools/built-in) — other tools available to agents.

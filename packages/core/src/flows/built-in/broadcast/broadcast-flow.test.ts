@@ -40,7 +40,11 @@ describe("createBroadcastFlow", () => {
   it("joins responses with default separator (double newline)", async () => {
     const flow = createBroadcastFlow({
       name: "broadcast",
-      steps: [makeAgent("a", "first"), makeAgent("b", "second"), makeAgent("c", "third")],
+      steps: [
+        makeAgent("a", "first"),
+        makeAgent("b", "second"),
+        makeAgent("c", "third"),
+      ],
     });
 
     const result = await flow.call("input");
@@ -107,7 +111,9 @@ describe("createBroadcastFlow", () => {
   });
 
   it("throws for empty steps", () => {
-    expect(() => createBroadcastFlow({ name: "empty", steps: [] })).toThrow(FlowExecutionError);
+    expect(() => createBroadcastFlow({ name: "empty", steps: [] })).toThrow(
+      FlowExecutionError,
+    );
   });
 
   it("wraps step errors in FlowExecutionError", async () => {
@@ -131,7 +137,10 @@ describe("createBroadcastFlow", () => {
   it("applies flow hooks via hookIntoFlow", async () => {
     const flow = createBroadcastFlow({
       name: "hooked",
-      steps: [makeAgent("a", (msg) => `a:${msg}`), makeAgent("b", (msg) => `b:${msg}`)],
+      steps: [
+        makeAgent("a", (msg) => `a:${msg}`),
+        makeAgent("b", (msg) => `b:${msg}`),
+      ],
     });
 
     hookIntoFlow(flow, {
@@ -187,7 +196,10 @@ describe("createBroadcastFlow", () => {
     // This is the key difference from sequential: each step gets the SAME input
     const flow = createBroadcastFlow({
       name: "broadcast",
-      steps: [makeAgent("a", (msg) => `modified:${msg}`), makeAgent("b", (msg) => `got:${msg}`)],
+      steps: [
+        makeAgent("a", (msg) => `modified:${msg}`),
+        makeAgent("b", (msg) => `got:${msg}`),
+      ],
     });
 
     const result = (await flow.call("original")) as FlowResult;
@@ -224,7 +236,12 @@ describe("createBroadcastFlow (step hooks)", () => {
     await flow.call("input");
 
     // Broadcast sends same message to all steps
-    expect(events).toEqual(["before:a:input", "after:a:alpha", "before:b:input", "after:b:beta"]);
+    expect(events).toEqual([
+      "before:a:input",
+      "after:a:alpha",
+      "before:b:input",
+      "after:b:beta",
+    ]);
   });
 
   it("step hooks fire alongside flow-level hooks in correct order", async () => {

@@ -1,5 +1,5 @@
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * Global debug flags for the TUI package.

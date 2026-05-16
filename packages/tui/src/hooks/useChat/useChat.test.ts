@@ -4,14 +4,15 @@
 // Suppress React act() warnings from ink-testing-library's internal renders
 const originalConsoleError = console.error;
 console.error = (...args: unknown[]) => {
-  if (typeof args[0] === "string" && args[0].includes("was not wrapped in act")) return;
+  if (typeof args[0] === "string" && args[0].includes("was not wrapped in act"))
+    return;
   originalConsoleError(...args);
 };
 
-import React, { act } from "react";
-import { describe, expect, it, mock, beforeEach } from "bun:test";
-import { render } from "ink-testing-library";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { Text } from "ink";
+import { render } from "ink-testing-library";
+import React, { act } from "react";
 
 import type { ChatSessionsContextType, UseChatState } from "./useChat.types";
 
@@ -19,18 +20,18 @@ import type { ChatSessionsContextType, UseChatState } from "./useChat.types";
 let subscriptionHandlers: Record<string, (message: unknown) => void> = {};
 
 /** Mock for useDaemonCommand — returns a mock sender per command type. */
-const mockStartStrategyCommand = mock<(payload: Record<string, unknown>) => string | null>(
-  () => "req-1",
-);
-const mockSendUserInputCommand = mock<(payload: Record<string, unknown>) => string | null>(
-  () => "req-2",
-);
-const mockStopStrategyCommand = mock<(payload: Record<string, unknown>) => string | null>(
-  () => "req-3",
-);
+const mockStartStrategyCommand = mock<
+  (payload: Record<string, unknown>) => string | null
+>(() => "req-1");
+const mockSendUserInputCommand = mock<
+  (payload: Record<string, unknown>) => string | null
+>(() => "req-2");
+const mockStopStrategyCommand = mock<
+  (payload: Record<string, unknown>) => string | null
+>(() => "req-3");
 
 mock.module("../useDaemon/useDaemon", () => ({
-  useDaemonContext: () => ({
+  useDaemon: () => ({
     status: "connected",
     send: mock(() => true),
     on: mock(() => () => {}),
@@ -48,7 +49,10 @@ mock.module("../useDaemon/useDaemonCommand/useDaemonCommand", () => ({
 }));
 
 mock.module("../useDaemon/useDaemonSubscription/useDaemonSubscription", () => ({
-  useDaemonSubscription: (type: string, callback: (message: unknown) => void) => {
+  useDaemonSubscription: (
+    type: string,
+    callback: (message: unknown) => void,
+  ) => {
     subscriptionHandlers[type] = callback;
   },
 }));
@@ -193,7 +197,10 @@ describe("useChat", () => {
 
   describe("agent_streaming subscription", () => {
     /** Helper: start a strategy and bind it to a runId. */
-    function bootstrapRun(result: { current: UseChatState }, runId = "run-1"): void {
+    function bootstrapRun(
+      result: { current: UseChatState },
+      runId = "run-1",
+    ): void {
       act(() => {
         result.current.startStrategy("/strategy.json");
       });
@@ -218,7 +225,9 @@ describe("useChat", () => {
         });
       });
 
-      const agentMessages = result.current.messages.filter((m) => m.role === "agent");
+      const agentMessages = result.current.messages.filter(
+        (m) => m.role === "agent",
+      );
       expect(agentMessages).toHaveLength(1);
       expect(agentMessages[0]!.sender).toBe("assistant");
       expect(agentMessages[0]!.text).toBe("Hello");
@@ -247,7 +256,9 @@ describe("useChat", () => {
         });
       });
 
-      const agentMessages = result.current.messages.filter((m) => m.role === "agent");
+      const agentMessages = result.current.messages.filter(
+        (m) => m.role === "agent",
+      );
       expect(agentMessages).toHaveLength(1);
       expect(agentMessages[0]!.text).toBe("Hello world");
       expect(agentMessages[0]!.streaming).toBe(true);
@@ -275,7 +286,9 @@ describe("useChat", () => {
         });
       });
 
-      const agentMessages = result.current.messages.filter((m) => m.role === "agent");
+      const agentMessages = result.current.messages.filter(
+        (m) => m.role === "agent",
+      );
       expect(agentMessages).toHaveLength(1);
       expect(agentMessages[0]!.streaming).toBe(false);
 
@@ -306,7 +319,9 @@ describe("useChat", () => {
         });
       });
 
-      const agentMessages = result.current.messages.filter((m) => m.role === "agent");
+      const agentMessages = result.current.messages.filter(
+        (m) => m.role === "agent",
+      );
       expect(agentMessages).toHaveLength(1);
       expect(agentMessages[0]!.text).toBe("Final output");
       expect(agentMessages[0]!.streaming).toBe(false);
@@ -404,7 +419,9 @@ describe("useChat", () => {
         result.current.sendInput("my answer");
       });
 
-      const userMessage = result.current.messages.find((message) => message.role === "user");
+      const userMessage = result.current.messages.find(
+        (message) => message.role === "user",
+      );
       expect(userMessage).toBeDefined();
       expect(userMessage!.text).toBe("my answer");
       expect(userMessage!.sender).toBe("you");
@@ -454,7 +471,9 @@ describe("useChat", () => {
         result.current.stop();
       });
 
-      expect(mockStopStrategyCommand).toHaveBeenCalledWith({ runId: "run-123" });
+      expect(mockStopStrategyCommand).toHaveBeenCalledWith({
+        runId: "run-123",
+      });
 
       cleanup();
     });
@@ -583,10 +602,16 @@ describe("useChat", () => {
       });
 
       act(() => {
-        subscriptionHandlers["step_started"]!({ runId: "run-1", stepName: "planning" });
+        subscriptionHandlers["step_started"]!({
+          runId: "run-1",
+          stepName: "planning",
+        });
       });
       act(() => {
-        subscriptionHandlers["step_completed"]!({ runId: "run-1", stepName: "planning" });
+        subscriptionHandlers["step_completed"]!({
+          runId: "run-1",
+          stepName: "planning",
+        });
       });
 
       const stepStarted = result.current.messages.filter((m) =>

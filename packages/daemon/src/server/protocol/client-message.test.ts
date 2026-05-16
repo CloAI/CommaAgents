@@ -14,17 +14,28 @@ import { UserInputMessage } from "./requests/user-input/user-input.schema";
 
 describe("StartStrategyMessage", () => {
   test("parses valid message", () => {
-    const msg = { type: "start_strategy", strategyPath: "/path/to/strategy.json" };
+    const msg = {
+      type: "start_strategy",
+      strategyPath: "/path/to/strategy.json",
+    };
     expect(StartStrategyMessage.parse(msg)).toEqual(msg);
   });
 
   test("accepts optional input", () => {
-    const msg = { type: "start_strategy", strategyPath: "/path.json", input: "hello" };
+    const msg = {
+      type: "start_strategy",
+      strategyPath: "/path.json",
+      input: "hello",
+    };
     expect(StartStrategyMessage.parse(msg).input).toBe("hello");
   });
 
   test("accepts optional requestId", () => {
-    const msg = { type: "start_strategy", strategyPath: "/path.json", requestId: "req-1" };
+    const msg = {
+      type: "start_strategy",
+      strategyPath: "/path.json",
+      requestId: "req-1",
+    };
     expect(StartStrategyMessage.parse(msg).requestId).toBe("req-1");
   });
 
@@ -50,18 +61,26 @@ describe("StartStrategyMessage", () => {
   });
 
   test("rejects missing strategyPath", () => {
-    expect(StartStrategyMessage.safeParse({ type: "start_strategy" }).success).toBe(false);
+    expect(
+      StartStrategyMessage.safeParse({ type: "start_strategy" }).success,
+    ).toBe(false);
   });
 
   test("rejects empty strategyPath", () => {
     expect(
-      StartStrategyMessage.safeParse({ type: "start_strategy", strategyPath: "" }).success,
+      StartStrategyMessage.safeParse({
+        type: "start_strategy",
+        strategyPath: "",
+      }).success,
     ).toBe(false);
   });
 
   test("rejects wrong type literal", () => {
     expect(
-      StartStrategyMessage.safeParse({ type: "stop_strategy", strategyPath: "/p" }).success,
+      StartStrategyMessage.safeParse({
+        type: "stop_strategy",
+        strategyPath: "/p",
+      }).success,
     ).toBe(false);
   });
 });
@@ -73,34 +92,54 @@ describe("StopStrategyMessage", () => {
   });
 
   test("rejects missing runId", () => {
-    expect(StopStrategyMessage.safeParse({ type: "stop_strategy" }).success).toBe(false);
+    expect(
+      StopStrategyMessage.safeParse({ type: "stop_strategy" }).success,
+    ).toBe(false);
   });
 
   test("rejects empty runId", () => {
-    expect(StopStrategyMessage.safeParse({ type: "stop_strategy", runId: "" }).success).toBe(false);
+    expect(
+      StopStrategyMessage.safeParse({ type: "stop_strategy", runId: "" })
+        .success,
+    ).toBe(false);
   });
 });
 
 describe("UserInputMessage", () => {
   test("parses valid message", () => {
-    const msg = { type: "user_input", runId: "run-1", agentName: "user-agent", text: "hello" };
+    const msg = {
+      type: "user_input",
+      runId: "run-1",
+      agentName: "user-agent",
+      text: "hello",
+    };
     expect(UserInputMessage.parse(msg)).toEqual(msg);
   });
 
   test("accepts empty text (user can send empty string)", () => {
-    const msg = { type: "user_input", runId: "run-1", agentName: "ua", text: "" };
+    const msg = {
+      type: "user_input",
+      runId: "run-1",
+      agentName: "ua",
+      text: "",
+    };
     expect(UserInputMessage.parse(msg).text).toBe("");
   });
 
   test("rejects missing agentName", () => {
-    expect(UserInputMessage.safeParse({ type: "user_input", runId: "r", text: "hi" }).success).toBe(
-      false,
-    );
+    expect(
+      UserInputMessage.safeParse({ type: "user_input", runId: "r", text: "hi" })
+        .success,
+    ).toBe(false);
   });
 
   test("rejects missing text", () => {
     expect(
-      UserInputMessage.safeParse({ type: "user_input", runId: "r", agentName: "a" }).success,
+      UserInputMessage.safeParse({
+        type: "user_input",
+        runId: "r",
+        agentName: "a",
+      }).success,
     ).toBe(false);
   });
 });
@@ -120,27 +159,35 @@ describe("ListStrategiesMessage", () => {
 
 describe("SubscribeMessage", () => {
   test("parses valid message", () => {
-    expect(SubscribeMessage.parse({ type: "subscribe", runId: "run-1" })).toEqual({
+    expect(
+      SubscribeMessage.parse({ type: "subscribe", runId: "run-1" }),
+    ).toEqual({
       type: "subscribe",
       runId: "run-1",
     });
   });
 
   test("rejects missing runId", () => {
-    expect(SubscribeMessage.safeParse({ type: "subscribe" }).success).toBe(false);
+    expect(SubscribeMessage.safeParse({ type: "subscribe" }).success).toBe(
+      false,
+    );
   });
 });
 
 describe("UnsubscribeMessage", () => {
   test("parses valid message", () => {
-    expect(UnsubscribeMessage.parse({ type: "unsubscribe", runId: "run-1" })).toEqual({
+    expect(
+      UnsubscribeMessage.parse({ type: "unsubscribe", runId: "run-1" }),
+    ).toEqual({
       type: "unsubscribe",
       runId: "run-1",
     });
   });
 
   test("rejects missing runId", () => {
-    expect(UnsubscribeMessage.safeParse({ type: "unsubscribe" }).success).toBe(false);
+    expect(UnsubscribeMessage.safeParse({ type: "unsubscribe" }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -150,7 +197,9 @@ describe("PingMessage", () => {
   });
 
   test("accepts optional requestId", () => {
-    expect(PingMessage.parse({ type: "ping", requestId: "req-4" }).requestId).toBe("req-4");
+    expect(
+      PingMessage.parse({ type: "ping", requestId: "req-4" }).requestId,
+    ).toBe("req-4");
   });
 });
 
@@ -158,7 +207,10 @@ describe("PingMessage", () => {
 
 describe("ClientMessage union", () => {
   test("routes start_strategy correctly", () => {
-    const result = ClientMessage.parse({ type: "start_strategy", strategyPath: "/p.json" });
+    const result = ClientMessage.parse({
+      type: "start_strategy",
+      strategyPath: "/p.json",
+    });
     expect(result.type).toBe("start_strategy");
   });
 
@@ -198,7 +250,9 @@ describe("ClientMessage union", () => {
   });
 
   test("rejects unknown type", () => {
-    expect(ClientMessage.safeParse({ type: "unknown_msg" }).success).toBe(false);
+    expect(ClientMessage.safeParse({ type: "unknown_msg" }).success).toBe(
+      false,
+    );
   });
 
   test("rejects missing type", () => {

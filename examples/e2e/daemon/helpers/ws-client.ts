@@ -40,7 +40,10 @@ export interface TestClient {
    * @param predicate - Function that returns `true` for the desired message
    * @param timeoutMs - Max time to wait (default: 5000ms)
    */
-  waitForMessage(predicate: (msg: any) => boolean, timeoutMs?: number): Promise<unknown>;
+  waitForMessage(
+    predicate: (msg: any) => boolean,
+    timeoutMs?: number,
+  ): Promise<unknown>;
 
   /**
    * Wait for a message with a specific `type` field.
@@ -56,7 +59,11 @@ export interface TestClient {
    * @param predicate - Function that returns `true` for desired messages
    * @param timeoutMs - Max time to wait for all N messages
    */
-  waitForN(n: number, predicate: (msg: any) => boolean, timeoutMs?: number): Promise<unknown[]>;
+  waitForN(
+    n: number,
+    predicate: (msg: any) => boolean,
+    timeoutMs?: number,
+  ): Promise<unknown[]>;
 
   /**
    * Send a message to the daemon (JSON-serialized).
@@ -92,7 +99,9 @@ const activeDaemons: Daemon[] = [];
  *
  * @returns The started Daemon instance (with `.port` and `.url` available)
  */
-export async function startTestDaemon(options?: StartTestDaemonOptions): Promise<Daemon> {
+export async function startTestDaemon(
+  options?: StartTestDaemonOptions,
+): Promise<Daemon> {
   // Register mock models in the global registry so the daemon can resolve them.
   setupMockModels();
 
@@ -140,7 +149,10 @@ export async function stopAllDaemons(): Promise<void> {
  * @param daemon - The daemon to connect to (must be started)
  * @param timeoutMs - Connection timeout (default: 5000ms)
  */
-export function connectTestClient(daemon: Daemon, timeoutMs = 5000): Promise<TestClient> {
+export function connectTestClient(
+  daemon: Daemon,
+  timeoutMs = 5000,
+): Promise<TestClient> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(daemon.url);
     const messages: unknown[] = [];
@@ -153,7 +165,11 @@ export function connectTestClient(daemon: Daemon, timeoutMs = 5000): Promise<Tes
     // Connection timeout
     const connectionTimer = setTimeout(() => {
       ws.close();
-      reject(new Error(`WebSocket connection timed out after ${timeoutMs}ms to ${daemon.url}`));
+      reject(
+        new Error(
+          `WebSocket connection timed out after ${timeoutMs}ms to ${daemon.url}`,
+        ),
+      );
     }, timeoutMs);
 
     ws.onmessage = (event) => {
@@ -176,7 +192,10 @@ export function connectTestClient(daemon: Daemon, timeoutMs = 5000): Promise<Tes
         ws,
         messages,
 
-        waitForMessage(predicate: (msg: any) => boolean, timeout = 5000): Promise<unknown> {
+        waitForMessage(
+          predicate: (msg: any) => boolean,
+          timeout = 5000,
+        ): Promise<unknown> {
           // Check already-received messages
           const found = messages.find(predicate);
           if (found) return Promise.resolve(found);
@@ -274,7 +293,10 @@ const tempFiles: string[] = [];
  * @param ext - File extension (default: "json")
  * @returns Absolute path to the temp file
  */
-export async function writeTempStrategy(content: string, ext = "json"): Promise<string> {
+export async function writeTempStrategy(
+  content: string,
+  ext = "json",
+): Promise<string> {
   const filename = `e2e-strategy-${crypto.randomUUID()}.${ext}`;
   const filePath = join(tmpdir(), filename);
   await Bun.write(filePath, content);

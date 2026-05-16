@@ -29,7 +29,13 @@ const meta: Meta<typeof Button> = {
     },
     disabled: { control: "boolean" },
   },
-  decorators: [(Story) => <WithMouse><Story /></WithMouse>],
+  decorators: [
+    (Story) => (
+      <WithMouse>
+        <Story />
+      </WithMouse>
+    ),
+  ],
 };
 
 export default meta;
@@ -53,9 +59,24 @@ export const Toolbar: Story = {
     return (
       <Box flexDirection="column" gap={1}>
         <Box gap={1}>
-          <Button id="confirm" label="Confirm" variant="primary" onPress={() => setLast("Confirm")} />
-          <Button id="discard" label="Discard" variant="ghost"   onPress={() => setLast("Discard")} />
-          <Button id="delete"  label="Delete"  variant="danger"  onPress={() => setLast("Delete")} />
+          <Button
+            id="confirm"
+            label="Confirm"
+            variant="primary"
+            onPress={() => setLast("Confirm")}
+          />
+          <Button
+            id="discard"
+            label="Discard"
+            variant="ghost"
+            onPress={() => setLast("Discard")}
+          />
+          <Button
+            id="delete"
+            label="Delete"
+            variant="danger"
+            onPress={() => setLast("Delete")}
+          />
         </Box>
         <Text dimColor>last pressed: {last}</Text>
       </Box>

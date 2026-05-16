@@ -1,18 +1,34 @@
 import { Box, Text, useFocusManager } from "ink";
 import type React from "react";
 import { useEffect } from "react";
-import { Button } from "../Button";
-import { useTheme } from "../../theme";
 import type { PendingPermissionRequest } from "../../hooks/useChat";
+import { useTheme } from "../../theme";
+import { Button } from "../Button";
 
 /** Decision option presented to the user. */
-export type PermissionDecision = "allow" | "deny" | "allow-session" | "deny-session";
+export type PermissionDecision =
+  | "allow"
+  | "deny"
+  | "allow-session"
+  | "deny-session";
 
 export interface PermissionPromptProps {
   /** The permission request to display. */
   readonly request: PendingPermissionRequest;
   /** Called when the user makes a decision. */
   readonly onDecide: (decision: PermissionDecision) => void;
+}
+
+export interface PermissionPromptRenderProps {
+  readonly actor: string;
+  readonly verb: string;
+  readonly resource: string;
+  readonly onDecide: (decision: PermissionDecision) => void;
+  readonly colors: {
+    readonly warning: string;
+    readonly secondary: string;
+    readonly primary: string;
+  };
 }
 
 /** Raw mode check for safe `useInput` activation. */
@@ -27,7 +43,9 @@ const FOCUS_IDS = {
 } as const;
 
 /** Human-readable label for an operation category. */
-function operationLabel(operation: PendingPermissionRequest["operation"]): string {
+function operationLabel(
+  operation: PendingPermissionRequest["operation"],
+): string {
   switch (operation) {
     case "fs.read":
       return "read";
@@ -48,7 +66,10 @@ function operationLabel(operation: PendingPermissionRequest["operation"]): strin
  * The background is provided by the Frame's global flood-fill (driven by
  * `tokens.colors.background`), so no per-component fill is needed here.
  */
-export function PermissionPrompt({ request, onDecide }: PermissionPromptProps): React.ReactElement {
+export function PermissionPrompt({
+  request,
+  onDecide,
+}: PermissionPromptProps): React.ReactElement {
   const { agentName, toolName, operation, resource } = request;
   const { focus } = useFocusManager();
   const tokens = useTheme();
@@ -56,41 +77,62 @@ export function PermissionPrompt({ request, onDecide }: PermissionPromptProps): 
   const actor = toolName ? `${agentName} (${toolName})` : agentName;
   const verb = operationLabel(operation);
 
-  // Seed focus on the first button every time a new prompt appears.
   useEffect(() => {
     if (RAW_MODE_SUPPORTED) focus(FOCUS_IDS.allow);
   }, [focus, request]);
 
   return (
+    <PermissionPromptRender
+      actor={actor}
+      verb={verb}
+      resource={resource}
+      onDecide={onDecide}
+      colors={{
+        warning: tokens.colors.warning,
+        secondary: tokens.colors.secondary,
+        primary: tokens.colors.primary,
+      }}
+    />
+  );
+}
+
+export function PermissionPromptRender({
+  actor,
+  verb,
+  resource,
+  onDecide,
+  colors,
+}: PermissionPromptRenderProps): React.ReactElement {
+  return (
     <Box
       flexDirection="column"
       borderStyle="single"
-      borderColor={tokens.colors.warning}
+      borderColor={colors.warning}
       paddingX={2}
       paddingY={1}
     >
-      {/* ── Header ── */}
       <Box marginBottom={1}>
-        <Text bold color={tokens.colors.warning}>⚠ Permission request</Text>
+        <Text bold color={colors.warning}>
+          ⚠ Permission request
+        </Text>
       </Box>
 
-      {/* ── Request body ── */}
       <Box flexDirection="column" marginBottom={1}>
         <Text>
           <Text bold>{actor}</Text>
-          <Text color={tokens.colors.secondary}> wants to </Text>
+          <Text color={colors.secondary}> wants to </Text>
           <Text bold>{verb}</Text>
-          <Text color={tokens.colors.secondary}>:</Text>
+          <Text color={colors.secondary}>:</Text>
         </Text>
-        <Text color={tokens.colors.primary}>{resource}</Text>
+        <Text color={colors.primary}>{resource}</Text>
       </Box>
 
-      {/* ── Separator line ── */}
       <Box marginBottom={1}>
-        <Text color={tokens.colors.secondary} dimColor>{"─".repeat(40)}</Text>
+        <Text color={colors.secondary} dimColor>
+          {"─".repeat(40)}
+        </Text>
       </Box>
 
-      {/* ── Decision buttons ── */}
       <Box flexDirection="row" gap={2}>
         <Button
           id={FOCUS_IDS.allow}
@@ -118,9 +160,10 @@ export function PermissionPrompt({ request, onDecide }: PermissionPromptProps): 
         />
       </Box>
 
-      {/* ── Usage hint ── */}
       <Box marginTop={1}>
-        <Text dimColor color={tokens.colors.secondary}>Tab · ↵ to select  |  mouse click also works</Text>
+        <Text dimColor color={colors.secondary}>
+          Tab · ↵ to select | mouse click also works
+        </Text>
       </Box>
     </Box>
   );

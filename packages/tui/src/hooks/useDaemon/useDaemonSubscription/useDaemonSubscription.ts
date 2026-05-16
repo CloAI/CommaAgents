@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
 
-import { useDaemonContext } from "../useDaemon";
-import type { DaemonMessageListener, DaemonMessageType } from "../useDaemon.types";
+import { useDaemon } from "../useDaemon";
+import type {
+  DaemonMessageListener,
+  DaemonMessageType,
+} from "../useDaemon.types";
 
 /**
  * React hook that registers a listener for a specific daemon message type.
@@ -29,14 +32,18 @@ export function useDaemonSubscription<MessageKind extends DaemonMessageType>(
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
-  const { on } = useDaemonContext();
+  const { on } = useDaemon();
 
   useEffect(() => {
     const handler: DaemonMessageListener<MessageKind> = (message) => {
       // If a runId filter is active, skip messages that don't match.
       // Some daemon messages (pong, error, strategy_list) don't have runId;
       // those are always forwarded.
-      if (runId != null && "runId" in message && (message as { runId: string }).runId !== runId) {
+      if (
+        runId != null &&
+        "runId" in message &&
+        (message as { runId: string }).runId !== runId
+      ) {
         return;
       }
       callbackRef.current(message);

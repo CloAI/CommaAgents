@@ -1,12 +1,3 @@
-// Input bridge — bridges UserAgent input requests over the WebSocket.
-//
-// When a UserAgent with `requireInput: true` runs, it calls the
-// `InputCollector` provided by this bridge. The bridge:
-// 1. Broadcasts `request_input` to all subscribers of the run.
-// 2. Returns a Promise that resolves when `resolveInput()` is called
-//    (triggered by the server when a `user_input` client message arrives).
-// 3. Supports timeout and abort-signal cancellation.
-
 import type { InputCollector, InputRequest } from "@comma-agents/core";
 
 import type { EventSink } from "./event-sink";
@@ -67,7 +58,9 @@ export interface InputBridge {
  * the bridge broadcasts a `request_input` message to all subscribers
  * of the run, then waits for `resolveInput()` to be called.
  */
-export function createInputBridge(options: CreateInputBridgeOptions): InputBridge {
+export function createInputBridge(
+  options: CreateInputBridgeOptions,
+): InputBridge {
   const { sink, runId, timeout = 0, abort } = options;
 
   /** agentName → pending request. */
@@ -78,9 +71,13 @@ export function createInputBridge(options: CreateInputBridgeOptions): InputBridg
 
   // -- InputCollector implementation --
 
-  const collector: InputCollector = (request: InputRequest): Promise<string> => {
+  const collector: InputCollector = (
+    request: InputRequest,
+  ): Promise<string> => {
     if (destroyed) {
-      return Promise.reject(new DOMException("Input bridge destroyed", "AbortError"));
+      return Promise.reject(
+        new DOMException("Input bridge destroyed", "AbortError"),
+      );
     }
 
     // If already aborted, reject immediately
@@ -96,7 +93,11 @@ export function createInputBridge(options: CreateInputBridgeOptions): InputBridg
       if (timeout > 0) {
         timer = setTimeout(() => {
           pending.delete(agentName);
-          reject(new Error(`Input request for agent "${agentName}" timed out after ${timeout}ms`));
+          reject(
+            new Error(
+              `Input request for agent "${agentName}" timed out after ${timeout}ms`,
+            ),
+          );
         }, timeout);
       }
 

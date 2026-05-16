@@ -72,7 +72,5 @@ function TitleIconBody({ playing }: { readonly playing: boolean }) {
  * induce in surrounding components on every tick.
  */
 export function TitleIcon({ playing = true }: TitleIconProps) {
-  return (
-      <TitleIconBody playing={playing} />
-  );
+  return <TitleIconBody playing={playing} />;
 }

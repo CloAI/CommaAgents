@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
+import { okResult } from "../../tools/result";
 import { buildAgentToolSet } from "../agent/agent.utils";
 import { resolveHook } from "./hooks.utils";
 
@@ -39,7 +40,7 @@ describe("buildAgentToolSet with ToolHooks", () => {
   const echoTool = {
     description: "Echo tool",
     parameters: z.object({ text: z.string() }),
-    execute: async (args: { text: string }) => ({ output: `echo:${args.text}` }),
+    execute: async (args: { text: string }) => okResult(`echo:${args.text}`),
   };
 
   /** Call execute on a wrapped AI SDK tool (non-null asserted — we know execute exists). */
@@ -78,7 +79,9 @@ describe("buildAgentToolSet with ToolHooks", () => {
 
     await callTool(toolSet.echo, { text: "world" });
 
-    expect(log).toEqual([{ name: "echo", args: '{"text":"world"}', result: "echo:world" }]);
+    expect(log).toEqual([
+      { name: "echo", args: '{"text":"world"}', result: "echo:world" },
+    ]);
   });
 
   it("should fire both before and after hooks in order", async () => {
@@ -103,7 +106,11 @@ describe("buildAgentToolSet with ToolHooks", () => {
   });
 
   it("should work without tool hooks (undefined)", async () => {
-    const toolSet = buildAgentToolSet({ echo: echoTool }, "test-agent", undefined)!;
+    const toolSet = buildAgentToolSet(
+      { echo: echoTool },
+      "test-agent",
+      undefined,
+    )!;
 
     const result = await callTool(toolSet.echo, { text: "hi" });
     expect(result).toBe("echo:hi");
@@ -115,27 +122,35 @@ describe("buildAgentToolSet with ToolHooks", () => {
     const addTool = {
       description: "Add tool",
       parameters: z.object({ a: z.number(), b: z.number() }),
-      execute: async (args: { a: number; b: number }) => ({
-        output: String(args.a + args.b),
-      }),
+      execute: async (args: { a: number; b: number }) =>
+        okResult(String(args.a + args.b)),
     };
 
-    const toolSet = buildAgentToolSet({ echo: echoTool, add: addTool }, "test-agent", {
-      beforeToolCall: [
-        async ({ name }) => {
-          log.push(`before:${name}`);
-        },
-      ],
-      afterToolCall: [
-        async ({ name }) => {
-          log.push(`after:${name}`);
-        },
-      ],
-    })!;
+    const toolSet = buildAgentToolSet(
+      { echo: echoTool, add: addTool },
+      "test-agent",
+      {
+        beforeToolCall: [
+          async ({ name }) => {
+            log.push(`before:${name}`);
+          },
+        ],
+        afterToolCall: [
+          async ({ name }) => {
+            log.push(`after:${name}`);
+          },
+        ],
+      },
+    )!;
 
     await callTool(toolSet.echo, { text: "x" });
     await callTool(toolSet.add, { a: 1, b: 2 });
 
-    expect(log).toEqual(["before:echo", "after:echo", "before:add", "after:add"]);
+    expect(log).toEqual([
+      "before:echo",
+      "after:echo",
+      "before:add",
+      "after:add",
+    ]);
   });
 });

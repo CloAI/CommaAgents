@@ -1,42 +1,26 @@
-export { registerModel, resetModelRegistry, resolveModel, unregisterModel } from "./model";
+export {
+  registerModel,
+  resetModelRegistry,
+  resolveModel,
+  unregisterModel,
+} from "./model";
+export type {
+  ParsedModel,
+  ProviderFactory,
+  ProviderInfo,
+  ProviderResolver,
+} from "./model.types";
 export {
   extractProviderIds,
   formatProviderName,
+  getModelCapabilities,
+  getModelMetadata,
   getProviderInfo,
   getProviderPackage,
   isKnownProvider,
   listProviders,
   parseModel,
 } from "./model.utils";
-
-export type { ParsedModel, ProviderFactory, ProviderInfo, ProviderResolver } from "./model.types";
-
-export {
-  CATALOG_CACHE_TTL_MS,
-  CATALOG_SOURCE_URL,
-  getCatalogModels,
-  getCatalogProvider,
-  getCatalogProviderSync,
-  getCatalogSnapshot,
-  getProviderDefinition,
-  getProviderPackageNameSync,
-  getRegisteredProviderIds,
-  isKnownProviderSync,
-  listAllProviderModels,
-  listCatalogProviders,
-  listProviderDefinitions,
-  listProviderModels,
-  loadCatalog,
-  mergeCatalogWithLive,
-  mergeModelInfo,
-  refreshCatalog,
-  registerProviderDefinition,
-  resetCatalog,
-  resetProviderRegistry,
-  sortModels,
-  unregisterProviderDefinition,
-} from "./providers/index";
-
 export type {
   CatalogData,
   CatalogModel,
@@ -49,8 +33,36 @@ export type {
   ModelCost,
   ModelInfo,
   ModelModalities,
-  ModelsSource,
   ModelStatus,
+  ModelsSource,
   ProviderDefinition,
   ProviderWithModels,
+} from "./providers/index";
+export {
+  getCatalogModels,
+  getCatalogProvider,
+  getCatalogProviderSync,
+  getCatalogSnapshot,
+  getProviderDefinition,
+  getProviderPackageNameSync,
+  getProvidersForModel,
+  getRegisteredProviderIds,
+  getReverseModelIndex,
+  isKnownProviderSync,
+  listAllProviderModels,
+  listCatalogProviders,
+  listProviderDefinitions,
+  listProviderModels,
+  loadCatalog,
+  mergeCatalogWithLive,
+  mergeModelInfo,
+  refreshCatalog,
+  registerProviderDefinition,
+  resetCatalog,
+  resetProviderRegistry,
+  resolveCatalogCachePath,
+  resolveCredentialForProvider,
+  sortModels,
+  toModelInfo,
+  unregisterProviderDefinition,
 } from "./providers/index";

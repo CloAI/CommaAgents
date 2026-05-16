@@ -1,10 +1,8 @@
-// Tests for the webfetch built-in tool
-
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { makeToolContext } from "../../test.utils";
-import { createWebFetchTool } from "./webfetch";
+import { createWebFetchTool } from "./index";
 
-const ctx = makeToolContext({ abort: AbortSignal.timeout(15_000) });
+const toolContext = makeToolContext({ abort: AbortSignal.timeout(15_000) });
 
 // Lightweight local HTTP server for deterministic tests.
 let server: ReturnType<typeof Bun.serve> | undefined;
@@ -53,7 +51,7 @@ describe("createWebFetchTool", () => {
 
   it("should fetch a URL and convert HTML to markdown by default", async () => {
     const tool = createWebFetchTool();
-    const result = await tool.execute({ url: `${baseUrl}/html` }, ctx);
+    const result = await tool.execute({ url: `${baseUrl}/html` }, toolContext);
     expect(result.output).toContain("Hello");
     expect(result.output).toContain("**bold**");
     expect(result.metadata?.statusCode).toBe(200);
@@ -62,7 +60,10 @@ describe("createWebFetchTool", () => {
 
   it("should return plain text when format is 'text'", async () => {
     const tool = createWebFetchTool();
-    const result = await tool.execute({ url: `${baseUrl}/html`, format: "text" }, ctx);
+    const result = await tool.execute(
+      { url: `${baseUrl}/html`, format: "text" },
+      toolContext,
+    );
     expect(result.output).toContain("Hello");
     expect(result.output).not.toContain("**");
     expect(result.output).not.toContain("<h1>");
@@ -70,21 +71,27 @@ describe("createWebFetchTool", () => {
 
   it("should return raw HTML when format is 'html'", async () => {
     const tool = createWebFetchTool();
-    const result = await tool.execute({ url: `${baseUrl}/html`, format: "html" }, ctx);
+    const result = await tool.execute(
+      { url: `${baseUrl}/html`, format: "html" },
+      toolContext,
+    );
     expect(result.output).toContain("<h1>Hello</h1>");
     expect(result.output).toContain("<strong>bold</strong>");
   });
 
   it("should truncate content beyond maxContentLength", async () => {
     const tool = createWebFetchTool({ maxContentLength: 200 });
-    const result = await tool.execute({ url: `${baseUrl}/large` }, ctx);
+    const result = await tool.execute({ url: `${baseUrl}/large` }, toolContext);
     expect(result.metadata?.truncated).toBe(true);
     expect(result.output).toContain("[Content truncated");
   });
 
   it("should include HTTP status header for non-OK responses", async () => {
     const tool = createWebFetchTool();
-    const result = await tool.execute({ url: `${baseUrl}/notfound` }, ctx);
+    const result = await tool.execute(
+      { url: `${baseUrl}/notfound` },
+      toolContext,
+    );
     expect(result.output).toContain("[HTTP 404");
     expect(result.metadata?.statusCode).toBe(404);
   });

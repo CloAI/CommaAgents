@@ -33,7 +33,8 @@ import { getModelString } from "./helpers";
  * The Zod schema tells the LLM what parameters to provide.
  */
 const weatherTool = defineTool({
-  description: "Get the current weather for a city. Returns temperature and conditions.",
+  description:
+    "Get the current weather for a city. Returns temperature and conditions.",
   parameters: z.object({
     city: z.string().describe("The city name, e.g. 'San Francisco'"),
     unit: z
@@ -44,7 +45,9 @@ const weatherTool = defineTool({
   }),
   execute: async (args, ctx) => {
     // ctx.agentName tells you which agent invoked this tool
-    console.log(`  [weatherTool] Called by agent "${ctx.agentName}" for city: ${args.city}`);
+    console.log(
+      `  [weatherTool] Called by agent "${ctx.agentName}" for city: ${args.city}`,
+    );
 
     // Mock response — replace with a real API call
     const temp = args.unit === "celsius" ? "18°C" : "64°F";
@@ -61,9 +64,12 @@ const weatherTool = defineTool({
  * Demonstrates a tool that returns structured numeric results.
  */
 const calculatorTool = defineTool({
-  description: "Evaluate a basic arithmetic expression. Supports +, -, *, /, and parentheses.",
+  description:
+    "Evaluate a basic arithmetic expression. Supports +, -, *, /, and parentheses.",
   parameters: z.object({
-    expression: z.string().describe("The arithmetic expression to evaluate, e.g. '(2 + 3) * 4'"),
+    expression: z
+      .string()
+      .describe("The arithmetic expression to evaluate, e.g. '(2 + 3) * 4'"),
   }),
   execute: async (args, _ctx) => {
     try {
@@ -111,7 +117,14 @@ async function main() {
       "When asked about weather, use the weather tool.",
       "When asked to compute something, use the calculator tool.",
     ].join("\n"),
-    tools: ["bash", "read", "write", "edit", "glob", "grep", "weather", "calculator"],
+    tools: [
+      "read_file",
+      "list_directory",
+      "search_files",
+      "run_command",
+      "weather",
+      "calculator",
+    ],
   });
 
   debugAgent(agent);
@@ -128,7 +141,9 @@ async function main() {
   // Cast toolCalls for cleaner access — AI SDK v6 uses `input` (not `args`).
   console.log("\n--- Tool calls ---");
   for (const step of result.steps) {
-    const calls = step.toolCalls as Array<{ toolName: string; input: unknown }> | undefined;
+    const calls = step.toolCalls as
+      | Array<{ toolName: string; input: unknown }>
+      | undefined;
     if (calls) {
       for (const tc of calls) {
         console.log(`  ${tc.toolName}(${JSON.stringify(tc.input)})`);

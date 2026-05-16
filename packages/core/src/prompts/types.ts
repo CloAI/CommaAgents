@@ -88,4 +88,20 @@ export interface PromptTemplate {
    * @throws {Error} if a required variable is missing or a filter fails
    */
   render(overrides?: TemplateVariables): Promise<string>;
+
+  /**
+   * Update the default variables used during rendering.
+   * New values overwrite matching keys; keys not in the input are left as-is.
+   *
+   * @example
+   * ```ts
+   * const tpl = createPromptTemplate({
+   *   template: "You are {{ role }}, reviewing {{ language }} code.",
+   *   variables: { role: "a reviewer" },
+   * });
+   * tpl.updatePromptVariables({ language: "TypeScript" });
+   * await tpl.render(); // "You are a reviewer, reviewing TypeScript code."
+   * ```
+   */
+  updatePromptVariables(variables: TemplateVariables): void;
 }

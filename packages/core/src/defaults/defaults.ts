@@ -1,17 +1,10 @@
-// Global defaults — singleton credential store, provider registry, and resolver.
-//
-// Provides sensible defaults so that loadStrategy() and loadAgent() work
-// with zero configuration when credentials are stored on disk and provider
-// packages are installed (or auto-installed via Bun).
-//
-// All state is module-scoped. Use setGlobalCredentialStore() to override
-// the credential store, registerProvider() to extend the resolver, and
-// resetGlobalDefaults() to restore initial state (primarily for tests).
-
 import { capitalize } from "@comma-agents/utils";
 import { createJsonFileBackend } from "../credentials/backends/json-file";
 import { createCredentialStore } from "../credentials/credentials";
-import type { Credential, CredentialStore } from "../credentials/credentials.types";
+import type {
+  Credential,
+  CredentialStore,
+} from "../credentials/credentials.types";
 import { resolveCredentialsPath } from "../credentials/credentials.utils";
 import type { ProviderFactory, ProviderResolver } from "../model/model.types";
 import { getProviderPackageNameSync } from "../model/providers/index";
@@ -70,7 +63,9 @@ export function getGlobalCredentialStore(): CredentialStore {
  * setGlobalCredentialStore(myCustomStore);
  * ```
  */
-export function setGlobalCredentialStore(store: CredentialStore | undefined): void {
+export function setGlobalCredentialStore(
+  store: CredentialStore | undefined,
+): void {
   customCredentialStore = store;
 }
 
@@ -101,7 +96,10 @@ export function setGlobalCredentialStore(store: CredentialStore | undefined): vo
  * });
  * ```
  */
-export function registerProvider(providerId: string, registration: ProviderRegistration): void {
+export function registerProvider(
+  providerId: string,
+  registration: ProviderRegistration,
+): void {
   providerRegistry.set(providerId, registration);
 }
 
@@ -160,9 +158,15 @@ async function resolveViaRegistration(
 
   // 2. Package-based resolution
   const packageName = registration.packageName ?? `@ai-sdk/${providerId}`;
-  const factoryName = registration.factoryName ?? `create${capitalize(providerId)}`;
+  const factoryName =
+    registration.factoryName ?? `create${capitalize(providerId)}`;
 
-  return await resolveViaPackage(providerId, credential, packageName, factoryName);
+  return await resolveViaPackage(
+    providerId,
+    credential,
+    packageName,
+    factoryName,
+  );
 }
 
 /**
@@ -200,7 +204,9 @@ async function resolveViaPackage(
   const provider = factory(providerOptions);
 
   if (typeof provider !== "function") {
-    throw new Error(`${packageName}.${factoryName}() did not return a callable provider function`);
+    throw new Error(
+      `${packageName}.${factoryName}() did not return a callable provider function`,
+    );
   }
 
   return provider as ProviderFactory;
@@ -209,11 +215,14 @@ async function resolveViaPackage(
 /**
  * Build a GitHub Copilot provider using @ai-sdk/openai-compatible.
  */
-async function resolveCopilotProvider(credential: Credential): Promise<ProviderFactory> {
+async function resolveCopilotProvider(
+  credential: Credential,
+): Promise<ProviderFactory> {
   const apiKey = extractApiKey(credential);
   if (!apiKey) {
     throw new Error(
-      "No GitHub Copilot token available. " + "Set GITHUB_TOKEN or save credentials via the TUI.",
+      "No GitHub Copilot token available. " +
+        "Set GITHUB_TOKEN or save credentials via the TUI.",
     );
   }
 
@@ -249,7 +258,9 @@ async function resolveCopilotProvider(credential: Credential): Promise<ProviderF
   });
 
   if (typeof provider !== "function") {
-    throw new Error("createOpenAICompatible() did not return a callable provider function");
+    throw new Error(
+      "createOpenAICompatible() did not return a callable provider function",
+    );
   }
 
   return provider as ProviderFactory;
@@ -273,7 +284,10 @@ async function resolveCopilotProvider(credential: Credential): Promise<ProviderF
  * ```
  */
 export function getGlobalProviderResolver(): ProviderResolver {
-  return async (providerId: string, credential: Credential): Promise<ProviderFactory> => {
+  return async (
+    providerId: string,
+    credential: Credential,
+  ): Promise<ProviderFactory> => {
     // 1. Check custom registry
     const registration = providerRegistry.get(providerId);
     if (registration) {
@@ -289,13 +303,23 @@ export function getGlobalProviderResolver(): ProviderResolver {
     const knownPackage = getProviderPackageNameSync(providerId);
     if (knownPackage) {
       const factoryName = `create${capitalize(providerId)}`;
-      return await resolveViaPackage(providerId, credential, knownPackage, factoryName);
+      return await resolveViaPackage(
+        providerId,
+        credential,
+        knownPackage,
+        factoryName,
+      );
     }
 
     // 4. Last resort: guess @ai-sdk/<providerId>
     const guessedPackage = `@ai-sdk/${providerId}`;
     const factoryName = `create${capitalize(providerId)}`;
-    return await resolveViaPackage(providerId, credential, guessedPackage, factoryName);
+    return await resolveViaPackage(
+      providerId,
+      credential,
+      guessedPackage,
+      factoryName,
+    );
   };
 }
 

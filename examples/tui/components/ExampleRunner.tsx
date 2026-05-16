@@ -36,7 +36,11 @@ type RunState = "running" | "success" | "error";
  */
 const CHROME_LINES = 12;
 
-export function ExampleRunner({ provider, example, onDone }: ExampleRunnerProps) {
+export function ExampleRunner({
+  provider,
+  example,
+  onDone,
+}: ExampleRunnerProps) {
   const { exit } = useApp();
   const { rows } = useTerminalSize();
   const [state, setState] = useState<RunState>("running");
@@ -120,9 +124,7 @@ export function ExampleRunner({ provider, example, onDone }: ExampleRunnerProps)
     };
 
     const args =
-      example.category === "e2e"
-        ? ["test", scriptPath]
-        : ["run", scriptPath];
+      example.category === "e2e" ? ["test", scriptPath] : ["run", scriptPath];
 
     const child = spawn("bun", args, {
       cwd: examplesDir,
@@ -162,7 +164,13 @@ export function ExampleRunner({ provider, example, onDone }: ExampleRunnerProps)
         child.kill("SIGTERM");
       }
     };
-  }, [example.value, provider.providerID, provider.model, provider.envVar, provider.apiKey]);
+  }, [
+    example.value,
+    provider.providerID,
+    provider.model,
+    provider.envVar,
+    provider.apiKey,
+  ]);
 
   const visibleOutput = output.slice(scrollOffset, scrollOffset + pageSize);
   const maxOffset = Math.max(0, output.length - pageSize);
@@ -195,12 +203,15 @@ export function ExampleRunner({ provider, example, onDone }: ExampleRunnerProps)
           {showScrollHint && (
             <Text dimColor>
               {" "}
-              [{scrollOffset + 1}-{Math.min(scrollOffset + pageSize, output.length)}/{output.length}
+              [{scrollOffset + 1}-
+              {Math.min(scrollOffset + pageSize, output.length)}/{output.length}
               ]
             </Text>
           )}
         </Box>
-        {!atBottom && scrollOffset > 0 && <Text dimColor>{"  ▲ more above"}</Text>}
+        {!atBottom && scrollOffset > 0 && (
+          <Text dimColor>{"  ▲ more above"}</Text>
+        )}
         {visibleOutput.map((line, i) => (
           <Text key={`${scrollOffset + i}-${line.slice(0, 20)}`}>{line}</Text>
         ))}
@@ -216,13 +227,17 @@ export function ExampleRunner({ provider, example, onDone }: ExampleRunnerProps)
         {state === "success" && (
           <Box flexDirection="column">
             <Text color="green">Done (exit code {exitCode})</Text>
-            <Text dimColor>Press r to run another, q to quit | Scroll: arrows, PgUp/PgDn, g/G</Text>
+            <Text dimColor>
+              Press r to run another, q to quit | Scroll: arrows, PgUp/PgDn, g/G
+            </Text>
           </Box>
         )}
         {state === "error" && (
           <Box flexDirection="column">
             <Text color="red">Failed (exit code {exitCode})</Text>
-            <Text dimColor>Press r to run another, q to quit | Scroll: arrows, PgUp/PgDn, g/G</Text>
+            <Text dimColor>
+              Press r to run another, q to quit | Scroll: arrows, PgUp/PgDn, g/G
+            </Text>
           </Box>
         )}
       </Box>

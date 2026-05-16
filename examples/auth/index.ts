@@ -50,7 +50,9 @@ export type { ApiCredential, Credential, OAuthCredential } from "./store";
  * Returns a plain string (API key or access token), or `undefined`
  * if no credential is available.
  */
-export async function resolveCredential(providerID: string): Promise<string | undefined> {
+export async function resolveCredential(
+  providerID: string,
+): Promise<string | undefined> {
   const credential = await store.resolve(providerID);
   if (!credential) return undefined;
 

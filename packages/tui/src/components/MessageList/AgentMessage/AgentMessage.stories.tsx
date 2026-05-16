@@ -43,9 +43,14 @@ export const WithToolCall: Story = {
     sender: "builder",
     fallbackText: "Let me read the package manifest.",
     segments: [
-      { type: "text", text: "Let me read the package manifest.", streaming: false },
+      {
+        type: "text",
+        text: "Let me read the package manifest.",
+        streaming: false,
+      },
       {
         type: "tool-call",
+        toolCallId: "call_pkg_read",
         toolName: "fs.read",
         args: '{"path":"/repo/packages/tui/package.json"}',
       },
@@ -58,18 +63,29 @@ export const WithToolResult: Story = {
     sender: "builder",
     fallbackText: "Let me read the package manifest.",
     segments: [
-      { type: "text", text: "Let me read the package manifest.", streaming: false },
+      {
+        type: "text",
+        text: "Let me read the package manifest.",
+        streaming: false,
+      },
       {
         type: "tool-call",
+        toolCallId: "call_pkg_read",
         toolName: "fs.read",
         args: '{"path":"/repo/packages/tui/package.json"}',
       },
       {
         type: "tool-result",
+        toolCallId: "call_pkg_read",
         toolName: "fs.read",
         output: '{\n  "name": "@comma-agents/tui",\n  "version": "0.4.2"\n}',
+        status: "completed",
       },
-      { type: "text", text: "Got it — TUI package at v0.4.2.", streaming: false },
+      {
+        type: "text",
+        text: "Got it — TUI package at v0.4.2.",
+        streaming: false,
+      },
     ],
   },
 };
@@ -102,6 +118,7 @@ export const Streaming: Story = {
     segments: [
       {
         type: "tool-call",
+        toolCallId: "call_apply_patch",
         toolName: "fs.write",
         args: '{"path":"/repo/packages/tui/src/components/MessageList/AgentMessage/AgentMessage.tsx"}',
       },
@@ -121,6 +138,68 @@ export const McpCall: Story = {
         toolName: "search_repositories",
         args: '{"query":"ink react terminal","per_page":3}',
         output: "Found 3 results: ink, ink-table, ink-select-input.",
+      },
+    ],
+  },
+};
+
+/**
+ * Showcases the Markdown renderer wired into `text` segments: heading,
+ * inline strong/em/code, list, blockquote, fenced code, and a link.
+ */
+export const MarkdownContent: Story = {
+  args: {
+    sender: "writer",
+    fallbackText: "Markdown sample",
+    segments: [
+      {
+        type: "text",
+        text: [
+          "## Plan",
+          "",
+          "We will **refactor** the *renderer* and add `MarkdownView`.",
+          "",
+          "Steps:",
+          "- parse with `marked`",
+          "- render via Ink",
+          "- keep estimator in sync",
+          "",
+          "> Long quotes are prefixed with a vertical bar.",
+          "",
+          "```ts",
+          "const x: number = 1;",
+          "```",
+          "",
+          "See [the docs](https://example.com) for details.",
+        ].join("\n"),
+        streaming: false,
+      },
+    ],
+  },
+};
+
+/**
+ * Demonstrates that `thinking` segments truncate to the last 5 rendered
+ * lines with a leading ellipsis.
+ */
+export const ThinkingTruncated: Story = {
+  args: {
+    sender: "planner",
+    fallbackText: "Long deliberation",
+    segments: [
+      {
+        type: "thinking",
+        id: "reasoning_long",
+        text: [
+          "step 1: read the spec",
+          "step 2: enumerate cases",
+          "step 3: sketch the AST",
+          "step 4: implement renderer",
+          "step 5: write the estimator",
+          "step 6: add tests",
+          "step 7: ship",
+        ].join("\n"),
+        streaming: false,
       },
     ],
   },

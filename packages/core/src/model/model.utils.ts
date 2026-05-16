@@ -1,14 +1,21 @@
-import type { AuthStatus, CredentialStore } from "../credentials/credentials.types";
+import type {
+  AuthStatus,
+  CredentialStore,
+} from "../credentials/credentials.types";
 import { ModelResolutionError } from "../errors/index";
+import type { ParsedModel, ProviderInfo } from "./model.types";
+import type { ModelCapabilities, ModelInfo } from "./providers/providers.types";
 import {
+  getCatalogProviderSync,
   getProviderDefinition,
   getProviderPackageNameSync,
+  getProvidersForModel,
   isKnownProviderSync,
   listAllProviderModels,
   listProviderModels,
   resolveCredentialForProvider,
+  toModelInfo,
 } from "./providers/index";
-import type { ParsedModel, ProviderInfo } from "./model.types";
 
 /**
  * Parse a model string in the format `providerID/modelID`.
@@ -106,7 +113,9 @@ export function getProviderPackage(providerId: string): string | undefined {
 export function extractProviderIds(raw: Record<string, unknown>): Set<string> {
   const providerIds = new Set<string>();
 
-  const agents = raw.agents as Record<string, Record<string, unknown>> | undefined;
+  const agents = raw.agents as
+    | Record<string, Record<string, unknown>>
+    | undefined;
   if (!agents) return providerIds;
 
   for (const agentDefinition of Object.values(agents)) {
@@ -144,10 +153,17 @@ export async function getProviderInfo(
   credentialStore: CredentialStore,
   options?: { readonly scope?: string; readonly live?: boolean },
 ): Promise<ProviderInfo> {
-  const authStatus: AuthStatus = await credentialStore.getAuthStatus(providerId, options?.scope);
+  const authStatus: AuthStatus = await credentialStore.getAuthStatus(
+    providerId,
+    options?.scope,
+  );
   const credential =
     authStatus === "configured"
-      ? await resolveCredentialForProvider(credentialStore, providerId, options?.scope)
+      ? await resolveCredentialForProvider(
+          credentialStore,
+          providerId,
+          options?.scope,
+        )
       : undefined;
 
   const definition = await getProviderDefinition(providerId);
@@ -217,6 +233,104 @@ export async function listProviders(
 }
 
 /**
+ * Look up normalized metadata for a bare model ID from the catalog.
+ *
+ * Scans the reverse model index for the first provider that lists the
+ * model, then returns the full `ModelInfo` (including capabilities,
+ * modalities, cost, context window, etc.). Returns `undefined` if the
+ * model is not found in any provider catalog.
+ *
+ * @example
+ * ```ts
+ * const info = getModelMetadata("gpt-4o");
+ * console.log(info?.capabilities?.reasoning); // true
+ * console.log(info?.contextWindow);           // 128000
+ * ```
+ */
+export function getModelMetadata(modelId: string): ModelInfo | undefined {
+  const providerIds = getProvidersForModel(modelId);
+  for (const providerId of providerIds) {
+    const provider = getCatalogProviderSync(providerId);
+    if (!provider?.models[modelId]) continue;
+    return toModelInfo(provider.models[modelId]);
+  }
+  return undefined;
+}
+
+/**
+ * Look up capability flags for a bare model ID.
+ *
+ * Returns the model's `ModelCapabilities` (tools, reasoning, vision,
+ * attachment, structuredOutput) from the catalog. Returns `undefined` if
+ * the model is not found in any provider catalog.
+ *
+ * This is a convenience wrapper around `getModelMetadata()` for the common
+ * case of checking what features a model supports at runtime.
+ *
+ * @example
+ * ```ts
+ * const caps = getModelCapabilities("gpt-4o");
+ * if (caps?.reasoning) {
+ *   // use reasoning-related options
+ * }
+ * ```
+ */
+export function getModelCapabilities(
+  modelId: string,
+): ModelCapabilities | undefined {
+  return getModelMetadata(modelId)?.capabilities;
+}
+
+/**
+ * Look up normalized metadata for a bare model ID from the catalog.
+ *
+ * Scans the reverse model index for the first provider that lists the
+ * model, then returns the full `ModelInfo` (including capabilities,
+ * modalities, cost, context window, etc.). Returns `undefined` if the
+ * model is not found in any provider catalog.
+ *
+ * @example
+ * ```ts
+ * const info = getModelMetadata("gpt-4o");
+ * console.log(info?.capabilities?.reasoning); // true
+ * console.log(info?.contextWindow);           // 128000
+ * ```
+ */
+export function getModelMetadata(modelId: string): ModelInfo | undefined {
+  const providerIds = getProvidersForModel(modelId);
+  for (const providerId of providerIds) {
+    const provider = getCatalogProviderSync(providerId);
+    if (!provider?.models[modelId]) continue;
+    return toModelInfo(provider.models[modelId]);
+  }
+  return undefined;
+}
+
+/**
+ * Look up capability flags for a bare model ID.
+ *
+ * Returns the model's `ModelCapabilities` (tools, reasoning, vision,
+ * attachment, structuredOutput) from the catalog. Returns `undefined` if
+ * the model is not found in any provider catalog.
+ *
+ * This is a convenience wrapper around `getModelMetadata()` for the common
+ * case of checking what features a model supports at runtime.
+ *
+ * @example
+ * ```ts
+ * const caps = getModelCapabilities("gpt-4o");
+ * if (caps?.reasoning) {
+ *   // use reasoning-related options
+ * }
+ * ```
+ */
+export function getModelCapabilities(
+  modelId: string,
+): ModelCapabilities | undefined {
+  return getModelMetadata(modelId)?.capabilities;
+}
+
+/**
  * Convert a provider ID to a human-friendly display name.
  *
  * Hyphen-separated tokens are capitalized (e.g., `github-copilot` ->
@@ -226,6 +340,8 @@ export async function listProviders(
 export function formatProviderName(providerId: string): string {
   return providerId
     .split("-")
-    .map((token) => (token.length === 0 ? token : token[0]!.toUpperCase() + token.slice(1)))
+    .map((token) =>
+      token.length === 0 ? token : token[0]!.toUpperCase() + token.slice(1),
+    )
     .join(" ");
 }

@@ -1,4 +1,4 @@
-import { EnvVarMap } from "./credentials.types";
+import type { EnvVarMap } from "./credentials.types";
 
 /**
  * Well-known environment variable names for common AI providers.

@@ -1,32 +1,25 @@
-import React from "react";
-import { render } from "ink-testing-library";
 import { describe, expect, it } from "bun:test";
-
-import { StatusBar } from "./StatusBar";
+import { render } from "ink-testing-library";
+import React from "react";
 import type { ChatStatus } from "../../hooks/useChat/useChat.types";
+import { StatusBar } from "./StatusBar";
 
 describe("StatusBar", () => {
   describe("status labels", () => {
     it("should display Ready label for idle status", () => {
-      const { lastFrame } = render(
-        <StatusBar status="idle" error={null} />,
-      );
+      const { lastFrame } = render(<StatusBar status="idle" error={null} />);
 
       expect(lastFrame()).toContain("[Ready]");
     });
 
     it("should display Starting label for pending status", () => {
-      const { lastFrame } = render(
-        <StatusBar status="pending" error={null} />,
-      );
+      const { lastFrame } = render(<StatusBar status="pending" error={null} />);
 
       expect(lastFrame()).toContain("[Starting...]");
     });
 
     it("should display Running label for running status", () => {
-      const { lastFrame } = render(
-        <StatusBar status="running" error={null} />,
-      );
+      const { lastFrame } = render(<StatusBar status="running" error={null} />);
 
       expect(lastFrame()).toContain("[Running]");
     });
@@ -56,9 +49,7 @@ describe("StatusBar", () => {
     });
 
     it("should display Error label for error status", () => {
-      const { lastFrame } = render(
-        <StatusBar status="error" error={null} />,
-      );
+      const { lastFrame } = render(<StatusBar status="error" error={null} />);
 
       expect(lastFrame()).toContain("[Error]");
     });
@@ -74,9 +65,7 @@ describe("StatusBar", () => {
       "cancelled",
       "error",
     ])("should match snapshot for %s status", (status) => {
-      const { lastFrame } = render(
-        <StatusBar status={status} error={null} />,
-      );
+      const { lastFrame } = render(<StatusBar status={status} error={null} />);
 
       expect(lastFrame()).toMatchSnapshot();
     });
@@ -93,9 +82,7 @@ describe("StatusBar", () => {
     });
 
     it("should not render strategy name when omitted", () => {
-      const { lastFrame } = render(
-        <StatusBar status="idle" error={null} />,
-      );
+      const { lastFrame } = render(<StatusBar status="idle" error={null} />);
 
       expect(lastFrame()).not.toContain("ReAct");
     });

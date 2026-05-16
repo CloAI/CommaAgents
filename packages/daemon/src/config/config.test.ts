@@ -5,7 +5,11 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { DaemonConfigFileSchema, loadDaemonConfig, resolveDataDir } from "./config";
+import {
+  DaemonConfigFileSchema,
+  loadDaemonConfig,
+  resolveDataDir,
+} from "./config";
 
 // Helpers
 
@@ -71,25 +75,35 @@ describe("DaemonConfigFileSchema", () => {
 
   test("rejects port out of range", () => {
     expect(DaemonConfigFileSchema.safeParse({ port: 0 }).success).toBe(false);
-    expect(DaemonConfigFileSchema.safeParse({ port: 70000 }).success).toBe(false);
+    expect(DaemonConfigFileSchema.safeParse({ port: 70000 }).success).toBe(
+      false,
+    );
     expect(DaemonConfigFileSchema.safeParse({ port: -1 }).success).toBe(false);
   });
 
   test("rejects non-integer port", () => {
-    expect(DaemonConfigFileSchema.safeParse({ port: 3.14 }).success).toBe(false);
+    expect(DaemonConfigFileSchema.safeParse({ port: 3.14 }).success).toBe(
+      false,
+    );
   });
 
   test("rejects invalid logLevel", () => {
-    expect(DaemonConfigFileSchema.safeParse({ logLevel: "verbose" }).success).toBe(false);
+    expect(
+      DaemonConfigFileSchema.safeParse({ logLevel: "verbose" }).success,
+    ).toBe(false);
   });
 
   test("rejects unknown fields (strict mode)", () => {
-    expect(DaemonConfigFileSchema.safeParse({ unknown: true }).success).toBe(false);
+    expect(DaemonConfigFileSchema.safeParse({ unknown: true }).success).toBe(
+      false,
+    );
   });
 
   test("accepts all valid log levels", () => {
     for (const level of ["debug", "info", "warn", "error"]) {
-      expect(DaemonConfigFileSchema.parse({ logLevel: level }).logLevel).toBe(level);
+      expect(DaemonConfigFileSchema.parse({ logLevel: level }).logLevel).toBe(
+        level,
+      );
     }
   });
 });
@@ -176,19 +190,25 @@ describe("loadDaemonConfig JSON file overrides", () => {
   });
 
   test("overrides logFile from config file", () => {
-    const configFile = writeJsonConfig(tempDir, { logFile: "/var/log/comma.log" });
+    const configFile = writeJsonConfig(tempDir, {
+      logFile: "/var/log/comma.log",
+    });
     const config = loadDaemonConfig({ configFile, env: cleanEnv() });
     expect(config.logFile).toBe("/var/log/comma.log");
   });
 
   test("overrides providerCacheDir from config file", () => {
-    const configFile = writeJsonConfig(tempDir, { providerCacheDir: "/custom/providers" });
+    const configFile = writeJsonConfig(tempDir, {
+      providerCacheDir: "/custom/providers",
+    });
     const config = loadDaemonConfig({ configFile, env: cleanEnv() });
     expect(config.providerCacheDir).toBe("/custom/providers");
   });
 
   test("overrides pidFile from config file", () => {
-    const configFile = writeJsonConfig(tempDir, { pidFile: "/custom/daemon.pid" });
+    const configFile = writeJsonConfig(tempDir, {
+      pidFile: "/custom/daemon.pid",
+    });
     const config = loadDaemonConfig({ configFile, env: cleanEnv() });
     expect(config.pidFile).toBe("/custom/daemon.pid");
   });
@@ -204,7 +224,9 @@ describe("loadDaemonConfig JSON file overrides", () => {
   test("throws on invalid JSON in config file", () => {
     const filePath = join(tempDir, "daemon.json");
     writeFileSync(filePath, "not json {{{");
-    expect(() => loadDaemonConfig({ configFile: filePath, env: cleanEnv() })).toThrow();
+    expect(() =>
+      loadDaemonConfig({ configFile: filePath, env: cleanEnv() }),
+    ).toThrow();
   });
 
   test("throws on schema-invalid config file", () => {

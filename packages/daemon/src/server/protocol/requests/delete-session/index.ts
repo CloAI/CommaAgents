@@ -16,6 +16,8 @@ export async function handleDeleteSession(
     sessionId: message.sessionId,
     deleted,
     ts: new Date().toISOString(),
-    ...(message.requestId !== undefined ? { requestId: message.requestId } : {}),
+    ...(message.requestId !== undefined
+      ? { requestId: message.requestId }
+      : {}),
   });
 }

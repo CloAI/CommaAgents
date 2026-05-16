@@ -1,6 +1,12 @@
 // Process utilities — PID file management and process liveness checks.
 
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname } from "node:path";
 
 /**

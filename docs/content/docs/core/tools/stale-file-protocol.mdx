@@ -1,0 +1,46 @@
+---
+title: Stale-file protocol
+description: How read_file's sha256 flows into write_file, edit_file, and apply_patch to detect concurrent modifications.
+---
+
+# Stale-file protocol
+
+The write tools (`write_file`, `edit_file`, and `apply_patch`) refuse to modify a file unless the caller can prove they have seen its current state. The proof is the sha256 of the on-disk bytes — returned in `data.sha256` by `read_file` and echoed back in `expectedSha256` (or `expectedSha256ByPath` for `apply_patch`). When the proof doesn't match, the tool returns `stale_file` and the agent must re-read before retrying.
+
+## The lifecycle
+
+1. **Read** — Call `read_file`. Save `data.sha256`.
+2. **Write or edit** — Pass that sha256 as `expectedSha256`. If the file has changed since the read, the call fails with `stale_file` and the suggested action: *"Re-read the file to obtain the current sha256 and re-apply your edit."*
+3. **Re-read on stale** — Call `read_file` again, recompute the change, and retry.
+
+```ts
+const read = await tool.read_file({ path: "src/server.ts" });
+
+const result = await tool.edit_file({
+  path: "src/server.ts",
+  expectedSha256: read.data.sha256,
+  edits: [{ oldText: "PORT = 3000", newText: "PORT = 4000" }],
+});
+
+if (!result.ok && result.error.kind === "stale_file") {
+  // Re-read and retry.
+}
+```
+
+## What sha256 covers
+
+`read_file` always computes the sha256 over the **full** on-disk bytes, even when the response was sliced by `startLine` / `endLine` / `maxBytes`. The agent can therefore reuse the hash from a sliced read as `expectedSha256` for a follow-up write.
+
+## Why not last-modified time?
+
+mtime is cheap but unreliable: editors that touch a file in place may not change its mtime, and clock skew across systems makes comparisons brittle. sha256 is content-addressed, so it stays correct regardless of how the file got that way.
+
+## Apply-patch and the sentinel value
+
+`apply_patch` accepts an `expectedSha256ByPath: Record<path, sha256>` map. For `Add File` operations, supply the sentinel `""` (empty string) to assert that the destination must not exist — any other value is treated as a stale-file mismatch. Paths not present in the map skip the stale check entirely, which is useful when locally constructing a patch over read-only neighbors.
+
+## Related
+
+- [read_file](/docs/core/tools/built-in/read_file) — the source of every sha256.
+- [write_file](/docs/core/tools/built-in/write_file) · [edit_file](/docs/core/tools/built-in/edit_file) · [apply_patch](/docs/core/tools/built-in/apply_patch) — consumers of `expectedSha256`.
+- [Error kinds](/docs/core/tools/error-kinds) — including `stale_file`.

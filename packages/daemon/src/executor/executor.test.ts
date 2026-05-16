@@ -6,14 +6,18 @@
 // pipeline. Model and credential resolution happen via global registries.
 
 import { afterEach, describe, expect, it } from "bun:test";
-import { extractProviderIds, resetGlobalDefaults, resetModelRegistry } from "@comma-agents/core";
+import {
+  extractProviderIds,
+  resetGlobalDefaults,
+  resetModelRegistry,
+} from "@comma-agents/core";
 import { createDaemonState } from "../state/state";
 import {
   MINIMAL_STRATEGY,
   MULTI_AGENT_STRATEGY,
   mockLogger,
-  mockSink,
   mockSessionStore,
+  mockSink,
   setupMockModels,
   USER_AGENT_STRATEGY,
   waitForBroadcasts,
@@ -102,7 +106,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -135,7 +139,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -161,7 +165,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -172,7 +176,9 @@ describe("createStrategyExecutor", () => {
     // Wait for strategy_started broadcast
     await waitForBroadcasts(sink, 1);
 
-    const flowStarted = sink.broadcasts.find((b) => b.message.type === "strategy_started");
+    const flowStarted = sink.broadcasts.find(
+      (b) => b.message.type === "strategy_started",
+    );
     expect(flowStarted).toBeDefined();
     if (flowStarted && flowStarted.message.type === "strategy_started") {
       expect(flowStarted.message.strategyName).toBe("Test");
@@ -191,7 +197,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -218,7 +224,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -229,7 +235,9 @@ describe("createStrategyExecutor", () => {
     // Wait for strategy_completed
     await waitForBroadcasts(sink, 4, 10000);
 
-    const flowCompleted = sink.broadcasts.find((b) => b.message.type === "strategy_completed");
+    const flowCompleted = sink.broadcasts.find(
+      (b) => b.message.type === "strategy_completed",
+    );
     expect(flowCompleted).toBeDefined();
     if (flowCompleted && flowCompleted.message.type === "strategy_completed") {
       expect(flowCompleted.message.runId).toBe(runId);
@@ -254,7 +262,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy("{ invalid json content");
@@ -265,7 +273,9 @@ describe("createStrategyExecutor", () => {
     // Wait for strategy_error broadcast
     await waitForBroadcasts(sink, 1, 5000);
 
-    const flowError = sink.broadcasts.find((b) => b.message.type === "strategy_error");
+    const flowError = sink.broadcasts.find(
+      (b) => b.message.type === "strategy_error",
+    );
     expect(flowError).toBeDefined();
     if (flowError && flowError.message.type === "strategy_error") {
       expect(flowError.message.runId).toBe(runId);
@@ -287,14 +297,20 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
-    const runId = executor.startRun("client-1", "/nonexistent/path/strategy.json", "hello");
+    const runId = executor.startRun(
+      "client-1",
+      "/nonexistent/path/strategy.json",
+      "hello",
+    );
 
     await waitForBroadcasts(sink, 1, 5000);
 
-    const flowError = sink.broadcasts.find((b) => b.message.type === "strategy_error");
+    const flowError = sink.broadcasts.find(
+      (b) => b.message.type === "strategy_error",
+    );
     expect(flowError).toBeDefined();
     if (flowError && flowError.message.type === "strategy_error") {
       expect(flowError.message.runId).toBe(runId);
@@ -313,7 +329,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -331,7 +347,9 @@ describe("createStrategyExecutor", () => {
 
     // Should have broadcast a strategy_error with CANCELLED
     const cancelledMsg = sink.broadcasts.find(
-      (b) => b.message.type === "strategy_error" && b.message.error.code === "CANCELLED",
+      (b) =>
+        b.message.type === "strategy_error" &&
+        b.message.error.code === "CANCELLED",
     );
     expect(cancelledMsg).toBeDefined();
   });
@@ -347,7 +365,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy(USER_AGENT_STRATEGY);
@@ -360,7 +378,9 @@ describe("createStrategyExecutor", () => {
     // Wait for request_input broadcast
     await waitForBroadcasts(sink, 2, 10000);
 
-    const requestInput = sink.broadcasts.find((b) => b.message.type === "request_input");
+    const requestInput = sink.broadcasts.find(
+      (b) => b.message.type === "request_input",
+    );
     expect(requestInput).toBeDefined();
 
     if (requestInput && requestInput.message.type === "request_input") {
@@ -376,7 +396,9 @@ describe("createStrategyExecutor", () => {
     // Wait for strategy_completed
     await waitForBroadcasts(sink, 6, 10000);
 
-    const flowCompleted = sink.broadcasts.find((b) => b.message.type === "strategy_completed");
+    const flowCompleted = sink.broadcasts.find(
+      (b) => b.message.type === "strategy_completed",
+    );
     expect(flowCompleted).toBeDefined();
   });
 
@@ -388,10 +410,12 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
-    expect(executor.handleUserInput("nonexistent", "agent", "text")).toBe(false);
+    expect(executor.handleUserInput("nonexistent", "agent", "text")).toBe(
+      false,
+    );
   });
 
   it("broadcasts strategy_error when no model is registered for a provider", async () => {
@@ -405,7 +429,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -416,7 +440,9 @@ describe("createStrategyExecutor", () => {
     // Wait for strategy_error broadcast (model resolution fails)
     await waitForBroadcasts(sink, 1, 5000);
 
-    const flowError = sink.broadcasts.find((b) => b.message.type === "strategy_error");
+    const flowError = sink.broadcasts.find(
+      (b) => b.message.type === "strategy_error",
+    );
     expect(flowError).toBeDefined();
     if (flowError && flowError.message.type === "strategy_error") {
       expect(flowError.message.runId).toBe(runId);
@@ -439,7 +465,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy(MULTI_AGENT_STRATEGY);
@@ -455,8 +481,12 @@ describe("createStrategyExecutor", () => {
     // Should have strategy_started
     expect(types).toContain("strategy_started");
     // Should have step events for both agents
-    expect(types.filter((t) => t === "step_started").length).toBeGreaterThanOrEqual(2);
-    expect(types.filter((t) => t === "step_completed").length).toBeGreaterThanOrEqual(2);
+    expect(
+      types.filter((t) => t === "step_started").length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      types.filter((t) => t === "step_completed").length,
+    ).toBeGreaterThanOrEqual(2);
     // Should have strategy_completed
     expect(types).toContain("strategy_completed");
   });
@@ -472,7 +502,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-    sessionStore: mockSessionStore(),
+      sessionStore: mockSessionStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -482,8 +512,12 @@ describe("createStrategyExecutor", () => {
 
     await waitForBroadcasts(sink, 4, 10000);
 
-    const flowStarted = sink.broadcasts.find((b) => b.message.type === "strategy_started");
-    const flowCompleted = sink.broadcasts.find((b) => b.message.type === "strategy_completed");
+    const flowStarted = sink.broadcasts.find(
+      (b) => b.message.type === "strategy_started",
+    );
+    const flowCompleted = sink.broadcasts.find(
+      (b) => b.message.type === "strategy_completed",
+    );
 
     expect(flowStarted?.message.requestId).toBe("req-123");
     expect(flowCompleted?.message.requestId).toBe("req-123");

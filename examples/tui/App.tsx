@@ -15,8 +15,17 @@ import { resolveCredential } from "../auth";
 import { BatchRunner } from "./components/BatchRunner";
 import { ExampleRunner } from "./components/ExampleRunner";
 import { type ExampleEntry, ExampleSelect } from "./components/ExampleSelect";
-import { ProviderSelect, type ProviderSelection } from "./components/ProviderSelect";
-import { ALL_EXAMPLES, CORE_EXAMPLES, DAEMON_EXAMPLES, E2E_EXAMPLES, findProvider } from "./examples";
+import {
+  ProviderSelect,
+  type ProviderSelection,
+} from "./components/ProviderSelect";
+import {
+  ALL_EXAMPLES,
+  CORE_EXAMPLES,
+  DAEMON_EXAMPLES,
+  E2E_EXAMPLES,
+  findProvider,
+} from "./examples";
 
 // ---------------------------------------------------------------------------
 // CLI args (passed from main.tsx when --all is used)
@@ -105,11 +114,23 @@ function InteractiveMode() {
   }
 
   if (screen === "running" && provider && example) {
-    return <ExampleRunner provider={provider} example={example} onDone={handleRunDone} />;
+    return (
+      <ExampleRunner
+        provider={provider}
+        example={example}
+        onDone={handleRunDone}
+      />
+    );
   }
 
   if (screen === "running_all" && provider) {
-    return <BatchRunner provider={provider} examples={ALL_EXAMPLES} onDone={handleBatchDone} />;
+    return (
+      <BatchRunner
+        provider={provider}
+        examples={ALL_EXAMPLES}
+        onDone={handleBatchDone}
+      />
+    );
   }
 
   return null;

@@ -23,7 +23,8 @@ export function resolveDataDir(): string {
   const platform = process.platform;
 
   if (platform === "win32") {
-    const base = process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local");
+    const base =
+      process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local");
     return join(base, "comma-agents");
   }
 

@@ -3,12 +3,11 @@ import type React from "react";
 
 import { ScrollableView } from "../ScrollableView";
 
-import type { ScrollableListProps } from "./ScrollableList.types";
+import type {
+  ScrollableListProps,
+  ScrollableListRenderProps,
+} from "./ScrollableList.types";
 
-/** Raw-mode availability — required for `useInput` and `useFocus`. */
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
-/** Clamp `index` into `[0, length-1]`; returns 0 when length \<= 0. */
 function clampIndex(index: number, length: number): number {
   if (length <= 0) return 0;
   if (index < 0) return 0;
@@ -63,10 +62,9 @@ export function ScrollableList<ItemType>(
   const totalCount = items.length;
   const clampedSelected = clampIndex(selectedIndex, totalCount);
 
-  // Skip our own focus zone when the parent supplies one via `isFocused`.
   const ownFocus = useFocus({
     id,
-    isActive: RAW_MODE_SUPPORTED && externalFocused === undefined,
+    isActive: externalFocused === undefined,
   });
   const isFocused = externalFocused ?? ownFocus.isFocused;
 
@@ -91,6 +89,24 @@ export function ScrollableList<ItemType>(
     { isActive: isFocused },
   );
 
+  return (
+    <ScrollableListRender<ItemType>
+      items={items}
+      getKey={getKey}
+      renderItem={renderItem}
+      clampedSelected={clampedSelected}
+      emptyText={emptyText}
+    />
+  );
+}
+
+export function ScrollableListRender<ItemType>({
+  items,
+  getKey,
+  renderItem,
+  clampedSelected,
+  emptyText,
+}: ScrollableListRenderProps<ItemType>): React.ReactElement {
   return (
     <ScrollableView<ItemType>
       items={items}

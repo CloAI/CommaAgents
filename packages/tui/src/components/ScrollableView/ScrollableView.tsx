@@ -16,26 +16,62 @@ import { useMouseWheelScroll } from "../../hooks/useMouseWheelScroll";
 import { Scrollbar } from "../Scrollbar";
 
 import { useScrollableViewTheme } from "./ScrollableView.theme";
-import type { ScrollableViewProps } from "./ScrollableView.types";
+import type {
+  ScrollableViewProps,
+  ScrollableViewRenderProps,
+} from "./ScrollableView.types";
 
 const _DEBUG_FILE = join(tmpdir(), "comma-agents-chat-debug.log");
 function _debugLog(tag: string, payload: unknown): void {
   try {
-    appendFileSync(_DEBUG_FILE, `[${new Date().toISOString()}] ${tag} ${JSON.stringify(payload)}\n`);
-  } catch { /* ignore */ }
+    appendFileSync(
+      _DEBUG_FILE,
+      `[${new Date().toISOString()}] ${tag} ${JSON.stringify(payload)}\n`,
+    );
+  } catch {
+    /* ignore */
+  }
 }
 
-/** Mouse-wheel step in rows per tick. */
 const WHEEL_ROWS_PER_TICK = 3;
+
+interface MeasuredRowProps<ItemType> {
+  readonly item: ItemType;
+  readonly index: number;
+  readonly renderItem: (item: ItemType, index: number) => React.ReactNode;
+  readonly onMeasured: (index: number, height: number) => void;
+}
+
+function MeasuredRow<ItemType>({
+  item,
+  index,
+  renderItem,
+  onMeasured,
+}: MeasuredRowProps<ItemType>): React.ReactElement {
+  const ref = useRef<DOMElement>(null);
+  const { height, hasMeasured } = useBoxMetrics(ref as RefObject<DOMElement>);
+
+  useEffect(() => {
+    if (hasMeasured) {
+      onMeasured(index, height);
+    }
+  }, [hasMeasured, height, index, onMeasured]);
+
+  return (
+    <Box ref={ref} flexShrink={0} width="100%" flexDirection="column">
+      {renderItem(item, index)}
+    </Box>
+  );
+}
 
 /**
  * Variable-height scrollable container.
  *
  * Lays out a list of items inside a measured viewport and clips with
- * `overflow: hidden`. Row heights are supplied by the caller via the
- * optional `getRowHeight` prop (defaults to `1` per item — correct for
- * single-line lists). The view itself measures only the viewport, so it
- * has exactly one layout subscriber and never causes measurement loops.
+ * `overflow: hidden`. Each row is measured via Ink's `useBoxMetrics`
+ * after layout so scroll geometry uses real rendered heights rather than
+ * relying solely on the caller's `getRowHeight` estimate. The estimate
+ * serves as a fallback before the first measurement arrives.
  *
  * The view does **not** handle keyboard input. Use {@link ScrollableList}
  * for keyboard-driven single-selection lists.
@@ -67,24 +103,31 @@ export function ScrollableView<ItemType>(
   } = props;
 
   const theme = useScrollableViewTheme();
+
+  const measuredHeightsRef = useRef(new Map<number, number>());
+  const [measurementVersion, setMeasurementVersion] = useState(0);
+
+  const onRowMeasured = useCallback((index: number, height: number) => {
+    const currentHeight = measuredHeightsRef.current.get(index);
+    if (currentHeight === height) return;
+    measuredHeightsRef.current.set(index, height);
+    setMeasurementVersion((v) => v + 1);
+  }, []);
+
   const totalCount = items.length;
 
-  // Single layout subscriber — the viewport itself.
   const viewportRef = useRef<DOMElement | null>(null);
   const { height: viewportHeight, width: viewportWidth } = useBoxMetrics(
     viewportRef as RefObject<DOMElement>,
   );
 
-  /** Resolves a row's height. Defaults to 1 row per item. */
   const rowHeight = useCallback(
     (index: number): number => {
+      const measured = measuredHeightsRef.current.get(index);
+      if (measured !== undefined) return measured;
+
       const item = items[index];
       if (item === undefined) return 0;
-      // Pass `viewportWidth` so callers that rely on soft-wrap aware
-      // measurement (e.g. `MessageList`) get accurate row counts. When
-      // the viewport hasn't been measured yet, `viewportWidth` is 0;
-      // callers must handle that gracefully (typically by falling back
-      // to a hard-newline count).
       return getRowHeight
         ? Math.max(0, getRowHeight(item, index, viewportWidth))
         : 1;
@@ -92,7 +135,6 @@ export function ScrollableView<ItemType>(
     [items, getRowHeight, viewportWidth],
   );
 
-  // Total content extent in rows.
   const totalRows = useMemo(() => {
     let sum = 0;
     for (let index = 0; index < totalCount; index += 1) {
@@ -112,9 +154,14 @@ export function ScrollableView<ItemType>(
       });
     }
     return sum;
-  }, [totalCount, rowHeight, stickToBottom, viewportHeight]);
+  }, [
+    totalCount,
+    rowHeight,
+    stickToBottom,
+    viewportHeight,
+    measurementVersion,
+  ]);
 
-  /** Top edge (in rows) of the row at `index`. */
   const rowTop = useCallback(
     (index: number): number => {
       let top = 0;
@@ -128,15 +175,10 @@ export function ScrollableView<ItemType>(
 
   const maxOffset = Math.max(0, totalRows - viewportHeight);
 
-  // Scroll offset in *rows*. Single source of truth.
   const [rowOffset, setRowOffset] = useState(0);
 
-  // Tracks whether the user is currently pinned to the bottom.
   const isPinnedRef = useRef(true);
 
-  // Pin-to-bottom — establishes the initial pin and re-pins on commits
-  // while the user is at the bottom. Wheel handler clears the flag when
-  // the user scrolls away.
   useEffect(() => {
     if (!stickToBottom) return;
     if (totalCount === 0 || viewportHeight <= 0) return;
@@ -147,7 +189,6 @@ export function ScrollableView<ItemType>(
     });
   }, [stickToBottom, maxOffset, totalCount, viewportHeight]);
 
-  // scrollToRow — keep the requested row visible.
   useEffect(() => {
     if (scrollToRow === undefined) return;
     if (totalCount === 0 || viewportHeight <= 0) return;
@@ -166,7 +207,6 @@ export function ScrollableView<ItemType>(
     });
   }, [scrollToRow, totalCount, viewportHeight, maxOffset, rowTop, rowHeight]);
 
-  // Clamp offset when content shrinks.
   useEffect(() => {
     setRowOffset((current) => {
       const next = Math.min(current, maxOffset);
@@ -174,7 +214,6 @@ export function ScrollableView<ItemType>(
     });
   }, [maxOffset]);
 
-  // Notify the parent on any change to scroll state.
   useEffect(() => {
     if (onScrollChange === undefined) return;
     onScrollChange({
@@ -185,16 +224,13 @@ export function ScrollableView<ItemType>(
     });
   }, [onScrollChange, rowOffset, totalRows, viewportHeight, maxOffset]);
 
-  // Mouse wheel — scoped to the viewport box; fires regardless of focus.
   useMouseWheelScroll({
     ref: viewportRef,
     onScroll: (event) => {
       if (totalCount === 0) return;
       setRowOffset((current) => {
         const delta =
-          event.direction === "up"
-            ? -WHEEL_ROWS_PER_TICK
-            : WHEEL_ROWS_PER_TICK;
+          event.direction === "up" ? -WHEEL_ROWS_PER_TICK : WHEEL_ROWS_PER_TICK;
         const next = Math.max(0, Math.min(current + delta, maxOffset));
         isPinnedRef.current = next >= maxOffset;
         return next;
@@ -202,6 +238,40 @@ export function ScrollableView<ItemType>(
     },
   });
 
+  const showScrollbar = viewportHeight > 0 && totalRows > viewportHeight;
+
+  return (
+    <ScrollableViewRender<ItemType>
+      items={items}
+      getKey={getKey}
+      renderItem={renderItem}
+      totalCount={totalCount}
+      viewportHeight={viewportHeight}
+      totalRows={totalRows}
+      rowOffset={rowOffset}
+      showScrollbar={showScrollbar}
+      emptyText={emptyText}
+      theme={theme}
+      viewportRef={viewportRef}
+      onRowMeasured={onRowMeasured}
+    />
+  );
+}
+
+export function ScrollableViewRender<ItemType>({
+  items,
+  getKey,
+  renderItem,
+  totalCount,
+  viewportHeight,
+  totalRows,
+  rowOffset,
+  showScrollbar,
+  emptyText,
+  theme,
+  viewportRef,
+  onRowMeasured,
+}: ScrollableViewRenderProps<ItemType>): React.ReactElement {
   if (totalCount === 0) {
     return (
       <Box {...theme.empty}>
@@ -209,8 +279,6 @@ export function ScrollableView<ItemType>(
       </Box>
     );
   }
-
-  const showScrollbar = viewportHeight > 0 && totalRows > viewportHeight;
 
   return (
     <Box {...theme.outer}>
@@ -222,14 +290,13 @@ export function ScrollableView<ItemType>(
           marginTop={-rowOffset}
         >
           {items.map((item, index) => (
-            <Box
+            <MeasuredRow
               key={getKey(item, index)}
-              flexShrink={0}
-              width="100%"
-              flexDirection="column"
-            >
-              {renderItem(item, index)}
-            </Box>
+              item={item}
+              index={index}
+              renderItem={renderItem}
+              onMeasured={onRowMeasured}
+            />
           ))}
         </Box>
       </Box>

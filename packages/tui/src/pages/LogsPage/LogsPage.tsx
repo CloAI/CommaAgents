@@ -1,8 +1,7 @@
 import { Box, Text } from "ink";
 import type React from "react";
-
-import type { LogEntry } from "../../hooks/useLogs";
 import { useDebugRender } from "../../hooks/useDebugRender";
+import type { LogEntry } from "../../hooks/useLogs";
 import type { LogsPageTheme } from "./LogsPage.theme";
 import { useLogsPageTheme } from "./LogsPage.theme";
 import { formatLevel, formatTimestamp } from "./LogsPage.utils";
@@ -16,11 +15,24 @@ export interface LogsPageProps {
   readonly maxVisible?: number;
 }
 
-export function LogsPage({ logs, onClear, maxVisible = 100 }: LogsPageProps): React.ReactElement {
-  const debug = useDebugRender("LogsPage", { props: { logs, onClear, maxVisible } });
+export function LogsPage({
+  logs,
+  onClear,
+  maxVisible = 100,
+}: LogsPageProps): React.ReactElement {
+  const debug = useDebugRender("LogsPage", {
+    props: { logs, onClear, maxVisible },
+  });
   const theme = useLogsPageTheme();
 
-  return <LogsPageRender theme={theme} logs={logs} maxVisible={maxVisible} debugRef={debug.ref} />;
+  return (
+    <LogsPageRender
+      theme={theme}
+      logs={logs}
+      maxVisible={maxVisible}
+      debugRef={debug.ref}
+    />
+  );
 }
 
 export interface LogsPageRenderProps {

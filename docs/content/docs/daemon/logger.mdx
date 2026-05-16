@@ -30,3 +30,63 @@ Interface for log output destinations (stderr, file, system log).
 Options for `createLogger`.
 
 <AutoTypeTable path="../packages/daemon/src/logger/logger.types.ts" name="CreateLoggerOptions" />
+
+## LOG_LEVELS
+
+Constant mapping log level names to numeric severity values.
+
+| Level | Value |
+|---|---|
+| `debug` | 0 |
+| `info` | 1 |
+| `warn` | 2 |
+| `error` | 3 |
+
+Higher values are more severe. The logger drops messages below the configured minimum level.
+
+## createLogger
+
+Factory function that creates a structured logger. Defaults to `"info"` level with stderr output.
+
+```ts
+import { createLogger } from "@comma-agents/daemon";
+
+// Simple stderr logger
+const log = createLogger();
+log.info("Server started", { port: 7422 });
+
+// Multiple sinks with debug level
+const log = createLogger({
+  level: "debug",
+  sinks: [createStderrSink(), createFileSink("/var/log/daemon.log")],
+});
+
+// Child logger for a subsystem
+const wsLog = log.child("ws");
+wsLog.info("Client connected", { clientId: "abc" });
+// → {"ts":"...","level":"info","msg":"Client connected","component":"ws","clientId":"abc"}
+```
+
+## createStderrSink
+
+Creates a sink that writes JSON lines to `process.stderr`. Each log entry is serialized as a single JSON line followed by a newline — compatible with journald, CloudWatch, Datadog, and other log aggregators.
+
+```ts
+import { createStderrSink } from "@comma-agents/daemon";
+
+const sink = createStderrSink();
+```
+
+This is the default sink when no sinks are specified.
+
+## createFileSink
+
+Creates a sink that appends JSON lines to a file. The parent directory is created automatically. Writes are synchronous to ensure log entries are flushed before process exit.
+
+```ts
+import { createFileSink } from "@comma-agents/daemon";
+
+const sink = createFileSink("/var/log/comma-agents/daemon.log");
+```
+
+Useful for debugging, audit trails, or when the service manager doesn't capture stderr.

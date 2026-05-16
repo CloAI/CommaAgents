@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { _resetLogIdCounterForTests, formatArgs, nextLogId } from "./useLogs.utils";
+import {
+  _resetLogIdCounterForTests,
+  formatArgs,
+  nextLogId,
+} from "./useLogs.utils";
 
 describe("nextLogId", () => {
   it("should return monotonically increasing ids", () => {

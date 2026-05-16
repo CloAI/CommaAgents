@@ -6,7 +6,7 @@ import type { ModalControls, ModalId } from "./useModal.types";
 /**
  * Programmatic controls for a specific modal identified by its id.
  *
- * Must be used within a `<ModalProvider>`.
+ * Must be used within a `<ModalContextProvider>`.
  *
  * @param modalId - Unique identifier for the modal to control.
  * @example
@@ -24,7 +24,7 @@ export function useModal(modalId: ModalId): ModalControls {
   const context = useContext(ModalContext);
 
   if (context === null) {
-    throw new Error("useModal must be used within a ModalProvider");
+    throw new Error("useModal must be used within a ModalContextProvider");
   }
 
   const open = useCallback(

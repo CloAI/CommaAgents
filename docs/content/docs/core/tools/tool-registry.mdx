@@ -21,7 +21,7 @@ registerTool("fetch", fetchTool);
 const agent = createAgent({
   name: "researcher",
   model: "openai/gpt-4o",
-  tools: ["bash", "read", "fetch"],
+  tools: ["read_file", "run_command", "fetch"],
 });
 ```
 
@@ -30,7 +30,7 @@ const agent = createAgent({
 When an agent resolves a tool name, the following order is checked:
 
 1. **Global tool registry** — custom tools registered via `registerTool()`
-2. **Built-in tools** — `bash`, `read`, `write`, `edit`, `glob`, `grep`
+2. **Built-in tools** — `read_file`, `list_directory`, `search_files`, `create_file`, `write_file`, `edit_file`, `delete_file`, `move_file`, `apply_patch`, `run_command`, `webfetch`, and the `todo_*` tools.
 3. **Error** — unknown tool name throws a `StrategyValidationError`
 
 Custom registry tools shadow built-in tools of the same name.
@@ -77,17 +77,17 @@ To replace a built-in tool with a custom implementation, register a tool with th
 import { defineTool, registerTool } from "@comma-agents/core";
 import { z } from "zod";
 
-const customRead = defineTool({
-  description: "Custom read tool with different behavior.",
-  parameters: z.object({ filePath: z.string() }),
-  execute: async ({ filePath }) => {
+const customReadFile = defineTool({
+  description: "Custom read_file tool with different behavior.",
+  parameters: z.object({ path: z.string() }),
+  execute: async ({ path }) => {
     // custom logic
     return { output: "..." };
   },
 });
 
-// Shadows the built-in "read" tool — a warning is logged
-registerTool("read", customRead);
+// Shadows the built-in "read_file" tool — a warning is logged
+registerTool("read_file", customReadFile);
 ```
 
-All agents referencing `"read"` will now use the custom implementation.
+All agents referencing `"read_file"` will now use the custom implementation.

@@ -40,9 +40,9 @@ describe("hookIntoFlow", () => {
         reset(): void {},
       };
 
-      expect(() => hookIntoFlow(fake, { beforeFlow: [async () => {}] })).toThrow(
-        /does not support appendHook/,
-      );
+      expect(() =>
+        hookIntoFlow(fake, { beforeFlow: [async () => {}] }),
+      ).toThrow(/does not support appendHook/);
     });
 
     it("should include the agent name in the error message", () => {
@@ -150,7 +150,13 @@ describe("hookIntoFlow", () => {
 
       await flow.call("input");
 
-      expect(order).toEqual(["alter-before", "before", "execute", "after", "alter-after"]);
+      expect(order).toEqual([
+        "alter-before",
+        "before",
+        "execute",
+        "after",
+        "alter-after",
+      ]);
     });
   });
 
@@ -210,7 +216,9 @@ describe("hookIntoFlow", () => {
       const result = await flow.call("start");
       // Cycle 1: alterBeforeCycle("[cycle-pre]start") -> step("processed:[cycle-pre]start")
       // Cycle 2: alterBeforeCycle("[cycle-pre]processed:[cycle-pre]start") -> step("processed:[cycle-pre]processed:[cycle-pre]start")
-      expect(result.text).toBe("processed:[cycle-pre]processed:[cycle-pre]start");
+      expect(result.text).toBe(
+        "processed:[cycle-pre]processed:[cycle-pre]start",
+      );
     });
 
     it("should support alterMessageAfterCycle via hookIntoFlow<CycleHooks>", async () => {

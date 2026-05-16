@@ -1,8 +1,11 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { MouseContext } from "../../components/MouseProvider/MouseContext";
-import { isInsideRef } from "../useMouse/useMouse.utils";
 import type { MouseEvent } from "../useMouse/useMouse.types";
-import type { UseMouseHoverOptions, UseMouseHoverResult } from "./useMouseHover.types";
+import { isInsideRef } from "../useMouse/useMouse.utils";
+import type {
+  UseMouseHoverOptions,
+  UseMouseHoverResult,
+} from "./useMouseHover.types";
 
 /**
  * Track whether the mouse cursor is hovering over a specific element.
@@ -33,28 +36,40 @@ export function useMouseHover({
   onLeave,
   onMove,
 }: UseMouseHoverOptions): UseMouseHoverResult {
-  const { subscribe, registerHoverConsumer } = useContext(MouseContext);
+  const contextValue = useContext(MouseContext);
 
   // Track internal hover state in a ref to avoid stale closures in the
   // subscriber, and as React state so consumers re-render on transitions.
   const isHoveredRef = useRef(false);
   const [isHovered, setIsHovered] = useState(false);
 
+  // When no MouseProvider is mounted, mouse support is unavailable.
+  // Return a disabled state rather than throwing — mouse is optional.
+  const subscribe = contextValue?.subscribe;
+  const registerHoverConsumer = contextValue?.registerHoverConsumer;
+
   // Stable refs for the callbacks so we don't re-subscribe when they change.
   const onEnterRef = useRef(onEnter);
   const onLeaveRef = useRef(onLeave);
   const onMoveRef = useRef(onMove);
-  useEffect(() => { onEnterRef.current = onEnter; }, [onEnter]);
-  useEffect(() => { onLeaveRef.current = onLeave; }, [onLeave]);
-  useEffect(() => { onMoveRef.current = onMove; }, [onMove]);
+  useEffect(() => {
+    onEnterRef.current = onEnter;
+  }, [onEnter]);
+  useEffect(() => {
+    onLeaveRef.current = onLeave;
+  }, [onLeave]);
+  useEffect(() => {
+    onMoveRef.current = onMove;
+  }, [onMove]);
 
   // Register as a hover consumer so the provider enables ?1003h.
   useEffect(() => {
-    return registerHoverConsumer();
+    return registerHoverConsumer?.();
   }, [registerHoverConsumer]);
 
   // Subscribe to mouse events and run AABB hit-tests.
   useEffect(() => {
+    if (!subscribe) return;
     return subscribe((event: MouseEvent) => {
       // Only consider event kinds that carry cursor position.
       const { kind } = event;

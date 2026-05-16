@@ -1,9 +1,3 @@
-// Message dispatcher — single entry point for client message processing.
-//
-// Parses raw WebSocket data, validates against the client message schema,
-// and routes to the correct request handler. The server never touches
-// message content directly — it only calls `dispatch()`.
-
 import type { StrategyExecutor } from "../../executor/executor";
 import type { Logger } from "../../logger/logger.types";
 import type { SessionStore } from "../../sessions";
@@ -12,19 +6,20 @@ import type { HandlerContext, MessageDispatcher } from "./dispatcher.types";
 import type { DaemonMessage } from "./messages";
 import { parseClientMessage } from "./messages";
 import { handleDeleteSession } from "./requests/delete-session";
+import { handleGetAvailableModels } from "./requests/get-available-models";
 import { handleListProviders } from "./requests/list-providers";
 import { handleListSessions } from "./requests/list-sessions";
 import { handleListStrategies } from "./requests/list-strategies";
 import { handleLoadSession } from "./requests/load-session";
+import { handlePermissionDecision } from "./requests/permission-decision";
 import { handlePing } from "./requests/ping";
 import { handleRenameSession } from "./requests/rename-session";
 import { handleStartStrategy } from "./requests/start-strategy";
 import { handleStopStrategy } from "./requests/stop-strategy";
 import { handleSubscribe } from "./requests/subscribe";
 import { handleUnsubscribe } from "./requests/unsubscribe";
-import { handleUserInput } from "./requests/user-input";
-import { handlePermissionDecision } from "./requests/permission-decision";
 import { handleUpdatePolicy } from "./requests/update-policy";
+import { handleUserInput } from "./requests/user-input";
 
 /** Dependencies needed to construct a dispatcher (everything except per-request state). */
 export interface CreateDispatcherOptions {
@@ -39,7 +34,11 @@ export interface CreateDispatcherOptions {
 }
 
 /** Build a timestamped daemon error message. */
-function buildErrorMessage(code: string, message: string, requestId?: string): DaemonMessage {
+function buildErrorMessage(
+  code: string,
+  message: string,
+  requestId?: string,
+): DaemonMessage {
   return {
     type: "error" as const,
     code,
@@ -59,6 +58,8 @@ function buildErrorMessage(code: string, message: string, requestId?: string): D
  *   3. Routing to the correct handler by message type
  *   4. Top-level error catching
  *
+ * @param options - Dependencies needed to construct a dispatcher.
+ *
  * @example
  * ```ts
  * const dispatch = createDispatcher({ executor, state, logger });
@@ -66,7 +67,9 @@ function buildErrorMessage(code: string, message: string, requestId?: string): D
  * dispatch(clientId, raw, (msg) => ws.send(JSON.stringify(msg)));
  * ```
  */
-export function createDispatcher(options: CreateDispatcherOptions): MessageDispatcher {
+export function createDispatcher(
+  options: CreateDispatcherOptions,
+): MessageDispatcher {
   const { executor, state, sessionStore, logger } = options;
 
   return function dispatch(
@@ -88,7 +91,10 @@ export function createDispatcher(options: CreateDispatcherOptions): MessageDispa
     const result = parseClientMessage(json);
     if (!result.success) {
       const details = result.error.errors
-        .map((validationError) => `${validationError.path.join(".")}: ${validationError.message}`)
+        .map(
+          (validationError) =>
+            `${validationError.path.join(".")}: ${validationError.message}`,
+        )
         .join("; ");
       reply(
         buildErrorMessage(
@@ -110,7 +116,6 @@ export function createDispatcher(options: CreateDispatcherOptions): MessageDispa
         ` from ${clientId}`,
     );
 
-    // -- Build handler context --
     const context: HandlerContext = {
       clientId,
       executor,
@@ -144,6 +149,12 @@ export function createDispatcher(options: CreateDispatcherOptions): MessageDispa
         case "list_strategies":
           handleListStrategies(message, context);
           break;
+        case "get_available_models":
+          void handleGetAvailableModels(message, context);
+          break;
+        case "get_available_models":
+          void handleGetAvailableModels(message, context);
+          break;
         case "list_providers":
           void handleListProviders(message, context);
           break;
@@ -171,7 +182,9 @@ export function createDispatcher(options: CreateDispatcherOptions): MessageDispa
       reply(
         buildErrorMessage(
           "INTERNAL_ERROR",
-          caughtError instanceof Error ? caughtError.message : String(caughtError),
+          caughtError instanceof Error
+            ? caughtError.message
+            : String(caughtError),
           message.requestId,
         ),
       );

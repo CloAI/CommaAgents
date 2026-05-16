@@ -1,8 +1,8 @@
-import React from "react";
+import { describe, expect, it } from "bun:test";
 import { Box } from "ink";
 import { render } from "ink-testing-library";
-import { describe, expect, it } from "bun:test";
-
+import type React from "react";
+import { ModalContextProvider } from "../../hooks/useModal";
 import { MessageList } from "./MessageList";
 import { createChatMessage } from "./test.utils";
 
@@ -22,9 +22,11 @@ async function flushFrames(): Promise<void> {
 /** Wrap in a sized box so `ScrollableView` has a real viewport in tests. */
 function renderSized(element: React.ReactElement): ReturnType<typeof render> {
   return render(
-    <Box height={20} width={80} flexDirection="column">
-      {element}
-    </Box>,
+    <ModalContextProvider>
+      <Box height={20} width={80} flexDirection="column">
+        {element}
+      </Box>
+    </ModalContextProvider>,
   );
 }
 
@@ -54,9 +56,24 @@ describe("MessageList", () => {
 
     it("should display messages from all roles", async () => {
       const messages = [
-        createChatMessage({ id: "1", role: "user", sender: "you", text: "Hello" }),
-        createChatMessage({ id: "2", role: "agent", sender: "assistant", text: "Hi! How can I help?" }),
-        createChatMessage({ id: "3", role: "system", sender: "system", text: "Session started" }),
+        createChatMessage({
+          id: "1",
+          role: "user",
+          sender: "you",
+          text: "Hello",
+        }),
+        createChatMessage({
+          id: "2",
+          role: "agent",
+          sender: "assistant",
+          text: "Hi! How can I help?",
+        }),
+        createChatMessage({
+          id: "3",
+          role: "system",
+          sender: "system",
+          text: "Session started",
+        }),
       ];
 
       const result = renderSized(<MessageList messages={messages} />);
@@ -72,7 +89,13 @@ describe("MessageList", () => {
   describe("streaming indicator", () => {
     it("should show streaming cursor for messages that are still streaming", async () => {
       const messages = [
-        createChatMessage({ id: "1", role: "agent", sender: "assistant", text: "Thinking", streaming: true }),
+        createChatMessage({
+          id: "1",
+          role: "agent",
+          sender: "assistant",
+          text: "Thinking",
+          streaming: true,
+        }),
       ];
 
       const result = renderSized(<MessageList messages={messages} />);
@@ -84,7 +107,13 @@ describe("MessageList", () => {
 
     it("should not show streaming cursor for completed messages", async () => {
       const messages = [
-        createChatMessage({ id: "1", role: "agent", sender: "assistant", text: "Done", streaming: false }),
+        createChatMessage({
+          id: "1",
+          role: "agent",
+          sender: "assistant",
+          text: "Done",
+          streaming: false,
+        }),
       ];
 
       const result = renderSized(<MessageList messages={messages} />);

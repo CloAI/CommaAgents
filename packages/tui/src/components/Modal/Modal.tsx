@@ -22,6 +22,10 @@ export interface ModalProps {
    * topmost. @default true
    */
   readonly closeOnEsc?: boolean;
+  /** Override the theme's default minHeight on the content box. */
+  readonly minHeight?: ModalSize;
+  /** Override the theme's default maxHeight on the content box. */
+  readonly maxHeight?: ModalSize;
 }
 
 /**
@@ -59,6 +63,8 @@ export function Modal({
   title,
   children,
   closeOnEsc = true,
+  minHeight,
+  maxHeight,
 }: ModalProps): React.ReactElement | null {
   const { isOpen, isTopmost, close } = useModal(modalId);
 
@@ -72,7 +78,7 @@ export function Modal({
   if (!isOpen) return null;
 
   return (
-    <ModalRender title={title}>
+    <ModalRender title={title} minHeight={minHeight} maxHeight={maxHeight}>
       {children}
     </ModalRender>
   );
@@ -85,25 +91,28 @@ export interface ModalRenderProps {
   readonly children: React.ReactNode;
   /** Debug render ref to attach to the root Box. */
   readonly debugRef?: React.Ref<import("ink").DOMElement>;
+  /** Override the theme's default minHeight on the content box. */
+  readonly minHeight?: ModalSize;
+  /** Override the theme's default maxHeight on the content box. */
+  readonly maxHeight?: ModalSize;
 }
 
-/**
- * Presentational form of `Modal` — the themed content box with optional title.
- *
- * Backdrop dimming and centering are handled by {@link AlphaDim} at a higher
- * level; this component renders only the bordered inner box.
- */
 export function ModalRender({
   title,
   children,
+  minHeight,
+  maxHeight,
 }: ModalRenderProps): React.ReactElement {
   const theme = useModalTheme();
+  const contentStyle: BoxProps = {
+    ...theme.content,
+    ...(minHeight !== undefined ? { minHeight } : {}),
+    ...(maxHeight !== undefined ? { maxHeight } : {}),
+  };
   return (
     <Box {...theme.overlay}>
-      <Box {...theme.content}>
-        {title !== undefined ? (
-          <Text {...theme.title}>{title}</Text>
-        ) : null}
+      <Box {...contentStyle}>
+        {title !== undefined ? <Text {...theme.title}>{title}</Text> : null}
         {children}
       </Box>
     </Box>

@@ -1,5 +1,5 @@
 ---
-title: Prompt Templates
+title: Prompts & Templates
 description: Dynamic system prompts with LiquidJS templates, variable interpolation, and custom filters.
 ---
 
@@ -104,7 +104,7 @@ createPromptTemplate({
   template: `Available tools:
 {% for tool in tools %}- {{ tool }}
 {% endfor %}`,
-  variables: { tools: ["bash", "read", "write"] },
+  variables: { tools: ["run_command", "read_file", "write_file"] },
 });
 ```
 

@@ -15,6 +15,12 @@ export const BUILT_IN_COMMANDS: readonly Command[] = [
     keywords: ["shortcuts", "keys", "bindings", "usage"],
   },
   {
+    id: "settings",
+    label: "Settings",
+    description: "Change theme and other application preferences",
+    keywords: ["preferences", "config", "theme", "options"],
+  },
+  {
     id: "list-providers",
     label: "List Providers",
     description: "Browse and inspect configured AI providers",

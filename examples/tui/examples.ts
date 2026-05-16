@@ -14,7 +14,12 @@ export interface ProviderConfig {
 }
 
 export const PROVIDERS: ProviderConfig[] = [
-  { providerID: "openai", label: "OpenAI", envVar: "OPENAI_API_KEY", defaultModel: "gpt-4o" },
+  {
+    providerID: "openai",
+    label: "OpenAI",
+    envVar: "OPENAI_API_KEY",
+    defaultModel: "gpt-4o",
+  },
   {
     providerID: "anthropic",
     label: "Anthropic",
@@ -46,26 +51,42 @@ export interface ExampleEntry {
 }
 
 export const CORE_EXAMPLES: ExampleEntry[] = [
-  { label: "01 — Basic Agent", value: "core/scripts/01-basic-agent.ts", category: "core" },
+  {
+    label: "01 — Basic Agent",
+    value: "core/scripts/01-basic-agent.ts",
+    category: "core",
+  },
   {
     label: "02 — Agent with Tools",
     value: "core/scripts/02-agent-with-tools.ts",
     category: "core",
   },
-  { label: "03 — Custom Tool", value: "core/scripts/03-custom-tool.ts", category: "core" },
+  {
+    label: "03 — Custom Tool",
+    value: "core/scripts/03-custom-tool.ts",
+    category: "core",
+  },
   {
     label: "04 — Sequential Flow",
     value: "core/scripts/04-sequential-flow.ts",
     category: "core",
   },
   { label: "05 — Hooks", value: "core/scripts/05-hooks.ts", category: "core" },
-  { label: "06 — Cycle Flow", value: "core/scripts/06-cycle-flow.ts", category: "core" },
+  {
+    label: "06 — Cycle Flow",
+    value: "core/scripts/06-cycle-flow.ts",
+    category: "core",
+  },
   {
     label: "07 — Broadcast Flow",
     value: "core/scripts/07-broadcast-flow.ts",
     category: "core",
   },
-  { label: "08 — Nested Flows", value: "core/scripts/08-nested-flows.ts", category: "core" },
+  {
+    label: "08 — Nested Flows",
+    value: "core/scripts/08-nested-flows.ts",
+    category: "core",
+  },
   {
     label: "09 — Prompt Templates",
     value: "core/scripts/09-prompt-templates.ts",
@@ -81,7 +102,11 @@ export const CORE_EXAMPLES: ExampleEntry[] = [
     value: "core/scripts/11-strategy-files.ts",
     category: "core",
   },
-  { label: "12 — Streaming", value: "core/scripts/12-streaming.ts", category: "core" },
+  {
+    label: "12 — Streaming",
+    value: "core/scripts/12-streaming.ts",
+    category: "core",
+  },
   {
     label: "13 — Abort / Cancellation",
     value: "core/scripts/13-abort-cancellation.ts",
@@ -119,11 +144,31 @@ export const DAEMON_EXAMPLES: ExampleEntry[] = [
 ];
 
 export const E2E_EXAMPLES: ExampleEntry[] = [
-  { label: "Agent Conversations", value: "e2e/agent-conversations.e2e.test.ts", category: "e2e" },
-  { label: "Agent Streaming", value: "e2e/agent-streaming.e2e.test.ts", category: "e2e" },
-  { label: "Agent Tool Calling", value: "e2e/agent-tool-calling.e2e.test.ts", category: "e2e" },
-  { label: "Flows Composition", value: "e2e/flows-composition.e2e.test.ts", category: "e2e" },
-  { label: "Strategy Execution", value: "e2e/strategy-execution.e2e.test.ts", category: "e2e" },
+  {
+    label: "Agent Conversations",
+    value: "e2e/agent-conversations.e2e.test.ts",
+    category: "e2e",
+  },
+  {
+    label: "Agent Streaming",
+    value: "e2e/agent-streaming.e2e.test.ts",
+    category: "e2e",
+  },
+  {
+    label: "Agent Tool Calling",
+    value: "e2e/agent-tool-calling.e2e.test.ts",
+    category: "e2e",
+  },
+  {
+    label: "Flows Composition",
+    value: "e2e/flows-composition.e2e.test.ts",
+    category: "e2e",
+  },
+  {
+    label: "Strategy Execution",
+    value: "e2e/strategy-execution.e2e.test.ts",
+    category: "e2e",
+  },
   {
     label: "Daemon Lifecycle",
     value: "e2e/daemon/daemon-lifecycle.e2e.test.ts",
@@ -136,4 +181,8 @@ export const E2E_EXAMPLES: ExampleEntry[] = [
   },
 ];
 
-export const ALL_EXAMPLES: ExampleEntry[] = [...CORE_EXAMPLES, ...DAEMON_EXAMPLES, ...E2E_EXAMPLES];
+export const ALL_EXAMPLES: ExampleEntry[] = [
+  ...CORE_EXAMPLES,
+  ...DAEMON_EXAMPLES,
+  ...E2E_EXAMPLES,
+];
