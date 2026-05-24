@@ -89,6 +89,11 @@ export type {
 } from "./PermissionPrompt";
 export { PermissionPrompt, PermissionPromptRender } from "./PermissionPrompt";
 export type {
+  QuestionPromptProps,
+  QuestionPromptRenderProps,
+} from "./QuestionPrompt";
+export { QuestionPrompt } from "./QuestionPrompt";
+export type {
   ScrollableListProps,
   ScrollableListRenderProps,
 } from "./ScrollableList";

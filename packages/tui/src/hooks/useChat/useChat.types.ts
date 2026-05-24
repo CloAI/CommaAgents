@@ -117,6 +117,23 @@ export interface PendingPermissionRequest {
 }
 
 /**
+ * A pending question/feedback request from the daemon — mirrors the wire fields
+ * the TUI needs to render the `QuestionPrompt`.
+ */
+export interface PendingQuestionRequest {
+  /** Correlates with the `request_question` message. */
+  readonly questionRequestId: string;
+  /** Run the request belongs to. */
+  readonly runId: string;
+  /** Agent that triggered the operation. */
+  readonly agentName: string;
+  /** Tool that triggered the operation. */
+  readonly toolName: string;
+  /** The question asked. */
+  readonly question: string;
+}
+
+/**
  * UI lifecycle status for a chat run.
  *
  * Extends the daemon's `RunStatus` union (`pending | running | completed |
@@ -124,12 +141,14 @@ export interface PendingPermissionRequest {
  * - `idle` — run exists but hasn't started a run yet.
  * - `waiting_input` — derived from an unanswered `request_input`.
  * - `waiting_permission` — derived from an unanswered `request_permission`.
+ * - `waiting_question` — derived from an unanswered `request_question`.
  */
 export type ChatStatus =
   | RunStatus
   | "idle"
   | "waiting_input"
-  | "waiting_permission";
+  | "waiting_permission"
+  | "waiting_question";
 
 /** A single chat run's state — 1:1 with a strategy run. */
 export interface ChatRun {
@@ -168,6 +187,8 @@ export interface ChatRun {
    * When the user resolves it, the next item (if any) is shown immediately.
    */
   readonly pendingPermissionRequests: readonly PendingPermissionRequest[];
+  /** Queue of question/feedback requests awaiting user answers. */
+  readonly pendingQuestionRequests: readonly PendingQuestionRequest[];
   /** Accumulated messages for this run. */
   readonly messages: readonly ChatMessage[];
   /** Creation timestamp (ms since epoch). */
@@ -210,6 +231,11 @@ export interface ChatRunsContextType {
   readonly sendPermissionDecision: (
     chatRunId: ChatRunId,
     decision: "allow" | "deny" | "allow-session" | "deny-session",
+  ) => void;
+  /** Resolve the head question request for a specific run. */
+  readonly sendQuestionResponse: (
+    chatRunId: ChatRunId,
+    response: string,
   ) => void;
   /** Send `stop_strategy` for a specific run. No-op without a bound daemon run. */
   readonly stopChatRun: (chatRunId: ChatRunId) => void;
@@ -257,6 +283,8 @@ export interface UseChatState {
   readonly readOnly: boolean;
   /** Current pending permission request (head of queue), or null. */
   readonly pendingPermissionRequest: PendingPermissionRequest | null;
+  /** Current pending question request (head of queue), or null. */
+  readonly pendingQuestionRequest: PendingQuestionRequest | null;
   /** Alias for `daemonRunId` — preserved for back-compatibility. */
   readonly runId: string | null;
   /** Current daemon WebSocket connection status. */
@@ -276,6 +304,8 @@ export interface UseChatState {
   readonly sendPermissionDecision: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
+  /** Resolve the pending question request for the bound run. */
+  readonly sendQuestionResponse: (response: string) => void;
   /** Clear the bound run's UI projection. No-op if no run. */
   readonly reset: () => void;
   /** Send `stop_strategy` for the bound run. No-op if no run or no daemon run. */

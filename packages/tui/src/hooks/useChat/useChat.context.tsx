@@ -23,6 +23,7 @@ import type {
   CreateRunInit,
   MessageSegment,
   PendingPermissionRequest,
+  PendingQuestionRequest,
 } from "./useChat.types";
 import { projectRunTurnToMessages } from "./useChat.utils";
 
@@ -74,6 +75,7 @@ function createInitialChatRun(
     error: null,
     pendingInputAgent: null,
     pendingPermissionRequests: [],
+    pendingQuestionRequests: [],
     messages: [],
     createdAt: now,
     updatedAt: now,
@@ -113,6 +115,7 @@ export function ChatRunsContextProvider(
   const sendUserInputCommand = useDaemonCommand("user_input");
   const stopStrategyCommand = useDaemonCommand("stop_strategy");
   const permissionDecisionCommand = useDaemonCommand("permission_decision");
+  const questionResponseCommand = useDaemonCommand("question_response");
   const listRunsCommand = useDaemonCommand("list_runs");
   const getRunCommand = useDaemonCommand("get_run");
   const subscribeCommand = useDaemonCommand("subscribe");
@@ -756,6 +759,7 @@ export function ChatRunsContextProvider(
         status: "completed",
         runStatus: "completed",
         pendingPermissionRequests: [],
+        pendingQuestionRequests: [],
         messages: [...chatRun.messages, systemMessage],
         updatedAt: Date.now(),
       });
@@ -782,6 +786,32 @@ export function ChatRunsContextProvider(
         status: "waiting_permission",
         pendingPermissionRequests: [
           ...chatRun.pendingPermissionRequests,
+          newRequest,
+        ],
+        updatedAt: Date.now(),
+      });
+      return next;
+    });
+  });
+
+  useDaemonSubscription("request_question", (message) => {
+    setChatRuns((previousChatRuns) => {
+      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      if (!chatRunId) return previousChatRuns;
+      const chatRun = previousChatRuns.get(chatRunId)!;
+      const newRequest: PendingQuestionRequest = {
+        questionRequestId: message.requestId,
+        runId: message.runId,
+        agentName: message.agentName,
+        toolName: message.toolName,
+        question: message.question,
+      };
+      const next = new Map(previousChatRuns);
+      next.set(chatRunId, {
+        ...chatRun,
+        status: "waiting_question",
+        pendingQuestionRequests: [
+          ...chatRun.pendingQuestionRequests,
           newRequest,
         ],
         updatedAt: Date.now(),
@@ -979,6 +1009,7 @@ export function ChatRunsContextProvider(
         error: isResuming ? null : (error?.message ?? null),
         pendingInputAgent: null,
         pendingPermissionRequests: [],
+        pendingQuestionRequests: [],
         messages: projected,
         createdAt: now,
         updatedAt: now,
@@ -1086,6 +1117,39 @@ export function ChatRunsContextProvider(
     [permissionDecisionCommand],
   );
 
+  const sendQuestionResponse = useCallback(
+    (chatRunId: ChatRunId, response: string): void => {
+      setChatRuns((previousChatRuns) => {
+        const chatRun = previousChatRuns.get(chatRunId);
+        if (
+          !chatRun ||
+          chatRun.pendingQuestionRequests.length === 0 ||
+          !chatRun.daemonRunId
+        )
+          return previousChatRuns;
+
+        const head = chatRun.pendingQuestionRequests[0]!;
+
+        questionResponseCommand({
+          runId: chatRun.daemonRunId,
+          questionRequestId: head.questionRequestId,
+          response,
+        });
+
+        const remaining = chatRun.pendingQuestionRequests.slice(1);
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
+          status: remaining.length > 0 ? "waiting_question" : "running",
+          pendingQuestionRequests: remaining,
+          updatedAt: Date.now(),
+        });
+        return next;
+      });
+    },
+    [questionResponseCommand],
+  );
+
   const stopChatRun = useCallback(
     (chatRunId: ChatRunId): void => {
       const chatRun = chatRuns.get(chatRunId);
@@ -1104,6 +1168,7 @@ export function ChatRunsContextProvider(
         error: null,
         pendingInputAgent: null,
         pendingPermissionRequests: [],
+        pendingQuestionRequests: [],
         // Clear loaded-run metadata so the host app falls back to its
         // intro/strategy-selection view after a reset.
         strategyName: null,
@@ -1137,6 +1202,7 @@ export function ChatRunsContextProvider(
       startStrategy,
       sendInput,
       sendPermissionDecision,
+      sendQuestionResponse,
       stopChatRun,
       resetChatRun,
       removeChatRun,
@@ -1153,6 +1219,7 @@ export function ChatRunsContextProvider(
       startStrategy,
       sendInput,
       sendPermissionDecision,
+      sendQuestionResponse,
       stopChatRun,
       resetChatRun,
       removeChatRun,

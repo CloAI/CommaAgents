@@ -38,6 +38,7 @@ export interface RequestResponseMap {
   readonly stop_strategy: never;
   readonly user_input: never;
   readonly permission_decision: never;
+  readonly question_response: never;
   readonly update_policy: never;
   readonly list_strategies: StrategyListMessage;
   readonly get_available_models: AvailableModelsMessage;

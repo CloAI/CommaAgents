@@ -25,6 +25,33 @@ const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
 /** Modal id for the command palette. */
 const COMMAND_PALETTE_MODAL_ID = "command-palette";
 
+/**
+ * Discover available strategies once on mount.
+ *
+ * `discoverStrategies()` is async (parses & validates each candidate),
+ * so we kick it off in `useEffect` and store the result in state.
+ * Initial value is an empty array; the picker renders empty for a
+ * single frame and then populates.
+ */
+function useDiscoveredStrategies(): readonly StrategyOption[] {
+  const [strategies, setStrategies] = useState<readonly StrategyOption[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    discoverStrategies()
+      .then((result) => {
+        if (!cancelled) setStrategies(result);
+      })
+      .catch(() => {
+        // Discovery failures are silent — the picker just stays empty.
+        // Real failures surface as warnings in the underlying core call.
+      });
+    return (): void => {
+      cancelled = true;
+    };
+  }, []);
+  return strategies;
+}
+
 /** Look up a `StrategyOption` by its path, label, or value, falling back to the first available. */
 function resolveStrategyOption(
   strategyKey: string,
@@ -71,7 +98,7 @@ export function App({
   const { logs, clearLogs } = useLogs();
   const commandPalette = useModal(COMMAND_PALETTE_MODAL_ID);
 
-  const strategies = useMemo(() => discoverStrategies(), []);
+  const strategies = useDiscoveredStrategies();
 
   // Ensure Ink's focus system is active for tab-order cycling across inputs.
   useEffect(() => {
@@ -167,16 +194,25 @@ export function App({
     { isActive: RAW_MODE_SUPPORTED },
   );
 
-  // Auto-start with `--input`: fire once on mount, then never again.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: one-shot on mount
+  // Auto-start with `--input`: fire once on mount AFTER strategy discovery
+  // resolves. `strategies` starts empty and populates asynchronously, so we
+  // wait for the first non-empty value before launching.
+  const [autoStartFired, setAutoStartFired] = useState(false);
   useEffect(() => {
-    if (!initialInput) return;
+    if (!initialInput || autoStartFired || strategies.length === 0) return;
     const strategyPath = preselectedStrategy
       ? resolveStrategyOption(preselectedStrategy, strategies)?.value
       : strategies[0]?.value;
     if (!strategyPath) return;
+    setAutoStartFired(true);
     handleStartChat(strategyPath, initialInput);
-  }, []);
+  }, [
+    autoStartFired,
+    handleStartChat,
+    initialInput,
+    preselectedStrategy,
+    strategies,
+  ]);
 
   return (
     <>
@@ -190,9 +226,11 @@ export function App({
         chatError={chat.error}
         chatPendingInputAgent={chat.pendingInputAgent}
         chatPendingPermissionRequest={chat.pendingPermissionRequest}
+        chatPendingQuestionRequest={chat.pendingQuestionRequest}
         onStartChat={handleStartChat}
         onReplySubmit={handleReplySubmit}
         onPermissionDecide={handlePermissionDecide}
+        onQuestionSubmit={chat.sendQuestionResponse}
         logs={logs}
         onClearLogs={clearLogs}
         strategies={strategies}
@@ -237,6 +275,10 @@ export interface AppRenderProps {
   readonly chatPendingPermissionRequest:
     | import("../hooks").PendingPermissionRequest
     | null;
+  /** Pending question request, or null. */
+  readonly chatPendingQuestionRequest:
+    | import("../hooks").PendingQuestionRequest
+    | null;
   /** Called when the user submits their first prompt on the intro screen. */
   readonly onStartChat: (strategyKey: string, input: string) => void;
   /** Called when the user replies to an agent on the chat screen. */
@@ -245,6 +287,8 @@ export interface AppRenderProps {
   readonly onPermissionDecide: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
+  /** Called when the user submits an answer to a question. */
+  readonly onQuestionSubmit: (response: string) => void;
   /** Captured log entries to display in the Logs tab. */
   readonly logs: readonly LogEntry[];
   /** Called to clear all captured logs. */
@@ -263,9 +307,11 @@ export function AppRender({
   chatError,
   chatPendingInputAgent,
   chatPendingPermissionRequest,
+  chatPendingQuestionRequest,
   onStartChat,
   onReplySubmit,
   onPermissionDecide,
+  onQuestionSubmit,
   logs,
   onClearLogs,
   strategies,
@@ -284,8 +330,10 @@ export function AppRender({
                 error={chatError}
                 pendingInputAgent={chatPendingInputAgent}
                 pendingPermissionRequest={chatPendingPermissionRequest}
+                pendingQuestionRequest={chatPendingQuestionRequest}
                 onReplySubmit={onReplySubmit}
                 onPermissionDecide={onPermissionDecide}
+                onQuestionSubmit={onQuestionSubmit}
                 activeStrategy={activeStrategy}
               />
             ) : (

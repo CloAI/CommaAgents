@@ -14,6 +14,8 @@ import type { ConversationTurn } from "../../context/conversation-context.types"
 import type { PromptTemplate, TemplateVariables } from "../../prompts/types";
 import type { Sandbox } from "../../sandbox/sandbox.types";
 import type { SkillRegistry } from "../../skills/skills.types";
+import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
+import type { InputCollector } from "../built-in/user/user-agent.types";
 
 /**
  * Model-level generation parameters forwarded to `streamText`.
@@ -93,6 +95,18 @@ export interface AgentConfig {
    * `<configRoot>/comma-agents/skills/` plus `./.comma/skills/`.
    */
   readonly skillRegistry?: SkillRegistry;
+  /**
+   * Input collector threaded into the {@link ToolContext} of every tool
+   * call. Used by tools (e.g., `launch_strategy`) that need to forward
+   * the parent strategy's input bridge into a spawned sub-strategy.
+   */
+  readonly inputCollector?: InputCollector;
+  /**
+   * Optional handle for spawning sub-strategies, threaded into every
+   * tool's {@link ToolContext}. Supplied by the strategy loader (which
+   * receives it via {@link LoadStrategyOptions}).
+   */
+  readonly launchStrategy?: LaunchStrategyHandle;
   /**
    * Per-call provider options forwarded to the model provider. Used to enable
    * provider-specific behaviour such as reasoning / extended thinking.

@@ -22,10 +22,12 @@ import type { Sandbox } from "../../sandbox/sandbox.types";
 import type { SkillRegistry } from "../../skills/skills.types";
 import type { AuditSink } from "../../tools/io/audit";
 import { createFileAuditSink } from "../../tools/io/audit-sink";
+import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
 import { sandboxErrorToToolError } from "../../tools/io/sandbox-error";
 import { errorResult } from "../../tools/result";
 import { resolveTools } from "../../tools/tool.registry";
 import type { ToolContext, ToolDefinition } from "../../tools/tool.types";
+import type { InputCollector } from "../built-in/user/user-agent.types";
 import type { ToolHooks } from "../hooks";
 import type {
   AgentCallResult,
@@ -63,6 +65,8 @@ export function buildAgentToolSet(
   sessionId?: string,
   auditSink?: AuditSink,
   skillRegistry?: SkillRegistry,
+  inputCollector?: InputCollector,
+  launchStrategy?: LaunchStrategyHandle,
 ): Record<string, ReturnType<typeof aiTool<any, any>>> | undefined {
   if (!toolDefinitions || Object.keys(toolDefinitions).length === 0) {
     return undefined;
@@ -109,6 +113,8 @@ export function buildAgentToolSet(
             ? { auditSink: effectiveAuditSink }
             : {}),
           ...(skillRegistry !== undefined ? { skillRegistry } : {}),
+          ...(inputCollector !== undefined ? { inputCollector } : {}),
+          ...(launchStrategy !== undefined ? { launchStrategy } : {}),
         };
 
         try {
@@ -197,6 +203,8 @@ export async function buildCallOptions(
         undefined,
         undefined,
         config.skillRegistry,
+        config.inputCollector,
+        config.launchStrategy,
       ),
     ),
     resolveSystemPrompt({ systemPrompt: config.systemPrompt }),

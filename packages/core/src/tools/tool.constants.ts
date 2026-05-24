@@ -1,9 +1,12 @@
 import { createApplyPatchTool } from "./built-in/apply-patch";
+import { createAskQuestionTool } from "./built-in/ask-question";
 import { createCreateFileTool } from "./built-in/create-file";
 import { createDeleteFileTool } from "./built-in/delete-file";
 import { createEditFileTool } from "./built-in/edit-file";
+import { createLaunchStrategyTool } from "./built-in/launch-strategy";
 import { createListDirectoryTool } from "./built-in/list-directory";
 import { createListSkillsTool } from "./built-in/list-skills";
+import { createListStrategyTool } from "./built-in/list-strategy";
 import { createLoadSkillTool } from "./built-in/load-skill";
 import { createMoveFileTool } from "./built-in/move-file";
 import { createReadFileTool } from "./built-in/read-file";
@@ -39,11 +42,14 @@ export const BUILT_IN_TOOL_NAMES = [
   "webfetch",
   "load_skill",
   "list_skills",
+  "list_strategy",
+  "launch_strategy",
   "todo_add",
   "todo_complete",
   "todo_get",
   "todo_get_next",
   "todo_clear",
+  "ask_question",
 ] as const;
 
 /** Factory map for instantiating built-in tools by name. */
@@ -64,9 +70,12 @@ export const BUILT_IN_TOOL_FACTORIES: Readonly<
   webfetch: () => createWebFetchTool(),
   load_skill: () => createLoadSkillTool(),
   list_skills: () => createListSkillsTool(),
+  list_strategy: () => createListStrategyTool(),
+  launch_strategy: () => createLaunchStrategyTool(),
   todo_add: () => createTodoAddTool(),
   todo_complete: () => createTodoCompleteTool(),
   todo_get: () => createTodoGetTool(),
   todo_get_next: () => createTodoGetNextTool(),
   todo_clear: () => createTodoClearTool(),
+  ask_question: () => createAskQuestionTool(),
 };

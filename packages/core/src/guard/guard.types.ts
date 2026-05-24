@@ -73,6 +73,17 @@ export interface GuardCallbacks {
    * the ordered policy chain.
    */
   readonly onPolicyChange?: (snapshot: GuardPolicySnapshot) => void;
+
+  /**
+   * Called when a tool requests direct user input/feedback.
+   */
+  readonly onQuestion?: (
+    request: {
+      readonly agentName: string;
+      readonly toolName: string;
+      readonly question: string;
+    },
+  ) => Promise<string>;
 }
 
 /**
@@ -118,4 +129,7 @@ export interface Guard {
 
   /** Subscribe to policy chain changes. Returns an unsubscribe function. */
   onPolicyChange(listener: (snapshot: GuardPolicySnapshot) => void): () => void;
+
+  /** Ask the user a question / prompt for interactive feedback. */
+  askQuestion(question: string, ctx: AuthorizationContext): Promise<string>;
 }

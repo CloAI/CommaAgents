@@ -1,7 +1,9 @@
 import type { z } from "zod";
+import type { InputCollector } from "../agents/built-in/user/user-agent.types";
 import type { Guard, Policy } from "../guard/guard.types";
 import type { SkillRegistry } from "../skills/skills.types";
 import type { AuditSink } from "./io/audit";
+import type { LaunchStrategyHandle } from "./launch-strategy.types";
 
 /**
  * Context passed to tool execute functions.
@@ -34,6 +36,23 @@ export interface ToolContext {
    * Optional skill registry exposed to the `load_skill` tool.
    */
   readonly skillRegistry?: SkillRegistry;
+  /**
+   * Optional input collector forwarded from the parent strategy.
+   *
+   * Tools that spawn sub-strategies (e.g., `launch_strategy`) pass this
+   * to `loadStrategyFromString` so any `user` agents in the child can
+   * prompt through the same UI as the parent run.
+   */
+  readonly inputCollector?: InputCollector;
+  /**
+   * Optional handle for spawning a sub-strategy.
+   *
+   * When provided by the runtime (e.g., the daemon executor), tools
+   * such as `launch_strategy` delegate to this handle instead of
+   * calling `loadStrategy` directly, so flow / agent hooks and
+   * broadcast wiring are reused for the nested run.
+   */
+  readonly launchStrategy?: LaunchStrategyHandle;
 }
 
 /**

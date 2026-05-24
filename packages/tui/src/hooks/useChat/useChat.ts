@@ -68,6 +68,14 @@ export function useChat(chatRunId?: ChatRunId): UseChatState {
     [context, resolvedChatRunId],
   );
 
+  const sendQuestionResponse = useCallback(
+    (response: string): void => {
+      if (!resolvedChatRunId) return;
+      context.sendQuestionResponse(resolvedChatRunId, response);
+    },
+    [context, resolvedChatRunId],
+  );
+
   const reset = useCallback((): void => {
     if (!resolvedChatRunId) return;
     context.resetChatRun(resolvedChatRunId);
@@ -89,12 +97,14 @@ export function useChat(chatRunId?: ChatRunId): UseChatState {
       strategyPath: chatRun?.strategyPath ?? null,
       readOnly: chatRun?.readOnly ?? false,
       pendingPermissionRequest: chatRun?.pendingPermissionRequests[0] ?? null,
+      pendingQuestionRequest: chatRun?.pendingQuestionRequests[0] ?? null,
       runId: chatRun?.daemonRunId ?? null,
       connectionStatus,
       startStrategy,
       resumeRun,
       sendInput,
       sendPermissionDecision,
+      sendQuestionResponse,
       reset,
       stop,
     }),
@@ -106,6 +116,7 @@ export function useChat(chatRunId?: ChatRunId): UseChatState {
       resumeRun,
       sendInput,
       sendPermissionDecision,
+      sendQuestionResponse,
       reset,
       stop,
     ],

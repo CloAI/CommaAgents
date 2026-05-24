@@ -14,6 +14,7 @@ export { ProviderRegisteredMessage } from "./provider-registered";
 export { ProviderUnregisteredMessage } from "./provider-unregistered";
 export { RequestInputMessage } from "./request-input";
 export { RequestPermissionMessage } from "./request-permission";
+export { RequestQuestionMessage } from "./request-question";
 export { RunListMessage } from "./run-list";
 export { RunLoadedMessage } from "./run-loaded";
 // Shared response schemas

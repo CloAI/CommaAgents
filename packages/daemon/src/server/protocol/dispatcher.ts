@@ -11,6 +11,7 @@ import { handleListRuns } from "./requests/list-runs";
 import { handleListStrategies } from "./requests/list-strategies";
 import { handleGetRun } from "./requests/get-run";
 import { handlePermissionDecision } from "./requests/permission-decision";
+import { handleQuestionResponse } from "./requests/question-response";
 import { handlePing } from "./requests/ping";
 import { handleRegisterProvider } from "./requests/register-provider";
 import { handleResumeRun } from "./requests/resume-run";
@@ -147,6 +148,9 @@ export function createDispatcher(
           break;
         case "permission_decision":
           handlePermissionDecision(message, context);
+          break;
+        case "question_response":
+          handleQuestionResponse(message, context);
           break;
         case "update_policy":
           handleUpdatePolicy(message, context);

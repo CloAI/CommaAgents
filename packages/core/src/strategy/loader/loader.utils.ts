@@ -249,6 +249,12 @@ async function buildLLMAgent(
       ? { modelOptions: agentDefinition.modelOptions }
       : {}),
     ...(options.skillRegistry ? { skillRegistry: options.skillRegistry } : {}),
+    ...(options.inputCollector
+      ? { inputCollector: options.inputCollector }
+      : {}),
+    ...(options.launchStrategy
+      ? { launchStrategy: options.launchStrategy }
+      : {}),
   });
 }
 

@@ -151,6 +151,9 @@ export function mockRunStore(): RunStore & {
         turns: [...existing.turns, turn],
       });
     },
+    async appendEvent(runId, event) {
+      // no-op is sufficient for mock tests
+    },
     async deleteRun(runId) {
       return runs.delete(runId);
     },

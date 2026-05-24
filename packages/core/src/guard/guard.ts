@@ -301,6 +301,22 @@ export function createGuard(
     }
   }
 
+  async function askQuestion(
+    question: string,
+    ctx: AuthorizationContext,
+  ): Promise<string> {
+    if (!callbacks?.onQuestion) {
+      throw new Error(
+        "No onQuestion handler is configured.",
+      );
+    }
+    return callbacks.onQuestion({
+      agentName: ctx.agentName,
+      toolName: ctx.toolName,
+      question,
+    });
+  }
+
   return {
     toolName,
     cwd,
@@ -311,6 +327,7 @@ export function createGuard(
     removePolicy,
     getPolicies,
     onPolicyChange,
+    askQuestion,
   };
 }
 

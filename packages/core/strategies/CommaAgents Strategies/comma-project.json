@@ -6,7 +6,9 @@
     "./build.json",
     "./plan.json",
     "./qa.json",
-    "./reduce-complexity.json",
-    "./talk.json"
+    "./reduce-complexity/reduce-complexity.jsonc",
+    "./talk.json",
+    "./standardize/standardize.jsonc",
+    "./standardize/standardize-file-audit.jsonc"
   ]
 }

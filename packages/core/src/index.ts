@@ -253,6 +253,11 @@ export type {
   BuiltInToolName,
   CommaProjectManifest,
   CycleFlowDef,
+  DiscoveredStrategy,
+  DiscoveredStrategyOrigin,
+  DiscoverStrategiesOptions,
+  DiscoverStrategiesResult,
+  DiscoveryWarning,
   ExportStrategyOptions,
   FlowDef,
   LLMAgentDef,
@@ -265,6 +270,7 @@ export type {
 } from "./strategy/index";
 export {
   CommaProjectManifestSchema,
+  discoverStrategies,
   exportStrategy,
   isAgentStep,
   isFlowDef,
@@ -273,6 +279,7 @@ export {
   loadProject,
   loadStrategy,
   loadStrategyFromString,
+  readStrategyFile,
   StrategySchema,
 } from "./strategy/index";
 // Timeline and unified event timeline types/factories
@@ -347,3 +354,8 @@ export type {
   ToolErrorKind,
   ToolResult,
 } from "./tools/tool.types";
+export type {
+  LaunchStrategyHandle,
+  LaunchStrategyRequest,
+  LaunchStrategyResult,
+} from "./tools/launch-strategy.types";

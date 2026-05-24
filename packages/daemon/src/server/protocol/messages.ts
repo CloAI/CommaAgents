@@ -19,6 +19,7 @@ import { UnregisterProviderMessage } from "./requests/unregister-provider/unregi
 import { UnsubscribeMessage } from "./requests/unsubscribe/unsubscribe.schema";
 import { UpdatePolicyMessage } from "./requests/update-policy/update-policy.schema";
 import { UserInputMessage } from "./requests/user-input/user-input.schema";
+import { QuestionResponseMessage } from "./requests/question-response/question-response.schema";
 
 import {
   AgentOutputMessage,
@@ -33,6 +34,7 @@ import {
   ProviderUnregisteredMessage,
   RequestInputMessage,
   RequestPermissionMessage,
+  RequestQuestionMessage,
   RunListMessage,
   RunLoadedMessage,
   StepCompletedMessage,
@@ -51,6 +53,7 @@ export const ClientMessage = z.discriminatedUnion("type", [
   StopStrategyMessage,
   UserInputMessage,
   PermissionDecisionMessage,
+  QuestionResponseMessage,
   UpdatePolicyMessage,
   ListStrategiesMessage,
   GetAvailableModelsMessage,
@@ -81,6 +84,7 @@ export const DaemonMessage = z.discriminatedUnion("type", [
   StepCompletedMessage,
   RequestInputMessage,
   RequestPermissionMessage,
+  RequestQuestionMessage,
   PolicyUpdatedMessage,
   StrategyListMessage,
   AvailableModelsMessage,

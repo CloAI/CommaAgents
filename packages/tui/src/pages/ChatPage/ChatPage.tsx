@@ -6,6 +6,7 @@ import {
   ChatTextArea,
   MessageList,
   PermissionPrompt,
+  QuestionPrompt,
   StatusBar,
 } from "../../components";
 import type { PermissionDecision } from "../../components/PermissionPrompt";
@@ -14,6 +15,7 @@ import type {
   ChatMessage,
   ChatStatus,
   PendingPermissionRequest,
+  PendingQuestionRequest,
 } from "../../hooks";
 import { useDebugRender } from "../../hooks/useDebugRender";
 import type { ChatPageTheme } from "./ChatPage.theme";
@@ -36,10 +38,14 @@ export interface ChatPageProps {
   readonly pendingInputAgent: string | null;
   /** Pending permission request, or null. */
   readonly pendingPermissionRequest: PendingPermissionRequest | null;
+  /** Pending question request, or null. */
+  readonly pendingQuestionRequest: PendingQuestionRequest | null;
   /** Called when the user submits a reply to an agent. */
   readonly onReplySubmit: (text: string) => void;
   /** Called when the user resolves a permission prompt. */
   readonly onPermissionDecide: (decision: PermissionDecision) => void;
+  /** Called when the user submits an answer to a question. */
+  readonly onQuestionSubmit: (response: string) => void;
   /** The active strategy option for this chat. */
   readonly activeStrategy: StrategyOption;
 }
@@ -50,8 +56,10 @@ export function ChatPage({
   error,
   pendingInputAgent,
   pendingPermissionRequest,
+  pendingQuestionRequest,
   onReplySubmit,
   onPermissionDecide,
+  onQuestionSubmit,
   activeStrategy,
 }: ChatPageProps): React.ReactElement {
   const debug = useDebugRender("ChatPage", {
@@ -67,8 +75,10 @@ export function ChatPage({
       error={error}
       pendingInputAgent={pendingInputAgent}
       pendingPermissionRequest={pendingPermissionRequest}
+      pendingQuestionRequest={pendingQuestionRequest}
       onReplySubmit={onReplySubmit}
       onPermissionDecide={onPermissionDecide}
+      onQuestionSubmit={onQuestionSubmit}
       activeStrategy={activeStrategy}
       debugRef={debug.ref}
     />
@@ -88,10 +98,14 @@ export interface ChatPageRenderProps {
   readonly pendingInputAgent: string | null;
   /** Pending permission request, or null. */
   readonly pendingPermissionRequest: PendingPermissionRequest | null;
+  /** Pending question request, or null. */
+  readonly pendingQuestionRequest: PendingQuestionRequest | null;
   /** Called when the user submits a reply to an agent. */
   readonly onReplySubmit: (text: string) => void;
   /** Called when the user resolves a permission prompt. */
   readonly onPermissionDecide: (decision: PermissionDecision) => void;
+  /** Called when the user submits an answer to a question. */
+  readonly onQuestionSubmit: (response: string) => void;
   /** The active strategy option for this chat. */
   readonly activeStrategy: StrategyOption;
   /** Debug render ref. */
@@ -105,14 +119,18 @@ export function ChatPageRender({
   error,
   pendingInputAgent,
   pendingPermissionRequest,
+  pendingQuestionRequest,
   onReplySubmit,
   onPermissionDecide,
+  onQuestionSubmit,
   activeStrategy,
   debugRef,
 }: ChatPageRenderProps): React.ReactElement {
   const showInput = chatStatus === "waiting_input";
   const showPermission =
     chatStatus === "waiting_permission" && pendingPermissionRequest !== null;
+  const showQuestion =
+    chatStatus === "waiting_question" && pendingQuestionRequest !== null;
   const replyPlaceholder = pendingInputAgent
     ? `Reply to ${pendingInputAgent}...`
     : "Type your message...";
@@ -147,6 +165,11 @@ export function ChatPageRender({
         <PermissionPrompt
           request={pendingPermissionRequest}
           onDecide={onPermissionDecide}
+        />
+      ) : showQuestion && pendingQuestionRequest ? (
+        <QuestionPrompt
+          request={pendingQuestionRequest}
+          onSubmit={onQuestionSubmit}
         />
       ) : showInput ? (
         <ChatTextArea

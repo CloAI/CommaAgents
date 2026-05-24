@@ -4,6 +4,8 @@ import type {
   AgentStreamEvent,
   ConversationTurn,
   FlowHooks,
+  LaunchStrategyHandle,
+  LaunchStrategyResult,
   PermissionDecision,
   PolicyPatch,
   ResponseMessage,
@@ -18,8 +20,8 @@ import {
   loadSkills,
   loadStrategyFromString,
   pathPolicy,
+  readStrategyFile,
 } from "@comma-agents/core";
-import YAML from "yaml";
 import type { Logger } from "../logger";
 import type { RunStore } from "../runs";
 import type { ConversationTurn } from "@comma-agents/core";
@@ -30,6 +32,8 @@ import type { InputBridge } from "./input-bridge";
 import { createInputBridge } from "./input-bridge";
 import type { PermissionBridge } from "./permission-bridge";
 import { createPermissionBridge } from "./permission-bridge";
+import type { QuestionBridge } from "./question-bridge";
+import { createQuestionBridge } from "./question-bridge";
 
 /**
  * Options for creating a strategy executor.
@@ -64,6 +68,7 @@ export interface CreateStrategyExecutorOptions {
 interface RunContext {
   readonly inputBridge: InputBridge;
   readonly permissionBridge: PermissionBridge;
+  readonly questionBridge: QuestionBridge;
   readonly clientId: string;
   /** Set after sandbox is created in executeRun (after strategy file parse). */
   sandbox?: Sandbox;
@@ -144,6 +149,17 @@ export interface StrategyExecutor {
   ): boolean;
 
   /**
+   * Route a `question_response` message to the correct run's question bridge.
+   *
+   * @returns `true` if a pending question request was found and resolved.
+   */
+  handleQuestionResponse(
+    runId: string,
+    questionRequestId: string,
+    response: string,
+  ): boolean;
+
+  /**
    * Apply a policy patch from an `update_policy` client message to the run's sandbox.
    * @param toolName - Optional tool name to target. If omitted, applies to all guards.
    * @param toolName - Optional tool name to target. If omitted, applies to all guards.
@@ -158,34 +174,15 @@ export interface StrategyExecutor {
 }
 
 /**
- * Read a strategy file and return the raw parsed object + format.
- * Does NOT validate with Zod — that's done by loadStrategyFromString.
+ * Read a strategy file and return the content + format.
+ *
+ * Zod validation happens downstream in `loadStrategyFromString`.
  */
 async function parseStrategyFile(filePath: string): Promise<{
-  raw: Record<string, unknown>;
   content: string;
   format: "json" | "yaml";
 }> {
-  const ext = filePath.split(".").pop()?.toLowerCase();
-
-  let format: "json" | "yaml";
-  if (ext === "json") {
-    format = "json";
-  } else if (ext === "yaml" || ext === "yml") {
-    format = "yaml";
-  } else {
-    throw new Error(`Unsupported strategy file extension: .${ext}`);
-  }
-
-  const file = Bun.file(filePath);
-  if (!(await file.exists())) {
-    throw new Error(`Strategy file not found: ${filePath}`);
-  }
-
-  const content = await file.text();
-  const raw = format === "json" ? JSON.parse(content) : YAML.parse(content);
-
-  return { raw, content, format };
+  return await readStrategyFile(filePath);
 }
 
 function toWireResult(result: AgentCallResult): {
@@ -515,13 +512,77 @@ export function createStrategyExecutor(
         );
       }
 
-      // 4. Load the strategy — model and tool resolution happen via global registries
+      // 4. Build a `launchStrategy` handle bound to this run. Threaded
+      //    through `loadStrategyFromString` into every agent's
+      //    ToolContext so the `launch_strategy` tool can spawn nested
+      //    strategies that reuse THIS run's flow/agent hook pipeline.
+      //    Nested agent activity is broadcast under the parent run id,
+      //    so the TUI sees a single timeline.
+      //
+      //    Sandbox: nested strategies inherit the parent's process-wide
+      //    `Sandbox` state via `getSandbox(strategy)`; we do not re-apply
+      //    `inSandbox()` for nested loads. Per design, sub-strategies are
+      //    subject to the parent's policies.
+      //
+      //    Self-reference: declared with `let` and assigned below so the
+      //    closure can pass itself into nested `loadStrategyFromString`
+      //    calls, enabling arbitrarily-nested `launch_strategy` use.
+      let launchStrategy!: LaunchStrategyHandle;
+      launchStrategy = async ({
+        strategyPath,
+        manifestPath: subManifestPath,
+        input: subInput,
+        modelOverride: subModelOverride,
+      }): Promise<LaunchStrategyResult> => {
+        logger.debug(
+          `run ${run.id}: launch_strategy spawning sub-strategy "${strategyPath}"`,
+        );
+        if (subManifestPath) {
+          await loadProject(subManifestPath);
+        }
+        const { content: subContent, format: subFormat } =
+          await readStrategyFile(strategyPath);
+        const subStrategy = await loadStrategyFromString(
+          subContent,
+          subFormat,
+          {
+            inputCollector: wrappedCollector,
+            flowHooks: buildFlowHooks(run.id),
+            modelOverride:
+              subModelOverride ?? runModelOverride ?? modelOverride,
+            skillRegistry,
+            launchStrategy,
+          },
+        );
+        for (const [subAgentName, subAgent] of Object.entries(
+          subStrategy.agents,
+        )) {
+          if (subAgent.appendHook) {
+            const isUserAgent = subAgent.config?.type === "user";
+            hookIntoAgent(
+              subAgent,
+              buildAgentHooks(run.id, subAgentName, run, isUserAgent),
+            );
+          }
+        }
+        const subResult = await subStrategy.flow.call(subInput);
+        return {
+          strategyName: subStrategy.name,
+          text: subResult.text,
+          ...(subResult.finishReason
+            ? { finishReason: subResult.finishReason }
+            : {}),
+        };
+      };
+
+      // 5. Load the strategy — model and tool resolution happen via global registries
       const strategy = await loadStrategyFromString(content, format, {
         inputCollector: wrappedCollector,
         flowHooks: buildFlowHooks(run.id),
         modelOverride: runModelOverride ?? modelOverride,
         skillRegistry,
         initialAgentTurns,
+        launchStrategy,
       });
       logger.debug(
         `run ${run.id}: strategy loaded (name="${strategy.name}", agents=[${Object.keys(strategy.agents).join(",")}])`,
@@ -552,6 +613,7 @@ export function createStrategyExecutor(
         },
         {
           onAsk: ctx.permissionBridge.requester,
+          onQuestion: ctx.questionBridge.requester,
           onPolicyChange: (snapshot) => {
             sink.broadcast(run.id, {
               type: "policy_updated" as const,
@@ -754,9 +816,17 @@ export function createStrategyExecutor(
           abort: run.abortController.signal,
         });
 
+        const questionBridge = createQuestionBridge({
+          sink,
+          runId: run.id,
+          timeout: bridgeTimeout,
+          abort: run.abortController.signal,
+        });
+
         runContexts.set(run.id, {
           inputBridge,
           permissionBridge,
+          questionBridge,
           clientId,
           lastAgentOutputText: null,
         });
@@ -852,10 +922,19 @@ export function createStrategyExecutor(
         abort: run.abortController.signal,
       });
 
+      // 4.5. Create question bridge for this run
+      const questionBridge = createQuestionBridge({
+        sink,
+        runId: run.id,
+        timeout: bridgeTimeout,
+        abort: run.abortController.signal,
+      });
+
       // 5. Store run context
       runContexts.set(run.id, {
         inputBridge,
         permissionBridge,
+        questionBridge,
         clientId,
         lastAgentOutputText: null,
       });
@@ -911,6 +990,7 @@ export function createStrategyExecutor(
       if (ctx) {
         ctx.inputBridge.destroy();
         ctx.permissionBridge.destroy();
+        ctx.questionBridge.destroy();
         runContexts.delete(runId);
       }
     },
@@ -948,6 +1028,27 @@ export function createStrategyExecutor(
           ts: new Date().toISOString(),
           decision,
         }).catch((err) => logger.warn(`Failed to append permission_decision event: ${err}`));
+      }
+      return resolved;
+    },
+
+    handleQuestionResponse(
+      runId: string,
+      questionRequestId: string,
+      response: string,
+    ): boolean {
+      const ctx = runContexts.get(runId);
+      if (!ctx) return false;
+      const resolved = ctx.questionBridge.resolveQuestion(
+        questionRequestId,
+        response,
+      );
+      if (resolved) {
+        void runStore.appendEvent(runId, {
+          type: "question_response",
+          ts: new Date().toISOString(),
+          response,
+        }).catch((err) => logger.warn(`Failed to append question_response event: ${err}`));
       }
       return resolved;
     },

@@ -5,6 +5,7 @@ import type { InputCollector } from "../../agents/built-in/user/user-agent.types
 import type { ConversationTurn } from "../../context/conversation-context.types";
 import type { FlowHooks } from "../../flows/flow/flow.types";
 import type { SkillRegistry } from "../../skills/skills.types";
+import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
 import type { Strategy } from "../schema";
 
 /**
@@ -66,6 +67,18 @@ export interface LoadStrategyOptions {
    * (such as system prompt file paths).
    */
   readonly strategyDir?: string;
+
+  /**
+   * Optional handle for spawning sub-strategies, threaded into every
+   * agent's {@link ToolContext} so tools such as `launch_strategy` can
+   * delegate to a runtime-supplied implementation (e.g., the daemon
+   * executor, which wires the nested run's flow/agent hooks to the
+   * parent run's broadcast pipeline).
+   *
+   * When omitted, `launch_strategy` falls back to an in-process
+   * `loadStrategy` + `flow.call()` invocation with no broadcast.
+   */
+  readonly launchStrategy?: LaunchStrategyHandle;
 }
 
 /**

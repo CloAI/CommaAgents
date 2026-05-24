@@ -56,13 +56,13 @@ export async function loadStrategy(
   const fileExtension = filePath.split(".").pop()?.toLowerCase();
 
   let format: "json" | "yaml";
-  if (fileExtension === "json") {
+  if (fileExtension === "json" || fileExtension === "jsonc") {
     format = "json";
   } else if (fileExtension === "yaml" || fileExtension === "yml") {
     format = "yaml";
   } else {
     throw new StrategyValidationError(
-      `Unsupported strategy file extension: .${fileExtension}. Use .json, .yaml, or .yml`,
+      `Unsupported strategy file extension: .${fileExtension}. Use .json, .jsonc, .yaml, or .yml`,
     );
   }
 

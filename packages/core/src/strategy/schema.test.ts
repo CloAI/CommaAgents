@@ -574,11 +574,14 @@ describe("BUILT_IN_TOOL_NAMES", () => {
       "webfetch",
       "load_skill",
       "list_skills",
+      "list_strategy",
+      "launch_strategy",
       "todo_add",
       "todo_complete",
       "todo_get",
       "todo_get_next",
       "todo_clear",
+      "ask_question",
     ]);
   });
 });
