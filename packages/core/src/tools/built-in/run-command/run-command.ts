@@ -2,9 +2,12 @@ import type { ChildProcessByStdio } from "node:child_process";
 import { spawn } from "node:child_process";
 import type { Readable } from "node:stream";
 import { z } from "zod";
-import type { Policy } from "../../../guard/guard.types";
-import { approveCommandsPolicy, denyCommandsPolicy } from "../../../guard/policies";
 import { SandboxViolationError } from "../../../errors";
+import type { Policy } from "../../../guard/guard.types";
+import {
+  approveCommandsPolicy,
+  denyCommandsPolicy,
+} from "../../../guard/policies";
 import { defineTool } from "../../define/define-tool";
 import { sandboxErrorToToolError } from "../../io";
 import { errorResult, okResult, toolError } from "../../result";
@@ -20,7 +23,6 @@ import {
 import type {
   PlatformInfo,
   RunCommandData,
-  RunCommandToolConfig,
   RunCommandToolConfigWithRequester,
 } from "./run-command.types";
 import {

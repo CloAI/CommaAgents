@@ -11,7 +11,25 @@ import type {
 /** Default closed state for any unregistered modal. */
 const CLOSED_ENTRY: ModalEntry = { isOpen: false, data: undefined };
 
-export const ModalContext = createContext<ModalContextType | null>(null);
+/**
+ * Inert no-op modal API. Used as the default context value so components
+ * rendered outside a live `<ModalContextProvider>` — most importantly
+ * inside the detached tree Ink builds for `measureLayout` calls — still
+ * render structurally without throwing. The functions don't manage real
+ * state; all queries return "closed".
+ */
+const NULL_MODAL_CONTEXT: ModalContextType = {
+  modals: new Map(),
+  openStack: [],
+  open: () => {},
+  close: () => {},
+  toggle: () => {},
+  isOpen: () => false,
+  isTopmost: () => false,
+  getData: () => undefined,
+};
+
+export const ModalContext = createContext<ModalContextType>(NULL_MODAL_CONTEXT);
 
 /**
  * Provides a shared modal registry so any descendant can open, close,

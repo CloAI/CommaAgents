@@ -37,9 +37,9 @@ import {
  * the worst case is a paragraph that flips into a code-block once the
  * trailing fence arrives.
  *
- * Component is intentionally render-pure beyond the lex step so the
- * row-height estimator in `MessageList.utils.ts` can call the same
- * tokeniser and reproduce the renderer's wrap counts.
+ * Component is intentionally render-pure beyond the lex step so it
+ * can be measured by `ScrollableView` via Ink's headless `measureLayout`
+ * without producing different output than the live render.
  */
 export function MarkdownView({
   markdown,

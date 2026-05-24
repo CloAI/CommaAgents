@@ -1,6 +1,10 @@
 // Tools module barrel — single import point for tool internals.
 // Public API is exported from the package index.
 
+export {
+  buildToolSystemPrompt,
+  mergeSystemPrompts,
+} from "./build-tool-system-prompt";
 // Core types and factory
 export { defineTool } from "./define/define-tool";
 export type {

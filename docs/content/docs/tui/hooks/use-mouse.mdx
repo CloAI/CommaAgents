@@ -1,0 +1,104 @@
+---
+title: useMouse
+description: Mouse interaction hooks — click, hover, and wheel scroll event handling via SGR mouse sequences.
+---
+
+The TUI supports mouse interaction in modern terminals via SGR (1006) mouse escape sequences. The `MouseProvider` (mounted by `<Frame>`) enables the necessary terminal modes and dispatches parsed mouse events to subscribers.
+
+Three hooks provide click, hover, and scroll wheel capabilities. All require a `<MouseProvider>` ancestor.
+
+## MouseEvent
+
+All mouse hooks receive `MouseEvent` objects:
+
+| Field | Type | Description |
+|---|---|---|
+| `kind` | `MouseEventKind` | `"press" \| "release" \| "move" \| "drag" \| "wheel-up" \| "wheel-down"` |
+| `button` | `0 \| 1 \| 2 \| null` | Mouse button (0=left, 1=middle, 2=right, null=no button) |
+| `column` | `number` | 1-indexed terminal column |
+| `row` | `number` | 1-indexed terminal row |
+| `modifiers` | `MouseModifiers` | `{ shift, meta, ctrl }` |
+
+## useMouseClick
+
+Fires `onClick` when a mouse `press` event with a matching button lands inside the referenced element:
+
+```tsx
+import { useMouseClick } from "@comma-agents/tui";
+
+const boxRef = useRef<DOMElement>(null);
+
+useMouseClick({
+  ref: boxRef,
+  onClick: (event) => {
+    // event.button is 0 (left click) by default
+    console.log("Clicked!");
+  },
+});
+
+<Box ref={boxRef}>Click me</Box>
+```
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `ref` | `RefObject<DOMElement>` | -- | Element to hit-test against |
+| `onClick` | `(event: MouseEvent) => void` | -- | Click handler |
+| `buttons` | `readonly (0 \| 1 \| 2)[]` | `[0]` | Which buttons to respond to |
+
+## useMouseHover
+
+Tracks whether the mouse cursor is over a specific element:
+
+```tsx
+import { useMouseHover } from "@comma-agents/tui";
+
+const { isHovered } = useMouseHover({
+  ref: elementRef,
+  onEnter: () => console.log("mouse entered"),
+  onLeave: () => console.log("mouse left"),
+  onMove: (event) => { /* continuous tracking */ },
+});
+```
+
+| Option | Type | Description |
+|---|---|---|
+| `ref` | `RefObject<DOMElement>` | Element to track |
+| `onEnter` | `(event: MouseEvent) => void` | Called when mouse enters the element |
+| `onLeave` | `(event: MouseEvent) => void` | Called when mouse leaves the element |
+| `onMove` | `(event: MouseEvent) => void` | Called on every move inside the element |
+
+Returns `{ isHovered: boolean }`. Returns `{ isHovered: false }` (does not throw) when no `MouseProvider` is mounted.
+
+## useMouseWheelScroll
+
+Subscribes to `wheel-up` and `wheel-down` events, optionally scoped to an element:
+
+```tsx
+import { useMouseWheelScroll } from "@comma-agents/tui";
+
+useMouseWheelScroll({
+  onScroll: ({ direction, column, row }) => {
+    // direction is "up" or "down"
+  },
+  ref: viewportRef,  // optional: only events inside this element
+});
+```
+
+| Option | Type | Description |
+|---|---|---|
+| `onScroll` | `(event: MouseScrollEvent) => void` | Wheel event handler |
+| `ref` | `RefObject<DOMElement> \| undefined` | Optional element scoping |
+
+When `ref` is omitted, all wheel ticks are forwarded regardless of position.
+
+## isInsideRef
+
+AABB hit-test utility, also exported:
+
+```ts
+import { isInsideRef } from "@comma-agents/tui";
+
+if (isInsideRef(myRef, column, row)) {
+  // The mouse at (column, row) is inside myRef's bounding box
+}
+```

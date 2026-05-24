@@ -38,11 +38,11 @@ import {
 } from "@comma-agents/core";
 ```
 
-**`DEFAULT_SANDBOX_CONFIG`** — jailed to `process.cwd()`, absolute paths rejected, standard forbidden globs (`.git/**`, `.env*`, keys, certs), reads and writes allowed within the boundary. Recommended for most projects.
+**`DEFAULT_SANDBOX_CONFIG`** — jailed to `process.cwd()`, absolute paths rejected, standard forbidden globs (`.git/**`, `.env*`, keys, certs), reads and writes allowed within the boundary. `.comma/**` and `.` are explicitly allowlisted for reading so skills and configuration are always accessible. Recommended for most projects.
 
 **`PERMISSIVE_SANDBOX_CONFIG`** — no jail, absolute paths allowed, no forbidden globs, all reads and writes allowed. Used as the fallback when no sandbox is configured.
 
-**`DEFAULT_DAEMON_SANDBOX_CONFIG`** — jailed to cwd, absolute paths allowed (daemon passes absolute paths), in-cwd paths auto-allowed via `allow: ["**"]`, anything outside cwd triggers `"ask"` via the permission bridge. Leaves `cwd` unset so the daemon supplies it at runtime.
+**`DEFAULT_DAEMON_SANDBOX_CONFIG`** — jailed to cwd, absolute paths allowed (daemon passes absolute paths), in-cwd paths auto-allowed via `allow: ["**"]`, anything outside cwd triggers `"ask"` via the permission bridge. `.comma/**` and `.` are explicitly allowlisted for reading so skills are always accessible without prompting. Leaves `cwd` unset so the daemon supplies it at runtime.
 
 ## inSandbox()
 

@@ -1,0 +1,30 @@
+---
+title: IntroPage
+description: Strategy selection and initial prompt screen — renders the animated logo and a ChatTextArea with strategy cycling.
+---
+
+# IntroPage
+
+The landing screen shown before any strategy is started. Displays the animated ASCII art logo (`TitleIcon`) and a prompt input (`ChatTextArea`) with strategy cycling.
+
+```tsx
+import { IntroPage } from "@comma-agents/tui";
+
+<IntroPage
+  strategies={BUILT_IN_STRATEGIES}
+  onSubmit={(strategyKey, input) => {
+    // Navigate to chat and start the strategy
+  }}
+/>
+```
+
+## IntroPageProps
+
+| Prop | Type | Description |
+|---|---|---|
+| `strategies` | `readonly StrategyOption[]` | Available strategies the user can cycle through with Tab |
+| `onSubmit` | `(strategyKey: string, input: string) => void` | Called when the user submits their first prompt |
+
+The page auto-focuses the `ChatTextArea` on mount so the user can immediately type. On wide terminals (128+ columns), the full "CommaAgents" ASCII text banner is shown alongside the animated icon.
+
+The page renders without the Frame tab bar -- it's shown inside the `/chat` route as the fallback when no chat session is active.

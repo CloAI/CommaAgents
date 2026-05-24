@@ -1,0 +1,88 @@
+---
+title: Theme Tokens
+description: The Theme token set — colors, spacing, typography, borders, separators, and breakpoints.
+---
+
+# Theme Tokens
+
+The `Theme` interface is a flat object of token categories. Each category groups related design values. Component theme hooks consume these tokens and transform them into Ink-style props.
+
+## ThemeColors
+
+| Token | Description |
+|---|---|
+| `primary` | Primary accent (headers, active elements) |
+| `secondary` | Secondary accent (descriptions, hints) |
+| `success` | Success state |
+| `warning` | Warning state |
+| `error` | Error state |
+| `muted` | Muted/dim text |
+| `background` | App background color |
+| `backgroundLayerOne` | Depth background for first-layer widgets |
+| `backgroundLayerTwo` | Depth background for second-layer widgets |
+| `backgroundLayerThree` | Depth background for third-layer widgets |
+| `surface` | Elevated surface (input fields, modals, panels) |
+| `cursor` | Cursor highlight color |
+| `scrollThumb` | Scrollbar thumb (active region) |
+| `scrollTrack` | Scrollbar track (inactive region) |
+| `userMessage` | User message color |
+| `agentMessage` | Agent message color |
+| `systemMessage` | System message color |
+| `prompt` | Input prompt color |
+| `waitingInput` | Waiting-for-input state |
+
+## ThemeSpacing
+
+| Token | Value |
+|---|---|
+| `none` | `0` |
+| `xs` | `1` |
+| `sm` | `1` |
+| `md` | `2` |
+| `lg` | `3` |
+
+## ThemeTypography
+
+| Token | Type | Description |
+|---|---|---|
+| `headerBold` | `boolean` | Whether headers are bold |
+| `labelBold` | `boolean` | Whether labels are bold |
+| `secondaryDim` | `boolean` | Whether dim styling is used for secondary text |
+
+## ThemeBorders
+
+| Token | Type | Description |
+|---|---|---|
+| `style` | `string` | Default border style (e.g. `"single"`, `"double"`) |
+| `color` | `string` | Default border color |
+
+## ThemeSeparator
+
+| Token | Type | Description |
+|---|---|---|
+| `char` | `string` | Character used for horizontal separators (e.g. `"─"`) |
+| `width` | `number` | Width in characters |
+
+## ThemeBreakpoints
+
+Mobile-first (min-width) breakpoints in terminal columns:
+
+| Name | Typical Default |
+|---|---|
+| `xs` | `0` |
+| `sm` | `40` |
+| `md` | `60` |
+| `lg` | `90` |
+| `xl` | `120` |
+
+## ThemeContainerWidths
+
+Max content width per breakpoint. `undefined` means full terminal width.
+
+| Breakpoint | Typical Default |
+|---|---|
+| `xs` | `undefined` |
+| `sm` | `undefined` |
+| `md` | `80` |
+| `lg` | `100` |
+| `xl` | `120` |

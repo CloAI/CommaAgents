@@ -14,7 +14,7 @@ import {
   sha256OfBuffer,
   sha256OfFile,
 } from "../../io";
-import type { AuditEntry, AuditSink } from "../../io/audit";
+import type { AuditEntry } from "../../io/audit";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
@@ -157,9 +157,7 @@ export function createMoveFileTool(
         );
       } catch (caught) {
         if (caught instanceof SandboxViolationError) {
-          return errorResult<MoveFileData>(
-            sandboxErrorToToolError(caught),
-          );
+          return errorResult<MoveFileData>(sandboxErrorToToolError(caught));
         }
         throw caught;
       }
@@ -252,7 +250,11 @@ export function createMoveFileTool(
             ),
           );
         }
-        overwroteTrashedTo = await moveToTrash(guard.cwd, toAbs);
+        overwroteTrashedTo = await moveToTrash(guard.cwd, toAbs, {
+          sessionId,
+          agentName,
+          ...guard.trashMetadata,
+        });
       } catch (caughtError) {
         const code = (caughtError as NodeJS.ErrnoException).code;
         if (code !== "ENOENT" && code !== "ENOTDIR") throw caughtError;

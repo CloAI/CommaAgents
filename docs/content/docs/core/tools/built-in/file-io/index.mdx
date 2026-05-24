@@ -1,0 +1,65 @@
+---
+title: File Management & IO
+description: Read, write, edit, search, and manage files in the workspace — with sha256-based stale-file detection.
+---
+
+File tools give agents full read/write access to the workspace. Every modifying tool gates its operation on a sha256 checksum from a prior read — this is the [stale-file protocol](#stale-file-protocol) that prevents overwriting changes the agent hasn't seen.
+
+## Tools at a glance
+
+| Tool | Purpose |
+|---|---|
+| [`read_file`](/docs/core/tools/built-in/file-io/read_file) | Read a text file with line slicing and a sha256 for stale checks. |
+| [`list_directory`](/docs/core/tools/built-in/file-io/list_directory) | Enumerate a directory, optionally recursive. |
+| [`search_files`](/docs/core/tools/built-in/file-io/search_files) | Glob, text, or regex search across many files. |
+| [`create_file`](/docs/core/tools/built-in/file-io/create_file) | Create a new file; fails if it exists. |
+| [`write_file`](/docs/core/tools/built-in/file-io/write_file) | Overwrite an existing file, gated by sha256. |
+| [`edit_file`](/docs/core/tools/built-in/file-io/edit_file) | Apply exact-string edits, gated by sha256. |
+| [`delete_file`](/docs/core/tools/built-in/file-io/delete_file) | Delete a file, recoverable via workspace trash. |
+| [`restore_file`](/docs/core/tools/built-in/file-io/restore_file) | Restore a previously trashed file from its archive. |
+| [`move_file`](/docs/core/tools/built-in/file-io/move_file) | Move or rename with no-overwrite semantics. |
+| [`apply_patch`](/docs/core/tools/built-in/file-io/apply_patch) | Apply a multi-file unified-diff envelope atomically. |
+
+The system tracks every write operation through the [audit log](/docs/core/tools/audit-log) and recovers deleted files via the [trash](/docs/core/tools/trash) system.
+
+## Stale-file protocol
+
+The write tools (`write_file`, `edit_file`, and `apply_patch`) refuse to modify a file unless the caller can prove they have seen its current state. The proof is the sha256 of the on-disk bytes — returned in `data.sha256` by `read_file` and echoed back in `expectedSha256` (or `expectedSha256ByPath` for `apply_patch`). When the proof doesn't match, the tool returns `stale_file` and the agent must re-read before retrying.
+
+### The lifecycle
+
+1. **Read** — Call `read_file`. Save `data.sha256`.
+2. **Write or edit** — Pass that sha256 as `expectedSha256`. If the file has changed since the read, the call fails with `stale_file` and the suggested action: *"Re-read the file to obtain the current sha256 and re-apply your edit."*
+3. **Re-read on stale** — Call `read_file` again, recompute the change, and retry.
+
+```ts
+const read = await tool.read_file({ path: "src/server.ts" });
+
+const result = await tool.edit_file({
+  path: "src/server.ts",
+  expectedSha256: read.data.sha256,
+  edits: [{ oldText: "PORT = 3000", newText: "PORT = 4000" }],
+});
+
+if (!result.ok && result.error.kind === "stale_file") {
+  // Re-read and retry.
+}
+```
+
+### What sha256 covers
+
+`read_file` always computes the sha256 over the **full** on-disk bytes, even when the response was sliced by `startLine` / `endLine` / `maxBytes`. The agent can therefore reuse the hash from a sliced read as `expectedSha256` for a follow-up write.
+
+### Why not last-modified time?
+
+mtime is cheap but unreliable: editors that touch a file in place may not change its mtime, and clock skew across systems makes comparisons brittle. sha256 is content-addressed, so it stays correct regardless of how the file got that way.
+
+### Apply-patch and the sentinel value
+
+`apply_patch` accepts an `expectedSha256ByPath: Record<path, sha256>` map. For `Add File` operations, supply the sentinel `""` (empty string) to assert that the destination must not exist — any other value is treated as a stale-file mismatch. Paths not present in the map skip the stale check entirely, which is useful when locally constructing a patch over read-only neighbors.
+
+## Cross-cutting concerns
+
+- [Audit log](/docs/core/tools/audit-log) — immutable record of every write operation.
+- [Trash](/docs/core/tools/trash) — recover deleted files before they are permanently removed.
+- [Error kinds](/docs/core/tools/error-kinds) — error taxonomy including `stale_file`, `not_found`, `permission_denied`, and more.

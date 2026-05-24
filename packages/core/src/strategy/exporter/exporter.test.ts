@@ -83,7 +83,7 @@ const COMPLEX_STRATEGY = {
     writer: {
       model: "openai/gpt-4o",
       systemPrompt: "You write code.",
-      tools: ["bash", "write", "edit"],
+      tools: ["run_command", "write_file", "edit_file"],
     },
     reviewer: {
       model: "anthropic/claude-sonnet-4-5",
@@ -140,7 +140,11 @@ describe("exportStrategy", () => {
       expect(parsed.name).toBe("Code Review");
       expect(parsed.description).toBe("Multi-agent review pipeline");
       expect(parsed.agents.user.type).toBe("user");
-      expect(parsed.agents.writer.tools).toEqual(["bash", "write", "edit"]);
+      expect(parsed.agents.writer.tools).toEqual([
+        "run_command",
+        "write_file",
+        "edit_file",
+      ]);
     });
 
     it("uses default format (JSON) when no format specified", async () => {
@@ -201,7 +205,11 @@ describe("exportStrategy", () => {
       const parsed = YAML.parse(yamlStr);
 
       expect(parsed.name).toBe("Code Review");
-      expect(parsed.agents.writer.tools).toEqual(["bash", "write", "edit"]);
+      expect(parsed.agents.writer.tools).toEqual([
+        "run_command",
+        "write_file",
+        "edit_file",
+      ]);
     });
   });
 

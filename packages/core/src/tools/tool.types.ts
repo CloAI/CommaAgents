@@ -115,6 +115,10 @@ export interface ToolResult<DataShape = unknown> {
  * Tools have a description (for the LLM), Zod-validated parameters,
  * and an async execute function.
  *
+ * Optionally, tools can contribute to the agent's system prompt via
+ * the `systemPrompt` field. This is useful when a tool needs to inject
+ * complex context or instructions that should be visible to the LLM.
+ *
  * @typeParam ParameterSchema - Zod schema type for the tool's parameters
  * @typeParam DataShape - Typed payload returned in `ToolResult.data`
  */
@@ -131,6 +135,38 @@ export interface ToolDefinition<
    * Added to the tool's Guard policy chain by `createSandbox()`.
    */
   readonly policies?: readonly Policy[];
+  /**
+   * Optional system prompt contribution from this tool.
+   *
+   * When provided, this content is injected ONCE into the agent's system
+   * prompt at agent creation time (not per-call). This allows tools to
+   * define complex context, instructions, or formatting requirements that
+   * the LLM should know about.
+   *
+   * Can be a static string or a function that receives the ToolContext
+   * and returns a string (sync or async). The function form is useful
+   * when the prompt depends on runtime state (e.g., current workspace).
+   *
+   * @example
+   * ```ts
+   * // Static prompt
+   * defineTool({
+   *   systemPrompt: "When using this tool, always format output as JSON.",
+   *   // ...
+   * })
+   *
+   * // Dynamic prompt (function)
+   * defineTool({
+   *   systemPrompt: async (toolContext) => {
+   *     return `Working directory: ${toolContext.guard.cwd}`;
+   *   },
+   *   // ...
+   * })
+   * ```
+   */
+  readonly systemPrompt?:
+    | string
+    | ((toolContext: ToolContext) => Promise<string> | string);
   /** Execute the tool with validated arguments and context. */
   execute(
     validatedArguments: z.infer<ParameterSchema>,

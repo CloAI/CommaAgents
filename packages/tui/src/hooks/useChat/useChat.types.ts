@@ -1,11 +1,9 @@
-import type { RunStatus, RunSummary } from "@comma-agents/daemon";
-
-import type { DaemonMessageOf } from "../useDaemon/useDaemon.types";
+import type { RunOverview, RunStatus, RunSummary } from "@comma-agents/daemon";
 
 import type { WebSocketStatus } from "../useWebSocket/useWebSocket.types";
 
-/** Local identifier for a chat session (UUID, stable for the session's life). */
-export type ChatSessionId = string;
+/** Local identifier for a chat run (UUID, stable for the run's life). */
+export type ChatRunId = string;
 
 /** Sender role for display purposes. */
 export type MessageRole = "user" | "agent" | "system";
@@ -119,11 +117,11 @@ export interface PendingPermissionRequest {
 }
 
 /**
- * UI lifecycle status for a chat session.
+ * UI lifecycle status for a chat run.
  *
  * Extends the daemon's `RunStatus` union (`pending | running | completed |
  * error | cancelled`) with TUI-only states that the daemon does not model:
- * - `idle` — session exists but hasn't started a run yet.
+ * - `idle` — run exists but hasn't started a run yet.
  * - `waiting_input` — derived from an unanswered `request_input`.
  * - `waiting_permission` — derived from an unanswered `request_permission`.
  */
@@ -133,10 +131,10 @@ export type ChatStatus =
   | "waiting_input"
   | "waiting_permission";
 
-/** A single chat session's state — 1:1 with a strategy run. */
-export interface ChatSession {
+/** A single chat run's state — 1:1 with a strategy run. */
+export interface ChatRun {
   /** Stable TUI-local id, generated at create-time. */
-  readonly id: ChatSessionId;
+  readonly id: ChatRunId;
   /** Run id assigned by the daemon after `strategy_started`. */
   readonly daemonRunId: string | null;
   /** Human-readable label (strategy name or file path). */
@@ -145,13 +143,13 @@ export interface ChatSession {
   readonly strategyPath: string | null;
   /**
    * Name of the strategy used for this run, when known. Populated for
-   * persisted sessions hydrated via `loadSession`. Live sessions started
+   * persisted runs hydrated via `loadPersistedRun`. Live runs started
    * via `startStrategy` learn this from `strategy_started` (where it lives
    * on `label` instead). May be null until the daemon reports it.
    */
   readonly strategyName: string | null;
   /**
-   * True when this session was hydrated from a persisted snapshot rather
+   * True when this run was hydrated from a persisted snapshot rather
    * than bound to a live daemon run. Read-only — input/permission UIs are
    * disabled by consumers when this flag is set.
    */
@@ -170,7 +168,7 @@ export interface ChatSession {
    * When the user resolves it, the next item (if any) is shown immediately.
    */
   readonly pendingPermissionRequests: readonly PendingPermissionRequest[];
-  /** Accumulated messages for this session. */
+  /** Accumulated messages for this run. */
   readonly messages: readonly ChatMessage[];
   /** Creation timestamp (ms since epoch). */
   readonly createdAt: number;
@@ -178,103 +176,84 @@ export interface ChatSession {
   readonly updatedAt: number;
 }
 
-/** Initial overrides accepted by `createSession`. */
-export interface CreateSessionInit {
-  /** Human-readable label. Defaults to "New session". */
+/** Initial overrides accepted by `createChatRun`. */
+export interface CreateRunInit {
+  /** Human-readable label. Defaults to "New run". */
   readonly label?: string;
   /** Strategy file path, if known at creation time. */
   readonly strategyPath?: string;
 }
 
-/** Lightweight metadata for a daemon-persisted session (from `session_list`). */
-export interface PersistedSessionMeta {
-  /** Stable session identifier from the daemon. */
-  readonly daemonSessionId: string;
-  /** Human-readable title. */
-  readonly title: string;
-  /** Absolute cwd the session belongs to. */
-  readonly cwd: string;
-  /** ISO-8601 creation timestamp. */
-  readonly createdAt: string;
-  /** ISO-8601 last-updated timestamp. */
-  readonly updatedAt: string;
-}
+/** Lightweight metadata for a daemon-persisted run (from `run_list`). */
+export type PersistedRunMeta = RunOverview;
 
-/** Value exposed by `ChatSessionsContext`. */
-export interface ChatSessionsContextType {
-  /** All sessions keyed by `ChatSessionId`. */
-  readonly sessions: ReadonlyMap<ChatSessionId, ChatSession>;
-  /** Id of the session currently in view, or null. */
-  readonly activeSessionId: ChatSessionId | null;
-  /** Change the active session. */
-  readonly setActiveSessionId: (id: ChatSessionId | null) => void;
-  /** Create a session in `idle` state. Returns its id. Does not make it active. */
-  readonly createSession: (init?: CreateSessionInit) => ChatSessionId;
-  /** Create a session, start a strategy on it, and make it active. Returns its id. */
+/** Value exposed by `ChatRunsContext`. */
+export interface ChatRunsContextType {
+  /** All runs keyed by `ChatRunId`. */
+  readonly chatRuns: ReadonlyMap<ChatRunId, ChatRun>;
+  /** Id of the run currently in view, or null. */
+  readonly activeChatRunId: ChatRunId | null;
+  /** Change the active run. */
+  readonly setActiveChatRunId: (id: ChatRunId | null) => void;
+  /** Create a run in `idle` state. Returns its id. Does not make it active. */
+  readonly createChatRun: (init?: CreateRunInit) => ChatRunId;
+  /** Create a run, start a strategy on it, and make it active. Returns its id. */
   readonly startStrategy: (
     strategyPath: string,
     input?: string,
     cwd?: string,
-  ) => ChatSessionId;
-  /**
-   * Hydrate a persisted session from a daemon `session_loaded` payload.
-   *
-   * Creates a new local session, projects the persisted turns into
-   * `ChatMessage`s (one user + one agent message per turn), marks the
-   * session as `readOnly` (no live daemon run), sets it active, and
-   * returns its id. Subsequent `sendInput`/`stopSession` calls are no-ops.
-   */
-  readonly loadSession: (
-    payload: DaemonMessageOf<"session_loaded">,
-  ) => ChatSessionId;
-  /** Send user input into a session that is waiting for it. No-op otherwise. */
-  readonly sendInput: (sessionId: ChatSessionId, text: string) => void;
-  /** Resolve a pending permission request for a session. */
+    manifestPath?: string,
+  ) => ChatRunId;
+  /** Send user input for a specific run. No-op if no daemon run or no pending input. */
+  readonly sendInput: (chatRunId: ChatRunId, text: string) => void;
+  /** Resolve the head permission request for a specific run. */
   readonly sendPermissionDecision: (
-    sessionId: ChatSessionId,
+    chatRunId: ChatRunId,
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
-  /** Send `stop_strategy` for this session's daemon run. No-op if no `daemonRunId`. */
-  readonly stopSession: (sessionId: ChatSessionId) => void;
-  /** Clear the session's UI projection (messages, error, status → idle). Subscription stays alive. */
-  readonly resetSession: (sessionId: ChatSessionId) => void;
-  /** Delete the session from the map. Clears `activeSessionId` if it was active. */
-  readonly removeSession: (sessionId: ChatSessionId) => void;
-  /** Persisted session metadata fetched from the daemon. */
-  readonly persistedSessions: readonly PersistedSessionMeta[];
-  /** Request the daemon to list persisted sessions for a given cwd (or all). */
-  readonly fetchPersistedSessions: (cwd?: string) => void;
-  /** Load a persisted session from the daemon by its daemon session id. */
-  readonly loadPersistedSession: (daemonSessionId: string) => void;
-  /** Whether a session is currently being loaded from the daemon. */
-  readonly isLoadingSession: boolean;
+  /** Send `stop_strategy` for a specific run. No-op without a bound daemon run. */
+  readonly stopChatRun: (chatRunId: ChatRunId) => void;
+  /** Reset a run to `idle`, clearing messages and pending state. */
+  readonly resetChatRun: (chatRunId: ChatRunId) => void;
+  /** Remove a run from the map entirely. */
+  readonly removeChatRun: (chatRunId: ChatRunId) => void;
+  /** Persisted run summaries fetched from the daemon via `list_runs`. */
+  readonly persistedRuns: readonly RunOverview[];
+  /** Trigger a fresh `list_runs` request. */
+  readonly fetchPersistedRuns: (cwd?: string) => void;
+  /** Load a persisted run from the daemon by its run id. */
+  readonly loadPersistedRun: (runId: string) => void;
+  /** Resume a previously stopped/interrupted run by its run id. */
+  readonly resumeRun: (runId: string) => void;
+  /** Whether a run is currently being loaded from the daemon. */
+  readonly isLoadingRun: boolean;
 }
 
-/** Props for the `ChatSessionsContextProvider` component. */
-export interface ChatSessionsContextProviderProps {
-  /** Child elements that can consume chat session state. */
+/** Props for the `ChatRunsContextProvider` component. */
+export interface ChatRunsContextProviderProps {
+  /** Child elements that can consume chat run state. */
   readonly children: React.ReactNode;
 }
 
 /**
- * Value returned by `useChat()` — a view of a single session with bound action methods.
+ * Value returned by `useChat()` — a view of a single run with bound action methods.
  *
- * When the resolved session id is `null` (no session exists yet, or the
- * provided `sessionId` doesn't match any session), all fields return
+ * When the resolved run id is `null` (no run exists yet, or the
+ * provided `chatRunId` doesn't match any run), all fields return
  * empty/null values and action methods other than `startStrategy` are no-ops.
  */
 export interface UseChatState {
-  /** Id of the session this view is bound to, or null. */
-  readonly sessionId: ChatSessionId | null;
+  /** Id of the run this view is bound to, or null. */
+  readonly chatRunId: ChatRunId | null;
   readonly messages: readonly ChatMessage[];
   readonly status: ChatStatus;
   readonly error: string | null;
   readonly pendingInputAgent: string | null;
-  /** Name of the strategy that produced this session, if known. */
+  /** Name of the strategy that produced this run, if known. */
   readonly strategyName: string | null;
   /** Strategy file path, if known. */
   readonly strategyPath: string | null;
-  /** Whether this session is a read-only replay (no live run). */
+  /** Whether this run is a read-only replay (no live run). */
   readonly readOnly: boolean;
   /** Current pending permission request (head of queue), or null. */
   readonly pendingPermissionRequest: PendingPermissionRequest | null;
@@ -282,23 +261,26 @@ export interface UseChatState {
   readonly runId: string | null;
   /** Current daemon WebSocket connection status. */
   readonly connectionStatus: WebSocketStatus;
-  /** Create a new session and start a strategy on it. Returns the new session id. */
+  /** Create a new run and start a strategy on it. Returns the new run id. */
   readonly startStrategy: (
     strategyPath: string,
     input?: string,
     cwd?: string,
-  ) => ChatSessionId;
-  /** Send user input to the bound session. No-op if no session or no pending input. */
+    manifestPath?: string,
+  ) => ChatRunId;
+  /** Resume a previously stopped/cancelled/interrupted run. */
+  readonly resumeRun: (runId: string) => void;
+  /** Send user input to the bound run. No-op if no run or no pending input. */
   readonly sendInput: (text: string) => void;
-  /** Resolve the pending permission request for the bound session. */
+  /** Resolve the pending permission request for the bound run. */
   readonly sendPermissionDecision: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
-  /** Clear the bound session's UI projection. No-op if no session. */
+  /** Clear the bound run's UI projection. No-op if no run. */
   readonly reset: () => void;
-  /** Send `stop_strategy` for the bound session. No-op if no session or no daemon run. */
+  /** Send `stop_strategy` for the bound run. No-op if no run or no daemon run. */
   readonly stop: () => void;
 }
 
 /** Re-export of the daemon's `RunSummary` for future `list_strategies` hydration. */
-export type { RunStatus, RunSummary };
+export type { RunOverview, RunStatus, RunSummary };

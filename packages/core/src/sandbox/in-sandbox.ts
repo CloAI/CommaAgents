@@ -9,8 +9,7 @@ function setSandboxOnAgent(agent: Agent, sandbox: Sandbox): void {
   (agent as Record<symbol, Sandbox>)[SANDBOX_KEY] = sandbox;
   // Also mutate config so buildCallOptions reads it via config.sandbox
   if (agent.config) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (agent.config as any).sandbox = sandbox;
+    (agent.config as { sandbox?: Sandbox }).sandbox = sandbox;
   }
 }
 

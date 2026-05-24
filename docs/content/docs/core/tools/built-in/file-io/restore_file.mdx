@@ -1,0 +1,56 @@
+---
+title: restore_file
+description: Restore a previously trashed file from its .tar.gz archive.
+---
+
+# restore_file
+
+Restore a file from a trash archive. The file is extracted from the `.tar.gz` and placed at its original workspace-relative path (or an optional override). The archive is removed from the trash directory after a successful restore.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "recovery-agent",
+  model: "openai/gpt-4o",
+  tools: ["restore_file"],
+});
+```
+
+## RestoreFileData
+
+The structured payload returned on success.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/restore-file/restore-file.types.ts" name="RestoreFileData" />
+
+## Usage
+
+The `trashedPath` parameter must be an absolute path obtained from a previous `delete_file` result's `trashedTo` field or from the audit log.
+
+```ts
+// Restore to the original path.
+await tool.restore_file({
+  trashedPath: "/Users/.../trash/<hash>/2026-05-16T...-a1b2c3d4.tar.gz",
+});
+
+// Restore to a custom path.
+await tool.restore_file({
+  trashedPath: "/Users/.../trash/<hash>/2026-05-16T...-a1b2c3d4.tar.gz",
+  targetPath: "src/recovered.ts",
+});
+```
+
+## Errors
+
+| Kind | When |
+|---|---|
+| `not_found` | The trash archive does not exist or its metadata is corrupted. |
+| `already_exists` | A file already exists at the restore target path. |
+| `permission_denied` | The restore target is write-blocked by sandbox policy. |
+| `outside_workspace` | The restore target path escapes the sandbox. |
+| `command_failed` | Decompression or extraction failed. |
+
+## Related
+
+- [Trash](/docs/core/tools/trash) — how recoverable deletes are stored.
+- [delete_file](/docs/core/tools/built-in/file-io/delete_file) — produces the trash archives this tool reads from.

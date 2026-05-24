@@ -1,21 +1,21 @@
 export { useChat } from "./useChat";
 export {
-  ChatSessionsContext,
-  ChatSessionsContextProvider,
+  ChatRunsContext,
+  ChatRunsContextProvider,
 } from "./useChat.context";
 export type {
   ChatMessage,
-  ChatSession,
-  ChatSessionId,
-  ChatSessionsContextProviderProps,
-  ChatSessionsContextType,
+  ChatRun,
+  ChatRunId,
+  ChatRunsContextProviderProps,
+  ChatRunsContextType,
   ChatStatus,
-  CreateSessionInit,
+  CreateRunInit,
   MessageRole,
   PendingPermissionRequest,
-  PersistedSessionMeta,
+  PersistedRunMeta,
   RunStatus,
   RunSummary,
   UseChatState,
 } from "./useChat.types";
-export { useChatSessions } from "./useChatSessions";
+export { useChatRuns } from "./useChatRuns";

@@ -1,0 +1,73 @@
+---
+title: In Description Files
+description: Using systemPromptTemplate in YAML and JSON agent description files — automatic conversion to PromptTemplate.
+---
+
+Agent [description files](/docs/core/agents/load-agent) and [strategy files](/docs/core/strategy/strategy-file) support templates via the `systemPromptTemplate` field:
+
+```yaml
+name: reviewer
+model: openai/gpt-4o
+systemPromptTemplate:
+  template: "You are {{ role }}, reviewing {{ language }} code."
+  variables:
+    role: senior engineer
+    language: TypeScript
+```
+
+When both `systemPromptTemplate` and `systemPrompt` are present, the template takes precedence. The loader converts `systemPromptTemplate` to a `PromptTemplate` automatically, so the agent receives the same object as if you had passed `createPromptTemplate(...)` as `systemPrompt`.
+
+## Using templates with loadAgent
+
+Any agent loaded via `loadAgent` or `loadAgentFromString` supports `systemPromptTemplate`:
+
+```yaml
+# agents/reviewer.yaml
+name: reviewer
+model: openai/gpt-4o
+systemPromptTemplate:
+  template: "You are {{ role }}. Focus on {{ focus }}."
+  variables:
+    role: a reviewer
+    focus: correctness
+tools:
+  - read_file
+  - edit_file
+```
+
+```ts
+import { loadAgent } from "@comma-agents/core";
+
+const agent = await loadAgent("./agents/reviewer.yaml");
+
+// Variables are baked in — the template renders automatically at call time.
+const result = await agent.call("Review this code.");
+
+// Override at runtime without modifying the YAML.
+agent.updatePromptVariables({ focus: "performance" });
+```
+
+## Strategy files
+
+Strategy files support the same `systemPromptTemplate` field on `LLMAgentDef`:
+
+```yaml
+strategy: "1.0"
+agents:
+  - name: coder
+    model: openai/gpt-4o
+    systemPromptTemplate:
+      template: "You are a {{ role }} writing {{ language }}."
+      variables:
+        role: software engineer
+        language: TypeScript
+```
+
+The strategy loader builds the agent with the same template logic — `systemPromptTemplate` takes precedence over `systemPrompt`.
+
+## Related
+
+- [Prompts & Templates](/docs/core/prompts) — overview and `createPromptTemplate`.
+- [Template Overrides](/docs/core/prompts/template-overrides) — updating variables at runtime.
+- [Template Syntax](/docs/core/prompts/template-syntax) — LiquidJS syntax and custom filters.
+- [loadAgent](/docs/core/agents/load-agent) — loading agents from description files.

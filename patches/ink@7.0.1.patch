@@ -1,0 +1,636 @@
+diff --git a/node_modules/ink/.bun-tag-49451ea197737d5 b/.bun-tag-49451ea197737d5
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/build/index.d.ts b/build/index.d.ts
+index f3e73496ad906b24202229930501097ef81da0d3..688e1c6b0ed130988831f7c7e9350c950f7935e0 100644
+--- a/build/index.d.ts
++++ b/build/index.d.ts
+@@ -36,6 +36,8 @@ export type { BoxMetrics, UseBoxMetricsResult } from './hooks/use-box-metrics.js
+ export { default as useBoxMetrics } from './hooks/use-box-metrics.js';
+ export type { CursorPosition } from './log-update.js';
+ export { default as measureElement } from './measure-element.js';
++export type { MeasureLayoutOptions, MeasureLayoutResult } from './measure-layout.js';
++export { default as measureLayout } from './measure-layout.js';
+ export type { DOMElement } from './dom.js';
+ export { kittyFlags, kittyModifiers } from './kitty-keyboard.js';
+ export type { KittyKeyboardOptions, KittyFlagName } from './kitty-keyboard.js';
+diff --git a/build/index.js b/build/index.js
+index cc849f0d5642d763f4a0176ebabe7d20e18979bc..44b5af2aec780c4376c017f5c2489b45eafaac0c 100644
+--- a/build/index.js
++++ b/build/index.js
+@@ -20,5 +20,6 @@ export { default as useAnimation } from './hooks/use-animation.js';
+ export { default as useWindowSize } from './hooks/use-window-size.js';
+ export { default as useBoxMetrics } from './hooks/use-box-metrics.js';
+ export { default as measureElement } from './measure-element.js';
++export { default as measureLayout } from './measure-layout.js';
+ export { kittyFlags, kittyModifiers } from './kitty-keyboard.js';
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff --git a/node_modules/ink/build/measure-layout.d.ts b/build/measure-layout.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..64cf4eb52615149c6100619741ddaf51cdefb7c7
+--- /dev/null
++++ b/build/measure-layout.d.ts
+@@ -0,0 +1,27 @@
++import type { ReactNode } from 'react';
++export type MeasureLayoutOptions = {
++    /**
++     * The available width (in columns) within which the tree should lay out.
++     * Required — Yoga needs a definite constraint to resolve percent and
++     * flex-grow values.
++     */
++    readonly width: number;
++    /**
++     * Optional height constraint. When omitted, the tree lays out at its
++     * intrinsic height (yoga returns the natural content height).
++     */
++    readonly height?: number;
++};
++export type MeasureLayoutResult = {
++    readonly width: number;
++    readonly height: number;
++};
++/**
++ * Measure the layout dimensions of a React element synchronously, without
++ * writing to any terminal stream or starting a persistent Ink instance.
++ *
++ * See `measure-layout.js` for the full documentation.
++ */
++declare const measureLayout: (node: ReactNode, options: MeasureLayoutOptions) => MeasureLayoutResult;
++export default measureLayout;
++//# sourceMappingURL=measure-layout.d.ts.map
+diff --git a/node_modules/ink/build/measure-layout.js b/build/measure-layout.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..248075f69bb6f7d2f06b5419bb726e7bfd86834e
+--- /dev/null
++++ b/build/measure-layout.js
+@@ -0,0 +1,130 @@
++import Yoga from 'yoga-layout';
++import createReconciler from 'react-reconciler';
++import { LegacyRoot } from 'react-reconciler/constants.js';
++import { createHostConfig } from './reconciler.js';
++import { createNode } from './dom.js';
++// Lazy-initialised secondary reconciler dedicated to measureLayout. Kept
++// in module scope so we pay the setup cost once per process, not once per
++// measureLayout call. `isPrimaryRenderer: false` keeps it from competing
++// with the main `render()` pipeline for React's primary-renderer slot,
++// and the host config is created fresh so its internal priority state is
++// isolated from the primary reconciler.
++let measurementReconciler;
++const getMeasurementReconciler = () => {
++    if (measurementReconciler === undefined) {
++        measurementReconciler = createReconciler(createHostConfig({ isPrimaryRenderer: false }));
++    }
++    return measurementReconciler;
++};
++/**
++Measure the layout dimensions of a React element synchronously, without writing
++to any terminal stream or starting a persistent Ink instance.
++
++Builds a detached Yoga tree mirroring the JSX, computes layout at the given
++constraints, reads the resulting box dimensions, and tears the tree down. The
++yoga nodes are freed before this function returns so there are no listener,
++state, or memory leaks.
++
++The helper uses a dedicated secondary `react-reconciler` instance so it is
++safe to call from inside a live render — the primary reconciler's work
++queue is untouched. This is the property that makes it usable as the
++backing measurement primitive for virtualized lists like `ScrollableView`.
++
++**Notes:**
++
++- Terminal-specific hooks (`useInput`, `useStdin`, `useStdout`, `useStderr`,
++  `useApp`, `useFocus`, `useFocusManager`) return default no-op values, identical
++  to `renderToString`. They will not throw, but they will not function as in a
++  live terminal.
++- Context providers consumed by the JSX (themes, accessibility, app-level state)
++  must be wrapped around the node by the caller; the detached tree does not
++  inherit context from any live `<App>`.
++- JSX must render synchronously. Suspense / async rendering is not supported.
++- Each call constructs a reconciler container, runs effects, and tears the
++  tree down again. For hot paths (per-item row height in a virtual list)
++  callers should memoize results — e.g. keyed by `(itemKey, width)`.
++- If a component throws during rendering, the error is propagated to the
++  caller after cleanup.
++
++@example
++```ts
++import {measureLayout, Box, Text} from 'ink';
++
++const {width, height} = measureLayout(
++    <Box flexDirection="column">
++        <Text>line one</Text>
++        <Text>line two</Text>
++    </Box>,
++    {width: 40}
++);
++// width === 8, height === 2
++```
++*/
++const measureLayout = (node, options) => {
++    const widthConstraint = options.width;
++    const heightConstraint = options.height;
++    // Create a standalone root node — no stdout, stdin, or terminal bindings.
++    const rootNode = createNode('ink-root');
++    rootNode.onComputeLayout = () => {
++        rootNode.yogaNode.setWidth(widthConstraint);
++        if (heightConstraint !== undefined) {
++            rootNode.yogaNode.setHeight(heightConstraint);
++        }
++        rootNode.yogaNode.calculateLayout(undefined, undefined, Yoga.DIRECTION_LTR);
++    };
++    // Capture the first uncaught error so we can re-throw it after cleanup.
++    let uncaughtError;
++    const reconciler = getMeasurementReconciler();
++    // Create a reconciler container in legacy (synchronous) mode.
++    // The four trailing callbacks are: onUncaughtError, onCaughtError,
++    // onRecoverableError, and onHostTransitionComplete.
++    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
++    const container = reconciler.createContainer(rootNode, LegacyRoot, null, false, null, 'measure-layout', (error) => {
++        uncaughtError ??= error;
++    }, () => { }, () => { }, () => { });
++    let teardownSucceeded = false;
++    try {
++        // Synchronously render the React tree into the container. Commit runs
++        // resetAfterCommit, which fires our onComputeLayout — yoga layout is
++        // ready by the time updateContainerSync returns.
++        reconciler.updateContainerSync(node, container, null, () => { });
++        reconciler.flushSyncWork();
++        const measured = {
++            width: rootNode.yogaNode.getComputedWidth(),
++            height: rootNode.yogaNode.getComputedHeight(),
++        };
++        // Tear down: unmount the tree so the reconciler cleans up child nodes
++        // and runs effect cleanup functions. Child Yoga nodes are freed by the
++        // reconciler's removeChildFromContainer → cleanupYogaNode → freeRecursive.
++        reconciler.updateContainerSync(null, container, null, () => { });
++        reconciler.flushSyncWork();
++        teardownSucceeded = true;
++        // Free the root yoga node itself (children already freed by reconciler).
++        rootNode.yogaNode.free();
++        // Re-throw after full cleanup so callers see the original error.
++        if (uncaughtError !== undefined) {
++            throw uncaughtError instanceof Error
++                ? uncaughtError
++                : // eslint-disable-next-line @typescript-eslint/no-base-to-string
++                    new Error(String(uncaughtError));
++        }
++        return measured;
++    }
++    finally {
++        // Ensure native Yoga memory is freed even if rendering or teardown threw.
++        // Yoga nodes are WASM-backed and not garbage collected.
++        if (!teardownSucceeded && rootNode.yogaNode) {
++            try {
++                // If reconciler teardown failed, some child nodes may not have
++                // been freed. Use freeRecursive to clean up the entire tree as
++                // a best-effort.
++                rootNode.yogaNode.freeRecursive();
++            }
++            catch {
++                // Best-effort: node may already be partially freed.
++            }
++        }
++    }
++};
++export default measureLayout;
++//# sourceMappingURL=measure-layout.js.map
+diff --git a/build/reconciler.js b/build/reconciler.js
+index 74cb3b8841f1493d1fc3fa889028109d5cc77c0c..4ffb38fc99d1f614a6ceaf013df8a66b06b0db15 100644
+--- a/build/reconciler.js
++++ b/build/reconciler.js
+@@ -53,8 +53,6 @@ const cleanupYogaNode = (node) => {
+     node?.unsetMeasureFunc();
+     node?.freeRecursive();
+ };
+-let currentUpdatePriority = NoEventPriority;
+-let currentRootNode;
+ async function loadPackageJson() {
+     const fs = await import('node:fs');
+     const content = fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8');
+@@ -82,146 +80,80 @@ if (process.env['DEV'] === 'true') {
+         console.warn('Failed to load package.json in development mode. Falling back to default renderer metadata.', error);
+     }
+ }
+-export default createReconciler({
+-    getRootHostContext: () => ({
+-        isInsideText: false,
+-    }),
+-    prepareForCommit: () => null,
+-    preparePortalMount: () => null,
+-    clearContainer: () => false,
+-    resetAfterCommit(rootNode) {
+-        if (typeof rootNode.onComputeLayout === 'function') {
+-            rootNode.onComputeLayout();
+-        }
+-        emitLayoutListeners(rootNode);
+-        // Since renders are throttled at the instance level and <Static> component children
+-        // are rendered only once and then get deleted, we need an escape hatch to
+-        // trigger an immediate render to ensure <Static> children are written to output before they get erased
+-        if (rootNode.isStaticDirty) {
+-            rootNode.isStaticDirty = false;
+-            if (typeof rootNode.onImmediateRender === 'function') {
+-                rootNode.onImmediateRender();
+-            }
+-            return;
+-        }
+-        if (typeof rootNode.onRender === 'function') {
+-            rootNode.onRender();
+-        }
+-    },
+-    getChildHostContext(parentHostContext, type) {
+-        const previousIsInsideText = parentHostContext.isInsideText;
+-        const isInsideText = type === 'ink-text' || type === 'ink-virtual-text';
+-        if (previousIsInsideText === isInsideText) {
+-            return parentHostContext;
+-        }
+-        return { isInsideText };
+-    },
+-    shouldSetTextContent: () => false,
+-    createInstance(originalType, newProps, rootNode, hostContext) {
+-        if (hostContext.isInsideText && originalType === 'ink-box') {
+-            throw new Error(`<Box> can’t be nested inside <Text> component`);
+-        }
+-        const type = originalType === 'ink-text' && hostContext.isInsideText
+-            ? 'ink-virtual-text'
+-            : originalType;
+-        const node = createNode(type);
+-        for (const [key, value] of Object.entries(newProps)) {
+-            if (key === 'children') {
+-                continue;
++/**
++ * Build the React-reconciler host config used by Ink.
++ *
++ * Two variants exist in this build:
++ *
++ * - The default, primary renderer (`isPrimaryRenderer: true`) backs every
++ *   `render()` / `renderToString()` call and owns React's primary renderer
++ *   slot for the process.
++ * - The patched `measure-layout.js` helper instantiates a second
++ *   reconciler with `isPrimaryRenderer: false`. Each instance has its
++ *   own internal work queue, so a synchronous `measureLayout` call made
++ *   from inside the live tree's render phase no longer trips React's
++ *   "nested updates" check.
++ *
++ * Each reconciler keeps its own `currentUpdatePriority` because that
++ * variable lives inside the `setCurrentUpdatePriority` / `getCurrent…`
++ * closures created here. Module-level state is no longer shared across
++ * instances.
++ */
++export const createHostConfig = ({ isPrimaryRenderer = true, } = {}) => {
++    let currentUpdatePriority = NoEventPriority;
++    let currentRootNode;
++    return {
++        getRootHostContext: () => ({
++            isInsideText: false,
++        }),
++        prepareForCommit: () => null,
++        preparePortalMount: () => null,
++        clearContainer: () => false,
++        resetAfterCommit(rootNode) {
++            if (typeof rootNode.onComputeLayout === 'function') {
++                rootNode.onComputeLayout();
+             }
+-            if (key === 'style') {
+-                setStyle(node, value);
+-                if (node.yogaNode) {
+-                    applyStyles(node.yogaNode, value);
++            emitLayoutListeners(rootNode);
++            // Since renders are throttled at the instance level and <Static> component children
++            // are rendered only once and then get deleted, we need an escape hatch to
++            // trigger an immediate render to ensure <Static> children are written to output before they get erased
++            if (rootNode.isStaticDirty) {
++                rootNode.isStaticDirty = false;
++                if (typeof rootNode.onImmediateRender === 'function') {
++                    rootNode.onImmediateRender();
+                 }
+-                continue;
++                return;
+             }
+-            if (key === 'internal_transform') {
+-                node.internal_transform = value;
+-                continue;
++            if (typeof rootNode.onRender === 'function') {
++                rootNode.onRender();
+             }
+-            if (key === 'internal_static') {
+-                currentRootNode = rootNode;
+-                node.internal_static = true;
+-                rootNode.isStaticDirty = true;
+-                // Save reference to <Static> node to skip traversal of entire
+-                // node tree to find it
+-                rootNode.staticNode = node;
+-                continue;
++        },
++        getChildHostContext(parentHostContext, type) {
++            const previousIsInsideText = parentHostContext.isInsideText;
++            const isInsideText = type === 'ink-text' || type === 'ink-virtual-text';
++            if (previousIsInsideText === isInsideText) {
++                return parentHostContext;
+             }
+-            setAttribute(node, key, value);
+-        }
+-        return node;
+-    },
+-    createTextInstance(text, _root, hostContext) {
+-        if (!hostContext.isInsideText) {
+-            throw new Error(`Text string "${text}" must be rendered inside <Text> component`);
+-        }
+-        return createTextNode(text);
+-    },
+-    resetTextContent() { },
+-    hideTextInstance(node) {
+-        setTextNodeValue(node, '');
+-    },
+-    unhideTextInstance(node, text) {
+-        setTextNodeValue(node, text);
+-    },
+-    getPublicInstance: instance => instance,
+-    hideInstance(node) {
+-        node.yogaNode?.setDisplay(Yoga.DISPLAY_NONE);
+-    },
+-    unhideInstance(node) {
+-        node.yogaNode?.setDisplay(Yoga.DISPLAY_FLEX);
+-    },
+-    appendInitialChild: appendChildNode,
+-    appendChild: appendChildNode,
+-    insertBefore: insertBeforeNode,
+-    finalizeInitialChildren() {
+-        return false;
+-    },
+-    isPrimaryRenderer: true,
+-    supportsMutation: true,
+-    supportsPersistence: false,
+-    supportsHydration: false,
+-    // Scheduler integration for concurrent mode
+-    supportsMicrotasks: true,
+-    scheduleMicrotask: queueMicrotask,
+-    // @ts-expect-error @types/react-reconciler is outdated and doesn't include scheduleCallback
+-    scheduleCallback: Scheduler.unstable_scheduleCallback,
+-    cancelCallback: Scheduler.unstable_cancelCallback,
+-    shouldYield: Scheduler.unstable_shouldYield,
+-    now: Scheduler.unstable_now,
+-    scheduleTimeout: setTimeout,
+-    cancelTimeout: clearTimeout,
+-    noTimeout: -1,
+-    beforeActiveInstanceBlur() { },
+-    afterActiveInstanceBlur() { },
+-    detachDeletedInstance() { },
+-    getInstanceFromNode: () => null,
+-    prepareScopeUpdate() { },
+-    getInstanceFromScope: () => null,
+-    appendChildToContainer: appendChildNode,
+-    insertInContainerBefore: insertBeforeNode,
+-    removeChildFromContainer(node, removeNode) {
+-        removeChildNode(node, removeNode);
+-        cleanupYogaNode(removeNode.yogaNode);
+-        if (removeNode.internal_static && currentRootNode) {
+-            currentRootNode.staticNode = undefined;
+-        }
+-    },
+-    commitUpdate(node, _type, oldProps, newProps) {
+-        if (currentRootNode && node.internal_static) {
+-            currentRootNode.isStaticDirty = true;
+-        }
+-        const props = diff(oldProps, newProps);
+-        const style = diff(oldProps['style'], newProps['style']);
+-        if (!props && !style) {
+-            return;
+-        }
+-        if (props) {
+-            for (const [key, value] of Object.entries(props)) {
++            return { isInsideText };
++        },
++        shouldSetTextContent: () => false,
++        createInstance(originalType, newProps, rootNode, hostContext) {
++            if (hostContext.isInsideText && originalType === 'ink-box') {
++                throw new Error(`<Box> can’t be nested inside <Text> component`);
++            }
++            const type = originalType === 'ink-text' && hostContext.isInsideText
++                ? 'ink-virtual-text'
++                : originalType;
++            const node = createNode(type);
++            for (const [key, value] of Object.entries(newProps)) {
++                if (key === 'children') {
++                    continue;
++                }
+                 if (key === 'style') {
+                     setStyle(node, value);
++                    if (node.yogaNode) {
++                        applyStyles(node.yogaNode, value);
++                    }
+                     continue;
+                 }
+                 if (key === 'internal_transform') {
+@@ -229,65 +161,155 @@ export default createReconciler({
+                     continue;
+                 }
+                 if (key === 'internal_static') {
++                    currentRootNode = rootNode;
+                     node.internal_static = true;
++                    rootNode.isStaticDirty = true;
++                    // Save reference to <Static> node to skip traversal of entire
++                    // node tree to find it
++                    rootNode.staticNode = node;
+                     continue;
+                 }
+                 setAttribute(node, key, value);
+             }
+-        }
+-        if (style && node.yogaNode) {
+-            applyStyles(node.yogaNode, style, newProps['style'] ?? {});
+-        }
+-    },
+-    commitTextUpdate(node, _oldText, newText) {
+-        setTextNodeValue(node, newText);
+-    },
+-    removeChild(node, removeNode) {
+-        removeChildNode(node, removeNode);
+-        cleanupYogaNode(removeNode.yogaNode);
+-        if (removeNode.internal_static && currentRootNode) {
+-            currentRootNode.staticNode = undefined;
+-        }
+-    },
+-    setCurrentUpdatePriority(newPriority) {
+-        currentUpdatePriority = newPriority;
+-    },
+-    getCurrentUpdatePriority: () => currentUpdatePriority,
+-    resolveUpdatePriority() {
+-        if (currentUpdatePriority !== NoEventPriority) {
+-            return currentUpdatePriority;
+-        }
+-        return DefaultEventPriority;
+-    },
+-    maySuspendCommit() {
+-        // Return true to enable Suspense resource preloading
+-        return true;
+-    },
+-    // eslint-disable-next-line @typescript-eslint/naming-convention
+-    NotPendingTransition: undefined,
+-    // eslint-disable-next-line @typescript-eslint/naming-convention
+-    HostTransitionContext: createContext(null),
+-    resetFormInstance() { },
+-    requestPostPaintCallback() { },
+-    shouldAttemptEagerTransition() {
+-        return false;
+-    },
+-    trackSchedulerEvent() { },
+-    resolveEventType() {
+-        return null;
+-    },
+-    resolveEventTimeStamp() {
+-        return -1.1;
+-    },
+-    preloadInstance() {
+-        return true;
+-    },
+-    startSuspendingCommit() { },
+-    suspendInstance() { },
+-    waitForCommitToBeReady() {
+-        return null;
+-    },
+-    rendererPackageName: packageInfo.name,
+-    rendererVersion: packageInfo.version,
+-});
++            return node;
++        },
++        createTextInstance(text, _root, hostContext) {
++            if (!hostContext.isInsideText) {
++                throw new Error(`Text string "${text}" must be rendered inside <Text> component`);
++            }
++            return createTextNode(text);
++        },
++        resetTextContent() { },
++        hideTextInstance(node) {
++            setTextNodeValue(node, '');
++        },
++        unhideTextInstance(node, text) {
++            setTextNodeValue(node, text);
++        },
++        getPublicInstance: instance => instance,
++        hideInstance(node) {
++            node.yogaNode?.setDisplay(Yoga.DISPLAY_NONE);
++        },
++        unhideInstance(node) {
++            node.yogaNode?.setDisplay(Yoga.DISPLAY_FLEX);
++        },
++        appendInitialChild: appendChildNode,
++        appendChild: appendChildNode,
++        insertBefore: insertBeforeNode,
++        finalizeInitialChildren() {
++            return false;
++        },
++        isPrimaryRenderer,
++        supportsMutation: true,
++        supportsPersistence: false,
++        supportsHydration: false,
++        // Scheduler integration for concurrent mode
++        supportsMicrotasks: true,
++        scheduleMicrotask: queueMicrotask,
++        // @ts-expect-error @types/react-reconciler is outdated and doesn't include scheduleCallback
++        scheduleCallback: Scheduler.unstable_scheduleCallback,
++        cancelCallback: Scheduler.unstable_cancelCallback,
++        shouldYield: Scheduler.unstable_shouldYield,
++        now: Scheduler.unstable_now,
++        scheduleTimeout: setTimeout,
++        cancelTimeout: clearTimeout,
++        noTimeout: -1,
++        beforeActiveInstanceBlur() { },
++        afterActiveInstanceBlur() { },
++        detachDeletedInstance() { },
++        getInstanceFromNode: () => null,
++        prepareScopeUpdate() { },
++        getInstanceFromScope: () => null,
++        appendChildToContainer: appendChildNode,
++        insertInContainerBefore: insertBeforeNode,
++        removeChildFromContainer(node, removeNode) {
++            removeChildNode(node, removeNode);
++            cleanupYogaNode(removeNode.yogaNode);
++            if (removeNode.internal_static && currentRootNode) {
++                currentRootNode.staticNode = undefined;
++            }
++        },
++        commitUpdate(node, _type, oldProps, newProps) {
++            if (currentRootNode && node.internal_static) {
++                currentRootNode.isStaticDirty = true;
++            }
++            const props = diff(oldProps, newProps);
++            const style = diff(oldProps['style'], newProps['style']);
++            if (!props && !style) {
++                return;
++            }
++            if (props) {
++                for (const [key, value] of Object.entries(props)) {
++                    if (key === 'style') {
++                        setStyle(node, value);
++                        continue;
++                    }
++                    if (key === 'internal_transform') {
++                        node.internal_transform = value;
++                        continue;
++                    }
++                    if (key === 'internal_static') {
++                        node.internal_static = true;
++                        continue;
++                    }
++                    setAttribute(node, key, value);
++                }
++            }
++            if (style && node.yogaNode) {
++                applyStyles(node.yogaNode, style, newProps['style'] ?? {});
++            }
++        },
++        commitTextUpdate(node, _oldText, newText) {
++            setTextNodeValue(node, newText);
++        },
++        removeChild(node, removeNode) {
++            removeChildNode(node, removeNode);
++            cleanupYogaNode(removeNode.yogaNode);
++            if (removeNode.internal_static && currentRootNode) {
++                currentRootNode.staticNode = undefined;
++            }
++        },
++        setCurrentUpdatePriority(newPriority) {
++            currentUpdatePriority = newPriority;
++        },
++        getCurrentUpdatePriority: () => currentUpdatePriority,
++        resolveUpdatePriority() {
++            if (currentUpdatePriority !== NoEventPriority) {
++                return currentUpdatePriority;
++            }
++            return DefaultEventPriority;
++        },
++        maySuspendCommit() {
++            // Return true to enable Suspense resource preloading
++            return true;
++        },
++        // eslint-disable-next-line @typescript-eslint/naming-convention
++        NotPendingTransition: undefined,
++        // eslint-disable-next-line @typescript-eslint/naming-convention
++        HostTransitionContext: createContext(null),
++        resetFormInstance() { },
++        requestPostPaintCallback() { },
++        shouldAttemptEagerTransition() {
++            return false;
++        },
++        trackSchedulerEvent() { },
++        resolveEventType() {
++            return null;
++        },
++        resolveEventTimeStamp() {
++            return -1.1;
++        },
++        preloadInstance() {
++            return true;
++        },
++        startSuspendingCommit() { },
++        suspendInstance() { },
++        waitForCommitToBeReady() {
++            return null;
++        },
++        rendererPackageName: packageInfo.name,
++        rendererVersion: packageInfo.version,
++    };
++};
++export default createReconciler(createHostConfig({ isPrimaryRenderer: true }));
+ //# sourceMappingURL=reconciler.js.map

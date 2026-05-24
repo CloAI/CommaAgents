@@ -1,22 +1,27 @@
 import type { StrategyExecutor } from "../../executor/executor";
 import type { Logger } from "../../logger/logger.types";
-import type { SessionStore } from "../../sessions";
+import type { RunStore } from "../../runs";
 import type { DaemonState } from "../../state/state.types";
 import type { HandlerContext, MessageDispatcher } from "./dispatcher.types";
 import type { DaemonMessage } from "./messages";
 import { parseClientMessage } from "./messages";
-import { handleDeleteSession } from "./requests/delete-session";
 import { handleGetAvailableModels } from "./requests/get-available-models";
 import { handleListProviders } from "./requests/list-providers";
-import { handleListSessions } from "./requests/list-sessions";
+import { handleListRuns } from "./requests/list-runs";
 import { handleListStrategies } from "./requests/list-strategies";
-import { handleLoadSession } from "./requests/load-session";
+import { handleGetRun } from "./requests/get-run";
 import { handlePermissionDecision } from "./requests/permission-decision";
 import { handlePing } from "./requests/ping";
-import { handleRenameSession } from "./requests/rename-session";
+import { handleRegisterProvider } from "./requests/register-provider";
+import { handleResumeRun } from "./requests/resume-run";
+import { handleSetCredential } from "./requests/set-credential";
 import { handleStartStrategy } from "./requests/start-strategy";
 import { handleStopStrategy } from "./requests/stop-strategy";
 import { handleSubscribe } from "./requests/subscribe";
+import { handleTrashClear } from "./requests/trash-clear";
+import { handleTrashList } from "./requests/trash-list";
+import { handleTrashRestore } from "./requests/trash-restore";
+import { handleUnregisterProvider } from "./requests/unregister-provider";
 import { handleUnsubscribe } from "./requests/unsubscribe";
 import { handleUpdatePolicy } from "./requests/update-policy";
 import { handleUserInput } from "./requests/user-input";
@@ -27,8 +32,8 @@ export interface CreateDispatcherOptions {
   readonly executor: StrategyExecutor;
   /** Centralized daemon state for run/client/subscription tracking. */
   readonly state: DaemonState;
-  /** Persistent per-cwd session store. */
-  readonly sessionStore: SessionStore;
+  /** Persistent run store. */
+  readonly runStore: RunStore;
   /** Logger for dispatcher-level diagnostics. */
   readonly logger: Logger;
 }
@@ -70,7 +75,7 @@ function buildErrorMessage(
 export function createDispatcher(
   options: CreateDispatcherOptions,
 ): MessageDispatcher {
-  const { executor, state, sessionStore, logger } = options;
+  const { executor, state, runStore, logger } = options;
 
   return function dispatch(
     clientId: string,
@@ -120,7 +125,7 @@ export function createDispatcher(
       clientId,
       executor,
       state,
-      sessionStore,
+      runStore,
       logger,
       reply,
     };
@@ -152,11 +157,14 @@ export function createDispatcher(
         case "get_available_models":
           void handleGetAvailableModels(message, context);
           break;
-        case "get_available_models":
-          void handleGetAvailableModels(message, context);
-          break;
         case "list_providers":
           void handleListProviders(message, context);
+          break;
+        case "register_provider":
+          void handleRegisterProvider(message, context);
+          break;
+        case "unregister_provider":
+          handleUnregisterProvider(message, context);
           break;
         case "subscribe":
           handleSubscribe(message, context);
@@ -164,17 +172,26 @@ export function createDispatcher(
         case "unsubscribe":
           handleUnsubscribe(message, context);
           break;
-        case "list_sessions":
-          void handleListSessions(message, context);
+        case "list_runs":
+          void handleListRuns(message, context);
           break;
-        case "load_session":
-          void handleLoadSession(message, context);
+        case "get_run":
+          void handleGetRun(message, context);
           break;
-        case "delete_session":
-          void handleDeleteSession(message, context);
+        case "resume_run":
+          handleResumeRun(message, context);
           break;
-        case "rename_session":
-          void handleRenameSession(message, context);
+        case "trash_list":
+          void handleTrashList(message, context);
+          break;
+        case "trash_restore":
+          void handleTrashRestore(message, context);
+          break;
+        case "trash_clear":
+          void handleTrashClear(message, context);
+          break;
+        case "set_credential":
+          void handleSetCredential(message, context);
           break;
       }
     } catch (caughtError) {

@@ -1,0 +1,17 @@
+{
+  "title": "Hooks",
+  "pages": [
+    "index",
+    "use-chat",
+    "use-daemon",
+    "use-websocket",
+    "use-logs",
+    "use-modal",
+    "use-breakpoint",
+    "use-user-config",
+    "use-mouse",
+    "use-region",
+    "use-tool-spinner",
+    "use-debug-render"
+  ]
+}

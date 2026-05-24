@@ -57,7 +57,7 @@ describe("audit log replay", () => {
       ctx,
     );
     expect(createResult.ok).toBe(true);
-    const shaAfterCreate = createResult.data!.sha256;
+    const shaAfterCreate = createResult.data?.sha256;
 
     // 2. edit a.txt
     const editResult = await createEditFileTool().execute(
@@ -69,7 +69,7 @@ describe("audit log replay", () => {
       ctx,
     );
     expect(editResult.ok).toBe(true);
-    const shaAfterEdit = editResult.data!.afterSha256;
+    const shaAfterEdit = editResult.data?.afterSha256;
     expect(shaAfterEdit).toBe(sha256OfBuffer("world\n"));
 
     // 3. write_file replaces content
@@ -82,7 +82,7 @@ describe("audit log replay", () => {
       ctx,
     );
     expect(writeResult.ok).toBe(true);
-    const shaAfterWrite = writeResult.data!.afterSha256;
+    const shaAfterWrite = writeResult.data?.afterSha256;
 
     // 4. move a.txt → b.txt
     const moveResult = await createMoveFileTool().execute(
@@ -97,7 +97,7 @@ describe("audit log replay", () => {
       ctx,
     );
     expect(createCResult.ok).toBe(true);
-    const shaC = createCResult.data!.sha256;
+    const shaC = createCResult.data?.sha256;
 
     // 6. delete c.txt
     const deleteResult = await createDeleteFileTool().execute(

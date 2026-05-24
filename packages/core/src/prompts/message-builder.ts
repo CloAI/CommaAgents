@@ -5,7 +5,7 @@
 
 import type { ModelMessage } from "ai";
 import type { ConversationContext } from "../context/conversation-context";
-import type { PromptTemplate } from "./types";
+import type { PromptTemplate } from "./prompts.types";
 
 // Types
 

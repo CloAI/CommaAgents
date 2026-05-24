@@ -10,12 +10,15 @@ export type {
   LoadedStrategy,
   LoadStrategyOptions,
 } from "./loader/loader.types";
+export type { LoadedProject } from "./loader/project-loader";
+export { loadProject } from "./loader/project-loader";
 // Schema (types, type guards, top-level validator)
 export type {
   AgentDef,
   AgentStep,
   BroadcastFlowDef,
   BuiltInToolName,
+  CommaProjectManifest,
   CycleFlowDef,
   FlowDef,
   LLMAgentDef,
@@ -24,6 +27,7 @@ export type {
   UserAgentDef,
 } from "./schema";
 export {
+  CommaProjectManifestSchema,
   isAgentStep,
   isFlowDef,
   isLLMAgentDef,

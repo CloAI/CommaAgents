@@ -1,5 +1,5 @@
+export { getSandbox, inSandbox } from "./in-sandbox";
 export { createSandbox } from "./sandbox";
-export { inSandbox, getSandbox } from "./in-sandbox";
 export {
   DEFAULT_DAEMON_SANDBOX_CONFIG,
   DEFAULT_FORBIDDEN_GLOBS,

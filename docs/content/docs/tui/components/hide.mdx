@@ -1,0 +1,34 @@
+---
+title: Hide
+description: Conditionally hide children based on terminal width.
+---
+
+# Hide
+
+A responsive visibility component. Hides its children when the terminal width is below or above a threshold. Accepts named breakpoints or raw column counts.
+
+```tsx
+import { Hide } from "@comma-agents/tui";
+
+// Hide on narrow terminals
+<Hide below="md">
+  <DetailedSidebar />
+</Hide>
+
+// Hide when wider than 128 columns
+<Hide above={128}>
+  <CompactView />
+</Hide>
+```
+
+## HideProps
+
+| Prop | Type | Description |
+|---|---|---|
+| `below` | `BreakpointName \| number` | Hide children when terminal width is below this threshold |
+| `above` | `BreakpointName \| number` | Hide children when terminal width is at or above this threshold |
+| `children` | `ReactNode` | Content to conditionally render |
+
+## Breakpoints
+
+Named breakpoints are resolved from the theme's `breakpoints` map. You can pass a breakpoint name (`"sm"`, `"md"`, `"lg"`, etc.) or a raw column number. `Hide` reads the current column count from the `useBreakpoint` hook. It returns `null` when the visibility condition is not met, otherwise renders children directly (no wrapper element).

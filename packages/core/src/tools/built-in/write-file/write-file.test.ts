@@ -287,7 +287,7 @@ describe("createWriteFileTool", () => {
     );
     const entries = await sink.list();
     expect(entries.length).toBe(1);
-    expect(entries[0]!.path).toBe("fallback.txt");
+    expect(entries[0]?.path).toBe("fallback.txt");
   });
 
   it("handles a no-op write (content unchanged)", async () => {

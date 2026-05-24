@@ -100,7 +100,7 @@ export async function loadAgent(
 export async function loadAgentFromString(
   content: string,
   format: "json" | "yaml",
-  options: LoadAgentOptions = {},
+  _options: LoadAgentOptions = {},
 ): Promise<Agent> {
   // 1. Parse raw content
   let raw: unknown;

@@ -1,0 +1,26 @@
+---
+title: useToolSpinner
+description: Shared animated spinner for tool-call indicators — all spinners tick in lockstep.
+---
+
+`useToolSpinner` returns the current spinner frame character for tool-call animation. All mounted spinners share a single `setInterval` so they animate in lockstep.
+
+```tsx
+import { useToolSpinner } from "@comma-agents/tui";
+
+const frame = useToolSpinner(isRunning);
+
+<Text>{frame ?? " "}</Text>
+```
+
+## Arguments
+
+| Arg | Type | Description |
+|---|---|---|
+| `running` | `boolean` | Whether the tool is currently running |
+
+Returns `string | null` -- the current spinner frame character, or `null` when `running` is `false`.
+
+The spinner cycles through 4 Braille-dot-like frame characters (``▜▟▙▛``) at 120ms intervals. A module-level `setInterval` is shared across all subscribers -- the interval starts when the first subscriber mounts and stops when the last one unmounts (reference-counted). New subscribers immediately snap to the current tick count.
+
+When `running` is `false`, the hook returns `null` immediately and never subscribes to the tick.

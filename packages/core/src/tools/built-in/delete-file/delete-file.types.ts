@@ -4,11 +4,6 @@ import type { AuditSink } from "../../io/audit";
 export interface DeleteFileToolConfig {
   /** Default audit sink when `toolContext.auditSink` is undefined. */
   readonly defaultAuditSink?: AuditSink;
-  /**
-   * Maximum age of trash entries before GC prunes them on the next
-   * `delete_file` call. Defaults to 7 days. Set to `0` to disable GC.
-   */
-  readonly trashMaxAgeMs?: number;
 }
 
 /** Structured payload returned by `delete_file`. */

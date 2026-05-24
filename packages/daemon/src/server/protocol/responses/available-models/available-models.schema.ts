@@ -2,8 +2,8 @@
 // Response to a get_available_models request.
 
 import { z } from "zod";
-import { DaemonBase } from "../../shared";
 import { ModelInfoSchema } from "../../responses/provider-list/provider-list.schema";
+import { DaemonBase } from "../../shared";
 
 export const AvailableModelSchema = ModelInfoSchema.extend({
   hasCredentials: z.boolean(),

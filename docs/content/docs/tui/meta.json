@@ -1,0 +1,12 @@
+{
+  "title": "@comma-agents/tui",
+  "pages": [
+    "index",
+    "architecture",
+    "websocket",
+    "pages",
+    "components",
+    "hooks",
+    "theme"
+  ]
+}

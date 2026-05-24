@@ -219,7 +219,7 @@ describe("createCreateFileTool", () => {
 
     const entries = await sink.list();
     expect(entries.length).toBe(1);
-    expect(entries[0]!.path).toBe("fallback.txt");
+    expect(entries[0]?.path).toBe("fallback.txt");
   });
 
   it("does not append to audit when no sink is provided anywhere", async () => {

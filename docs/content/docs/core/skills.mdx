@@ -1,11 +1,11 @@
 ---
 title: Skills
-description: Reusable instruction bundles that agents load on demand via the load_skill tool.
+description: Reusable instruction bundles that agents list and load on demand via the list_skills and load_skill tools.
 ---
 
 Skills are reusable instruction bundles — TypeScript conventions, React patterns, review checklists, domain-specific procedures — that agents discover at startup and load on demand. Each skill is a directory containing a single `SKILL.md` file with YAML frontmatter and a markdown body.
 
-The framework ships no built-in skills. You author them; they are discovered automatically from two locations and surfaced to every agent's system prompt as a compact one-line summary. The agent decides when to load the full content by calling the [`load_skill`](/docs/core/tools/built-in/load_skill) tool.
+The framework ships no built-in skills. You author them; they are discovered automatically from two locations and surfaced to every agent's system prompt as a compact one-line summary. The agent can list available skills with [`list_skills`](/docs/core/tools/built-in/skill-tools/list_skills) and load the full content by calling [`load_skill`](/docs/core/tools/built-in/skill-tools/load_skill).
 
 ## Quick Start
 
@@ -41,22 +41,7 @@ The agent calls `load_skill` with `{ name: "ts-patterns" }` to read the body whe
 
 ## Discovery
 
-Skills are discovered from two roots. Both are scanned on every strategy run; project skills override global skills with the same `name`.
-
-| Location | Path | Purpose |
-|---|---|---|
-| Global | `<configRoot>/comma-agents/skills/` | Personal skills available across all projects. |
-| Project | `<workspaceRoot>/.comma/skills/` | Project-specific skills checked into the repo. |
-
-The config root is platform-specific:
-
-| Platform | Config root |
-|---|---|
-| macOS | `~/Library/Application Support` |
-| Windows | `%APPDATA%` (falls back to `~/AppData/Roaming`) |
-| Linux / other | `$XDG_CONFIG_HOME` or `~/.config` |
-
-Each direct subdirectory containing a `SKILL.md` becomes a skill. Deeper nesting is ignored. Subdirectories without a `SKILL.md` are silently skipped, so you can keep supporting files (scripts, examples) alongside the skill.
+Both roots are scanned on every strategy run. Each direct subdirectory containing a `SKILL.md` becomes a skill. Deeper nesting is ignored. Subdirectories without a `SKILL.md` are silently skipped, so you can keep supporting files (scripts, examples) alongside the skill.
 
 ## SKILL.md Format
 
@@ -124,7 +109,20 @@ The other skills in the directory continue to load normally. Check the daemon lo
 
 ## How Agents Use Skills
 
-The strategy loader builds a `## Available Skills` block from the registry and prepends it to every agent's system prompt. Agents call the [`load_skill`](/docs/core/tools/built-in/load_skill) tool to fetch the body of a skill they recognise as relevant.
+The strategy loader builds a `## Available Skills` block from the registry and prepends it to every agent's system prompt. Agents can call [`list_skills`](/docs/core/tools/built-in/skill-tools/list_skills) to get the full list programmatically, or call [`load_skill`](/docs/core/tools/built-in/skill-tools/load_skill) to fetch the body of a specific skill.
+
+### Tool integration
+
+Both `load_skill` and `list_skills` are the agent's interface to the skill system. Include them in the agent's tools list:
+
+```ts
+const agent = createAgent({
+  name: "coder",
+  model: "openai/gpt-4o",
+  tools: ["load_skill", "list_skills", "read_file", "edit_file"],
+  skillRegistry, // wired automatically by the strategy loader
+});
+```
 
 Skills are not auto-injected — the LLM decides what to load and when. This keeps the system prompt small (one line per skill) while still giving the agent access to detailed instructions when it needs them.
 
@@ -137,6 +135,25 @@ A typical interaction:
 5. Agent follows the conventions when generating files.
 
 Loading is cheap, but the content stays in context for the rest of the turn — so agents should only load skills they intend to use.
+
+### Where skills live
+
+Skills are discovered from two roots at strategy load time:
+
+| Location | Path | Purpose |
+|---|---|---|
+| Project | `<workspace>/.comma/skills/` | Project-specific skills checked into the repo. |
+| Global | `<configRoot>/comma-agents/skills/` | Personal skills available across all projects. |
+
+The config root is platform-specific:
+
+| Platform | Config root |
+|---|---|
+| macOS | `~/Library/Application Support` |
+| Windows | `%APPDATA%` (falls back to `~/AppData/Roaming`) |
+| Linux / other | `$XDG_CONFIG_HOME` or `~/.config` |
+
+Project skills always override global skills with the same `name`.
 
 ## Programmatic Access
 

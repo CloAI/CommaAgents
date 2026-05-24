@@ -1,0 +1,25 @@
+{
+  "title": "Components",
+  "pages": [
+    "frame",
+    "text-area-input",
+    "chat-text-area",
+    "message-list",
+    "status-bar",
+    "code-view",
+    "modal",
+    "command-palette",
+    "button",
+    "permission-prompt",
+    "search-input",
+    "scrollable-view",
+    "scrollable-list",
+    "scrollbar",
+    "bordered-panel",
+    "separator",
+    "hide",
+    "measured-box",
+    "strategy-picker",
+    "title-icon"
+  ]
+}

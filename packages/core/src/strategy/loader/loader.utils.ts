@@ -1,3 +1,5 @@
+import { isAbsolute, resolve } from "node:path";
+
 import { createAgent } from "../../agents/agent/agent";
 import type { Agent } from "../../agents/agent/agent.types";
 import { createUserAgent } from "../../agents/built-in/user/user-agent";
@@ -6,9 +8,18 @@ import { createBroadcastFlow } from "../../flows/built-in/broadcast/broadcast-fl
 import { createCycleFlow } from "../../flows/built-in/cycle/cycle-flow";
 import { createSequentialFlow } from "../../flows/built-in/sequential/sequential-flow";
 import { hookIntoFlow } from "../../flows/hook-into-flow/hook-into-flow";
-import { createPromptTemplate } from "../../prompts/template/prompt-template";
+import type { Guard } from "../../guard/guard.types";
+import {
+  createPromptTemplate,
+  type PromptTemplate,
+} from "../../prompts/template/prompt-template";
 import { buildSkillsPromptHeader } from "../../skills/skills.loader";
 import type { SkillRegistry } from "../../skills/skills.types";
+import {
+  buildToolSystemPrompt,
+  mergeSystemPrompts,
+} from "../../tools/build-tool-system-prompt";
+import { resolveTools } from "../../tools/tool.registry";
 import type {
   CycleFlowDef,
   FlowDef,
@@ -42,7 +53,13 @@ export async function buildAgentRegistry(
     if (isUserAgentDef(agentDefinition)) {
       registry[name] = buildUserAgent(name, agentDefinition, options);
     } else if (isLLMAgentDef(agentDefinition)) {
-      registry[name] = buildLLMAgent(name, agentDefinition, options);
+      registry[name] = await buildLLMAgent(name, agentDefinition, options);
+    }
+
+    // Hydrate agent if we have prior turns to replay
+    if (options.initialAgentTurns?.has(name)) {
+      const turns = options.initialAgentTurns.get(name)!;
+      registry[name]?.hydrateForReplay?.(turns);
     }
   }
 
@@ -66,14 +83,35 @@ function buildUserAgent(
 }
 
 /**
+ * Create a minimal guard for building tool system prompts.
+ * This guard is not fully functional - it's only used to satisfy
+ * the ToolContext type when building system prompts at agent creation.
+ */
+function createMinimalGuard(cwd: string): Guard {
+  return {
+    toolName: "unknown",
+    cwd,
+    trashMetadata: undefined,
+    authorize: async () => {
+      throw new Error("Minimal guard - not for authorization");
+    },
+    canAccess: () => false,
+    addPolicy: () => {},
+    removePolicy: () => false,
+    getPolicies: () => ({ toolName: "unknown", policies: [] }),
+    onPolicyChange: () => () => {},
+  };
+}
+
+/**
  * Instantiate an LLM agent from its definition, passing the model string
  * and tool names directly to createAgent (which resolves them internally).
  */
-function buildLLMAgent(
+async function buildLLMAgent(
   name: string,
   agentDefinition: LLMAgentDef,
   options: LoadStrategyOptions,
-): Agent {
+): Promise<Agent> {
   // modelOverride replaces whatever the strategy file specifies
   const effectiveModel = options.modelOverride ?? agentDefinition.model;
 
@@ -92,12 +130,111 @@ function buildLLMAgent(
   const skillsHeader = options.skillRegistry
     ? buildSkillsPromptHeader(options.skillRegistry)
     : "";
-  const systemPrompt = agentDefinition.systemPromptTemplate
-    ? createPromptTemplate({
-        template: agentDefinition.systemPromptTemplate.template,
-        variables: agentDefinition.systemPromptTemplate.variables,
-      })
-    : prependSkillsHeader(agentDefinition.systemPrompt, skillsHeader);
+
+  // Resolve tool definitions early so we can collect system prompt contributions
+  const toolDefinitions = agentDefinition.tools
+    ? resolveTools(agentDefinition.tools, name)
+    : undefined;
+
+  // Collect tool system prompt contributions
+  let toolSystemPrompt: string | undefined;
+  if (toolDefinitions) {
+    // Create a minimal ToolContext for dynamic systemPrompt functions
+    // Note: guard is minimal - systemPrompt functions should not rely on
+    // guard authorization at agent creation time
+    const minimalGuard = createMinimalGuard("");
+    const toolContext: ToolContext = {
+      agentName: name,
+      abort: AbortSignal.timeout(5000),
+      guard: minimalGuard,
+      ...(options.skillRegistry
+        ? { skillRegistry: options.skillRegistry }
+        : {}),
+    };
+
+    toolSystemPrompt = await buildToolSystemPrompt({
+      toolDefinitions,
+      toolContext,
+    });
+  }
+
+  // Resolve file paths for systemPrompt and systemPromptTemplate if they point to .txt or .md files
+  let resolvedSystemPrompt = agentDefinition.systemPrompt;
+  if (
+    resolvedSystemPrompt &&
+    (resolvedSystemPrompt.endsWith(".txt") ||
+      resolvedSystemPrompt.endsWith(".md"))
+  ) {
+    let resolvedPath = resolvedSystemPrompt;
+    if (!isAbsolute(resolvedSystemPrompt)) {
+      if (options.strategyDir) {
+        resolvedPath = resolve(options.strategyDir, resolvedSystemPrompt);
+      } else {
+        resolvedPath = resolve(resolvedSystemPrompt);
+      }
+    }
+    const file = Bun.file(resolvedPath);
+    if (!(await file.exists())) {
+      throw new StrategyValidationError(
+        `System prompt file not found: ${resolvedPath}`,
+      );
+    }
+    resolvedSystemPrompt = await file.text();
+  }
+
+  let resolvedTemplate = agentDefinition.systemPromptTemplate?.template;
+  if (
+    resolvedTemplate &&
+    (resolvedTemplate.endsWith(".txt") || resolvedTemplate.endsWith(".md"))
+  ) {
+    let resolvedPath = resolvedTemplate;
+    if (!isAbsolute(resolvedTemplate)) {
+      if (options.strategyDir) {
+        resolvedPath = resolve(options.strategyDir, resolvedTemplate);
+      } else {
+        resolvedPath = resolve(resolvedTemplate);
+      }
+    }
+    const file = Bun.file(resolvedPath);
+    if (!(await file.exists())) {
+      throw new StrategyValidationError(
+        `System prompt template file not found: ${resolvedPath}`,
+      );
+    }
+    resolvedTemplate = await file.text();
+  }
+
+  // Build base prompt (template or static + skills header)
+  let basePrompt: string | PromptTemplate | undefined;
+  if (agentDefinition.systemPromptTemplate) {
+    // For PromptTemplate, we'll merge tool prompts into the template string
+    basePrompt = createPromptTemplate({
+      template:
+        resolvedTemplate ?? agentDefinition.systemPromptTemplate.template,
+      variables: agentDefinition.systemPromptTemplate.variables,
+    });
+  } else {
+    basePrompt = prependSkillsHeader(resolvedSystemPrompt, skillsHeader);
+  }
+
+  // Merge: base prompt + tool contributions
+  let systemPrompt: string | PromptTemplate | undefined;
+  if (toolSystemPrompt && basePrompt) {
+    if (typeof basePrompt === "string") {
+      // Both are strings - merge directly
+      systemPrompt = mergeSystemPrompts([basePrompt, toolSystemPrompt]);
+    } else {
+      // basePrompt is a PromptTemplate - append tool prompt to template
+      const _template = basePrompt as PromptTemplate;
+      // Create a new template with tool prompt appended
+      systemPrompt = createPromptTemplate({
+        template: `${resolvedTemplate ?? agentDefinition.systemPromptTemplate?.template}\n\n${toolSystemPrompt}`,
+        variables: agentDefinition.systemPromptTemplate?.variables,
+      });
+    }
+  } else {
+    systemPrompt = basePrompt;
+  }
 
   // Pass string model and tool names directly — createAgent resolves internally
   return createAgent({

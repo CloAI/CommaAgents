@@ -20,6 +20,7 @@ import {
   unifiedDiff,
 } from "../../io";
 import type { AuditEntry, AuditSink } from "../../io/audit";
+import type { TrashMetadata } from "../../io/trash";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
@@ -261,7 +262,11 @@ export function createApplyPatchTool(
         }
 
         for (const staged of stagedFiles) {
-          await commitOne(staged, guard.cwd);
+          await commitOne(staged, guard.cwd, {
+            sessionId,
+            agentName,
+            ...guard.trashMetadata,
+          });
           staged.committed = true;
           committedFiles.push(staged);
         }
@@ -766,9 +771,16 @@ async function stageWrite(
 async function commitOne(
   staged: StagedFile,
   workspaceRoot: string,
+  trashMetadata?: Partial<
+    Pick<TrashMetadata, "sessionId" | "runId" | "agentName">
+  >,
 ): Promise<void> {
   if (staged.operation === "delete") {
-    staged.trashedTo = await moveToTrash(workspaceRoot, staged.absolutePath);
+    staged.trashedTo = await moveToTrash(
+      workspaceRoot,
+      staged.absolutePath,
+      trashMetadata,
+    );
     return;
   }
   if (staged.operation === "move") {

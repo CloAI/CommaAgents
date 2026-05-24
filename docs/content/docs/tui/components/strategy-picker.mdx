@@ -1,0 +1,37 @@
+---
+title: StrategyPicker
+description: Strategy selection menu using ink-select-input.
+---
+
+# StrategyPicker
+
+Renders a list of available strategies using `ink-select-input`. Calls `onSelect` with the chosen strategy's value when the user makes a selection.
+
+```tsx
+import { StrategyPicker } from "@comma-agents/tui";
+
+<StrategyPicker
+  strategies={[
+    { label: "Plan", value: "plan", description: "Think step-by-step" },
+    { label: "Build", value: "build", description: "Write code directly" },
+  ]}
+  onSelect={(strategyPath) => loadStrategy(strategyPath)}
+/>
+```
+
+## StrategyPickerProps
+
+| Prop | Type | Description |
+|---|---|---|
+| `strategies` | `readonly StrategyOption[]` | Available strategies to display |
+| `onSelect` | `(strategyPath: string) => void` | Called with the selected strategy's value |
+
+## StrategyOption
+
+| Field | Type | Description |
+|---|---|---|
+| `label` | `string` | Short display name |
+| `value` | `string` | Strategy identifier passed to `onSelect` |
+| `description` | `string` | One-line description appended to the label in the list |
+
+The picker shows a "Choose a strategy:" heading followed by the `SelectInput` list. Uses arrow keys for navigation and Enter to select.

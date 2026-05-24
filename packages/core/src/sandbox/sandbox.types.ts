@@ -47,6 +47,8 @@ export interface SandboxConfig {
   readonly read: PathPolicy;
   /** Write-access policy applied to every FS write operation. */
   readonly write: PathPolicy;
+  /** Metadata for trash archive identification (runId, sessionId). Injected by the daemon executor. */
+  readonly trashMetadata?: SandboxTrashMetadata;
 }
 
 // Permission request / response types
@@ -106,6 +108,7 @@ export interface PolicyPatch {
 // Sandbox — thin wrapper
 
 import type { Guard, Policy } from "../guard/guard.types";
+import type { SandboxTrashMetadata } from "../tools/io/trash";
 
 /**
  * Thin guard registry. Creates per-tool Guard instances lazily.

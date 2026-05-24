@@ -1,0 +1,100 @@
+---
+title: useDaemon
+description: Access the daemon WebSocket context, send typed commands, and subscribe to typed events.
+---
+
+The daemon hooks provide a layered API for communicating with the daemon over WebSocket. Three hooks cover different levels of abstraction:
+
+| Hook | Purpose |
+|---|---|
+| `useDaemon` | Raw context access -- `send`, `on`, `off`, connection `status` |
+| `useDaemonCommand` | Send a specific command type with auto-generated `requestId` |
+| `useDaemonSubscription` | Subscribe to a specific message type with auto-cleanup |
+
+All require `<DaemonContextProvider>` in the tree.
+
+## useDaemon
+
+Access the raw daemon context:
+
+```tsx
+import { useDaemon } from "@comma-agents/tui";
+
+const { status, send, on, off } = useDaemon();
+
+// Connection status
+if (status === "connected") { /* daemon is reachable */ }
+
+// Send a raw message
+send({ type: "ping" });
+
+// Register a typed listener -- returns unsubscribe
+const unsub = on("agent_streaming", (message) => {
+  // message is narrowed to the agent_streaming variant
+});
+
+// Remove a listener explicitly
+off("agent_streaming", myListener);
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `status` | `WebSocketStatus` | `"disconnected" \| "connecting" \| "connected" \| "error"` |
+| `send` | `(message: Record<string, unknown>) => boolean` | Send a JSON message; returns `false` if socket is closed |
+| `on` | `<T>(type, listener) => () => void` | Register a listener; returns unsubscribe function |
+| `off` | `<T>(type, listener) => void` | Remove a previously registered listener |
+
+## useDaemonCommand
+
+Returns a typed send function for a specific command type that auto-injects `type` and `requestId`:
+
+```tsx
+import { useDaemonCommand } from "@comma-agents/tui";
+
+const startStrategy = useDaemonCommand("start_strategy");
+const stopStrategy = useDaemonCommand("stop_strategy");
+const sendInput = useDaemonCommand("user_input");
+
+// Returns the generated requestId, or null if the socket is not open
+const id = startStrategy({
+  strategyPath: "path/to/strategy.json",
+  input: "Build a calculator",
+});
+```
+
+## useDaemonSubscription
+
+Subscribe to a specific daemon message type with automatic cleanup on unmount:
+
+```tsx
+import { useDaemonSubscription } from "@comma-agents/tui";
+
+useDaemonSubscription("strategy_completed", (message) => {
+  // message has type: StrategyCompletedMessage
+  console.log(`Run ${message.runId} completed: ${message.summary}`);
+});
+```
+
+Optionally scope the subscription to a specific run:
+
+```tsx
+useDaemonSubscription(
+  "agent_streaming",
+  (message) => { /* Only receives streaming events for this run */ },
+  session.daemonRunId,
+);
+```
+
+## Typed Helpers
+
+```ts
+import type {
+  DaemonMessageOf,
+  ClientMessageOf,
+  DaemonMessageListener,
+} from "@comma-agents/tui";
+```
+
+- `DaemonMessageOf<"agent_streaming">` -- Narrows to the streaming variant
+- `ClientMessageOf<"start_strategy">` -- Narrows to the start command variant
+- `DaemonMessageListener<"strategy_completed">` -- Typed listener callback

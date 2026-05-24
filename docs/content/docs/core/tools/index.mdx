@@ -5,7 +5,7 @@ description: Define custom tools and give agents the ability to interact with th
 
 Tools give agents the ability to interact with the outside world. Each tool has a Zod schema for its parameters and an execute function that runs when the agent invokes it.
 
-Comma Agents ships with [built-in tools](/docs/core/tools/built-in) for filesystem search, file I/O, multi-file patches, and shell execution. You can also define custom tools and register them in the [tool registry](/docs/core/tools/tool-registry).
+Comma Agents ships with [built-in tools](/docs/core/tools/built-in) organised into logical groups — [file management & IO](/docs/core/tools/built-in/file-io), a [TODO list system](/docs/core/tools/built-in/todo-system), [skill tools](/docs/core/tools/built-in/skill-tools), and individual tools for shell execution and web fetching. You can also define custom tools and register them in the [tool registry](/docs/core/tools/tool-registry).
 
 ## Quick Start
 
@@ -34,21 +34,44 @@ const agent = createAgent({
 
 ## Built-in tools at a glance
 
+### File Management & IO
+
 | Tool | Purpose |
 |---|---|
-| [`read_file`](/docs/core/tools/built-in/read_file) | Read a text file with line slicing and a sha256 for stale-file checks. |
-| [`list_directory`](/docs/core/tools/built-in/list_directory) | Enumerate a directory, optionally recursive. |
-| [`search_files`](/docs/core/tools/built-in/search_files) | Glob, text, or regex search across many files. |
-| [`create_file`](/docs/core/tools/built-in/create_file) | Create a new file; fails if it exists. |
-| [`write_file`](/docs/core/tools/built-in/write_file) | Overwrite an existing file, gated by sha256. |
-| [`edit_file`](/docs/core/tools/built-in/edit_file) | Apply exact-string edits to a file, gated by sha256. |
-| [`delete_file`](/docs/core/tools/built-in/delete_file) | Delete a file, recoverable via the workspace trash. |
-| [`move_file`](/docs/core/tools/built-in/move_file) | Move or rename a file with strict no-overwrite semantics. |
-| [`apply_patch`](/docs/core/tools/built-in/apply_patch) | Apply a multi-file unified-diff envelope atomically. |
-| [`run_command`](/docs/core/tools/built-in/run_command) | Execute a shell command with timeout, output caps, and approval gates. |
-| [`load_skill`](/docs/core/tools/built-in/load_skill) | Load the full instructions of a named [skill](/docs/core/skills) advertised in the system prompt. |
+| [`read_file`](/docs/core/tools/built-in/file-io/read_file) | Read a text file with line slicing and a sha256 for stale-file checks. |
+| [`list_directory`](/docs/core/tools/built-in/file-io/list_directory) | Enumerate a directory, optionally recursive. |
+| [`search_files`](/docs/core/tools/built-in/file-io/search_files) | Glob, text, or regex search across many files. |
+| [`create_file`](/docs/core/tools/built-in/file-io/create_file) | Create a new file; fails if it exists. |
+| [`write_file`](/docs/core/tools/built-in/file-io/write_file) | Overwrite an existing file, gated by sha256. |
+| [`edit_file`](/docs/core/tools/built-in/file-io/edit_file) | Apply exact-string edits, gated by sha256. |
+| [`delete_file`](/docs/core/tools/built-in/file-io/delete_file) | Delete a file, recoverable via workspace trash. |
+| [`move_file`](/docs/core/tools/built-in/file-io/move_file) | Move or rename with no-overwrite semantics. |
+| [`apply_patch`](/docs/core/tools/built-in/file-io/apply_patch) | Apply a multi-file unified-diff envelope atomically. |
 
-Cross-cutting reference: [stale-file protocol](/docs/core/tools/stale-file-protocol), [audit log](/docs/core/tools/audit-log), [trash](/docs/core/tools/trash), [patch envelope](/docs/core/tools/patch-envelope), [error kinds](/docs/core/tools/error-kinds).
+### TODO List System
+
+| Tool | Purpose |
+|---|---|
+| [`todo_add`](/docs/core/tools/built-in/todo-system/todo_add) | Add a new pending item. |
+| [`todo_complete`](/docs/core/tools/built-in/todo-system/todo_complete) | Mark an item done, get the next pending one. |
+| [`todo_get`](/docs/core/tools/built-in/todo-system/todo_get) | List all items with their statuses. |
+| [`todo_get_next`](/docs/core/tools/built-in/todo-system/todo_get_next) | Peek at the next pending item. |
+| [`todo_clear`](/docs/core/tools/built-in/todo-system/todo_clear) | Remove all items, resetting the list. |
+
+### Skill Tools
+
+| Tool | Purpose |
+|---|---|
+| [`load_skill`](/docs/core/tools/built-in/skill-tools/load_skill) | Load the full instructions of a named [skill](/docs/core/skills) advertised in the system prompt. |
+
+### Other built-ins
+
+| Tool | Purpose |
+|---|---|
+| [`run_command`](/docs/core/tools/built-in/run_command) | Execute a shell command with timeout, output caps, and approval gates. |
+| [`webfetch`](/docs/core/tools/built-in/webfetch) | Fetch a URL and return its content. |
+
+Cross-cutting reference: [audit log](/docs/core/tools/audit-log), [trash](/docs/core/tools/trash), [patch envelope](/docs/core/tools/patch-envelope), [error kinds](/docs/core/tools/error-kinds).
 
 To add a custom tool, define it with `defineTool`, register it in the [tool registry](/docs/core/tools/tool-registry), and reference it by name:
 

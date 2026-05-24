@@ -14,7 +14,7 @@ import { Text } from "ink";
 import { render } from "ink-testing-library";
 import React, { act } from "react";
 
-import type { ChatSessionsContextType, UseChatState } from "./useChat.types";
+import type { ChatRunsContextType, UseChatState } from "./useChat.types";
 
 /** Captured subscription callbacks keyed by event type. */
 let subscriptionHandlers: Record<string, (message: unknown) => void> = {};
@@ -59,32 +59,32 @@ mock.module("../useDaemon/useDaemonSubscription/useDaemonSubscription", () => ({
 
 // Import after mocks are set up
 const { useChat } = await import("./useChat");
-const { useChatSessions } = await import("./useChatSessions");
-const { ChatSessionsContextProvider } = await import("./useChat.context");
+const { useChatRuns } = await import("./useChatRuns");
+const { ChatRunsContextProvider } = await import("./useChat.context");
 
 /**
- * Render a component that observes `useChat` (bound to the active session).
+ * Render a component that observes `useChat` (bound to the active run).
  * Returns a mutable ref exposing the latest hook state plus a cleanup fn.
  */
 function renderChatHook(): {
   result: { current: UseChatState };
-  sessions: { current: ChatSessionsContextType };
+  chatRuns: { current: ChatRunsContextType };
   cleanup: () => void;
 } {
   const resultRef: { current: UseChatState } = {} as { current: UseChatState };
-  const sessionsRef: { current: ChatSessionsContextType } = {} as {
-    current: ChatSessionsContextType;
+  const sessionsRef: { current: ChatRunsContextType } = {} as {
+    current: ChatRunsContextType;
   };
 
   function TestComponent(): React.ReactElement {
     resultRef.current = useChat();
-    sessionsRef.current = useChatSessions();
+    sessionsRef.current = useChatRuns();
     return React.createElement(Text, null, "test");
   }
 
   const instance = render(
     React.createElement(
-      ChatSessionsContextProvider,
+      ChatRunsContextProvider,
       null,
       React.createElement(TestComponent),
     ),
@@ -92,7 +92,7 @@ function renderChatHook(): {
 
   return {
     result: resultRef,
-    sessions: sessionsRef,
+    chatRuns: sessionsRef,
     cleanup: () => instance.unmount(),
   };
 }
@@ -106,10 +106,10 @@ beforeEach(() => {
 });
 
 describe("useChat", () => {
-  it("should start with no active session and empty state", () => {
+  it("should start with no active run and empty state", () => {
     const { result, cleanup } = renderChatHook();
 
-    expect(result.current.sessionId).toBeNull();
+    expect(result.current.chatRunId).toBeNull();
     expect(result.current.status).toBe("idle");
     expect(result.current.messages).toEqual([]);
     expect(result.current.error).toBeNull();
@@ -121,14 +121,14 @@ describe("useChat", () => {
   });
 
   describe("startStrategy", () => {
-    it("should create a session, make it active, and call the daemon command", () => {
+    it("should create a run, make it active, and call the daemon command", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
         result.current.startStrategy("/path/to/strategy.json", "hello");
       });
 
-      expect(result.current.sessionId).not.toBeNull();
+      expect(result.current.chatRunId).not.toBeNull();
       expect(result.current.status).toBe("running");
       expect(result.current.error).toBeNull();
       expect(mockStartStrategyCommand).toHaveBeenCalledWith({
@@ -169,7 +169,7 @@ describe("useChat", () => {
   });
 
   describe("strategy_started subscription", () => {
-    it("should bind daemonRunId to the pending session and add a system message", () => {
+    it("should bind daemonRunId to the pending run and add a system message", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
@@ -453,7 +453,7 @@ describe("useChat", () => {
   });
 
   describe("stop", () => {
-    it("should call stop_strategy command for the bound session's runId", () => {
+    it("should call stop_strategy command for the bound run's runId", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
@@ -478,7 +478,7 @@ describe("useChat", () => {
       cleanup();
     });
 
-    it("should be a no-op when no session is active", () => {
+    it("should be a no-op when no run is active", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
@@ -554,7 +554,7 @@ describe("useChat", () => {
   });
 
   describe("error subscription (unrouted)", () => {
-    it("should route generic daemon error to the active session", () => {
+    it("should route generic daemon error to the active run", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
@@ -573,7 +573,7 @@ describe("useChat", () => {
       cleanup();
     });
 
-    it("should be a no-op when no session is active", () => {
+    it("should be a no-op when no run is active", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
@@ -663,15 +663,15 @@ describe("useChat", () => {
     });
   });
 
-  describe("multi-session routing", () => {
-    it("should route run events to the correct session by runId", () => {
-      const { sessions, cleanup } = renderChatHook();
+  describe("multi-run routing", () => {
+    it("should route run events to the correct run by runId", () => {
+      const { chatRuns, cleanup } = renderChatHook();
 
-      // Create two sessions via the raw context API.
+      // Create two runs via the raw context API.
       let sessionA: string = "";
       let sessionB: string = "";
       act(() => {
-        sessionA = sessions.current.startStrategy("/a.json");
+        sessionA = chatRuns.current.startStrategy("/a.json");
       });
       act(() => {
         subscriptionHandlers["strategy_started"]!({
@@ -682,7 +682,7 @@ describe("useChat", () => {
       });
 
       act(() => {
-        sessionB = sessions.current.startStrategy("/b.json");
+        sessionB = chatRuns.current.startStrategy("/b.json");
       });
       act(() => {
         subscriptionHandlers["strategy_started"]!({
@@ -701,8 +701,8 @@ describe("useChat", () => {
         });
       });
 
-      const a = sessions.current.sessions.get(sessionA)!;
-      const b = sessions.current.sessions.get(sessionB)!;
+      const a = chatRuns.current.chatRuns.get(sessionA)!;
+      const b = chatRuns.current.chatRuns.get(sessionB)!;
 
       expect(a.messages.some((m) => m.text === "from A")).toBe(true);
       expect(b.messages.some((m) => m.text === "from A")).toBe(false);

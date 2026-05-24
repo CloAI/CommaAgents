@@ -1,0 +1,49 @@
+---
+title: useDebugRender
+description: Flash a component's background on render — visually identify re-render causes during development.
+---
+
+`useDebugRender` wraps a component with a colored flash on every render, making it easy to identify excessive re-renders during development. Each render reason (mount, props change, state change, etc.) can have its own color.
+
+Only active when the `DEBUG_RENDER` flag is set -- in production builds, the hook is a no-op.
+
+```tsx
+import { useDebugRender } from "@comma-agents/tui";
+
+function MyComponent() {
+  const debug = useDebugRender("MyComponent", {
+    props: { value: 42 },
+  });
+
+  return <Box ref={debug.ref}>{/* content */}</Box>;
+}
+```
+
+## DebugRenderOptions
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `props` | `Record<string, unknown>` | -- | Current props values to compare across renders |
+| `colors` | `DebugRenderColors` | -- | Custom per-reason background colors |
+| `flashMs` | `number` | `200` | Flash duration in milliseconds |
+| `enabled` | `Partial<Record<RenderReason, boolean>>` | -- | Disable specific render reasons |
+| `showBackground` | `boolean` | `true` | Whether to apply background flash colors |
+
+## RenderReason
+
+| Reason | Description |
+|---|---|
+| `mount` | First render of this component |
+| `unmount` | Component is being removed |
+| `props` | Props changed between renders |
+| `state` | Internal state changed |
+| `context` | Context value changed |
+| `rerender` | Unknown cause (fallback) |
+
+## DebugRenderRef
+
+| Field | Type | Description |
+|---|---|---|
+| `ref` | `React.RefCallback<DOMElement>` | Attach to the root Box of your component |
+
+The hook renders a "label bar" below the component showing the component name, render count, reason, and relevant prop changes. The component's background flashes in the color assigned to the render reason for `flashMs` milliseconds.

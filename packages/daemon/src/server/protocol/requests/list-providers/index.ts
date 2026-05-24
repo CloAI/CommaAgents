@@ -35,6 +35,7 @@ export async function handleListProviders(
     const wireProviders: ProviderInfoWire[] = providers.map((provider) => ({
       id: provider.id,
       name: provider.name,
+      credentialType: provider.credentialType,
       authStatus: provider.authStatus,
       models: provider.models.map(toWireModel),
       modelsSource: provider.modelsSource,

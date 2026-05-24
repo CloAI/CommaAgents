@@ -16,12 +16,16 @@ export function handleUpdatePolicy(
   message: UpdatePolicyMessage,
   context: HandlerContext<"update_policy">,
 ): void {
-  const applied = context.executor.handleUpdatePolicy(message.runId, {
-    mode: message.mode,
-    allow: message.allow,
-    deny: message.deny,
-    default: message.default,
-  }, message.tool);
+  const applied = context.executor.handleUpdatePolicy(
+    message.runId,
+    {
+      mode: message.mode,
+      allow: message.allow,
+      deny: message.deny,
+      default: message.default,
+    },
+    message.tool,
+  );
   if (!applied) {
     context.reply({
       type: "error" as const,

@@ -1,0 +1,14 @@
+---
+title: Pages
+description: Route-level page components — IntroPage, ChatPage, and LogsPage for the TUI's tab-based navigation.
+---
+
+The TUI has three page-level components, each mapped to a route in the `App` component. Pages compose lower-level components into full-screen layouts.
+
+| Page | Route | Purpose |
+|---|---|---|
+| [IntroPage](/docs/tui/pages/intro-page) | `/chat` (fallback) | Strategy selection and initial prompt |
+| [ChatPage](/docs/tui/pages/chat-page) | `/chat` | Message display, reply input, permission prompts |
+| [LogsPage](/docs/tui/pages/logs-page) | `/logs` | Captured console log viewer |
+
+All pages follow the container/render split pattern -- a container component resolves state and theme hooks, and a companion `*Render` function is the pure presentational layer.

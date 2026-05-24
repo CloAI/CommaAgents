@@ -1,0 +1,89 @@
+---
+title: Components
+description: Ink component inventory for the TUI — composable terminal UI components following a container and render split pattern.
+---
+
+The TUI is built from composable Ink (React-for-terminal) components. Every component follows a container/render split -- the container holds state and hooks, and a companion `*Render` function is a pure presentational component that receives resolved props.
+
+All components consume theme tokens through per-component hooks (e.g. `useFrameTheme()`) produced by [`defineTheme`](/docs/tui/theme/define-theme).
+
+```tsx
+import { Frame, MessageList, StatusBar, ChatTextArea } from "@comma-agents/tui";
+
+<Frame footer={<StatusBar status="idle" />}>
+  <MessageList messages={chat.messages} />
+  <ChatTextArea
+    strategies={strategies}
+    onSubmit={(strategyPath, input) => startStrategy(strategyPath, input)}
+  />
+</Frame>
+```
+
+## Component Inventory
+
+### Shell & Layout
+
+| Component | Purpose |
+|---|---|
+| [Frame](/docs/tui/components/frame) | Root layout shell with tab bar, terminal resize tracking, pinned footer |
+| [BorderedPanel](/docs/tui/components/bordered-panel) | Panel with a text label embedded into the top border |
+| [Separator](/docs/tui/components/separator) | Horizontal separator line -- fills parent width or fixed-length |
+| [Hide](/docs/tui/components/hide) | Responsive visibility toggle -- hide below/above a breakpoint or column count |
+| [MeasuredBox](/docs/tui/components/measured-box) | Self-measuring Box wrapper with render-prop dimensions |
+
+### Input
+
+| Component | Purpose |
+|---|---|
+| [TextAreaInput](/docs/tui/components/text-area-input) | Multi-line text input with word wrap, cursor navigation, scrollbar, mouse wheel |
+| [ChatTextArea](/docs/tui/components/chat-text-area) | Strategy-aware prompt input -- wraps TextAreaInput with Tab-to-cycle strategy selection |
+| [SearchInput](/docs/tui/components/search-input) | Single-line search input with caret prompt and placeholder |
+| [Button](/docs/tui/components/button) | Interactive button with focus, hover, click, and disabled state support |
+
+### Chat
+
+| Component | Purpose |
+|---|---|
+| [MessageList](/docs/tui/components/message-list) | Chat message display -- role-colored messages, scroll-to-bottom, streaming cursor |
+| [StatusBar](/docs/tui/components/status-bar) | Chat status indicator -- spinner, status label, error display |
+| [PermissionPrompt](/docs/tui/components/permission-prompt) | Sandbox permission request prompt with action buttons |
+
+### Scrolling
+
+| Component | Purpose |
+|---|---|
+| [ScrollableView](/docs/tui/components/scrollable-view) | Variable-height scrollable container with per-row measurement and mouse wheel |
+| [ScrollableList](/docs/tui/components/scrollable-list) | Generic single-selection list with arrow-key navigation and scrollbar |
+| [Scrollbar](/docs/tui/components/scrollbar) | Single-column vertical scrollbar -- presentational |
+
+### Overlays
+
+| Component | Purpose |
+|---|---|
+| [Modal](/docs/tui/components/modal) | Full-screen overlay dialog with backdrop dimming |
+| [CommandPalette](/docs/tui/components/command-palette) | Full command palette with searchable list and sub-page navigation |
+| [CodeView](/docs/tui/components/code-view) | Syntax-highlighted code block powered by Shiki |
+
+### Decoration
+
+| Component | Purpose |
+|---|---|
+| [StrategyPicker](/docs/tui/components/strategy-picker) | Strategy selection menu using ink-select-input |
+| [TitleIcon](/docs/tui/components/title-icon) | Animated ASCII art logo with responsive text banner |
+
+## Architecture
+
+Components are organized under `src/components/`, each in its own directory:
+
+```
+ComponentName/
+├── index.ts                 # barrel export
+├── ComponentName.tsx        # container + render
+├── ComponentName.theme.ts   # useComponentNameTheme() hook
+├── ComponentName.types.ts   # prop interfaces (if complex)
+├── ComponentName.test.tsx   # tests
+├── ComponentName.stories.tsx # Storybook stories
+└── ComponentName.constants.ts # (optional)
+```
+
+The barrel export at `src/components/index.ts` re-exports all components, types, and theme hooks.

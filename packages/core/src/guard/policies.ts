@@ -1,5 +1,5 @@
-import type { AccessRequest, Policy, PolicyDecision } from "./guard.types";
 import type { PathPolicy } from "../sandbox/sandbox.types";
+import type { AccessRequest, Policy, PolicyDecision } from "./guard.types";
 
 // ── Glob matching helpers ────────────────────────────────────────────────
 
@@ -13,7 +13,8 @@ function matchesAny(
   if (absolutePath !== cwd && !absolutePath.startsWith(cwdWithSep)) {
     return false;
   }
-  const relative = absolutePath === cwd ? "." : absolutePath.slice(cwdWithSep.length);
+  const relative =
+    absolutePath === cwd ? "." : absolutePath.slice(cwdWithSep.length);
   for (const pattern of patterns) {
     if (new Bun.Glob(pattern).match(relative)) return true;
   }
@@ -25,13 +26,25 @@ function decide(
   policy: PathPolicy,
   cwd: string,
 ): PolicyDecision {
-  if (policy.deny && policy.deny.length > 0 && matchesAny(absolutePath, policy.deny, cwd)) {
+  if (
+    policy.deny &&
+    policy.deny.length > 0 &&
+    matchesAny(absolutePath, policy.deny, cwd)
+  ) {
     return "deny";
   }
-  if (policy.allow && policy.allow.length > 0 && matchesAny(absolutePath, policy.allow, cwd)) {
+  if (
+    policy.allow &&
+    policy.allow.length > 0 &&
+    matchesAny(absolutePath, policy.allow, cwd)
+  ) {
     return "allow";
   }
-  if (policy.default === "allow" || policy.default === "deny" || policy.default === "ask") {
+  if (
+    policy.default === "allow" ||
+    policy.default === "deny" ||
+    policy.default === "ask"
+  ) {
     return policy.default;
   }
   return "pass";

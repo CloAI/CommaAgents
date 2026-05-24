@@ -1,106 +1,109 @@
 import { useCallback, useContext, useMemo } from "react";
 
 import { useDaemon } from "../useDaemon/useDaemon";
-import { ChatSessionsContext } from "./useChat.context";
+import { ChatRunsContext } from "./useChat.context";
 import type {
-  ChatSessionId,
-  ChatSessionsContextType,
+  ChatRunId,
+  ChatRunsContextType,
   UseChatState,
 } from "./useChat.types";
 
-/** Empty-messages singleton used when no session is bound (stable reference). */
+/** Empty-messages singleton used when no run is bound (stable reference). */
 const EMPTY_MESSAGES = Object.freeze([]) as UseChatState["messages"];
 
 /**
- * Internal consumer — resolves the `ChatSessionsContext` or throws.
+ * Internal consumer — resolves the `ChatRunsContext` or throws.
  *
- * Used by both `useChat` and `useChatSessions`. Must be called inside a
- * `<ChatSessionsContextProvider>`.
+ * Used by both `useChat` and `useChatRuns`. Must be called inside a
+ * `<ChatRunsContextProvider>`.
  */
-function useChatSessionsContext(): ChatSessionsContextType {
-  const contextValue = useContext(ChatSessionsContext);
+function useChatRunsContext(): ChatRunsContextType {
+  const contextValue = useContext(ChatRunsContext);
   if (!contextValue) {
     throw new Error(
-      "useChat / useChatSessions must be used within a <ChatSessionsContextProvider>",
+      "useChat / useChatRuns must be used within a <ChatRunsContextProvider>",
     );
   }
   return contextValue;
 }
 
 /**
- * Bind a view to a single chat session.
+ * Bind a view to a single chat run.
  *
- * If `sessionId` is provided, the hook observes that session. Otherwise it
- * observes the currently-active session. When no matching session exists
+ * If `chatRunId` is provided, the hook observes that run. Otherwise it
+ * observes the currently-active run. When no matching run exists
  * (e.g. on first mount before any strategy has been started), the returned
  * view exposes empty values; `startStrategy` is still functional and will
- * create a new session.
+ * create a new run.
  *
  * Must be called inside both a `<DaemonContextProvider>` and a
- * `<ChatSessionsContextProvider>`.
+ * `<ChatRunsContextProvider>`.
  */
-export function useChat(sessionId?: ChatSessionId): UseChatState {
-  const context = useChatSessionsContext();
+export function useChat(chatRunId?: ChatRunId): UseChatState {
+  const context = useChatRunsContext();
   const { status: connectionStatus } = useDaemon();
 
-  const resolvedSessionId: ChatSessionId | null =
-    sessionId ?? context.activeSessionId;
-  const session = resolvedSessionId
-    ? (context.sessions.get(resolvedSessionId) ?? null)
+  const resolvedChatRunId: ChatRunId | null =
+    chatRunId ?? context.activeChatRunId;
+  const chatRun = resolvedChatRunId
+    ? (context.chatRuns.get(resolvedChatRunId) ?? null)
     : null;
 
   const startStrategy = context.startStrategy;
+  const resumeRun = context.resumeRun;
 
   const sendInput = useCallback(
     (text: string): void => {
-      if (!resolvedSessionId) return;
-      context.sendInput(resolvedSessionId, text);
+      if (!resolvedChatRunId) return;
+      context.sendInput(resolvedChatRunId, text);
     },
-    [context, resolvedSessionId],
+    [context, resolvedChatRunId],
   );
 
   const sendPermissionDecision = useCallback(
     (decision: "allow" | "deny" | "allow-session" | "deny-session"): void => {
-      if (!resolvedSessionId) return;
-      context.sendPermissionDecision(resolvedSessionId, decision);
+      if (!resolvedChatRunId) return;
+      context.sendPermissionDecision(resolvedChatRunId, decision);
     },
-    [context, resolvedSessionId],
+    [context, resolvedChatRunId],
   );
 
   const reset = useCallback((): void => {
-    if (!resolvedSessionId) return;
-    context.resetSession(resolvedSessionId);
-  }, [context, resolvedSessionId]);
+    if (!resolvedChatRunId) return;
+    context.resetChatRun(resolvedChatRunId);
+  }, [context, resolvedChatRunId]);
 
   const stop = useCallback((): void => {
-    if (!resolvedSessionId) return;
-    context.stopSession(resolvedSessionId);
-  }, [context, resolvedSessionId]);
+    if (!resolvedChatRunId) return;
+    context.stopChatRun(resolvedChatRunId);
+  }, [context, resolvedChatRunId]);
 
   return useMemo<UseChatState>(
     () => ({
-      sessionId: resolvedSessionId,
-      messages: session?.messages ?? EMPTY_MESSAGES,
-      status: session?.status ?? "idle",
-      error: session?.error ?? null,
-      pendingInputAgent: session?.pendingInputAgent ?? null,
-      strategyName: session?.strategyName ?? null,
-      strategyPath: session?.strategyPath ?? null,
-      readOnly: session?.readOnly ?? false,
-      pendingPermissionRequest: session?.pendingPermissionRequests[0] ?? null,
-      runId: session?.daemonRunId ?? null,
+      chatRunId: resolvedChatRunId,
+      messages: chatRun?.messages ?? EMPTY_MESSAGES,
+      status: chatRun?.status ?? "idle",
+      error: chatRun?.error ?? null,
+      pendingInputAgent: chatRun?.pendingInputAgent ?? null,
+      strategyName: chatRun?.strategyName ?? null,
+      strategyPath: chatRun?.strategyPath ?? null,
+      readOnly: chatRun?.readOnly ?? false,
+      pendingPermissionRequest: chatRun?.pendingPermissionRequests[0] ?? null,
+      runId: chatRun?.daemonRunId ?? null,
       connectionStatus,
       startStrategy,
+      resumeRun,
       sendInput,
       sendPermissionDecision,
       reset,
       stop,
     }),
     [
-      resolvedSessionId,
-      session,
+      resolvedChatRunId,
+      chatRun,
       connectionStatus,
       startStrategy,
+      resumeRun,
       sendInput,
       sendPermissionDecision,
       reset,
@@ -110,4 +113,4 @@ export function useChat(sessionId?: ChatSessionId): UseChatState {
 }
 
 // Re-export for legacy imports.
-export { useChatSessionsContext };
+export { useChatRunsContext };

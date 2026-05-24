@@ -1,0 +1,39 @@
+---
+title: useUserConfig
+description: Load and persist user configuration — theme selection with synchronous first-read and async writes.
+---
+
+`useUserConfig` loads a persisted JSON user config from disk and provides mutators that persist asynchronously. The config is read synchronously on first render so the initial paint always uses the correct theme.
+
+Must be inside `<UserConfigContextProvider>`.
+
+```tsx
+import { useUserConfig } from "@comma-agents/tui";
+
+const { config, setConfig, updateConfig, configFilePath } = useUserConfig();
+
+config.themeName;          // Current theme name
+updateConfig({ themeName: "dracula" });  // Partial update, persists to disk
+setConfig({ themeName: "light" });       // Full replace
+```
+
+## UserConfig
+
+| Field | Type | Description |
+|---|---|---|
+| `themeName` | `ThemeName` | Name of the active theme |
+
+## UserConfigContextType
+
+| Field | Type | Description |
+|---|---|---|
+| `config` | `UserConfig` | Current config object |
+| `setConfig` | `(next: UserConfig) => void` | Replace the entire config and persist |
+| `updateConfig` | `(patch: Partial<UserConfig>) => void` | Merge a partial config and persist |
+| `configFilePath` | `string` | Absolute path to the config file on disk |
+
+## Persistence
+
+Config is saved to a JSON file on disk. The default location is platform-dependent. Writes are deferred via `queueMicrotask` so disk I/O never blocks the React commit phase. New fields added to the config type are automatically merged in from defaults, so schema changes do not break existing config files.
+
+`UserConfigContextProvider` accepts an optional `configFilePath` prop to override the default location.

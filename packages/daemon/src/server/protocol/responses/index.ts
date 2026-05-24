@@ -5,16 +5,17 @@
 export { AgentOutputMessage } from "./agent-output";
 export { AgentStreamingMessage } from "./agent-streaming";
 export { AvailableModelsMessage } from "./available-models";
+export { CredentialSetMessage } from "./credential-set";
 export { ErrorMessage } from "./error";
 export { PolicyUpdatedMessage } from "./policy-updated";
 export { PongMessage } from "./pong";
 export { ProviderListMessage } from "./provider-list";
+export { ProviderRegisteredMessage } from "./provider-registered";
+export { ProviderUnregisteredMessage } from "./provider-unregistered";
 export { RequestInputMessage } from "./request-input";
 export { RequestPermissionMessage } from "./request-permission";
-export { SessionDeletedMessage } from "./session-deleted";
-export { SessionListMessage } from "./session-list";
-export { SessionLoadedMessage } from "./session-loaded";
-export { SessionRenamedMessage } from "./session-renamed";
+export { RunListMessage } from "./run-list";
+export { RunLoadedMessage } from "./run-loaded";
 // Shared response schemas
 export type { AgentCallResultWire, Usage } from "./shared";
 export { AgentCallResultSchema, UsageSchema } from "./shared";
@@ -24,3 +25,6 @@ export { StrategyCompletedMessage } from "./strategy-completed";
 export { StrategyErrorMessage } from "./strategy-error";
 export { StrategyListMessage } from "./strategy-list";
 export { StrategyStartedMessage } from "./strategy-started";
+export { TrashClearResultMessage } from "./trash-clear-result";
+export { TrashListResultMessage } from "./trash-list-result";
+export { TrashRestoreResultMessage } from "./trash-restore-result";

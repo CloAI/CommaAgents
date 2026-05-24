@@ -1,0 +1,50 @@
+---
+title: ChatPage
+description: Main chat interface — renders messages, reply input when the agent waits, and permission prompts.
+---
+
+# ChatPage
+
+The main chat interface. Renders the message list, a reply input when an agent is waiting for user input, and a permission prompt when sandbox access requires approval.
+
+```tsx
+import { ChatPage } from "@comma-agents/tui";
+
+<ChatPage
+  messages={chat.messages}
+  chatStatus={chat.status}
+  error={chat.error}
+  pendingInputAgent={chat.pendingInputAgent}
+  pendingPermissionRequest={chat.pendingPermissionRequest}
+  onReplySubmit={chat.sendInput}
+  onPermissionDecide={chat.sendPermissionDecision}
+  activeStrategy={activeStrategyOption}
+/>
+```
+
+## ChatPageProps
+
+| Prop | Type | Description |
+|---|---|---|
+| `messages` | `readonly ChatMessage[]` | Chat messages to display |
+| `chatStatus` | `ChatStatus` | Current chat lifecycle status |
+| `error` | `string \| null` | Current error message, or null |
+| `pendingInputAgent` | `string \| null` | Agent waiting for user input, or null |
+| `pendingPermissionRequest` | `PendingPermissionRequest \| null` | Permission request needing user decision |
+| `onReplySubmit` | `(text: string) => void` | Called when the user replies to a waiting agent |
+| `onPermissionDecide` | `(decision: PermissionDecision) => void` | Called when the user resolves a permission |
+| `activeStrategy` | `StrategyOption` | The active strategy (shown in the input label) |
+
+## Dynamic Layout
+
+The ChatPage adapts its bottom area based on `chatStatus`:
+
+| Status | Bottom Area |
+|---|---|
+| `waiting_input` | Reply `ChatTextArea` with the agent name as placeholder |
+| `waiting_permission` | `PermissionPrompt` with action buttons |
+| Other | Empty (only `StatusBar` and footer shown) |
+
+When the status flips to `waiting_input`, the reply input is auto-focused so the user can immediately type without manually tabbing into it.
+
+The footer bar shows keyboard shortcuts (`ctrl+c exit | ctrl+r reset | ctrl+p commands`). The `StatusBar` row shows the current status with a spinner and strategy name.

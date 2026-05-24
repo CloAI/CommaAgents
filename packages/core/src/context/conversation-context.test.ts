@@ -44,15 +44,15 @@ describe("createConversationContext", () => {
   describe("append", () => {
     it("should append a conversation turn", () => {
       const context = createConversationContext();
-      context.append("Hello", assistantResponse("Hi there!"));
+      context.append("Hello", assistantResponse("Hi there!"), "assistant");
       expect(context.length).toBe(1);
       expect(context.isEmpty).toBe(false);
     });
 
     it("should not corrupt previous state on multiple appends", () => {
       const context = createConversationContext();
-      context.append("Hello", assistantResponse("Hi"));
-      context.append("Second", assistantResponse("Response"));
+      context.append("Hello", assistantResponse("Hi"), "assistant");
+      context.append("Second", assistantResponse("Response"), "assistant");
       expect(context.length).toBe(2);
       expect(userText(context.allTurns()[0]!)).toBe("Hello");
       expect(userText(context.allTurns()[1]!)).toBe("Second");
@@ -60,9 +60,9 @@ describe("createConversationContext", () => {
 
     it("should append multiple turns in order", () => {
       const context = createConversationContext();
-      context.append("First", assistantResponse("Response 1"));
-      context.append("Second", assistantResponse("Response 2"));
-      context.append("Third", assistantResponse("Response 3"));
+      context.append("First", assistantResponse("Response 1"), "agent1");
+      context.append("Second", assistantResponse("Response 2"), "agent2");
+      context.append("Third", assistantResponse("Response 3"), "agent3");
       expect(context.length).toBe(3);
 
       const turns = context.allTurns();
@@ -101,8 +101,8 @@ describe("createConversationContext", () => {
 
     it("should return the most recent turn", () => {
       const context = createConversationContext();
-      context.append("First", assistantResponse("Response 1"));
-      context.append("Second", assistantResponse("Response 2"));
+      context.append("First", assistantResponse("Response 1"), "agent1");
+      context.append("Second", assistantResponse("Response 2"), "agent2");
 
       const last = context.lastTurn();
       expect(last).toBeDefined();
@@ -114,9 +114,9 @@ describe("createConversationContext", () => {
   describe("sliding window (maxTurns)", () => {
     it("should drop oldest turns when exceeding maxTurns", () => {
       const context = createConversationContext({ maxTurns: 2 });
-      context.append("A", assistantResponse("1"));
-      context.append("B", assistantResponse("2"));
-      context.append("C", assistantResponse("3"));
+      context.append("A", assistantResponse("1"), "agent");
+      context.append("B", assistantResponse("2"), "agent");
+      context.append("C", assistantResponse("3"), "agent");
 
       expect(context.length).toBe(2);
       const turns = context.allTurns();
@@ -126,9 +126,9 @@ describe("createConversationContext", () => {
 
     it("should keep only the latest turn when maxTurns is 1", () => {
       const context = createConversationContext({ maxTurns: 1 });
-      context.append("A", assistantResponse("1"));
-      context.append("B", assistantResponse("2"));
-      context.append("C", assistantResponse("3"));
+      context.append("A", assistantResponse("1"), "agent");
+      context.append("B", assistantResponse("2"), "agent");
+      context.append("C", assistantResponse("3"), "agent");
 
       expect(context.length).toBe(1);
       expect(userText(context.allTurns()[0]!)).toBe("C");
@@ -137,7 +137,11 @@ describe("createConversationContext", () => {
     it("should auto-select sliding-window strategy when maxTurns is set", () => {
       const context = createConversationContext({ maxTurns: 3 });
       for (let turnIndex = 0; turnIndex < 10; turnIndex++) {
-        context.append(`Q${turnIndex}`, assistantResponse(`A${turnIndex}`));
+        context.append(
+          `Q${turnIndex}`,
+          assistantResponse(`A${turnIndex}`),
+          "agent",
+        );
       }
       expect(context.length).toBe(3);
       expect(userText(context.allTurns()[0]!)).toBe("Q7");
@@ -151,11 +155,11 @@ describe("createConversationContext", () => {
         tokensPerChar: 1,
       });
 
-      context.append("AAAAA", assistantResponse("BBBBB")); // 10 tokens total
-      context.append("CCCCC", assistantResponse("DDDDD")); // 20 tokens total
+      context.append("AAAAA", assistantResponse("BBBBB"), "agent"); // 10 tokens total
+      context.append("CCCCC", assistantResponse("DDDDD"), "agent"); // 20 tokens total
       expect(context.length).toBe(2);
 
-      context.append("EEEEE", assistantResponse("FFFFF")); // 30 tokens → truncate
+      context.append("EEEEE", assistantResponse("FFFFF"), "agent"); // 30 tokens → truncate
       expect(context.length).toBe(2);
       expect(userText(context.allTurns()[0]!)).toBe("CCCCC");
       expect(userText(context.allTurns()[1]!)).toBe("EEEEE");
@@ -167,10 +171,10 @@ describe("createConversationContext", () => {
         tokensPerChar: 1,
       });
 
-      context.append("ABC", assistantResponse("DEF")); // 6 tokens
+      context.append("ABC", assistantResponse("DEF"), "agent"); // 6 tokens
       expect(context.length).toBe(1);
 
-      context.append("GHI", assistantResponse("JKL")); // 12 tokens → truncate
+      context.append("GHI", assistantResponse("JKL"), "agent"); // 12 tokens → truncate
       expect(context.length).toBe(1);
       expect(userText(context.allTurns()[0]!)).toBe("GHI");
     });
@@ -180,7 +184,11 @@ describe("createConversationContext", () => {
     it("should keep all turns when strategy is 'none'", () => {
       const context = createConversationContext({ strategy: "none" });
       for (let turnIndex = 0; turnIndex < 100; turnIndex++) {
-        context.append(`Q${turnIndex}`, assistantResponse(`A${turnIndex}`));
+        context.append(
+          `Q${turnIndex}`,
+          assistantResponse(`A${turnIndex}`),
+          "agent",
+        );
       }
       expect(context.length).toBe(100);
     });
@@ -188,7 +196,11 @@ describe("createConversationContext", () => {
     it("should default to 'none' when no maxTurns or maxTokens specified", () => {
       const context = createConversationContext();
       for (let turnIndex = 0; turnIndex < 50; turnIndex++) {
-        context.append(`Q${turnIndex}`, assistantResponse(`A${turnIndex}`));
+        context.append(
+          `Q${turnIndex}`,
+          assistantResponse(`A${turnIndex}`),
+          "agent",
+        );
       }
       expect(context.length).toBe(50);
     });
@@ -202,14 +214,14 @@ describe("createConversationContext", () => {
 
     it("should estimate with default tokensPerChar (0.25)", () => {
       const context = createConversationContext();
-      context.append("Hello", assistantResponse("World"));
+      context.append("Hello", assistantResponse("World"), "agent");
       // "Hello" (5) + "World" (5) = 10 chars * 0.25 = 2.5 → ceil → 3
       expect(context.estimateTokens()).toBe(3);
     });
 
     it("should estimate with custom tokensPerChar", () => {
       const context = createConversationContext({ tokensPerChar: 1 });
-      context.append("ABCD", assistantResponse("EFGH"));
+      context.append("ABCD", assistantResponse("EFGH"), "agent");
       expect(context.estimateTokens()).toBe(8);
     });
   });
@@ -217,8 +229,8 @@ describe("createConversationContext", () => {
   describe("snapshot/restore", () => {
     it("should create a frozen snapshot", () => {
       const context = createConversationContext();
-      context.append("Q1", assistantResponse("A1"));
-      context.append("Q2", assistantResponse("A2"));
+      context.append("Q1", assistantResponse("A1"), "agent");
+      context.append("Q2", assistantResponse("A2"), "agent");
 
       const snap = context.snapshot();
       expect(snap.length).toBe(2);
@@ -227,18 +239,18 @@ describe("createConversationContext", () => {
 
     it("should produce a snapshot independent of future changes", () => {
       const context = createConversationContext();
-      context.append("Q1", assistantResponse("A1"));
+      context.append("Q1", assistantResponse("A1"), "agent");
       const snap = context.snapshot();
 
-      context.append("Q2", assistantResponse("A2"));
+      context.append("Q2", assistantResponse("A2"), "agent");
       expect(snap.length).toBe(1);
       expect(context.length).toBe(2);
     });
 
     it("should restore from a snapshot", () => {
       const context = createConversationContext();
-      context.append("Q1", assistantResponse("A1"));
-      context.append("Q2", assistantResponse("A2"));
+      context.append("Q1", assistantResponse("A1"), "agent");
+      context.append("Q2", assistantResponse("A2"), "agent");
       const snap = context.snapshot();
 
       context.clear();
@@ -255,14 +267,17 @@ describe("createConversationContext", () => {
         {
           userMessage: { role: "user" as const, content: "Q1" },
           responseMessages: assistantResponse("A1"),
+          agentName: "agent",
         },
         {
           userMessage: { role: "user" as const, content: "Q2" },
           responseMessages: assistantResponse("A2"),
+          agentName: "agent",
         },
         {
           userMessage: { role: "user" as const, content: "Q3" },
           responseMessages: assistantResponse("A3"),
+          agentName: "agent",
         },
       ];
 
@@ -275,8 +290,8 @@ describe("createConversationContext", () => {
   describe("clear", () => {
     it("should remove all turns", () => {
       const context = createConversationContext();
-      context.append("Q1", assistantResponse("A1"));
-      context.append("Q2", assistantResponse("A2"));
+      context.append("Q1", assistantResponse("A1"), "agent");
+      context.append("Q2", assistantResponse("A2"), "agent");
       context.clear();
 
       expect(context.length).toBe(0);
@@ -288,8 +303,8 @@ describe("createConversationContext", () => {
   describe("iteration", () => {
     it("should be iterable with for...of", () => {
       const context = createConversationContext();
-      context.append("Q1", assistantResponse("A1"));
-      context.append("Q2", assistantResponse("A2"));
+      context.append("Q1", assistantResponse("A1"), "agent");
+      context.append("Q2", assistantResponse("A2"), "agent");
 
       const userTexts: string[] = [];
       for (const turn of context) {
@@ -301,7 +316,7 @@ describe("createConversationContext", () => {
 
     it("should support spread into an array", () => {
       const context = createConversationContext();
-      context.append("Q1", assistantResponse("A1"));
+      context.append("Q1", assistantResponse("A1"), "agent");
 
       const spreadArray = [...context];
       expect(spreadArray.length).toBe(1);
@@ -317,9 +332,9 @@ describe("createConversationContext", () => {
         tokensPerChar: 1,
       });
 
-      context.append("A", assistantResponse("B"));
-      context.append("C", assistantResponse("D"));
-      context.append("E", assistantResponse("F"));
+      context.append("A", assistantResponse("B"), "agent");
+      context.append("C", assistantResponse("D"), "agent");
+      context.append("E", assistantResponse("F"), "agent");
 
       expect(context.length).toBe(2);
       expect(userText(context.allTurns()[0]!)).toBe("C");
@@ -332,8 +347,8 @@ describe("createConversationContext", () => {
         tokensPerChar: 1,
       });
 
-      context.append("AAA", assistantResponse("BBB")); // 6
-      context.append("CCC", assistantResponse("DDD")); // 12 → truncate
+      context.append("AAA", assistantResponse("BBB"), "agent"); // 6
+      context.append("CCC", assistantResponse("DDD"), "agent"); // 12 → truncate
       expect(context.length).toBe(1);
       expect(userText(context.allTurns()[0]!)).toBe("CCC");
     });

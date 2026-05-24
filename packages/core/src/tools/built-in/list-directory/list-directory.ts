@@ -231,7 +231,13 @@ export function createListDirectoryTool(
           const childRelFromWorkspace = toForwardSlash(
             relative(guard.cwd, childAbs),
           );
-          if (!guard.canAccess({ type: "fs.read", resource: childRelFromWorkspace })) continue;
+          if (
+            !guard.canAccess({
+              type: "fs.read",
+              resource: childRelFromWorkspace,
+            })
+          )
+            continue;
 
           const type: ListDirectoryEntry["type"] = dirent.isSymbolicLink()
             ? "symlink"

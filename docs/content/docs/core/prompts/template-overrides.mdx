@@ -1,0 +1,61 @@
+---
+title: Template Overrides
+description: Update template variables in-place without re-rendering — merge new defaults via updatePromptVariables.
+---
+
+When a `PromptTemplate` is configured on an agent, you can update its default variables in-place without re-rendering. Call `updatePromptVariables` on the agent or template to merge new values — matching keys are overwritten, the rest are kept. The next agent call picks up the new values automatically.
+
+```ts
+import { createAgent, createPromptTemplate } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  systemPrompt: createPromptTemplate({
+    template: "You are {{ role }}, reviewing {{ language }} code.",
+    variables: { role: "a senior engineer" },
+  }),
+});
+
+// Update variables on the agent — no render() call needed.
+agent.updatePromptVariables({ language: "TypeScript" });
+
+// The next call renders with the merged defaults:
+// "You are a senior engineer, reviewing TypeScript code."
+```
+
+## Updating templates directly
+
+You can also update variables directly on the template — useful when the template is shared across multiple agents or before it is assigned:
+
+```ts
+const tpl = createPromptTemplate({
+  template: "You are {{ role }}.",
+  variables: { role: "an assistant" },
+});
+
+tpl.updatePromptVariables({ role: "a reviewer" });
+await tpl.render(); // "You are a reviewer."
+```
+
+## Adding new variables
+
+This is a merge operation, so you can add new variables that did not exist at creation time:
+
+```ts
+tpl.updatePromptVariables({ name: "World" });
+await tpl.render({ role: "a greeter" });
+// Uses overridden "role" + newly added "name" from defaults.
+```
+
+## How it works
+
+When `systemPrompt` is a `PromptTemplate`, the agent stores a reference to it. Calling `agent.updatePromptVariables(...)` forwards to `template.updatePromptVariables(...)`, which merges into the template's defaults via `Object.assign`. Since the template is shared by reference, any future call to `agent.call()` or `template.render()` uses the updated defaults.
+
+If the agent was created with a static string `systemPrompt`, calling `agent.updatePromptVariables()` is a no-op — there is no template to update.
+
+## Related
+
+- [Prompts & Templates](/docs/core/prompts) — overview and `createPromptTemplate`.
+- [Template Syntax](/docs/core/prompts/template-syntax) — LiquidJS syntax and custom filters.
+- [In Description Files](/docs/core/prompts/in-description-files) — using templates in YAML/JSON agent definitions.

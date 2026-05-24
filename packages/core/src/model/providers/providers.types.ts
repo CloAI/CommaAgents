@@ -31,6 +31,26 @@ export interface ModelCapabilities {
   readonly structuredOutput?: boolean;
 }
 
+/**
+ * Expected credential type for a provider.
+ *
+ * - `"api"` — simple API key (OpenAI, Anthropic, etc.)
+ * - `"oauth"` — OAuth 2.0 flow (GitHub Copilot)
+ * - `"custom"` — provider-specific opaque data
+ * - `"none"` — local runtime with no credential needed (Ollama)
+ */
+export type CredentialType = "api" | "oauth" | "custom" | "none";
+
+/**
+ * Expected credential type for a provider.
+ *
+ * - `"api"` — simple API key (OpenAI, Anthropic, etc.)
+ * - `"oauth"` — OAuth 2.0 flow (GitHub Copilot)
+ * - `"custom"` — provider-specific opaque data
+ * - `"none"` — local runtime with no credential needed (Ollama)
+ */
+export type CredentialType = "api" | "oauth" | "custom" | "none";
+
 /** Per-million-token prices in USD. */
 export interface ModelCost {
   /** Cost per 1M input tokens. */
@@ -129,6 +149,11 @@ export interface ProviderDefinition {
   readonly id: string;
   /** Human-friendly display name. */
   readonly name: string;
+  /**
+   * Expected credential type for this provider.
+   * Defaults to `"api"` for catalog-derived providers when not explicitly set.
+   */
+  readonly credentialType?: CredentialType;
   /**
    * Live model-listing callback. When present, `listProviderModels()` will
    * call it and merge the response with the catalog.

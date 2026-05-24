@@ -24,7 +24,6 @@ describe("DaemonState — runs", () => {
       "/path/to/strategy.json",
       "test-strategy",
       "/tmp/cwd",
-      "session-test",
     );
 
     expect(run.id).toBeTruthy();
@@ -40,14 +39,14 @@ describe("DaemonState — runs", () => {
 
   test("createRun generates unique IDs", () => {
     const state = createDaemonState();
-    const run1 = state.createRun("/p.json", "s1", "/tmp/cwd", "session-test");
-    const run2 = state.createRun("/p.json", "s2", "/tmp/cwd", "session-test");
+    const run1 = state.createRun("/p.json", "s1", "/tmp/cwd");
+    const run2 = state.createRun("/p.json", "s2", "/tmp/cwd");
     expect(run1.id).not.toBe(run2.id);
   });
 
   test("getRun returns the created run", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     expect(state.getRun(run.id)).toBe(run);
   });
 
@@ -58,8 +57,8 @@ describe("DaemonState — runs", () => {
 
   test("listRuns returns all runs", () => {
     const state = createDaemonState();
-    const run1 = state.createRun("/a.json", "a", "/tmp/cwd", "session-test");
-    const run2 = state.createRun("/b.json", "b", "/tmp/cwd", "session-test");
+    const run1 = state.createRun("/a.json", "a", "/tmp/cwd");
+    const run2 = state.createRun("/b.json", "b", "/tmp/cwd");
     const runs = state.listRuns();
     expect(runs).toHaveLength(2);
     expect(runs).toContain(run1);
@@ -73,7 +72,7 @@ describe("DaemonState — runs", () => {
 
   test("listRuns returns a snapshot (push does not affect state)", () => {
     const state = createDaemonState();
-    state.createRun("/a.json", "a", "/tmp/cwd", "session-test");
+    state.createRun("/a.json", "a", "/tmp/cwd");
     const runs = state.listRuns();
     // TypeScript prevents push on ReadonlyArray, but verify at runtime
     expect(runs).toHaveLength(1);
@@ -82,14 +81,14 @@ describe("DaemonState — runs", () => {
 
   test("updateRun changes status", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.updateRun(run.id, { status: "running" });
     expect(state.getRun(run.id)?.status).toBe("running");
   });
 
   test("updateRun sets completedAt", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     const now = new Date();
     state.updateRun(run.id, { status: "completed", completedAt: now });
     expect(state.getRun(run.id)?.completedAt).toBe(now);
@@ -97,14 +96,14 @@ describe("DaemonState — runs", () => {
 
   test("updateRun sets result", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.updateRun(run.id, { status: "completed", result: mockResult });
     expect(state.getRun(run.id)?.result).toBe(mockResult);
   });
 
   test("updateRun sets error", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     const error = { code: "EXEC_FAILED", message: "Agent crashed" };
     state.updateRun(run.id, { status: "error", error });
     expect(state.getRun(run.id)?.error).toEqual(error);
@@ -112,7 +111,7 @@ describe("DaemonState — runs", () => {
 
   test("updateRun can update multiple fields at once", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     const now = new Date();
     state.updateRun(run.id, {
       status: "completed",
@@ -127,7 +126,7 @@ describe("DaemonState — runs", () => {
 
   test("updateRun only modifies specified fields", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.updateRun(run.id, { status: "running" });
     // completedAt and result should still be undefined
     expect(state.getRun(run.id)?.completedAt).toBeUndefined();
@@ -143,7 +142,7 @@ describe("DaemonState — runs", () => {
 
   test("removeRun removes the run", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     expect(state.removeRun(run.id)).toBe(true);
     expect(state.getRun(run.id)).toBeUndefined();
     expect(state.listRuns()).toEqual([]);
@@ -156,7 +155,7 @@ describe("DaemonState — runs", () => {
 
   test("full run lifecycle: pending → running → completed", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     expect(run.status).toBe("pending");
 
     state.updateRun(run.id, { status: "running" });
@@ -173,7 +172,7 @@ describe("DaemonState — runs", () => {
 
   test("full run lifecycle: pending → running → error", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.updateRun(run.id, { status: "running" });
     state.updateRun(run.id, {
       status: "error",
@@ -186,7 +185,7 @@ describe("DaemonState — runs", () => {
 
   test("full run lifecycle: pending → running → cancelled", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.updateRun(run.id, { status: "running" });
     state.updateRun(run.id, { status: "cancelled", completedAt: new Date() });
     expect(state.getRun(run.id)?.status).toBe("cancelled");
@@ -244,7 +243,7 @@ describe("DaemonState — clients", () => {
 describe("DaemonState — subscriptions", () => {
   test("subscribe registers a subscription", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.addClient("client-1");
     state.subscribe("client-1", run.id);
 
@@ -254,7 +253,7 @@ describe("DaemonState — subscriptions", () => {
 
   test("subscribe is idempotent", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.addClient("client-1");
     state.subscribe("client-1", run.id);
     state.subscribe("client-1", run.id);
@@ -264,7 +263,7 @@ describe("DaemonState — subscriptions", () => {
 
   test("subscribe multiple clients to one run", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.addClient("client-1");
     state.addClient("client-2");
     state.subscribe("client-1", run.id);
@@ -278,8 +277,8 @@ describe("DaemonState — subscriptions", () => {
 
   test("subscribe one client to multiple runs", () => {
     const state = createDaemonState();
-    const run1 = state.createRun("/a.json", "a", "/tmp/cwd", "session-test");
-    const run2 = state.createRun("/b.json", "b", "/tmp/cwd", "session-test");
+    const run1 = state.createRun("/a.json", "a", "/tmp/cwd");
+    const run2 = state.createRun("/b.json", "b", "/tmp/cwd");
     state.addClient("client-1");
     state.subscribe("client-1", run1.id);
     state.subscribe("client-1", run2.id);
@@ -292,7 +291,7 @@ describe("DaemonState — subscriptions", () => {
 
   test("subscribe throws for unknown client", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     expect(() => state.subscribe("unknown-client", run.id)).toThrow(
       "Client not found: unknown-client",
     );
@@ -308,7 +307,7 @@ describe("DaemonState — subscriptions", () => {
 
   test("unsubscribe removes a subscription", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.addClient("client-1");
     state.subscribe("client-1", run.id);
     state.unsubscribe("client-1", run.id);
@@ -319,7 +318,7 @@ describe("DaemonState — subscriptions", () => {
 
   test("unsubscribe is a no-op for nonexistent subscription", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.addClient("client-1");
     // Should not throw
     state.unsubscribe("client-1", run.id);
@@ -349,8 +348,8 @@ describe("DaemonState — subscriptions", () => {
 describe("DaemonState — cleanup", () => {
   test("removeClient cleans up all subscriptions for that client", () => {
     const state = createDaemonState();
-    const run1 = state.createRun("/a.json", "a", "/tmp/cwd", "session-test");
-    const run2 = state.createRun("/b.json", "b", "/tmp/cwd", "session-test");
+    const run1 = state.createRun("/a.json", "a", "/tmp/cwd");
+    const run2 = state.createRun("/b.json", "b", "/tmp/cwd");
     state.addClient("client-1");
     state.addClient("client-2");
     state.subscribe("client-1", run1.id);
@@ -368,7 +367,7 @@ describe("DaemonState — cleanup", () => {
 
   test("removeRun cleans up the subscription set", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.addClient("client-1");
     state.subscribe("client-1", run.id);
 
@@ -382,8 +381,8 @@ describe("DaemonState — cleanup", () => {
 
   test("removeRun does not affect other runs", () => {
     const state = createDaemonState();
-    const run1 = state.createRun("/a.json", "a", "/tmp/cwd", "session-test");
-    const run2 = state.createRun("/b.json", "b", "/tmp/cwd", "session-test");
+    const run1 = state.createRun("/a.json", "a", "/tmp/cwd");
+    const run2 = state.createRun("/b.json", "b", "/tmp/cwd");
     state.addClient("client-1");
     state.subscribe("client-1", run1.id);
     state.subscribe("client-1", run2.id);
@@ -397,7 +396,7 @@ describe("DaemonState — cleanup", () => {
 
   test("removeClient then subscribe throws for that client", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.addClient("client-1");
     state.removeClient("client-1");
 
@@ -408,7 +407,7 @@ describe("DaemonState — cleanup", () => {
 
   test("removeRun then subscribe throws for that run", () => {
     const state = createDaemonState();
-    const run = state.createRun("/p.json", "s", "/tmp/cwd", "session-test");
+    const run = state.createRun("/p.json", "s", "/tmp/cwd");
     state.addClient("client-1");
     state.removeRun(run.id);
 

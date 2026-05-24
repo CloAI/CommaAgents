@@ -1,0 +1,1 @@
+export { RegisteredProvidersPage } from "./RegisteredProvidersPage";

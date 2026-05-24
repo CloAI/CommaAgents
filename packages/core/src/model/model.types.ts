@@ -1,6 +1,10 @@
 import type { LanguageModel } from "ai";
 import type { Credential } from "../credentials/credentials.types";
-import type { ModelInfo, ModelsSource } from "./providers/providers.types";
+import type {
+  CredentialType,
+  ModelInfo,
+  ModelsSource,
+} from "./providers/providers.types";
 
 /** Result of parsing a model string like "openai/gpt-4o". */
 export interface ParsedModel {
@@ -62,6 +66,11 @@ export interface ProviderInfo {
   readonly id: string;
   /** Human-friendly display name (catalog `name` when available). */
   readonly name: string;
+  /**
+   * Expected credential type for this provider.
+   * Defaults to `"api"` for catalog-derived providers.
+   */
+  readonly credentialType: CredentialType;
   /**
    * Configuration-level auth status. `"configured"` means a credential
    * was found via env var, strategy scope, or global scope. Not validated

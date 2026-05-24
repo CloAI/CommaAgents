@@ -7,11 +7,11 @@ import { MessageList } from "./MessageList";
 import { createChatMessage } from "./test.utils";
 
 /**
- * Wait for Ink's measurement-driven re-renders to settle.
+ * Wait for Ink's viewport-measurement-driven re-renders to settle.
  *
- * `ScrollableView` (which `MessageList` now wraps) reports layout via
- * `useBoxMetrics` and per-row measurement effects. The first commit always
- * shows zero metrics; the stable frame appears one or two macrotasks later.
+ * Row heights are measured synchronously via the patched `measureLayout`,
+ * but the viewport itself still goes through `useBoxMetrics`, which reports
+ * zero on the first commit and updates from a post-commit effect.
  */
 async function flushFrames(): Promise<void> {
   for (let i = 0; i < 5; i += 1) {

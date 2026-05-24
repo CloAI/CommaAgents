@@ -1,11 +1,4 @@
-import { SessionTurnSchema } from "@comma-agents/daemon/src/server/protocol";
-import { useMemo } from "react";
-import {
-  type BoxProps,
-  defineTheme,
-  type TextProps,
-  useTheme,
-} from "../../theme";
+import { type BoxProps, defineTheme, type TextProps } from "../../theme";
 
 /**
  * Returns themed style objects for the ChatTextArea component.

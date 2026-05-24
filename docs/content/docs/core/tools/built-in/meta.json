@@ -1,22 +1,10 @@
 {
   "title": "Built-in",
   "pages": [
-    "read_file",
-    "list_directory",
-    "search_files",
-    "create_file",
-    "write_file",
-    "edit_file",
-    "delete_file",
-    "move_file",
-    "apply_patch",
+    "file-io",
+    "todo-system",
+    "skill-tools",
     "run_command",
-    "webfetch",
-    "load_skill",
-    "todo_add",
-    "todo_complete",
-    "todo_get",
-    "todo_get_next",
-    "todo_clear"
+    "webfetch"
   ]
 }

@@ -1,0 +1,47 @@
+---
+title: useModal
+description: Control modal open/close state by id — open, close, toggle, and check which modal is topmost.
+---
+
+`useModal` provides per-id controls for opening and closing modals. Modals are identified by a unique string id. The provider tracks which modals are open and maintains a stack so only the topmost modal receives input.
+
+Must be called inside `<ModalContextProvider>`.
+
+```tsx
+import { useModal } from "@comma-agents/tui";
+import { Modal } from "@comma-agents/tui";
+
+const palette = useModal("command-palette");
+const confirm = useModal("confirm-delete");
+
+palette.isOpen;         // boolean
+palette.isTopmost;      // true only when this modal is on top
+palette.data;           // arbitrary data passed on open
+
+palette.open({ foo: "bar" });
+palette.close();
+palette.toggle();
+```
+
+Then pair with a `<Modal>`:
+
+```tsx
+<Modal modalId="command-palette" title="Commands">
+  <CommandPalette />
+</Modal>
+```
+
+## ModalControls
+
+| Field | Type | Description |
+|---|---|---|
+| `isOpen` | `boolean` | Whether this modal is open |
+| `isTopmost` | `boolean` | Whether this modal is at the top of the open stack |
+| `data` | `unknown` | Data passed to `open()` |
+| `open` | `(data?: unknown) => void` | Open the modal with optional data |
+| `close` | `() => void` | Close the modal and clear its data |
+| `toggle` | `(data?: unknown) => void` | Invert open state without clearing data on close |
+
+## Stack Behavior
+
+When a modal opens, it is pushed to the top of the open stack. If it was already open, it moves to the top. Closing removes it from the stack. Only the topmost modal should respond to key input.

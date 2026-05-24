@@ -1,302 +1,170 @@
 import type { ModelMessage, UserModelMessage } from "ai";
+import { projectConversationContext } from "../timeline/projections/conversation-context";
+import { createTimeline } from "../timeline/timeline";
+import type { Timeline } from "../timeline/timeline.types";
 
 import type {
-  ContextStrategy,
   ConversationContextConfig,
   ConversationTurn,
   ResponseMessage,
 } from "./conversation-context.types";
 
-/** Default tokens-per-character ratio for English text. ~4 chars per token. */
-const DEFAULT_TOKENS_PER_CHAR = 0.25;
-
-interface ContextState {
-  readonly turns: readonly ConversationTurn[];
-}
-
-interface ResolvedContextConfig {
-  readonly maxTurns: number;
-  readonly maxTokens: number | undefined;
-  readonly tokensPerChar: number;
-  readonly strategy: ContextStrategy;
-}
-
-function resolveContextConfig(
-  config: ConversationContextConfig = {},
-): ResolvedContextConfig {
-  const maxTurns = config.maxTurns ?? Number.POSITIVE_INFINITY;
-  const maxTokens = config.maxTokens;
-  const tokensPerChar = config.tokensPerChar ?? DEFAULT_TOKENS_PER_CHAR;
-
-  let strategy: ContextStrategy;
-  if (config.strategy) {
-    strategy = config.strategy;
-  } else if (config.maxTurns !== undefined || config.maxTokens !== undefined) {
-    strategy = "sliding-window";
-  } else {
-    strategy = "none";
-  }
-
-  return { maxTurns, maxTokens, tokensPerChar, strategy };
-}
-
-/**
- * Extract the total character count from a ModelMessage's content.
- * Handles both `string` and `Array<Part>` content formats.
- */
-function getMessageTextLength(message: ModelMessage): number {
-  const content = message.content;
-  if (typeof content === "string") {
-    return content.length;
-  }
-  if (Array.isArray(content)) {
-    let length = 0;
-    for (const part of content) {
-      if ("text" in part && typeof part.text === "string") {
-        length += part.text.length;
-      }
-      if ("input" in part) {
-        length += JSON.stringify(part.input).length;
-      }
-      if ("output" in part) {
-        length += JSON.stringify(part.output).length;
-      }
-    }
-    return length;
-  }
-  return 0;
-}
-
 /** Wrap a plain string as a UserModelMessage. */
-function toUserMessage(text: string): UserModelMessage {
-  return { role: "user", content: text };
-}
-
-/** Estimate token count for a set of turns. */
-function estimateTokensForTurns(
-  turns: readonly ConversationTurn[],
-  tokensPerChar: number = DEFAULT_TOKENS_PER_CHAR,
-): number {
-  let totalChars = 0;
-  for (const turn of turns) {
-    totalChars += getMessageTextLength(turn.userMessage);
-    for (const responseMessage of turn.responseMessages) {
-      totalChars += getMessageTextLength(responseMessage);
-    }
+function toUserMessage(text: string | UserModelMessage): UserModelMessage {
+  if (typeof text === "string") {
+    return { role: "user", content: text };
   }
-  return Math.ceil(totalChars * tokensPerChar);
-}
-
-/** Apply the configured strategy to a set of turns. */
-function applyStrategy(
-  state: ContextState,
-  config: ConversationContextConfig | undefined,
-): ContextState {
-  const resolvedConfig = resolveContextConfig(config);
-
-  if (resolvedConfig.strategy === "none") {
-    return state;
-  }
-
-  let turns = [...state.turns];
-
-  // Sliding window: enforce maxTurns
-  while (turns.length > resolvedConfig.maxTurns) {
-    turns = turns.slice(1);
-  }
-
-  // Token-based: enforce maxTokens
-  if (resolvedConfig.maxTokens !== undefined) {
-    while (
-      turns.length > 0 &&
-      estimateTokensForTurns(turns, resolvedConfig.tokensPerChar) >
-        resolvedConfig.maxTokens
-    ) {
-      turns = turns.slice(1);
-    }
-  }
-
-  return { turns };
-}
-
-/** Append a turn and apply the strategy. */
-function appendTurn(
-  state: ContextState,
-  config: ConversationContextConfig | undefined,
-  userMessage: string | UserModelMessage,
-  responseMessages: readonly ResponseMessage[],
-): ContextState {
-  const user: UserModelMessage =
-    typeof userMessage === "string" ? toUserMessage(userMessage) : userMessage;
-
-  const newTurns = [
-    ...state.turns,
-    { userMessage: user, responseMessages: [...responseMessages] },
-  ];
-
-  return applyStrategy({ turns: newTurns }, config);
-}
-
-/** Flatten turns into a sequential ModelMessage array. */
-function turnsToMessages(
-  turns: readonly ConversationTurn[],
-): readonly ModelMessage[] {
-  const messages: ModelMessage[] = [];
-  for (const turn of turns) {
-    messages.push(turn.userMessage);
-    for (const responseMessage of turn.responseMessages) {
-      messages.push(responseMessage);
-    }
-  }
-  return messages;
-}
-
-/** Get the last turn from state. */
-function getLastTurn(state: ContextState): ConversationTurn | undefined {
-  const { turns } = state;
-  return turns.length > 0 ? turns[turns.length - 1] : undefined;
+  return text;
 }
 
 /**
- * The ConversationContext interface — manages the accumulated state of an
- * ongoing conversation between a user and an AI agent.
- *
- * Holds all conversation turns (user messages + response messages including
- * tool calls and tool results) and provides views over them as either
- * structured turns or flat AI SDK message arrays.
- */
-export interface ConversationContext {
-  /** Number of conversation turns currently stored. */
-  readonly length: number;
-
-  /** Whether the context has no turns. */
-  readonly isEmpty: boolean;
-
-  /**
-   * Append a completed conversation turn.
-   * The configured strategy is applied after appending.
-   */
-  append(
-    userMessage: string | UserModelMessage,
-    responseMessages: readonly ResponseMessage[],
-  ): void;
-
-  /**
-   * All turns as a flat AI SDK ModelMessage array.
-   * Messages are ordered: [user1, assistant1, tool1, ..., userN, assistantN, toolN].
-   * This is the format expected by `generateText()` / `streamText()`.
-   */
-  allMessages(): readonly ModelMessage[];
-
-  /**
-   * All conversation turns (user + response pairs).
-   * Returns a shallow copy — safe to iterate without affecting internal state.
-   */
-  allTurns(): readonly ConversationTurn[];
-
-  /** The most recent conversation turn, or undefined if empty. */
-  lastTurn(): ConversationTurn | undefined;
-
-  /** Estimate total token count across all stored turns. */
-  estimateTokens(): number;
-
-  /**
-   * Take a frozen snapshot of the current turns.
-   * The snapshot is independent of future mutations.
-   */
-  snapshot(): readonly ConversationTurn[];
-
-  /**
-   * Restore from a previously taken snapshot.
-   * The current strategy is applied to the restored turns.
-   */
-  restore(turns: readonly ConversationTurn[]): void;
-
-  /** Clear all turns from the context. */
-  clear(): void;
-
-  /** Iterate over turns. */
-  [Symbol.iterator](): Iterator<ConversationTurn>;
-}
-
-/**
- * Create a new ConversationContext with closure-captured state.
- *
- * Manages conversation turns with configurable strategies:
- * - `maxTurns` — sliding window by turn count
- * - `maxTokens` — sliding window by estimated token budget
- * - Both can be combined (whichever is stricter wins)
- *
- * @example
- * ```ts
- * // Sliding window with 20 turns max
- * const context = createConversationContext({ maxTurns: 20 });
- *
- * // Token-limited context (approximate)
- * const bounded = createConversationContext({ maxTokens: 4000 });
- *
- * // Unbounded context
- * const full = createConversationContext();
- * ```
+ * The ConversationContext interface wrapper.
+ * Adapts a `Timeline` so existing LLM agents and loader code continue to run untouched,
+ * while shifting state storage to the unified event timeline.
  */
 export function createConversationContext(
   config?: ConversationContextConfig,
 ): ConversationContext {
-  const resolvedConfig = resolveContextConfig(config);
-  let state: ContextState = { turns: [] };
+  const timeline: Timeline = createTimeline();
+
+  // We apply the sliding window / token budget truncation rules over the entire,
+  // merged list of turns.
+  const getMergedTurns = (): readonly ConversationTurn[] => {
+    // 1. Gather all agent_call events
+    const turns: ConversationTurn[] = [];
+    for (const ev of timeline.events()) {
+      if (ev.type === "agent_call") {
+        turns.push({
+          agentName: ev.agentName,
+          userMessage: ev.userMessage,
+          responseMessages: ev.responseMessages as ResponseMessage[],
+        });
+      }
+    }
+
+    // 2. Wrap them as virtual timeline events for the active agent to run projectConversationContext
+    // This allows us to reuse the exact same token-estimation and sliding-window logic.
+    const virtualEvents = turns.map((turn) => ({
+      type: "agent_call" as const,
+      ts: new Date().toISOString(),
+      agentName: "merged",
+      userMessage: turn.userMessage,
+      responseMessages: turn.responseMessages,
+    }));
+
+    const projected = projectConversationContext(
+      virtualEvents,
+      "merged",
+      config,
+    );
+
+    // 3. Map virtual merged turns back to their original agent names
+    return projected.turns.map((mergedTurn, index) => {
+      const originalTurn =
+        turns[turns.length - projected.turns.length + index]!;
+      return {
+        agentName: originalTurn.agentName,
+        userMessage: mergedTurn.userMessage,
+        responseMessages: mergedTurn.responseMessages,
+      };
+    });
+  };
 
   return {
     get length() {
-      return state.turns.length;
+      return getMergedTurns().length;
     },
 
     get isEmpty() {
-      return state.turns.length === 0;
+      return getMergedTurns().length === 0;
     },
 
     append(
       userMessage: string | UserModelMessage,
       responseMessages: readonly ResponseMessage[],
+      agentName: string,
     ): void {
-      state = appendTurn(state, config, userMessage, responseMessages);
+      timeline.append({
+        type: "agent_call",
+        ts: new Date().toISOString(),
+        agentName,
+        userMessage: toUserMessage(userMessage),
+        responseMessages,
+      });
     },
 
     allMessages(): readonly ModelMessage[] {
-      return turnsToMessages(state.turns);
+      const turns = getMergedTurns();
+      const messages: ModelMessage[] = [];
+      for (const turn of turns) {
+        messages.push(turn.userMessage);
+        for (const msg of turn.responseMessages) {
+          messages.push(msg);
+        }
+      }
+      return messages;
     },
 
     allTurns(): readonly ConversationTurn[] {
-      return [...state.turns];
+      return getMergedTurns();
     },
 
     lastTurn(): ConversationTurn | undefined {
-      return getLastTurn(state);
+      const turns = this.allTurns();
+      return turns.length > 0 ? turns[turns.length - 1] : undefined;
     },
 
     estimateTokens(): number {
-      return estimateTokensForTurns(state.turns, resolvedConfig.tokensPerChar);
+      const turns = this.allTurns();
+      let totalChars = 0;
+      for (const turn of turns) {
+        const userContent = turn.userMessage.content;
+        totalChars += typeof userContent === "string" ? userContent.length : 0;
+        for (const msg of turn.responseMessages) {
+          const content = msg.content;
+          if (typeof content === "string") {
+            totalChars += content.length;
+          } else if (Array.isArray(content)) {
+            for (const part of content) {
+              if ("text" in part && typeof part.text === "string") {
+                totalChars += part.text.length;
+              }
+            }
+          }
+        }
+      }
+      return Math.ceil(totalChars * (config?.tokensPerChar ?? 0.25));
     },
 
     snapshot(): readonly ConversationTurn[] {
-      return Object.freeze([...state.turns]);
+      return Object.freeze(this.allTurns());
     },
 
     restore(turns: readonly ConversationTurn[]): void {
-      state = applyStrategy({ turns: [...turns] }, config);
+      timeline.clear();
+      for (const turn of turns) {
+        timeline.append({
+          type: "agent_call",
+          ts: new Date().toISOString(),
+          agentName: turn.agentName,
+          userMessage: turn.userMessage,
+          responseMessages: turn.responseMessages,
+        });
+      }
     },
 
     clear(): void {
-      state = { turns: [] };
+      timeline.clear();
     },
 
     [Symbol.iterator](): Iterator<ConversationTurn> {
-      let turnIndex = 0;
-      const currentTurns = state.turns;
+      let index = 0;
+      const turns = this.allTurns();
       return {
         next(): IteratorResult<ConversationTurn> {
-          if (turnIndex < currentTurns.length) {
+          if (index < turns.length) {
             return {
-              value: currentTurns[turnIndex++]!,
+              value: turns[index++]!,
               done: false,
             } as IteratorYieldResult<ConversationTurn>;
           }
@@ -308,4 +176,23 @@ export function createConversationContext(
       };
     },
   };
+}
+
+// ConversationContext interface re-export
+export interface ConversationContext {
+  readonly length: number;
+  readonly isEmpty: boolean;
+  append(
+    userMessage: string | UserModelMessage,
+    responseMessages: readonly ResponseMessage[],
+    agentName: string,
+  ): void;
+  allMessages(): readonly ModelMessage[];
+  allTurns(): readonly ConversationTurn[];
+  lastTurn(): ConversationTurn | undefined;
+  estimateTokens(): number;
+  snapshot(): readonly ConversationTurn[];
+  restore(turns: readonly ConversationTurn[]): void;
+  clear(): void;
+  [Symbol.iterator](): Iterator<ConversationTurn>;
 }

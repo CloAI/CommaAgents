@@ -39,8 +39,7 @@ export function hookIntoFlow<HookType extends FlowHooks = FlowHooks>(
   flow: Agent,
   hooks: HookType,
 ): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- appendHook is an implementation detail, not on the interface
-  const appendHook = (flow as any).appendHook as
+  const appendHook = (flow as Record<string, unknown>).appendHook as
     | ((hookName: string, callback: unknown) => void)
     | undefined;
 

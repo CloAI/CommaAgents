@@ -2,7 +2,8 @@ import type { Server, ServerWebSocket } from "bun";
 
 import type { EventSink } from "../executor/event-sink";
 import { createStrategyExecutor } from "../executor/executor";
-import { createSessionStore } from "../sessions";
+import { createRunStore } from "../runs";
+import { markStaleRunsAsInterrupted } from "../runs/runs.utils";
 import { createDaemonState } from "../state/state";
 import { createDispatcher } from "./protocol/dispatcher";
 import type { DaemonMessage } from "./protocol/messages";
@@ -19,7 +20,7 @@ import type { CreateDaemonOptions, Daemon, WsData } from "./server.types";
  * @example
  * ```ts
  * const daemon = createDaemon({
- *   config: { port: 3000, host: "127.0.0.1", sessionsDir: "/tmp/sessions" },
+ *   config: { port: 3000, host: "127.0.0.1", runsDir: "/tmp/runs" },
  *   logger: consoleLogger,
  * });
  * await daemon.start();
@@ -68,13 +69,13 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
     },
   };
 
-  const sessionStore = createSessionStore({ sessionsDir: config.sessionsDir });
+  const runStore = createRunStore({ runsDir: config.runsDir });
 
   const executor = createStrategyExecutor({
     state,
     sink,
     logger: logger.child("executor"),
-    sessionStore,
+    runStore,
     bridgeTimeout,
     modelOverride,
   });
@@ -82,7 +83,7 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
   const dispatch = createDispatcher({
     executor,
     state,
-    sessionStore,
+    runStore,
     logger: logger.child("dispatcher"),
   });
 
@@ -126,6 +127,23 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
     async start(): Promise<void> {
       if (server) {
         throw new Error("Daemon is already running");
+      }
+
+      // Reconcile stale persisted runs before accepting any clients. Any
+      // run on disk still claiming `pending`/`running` is necessarily
+      // dead (its in-memory state died with the previous daemon), so we
+      // mark it `cancelled` with an `INTERRUPTED` error. This prevents
+      // the TUI from subscribing to a run that will never emit events.
+      try {
+        await markStaleRunsAsInterrupted(runStore, logger);
+      } catch (recoveryError) {
+        logger.error(
+          `Stale-run recovery failed: ${
+            recoveryError instanceof Error
+              ? recoveryError.message
+              : String(recoveryError)
+          }`,
+        );
       }
 
       server = Bun.serve<WsData>({

@@ -1,6 +1,9 @@
 // Tests for global defaults — credential store, provider registry, and resolver.
 
-import { afterEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { join } from "node:path";
 import type {
   Credential,
   CredentialStore,
@@ -13,6 +16,7 @@ import {
   registerProvider,
   resetGlobalDefaults,
   setGlobalCredentialStore,
+  setProviderCacheDir,
   unregisterProvider,
 } from "./defaults";
 
@@ -273,5 +277,110 @@ describe("getGlobalDefaults", () => {
 
     const defaults = getGlobalDefaults();
     expect(defaults.registeredProviderIds).toEqual(["alpha", "beta"]);
+  });
+});
+
+// -- Dynamic provider package install via cache dir --
+
+describe("dynamic provider install (setProviderCacheDir)", () => {
+  const CACHE_DIR = join(
+    "/tmp",
+    `comma-provider-test-${process.pid}-${Date.now()}`,
+  );
+
+  it("should auto-install and load a provider package from the cache dir", () => {
+    try {
+      rmSync(CACHE_DIR, { recursive: true, force: true });
+    } catch {
+      // ok
+    }
+    mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(
+      join(CACHE_DIR, "package.json"),
+      JSON.stringify({ name: "test-cache", private: true }),
+    );
+
+    const installResult = Bun.spawnSync(
+      ["bun", "add", "@openrouter/ai-sdk-provider"],
+      {
+        cwd: CACHE_DIR,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    expect(installResult.exitCode).toBe(0);
+
+    expect(
+      existsSync(
+        join(CACHE_DIR, "node_modules", "@openrouter", "ai-sdk-provider"),
+      ),
+    ).toBe(true);
+    expect(existsSync(join(CACHE_DIR, "node_modules", "zod"))).toBe(true);
+
+    const _require = createRequire(join(CACHE_DIR, "package.json"));
+    const mod = _require("@openrouter/ai-sdk-provider") as Record<
+      string,
+      unknown
+    >;
+    expect(typeof mod.createOpenRouter).toBe("function");
+
+    try {
+      rmSync(CACHE_DIR, { recursive: true, force: true });
+    } catch {
+      // ok
+    }
+  });
+
+  it("should install the package into the cache directory on first use via resolver", async () => {
+    try {
+      rmSync(CACHE_DIR, { recursive: true, force: true });
+    } catch {
+      // ok
+    }
+    resetGlobalDefaults();
+    setProviderCacheDir(CACHE_DIR);
+
+    expect(existsSync(join(CACHE_DIR, "node_modules"))).toBe(false);
+
+    registerProvider("openrouter", {
+      packageName: "@openrouter/ai-sdk-provider",
+      factoryName: "createOpenRouter",
+    });
+
+    const resolver = getGlobalProviderResolver();
+    const apiCredential: Credential = { type: "api", key: "test-key" };
+
+    let resolutionSucceeded = false;
+    let resolutionError: string | undefined;
+    try {
+      const factory = await resolver("openrouter", apiCredential);
+      resolutionSucceeded = typeof factory === "function";
+    } catch (caughtError) {
+      resolutionError =
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError);
+    }
+
+    // Must not fail with "Cannot find module" — the cache should handle it
+    if (resolutionError) {
+      expect(resolutionError).not.toContain("Cannot find module");
+      expect(resolutionError).not.toContain("Install it with");
+    }
+
+    // The cache directory must contain the installed package
+    expect(existsSync(join(CACHE_DIR, "node_modules", "@openrouter"))).toBe(
+      true,
+    );
+
+    if (resolutionSucceeded) {
+      // Verify transitive dep zod is available
+      expect(existsSync(join(CACHE_DIR, "node_modules", "zod"))).toBe(true);
+    }
+
+    try {
+      rmSync(CACHE_DIR, { recursive: true, force: true });
+    } catch {
+      // ok
+    }
   });
 });

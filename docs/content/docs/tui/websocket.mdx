@@ -1,0 +1,123 @@
+---
+title: WebSocket
+description: Daemon communication via WebSocket — connection lifecycle, message dispatch, and typed command/event helpers.
+---
+
+# WebSocket
+
+The TUI communicates with the daemon over a single WebSocket connection. The daemon listens on `ws://localhost:7422/ws` by default. Messages are JSON-encoded discriminated unions -- every message has a `type` field that determines its shape.
+
+## Connection Layer
+
+The `useWebSocket` hook manages the raw WebSocket lifecycle:
+
+- Connects eagerly on mount, tears down on unmount
+- Reconnects automatically when the URL changes
+- Buffers outbound messages sent during `CONNECTING` and flushes them on `open`
+
+The daemon context provider (`DaemonContextProvider`) wraps `useWebSocket` and adds JSON serialization, Zod validation, and typed dispatch.
+
+## Message Types
+
+All daemon message types are defined in `@comma-agents/daemon` as discriminated unions:
+
+```ts
+import type { ClientMessage, DaemonMessage } from "@comma-agents/daemon";
+```
+
+### Client → Daemon (Commands)
+
+| Type | Purpose |
+|---|---|
+| `start_strategy` | Start a new strategy run with optional initial input |
+| `user_input` | Send user input to a waiting agent |
+| `stop_strategy` | Cancel a running strategy |
+| `permission_decision` | Resolve a sandbox permission request |
+| `list_runs` | Request a list of persisted runs |
+| `load_session` | Hydrate a persisted session from the daemon |
+| `ping` | Keepalive heartbeat |
+
+### Daemon → Client (Events)
+
+| Type | Purpose |
+|---|---|
+| `strategy_started` | A new strategy run has begun |
+| `strategy_completed` | A strategy run finished successfully |
+| `strategy_error` | A strategy run encountered an error |
+| `step_started` | A flow step is starting |
+| `step_completed` | A flow step finished |
+| `agent_streaming` | Streaming tokens from an agent (text, tool-call, tool-result, thinking) |
+| `agent_output` | A completed agent turn (deduplicated against streaming) |
+| `request_input` | An agent is waiting for user input |
+| `request_permission` | A sandbox operation requires user approval |
+| `policy_updated` | The sandbox policy changed |
+| `run_list` | Response to `list_runs` |
+| `session_loaded` | A persisted session's full history |
+| `pong` | Keepalive response |
+
+## Typed Helpers
+
+The TUI provides generic type helpers for narrowing the full message unions:
+
+```ts
+import type {
+  DaemonMessageOf,
+  ClientMessageOf,
+  DaemonMessageListener,
+} from "@comma-agents/tui";
+```
+
+- `DaemonMessageOf<"agent_streaming">` -- Narrows to the streaming variant
+- `ClientMessageOf<"start_strategy">` -- Narrows to the start command payload
+- `DaemonMessageListener<"strategy_completed">` -- Typed listener callback
+
+## Sending Commands
+
+Use `useDaemonCommand` for a typed send function that auto-injects `type` and `requestId`:
+
+```tsx
+import { useDaemonCommand } from "@comma-agents/tui";
+
+const startStrategy = useDaemonCommand("start_strategy");
+
+// Returns the requestId, or null if the WebSocket is not open
+const requestId = startStrategy({
+  strategyPath: "/path/to/strategy.json",
+  input: "Build a calculator",
+});
+```
+
+## Subscribing to Events
+
+Use `useDaemonSubscription` for a typed listener that registers and auto-cleans up:
+
+```tsx
+import { useDaemonSubscription } from "@comma-agents/tui";
+
+useDaemonSubscription("strategy_completed", (message) => {
+  // message is narrowed to the strategy_completed variant
+  console.log(`Run ${message.runId} completed: ${message.summary}`);
+});
+```
+
+Optionally scope the subscription to a specific run:
+
+```tsx
+useDaemonSubscription("agent_streaming", handleStreaming, session.daemonRunId);
+```
+
+## Raw Access
+
+The `useDaemon` hook provides low-level access to the context:
+
+```tsx
+import { useDaemon } from "@comma-agents/tui";
+
+const { status, send, on, off } = useDaemon();
+// status: "disconnected" | "connecting" | "connected" | "error"
+// send(message): boolean
+// on(type, listener): unsubscribe
+// off(type, listener): void
+```
+
+For most use cases, prefer `useDaemonCommand` and `useDaemonSubscription` -- they handle the boilerplate of request IDs, listener lifecycle, and type narrowing.

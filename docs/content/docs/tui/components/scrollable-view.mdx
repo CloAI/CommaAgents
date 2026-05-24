@@ -1,0 +1,50 @@
+---
+title: ScrollableView
+description: Variable-height scrollable container with per-row measurement, mouse-wheel scrolling, and sticky-to-bottom behavior.
+---
+
+# ScrollableView
+
+A lower-level scrollable container that handles layout, measurement, mouse-wheel scrolling, and scroll offset management. Each row is individually measured via Ink's layout engine, supporting variable-height content. `ScrollableView` has no keyboard input -- add that with `ScrollableList`.
+
+```tsx
+import { ScrollableView } from "@comma-agents/tui";
+
+<ScrollableView
+  items={messages}
+  getKey={(msg) => msg.id}
+  renderItem={(msg, index) => <Text>{msg.text}</Text>}
+  stickToBottom={true}
+  onScrollChange={(state) => console.log(state.rowOffset)}
+/>
+```
+
+## ScrollableViewProps
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `items` | `readonly ItemType[]` | -- | Items to render |
+| `getKey` | `(item, index) => string` | -- | Unique key for each item |
+| `renderItem` | `(item, index) => ReactNode` | -- | Render function |
+| `getRowHeight` | `(item, index, viewportWidth) => number` | `1` | Fallback height estimate before measurement |
+| `scrollToRow` | `number` | -- | Scroll so this row index is visible |
+| `stickToBottom` | `boolean` | `false` | Pin to bottom on new content |
+| `onScrollChange` | `(state: ScrollableViewState) => void` | -- | Called when scroll state changes |
+| `emptyText` | `string` | `"No items."` | Empty state text |
+
+## ScrollableViewState
+
+| Field | Type | Description |
+|---|---|---|
+| `rowOffset` | `number` | Current top offset in terminal rows |
+| `totalRows` | `number` | Total content height in rows |
+| `viewportRows` | `number` | Measured viewport height in rows |
+| `atBottom` | `boolean` | Whether rowOffset is at the maximum valid value |
+
+## Sticky-to-Bottom
+
+When `stickToBottom` is `true`, the view auto-pins to the bottom when new content arrives. It automatically disengages when the user scrolls up with the mouse wheel and re-engages when they scroll back to the bottom edge.
+
+## Mouse Wheel
+
+Mouse wheel scrolls by 3 rows per tick. Only scroll events inside the viewport bounding box are handled. A `Scrollbar` component is rendered when `totalRows > viewportRows`.

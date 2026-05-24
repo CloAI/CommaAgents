@@ -20,6 +20,7 @@ describe("ProviderListMessage", () => {
         {
           id: "openai",
           name: "OpenAI",
+          credentialType: "api",
           authStatus: "configured",
           models: [
             {
@@ -38,6 +39,7 @@ describe("ProviderListMessage", () => {
         {
           id: "my-custom",
           name: "My Custom",
+          credentialType: "api",
           authStatus: "none",
           models: [],
           modelsSource: "catalog",
@@ -56,6 +58,7 @@ describe("ProviderListMessage", () => {
         {
           id: "ollama",
           name: "Ollama",
+          credentialType: "none",
           authStatus: "configured",
           models: [{ id: "llama3.3" }],
           modelsSource: "merged",
@@ -75,6 +78,7 @@ describe("ProviderListMessage", () => {
         {
           id: "github-copilot",
           name: "GitHub Copilot",
+          credentialType: "oauth",
           authStatus: "none",
           models: [],
           modelsSource: "error",
@@ -94,6 +98,7 @@ describe("ProviderListMessage", () => {
         {
           id: "openai",
           name: "OpenAI",
+          credentialType: "api",
           authStatus: "validated",
           models: [],
           modelsSource: "catalog",
@@ -112,6 +117,7 @@ describe("ProviderListMessage", () => {
         {
           id: "openai",
           name: "OpenAI",
+          credentialType: "api",
           authStatus: "none",
           models: [],
           modelsSource: "guessed",
@@ -130,6 +136,7 @@ describe("ProviderListMessage", () => {
         {
           id: "openai",
           name: "OpenAI",
+          credentialType: "api",
           authStatus: "none",
           models: ["gpt-4o"],
           modelsSource: "catalog",

@@ -1,0 +1,29 @@
+---
+title: BorderedPanel
+description: Column-shaped panel with a text label embedded into the top border.
+---
+
+# BorderedPanel
+
+A panel with a text label overlaid on the top border line. The label's background masks out the border dashes behind it, producing a clean ``── label ─────────`` look.
+
+```tsx
+import { BorderedPanel } from "@comma-agents/tui";
+
+<BorderedPanel header="Files" borderColor="blue">
+  <Text>directory/</Text>
+  <Text>  file.ts</Text>
+</BorderedPanel>
+```
+
+## BorderedPanelProps
+
+| Prop | Type | Required | Description |
+|---|---|---|---|
+| `header` | `string` | Yes | Label embedded into the top border |
+| `borderColor` | `string` | No | Border color (falls back to theme default) |
+| `backgroundColor` | `string` | No | Background color behind the header label |
+| `headerColor` | `string` | No | Header label text color (falls back to theme) |
+| `children` | `ReactNode` | Yes | Body content inside the panel |
+
+The panel uses Ink's built-in `borderStyle: "single"` on the root Box. The header label is rendered in an absolutely-positioned child with `marginTop: -1` to overlay it on the top border line. The label's `backgroundColor` matches the root background. All optional style props fall back to theme defaults when not provided.

@@ -1,0 +1,57 @@
+---
+title: Hooks
+description: Custom React hooks for daemon communication, chat session state, logging, modal control, and terminal-aware UI utilities.
+---
+
+Hooks manage daemon communication, chat session state, logging, modal control, and terminal-aware UI utilities. Each hook requires specific context providers to be mounted.
+
+## Quick Start
+
+The most commonly used hooks are `useChat` (bind to a chat session) and `useDaemon` (send commands, subscribe to events):
+
+```tsx
+import { useChat, useDaemon } from "@comma-agents/tui";
+
+function ChatView() {
+  const chat = useChat();
+  const { status } = useDaemon();
+
+  return (
+    <>
+      <MessageList messages={chat.messages} />
+      <StatusBar status={chat.status} />
+    </>
+  );
+}
+```
+
+## Provider Dependency
+
+Hooks depend on context providers. The provider tree is:
+
+```
+UserConfigContextProvider → ThemeContextProvider → DaemonContextProvider → ChatSessionsContextProvider → ModalContextProvider
+```
+
+Most hooks require at least `DaemonContextProvider`. Chat hooks additionally require `ChatSessionsContextProvider`.
+
+## Hook Inventory
+
+| Hook | Category | Requires |
+|---|---|---|
+| [useChat](/docs/tui/hooks/use-chat) | Chat | `DaemonContextProvider`, `ChatSessionsContextProvider` |
+| [useChatSessions](/docs/tui/hooks/use-chat) | Chat | `ChatSessionsContextProvider` |
+| [useDaemon](/docs/tui/hooks/use-daemon) | Daemon | `DaemonContextProvider` |
+| [useDaemonCommand](/docs/tui/hooks/use-daemon) | Daemon | `DaemonContextProvider` |
+| [useDaemonSubscription](/docs/tui/hooks/use-daemon) | Daemon | `DaemonContextProvider` |
+| [useWebSocket](/docs/tui/hooks/use-websocket) | Network | None |
+| [useLogs](/docs/tui/hooks/use-logs) | Diagnostics | None |
+| [useModal](/docs/tui/hooks/use-modal) | UI | `ModalContextProvider` |
+| [useBreakpoint](/docs/tui/hooks/use-breakpoint) | Layout | `ThemeContextProvider` |
+| [useUserConfig](/docs/tui/hooks/use-user-config) | Config | `UserConfigContextProvider` |
+| [useMouseClick](/docs/tui/hooks/use-mouse) | Input | `MouseProvider` |
+| [useMouseHover](/docs/tui/hooks/use-mouse) | Input | `MouseProvider` |
+| [useMouseWheelScroll](/docs/tui/hooks/use-mouse) | Input | `MouseProvider` |
+| [useRegion](/docs/tui/hooks/use-region) | Rendering | None |
+| [useToolSpinner](/docs/tui/hooks/use-tool-spinner) | Animation | None |
+| [useDebugRender](/docs/tui/hooks/use-debug-render) | Dev | None |

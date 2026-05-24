@@ -1,0 +1,25 @@
+---
+title: Scrollbar
+description: Single-column vertical scrollbar — presentational, caller-owned scroll model.
+---
+
+# Scrollbar
+
+A single-column vertical scrollbar, purely presentational. The caller owns the scroll model -- `total`, `windowSize`, and `offset`. Internally computes thumb position and height from the geometry.
+
+```tsx
+import { Scrollbar } from "@comma-agents/tui";
+
+<Scrollbar total={100} windowSize={20} offset={50} height={20} />
+```
+
+## ScrollbarProps
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `total` | `number` | -- | Total scrollable units (e.g. lines) |
+| `windowSize` | `number` | -- | Visible units |
+| `offset` | `number` | -- | Zero-based offset into `total` |
+| `height` | `number` | `windowSize` | Scrollbar height in rows |
+
+The `ScrollbarRender` component receives `thumbTop` and `thumbHeight` values derived from a geometry utility. The thumb is rendered as one or more rows of thumb characters, the track as track characters -- both colored from the theme. When content fits (`total <= windowSize`), the thumb fills the entire track.

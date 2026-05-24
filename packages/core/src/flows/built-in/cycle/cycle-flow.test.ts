@@ -320,6 +320,133 @@ describe("createCycleFlow (observer)", () => {
     flow.reset();
     expect(resets).toEqual(["step", "observer"]);
   });
+
+  it("breaks cycle when observer outputs 'end cycle'", async () => {
+    const writer = makeAgent("writer", (msg) => `wrote:${msg}`);
+    const observer = makeAgent("critic", () => "end cycle");
+
+    const flow = createCycleFlow({
+      name: "break-test",
+      steps: [writer],
+      cycles: 5,
+      observer,
+    });
+
+    const result = await flow.call("topic");
+    // Should only run 1 cycle, not all 5
+    expect(result.text).toBe("wrote:topic");
+  });
+
+  it("breaks cycle when observer outputs 'stop'", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    const observer = makeAgent("obs", () => "stop");
+
+    const flow = createCycleFlow({
+      name: "stop-test",
+      steps: [step],
+      cycles: 3,
+      observer,
+    });
+
+    const result = await flow.call("x");
+    expect(result.text).toBe("step:x");
+  });
+
+  it("breaks cycle when observer outputs 'done'", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    const observer = makeAgent("obs", () => "done");
+
+    const flow = createCycleFlow({
+      name: "done-test",
+      steps: [step],
+      cycles: 3,
+      observer,
+    });
+
+    const result = await flow.call("x");
+    expect(result.text).toBe("step:x");
+  });
+
+  it("break signal matching is case-insensitive", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    const observer = makeAgent("obs", () => "END CYCLE");
+
+    const flow = createCycleFlow({
+      name: "case-test",
+      steps: [step],
+      cycles: 3,
+      observer,
+    });
+
+    const result = await flow.call("x");
+    expect(result.text).toBe("step:x");
+  });
+
+  it("break signal matches substring containing the phrase", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    const observer = makeAgent("obs", () => "I think we should end cycle now");
+
+    const flow = createCycleFlow({
+      name: "substring-test",
+      steps: [step],
+      cycles: 3,
+      observer,
+    });
+
+    const result = await flow.call("x");
+    expect(result.text).toBe("step:x");
+  });
+
+  it("returns step output (not observer output) when break signal detected", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    const observer = makeAgent("obs", () => "done - but this text is ignored");
+
+    const flow = createCycleFlow({
+      name: "return-test",
+      steps: [step],
+      cycles: 3,
+      observer,
+    });
+
+    const result = await flow.call("topic");
+    // Should return step output, not observer's "done - but this text is ignored"
+    expect(result.text).toBe("step:topic");
+  });
+
+  it("supports custom breakCycleSignals", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    const observer = makeAgent("obs", () => "abort now");
+
+    const flow = createCycleFlow({
+      name: "custom-signal-test",
+      steps: [step],
+      cycles: 3,
+      observer,
+      breakCycleSignals: ["abort"],
+    });
+
+    const result = await flow.call("x");
+    expect(result.text).toBe("step:x");
+  });
+
+  it("runs only 1 cycle when break signal in first observer call", async () => {
+    let cycleCount = 0;
+    const step = makeAgent("s", (msg) => {
+      cycleCount++;
+      return `step:${msg}`;
+    });
+    const observer = makeAgent("obs", () => "done");
+
+    const flow = createCycleFlow({
+      name: "early-break",
+      steps: [step],
+      cycles: Infinity,
+      observer,
+    });
+
+    await flow.call("x");
+    expect(cycleCount).toBe(1);
+  });
 });
 
 // Composition

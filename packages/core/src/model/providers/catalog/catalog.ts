@@ -131,9 +131,7 @@ export async function getCatalogModels(
  * Build a reverse lookup from model IDs to the provider IDs that offer them.
  * Scans every provider in the catalog snapshot.
  */
-function buildReverseModelIndex(
-  snapshot: CatalogData,
-): Map<string, string[]> {
+function buildReverseModelIndex(snapshot: CatalogData): Map<string, string[]> {
   const index = new Map<string, string[]>();
   for (const [providerId, provider] of Object.entries(snapshot)) {
     for (const modelId of Object.keys(provider.models)) {
@@ -189,9 +187,7 @@ export function getProvidersForModel(modelId: string): string[] {
  * Build a reverse lookup from model IDs to the provider IDs that offer them.
  * Scans every provider in the catalog snapshot.
  */
-function buildReverseModelIndex(
-  snapshot: CatalogData,
-): Map<string, string[]> {
+function buildReverseModelIndex(snapshot: CatalogData): Map<string, string[]> {
   const index = new Map<string, string[]>();
   for (const [providerId, provider] of Object.entries(snapshot)) {
     for (const modelId of Object.keys(provider.models)) {

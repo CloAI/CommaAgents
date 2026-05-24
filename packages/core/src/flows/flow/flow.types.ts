@@ -133,11 +133,17 @@ export interface CycleFlowConfig extends FlowConfig {
    */
   readonly cycles?: number;
   /**
-   * Observer agent that runs after each cycle.
-   * Sugar for prepending an `alterMessageAfterCycle` hook that calls
-   * the observer and uses its response as the next cycle's input.
+   * Observer agent that runs after each cycle's steps.
+   * The observer's output becomes the input for the next cycle,
+   * unless a break signal is detected.
    */
   readonly observer?: Agent;
+  /**
+   * Keywords that cause the observer to break the cycle loop.
+   * Case-insensitive substring match.
+   * @default ["end cycle", "stop", "done"]
+   */
+  readonly breakCycleSignals?: ReadonlyArray<string>;
 }
 
 /** Configuration for broadcast flows. */

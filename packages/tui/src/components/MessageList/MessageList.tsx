@@ -10,7 +10,6 @@ import type {
   MessageListProps,
   MessageListRenderProps,
 } from "./MessageList.types";
-import { estimateMessageRowHeight } from "./MessageList.utils";
 import { UserMessage } from "./UserMessage";
 
 /**
@@ -61,9 +60,6 @@ export function MessageListRender({
       <ScrollableView<ChatMessage>
         items={messages}
         getKey={(message) => message.id}
-        getRowHeight={(message, _index, viewportWidth) =>
-          estimateMessageRowHeight(message, viewportWidth)
-        }
         renderItem={(message) => <MessageRow message={message} />}
         stickToBottom
       />

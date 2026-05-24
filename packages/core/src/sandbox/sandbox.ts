@@ -23,6 +23,7 @@ export function createSandbox(
   const forbiddenGlobs = config.forbiddenGlobs ?? [];
   const read = config.read ?? { default: "allow" };
   const write = config.write ?? { default: "allow" };
+  const trashMetadata = config.trashMetadata;
 
   const guards = new Map<string, Guard>();
   const guardsView: ReadonlyMap<string, Guard> = guards;
@@ -46,6 +47,7 @@ export function createSandbox(
       jail,
       buildDefaultPolicies(forbiddenGlobs, read, write, sandboxCwd),
       callbacks,
+      trashMetadata,
     );
 
     // Add tool-specific policies on creation

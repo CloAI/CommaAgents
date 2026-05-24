@@ -1,0 +1,24 @@
+{
+  "name": "Reduce Complexity",
+  "version": "1.0",
+  "agents": {
+    "user": {
+      "type": "user",
+      "config": {
+        "requireInput": true
+      }
+    },
+    "assistant": {
+      "model": "openai/gpt-4o",
+      "systemPrompt": "Simplify the following text while preserving key information."
+    }
+  },
+  "flow": {
+    "name": "Simplify",
+    "type": "sequential",
+    "steps": [
+      { "agent": "user" },
+      { "agent": "assistant" }
+    ]
+  }
+}

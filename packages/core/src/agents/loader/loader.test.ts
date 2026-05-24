@@ -8,7 +8,6 @@ import { registerTool, resetToolRegistry } from "../../tools/tool.registry";
 import type { ToolDefinition } from "../../tools/tool.types";
 import { loadAgent, loadAgentFromString } from "./loader";
 import { AgentDescriptionSchema } from "./loader.schema";
-import type { LoadAgentOptions } from "./loader.types";
 
 // Mock model registration
 
@@ -439,7 +438,7 @@ describe("loadAgentFromString", () => {
       const json = JSON.stringify({
         name: "test",
         model: "openai/gpt-4o",
-      modelOptions: { temperature: 0.7, maxOutputTokens: 4096 },
+        modelOptions: { temperature: 0.7, maxOutputTokens: 4096 },
       });
       const agent = await loadAgentFromString(json, "json");
       expect(agent.config?.modelOptions).toEqual({
@@ -478,9 +477,9 @@ describe("loadAgentFromString", () => {
       const agent = await loadAgentFromString(TEMPLATE_YAML, "yaml");
       // Loader converts systemPromptTemplate to a PromptTemplate stored in the unified systemPrompt field
       expect(agent.config?.systemPrompt).toBeDefined();
-      expect(typeof agent.config!.systemPrompt).not.toBe("string");
+      expect(typeof agent.config?.systemPrompt).not.toBe("string");
       const rendered = await (
-        agent.config!.systemPrompt as { render: () => Promise<string> }
+        agent.config?.systemPrompt as { render: () => Promise<string> }
       ).render();
       expect(rendered).toBe(
         "You are a senior engineer who writes TypeScript code.",
@@ -500,9 +499,9 @@ describe("loadAgentFromString", () => {
       });
       const agent = await loadAgentFromString(json, "json");
       // When template is present, systemPrompt should be the PromptTemplate (not the static string)
-      expect(typeof agent.config!.systemPrompt).not.toBe("string");
+      expect(typeof agent.config?.systemPrompt).not.toBe("string");
       const rendered = await (
-        agent.config!.systemPrompt as { render: () => Promise<string> }
+        agent.config?.systemPrompt as { render: () => Promise<string> }
       ).render();
       expect(rendered).toBe("Dynamic template prompt");
     });

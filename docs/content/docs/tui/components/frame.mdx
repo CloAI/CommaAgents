@@ -1,0 +1,42 @@
+---
+title: Frame
+description: Root layout shell with tab bar, content area, and pinned footer.
+---
+
+# Frame
+
+The root layout container for the TUI. Frame provides a tab bar at the top, a flexible content area, and an optional pinned footer. It tracks terminal dimensions and responds to resize events.
+
+```tsx
+import { Frame } from "@comma-agents/tui";
+
+<Frame footer={<StatusBar />}>
+  <MessageList messages={messages} />
+</Frame>
+```
+
+## FrameProps
+
+| Prop | Type | Description |
+|---|---|---|---|
+| `children` | `ReactNode` | Content rendered in the body area (grows to fill available space) |
+| `footer` | `ReactNode` | Content rendered at the bottom of the frame, pinned below the content area |
+| `tabs` | `readonly TabDefinition[]` | Tab definitions for the header bar |
+| `activeTabPath` | `string` | Route path of the currently active tab |
+| `onTabSelect` | `(path: string) => void` | Tab selection callback |
+
+## TabDefinition
+
+| Field | Type | Description |
+|---|---|---|
+| `path` | `string` | Route path the tab navigates to |
+| `label` | `string` | Display label in the tab bar |
+| `shortcut` | `string` | Keyboard shortcut hint (e.g. `"Alt+1"`) |
+
+## Terminal Resize
+
+Frame listens for `stdout` resize events and re-renders with the updated `terminalHeight` and `terminalWidth`. The root container sets its `height` to the full terminal height so content fills the screen. Frame also mounts `MouseProvider` to enable mouse interaction for all children.
+
+## Container / Render Split
+
+`Frame` handles terminal dimensions, tab state, and the theme hook. `FrameRender` is the pure function that receives resolved theme, dimensions, tabs, and children.

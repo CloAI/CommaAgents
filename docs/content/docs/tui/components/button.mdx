@@ -1,0 +1,58 @@
+---
+title: Button
+description: Interactive button with focus, hover, click, and disabled state support.
+---
+
+# Button
+
+An interactive button rendered as `[ Label ]`. Supports keyboard focus (Enter), mouse clicks (left/right), hover highlighting, and a disabled state.
+
+Must be rendered inside a `<Frame>` (or any component mounting `<MouseProvider>`) for mouse events.
+
+```tsx
+import { Button } from "@comma-agents/tui";
+
+<Button
+  id="confirm-btn"
+  label="Confirm"
+  variant="primary"
+  onPress={() => console.log("Confirmed!")}
+/>
+
+<Button
+  label="Delete"
+  variant="danger"
+  onPress={handleDelete}
+  disabled={isDeleting}
+/>
+```
+
+## ButtonProps
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `id` | `string` | -- | Ink focus id; when omitted, manages its own focus zone |
+| `label` | `string` | -- | Text label inside the button |
+| `variant` | `ButtonVariant` | `"primary"` | Visual variant |
+| `onPress` | `() => void` | -- | Activation callback |
+| `disabled` | `boolean` | `false` | Disables interaction and dims the button |
+
+## Variants
+
+| Variant | Description |
+|---|---|
+| `primary` | Primary accent color |
+| `secondary` | Secondary/muted |
+| `danger` | Error/red |
+| `ghost` | Dimmed, minimal |
+
+## Interaction
+
+| Action | Behavior |
+|---|---|
+| Tab / Shift+Tab | Navigate focus between buttons |
+| Enter (focused) | Fire `onPress` |
+| Left click (button 0) | Focus then fire `onPress` |
+| Right click (button 2) | Fire `onPress` without stealing focus |
+
+Focus and hover both highlight with `inverse` text style. Disabled buttons are dimmed and suppress all interactions.

@@ -30,7 +30,8 @@ const variableRows: Row[] = [
 /**
  * `ScrollableView` is the lower-level scrolling primitive used by
  * `ScrollableList` and `MessageList`. It owns no selection — only an
- * offset and a mouse-wheel handler. `getRowHeight` must be deterministic.
+ * offset and a mouse-wheel handler. Row heights are measured
+ * automatically via Ink's headless `measureLayout`.
  */
 const meta: Meta<typeof ScrollableView<Row>> = {
   title: "Components/ScrollableView",
@@ -48,7 +49,6 @@ export const FixedHeightRows: Story = {
         items={rows}
         getKey={(item) => item.id}
         renderItem={(item) => <Text>{item.text}</Text>}
-        getRowHeight={() => 1}
       />
     </Box>
   ),
@@ -61,7 +61,6 @@ export const StickToBottom: Story = {
         items={rows}
         getKey={(item) => item.id}
         renderItem={(item) => <Text>{item.text}</Text>}
-        getRowHeight={() => 1}
         stickToBottom
       />
     </Box>
@@ -75,7 +74,6 @@ export const VariableHeightRows: Story = {
         items={variableRows}
         getKey={(item) => item.id}
         renderItem={(item) => <Text>{item.text}</Text>}
-        getRowHeight={(item) => item.text.split("\n").length}
       />
     </Box>
   ),

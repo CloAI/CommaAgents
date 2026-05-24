@@ -16,7 +16,7 @@ import {
   unifiedDiff,
   writeAtomic,
 } from "../../io";
-import type { AuditEntry, AuditSink } from "../../io/audit";
+import type { AuditEntry } from "../../io/audit";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
@@ -118,7 +118,8 @@ export function createWriteFileTool(
     parameters: writeFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;
-      const sink = toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
+      const sink =
+        toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
 
       if (toolContext.abort.aborted) {
         return errorResult<WriteFileData>(
@@ -136,9 +137,7 @@ export function createWriteFileTool(
         );
       } catch (caught) {
         if (caught instanceof SandboxViolationError) {
-          return errorResult<WriteFileData>(
-            sandboxErrorToToolError(caught),
-          );
+          return errorResult<WriteFileData>(sandboxErrorToToolError(caught));
         }
         throw caught;
       }

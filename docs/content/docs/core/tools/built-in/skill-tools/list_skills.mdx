@@ -1,0 +1,62 @@
+---
+title: list_skills
+description: List all registered skills with their names, descriptions, and origins without loading body content.
+---
+
+The `list_skills` tool returns a list of all registered [skills](/docs/core/skills) with their metadata — name, description, origin, and source path. Unlike `load_skill`, it does not return skill body content, making it a cheap way to discover what skills are available before deciding which one to load.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "coder",
+  model: "openai/gpt-4o",
+  tools: ["list_skills", "load_skill", "read_file", "edit_file"],
+});
+```
+
+The tool is included in agent tool sets by name like any other built-in. It only succeeds when the strategy loader has wired a `SkillRegistry` into the agent — otherwise every call returns `skill_unavailable`.
+
+## Parameters
+
+This tool takes no parameters.
+
+## Returns
+
+On success the tool returns a human-readable list plus a structured payload:
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/list-skills/list-skills.types.ts" name="ListSkillsData" />
+
+Each `ListSkillsEntry` contains:
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/list-skills/list-skills.types.ts" name="ListSkillsEntry" />
+
+The text output is a compact listing of all skills:
+
+```
+2 skill(s) registered:
+
+- react-practices (global): React component and hook conventions...
+- ts-patterns (project): TypeScript conventions for new modules...
+```
+
+## Errors
+
+| Error kind | Recoverable | When |
+|---|---|---|
+| `skill_unavailable` | No | No skill registry is wired into this agent. The agent should stop attempting to use skills for the rest of the turn. |
+
+See [error kinds](/docs/core/tools/error-kinds) for the full taxonomy.
+
+## When to use list_skills vs load_skill
+
+- Use `list_skills` to discover what skills exist and read their one-line descriptions. It has no context cost — only metadata is returned.
+- Use `load_skill` when you've identified the skill you need and want to pull its full instructions into context.
+
+A typical flow: call `list_skills` first to see what's available, then `load_skill` for the specific skill that matches your task.
+
+## Related
+
+- [Skills concept](/docs/core/skills) — how skills are authored and discovered.
+- [`load_skill`](/docs/core/tools/built-in/skill-tools/load_skill) — load the full body of a specific skill.
+- [Built-in tools overview](/docs/core/tools/built-in) — other tools available to agents.

@@ -3,9 +3,11 @@ import { createCreateFileTool } from "./built-in/create-file";
 import { createDeleteFileTool } from "./built-in/delete-file";
 import { createEditFileTool } from "./built-in/edit-file";
 import { createListDirectoryTool } from "./built-in/list-directory";
+import { createListSkillsTool } from "./built-in/list-skills";
 import { createLoadSkillTool } from "./built-in/load-skill";
 import { createMoveFileTool } from "./built-in/move-file";
 import { createReadFileTool } from "./built-in/read-file";
+import { createRestoreFileTool } from "./built-in/restore-file";
 import { createRunCommandTool } from "./built-in/run-command";
 import { createSearchFilesTool } from "./built-in/search-files";
 import {
@@ -30,11 +32,13 @@ export const BUILT_IN_TOOL_NAMES = [
   "write_file",
   "edit_file",
   "delete_file",
+  "restore_file",
   "move_file",
   "apply_patch",
   "run_command",
   "webfetch",
   "load_skill",
+  "list_skills",
   "todo_add",
   "todo_complete",
   "todo_get",
@@ -53,11 +57,13 @@ export const BUILT_IN_TOOL_FACTORIES: Readonly<
   write_file: () => createWriteFileTool(),
   edit_file: () => createEditFileTool(),
   delete_file: () => createDeleteFileTool(),
+  restore_file: () => createRestoreFileTool(),
   move_file: () => createMoveFileTool(),
   apply_patch: () => createApplyPatchTool(),
   run_command: () => createRunCommandTool(),
   webfetch: () => createWebFetchTool(),
   load_skill: () => createLoadSkillTool(),
+  list_skills: () => createListSkillsTool(),
   todo_add: () => createTodoAddTool(),
   todo_complete: () => createTodoCompleteTool(),
   todo_get: () => createTodoGetTool(),

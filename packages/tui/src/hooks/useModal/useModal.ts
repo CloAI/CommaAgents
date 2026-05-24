@@ -6,7 +6,10 @@ import type { ModalControls, ModalId } from "./useModal.types";
 /**
  * Programmatic controls for a specific modal identified by its id.
  *
- * Must be used within a `<ModalContextProvider>`.
+ * Reads from the nearest `<ModalContextProvider>`. When called outside any
+ * provider — most notably inside the detached `measureLayout` tree — the
+ * context falls back to an inert no-op API so components render
+ * structurally without crashing. In the live app the provider always wins.
  *
  * @param modalId - Unique identifier for the modal to control.
  * @example
@@ -22,10 +25,6 @@ import type { ModalControls, ModalId } from "./useModal.types";
  */
 export function useModal(modalId: ModalId): ModalControls {
   const context = useContext(ModalContext);
-
-  if (context === null) {
-    throw new Error("useModal must be used within a ModalContextProvider");
-  }
 
   const open = useCallback(
     (data?: unknown): void => {

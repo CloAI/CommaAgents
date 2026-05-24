@@ -1,4 +1,8 @@
-import type { PermissionDecision, PermissionOperation } from "../sandbox/sandbox.types";
+import type {
+  PermissionDecision,
+  PermissionOperation,
+} from "../sandbox/sandbox.types";
+import type { SandboxTrashMetadata } from "../tools/io/trash";
 
 /** Closed set of access categories that a tool can request. */
 export type AccessType = "fs.read" | "fs.write" | "command.execute";
@@ -83,6 +87,10 @@ export interface Guard {
   readonly toolName: string;
   /** Workspace root for path resolution. */
   readonly cwd: string;
+  /** Trash metadata for archive identification (runId, sessionId). */
+  readonly trashMetadata?: SandboxTrashMetadata;
+  /** Trash metadata for archive identification (runId, sessionId). */
+  readonly trashMetadata?: SandboxTrashMetadata;
 
   /**
    * Full authorization through the policy chain.
@@ -91,10 +99,7 @@ export interface Guard {
    *
    * @throws {SandboxViolationError} on deny, jail escape, or forbidden glob.
    */
-  authorize(
-    request: AccessRequest,
-    ctx: AuthorizationContext,
-  ): Promise<string>;
+  authorize(request: AccessRequest, ctx: AuthorizationContext): Promise<string>;
 
   /**
    * Non-throwing inspection. Returns false when the policy chain would deny.
@@ -112,7 +117,5 @@ export interface Guard {
   getPolicies(): GuardPolicySnapshot;
 
   /** Subscribe to policy chain changes. Returns an unsubscribe function. */
-  onPolicyChange(
-    listener: (snapshot: GuardPolicySnapshot) => void,
-  ): () => void;
+  onPolicyChange(listener: (snapshot: GuardPolicySnapshot) => void): () => void;
 }

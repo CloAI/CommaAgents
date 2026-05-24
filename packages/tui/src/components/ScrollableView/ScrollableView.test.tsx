@@ -19,11 +19,12 @@ function makeItems(count: number): readonly Item[] {
 }
 
 /**
- * Wait long enough for Ink to flush all measurement-driven re-renders.
+ * Wait long enough for Ink to flush measurement-driven re-renders.
  *
- * `useBoxMetrics` reports zeros on the first commit and updates state from a
- * post-commit `useEffect`. The follow-up render plus per-row height callbacks
- * may take several macrotasks to settle into a stable frame.
+ * Row heights are now measured synchronously via the patched
+ * `measureLayout`, so the only remaining post-commit measurement is the
+ * viewport itself (via `useBoxMetrics`). One or two macrotasks is enough
+ * for the viewport's first non-zero frame to settle.
  */
 async function flushFrames(): Promise<void> {
   for (let i = 0; i < 5; i += 1) {

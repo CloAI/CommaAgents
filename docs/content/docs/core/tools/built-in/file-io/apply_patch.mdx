@@ -1,0 +1,92 @@
+---
+title: apply_patch
+description: Apply a multi-file unified-diff envelope atomically — add, update, delete, or move files in one call.
+---
+
+# apply_patch
+
+This is still a work in progress. LLMs are not actually good at doing patches apparently, and I am holding off on this implementation until it can be more accurate.
+
+Apply a structured patch envelope that can add, update, delete, and move multiple files in a single call. The envelope grammar matches the OpenAI `apply_patch` v2 spec verbatim, including the `*** Add File`, `*** Update File`, `*** Delete File`, and `*** Move File` directives. Patches are parsed up front; if any operation cannot be applied cleanly the whole call fails and no files are modified.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "patcher",
+  model: "openai/gpt-4o",
+  tools: ["apply_patch"],
+});
+```
+
+## ApplyPatchToolConfig
+
+Optional configuration for the factory.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/apply-patch/apply-patch.types.ts" name="ApplyPatchToolConfig" />
+
+## ApplyPatchChangedFile
+
+One entry in `data.changedFiles`.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/apply-patch/apply-patch.types.ts" name="ApplyPatchChangedFile" />
+
+## ApplyPatchData
+
+The full structured payload.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/apply-patch/apply-patch.types.ts" name="ApplyPatchData" />
+
+## Envelope grammar
+
+The patch is a single string that opens with `*** Begin Patch` and closes with `*** End Patch`. In between, each file section starts with one of:
+
+```
+*** Add File: <path>
+*** Update File: <path>
+*** Delete File: <path>
+*** Move File: <fromPath> -> <toPath>
+```
+
+`Update` and `Move` sections contain one or more `@@` hunks with context (` `), removal (`-`), and addition (`+`) lines. `Add` sections contain only `+` lines. See the [Patch envelope](/docs/core/tools/patch-envelope) reference for the full grammar.
+
+```ts
+await tool.apply_patch({
+  patch: [
+    "*** Begin Patch",
+    "*** Update File: src/server.ts",
+    "@@",
+    "-const PORT = 3000;",
+    "+const PORT = 4000;",
+    "*** End Patch",
+  ].join("\n"),
+});
+```
+
+## Atomicity
+
+Every operation is validated before any write. Specifically:
+
+- `Add File` fails with `already_exists` if the target exists.
+- `Update File` fails with `not_found` if the target is missing, or `patch_apply_error` if a hunk does not match (fuzz factor is 0).
+- `Delete File` fails with `not_found` if the target is missing.
+- `Move File` fails with `not_found` if the source is missing, or `already_exists` if the destination exists.
+
+If any operation in the envelope fails its check, no files are modified — the call returns `patch_parse_error` or `patch_apply_error` describing the failed operation.
+
+## Errors
+
+| Kind | When |
+|---|---|
+| `patch_parse_error` | The envelope is malformed — missing markers, unknown directives, or a hunk header outside a section. |
+| `patch_apply_error` | A hunk did not match the file content, or pre-checks for add/delete/move failed. |
+| `not_found` | A referenced file is missing. |
+| `already_exists` | An `Add File` or `Move File` would overwrite an existing path. |
+| `outside_workspace` | A referenced path escapes the sandbox. |
+| `permission_denied` | A referenced path is blocked by `forbiddenGlobs` or sandbox policy. |
+
+## Related
+
+- [Patch envelope](/docs/core/tools/patch-envelope) — full grammar reference.
+- [edit_file](/docs/core/tools/built-in/file-io/edit_file) — when changes are confined to a single file.
+- [Audit log](/docs/core/tools/audit-log) — every successful operation is journaled per-file.

@@ -1,3 +1,6 @@
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { join } from "node:path";
 import { capitalize } from "@comma-agents/utils";
 import { createJsonFileBackend } from "../credentials/backends/json-file";
 import { createCredentialStore } from "../credentials/credentials";
@@ -20,6 +23,12 @@ let customCredentialStore: CredentialStore | undefined;
 
 /** Lazily-created default credential store instance. */
 let defaultCredentialStore: CredentialStore | undefined;
+
+/** Optional cache directory for auto-installing provider npm packages. */
+let providerCacheDir: string | undefined;
+
+/** Guards against duplicate concurrent installs of the same package. */
+const installLocks = new Map<string, Promise<void>>();
 
 // -- Credential store --
 
@@ -69,6 +78,27 @@ export function setGlobalCredentialStore(
   customCredentialStore = store;
 }
 
+// -- Provider cache directory --
+
+/**
+ * Set the directory where provider npm packages are auto-installed.
+ *
+ * When set, `resolveViaPackage()` will attempt to install missing provider
+ * packages into this directory (using `bun add`) before falling back to
+ * the standard module resolution. Pass `undefined` to disable auto-install.
+ *
+ * The daemon calls this on startup with its configured `providerCacheDir`.
+ *
+ * @example
+ * ```ts
+ * setProviderCacheDir("/Users/bot/.local/share/comma-agents/providers");
+ * ```
+ */
+export function setProviderCacheDir(dir: string | undefined): void {
+  providerCacheDir = dir;
+  if (dir) installLocks.clear();
+}
+
 // -- Provider registry --
 
 /**
@@ -111,7 +141,93 @@ export function unregisterProvider(providerId: string): boolean {
   return providerRegistry.delete(providerId);
 }
 
+// -- Provider cache helpers --
+
+function ensureCacheDir(dir: string): void {
+  mkdirSync(dir, { recursive: true });
+  const pkgJsonPath = join(dir, "package.json");
+  if (!existsSync(pkgJsonPath)) {
+    writeFileSync(
+      pkgJsonPath,
+      JSON.stringify({ name: "comma-providers", private: true }, null, 2),
+    );
+  }
+}
+
+function requireFromCache(
+  cacheDir: string,
+  packageName: string,
+): Record<string, unknown> {
+  const _require = createRequire(join(cacheDir, "package.json"));
+  return _require(packageName) as Record<string, unknown>;
+}
+
+function isPackageCached(cacheDir: string, packageName: string): boolean {
+  const parts = packageName.split("/");
+  const pkgJsonPath = join(cacheDir, "node_modules", ...parts, "package.json");
+  return existsSync(pkgJsonPath);
+}
+
+async function ensurePackageInCache(
+  dir: string,
+  packageName: string,
+): Promise<void> {
+  if (installLocks.has(packageName)) {
+    return installLocks.get(packageName)!;
+  }
+
+  const promise = (async () => {
+    ensureCacheDir(dir);
+
+    if (isPackageCached(dir, packageName)) return;
+
+    const result = Bun.spawnSync(["bun", "add", packageName], {
+      cwd: dir,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    if (result.exitCode !== 0) {
+      const stderr = new TextDecoder().decode(result.stderr);
+      throw new Error(
+        `Failed to install ${packageName} into provider cache: ${stderr.trim()}`,
+      );
+    }
+  })();
+
+  installLocks.set(packageName, promise);
+  try {
+    await promise;
+  } finally {
+    installLocks.delete(packageName);
+  }
+}
+
+async function tryImportFromCache(
+  packageName: string,
+  importError: unknown,
+): Promise<Record<string, unknown>> {
+  if (!providerCacheDir) throw importError;
+
+  await ensurePackageInCache(providerCacheDir, packageName);
+  return requireFromCache(providerCacheDir, packageName);
+}
+
 // -- Provider resolver --
+
+function findCreateExport(module: Record<string, unknown>): unknown {
+  for (const key of Object.keys(module)) {
+    if (
+      key.startsWith("create") &&
+      typeof module[key] === "function" &&
+      key !== "createRequire" &&
+      key !== "createImport" &&
+      key !== "createRequirePTY"
+    ) {
+      return module[key];
+    }
+  }
+  return undefined;
+}
 
 /**
  * Extract an API key string from a credential.
@@ -180,16 +296,22 @@ async function resolveViaPackage(
 ): Promise<ProviderFactory> {
   let providerModule: Record<string, unknown>;
   try {
-    providerModule = await import(packageName);
+    providerModule = (await import(packageName)) as Record<string, unknown>;
   } catch (importError) {
-    throw new Error(
-      `Failed to load provider package "${packageName}" for provider "${providerId}". ` +
-        `Install it with: bun add ${packageName}\n` +
-        `Original error: ${importError instanceof Error ? importError.message : String(importError)}`,
-    );
+    if (providerCacheDir) {
+      providerModule = await tryImportFromCache(packageName, importError);
+    } else {
+      throw new Error(
+        `Failed to load provider package "${packageName}" for provider "${providerId}". ` +
+          `Install it with: bun add ${packageName}\n` +
+          `Original error: ${importError instanceof Error ? importError.message : String(importError)}`,
+      );
+    }
   }
 
-  const factory = (providerModule[factoryName] ?? providerModule.default) as
+  const factory = (providerModule[factoryName] ??
+    providerModule.default ??
+    findCreateExport(providerModule)) as
     | ((options: Record<string, unknown>) => unknown)
     | undefined;
 
@@ -229,12 +351,16 @@ async function resolveCopilotProvider(
   const packageName = "@ai-sdk/openai-compatible";
   let providerModule: Record<string, unknown>;
   try {
-    providerModule = await import(packageName);
+    providerModule = (await import(packageName)) as Record<string, unknown>;
   } catch (importError) {
-    throw new Error(
-      `Failed to load ${packageName}. Install it with: bun add ${packageName}\n` +
-        `Original error: ${importError instanceof Error ? importError.message : String(importError)}`,
-    );
+    if (providerCacheDir) {
+      providerModule = await tryImportFromCache(packageName, importError);
+    } else {
+      throw new Error(
+        `Failed to load ${packageName}. Install it with: bun add ${packageName}\n` +
+          `Original error: ${importError instanceof Error ? importError.message : String(importError)}`,
+      );
+    }
   }
 
   const createOpenAICompatible = providerModule.createOpenAICompatible as
@@ -348,4 +474,6 @@ export function resetGlobalDefaults(): void {
   providerRegistry = new Map();
   customCredentialStore = undefined;
   defaultCredentialStore = undefined;
+  providerCacheDir = undefined;
+  installLocks.clear();
 }

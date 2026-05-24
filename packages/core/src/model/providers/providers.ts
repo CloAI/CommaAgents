@@ -53,12 +53,19 @@ const BUILT_IN_OVERRIDES: readonly ProviderDefinition[] = [
     id: "ollama",
     name: "Ollama",
     packageName: "ollama-ai-provider",
+    credentialType: "none",
     listModels: listOllamaModels,
   },
-  { id: "deepseek", name: "DeepSeek", packageName: "@ai-sdk/deepseek" },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    packageName: "@ai-sdk/deepseek",
+    credentialType: "api",
+  },
   {
     id: "github-copilot",
     name: "GitHub Copilot",
+    credentialType: "oauth",
     listModels: listCopilotModels,
   },
 ];

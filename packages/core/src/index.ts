@@ -75,6 +75,7 @@ export {
   registerProvider,
   resetGlobalDefaults,
   setGlobalCredentialStore,
+  setProviderCacheDir,
   unregisterProvider,
 } from "./defaults/index";
 export {
@@ -112,6 +113,24 @@ export {
   loadFlow,
   loadFlowFromString,
 } from "./flows/loader/index";
+export type {
+  AccessRequest,
+  AccessType,
+  Guard,
+  GuardCallbacks,
+  GuardPermissionRequest,
+  GuardPolicySnapshot,
+  Policy,
+  PolicyDecision,
+} from "./guard/index";
+export {
+  approveCommandsPolicy,
+  buildDefaultPolicies,
+  createGuard,
+  denyCommandsPolicy,
+  forbiddenGlobsPolicy,
+  pathPolicy,
+} from "./guard/index";
 // Shared hook infrastructure
 export type { SideEffectHook, TransformHook } from "./hooks";
 export { runSideEffectHooks, runTransformHooks } from "./hooks";
@@ -183,16 +202,17 @@ export {
 } from "./model/index";
 export type {
   BuildMessagesOptions,
-  SystemPromptOptions,
-} from "./prompts/message-builder";
-export { buildMessages, resolveSystemPrompt } from "./prompts/message-builder";
-export { createPromptTemplate } from "./prompts/template/prompt-template";
-export type {
   PromptTemplate,
   PromptTemplateConfig,
+  SystemPromptOptions,
   TemplateValue,
   TemplateVariables,
-} from "./prompts/types";
+} from "./prompts/index";
+export {
+  buildMessages,
+  createPromptTemplate,
+  resolveSystemPrompt,
+} from "./prompts/index";
 export type {
   AccessMode,
   PathPolicy,
@@ -206,31 +226,13 @@ export type {
 } from "./sandbox/index";
 export {
   createSandbox,
-  getSandbox,
-  inSandbox,
   DEFAULT_DAEMON_SANDBOX_CONFIG,
   DEFAULT_FORBIDDEN_GLOBS,
   DEFAULT_SANDBOX_CONFIG,
+  getSandbox,
+  inSandbox,
   PERMISSIVE_SANDBOX_CONFIG,
 } from "./sandbox/index";
-export type {
-  AccessRequest,
-  AccessType,
-  Guard,
-  GuardCallbacks,
-  GuardPermissionRequest,
-  GuardPolicySnapshot,
-  Policy,
-  PolicyDecision,
-} from "./guard/index";
-export {
-  approveCommandsPolicy,
-  buildDefaultPolicies,
-  createGuard,
-  denyCommandsPolicy,
-  forbiddenGlobsPolicy,
-  pathPolicy,
-} from "./guard/index";
 export type {
   LoadSkillsOptions,
   Skill,
@@ -249,10 +251,12 @@ export type {
   AgentStep,
   BroadcastFlowDef,
   BuiltInToolName,
+  CommaProjectManifest,
   CycleFlowDef,
   ExportStrategyOptions,
   FlowDef,
   LLMAgentDef,
+  LoadedProject,
   LoadedStrategy,
   LoadStrategyOptions,
   SequentialFlowDef,
@@ -260,15 +264,35 @@ export type {
   UserAgentDef,
 } from "./strategy/index";
 export {
+  CommaProjectManifestSchema,
   exportStrategy,
   isAgentStep,
   isFlowDef,
   isLLMAgentDef,
   isUserAgentDef,
+  loadProject,
   loadStrategy,
   loadStrategyFromString,
   StrategySchema,
 } from "./strategy/index";
+// Timeline and unified event timeline types/factories
+export type {
+  ProjectedConversationContext,
+  StepCursor,
+  Timeline,
+  TimelineEvent,
+  TimelineFilter,
+} from "./timeline/index";
+export {
+  createTimeline,
+  projectConversationContext,
+  projectFileState,
+  projectStepCursor,
+} from "./timeline/index";
+export {
+  buildToolSystemPrompt,
+  mergeSystemPrompts,
+} from "./tools/build-tool-system-prompt";
 export { defineTool } from "./tools/define/define-tool";
 export type {
   AuditEntry,
@@ -278,6 +302,8 @@ export type {
   NewlineStyle,
   SessionFileEntry,
   SessionFileState,
+  TrashEntry,
+  TrashMetadata,
   UnifiedDiffOptions,
   WriteAtomicOptions,
 } from "./tools/io";
@@ -287,16 +313,21 @@ export {
   BINARY_DETECTION_SAMPLE_BYTES,
   BOM,
   buildSessionFileState,
+  clearTrash,
   createFileAuditSink,
   createMemoryAuditSink,
   detectNewline,
   hasBom,
   isLikelyBinary,
+  listTrash,
+  moveToTrash,
+  restoreFromTrash,
   STALE_FILE_RECOVERY_HINT,
   sha256OfBuffer,
   sha256OfFile,
   stripBom,
   toLF,
+  trashWorkspaceDir,
   unifiedDiff,
   verifySessionFileState,
   writeAtomic,

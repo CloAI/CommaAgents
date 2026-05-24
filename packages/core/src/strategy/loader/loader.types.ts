@@ -2,6 +2,7 @@
 
 import type { Agent } from "../../agents/agent/agent.types";
 import type { InputCollector } from "../../agents/built-in/user/user-agent.types";
+import type { ConversationTurn } from "../../context/conversation-context.types";
 import type { FlowHooks } from "../../flows/flow/flow.types";
 import type { SkillRegistry } from "../../skills/skills.types";
 import type { Strategy } from "../schema";
@@ -15,6 +16,13 @@ import type { Strategy } from "../schema";
  * configure those globally before loading a strategy.
  */
 export interface LoadStrategyOptions {
+  /**
+   * Optional map of agent name → prior conversation turns to hydrate for replay.
+   * When provided, each instantiated agent is hydrated with these turns
+   * and enters replay mode, enabling resuming execution from the last step.
+   */
+  readonly initialAgentTurns?: ReadonlyMap<string, readonly ConversationTurn[]>;
+
   /**
    * Input collector function for user agents.
    * Required if the strategy contains any user agents with `requireInput: true`.
@@ -52,6 +60,12 @@ export interface LoadStrategyOptions {
    * registry with `loadSkills(workspaceRoot)`.
    */
   readonly skillRegistry?: SkillRegistry;
+
+  /**
+   * Optional base directory of the strategy file, used to resolve relative paths
+   * (such as system prompt file paths).
+   */
+  readonly strategyDir?: string;
 }
 
 /**

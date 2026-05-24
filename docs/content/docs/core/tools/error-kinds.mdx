@@ -13,6 +13,40 @@ The full structured failure value.
 
 <AutoTypeTable path="../packages/core/src/tools/tool.types.ts" name="ToolError" />
 
+## Usage
+
+Switch on `error.kind` to handle failures programmatically without parsing message strings. Recoverable errors include `suggestedNextAction` describing what to do next:
+
+```ts
+const result = await tool.edit_file({
+  path: "src/server.ts",
+  expectedSha256: read.data.sha256,
+  edits: [{ oldText: "PORT = 3000", newText: "PORT = 4000" }],
+});
+
+if (!result.ok) {
+  switch (result.error.kind) {
+    case "stale_file": {
+      const fresh = await tool.read_file({ path: "src/server.ts" });
+      // Recompute edit with fresh sha256 and retry.
+      break;
+    }
+    case "old_text_not_found": {
+      const current = await tool.read_file({ path: "src/server.ts" });
+      // Locate the correct text in current.data.content and retry.
+      break;
+    }
+    case "multiple_matches": {
+      // Make oldText more specific or pass replaceAll: true.
+      break;
+    }
+    default:
+      // Non-recoverable — report and move on.
+      console.error(result.error.message);
+  }
+}
+```
+
 ## Kind reference
 
 | `error.kind` | Typical cause | Recoverable? | Suggested action |
@@ -45,5 +79,5 @@ For every `ToolResult`:
 
 ## Related
 
-- [Stale file protocol](/docs/core/tools/stale-file-protocol) — the most common recoverable error.
+- [Stale file protocol](/docs/core/tools/built-in/file-io) — the most common recoverable error.
 - [Patch envelope](/docs/core/tools/patch-envelope) — drives the `patch_parse_error` / `patch_apply_error` kinds.

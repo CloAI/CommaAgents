@@ -50,6 +50,120 @@ const weatherTool = defineTool({
 });
 ```
 
+## Guard System
+
+Every tool receives a per-tool **Guard** on `toolContext.guard`. The guard is the runtime enforcement layer that authorizes every file-system access, command execution, and custom policy check. It is provided by the agent's [sandbox](/docs/core/sandbox) — there is always one, defaulting to permissive if none is explicitly configured.
+
+### What the guard does
+
+| Responsibility | Description |
+|---|---|
+| Workspace jail | Rejects paths escaping the workspace root when `jail: true`. |
+| Path policies | Each path access passes through ordered read/write deny/allow lists. |
+| Command approval | Gate dangerous commands behind deny/approve lists or interactive prompts. |
+| Forbidden globs | Always-deny patterns for secrets, keys, and sensitive paths. |
+
+### Authorizing access
+
+Call `guard.authorize()` inside `execute` for any operation that touches the file system or shell:
+
+```ts
+const abs = await toolContext.guard.authorize(
+  { type: "fs.read", resource: "data/cache.json" },
+  {
+    agentName: toolContext.agentName,
+    toolName: "weather",
+    signal: toolContext.abort,
+  },
+);
+```
+
+The guard returns the resolved absolute path. If access is denied, it throws a `SandboxViolationError` — the tool framework catches this and converts it to a structured `ToolError` with kind `permission_denied`.
+
+### Tool-level policies
+
+Custom tools can declare their own policies via the `policies` option. These are appended to the guard's policy chain at tool construction time:
+
+```ts
+import { defineTool, denyCommandsPolicy } from "@comma-agents/core";
+
+const tool = defineTool({
+  description: "Run a user-supplied shell command",
+  parameters: z.object({ command: z.string() }),
+  policies: [
+    denyCommandsPolicy(["rm -rf /", "sudo shutdown"]),
+  ],
+  execute: async ({ command }, ctx) => {
+    await ctx.guard.authorize(
+      { type: "command.execute", resource: command },
+      { agentName: ctx.agentName, toolName: "my_tool", signal: ctx.abort },
+    );
+    // ...
+  },
+});
+```
+
+Built-in policy factories include `denyCommandsPolicy`, `approveCommandsPolicy`, `forbiddenGlobsPolicy`, and `pathPolicy`. You can also define custom `Policy` functions with the full `"allow"` / `"deny"` / `"ask"` / `"pass"` decision model.
+
+For the full guard API — jail mode, path policies, the "ask" dispatch flow, session decisions, and interactive permission prompts — see the [Sandbox documentation](/docs/core/sandbox).
+
+## Guard System
+
+Every tool receives a per-tool **Guard** on `toolContext.guard`. The guard is the runtime enforcement layer that authorizes every file-system access, command execution, and custom policy check. It is provided by the agent's [sandbox](/docs/core/sandbox) — there is always one, defaulting to permissive if none is explicitly configured.
+
+### What the guard does
+
+| Responsibility | Description |
+|---|---|
+| Workspace jail | Rejects paths escaping the workspace root when `jail: true`. |
+| Path policies | Each path access passes through ordered read/write deny/allow lists. |
+| Command approval | Gate dangerous commands behind deny/approve lists or interactive prompts. |
+| Forbidden globs | Always-deny patterns for secrets, keys, and sensitive paths. |
+
+### Authorizing access
+
+Call `guard.authorize()` inside `execute` for any operation that touches the file system or shell:
+
+```ts
+const abs = await toolContext.guard.authorize(
+  { type: "fs.read", resource: "data/cache.json" },
+  {
+    agentName: toolContext.agentName,
+    toolName: "weather",
+    signal: toolContext.abort,
+  },
+);
+```
+
+The guard returns the resolved absolute path. If access is denied, it throws a `SandboxViolationError` — the tool framework catches this and converts it to a structured `ToolError` with kind `permission_denied`.
+
+### Tool-level policies
+
+Custom tools can declare their own policies via the `policies` option. These are appended to the guard's policy chain at tool construction time:
+
+```ts
+import { defineTool, denyCommandsPolicy } from "@comma-agents/core";
+
+const tool = defineTool({
+  description: "Run a user-supplied shell command",
+  parameters: z.object({ command: z.string() }),
+  policies: [
+    denyCommandsPolicy(["rm -rf /", "sudo shutdown"]),
+  ],
+  execute: async ({ command }, ctx) => {
+    await ctx.guard.authorize(
+      { type: "command.execute", resource: command },
+      { agentName: ctx.agentName, toolName: "my_tool", signal: ctx.abort },
+    );
+    // ...
+  },
+});
+```
+
+Built-in policy factories include `denyCommandsPolicy`, `approveCommandsPolicy`, `forbiddenGlobsPolicy`, and `pathPolicy`. You can also define custom `Policy` functions with the full `"allow"` / `"deny"` / `"ask"` / `"pass"` decision model.
+
+For the full guard API — jail mode, path policies, the "ask" dispatch flow, session decisions, and interactive permission prompts — see the [Sandbox documentation](/docs/core/sandbox).
+
 ## Result Helpers
 
 ### okResult

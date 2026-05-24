@@ -28,10 +28,11 @@ export {
   verifySessionFileState,
 } from "./session-file-state";
 export { STALE_FILE_RECOVERY_HINT } from "./stale-file";
-export type { GcTrashOptions } from "./trash";
+export type { TrashEntry, TrashMetadata } from "./trash";
 export {
-  DEFAULT_TRASH_MAX_AGE_MS,
-  gcTrash,
+  clearTrash,
+  listTrash,
   moveToTrash,
+  restoreFromTrash,
   trashWorkspaceDir,
 } from "./trash";

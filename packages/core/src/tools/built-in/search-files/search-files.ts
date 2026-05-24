@@ -194,9 +194,7 @@ export function createSearchFilesTool(
         );
       } catch (caught) {
         if (caught instanceof SandboxViolationError) {
-          return errorResult<SearchFilesData>(
-            sandboxErrorToToolError(caught),
-          );
+          return errorResult<SearchFilesData>(sandboxErrorToToolError(caught));
         }
         throw caught;
       }
@@ -264,12 +262,13 @@ export function createSearchFilesTool(
           }
 
           if (!dirent.isFile()) continue;
-          if (!guard.canAccess({ type: "fs.read", resource: relFromWorkspace })) continue;
+          if (!guard.canAccess({ type: "fs.read", resource: relFromWorkspace }))
+            continue;
           if (includeGlobs && !matchesAnyGlob(relFromRoot, includeGlobs))
             continue;
 
           if (mode === "path") {
-            if (pathGlob!.match(relFromRoot)) {
+            if (pathGlob?.match(relFromRoot)) {
               filesScanned++;
               if (matches.length >= maxResults) {
                 truncated = true;

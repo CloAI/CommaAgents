@@ -9,7 +9,7 @@ import type { DaemonState, RunState, RunUpdate } from "./state.types";
  * @example
  * ```ts
  * const state = createDaemonState();
- * const run = state.createRun("./strategy.ts", "myStrategy", "/cwd", "session-1");
+ * const run = state.createRun("./strategy.ts", "myStrategy", "/cwd");
  * state.updateRun(run.id, { status: "running" });
  * ```
  */
@@ -26,9 +26,9 @@ export function createDaemonState(): DaemonState {
       strategyPath: string,
       strategyName: string,
       cwd: string,
-      sessionId: string,
+      runId?: string,
     ): RunState {
-      const id = crypto.randomUUID();
+      const id = runId ?? crypto.randomUUID();
       const run: RunState = {
         id,
         strategyPath,
@@ -37,7 +37,6 @@ export function createDaemonState(): DaemonState {
         startedAt: new Date(),
         abortController: new AbortController(),
         cwd,
-        sessionId,
       };
       runs.set(id, run);
       subscriptions.set(id, new Set());

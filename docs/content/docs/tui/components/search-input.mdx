@@ -1,0 +1,31 @@
+---
+title: SearchInput
+description: Single-line search input with bordered box, caret prompt, and placeholder.
+---
+
+# SearchInput
+
+A single-line controlled text input designed for search/filter use cases. Renders a bordered box with a `> ` caret prompt followed by the query text (or dimmed placeholder text).
+
+```tsx
+import { SearchInput } from "@comma-agents/tui";
+
+<SearchInput
+  value={query}
+  onChange={setQuery}
+  placeholder="Search commands..."
+  id="palette-search"
+/>
+```
+
+## SearchInputProps
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `value` | `string` | -- | Controlled query string |
+| `onChange` | `(next: string) => void` | -- | Called when the value changes |
+| `placeholder` | `string` | `"Search..."` | Placeholder shown when value is empty |
+| `prompt` | `string` | `"> "` | Caret prompt text |
+| `id` | `string` | -- | Focus ID for programmatic focusing |
+
+Printable characters are appended to the query. Backspace / Delete removes the last character. SGR mouse escape sequences are swallowed. Navigation keys (arrows, Enter, Escape, Tab) are intentionally not handled -- the parent component owns list navigation and dismissal.

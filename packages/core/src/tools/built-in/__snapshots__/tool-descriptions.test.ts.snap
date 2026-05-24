@@ -167,7 +167,7 @@ Errors:
   - \`permission_denied\` — Path is write-blocked by the sandbox or matches a forbidden glob.
 
 Notes:
-  Trash lives under \`<os.tmpdir>/comma-trash/<sha256(workspaceRoot)>/<ts>-<basename>\`. Entries older than 7 days are garbage-collected on each \`delete_file\` call.
+  Trash lives under \`<dataDir>/trash/<sha256(workspaceRoot)>/<timestamp>-<sessionId>-<runId>-<basename>.tar.gz\`. Archives are user-managed via the daemon (no automatic GC).
   Every delete is appended to the audit log as a \`delete\` operation."
 `;
 

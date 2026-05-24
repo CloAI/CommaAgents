@@ -1,0 +1,9 @@
+{
+  "title": "Theme",
+  "pages": [
+    "index",
+    "tokens",
+    "define-theme",
+    "built-in-themes"
+  ]
+}

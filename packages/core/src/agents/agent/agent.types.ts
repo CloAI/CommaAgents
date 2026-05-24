@@ -4,16 +4,13 @@ import type {
 } from "@comma-agents/utils";
 import type {
   CallSettings,
-  tool as aiTool,
   LanguageModel,
   ModelMessage,
   StepResult,
+  ToolChoice,
 } from "ai";
 import type { ConversationContext } from "../../context/conversation-context";
-import type {
-  ConversationTurn,
-  ResponseMessage,
-} from "../../context/conversation-context.types";
+import type { ConversationTurn } from "../../context/conversation-context.types";
 import type { PromptTemplate, TemplateVariables } from "../../prompts/types";
 import type { Sandbox } from "../../sandbox/sandbox.types";
 import type { SkillRegistry } from "../../skills/skills.types";
@@ -229,7 +226,34 @@ export interface Agent {
    * // Next call renders: "You are a reviewer, reviewing TypeScript code."
    * ```
    */
-  updatePromptVariables(variables: TemplateVariables): void;
+  updatePromptVariables?(variables: TemplateVariables): void;
+
+  /**
+   * Hydrate the agent's conversation context with prior turns and enter
+   * replay mode for the next `turns.length` calls.
+   *
+   * In replay mode, each subsequent `call()` / `stream()` returns the
+   * corresponding turn's cached response without executing the agent's
+   * LLM call or `config.execute` override — no hooks fire, no tokens are
+   * spent, and (for user agents) the input collector is not invoked.
+   *
+   * Once the hydrated turns are exhausted, the agent transitions back to
+   * normal live execution and any further calls run the real agent and
+   * append to the context as usual.
+   *
+   * Intended to be called once at construction time by `loadStrategy`,
+   * before the flow is run. Calling it again resets the call counter and
+   * re-enters replay mode for the new set of turns.
+   *
+   * @param turns - Persisted turns whose `agentName` matches this agent.
+   * @example
+   * ```ts
+   * const persisted = await loadPriorTurns(runId, "writer");
+   * agent.hydrateForReplay?.(persisted);
+   * await flow.call(initialInput); // writer replays before going live
+   * ```
+   */
+  hydrateForReplay?(turns: readonly ConversationTurn[]): void;
 
   /**
    * Append a hook callback to this agent's lifecycle.
@@ -330,25 +354,21 @@ export type AgentStreamEvent =
 /** Common options passed to generateText / streamText. */
 export interface CallOptions {
   readonly model: LanguageModel;
-  readonly system: string | undefined;
+  readonly system?: string | ModelMessage | ModelMessage[];
   readonly messages: ModelMessage[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
-  readonly tools:
+  readonly tools?:
     | Record<string, ReturnType<typeof aiTool<any, any>>>
     | undefined;
-  readonly abortSignal: AbortSignal | undefined;
+  readonly toolChoice?: ToolChoice<string> | undefined;
+  readonly abortSignal?: AbortSignal | undefined;
+  readonly timeout?: number | undefined;
   /**
-   * Per-call provider options forwarded verbatim to `streamText`. Used to
-   * enable provider-specific features such as Anthropic extended thinking
-   * (`{ anthropic: { thinking: { type: "enabled", budgetTokens: 8000 } } }`)
-   * or OpenAI reasoning effort (`{ openai: { reasoningEffort: "high" } }`).
+   * Per-call provider options forwarded verbatim to `streamText`.
    */
-  readonly providerOptions?: Record<string, Record<string, unknown>>;
+  readonly providerOptions?: unknown;
   /**
    * Model-level generation parameters forwarded to `streamText`.
-   * Maps directly to the AI SDK's `temperature`, `maxOutputTokens`, `topP`,
-   * `topK`, `maxRetries`, `frequencyPenalty`, `presencePenalty`, and
-   * `seed` options.
    */
   readonly modelOptions?: ModelOptions;
 }

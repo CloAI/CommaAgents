@@ -1,0 +1,121 @@
+---
+title: useChat
+description: Bind a view to a single chat session — read messages, status, errors, and send input or permission decisions.
+---
+
+`useChat` binds a component to a single chat session. It observes the session's messages, lifecycle status, error state, and pending input/permission requests. It provides action methods to start a strategy, send user input, resolve permission requests, reset, and stop.
+
+Must be called inside `<DaemonContextProvider>` and `<ChatSessionsContextProvider>`.
+
+```tsx
+import { useChat } from "@comma-agents/tui";
+
+const chat = useChat();
+
+// Read state
+chat.messages;        // readonly ChatMessage[]
+chat.status;          // "idle" | "running" | "waiting_input" | "waiting_permission" | ...
+chat.error;           // string | null
+chat.strategyName;    // string | null
+
+// Start a new strategy
+const sessionId = chat.startStrategy("path/to/strategy.json", "initial input");
+
+// Send input while waiting
+chat.sendInput("user reply text");
+
+// Resolve a permission prompt
+chat.sendPermissionDecision("allow");
+
+// Lifecycle
+chat.reset();   // Clear messages and go back to idle
+chat.stop();    // Send stop command for this run
+```
+
+## Session Resolution
+
+By default, `useChat()` binds to the currently active session (set by `startStrategy` or `setActiveSessionId`). You can bind to a specific session by passing a `sessionId`:
+
+```tsx
+const chat = useChat(someSessionId);
+```
+
+When no matching session exists -- for example, on first mount before any strategy has been started -- the returned view exposes empty values. `startStrategy` remains functional and creates a new session.
+
+## UseChatState
+
+| Field | Type | Description |
+|---|---|---|
+| `sessionId` | `string \| null` | Id of the bound session, or null |
+| `messages` | `readonly ChatMessage[]` | Chat messages for this session |
+| `status` | `ChatStatus` | UI lifecycle status |
+| `error` | `string \| null` | Latest error message, or null |
+| `pendingInputAgent` | `string \| null` | Agent waiting for user input |
+| `strategyName` | `string \| null` | Name of the strategy for this session |
+| `strategyPath` | `string \| null` | Path to the strategy file |
+| `readOnly` | `boolean` | Whether this is a loaded (non-live) session |
+| `pendingPermissionRequest` | `PendingPermissionRequest \| null` | Head of the permission queue |
+| `runId` | `string \| null` | Daemon run id |
+| `connectionStatus` | `WebSocketStatus` | Current daemon connection status |
+| `startStrategy` | `(strategyPath, input?, cwd?) => ChatSessionId` | Start a new strategy |
+| `sendInput` | `(text: string) => void` | Send user input to the waiting agent |
+| `sendPermissionDecision` | `(decision: ...) => void` | Resolve a permission request |
+| `reset` | `() => void` | Clear messages and status |
+| `stop` | `() => void` | Stop the current daemon run |
+
+## ChatStatus
+
+The `ChatStatus` type extends the daemon's `RunStatus` with TUI-only states:
+
+- `idle` -- Session exists but no run has started
+- `running` -- A daemon run is active
+- `waiting_input` -- An agent is waiting for user input
+- `waiting_permission` -- A sandbox permission request is pending
+- `completed` / `error` / `cancelled` -- Terminal states from the daemon
+
+## ChatMessage
+
+Each message has the shape:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique message identifier |
+| `role` | `"user" \| "agent" \| "system"` | Sender role for color resolution |
+| `sender` | `string` | Display name (agent name, "you", "system") |
+| `text` | `string` | Full text content |
+| `segments` | `readonly MessageSegment[]?` | Typed body parts (tool calls, thinking, etc.) |
+| `streaming` | `boolean` | Whether the message is still receiving tokens |
+| `timestamp` | `number` | Unix timestamp in milliseconds |
+
+## MessageSegment
+
+Agent messages may have ordered segments for richer rendering:
+
+| Type | Description |
+|---|---|
+| `text` | Plain text with streaming tracking |
+| `tool-call` | A tool invocation with name and raw arguments |
+| `tool-result` | A tool invocation result (completed or error) |
+| `thinking` | Model reasoning/thinking block |
+| `mcp-call` | An MCP tool invocation with server, tool, args, and optional output |
+
+## useChatSessions
+
+`useChatSessions` returns the full session map and controls:
+
+```tsx
+import { useChatSessions } from "@comma-agents/tui";
+
+const {
+  sessions,          // ReadonlyMap<ChatSessionId, ChatSession>
+  activeSessionId,
+  setActiveSessionId,
+  createSession,
+  persistedSessions,
+  loadPersistedSession,
+  fetchPersistedSessions,
+  removeSession,
+} = useChatSessions();
+```
+
+Use this when you need to manage multiple sessions or display a session picker rather than binding to a single session view.

@@ -21,12 +21,7 @@ import type { AuditEntry } from "../../io/audit";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
-import type {
-  AppliedEdit,
-  EditFileData,
-  EditFileToolConfig,
-  MatchRange,
-} from "./edit-file.types";
+import type { EditFileData, EditFileToolConfig } from "./edit-file.types";
 import {
   applyReplacements,
   detectOverlappingEdits,
@@ -182,7 +177,8 @@ export function createEditFileTool(
     parameters: editFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;
-      const sink = toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
+      const sink =
+        toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
 
       if (toolContext.abort.aborted) {
         return errorResult<EditFileData>(
@@ -200,9 +196,7 @@ export function createEditFileTool(
         );
       } catch (caught) {
         if (caught instanceof SandboxViolationError) {
-          return errorResult<EditFileData>(
-            sandboxErrorToToolError(caught),
-          );
+          return errorResult<EditFileData>(sandboxErrorToToolError(caught));
         }
         throw caught;
       }

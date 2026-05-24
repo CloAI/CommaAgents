@@ -3,7 +3,7 @@
 // Standalone helpers for building AI SDK call options, tool sets,
 // messages, and stream event mapping.
 
-import { tool as aiTool, stepCountIs } from "ai";
+import { tool as aiTool } from "ai";
 import type { ConversationContext } from "../../context/conversation-context";
 import type {
   ModelMessage,
@@ -27,7 +27,6 @@ import { errorResult } from "../../tools/result";
 import { resolveTools } from "../../tools/tool.registry";
 import type { ToolContext, ToolDefinition } from "../../tools/tool.types";
 import type { ToolHooks } from "../hooks";
-import { DEFAULT_MAX_STEPS } from "./agent.constants";
 import type {
   AgentCallResult,
   AgentConfig,
@@ -95,8 +94,10 @@ export function buildAgentToolSet(
     toolSet[name] = aiTool({
       description: definition.description,
       inputSchema: definition.parameters,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- args type varies per tool definition
-      execute: async (toolArguments: any, options: any) => {
+      execute: async (
+        toolArguments: unknown,
+        options: { abortSignal?: AbortSignal },
+      ) => {
         const argsString = JSON.stringify(toolArguments);
 
         const toolContext: ToolContext = {
@@ -136,11 +137,9 @@ export function buildAgentToolSet(
           return llmOutput;
         } catch (caught) {
           if (caught instanceof SandboxViolationError) {
-            return (
-              errorResult<unknown>(
-                sandboxErrorToToolError(caught),
-              ) as unknown as string
-            );
+            return errorResult<unknown>(
+              sandboxErrorToToolError(caught),
+            ) as unknown as string;
           }
           throw caught;
         }
@@ -208,10 +207,9 @@ export async function buildCallOptions(
     system: resolvedSystemPrompt,
     messages: buildMessages({ message, context }) as ModelMessage[],
     tools,
-    stopWhen: stepCountIs(DEFAULT_MAX_STEPS),
     abortSignal,
     ...(config.providerOptions
-      ? { providerOptions: config.providerOptions }
+      ? { providerOptions: config.providerOptions as Record<string, unknown> }
       : {}),
     ...(config.modelOptions ?? {}),
   };
@@ -310,5 +308,43 @@ export function buildStreamCallResult(
       completionTokens: totalUsage.outputTokens ?? 0,
     },
     finishReason: finishReason ?? "stop",
+  };
+}
+
+// Replay result builder
+
+/** Extract a flat text body from an assistant turn's response messages. */
+function extractTextFromResponseMessages(
+  responseMessages: readonly ResponseMessage[],
+): string {
+  let text = "";
+  for (const responseMessage of responseMessages) {
+    if (responseMessage.role !== "assistant") continue;
+    const { content } = responseMessage;
+    if (typeof content === "string") {
+      text += content;
+    } else if (Array.isArray(content)) {
+      for (const part of content) {
+        if (part.type === "text") text += part.text;
+      }
+    }
+  }
+  return text;
+}
+
+/**
+ * Build an `AgentCallResult` from a hydrated `ConversationTurn`'s response
+ * messages. Used by the agent's replay path: no LLM call, no tokens,
+ * no steps — just rehydrate the prior call's output.
+ */
+export function buildReplayCallResult(
+  responseMessages: readonly ResponseMessage[],
+): AgentCallResult {
+  return {
+    text: extractTextFromResponseMessages(responseMessages),
+    responseMessages,
+    steps: [],
+    usage: { promptTokens: 0, completionTokens: 0 },
+    finishReason: "stop",
   };
 }

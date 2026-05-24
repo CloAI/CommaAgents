@@ -33,5 +33,8 @@
     "@biomejs/biome": "2.4.2",
     "bun-types": "1.3.9",
     "knip": "6.0.5"
+  },
+  "patchedDependencies": {
+    "ink@7.0.1": "patches/ink@7.0.1.patch"
   }
 }

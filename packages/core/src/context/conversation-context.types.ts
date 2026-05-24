@@ -36,6 +36,7 @@ export type ResponseMessage = AssistantModelMessage | ToolModelMessage;
  *   returns via `result.response.messages`.
  */
 export interface ConversationTurn {
+  readonly agentName: string;
   readonly userMessage: UserModelMessage;
   readonly responseMessages: readonly ResponseMessage[];
 }

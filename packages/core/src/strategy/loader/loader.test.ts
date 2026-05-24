@@ -1,6 +1,8 @@
 // Tests for strategy/loader.ts — full load pipeline with model registry
 
 import { afterEach, describe, expect, it } from "bun:test";
+import { mkdir, rm, unlink, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { hookIntoAgent } from "../../agents/hook-into-agent/hook-into-agent";
 import type { AgentHooks } from "../../agents/hooks/hooks.types";
 import { StrategyValidationError } from "../../errors/index";
@@ -11,6 +13,7 @@ import { okResult } from "../../tools/result";
 import { registerTool, resetToolRegistry } from "../../tools/tool.registry";
 import type { ToolDefinition } from "../../tools/tool.types";
 import { loadStrategy, loadStrategyFromString } from "./loader";
+import { loadProject } from "./project-loader";
 
 // Mock model registration
 
@@ -89,7 +92,7 @@ const COMPLEX_JSON = JSON.stringify({
     writer: {
       model: "openai/gpt-4o",
       systemPrompt: "You write code.",
-      tools: ["bash", "write", "edit"],
+      tools: ["run_command", "write_file", "edit_file"],
     },
     reviewer: {
       model: "anthropic/claude-sonnet-4-5",
@@ -288,7 +291,13 @@ describe("tool resolution", () => {
       agents: {
         agent: {
           model: "openai/gpt-4o",
-          tools: ["bash", "read", "write", "edit", "glob", "grep"],
+          tools: [
+            "run_command",
+            "read_file",
+            "write_file",
+            "edit_file",
+            "search_files",
+          ],
         },
       },
       flow: {
@@ -345,12 +354,8 @@ describe("tool resolution", () => {
       },
     });
 
-    // Tool resolution happens at agent.call() time, not at load time.
-    // Loading succeeds; calling the agent fails.
-    const result = await loadStrategyFromString(json, "json");
-    expect(result.agents.agent).toBeDefined();
-
-    await expect(result.agents.agent!.call("test")).rejects.toThrow(
+    // In CommaAgents v2, tool validation happens at load time.
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
       /nonexistent/,
     );
   });
@@ -372,7 +377,7 @@ describe("model resolution", () => {
     expect(result.agents.agent).toBeDefined();
 
     // Calling the agent fails — resolveModel() rejects the format
-    await expect(result.agents.agent!.call("test")).rejects.toThrow(
+    await expect(result.agents.agent?.call("test")).rejects.toThrow(
       /providerID\/modelID/,
     );
   });
@@ -390,7 +395,7 @@ describe("model resolution", () => {
     expect(result.agents.agent).toBeDefined();
 
     // Calling fails — model ID is empty
-    await expect(result.agents.agent!.call("test")).rejects.toThrow();
+    await expect(result.agents.agent?.call("test")).rejects.toThrow();
   });
 
   it("throws for unregistered provider at call time", async () => {
@@ -406,7 +411,7 @@ describe("model resolution", () => {
     expect(result.agents.agent).toBeDefined();
 
     // Calling fails — "google/gemini-pro" is not registered
-    await expect(result.agents.agent!.call("test")).rejects.toThrow(/google/);
+    await expect(result.agents.agent?.call("test")).rejects.toThrow(/google/);
   });
 
   it("throws when LLM agent has no model at load time", async () => {
@@ -1012,5 +1017,148 @@ describe("extractProviderIds", () => {
     };
     const ids = extractProviderIds(raw);
     expect(ids).toEqual(new Set(["openai"]));
+  });
+});
+
+describe("JSONC support and systemPrompt file path loading", () => {
+  it("should parse JSON with comments (JSONC) in loadStrategyFromString", async () => {
+    setupMockModels();
+    const jsoncStr = `{
+      // This is a single line comment
+      "name": "JSONC Strategy",
+      "version": "1.0", /* This is a multi-line comment */
+      "agents": {
+        "assistant": {
+          "model": "openai/gpt-4o",
+          "systemPrompt": "You are a helpful JSONC parsed assistant."
+        }
+      },
+      "flow": {
+        "name": "SingleStep",
+        "type": "sequential",
+        "steps": [
+          { "agent": "assistant" }
+        ]
+      }
+    }`;
+    const result = await loadStrategyFromString(jsoncStr, "json");
+    expect(result.name).toBe("JSONC Strategy");
+    expect(result.agents.assistant).toBeDefined();
+  });
+
+  it("should resolve and load systemPrompt from relative txt/md file paths", async () => {
+    setupMockModels();
+    const tempDir = resolve(__dirname, "test_temp_prompts");
+    await mkdir(tempDir, { recursive: true });
+
+    const txtPath = join(tempDir, "prompt.txt");
+    const mdPath = join(tempDir, "prompt.md");
+    const strategyPath = join(tempDir, "strategy.json");
+
+    await writeFile(txtPath, "Hello from text file!");
+    await writeFile(mdPath, "Hello from markdown file!");
+
+    const strategyJson = `{
+      "name": "File Prompt Strategy",
+      "version": "1.0",
+      "agents": {
+        "textAgent": {
+          "model": "openai/gpt-4o",
+          "systemPrompt": "./prompt.txt"
+        },
+        "mdAgent": {
+          "model": "openai/gpt-4o",
+          "systemPrompt": "./prompt.md"
+        }
+      },
+      "flow": {
+        "name": "MultiStep",
+        "type": "sequential",
+        "steps": [
+          { "agent": "textAgent" },
+          { "agent": "mdAgent" }
+        ]
+      }
+    }`;
+
+    await writeFile(strategyPath, strategyJson);
+
+    try {
+      const result = await loadStrategy(strategyPath);
+      expect(result.name).toBe("File Prompt Strategy");
+
+      const textAgentPrompt = result.agents.textAgent.config?.systemPrompt;
+      const mdAgentPrompt = result.agents.mdAgent.config?.systemPrompt;
+
+      expect(textAgentPrompt).toBe("Hello from text file!");
+      expect(mdAgentPrompt).toBe("Hello from markdown file!");
+    } finally {
+      // Clean up
+      await unlink(txtPath).catch(() => {});
+      await unlink(mdPath).catch(() => {});
+      await unlink(strategyPath).catch(() => {});
+      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    }
+  });
+
+  it("should throw StrategyValidationError for missing systemPrompt file", async () => {
+    setupMockModels();
+    const tempDir = resolve(__dirname, "test_temp_missing");
+    await mkdir(tempDir, { recursive: true });
+
+    const strategyPath = join(tempDir, "strategy_missing.json");
+    const strategyJson = `{
+      "name": "Missing Prompt Strategy",
+      "version": "1.0",
+      "agents": {
+        "brokenAgent": {
+          "model": "openai/gpt-4o",
+          "systemPrompt": "./nonexistent_prompt.txt"
+        }
+      },
+      "flow": {
+        "name": "SingleStep",
+        "type": "sequential",
+        "steps": [
+          { "agent": "brokenAgent" }
+        ]
+      }
+    }`;
+
+    await writeFile(strategyPath, strategyJson);
+
+    try {
+      await expect(loadStrategy(strategyPath)).rejects.toThrow(
+        StrategyValidationError,
+      );
+    } finally {
+      await unlink(strategyPath).catch(() => {});
+      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    }
+  });
+
+  it("should support JSONC in loadProject", async () => {
+    const tempDir = resolve(__dirname, "test_temp_project");
+    await mkdir(tempDir, { recursive: true });
+
+    const manifestPath = join(tempDir, "comma-project.json");
+    const manifestJson = `{
+      // This is a JSONC project manifest
+      "name": "JSONC Project",
+      "version": "1.0",
+      "strategies": [
+        "./strategy.json"
+      ]
+    }`;
+
+    await writeFile(manifestPath, manifestJson);
+
+    try {
+      const result = await loadProject(manifestPath);
+      expect(result.name).toBe("JSONC Project");
+    } finally {
+      await unlink(manifestPath).catch(() => {});
+      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    }
   });
 });

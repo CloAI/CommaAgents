@@ -1,0 +1,69 @@
+---
+title: list_directory
+description: Enumerate the entries of a workspace directory, with optional recursion and a deterministic sort order.
+---
+
+# list_directory
+
+List the entries of a workspace directory and receive both a structured `entries` array and a human-readable tree-style summary. Use this whenever you would otherwise grep a directory just to see what's in it — it is bounded, deterministic, and respects sandbox policy.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "explorer",
+  model: "openai/gpt-4o",
+  tools: ["list_directory"],
+});
+```
+
+## ListDirectoryToolConfig
+
+Optional caps for the factory. Defaults are sized for typical workspaces; tighten them for hosts with many small files.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/list-directory/list-directory.types.ts" name="ListDirectoryToolConfig" />
+
+## ListDirectoryEntry
+
+One entry returned in `data.entries`.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/list-directory/list-directory.types.ts" name="ListDirectoryEntry" />
+
+## ListDirectoryData
+
+The full structured payload.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/list-directory/list-directory.types.ts" name="ListDirectoryData" />
+
+## Recursion
+
+By default `list_directory` returns direct children only (depth 1). Pass `recursive: true` to walk subdirectories; the depth defaults to 8 and is hard-capped at 32. Passing `maxDepth` without `recursive: true` still produces a depth-1 listing.
+
+```ts
+await tool.list_directory({ path: "src", recursive: true, maxDepth: 3 });
+```
+
+## Sort order
+
+Entries are sorted deterministically by `(depth asc, type [directory < file < symlink], name asc)`. The text summary indents each entry by its depth.
+
+## Hidden entries and symlinks
+
+Dot-prefixed entries (`.git`, `.env`) are filtered unless `includeHidden: true` is passed. Symlinks are reported with `type: "symlink"` and `size: 0` and are never followed — the listing reflects the directory structure itself, not transitive targets.
+
+## Best-effort filtering
+
+Entries blocked by `forbiddenGlobs` or by the sandbox read policy are filtered silently from a successful listing. The tool only fails with `permission_denied` when the listed directory itself is unreadable.
+
+## Errors
+
+| Kind | When |
+|---|---|
+| `not_found` | The path is missing or is a file, not a directory. The error suggests `read_file` for files. |
+| `outside_workspace` | The path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `permission_denied` | The directory itself cannot be read. Entries blocked by policy are filtered silently. |
+
+## Related
+
+- [read_file](/docs/core/tools/built-in/file-io/read_file) — read a single file.
+- [search_files](/docs/core/tools/built-in/file-io/search_files) — search across many files when you don't know the exact name.

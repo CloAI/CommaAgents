@@ -1,45 +1,63 @@
 ---
 title: Trash
-description: Recoverable deletes are moved to a per-workspace trash directory under the OS temp dir, with seven-day garbage collection.
+description: Recoverable deletes are compressed into per-workspace tar.gz archives stored in a persistent data directory. Trash is fully user-managed — no automatic garbage collection.
 ---
 
 # Trash
 
-`delete_file` and `apply_patch`'s `*** Delete File` operations are recoverable by default. Instead of unlinking the target, they move it into a per-workspace trash directory so an accidental delete can be reversed. Permanent deletes are an explicit opt-in.
+`delete_file`, `move_file` overwrites, and `apply_patch`'s `*** Delete File` operations are recoverable by default. Instead of unlinking the target, they compress the file into a per-workspace `.tar.gz` archive containing the file at its original workspace-relative path and a `metadata.json` record. Permanent deletes are an explicit opt-in.
 
 ## Location
 
-The trash root lives outside the workspace, under the OS temp directory:
+The trash root lives in the comma-agents data directory, which follows platform conventions:
 
 ```
-<os.tmpdir>/comma-trash/<sha256(workspaceRoot)>/<timestamp>-<basename>
+<dataDir>/trash/<sha256(workspaceRoot)>/<timestamp>-<sessionId>-<runId>-<basename>.tar.gz
 ```
 
-Each workspace has its own subdirectory keyed by `sha256(workspaceRoot)` so multiple workspaces on the same host do not collide. The leaf name is a timestamp plus the original basename, which keeps trash listings sortable by time and human-readable.
+`dataDir` is resolved by `resolveDataDir()`:
+- **macOS:** `~/Library/Application Support/comma-agents/`
+- **Linux:** `$XDG_DATA_HOME/comma-agents/` (fallback `~/.local/share/comma-agents/`)
+- **Windows:** `%LOCALAPPDATA%/comma-agents/`
 
-## Garbage collection
+Each workspace has its own subdirectory keyed by `sha256(workspaceRoot)` so multiple workspaces on the same host do not collide. The leaf name includes the timestamp, truncated session ID, run ID, and original basename for identification.
 
-Entries older than seven days are removed automatically the next time a delete operation runs. There is no daemon-side scheduler — GC piggybacks on the next destructive call, which keeps the trash bounded without standing infrastructure. If no deletes happen for a long time, old entries persist until the next call.
+## Archive contents
 
-## Cross-device fallback
+Every trash archive is a `.tar.gz` containing:
 
-When the trash directory lives on a different filesystem than the deleted file, the rename fails with `EXDEV`. In that case the implementation falls back to copy-then-unlink: the file is read, written into the trash, then removed from its original location. The operation appears atomic to the caller and `data.trashedTo` still points to the new location.
+- `metadata.json` — `{ sessionId, runId, agentName, trashedAt, originalPath, originalSha256 }`
+- The original file at its workspace-relative path (e.g., `src/utils/helper.ts`)
+
+This preserves the directory structure so the file can be restored to its exact original location.
+
+## User-managed lifecycle
+
+There is no automatic garbage collection. Trash entries persist until explicitly cleared. The daemon exposes protocol messages for listing, restoring, and clearing trash per workspace, which the TUI (and any client) can use to present a trash management interface.
+
+## Restoring a deleted file
+
+Use the built-in `restore_file` tool to recover a trashed file from its archive. Pass the absolute trash archive path (from `delete_file`'s `data.trashedTo` or the audit log) and optionally a `targetPath` override:
+
+```json
+{
+  "trashedPath": "/Users/.../trash/<hash>/2026-05-16T...-a1b2c3d4.tar.gz",
+  "targetPath": "src/recovered.ts"
+}
+```
+
+The archive is removed from the trash directory after a successful restore.
+
+## Clearing trash
+
+Trash can be cleared from the daemon protocol (`trash_clear` message) or by removing the workspace's trash directory directly. The daemon protocol also supports listing trash entries (`trash_list`) for inspection before clearing.
 
 ## Permanent delete
 
 Passing `permanent: true` to `delete_file` skips the trash entirely. The bytes are unlinked in place; there is no recovery path. Use this only when the file is genuinely disposable (build output, temp scratch files).
 
-## Recovering a deleted file
-
-Trash entries are plain files. To recover one, copy or move it back into the workspace:
-
-```bash
-mv "$TMPDIR/comma-trash/<hash>/<timestamp>-server.ts" src/server.ts
-```
-
-The exact trashed path is included in the `delete_file` result as `data.trashedTo`, and in the audit log entry for the operation.
-
 ## Related
 
-- [delete_file](/docs/core/tools/built-in/delete_file) — uses the trash by default.
+- [delete_file](/docs/core/tools/built-in/file-io/delete_file) — uses the trash by default.
+- [restore_file](/docs/core/tools/built-in/file-io/restore_file) — recovers files from trash archives.
 - [Audit log](/docs/core/tools/audit-log) — records the trashed-to path for every recoverable delete.

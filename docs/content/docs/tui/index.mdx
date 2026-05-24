@@ -1,0 +1,71 @@
+---
+title: TUI
+description: Terminal-based user interface built with Ink (React for terminals) that connects to the daemon over WebSocket.
+---
+
+The `@comma-agents/tui` package provides a terminal-based user interface built with [Ink](https://github.com/vadimdemedes/ink) (React for the terminal). It connects to the daemon over WebSocket to run and observe agent strategies.
+
+## Quick Start
+
+```bash
+# Start the daemon
+bun run daemon
+
+# Start the TUI (in another terminal)
+bun run tui
+
+# Auto-start with a strategy and initial input
+bun run tui -- --input "Build a calculator" --strategy build
+
+# Custom daemon URL
+bun run tui -- --daemon-url ws://my-host:7422/ws
+
+# Enable development tab
+bun run tui -- --dev
+```
+
+## How It Works
+
+1. The TUI opens a WebSocket to the daemon at `ws://localhost:7422/ws`
+2. You select a strategy and enter a prompt
+3. The TUI sends `start_strategy` and receives streaming agent output, tool calls, thinking blocks, and status updates
+4. When the agent needs input or sandbox permission, the TUI prompts you inline
+5. You can cycle between Chat and Logs tabs, open the command palette with Ctrl+P, or load persisted sessions
+
+## Key Areas
+
+| Section | Description |
+|---|---|
+| [Architecture](/docs/tui/architecture) | Provider tree, routing, data flow, keyboard shortcuts |
+| [WebSocket](/docs/tui/websocket) | Daemon communication -- message types, typed helpers, commands and subscriptions |
+| [Pages](/docs/tui/pages) | Route-level pages -- IntroPage, ChatPage, LogsPage |
+| [Components](/docs/tui/components) | Ink component inventory -- input, chat, scrolling, overlays, layout |
+| [Hooks](/docs/tui/hooks) | Custom React hooks -- daemon, chat, logging, modal, mouse, breakpoint |
+| [Theme](/docs/tui/theme) | Theming system -- tokens, defineTheme builder, built-in presets |
+
+## Provider Tree
+
+The app renders a nested tree of context providers:
+
+```
+MemoryRouter
+  └─ UserConfigContextProvider   (persisted user config)
+      └─ ThemeContextProvider     (active theme injection)
+          └─ DaemonContextProvider   (WebSocket to daemon)
+              └─ ChatSessionsContextProvider  (chat session state)
+                  └─ ModalContextProvider     (modal stack)
+                      └─ App
+```
+
+Each layer depends on the providers above it. Components consume state through hooks -- see the [Hooks](/docs/tui/hooks) section for the full API.
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| Ctrl+C | Exit the application |
+| Ctrl+R | Reset the current chat session |
+| Ctrl+P | Open the command palette |
+| Alt+1 | Switch to Chat tab |
+| Alt+2 | Switch to Logs tab |
+| Meta+Enter | Submit input in the chat text area |

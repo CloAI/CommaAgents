@@ -8,10 +8,11 @@ import {
 } from "@comma-agents/utils";
 import { streamText } from "ai";
 import { createConversationContext } from "../../context/conversation-context";
+import type { ConversationTurn } from "../../context/conversation-context.types";
 import { AgentCallError } from "../../errors/index";
 import type { SideEffectHook, TransformHook } from "../../hooks";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
-import type { TemplateVariables } from "../../prompts/types";
+import type { TemplateVariables } from "../../prompts/prompts.types";
 import type { ToolHooks } from "../hooks";
 import { resolveHook } from "../hooks";
 import type {
@@ -22,6 +23,7 @@ import type {
 } from "./agent.types";
 import {
   buildCallOptions,
+  buildReplayCallResult,
   buildStreamCallResult,
   mapStreamPart,
 } from "./agent.utils";
@@ -51,6 +53,8 @@ import {
 export function createAgent(config: AgentConfig): Agent {
   const context = createConversationContext();
   let firstCall = true;
+  let replayTurns: readonly ConversationTurn[] = [];
+  let callIndex = 0;
 
   // Mutable hooks store — starts empty, populated via appendHook (hookIntoAgent).
   // All hook reads go through this store so that dynamically appended hooks
@@ -165,7 +169,7 @@ export function createAgent(config: AgentConfig): Agent {
     call(message: string): AbortablePromise<AgentCallResult> {
       return createAbortablePromise(
         async (signal): Promise<AgentCallResult> => {
-          const streamGenerator = agent.stream!(message);
+          const streamGenerator = agent.stream?.(message);
           signal.addEventListener("abort", () => streamGenerator.abort(), {
             once: true,
           });
@@ -194,6 +198,15 @@ export function createAgent(config: AgentConfig): Agent {
       > {
         const isFirst = consumeFirstCall();
         const streamEventHooks = hooks.onStreamEvent;
+
+        // Intercept for replay of hydrated turns
+        if (callIndex < replayTurns.length) {
+          const turn = replayTurns[callIndex]!;
+          callIndex += 1;
+          const result = buildReplayCallResult(turn.responseMessages);
+          yield { type: "done", result };
+          return;
+        }
 
         try {
           // 1-2. Pre-call hooks
@@ -226,7 +239,9 @@ export function createAgent(config: AgentConfig): Agent {
               getToolHooks(),
               signal,
             );
-            const streamResult = streamText(options);
+            const streamResult = streamText(
+              options as Parameters<typeof streamText>[0],
+            );
 
             for await (const part of streamResult.fullStream) {
               const event = mapStreamPart(part);
@@ -248,7 +263,7 @@ export function createAgent(config: AgentConfig): Agent {
           }
 
           // Append to conversation context
-          context.append(alteredMessage, result.responseMessages);
+          context.append(alteredMessage, result.responseMessages, config.name);
 
           // 4-5. Post-call hooks
           const finalResult = await runPostCallHooks(result, isFirst);
@@ -278,6 +293,12 @@ export function createAgent(config: AgentConfig): Agent {
       return context;
     },
 
+    hydrateForReplay(turns: readonly ConversationTurn[]): void {
+      context.restore(turns);
+      replayTurns = [...turns];
+      callIndex = 0;
+    },
+
     /** Append a hook callback to this agent's lifecycle. */
     appendHook(hookName: string, callback: unknown): void {
       if (!(hookName in hooks)) {
@@ -288,13 +309,15 @@ export function createAgent(config: AgentConfig): Agent {
       if (existingHooks) {
         (existingHooks as unknown[]).push(callback);
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic hook store
-        (hooks as any)[hookStoreKey] = [callback];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- callback type is checked at runtime/usage
+        (hooks as Record<string, unknown>)[hookStoreKey] = [callback];
       }
     },
 
     reset(): void {
       firstCall = true;
+      replayTurns = [];
+      callIndex = 0;
       context.clear();
     },
 

@@ -20,7 +20,7 @@ beforeAll(() => {
         );
       }
       if (url.pathname === "/large") {
-        const big = "<p>" + "x".repeat(200) + "</p>";
+        const big = `<p>${"x".repeat(200)}</p>`;
         return new Response(`<html><body>${big.repeat(500)}</body></html>`, {
           headers: { "content-type": "text/html" },
         });

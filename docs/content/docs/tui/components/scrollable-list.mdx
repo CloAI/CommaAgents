@@ -1,0 +1,47 @@
+---
+title: ScrollableList
+description: Generic single-selection list with arrow-key navigation and row-aware scrollbar.
+---
+
+# ScrollableList
+
+A generic single-selection list with Up/Down arrow navigation, Enter to select, and a row-aware vertical scrollbar. Built as a selection layer over `ScrollableView`.
+
+```tsx
+import { ScrollableList } from "@comma-agents/tui";
+
+<ScrollableList
+  items={files}
+  getKey={(file) => file.id}
+  renderItem={(file, isSelected) => (
+    <Text color={isSelected ? "blue" : undefined}>{file.name}</Text>
+  )}
+  selectedIndex={selectedIndex}
+  onSelectedIndexChange={setSelectedIndex}
+  onSelected={(file, index) => openFile(file)}
+/>
+```
+
+## ScrollableListProps
+
+| Prop | Type | Description |
+|---|---|---|
+| `items` | `readonly ItemType[]` | Items to display |
+| `getKey` | `(item, index) => string` | Unique key for each item |
+| `renderItem` | `(item, isSelected) => ReactNode` | Render function; `isSelected` is true for the active item |
+| `selectedIndex` | `number` | Controlled; clamped to `[0, items.length - 1]` |
+| `onSelectedIndexChange` | `(next: number) => void` | Called when the user moves selection |
+| `onSelected` | `(item, index) => void` | Called on Enter |
+| `emptyText` | `string` | Text shown when list is empty (default: `"No items."`) |
+| `id` | `string` | Stable focus ID for tab order |
+| `isFocused` | `boolean` | External focus override |
+
+## Keyboard
+
+| Key | Action |
+|---|---|
+| Up | Move selection up |
+| Down | Move selection down |
+| Enter | Invoke `onSelected` with the selected item |
+
+The selected row is always kept visible via `scrollToRow`. When `isFocused` is provided, the list defers focus control entirely to the parent component.

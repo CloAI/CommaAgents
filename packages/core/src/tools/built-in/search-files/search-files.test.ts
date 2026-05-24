@@ -121,7 +121,7 @@ describe("createSearchFilesTool", () => {
     );
 
     expect(data.matches.length).toBe(1);
-    const preview = data.matches[0]!.preview;
+    const preview = data.matches[0]?.preview;
     expect(preview).toContain("line2");
     expect(preview).toContain("NEEDLE");
     expect(preview).toContain("line4");
@@ -137,7 +137,7 @@ describe("createSearchFilesTool", () => {
       await tool.execute({ mode: "text", query: "hello" }, makeCtx()),
     );
     expect(data.matches.length).toBe(1);
-    expect(data.matches[0]!.line).toBe(2);
+    expect(data.matches[0]?.line).toBe(2);
   });
 
   it("regex mode: matches with the m flag (line anchors)", async () => {
@@ -149,8 +149,8 @@ describe("createSearchFilesTool", () => {
     );
 
     expect(data.matches.length).toBe(1);
-    expect(data.matches[0]!.line).toBe(2);
-    expect(data.matches[0]!.column).toBe(1);
+    expect(data.matches[0]?.line).toBe(2);
+    expect(data.matches[0]?.column).toBe(1);
   });
 
   it("regex mode: returns command_failed for invalid regex", async () => {

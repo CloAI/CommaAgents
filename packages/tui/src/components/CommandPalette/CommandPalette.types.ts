@@ -12,6 +12,8 @@ export interface CommandActionContext {
   readonly closePalette: () => void;
   /** Exit the whole TUI application. */
   readonly exitApp: () => void;
+  /** Reset the chat and return to the intro screen. */
+  readonly resetChat: () => void;
 }
 
 /** Callback fired when an action-style command is selected. */
@@ -69,6 +71,8 @@ export interface CommandPaletteProps {
   readonly onClose: () => void;
   /** Called by the built-in `exit` command to quit the application. */
   readonly onExitApp: () => void;
+  /** Called by the built-in `new-run` command to reset chat and return to intro. */
+  readonly onResetChat: () => void;
   /**
    * Override the built-in command registry. Defaults to `BUILT_IN_COMMANDS`.
    */

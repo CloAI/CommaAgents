@@ -479,7 +479,7 @@ describe("createEditFileTool", () => {
     );
     const entries = await sink.list();
     expect(entries.length).toBe(1);
-    expect(entries[0]!.path).toBe("fb.txt");
+    expect(entries[0]?.path).toBe("fb.txt");
   });
 
   it("returns command_failed when aborted before start", async () => {

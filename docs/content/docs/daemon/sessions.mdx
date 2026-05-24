@@ -50,6 +50,6 @@ Sessions follow this lifecycle:
 1. **Create** — `getOrCreateForCwd(cwd)` creates or retrieves a session keyed by the working directory. There's at most one active session per `cwd`.
 2. **Record runs** — When a strategy run starts, `recordRun()` inserts a `SessionRunSummary` with status `"running"`. When the run completes or errors, `recordRun()` is called again to update the summary.
 3. **Append turns** — After each agent call completes, `appendTurn()` records the user message, agent response, token usage, and finish reason.
-4. **List and load** — Use `list()` to browse session metadata, then `load(sessionId)` to retrieve the full transcript with all turns and runs.
+4. **List and load** — Use `list()` to browse session metadata, or `listRuns()` for a flat overview of all runs across sessions. Then `load(sessionId)` to retrieve the full transcript with all turns and runs.
 5. **Rename** — `rename()` sets a human-readable title.
 6. **Delete** — `delete()` removes a session and its on-disk storage.

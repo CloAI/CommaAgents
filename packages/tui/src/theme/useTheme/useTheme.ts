@@ -6,13 +6,12 @@ import { ThemeContext } from "./useTheme.context";
 /**
  * Access the current theme tokens.
  *
- * Returns the `Theme` object from the nearest `<ThemeContextProvider>`.
- * Throws if no provider is mounted in the tree.
+ * Returns the `Theme` object from the nearest `<ThemeContextProvider>`,
+ * or `defaultTheme` when called outside any provider. The fallback exists
+ * primarily so components remain renderable inside the detached
+ * `measureLayout` tree, which has no provider chain of its own. Within
+ * the live app the provider always wins.
  */
 export function useTheme(): Theme {
-  const contextValue = useContext(ThemeContext);
-  if (contextValue === null) {
-    throw new Error("useTheme must be used within a ThemeContextProvider");
-  }
-  return contextValue;
+  return useContext(ThemeContext);
 }

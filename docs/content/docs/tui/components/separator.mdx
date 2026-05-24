@@ -1,0 +1,23 @@
+---
+title: Separator
+description: Horizontal separator line — fills parent width or renders a fixed-length line.
+---
+
+# Separator
+
+A horizontal separator line. Two modes: fill the parent's available width (default), or render a fixed-length line.
+
+```tsx
+import { Separator } from "@comma-agents/tui";
+
+<Separator />           // Fill parent width
+<Separator width={20} />  // Fixed length
+```
+
+## SeparatorProps
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `width` | `"full" \| number` | `"full"` | `"full"` fills parent width; `number` is a fixed character count |
+
+Full-width mode renders a very long string of separator characters inside a Box with `height: 1` and `overflow: "hidden"`. Ink truncates it to the parent's measured width. Fixed-width mode simply repeats the theme character `width` times. The separator character (`─`) and colors come from the `SeparatorTheme`.

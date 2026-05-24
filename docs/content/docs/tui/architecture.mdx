@@ -1,0 +1,110 @@
+---
+title: Architecture
+description: High-level architecture of the TUI application — provider tree, routing, and data flow.
+---
+
+# Architecture
+
+The TUI is a React application rendered in the terminal via [Ink](https://github.com/vadimdemedes/ink). It connects to the daemon over WebSocket and provides a multi-tab interface for running strategies, viewing logs, and navigating commands.
+
+## Entry Point
+
+The app bootstraps in two stages. `main.tsx` loads first, hijacking `console` to capture all output into the log store before anything else runs. It dynamically imports `bootstrap.tsx`, which parses CLI arguments (strategy, daemon URL, initial input) and renders the Ink tree:
+
+```
+render(
+  <MemoryRouter>
+    <UserConfigContextProvider>
+      <ThemeContextProvider>
+        <DaemonContextProvider>
+          <ChatSessionsContextProvider>
+            <ModalContextProvider>
+              <App />
+            </ModalContextProvider>
+          </ChatSessionsContextProvider>
+        </DaemonContextProvider>
+      </ThemeContextProvider>
+    </UserConfigContextProvider>
+  </MemoryRouter>
+)
+```
+
+Providers are nested from outermost (most foundational) to innermost (most derived). Each layer depends on the providers above it.
+
+## Provider Tree
+
+| Provider | Purpose | Depends On |
+|---|---|---|
+| `MemoryRouter` | In-memory routing (`/intro`, `/chat`, `/logs`) | -- |
+| `UserConfigContextProvider` | Loads persisted user config (theme name) from disk | -- |
+| `ThemeContextProvider` | Resolves the active theme and injects it into the tree | `UserConfig` |
+| `DaemonContextProvider` | Opens a WebSocket to the daemon, parses and dispatches messages | -- |
+| `ChatSessionsContextProvider` | Manages chat sessions, subscribes to daemon events by run | `Daemon` |
+| `ModalContextProvider` | Controls modal open/close state with a stack | -- |
+
+## Routing
+
+The `App` component renders a `Frame` shell with tab-based routing:
+
+| Route | Page | When Shown |
+|---|---|---|
+| `/chat` | `ChatPage` | After a strategy has been started (or a session loaded) |
+| `/chat` (fallback) | `IntroPage` | Before any strategy is started -- shows strategy picker and prompt input |
+| `/logs` | `LogsPage` | Always accessible via Alt+2 -- shows captured console output |
+
+The `/intro` route is not a tab; it renders inside `/chat` as the fallback when no chat session is active, and renders without the Frame tab bar.
+
+## Data Flow
+
+```
+Daemon (WebSocket)
+    │
+    ▼
+useWebSocket ←── raw text frames
+    │
+    ▼
+DaemonContextProvider
+    │  parses JSON, validates with Zod
+    │  dispatches to type-registered listeners
+    ▼
+ChatSessionsContextProvider
+    │  listens for: agent_streaming, request_input,
+    │  request_permission, strategy_started, etc.
+    │  routes messages to sessions by daemonRunId
+    │  updates per-session ChatMessage arrays
+    ▼
+useChat / useChatSessions
+    │  consumers read messages, status, pending input
+    ▼
+ChatPage / IntroPage
+    │  renders MessageList, ChatTextArea,
+    │  StatusBar, PermissionPrompt
+    ▼
+User input (sendInput / sendPermissionDecision / startStrategy)
+    │
+    ▼
+useDaemonCommand → DaemonContextProvider.send → WebSocket → Daemon
+```
+
+Commands flow down through typed `useDaemonCommand` hooks that auto-inject `type` and a fresh `requestId`. Events flow up through `useDaemonSubscription` hooks registered in `ChatSessionsContextProvider`.
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| Ctrl+C | Exit the application |
+| Ctrl+R | Reset the current chat session |
+| Ctrl+P | Open the command palette |
+| Alt+1 / Alt+2 | Switch tabs (Chat / Logs) |
+| Meta+Enter | Submit input in the chat text area |
+
+## CLI Arguments
+
+The TUI accepts optional flags:
+
+| Flag | Description |
+|---|---|
+| `--strategy <name>` | Pre-select a strategy (build, plan, qa, talk) |
+| `--input <text>` | Auto-start a chat with this prompt on mount |
+| `--daemon-url <url>` | Daemon WebSocket URL (default: `ws://localhost:7422/ws`) |
+| `--dev` | Enable the Dev tab (Alt+3) with component playground |

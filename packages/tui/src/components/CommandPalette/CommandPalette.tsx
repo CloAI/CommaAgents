@@ -15,7 +15,8 @@ import type {
 import { filterCommands } from "./CommandPalette.utils";
 import { HelpPage } from "./pages/HelpPage";
 import { ListProvidersPage } from "./pages/ListProvidersPage";
-import { SessionPickerPage } from "./pages/SessionPickerPage";
+import { RegisteredProvidersPage } from "./pages/RegisteredProvidersPage";
+import { RunPickerPage } from "./pages/RunPickerPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
@@ -24,7 +25,8 @@ const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
 const PAGE_REGISTRY: ReadonlyMap<string, PaletteSubPageComponent> = new Map([
   ["help", HelpPage],
   ["list-providers", ListProvidersPage],
-  ["session-picker", SessionPickerPage],
+  ["register-providers", RegisteredProvidersPage],
+  ["run-picker", RunPickerPage],
   ["settings", SettingsPage],
 ]);
 
@@ -64,6 +66,7 @@ export function CommandPalette({
   id = "command-palette",
   onClose,
   onExitApp,
+  onResetChat,
   commands = BUILT_IN_COMMANDS,
 }: CommandPaletteProps): React.ReactElement | null {
   const [commandListFilter, setCommandListFilter] = useState("");
@@ -109,7 +112,11 @@ export function CommandPalette({
   const activateCommand = useCallback(
     (cmd: Command): void => {
       if (cmd.action !== undefined) {
-        cmd.action({ closePalette: onClose, exitApp: onExitApp });
+        cmd.action({
+          closePalette: onClose,
+          exitApp: onExitApp,
+          resetChat: onResetChat,
+        });
         return;
       }
       const pageComponent = PAGE_REGISTRY.get(cmd.id) ?? cmd.page;
@@ -118,7 +125,7 @@ export function CommandPalette({
         setView({ kind: "page", commandId: cmd.id, title: cmd.label });
       }
     },
-    [onClose, onExitApp],
+    [onClose, onExitApp, onResetChat],
   );
 
   if (!isVisible) return null;

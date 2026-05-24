@@ -111,7 +111,7 @@ export interface StagedFile {
 
 export function parsePatchEnvelope(envelope: string): PatchPlan {
   const lines = splitEnvelopeLines(envelope);
-  const beginIndex = lines.findIndex((line) => line === PATCH_BEGIN_MARKER);
+  const beginIndex = lines.indexOf(PATCH_BEGIN_MARKER);
   if (beginIndex === -1) {
     throw new PatchParseError(
       `Patch must start with "${PATCH_BEGIN_MARKER}"`,

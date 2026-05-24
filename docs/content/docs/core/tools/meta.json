@@ -4,7 +4,6 @@
     "built-in",
     "define-tool",
     "tool-registry",
-    "stale-file-protocol",
     "audit-log",
     "trash",
     "patch-envelope",

@@ -18,32 +18,31 @@ export {
   parseDaemonMessage,
 } from "./messages";
 export {
-  DeleteSessionMessage,
-  handleDeleteSession,
-} from "./requests/delete-session";
-export {
-  handleGetAvailableModels,
   GetAvailableModelsMessage,
+  handleGetAvailableModels,
 } from "./requests/get-available-models";
 export {
-  handleListSessions,
-  ListSessionsMessage,
-} from "./requests/list-sessions";
+  handleGetRun,
+  GetRunMessage,
+} from "./requests/get-run";
+export {
+  handleResumeRun,
+  ResumeRunMessage,
+} from "./requests/resume-run";
+export {
+  handleListRuns,
+  ListRunsMessage,
+} from "./requests/list-runs";
 // Request handlers + client message schemas
 export {
   handleListStrategies,
   ListStrategiesMessage,
 } from "./requests/list-strategies";
-export { handleLoadSession, LoadSessionMessage } from "./requests/load-session";
 export {
   handlePermissionDecision,
   PermissionDecisionMessage,
 } from "./requests/permission-decision";
 export { handlePing, PingMessage } from "./requests/ping";
-export {
-  handleRenameSession,
-  RenameSessionMessage,
-} from "./requests/rename-session";
 export {
   handleStartStrategy,
   StartStrategyMessage,
@@ -53,6 +52,18 @@ export {
   StopStrategyMessage,
 } from "./requests/stop-strategy";
 export { handleSubscribe, SubscribeMessage } from "./requests/subscribe";
+export {
+  handleTrashClear,
+  TrashClearMessage,
+} from "./requests/trash-clear";
+export {
+  handleTrashList,
+  TrashListMessage,
+} from "./requests/trash-list";
+export {
+  handleTrashRestore,
+  TrashRestoreMessage,
+} from "./requests/trash-restore";
 export { handleUnsubscribe, UnsubscribeMessage } from "./requests/unsubscribe";
 export {
   handleUpdatePolicy,
@@ -64,29 +75,20 @@ export { AgentOutputMessage } from "./responses/agent-output";
 export { AgentStreamingMessage } from "./responses/agent-streaming";
 export type { AgentStreamEventWire } from "./responses/agent-streaming/agent-streaming.schema";
 export { AgentStreamEventSchema } from "./responses/agent-streaming/agent-streaming.schema";
-export { AvailableModelsMessage } from "./responses/available-models";
 export type { AvailableModelWire } from "./responses/available-models";
+export { AvailableModelsMessage } from "./responses/available-models";
 export { ErrorMessage } from "./responses/error";
 export { PolicyUpdatedMessage } from "./responses/policy-updated";
 export { PongMessage } from "./responses/pong";
 export { RequestInputMessage } from "./responses/request-input";
 export { RequestPermissionMessage } from "./responses/request-permission";
-export { SessionDeletedMessage } from "./responses/session-deleted";
-export type { SessionMetadataWire } from "./responses/session-list";
+export type { RunOverviewWire } from "./responses/run-list";
 export {
-  SessionListMessage,
-  SessionMetadataSchema,
-} from "./responses/session-list";
-export type {
-  SessionRunSummaryWire,
-  SessionTurnWire,
-} from "./responses/session-loaded";
-export {
-  SessionLoadedMessage,
-  SessionRunSummarySchema,
-  SessionTurnSchema,
-} from "./responses/session-loaded";
-export { SessionRenamedMessage } from "./responses/session-renamed";
+  RunListMessage,
+  RunOverviewSchema,
+} from "./responses/run-list";
+export type { RunLoadedMessage } from "./responses/run-loaded";
+export { RunLoadedMessage as RunLoadedMessageSchema } from "./responses/run-loaded/run-loaded.schema";
 // Colocated schemas re-exported for public API
 export type { AgentCallResultWire, Usage } from "./responses/shared";
 export { AgentCallResultSchema, UsageSchema } from "./responses/shared";

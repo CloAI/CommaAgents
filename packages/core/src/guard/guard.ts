@@ -1,6 +1,7 @@
-import { isAbsolute, resolve } from "node:path";
 import { realpathSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import { SandboxViolationError } from "../errors/index";
+import type { SandboxTrashMetadata } from "../tools/io/trash";
 import type {
   AccessRequest,
   AuthorizationContext,
@@ -88,6 +89,7 @@ export function createGuard(
   jail: boolean,
   policies: readonly Policy[],
   callbacks?: GuardCallbacks,
+  trashMetadata?: SandboxTrashMetadata,
 ): Guard {
   const policyChain = [...policies];
   const changeListeners = new Set<(snapshot: GuardPolicySnapshot) => void>();
@@ -190,7 +192,11 @@ export function createGuard(
     }
 
     // Apply session memory for all positive/negative decisions.
-    if (decision === "allow" || decision === "allow-session" || decision === "deny-session") {
+    if (
+      decision === "allow" ||
+      decision === "allow-session" ||
+      decision === "deny-session"
+    ) {
       const mode = request.type === "fs.write" ? "write" : "read";
       const relative = resolvedPath.startsWith(`${cwd}/`)
         ? resolvedPath.slice(cwd.length + 1)
@@ -218,7 +224,9 @@ export function createGuard(
 
     const resolvedRequest: AccessRequest = {
       ...request,
-      resource: request.type.startsWith("fs.") ? resolvedPath : request.resource,
+      resource: request.type.startsWith("fs.")
+        ? resolvedPath
+        : request.resource,
     };
 
     // Evaluate policy chain — first non-"pass" wins.
@@ -229,11 +237,12 @@ export function createGuard(
       if (decision === "allow") return resolvedPath;
 
       if (decision === "deny") {
-        const reason = request.type === "fs.write"
-          ? "write-denied"
-          : request.type === "fs.read"
-            ? "read-denied"
-            : "write-denied";
+        const reason =
+          request.type === "fs.write"
+            ? "write-denied"
+            : request.type === "fs.read"
+              ? "read-denied"
+              : "write-denied";
         throw new SandboxViolationError(
           resolvedPath,
           reason,
@@ -244,11 +253,12 @@ export function createGuard(
       if (decision === "ask") {
         const prompted = await handleAsk(request, ctx, resolvedPath);
         if (prompted === "deny" || prompted === "deny-session") {
-          const reason = request.type === "fs.write"
-            ? "write-denied"
-            : request.type === "fs.read"
-              ? "read-denied"
-              : "write-denied";
+          const reason =
+            request.type === "fs.write"
+              ? "write-denied"
+              : request.type === "fs.read"
+                ? "read-denied"
+                : "write-denied";
           throw new SandboxViolationError(
             resolvedPath,
             reason,
@@ -272,7 +282,9 @@ export function createGuard(
 
       const resolvedRequest: AccessRequest = {
         ...request,
-        resource: request.type.startsWith("fs.") ? resolvedPath : request.resource,
+        resource: request.type.startsWith("fs.")
+          ? resolvedPath
+          : request.resource,
       };
 
       for (const policy of policyChain) {
@@ -292,6 +304,7 @@ export function createGuard(
   return {
     toolName,
     cwd,
+    trashMetadata,
     authorize,
     canAccess,
     addPolicy,
@@ -315,7 +328,11 @@ function pathSessionPolicy(
     name: `session-${decisionName}-${mode}-${relative.replace(/[^a-zA-Z0-9]/g, "-")}`,
     evaluate: (req: AccessRequest): PolicyDecision => {
       if (req.type !== fsType) return "pass";
-      if (req.resource.endsWith(`/${relative}`) || req.resource === `${cwd}/${relative}` || req.resource === `${cwd}/${relative}`) {
+      if (
+        req.resource.endsWith(`/${relative}`) ||
+        req.resource === `${cwd}/${relative}` ||
+        req.resource === `${cwd}/${relative}`
+      ) {
         return decision;
       }
       // Match the pattern as a suffix to handle the resolved absolute path

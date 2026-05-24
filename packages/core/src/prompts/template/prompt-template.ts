@@ -11,7 +11,7 @@ import type {
   PromptTemplate,
   PromptTemplateConfig,
   TemplateVariables,
-} from "../types";
+} from "../prompts.types";
 
 // Liquid engine singleton
 

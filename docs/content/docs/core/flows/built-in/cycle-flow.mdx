@@ -1,8 +1,8 @@
 ---
 title: createCycleFlow
-description: Repeated pipeline iterations with optional observer feedback between cycles.
+description: Repeated pipeline iterations with optional observer feedback and break signals between cycles.
 ---
-`createCycleFlow` repeats a sequential pipeline N times. Each cycle runs all steps in order; the output of one cycle becomes the input of the next. An optional observer agent can provide feedback between cycles.
+`createCycleFlow` repeats a sequential pipeline N times. Each cycle runs all steps in order; the output of one cycle becomes the input of the next. An optional observer agent can provide feedback between cycles and signal when to stop.
 
 ```ts
 import { createAgent, createCycleFlow } from "@comma-agents/core";
@@ -35,7 +35,7 @@ console.log(result.text);
 
 ## Cycle Behavior
 
-Each cycle runs all steps sequentially (same as `createSequentialFlow`). The output of the last step in cycle N becomes the input message for the first step in cycle N+1:
+Each cycle runs all steps sequentially (same as `createSequentialFlow`). The output of the last step in cycle N becomes the input for the first step in cycle N+1:
 
 ```
 Cycle 1: writer("topic") → reviewer(writer's output)
@@ -59,7 +59,7 @@ setTimeout(() => promise.abort(), 30_000);
 
 ## Observer
 
-The `observer` option adds an agent that runs after each cycle, before the next cycle begins. The observer's output becomes the input for the next cycle:
+The `observer` option adds an agent that runs after each cycle's steps complete, before the next cycle begins. The observer's output becomes the input for the next cycle:
 
 ```ts
 const observer = createAgent({
@@ -77,6 +77,48 @@ const flow = createCycleFlow({
 ```
 
 The observer runs after all steps complete but before any user-provided `alterMessageAfterCycle` hooks. Calling `reset()` on the flow also resets the observer.
+
+### Breaking the Cycle
+
+The observer can signal the cycle to stop early by including a break signal in its response. The default break signals are:
+
+- `"end cycle"`
+- `"stop"`
+- `"done"`
+
+Matching is **case-insensitive** and checks if the response **contains** the phrase (not exact match):
+
+```ts
+const critic = createAgent({
+  name: "critic",
+  model: "openai/gpt-4o",
+  systemPrompt: `Review the output. If it's satisfactory, respond with "done". Otherwise, suggest improvements.`,
+});
+
+const flow = createCycleFlow({
+  name: "refine-until-done",
+  steps: [writer],
+  cycles: Infinity, // Run until critic says "done"
+  observer: critic,
+});
+```
+
+When a break signal is detected:
+- The cycle loop stops immediately
+- The returned output is the **step output** (before the observer ran), not the observer's break message
+- Any remaining cycles are skipped
+
+You can customize the break signals via `breakCycleSignals`:
+
+```ts
+const flow = createCycleFlow({
+  name: "custom-break",
+  steps: [writer],
+  cycles: Infinity,
+  observer: critic,
+  breakCycleSignals: ["finished", "abort", "complete"],
+});
+```
 
 ## Cycle Hooks
 

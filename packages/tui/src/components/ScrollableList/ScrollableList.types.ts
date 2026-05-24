@@ -5,9 +5,10 @@ import type React from "react";
  *
  * `ScrollableList` is a focused, single-selection list with arrow-key
  * navigation, mouse-wheel scrolling, and a row-aware vertical scrollbar.
- * Each rendered row is measured at commit time so multi-line items
- * participate correctly in both the visible-window math and the scrollbar
- * geometry — the caller does not have to declare row heights.
+ * Row heights are measured automatically by the underlying
+ * {@link ScrollableView} via Ink's headless layout — multi-line rows
+ * (text that wraps on narrow terminals) need no special handling from
+ * the caller.
  */
 export interface ScrollableListProps<ItemType> {
   /** The full list of items to render. */

@@ -4,7 +4,6 @@ import type {
 } from "../credentials/credentials.types";
 import { ModelResolutionError } from "../errors/index";
 import type { ParsedModel, ProviderInfo } from "./model.types";
-import type { ModelCapabilities, ModelInfo } from "./providers/providers.types";
 import {
   getCatalogProviderSync,
   getProviderDefinition,
@@ -16,6 +15,7 @@ import {
   resolveCredentialForProvider,
   toModelInfo,
 } from "./providers/index";
+import type { ModelCapabilities, ModelInfo } from "./providers/providers.types";
 
 /**
  * Parse a model string in the format `providerID/modelID`.
@@ -174,6 +174,7 @@ export async function getProviderInfo(
   return {
     id: providerId,
     name: definition?.name ?? formatProviderName(providerId),
+    credentialType: definition?.credentialType ?? "api",
     authStatus,
     models: result.models,
     modelsSource: result.source,
@@ -221,6 +222,7 @@ export async function listProviders(
       return {
         id: definition.id,
         name: definition.name,
+        credentialType: definition.credentialType ?? "api",
         authStatus,
         models: result.models,
         modelsSource: result.source,
@@ -341,7 +343,7 @@ export function formatProviderName(providerId: string): string {
   return providerId
     .split("-")
     .map((token) =>
-      token.length === 0 ? token : token[0]!.toUpperCase() + token.slice(1),
+      token.length === 0 ? token : token[0]?.toUpperCase() + token.slice(1),
     )
     .join(" ");
 }

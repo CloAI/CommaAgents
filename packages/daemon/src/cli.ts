@@ -4,7 +4,11 @@ import { join } from "node:path";
 import {
   createCredentialStore,
   createJsonFileBackend,
+  getProviderDefinition,
+  registerProvider,
+  registerProviderDefinition,
   setGlobalCredentialStore,
+  setProviderCacheDir,
 } from "@comma-agents/core";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
@@ -15,6 +19,7 @@ import { createFileSink } from "./logger/sinks/file";
 import { createStderrSink } from "./logger/sinks/stderr";
 import { isRunning, readPid, removePid, writePid } from "./pid";
 import { createDaemon } from "./server/server";
+import { loadRegisteredProviders } from "./server/protocol/provider-registry";
 
 // Argument parsing via yargs
 
@@ -113,6 +118,24 @@ async function commandStart(args: StartArgs): Promise<void> {
   });
   const credentialStore = createCredentialStore({ backend: credentialBackend });
   setGlobalCredentialStore(credentialStore);
+
+  // 2b. Set provider cache directory for dynamic package installs
+  setProviderCacheDir(config.providerCacheDir);
+
+  // 2c. Restore previously registered providers from disk
+  for (const providerId of loadRegisteredProviders()) {
+    try {
+      const definition = await getProviderDefinition(providerId);
+      if (definition) {
+        registerProviderDefinition(definition);
+        registerProvider(providerId, {
+          packageName: definition.packageName ?? `@ai-sdk/${providerId}`,
+        });
+      }
+    } catch {
+      // Provider may no longer be available — skip silently
+    }
+  }
 
   // 3. Register global exception handlers so all uncaught errors reach the log
   process.on("uncaughtException", (caughtError: Error) => {

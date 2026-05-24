@@ -21,6 +21,13 @@ export const StartStrategyMessage = ClientBase.extend({
    * Defaults to the daemon's `process.cwd()` when not provided.
    */
   cwd: z.string().min(1).optional(),
+  /**
+   * Path to a comma-project.json manifest for folder-based strategy projects.
+   * When provided, the daemon loads the project (runs entry + registers custom tools)
+   * before loading the strategy. The `strategyPath` is resolved relative to the
+   * manifest's directory.
+   */
+  manifestPath: z.string().min(1).optional(),
 });
 
 export type StartStrategyMessage = z.infer<typeof StartStrategyMessage>;

@@ -54,9 +54,10 @@ export function IntroPageRender({
 
   return (
     <Box {...theme.root}>
+      <Box marginBottom={2}></Box>
       <TitleIcon />
       <Box marginBottom={4}></Box>
-      {/* Too lazy for margin and boxing */}
+      {/* Too lazy for margin and boxing TODO: Do the theme work*/}
       <ChatTextArea
         strategies={strategies}
         onSubmit={onSubmit}

@@ -21,6 +21,8 @@ export type {
   ListDirectoryToolConfig,
 } from "./list-directory";
 export { createListDirectoryTool } from "./list-directory";
+export type { ListSkillsData, ListSkillsEntry } from "./list-skills";
+export { createListSkillsTool } from "./list-skills";
 export type { LoadSkillData } from "./load-skill";
 export { createLoadSkillTool } from "./load-skill";
 export type {
@@ -30,6 +32,8 @@ export type {
 export { createMoveFileTool } from "./move-file";
 export type { ReadFileData, ReadFileToolConfig } from "./read-file";
 export { createReadFileTool } from "./read-file";
+export type { RestoreFileData } from "./restore-file";
+export { createRestoreFileTool } from "./restore-file";
 export type {
   PlatformInfo,
   RunCommandData,

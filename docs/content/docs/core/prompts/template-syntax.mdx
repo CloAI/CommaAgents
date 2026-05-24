@@ -1,0 +1,104 @@
+---
+title: Template Syntax
+description: LiquidJS template syntax — variable interpolation, conditionals, loops, filters, function values, and custom env/file/exec filters.
+---
+
+Templates use the full [Liquid](https://liquidjs.com/) template language.
+
+## Variable Interpolation
+
+```ts
+createPromptTemplate({
+  template: "You are {{ role }}, specializing in {{ language }}.",
+  variables: { role: "a reviewer", language: "TypeScript" },
+});
+```
+
+## Conditionals
+
+```ts
+createPromptTemplate({
+  template: `You are {{ role }}.
+{% if verbose %}Explain your reasoning in detail.{% endif %}`,
+  variables: { role: "an assistant", verbose: true },
+});
+```
+
+## Loops
+
+```ts
+createPromptTemplate({
+  template: `Available tools:
+{% for tool in tools %}- {{ tool }}
+{% endfor %}`,
+  variables: { tools: ["run_command", "read_file", "write_file"] },
+});
+```
+
+## Built-in Liquid Filters
+
+Standard Liquid filters work out of the box:
+
+```ts
+createPromptTemplate({
+  template: "You are {{ role | upcase }}. Language: {{ lang | downcase }}.",
+  variables: { role: "reviewer", lang: "TypeScript" },
+});
+// → "You are REVIEWER. Language: typescript."
+```
+
+## Custom Filters
+
+Three custom filters are available for dynamic content at render time.
+
+### `env` — Environment Variables
+
+Read a value from `process.env`. Throws if the variable is not set.
+
+```ts
+createPromptTemplate({
+  template: 'API endpoint: {{ "API_URL" | env }}',
+});
+```
+
+### `file` — File Contents
+
+Read the first line of a file. Useful for injecting version strings, config values, etc.
+
+```ts
+createPromptTemplate({
+  template: 'Project: {{ "./package.json" | file }}',
+});
+```
+
+### `exec` — Shell Command Output
+
+Execute a shell command and use its trimmed stdout. Throws on failure or empty output.
+
+```ts
+createPromptTemplate({
+  template: 'Current branch: {{ "git branch --show-current" | exec }}',
+});
+```
+
+## Function-Typed Variables
+
+Variable values can be functions that return a string (or `Promise<string>`). They are resolved in parallel before the Liquid render pass:
+
+```ts
+createPromptTemplate({
+  template: "Style guide:\n{{ style }}",
+  variables: {
+    style: async () => {
+      const response = await fetch("https://example.com/style-guide.txt");
+      return response.text();
+    },
+  },
+});
+```
+
+## TemplateVariables
+
+The type for the variables map. Values can be primitives, arrays, objects, or async functions.
+
+<AutoTypeTable path="../packages/core/src/prompts/types.ts" name="TemplateVariables" />

@@ -27,10 +27,16 @@ export const BUILT_IN_COMMANDS: readonly Command[] = [
     keywords: ["models", "llm", "openai", "anthropic", "providers"],
   },
   {
-    id: "session-picker",
-    label: "Switch Session",
-    description: "Open a previous conversation session",
-    keywords: ["history", "sessions", "conversations", "switch"],
+    id: "register-providers",
+    label: "Register Providers",
+    description: "Enable or disable LLM provider packages",
+    keywords: ["register", "enable", "disable", "api", "oauth", "install"],
+  },
+  {
+    id: "run-picker",
+    label: "Switch Run",
+    description: "Open a previous run",
+    keywords: ["history", "runs", "conversations", "switch"],
   },
   {
     id: "exit",
@@ -38,5 +44,15 @@ export const BUILT_IN_COMMANDS: readonly Command[] = [
     description: "Quit the application",
     keywords: ["quit", "close", "bye"],
     action: ({ exitApp }) => exitApp(),
+  },
+  {
+    id: "new-run",
+    label: "New Run",
+    description: "Reset chat and return to intro screen",
+    keywords: ["reset", "new", "start", "intro", "home"],
+    action: ({ resetChat, closePalette }) => {
+      resetChat();
+      closePalette();
+    },
   },
 ];

@@ -7,7 +7,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 import { App } from "./App";
-import { ChatSessionsContextProvider } from "./hooks/useChat";
+import { ChatRunsContextProvider } from "./hooks/useChat";
 import { DaemonContextProvider } from "./hooks/useDaemon";
 import { logStore } from "./hooks/useLogs/logStore";
 import { ModalContextProvider } from "./hooks/useModal";
@@ -20,8 +20,8 @@ const argv = yargs(hideBin(process.argv))
   .option("strategy", {
     alias: "s",
     type: "string",
-    describe: "Strategy to run (plan, build)",
-    choices: ["plan", "build"],
+    describe:
+      "Strategy name to run (e.g. Plan, Build, or a custom strategy name)",
   })
   .option("daemon-url", {
     alias: "d",
@@ -41,10 +41,10 @@ const argv = yargs(hideBin(process.argv))
     describe: "Enable the component playground (Dev tab, Alt+4)",
   })
   .example("$0", "Interactive strategy picker")
-  .example("$0 -s plan", "Start with the Plan strategy")
+  .example("$0 -s Plan", "Start with the Plan strategy")
   .example(
-    "$0 -s build -i 'Add a login page'",
-    "Start Build with initial input",
+    "$0 -s Build -i 'Add a login page'",
+    "Start Build strategy with initial input",
   )
   .example("$0 --dev", "Open with the component playground enabled")
   .strict()
@@ -84,7 +84,7 @@ render(
     <UserConfigContextProvider>
       <ThemeContextProvider>
         <DaemonContextProvider url={argv.daemonUrl}>
-          <ChatSessionsContextProvider>
+          <ChatRunsContextProvider>
             <ModalContextProvider>
               <App
                 strategy={argv.strategy}
@@ -92,7 +92,7 @@ render(
                 dev={argv.dev}
               />
             </ModalContextProvider>
-          </ChatSessionsContextProvider>
+          </ChatRunsContextProvider>
         </DaemonContextProvider>
       </ThemeContextProvider>
     </UserConfigContextProvider>

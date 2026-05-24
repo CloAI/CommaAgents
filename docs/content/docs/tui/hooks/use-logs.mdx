@@ -1,0 +1,46 @@
+---
+title: useLogs
+description: Capture and view all console output — hijacks process.stdout to collect logs into a ring buffer.
+---
+
+`useLogs` subscribes to a global log store that captures all `console` output. The log store is created at module load time -- before any React component renders -- so no log messages are ever missed.
+
+```tsx
+import { useLogs } from "@comma-agents/tui";
+
+const { logs, clearLogs } = useLogs();
+
+logs;         // readonly LogEntry[]
+clearLogs();  // Empty the log buffer
+```
+
+## How It Works
+
+On module load, `logStore` patches the global `console` methods (`log`, `info`, `warn`, `error`, `debug`) and routes output to an internal ring buffer. In pass-through mode, intercepted output is forwarded to the real terminal streams AND recorded. Once the app is ready, `logStore.commit()` is called, which switches to capture-only mode.
+
+## logStore
+
+The singleton log store provides a pub/sub API:
+
+```ts
+import { logStore } from "@comma-agents/tui";
+
+logStore.push("info", "Something happened");
+logStore.clear();
+logStore.commit();  // Switch to capture-only mode
+logStore.destroy(); // Restore original console methods
+
+const entries = logStore.getSnapshot();
+const unsub = logStore.subscribe(() => { /* entries changed */ });
+```
+
+## LogEntry
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique UUID for the entry |
+| `timestamp` | `number` | Unix timestamp in milliseconds |
+| `level` | `LogLevel` | `"debug" \| "info" \| "warn" \| "error" \| "log"` |
+| `message` | `string` | The log message string |
+
+The ring buffer holds up to 500 entries. When the limit is reached, the oldest entries are evicted. No log messages are written to disk unless the `DEBUG_LOG` environment variable is set.

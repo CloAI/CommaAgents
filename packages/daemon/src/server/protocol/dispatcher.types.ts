@@ -1,17 +1,21 @@
 import type { StrategyExecutor } from "../../executor/executor";
 import type { Logger } from "../../logger/logger.types";
-import type { SessionStore } from "../../sessions";
+import type { RunStore } from "../../runs";
 import type { DaemonState } from "../../state/state.types";
 import type { DaemonMessage } from "./messages";
 import type { AvailableModelsMessage } from "./responses/available-models";
+import type { CredentialSetMessage } from "./responses/credential-set";
 import type { ErrorMessage } from "./responses/error";
 import type { PongMessage } from "./responses/pong";
 import type { ProviderListMessage } from "./responses/provider-list";
-import type { SessionDeletedMessage } from "./responses/session-deleted";
-import type { SessionListMessage } from "./responses/session-list";
-import type { SessionLoadedMessage } from "./responses/session-loaded";
-import type { SessionRenamedMessage } from "./responses/session-renamed";
+import type { ProviderRegisteredMessage } from "./responses/provider-registered";
+import type { ProviderUnregisteredMessage } from "./responses/provider-unregistered";
+import type { RunListMessage } from "./responses/run-list";
+import type { RunLoadedMessage } from "./responses/run-loaded";
 import type { StrategyListMessage } from "./responses/strategy-list";
+import type { TrashClearResultMessage } from "./responses/trash-clear-result";
+import type { TrashListResultMessage } from "./responses/trash-list-result";
+import type { TrashRestoreResultMessage } from "./responses/trash-restore-result";
 
 /**
  * Compile-time map from each client request type literal to the success
@@ -38,12 +42,17 @@ export interface RequestResponseMap {
   readonly list_strategies: StrategyListMessage;
   readonly get_available_models: AvailableModelsMessage;
   readonly list_providers: ProviderListMessage;
+  readonly register_provider: ProviderRegisteredMessage;
+  readonly unregister_provider: ProviderUnregisteredMessage;
   readonly subscribe: never;
   readonly unsubscribe: never;
-  readonly list_sessions: SessionListMessage;
-  readonly load_session: SessionLoadedMessage;
-  readonly delete_session: SessionDeletedMessage;
-  readonly rename_session: SessionRenamedMessage;
+  readonly list_runs: RunListMessage;
+  readonly get_run: RunLoadedMessage;
+  readonly resume_run: never;
+  readonly trash_list: TrashListResultMessage;
+  readonly trash_restore: TrashRestoreResultMessage;
+  readonly trash_clear: TrashClearResultMessage;
+  readonly set_credential: CredentialSetMessage;
 }
 
 /**
@@ -79,8 +88,8 @@ export interface HandlerContext<
   readonly executor: StrategyExecutor;
   /** Centralized daemon state for run/client/subscription tracking. */
   readonly state: DaemonState;
-  /** Persistent per-cwd session store for transcript/run history. */
-  readonly sessionStore: SessionStore;
+  /** Persistent run store. */
+  readonly runStore: RunStore;
   /** Logger for handler-level diagnostics. */
   readonly logger: Logger;
   /** Send a response to the requesting client. Constrained by `RequestResponseMap`. */

@@ -12,6 +12,9 @@
 // (registerModel / registerProvider / registerTool). Callers must
 // configure those registries before loading a strategy.
 
+import { dirname } from "node:path";
+
+import stripJsonComments from "strip-json-comments";
 import YAML from "yaml";
 
 import { StrategyValidationError } from "../../errors/index";
@@ -71,7 +74,12 @@ export async function loadStrategy(
 
   const content = await file.text();
 
-  return await loadStrategyFromString(content, format, options);
+  const strategyDir = dirname(filePath);
+
+  return await loadStrategyFromString(content, format, {
+    ...options,
+    strategyDir: options.strategyDir ?? strategyDir,
+  });
 }
 
 // loadStrategyFromString — from raw content
@@ -97,7 +105,7 @@ export async function loadStrategyFromString(
   let raw: unknown;
   try {
     if (format === "json") {
-      raw = JSON.parse(content);
+      raw = JSON.parse(stripJsonComments(content));
     } else {
       raw = YAML.parse(content);
     }

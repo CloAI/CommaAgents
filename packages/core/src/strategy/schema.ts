@@ -6,8 +6,8 @@
 
 import { z } from "zod";
 
-import type { BUILT_IN_TOOL_NAMES } from "../tools/tool.constants";
 import { ModelOptionsSchema } from "../agents/loader/loader.schema";
+import type { BUILT_IN_TOOL_NAMES } from "../tools/tool.constants";
 
 export type BuiltInToolName = (typeof BUILT_IN_TOOL_NAMES)[number];
 
@@ -147,6 +147,20 @@ export const StrategySchema = z
   })
   .strict();
 
+// Project manifest — defines a folder-based strategy project
+
+export const CommaProjectManifestSchema = z
+  .object({
+    name: z.string().min(1),
+    version: z.string().optional(),
+    description: z.string().optional(),
+    strategies: z.array(z.string()).min(1),
+    tools: z.array(z.string()).optional(),
+    entry: z.string().optional(),
+    dependencies: z.array(z.string()).optional(),
+  })
+  .strict();
+
 // Inferred TypeScript types
 
 export type UserAgentDef = z.infer<typeof UserAgentDefSchema>;
@@ -158,6 +172,8 @@ export type CycleFlowDef = z.infer<typeof CycleFlowDefSchema>;
 export type BroadcastFlowDef = z.infer<typeof BroadcastFlowDefSchema>;
 export type FlowDef = z.infer<typeof FlowDefSchema>;
 export type Strategy = z.infer<typeof StrategySchema>;
+
+export type CommaProjectManifest = z.infer<typeof CommaProjectManifestSchema>;
 
 // Type guards
 

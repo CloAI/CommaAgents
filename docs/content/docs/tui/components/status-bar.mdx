@@ -1,0 +1,34 @@
+---
+title: StatusBar
+description: Compact status indicator showing chat lifecycle state, spinner, and errors.
+---
+
+# StatusBar
+
+A compact bar displayed at the bottom of the chat view. Shows the current chat lifecycle status with a colored label, an optional spinner for active states, the strategy name, and any error message.
+
+```tsx
+import { StatusBar } from "@comma-agents/tui";
+
+<StatusBar status={chat.status} error={chat.error} strategyName="Plan" />
+```
+
+## StatusBarProps
+
+| Prop | Type | Description |
+|---|---|---|
+| `status` | `ChatStatus` | Current chat lifecycle status |
+| `error` | `string \| null` | Error message to display, or `null` |
+| `strategyName` | `string` | Name of the active strategy (optional) |
+
+## Status Display
+
+The `StatusBarTheme` defines a `statusMap` that maps each `ChatStatus` value to a display configuration:
+
+| Field | Type | Description |
+|---|---|---|
+| `label` | `string` | Text shown inside brackets (e.g. `[Running]`) |
+| `color` | `string` | Color applied to the spinner and label |
+| `spinning` | `boolean` | Whether to show a dot spinner alongside the label |
+
+When `spinning` is `true`, an `ink-spinner` with type `"dots"` renders before the status label. The strategy name appears after the label, and errors render in the theme's `errorText` style.

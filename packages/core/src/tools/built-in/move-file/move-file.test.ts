@@ -146,8 +146,9 @@ describe("createMoveFileTool", () => {
       ),
     );
     expect(typeof data.overwroteTrashedTo).toBe("string");
+    expect(data.overwroteTrashedTo).toEndWith(".tar.gz");
     expect(await readFile(join(workspaceRoot, "b.txt"), "utf8")).toBe("new\n");
-    expect(await readFile(data.overwroteTrashedTo!, "utf8")).toBe("victim\n");
+    expect(existsSync(data.overwroteTrashedTo!)).toBe(true);
   });
 
   it("fails with already_exists when destination is a directory (even with overwrite)", async () => {
@@ -335,7 +336,7 @@ describe("createMoveFileTool", () => {
       ),
     );
     const entries = await sink.list();
-    expect(entries[0]!.details?.overwroteTrashedTo).toBe(
+    expect(entries[0]?.details?.overwroteTrashedTo).toBe(
       data.overwroteTrashedTo!,
     );
   });
@@ -352,7 +353,7 @@ describe("createMoveFileTool", () => {
     );
     const entries = await sink.list();
     expect(entries.length).toBe(1);
-    expect(entries[0]!.toPath).toBe("fb2.txt");
+    expect(entries[0]?.toPath).toBe("fb2.txt");
   });
 
   it("returns command_failed when aborted before start", async () => {

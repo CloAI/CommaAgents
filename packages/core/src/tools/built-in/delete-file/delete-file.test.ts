@@ -1,14 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, realpathSync } from "node:fs";
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  utimes,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSandbox } from "../../../sandbox/sandbox";
@@ -90,7 +82,7 @@ describe("createDeleteFileTool", () => {
     expect(typeof tool.execute).toBe("function");
   });
 
-  it("trashes the file by default and records trashedTo", async () => {
+  it("trashes the file by default as a tar.gz archive and records trashedTo", async () => {
     const sha = await seedFile("a.txt", "bye\n");
     const tool = createDeleteFileTool();
     const data = await getOk(
@@ -102,10 +94,9 @@ describe("createDeleteFileTool", () => {
     expect(data.beforeSha256).toBe(sha);
     expect(data.sizeBytes).toBe(4);
     expect(typeof data.trashedTo).toBe("string");
-    // File is gone from the workspace.
+    expect(data.trashedTo).toEndWith(".tar.gz");
     expect(existsSync(join(workspaceRoot, "a.txt"))).toBe(false);
-    // Trashed file exists and contains the original content.
-    expect(await readFile(data.trashedTo!, "utf8")).toBe("bye\n");
+    expect(existsSync(data.trashedTo!)).toBe(true);
   });
 
   it("unlinks the file permanently when permanent: true", async () => {
@@ -225,8 +216,8 @@ describe("createDeleteFileTool", () => {
       ),
     );
     const entries = await sink.list();
-    expect(entries[0]!.details?.permanent).toBe(true);
-    expect(entries[0]!.details?.trashedTo).toBeUndefined();
+    expect(entries[0]?.details?.permanent).toBe(true);
+    expect(entries[0]?.details?.trashedTo).toBeUndefined();
   });
 
   it("falls back to factory defaultAuditSink when toolContext has none", async () => {
@@ -238,7 +229,7 @@ describe("createDeleteFileTool", () => {
     );
     const entries = await sink.list();
     expect(entries.length).toBe(1);
-    expect(entries[0]!.path).toBe("fb.txt");
+    expect(entries[0]?.path).toBe("fb.txt");
   });
 
   it("returns command_failed when aborted before start", async () => {
@@ -257,50 +248,5 @@ describe("createDeleteFileTool", () => {
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("command_failed");
     expect(existsSync(join(workspaceRoot, "a.txt"))).toBe(true);
-  });
-
-  it("GCs trash entries older than the configured max age", async () => {
-    // Seed an "old" trash entry by directly placing a file in the bucket
-    // with an old mtime.
-    const bucket = trashWorkspaceDir(workspaceRoot);
-    await mkdir(bucket, { recursive: true });
-    const oldFile = join(bucket, "old-entry.txt");
-    await writeFile(oldFile, "old");
-    // Backdate 14 days.
-    const past = (Date.now() - 14 * 24 * 60 * 60 * 1000) / 1000;
-    await utimes(oldFile, past, past);
-
-    const sha = await seedFile("trigger.txt", "fresh");
-    // Use 7-day max age (default).
-    const tool = createDeleteFileTool();
-    await getOk(
-      await tool.execute(
-        { path: "trigger.txt", expectedSha256: sha },
-        makeCtx(),
-      ),
-    );
-
-    // Old entry pruned; new entry from the delete remains.
-    expect(existsSync(oldFile)).toBe(false);
-    const remaining = await readdir(bucket);
-    expect(remaining.length).toBeGreaterThan(0);
-  });
-
-  it("respects trashMaxAgeMs: 0 (GC disabled)", async () => {
-    const bucket = trashWorkspaceDir(workspaceRoot);
-    await mkdir(bucket, { recursive: true });
-    const oldFile = join(bucket, "kept-entry.txt");
-    await writeFile(oldFile, "old");
-    const past = (Date.now() - 14 * 24 * 60 * 60 * 1000) / 1000;
-    await utimes(oldFile, past, past);
-
-    const sha = await seedFile("t.txt", "x");
-    const tool = createDeleteFileTool({ trashMaxAgeMs: 0 });
-    await getOk(
-      await tool.execute({ path: "t.txt", expectedSha256: sha }, makeCtx()),
-    );
-
-    // Old entry retained because GC is disabled.
-    expect(existsSync(oldFile)).toBe(true);
   });
 });

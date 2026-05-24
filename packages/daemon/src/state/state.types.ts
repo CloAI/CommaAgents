@@ -33,8 +33,6 @@ export interface RunState {
   readonly abortController: AbortController;
   /** Absolute, normalized cwd this run is associated with. */
   readonly cwd: string;
-  /** Session id this run contributes to (one persistent session per cwd). */
-  readonly sessionId: string;
 
   // Mutable fields — updated via RunUpdate
   /** Current lifecycle status. */
@@ -78,7 +76,7 @@ export interface DaemonState {
     strategyPath: string,
     strategyName: string,
     cwd: string,
-    sessionId: string,
+    runId?: string,
   ): RunState;
 
   /** Get a run by ID, or undefined if not found. */

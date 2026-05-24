@@ -1,0 +1,52 @@
+---
+title: useWebSocket
+description: Generic WebSocket connection hook with reconnection, pending message queue, and status tracking.
+---
+
+The lowest-level networking hook. Manages a single WebSocket connection with reconnection on URL change, message buffering during connection, and status reporting. Used internally by `DaemonContextProvider` -- most consumers never call this directly.
+
+```tsx
+import { useWebSocket } from "@comma-agents/tui";
+
+const { status, send, close } = useWebSocket({
+  url: "ws://localhost:7422/ws",
+  onMessage: (data) => {
+    const parsed = JSON.parse(data);
+  },
+  onError: (error) => console.error(error),
+});
+```
+
+## Configuration
+
+| Option | Type | Description |
+|---|---|---|
+| `url` | `string` | WebSocket server URL |
+| `onMessage` | `(data: string) => void` | Called when a text frame arrives |
+| `onStatus` | `(status: WebSocketStatus) => void` | Optional status change callback |
+| `onError` | `(error: string) => void` | Optional error callback |
+
+## Return Value
+
+| Field | Type | Description |
+|---|---|---|
+| `status` | `WebSocketStatus` | Current connection status |
+| `send` | `(data: string) => boolean` | Send a raw text frame; returns `false` if closed |
+| `close` | `() => void` | Close the WebSocket and clear pending messages |
+
+## WebSocketStatus
+
+| Value | Meaning |
+|---|---|
+| `"disconnected"` | No active connection |
+| `"connecting"` | WebSocket is handshaking |
+| `"connected"` | Open and ready for messages |
+| `"error"` | A connection error occurred |
+
+## Pending Message Queue
+
+Messages sent via `send()` while the socket is `"connecting"` are queued and flushed in order once the `open` event fires. `send()` returns `false` only when the socket is neither open nor connecting.
+
+## Reconnection
+
+The hook reacts to URL changes by closing the current connection and opening a new one. Callbacks (`onMessage`, `onStatus`, `onError`) are stored in refs, so the effect does not re-run when callback identities change.

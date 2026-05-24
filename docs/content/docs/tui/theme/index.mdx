@@ -1,0 +1,26 @@
+---
+title: Theme
+description: Centralized theming system — color palettes, spacing, typography, borders, breakpoints, and the defineTheme builder.
+---
+
+The TUI has a centralized theming system. A single `Theme` object provides tokens for colors, spacing, typography, borders, and breakpoints. Every component consumes these tokens through a theme hook, ensuring consistent styling across the entire UI.
+
+The active theme is selected by the user config (`themeName`) and injected into the tree by `ThemeContextProvider`.
+
+```ts
+import { defineTheme, type ThemeOf } from "@comma-agents/tui";
+import type { BoxProps, TextProps } from "ink";
+
+export const useMyTheme = defineTheme((tokens) => ({
+  root: { flexDirection: "column", height: "100%" } satisfies BoxProps,
+  header: { bold: tokens.typography.headerBold, color: tokens.colors.primary } satisfies TextProps,
+}));
+
+export type MyTheme = ThemeOf<typeof useMyTheme>;
+```
+
+| Concept | Description |
+|---|---|
+| [Tokens](/docs/tui/theme/tokens) | The `Theme` interface -- colors, spacing, typography, borders, breakpoints |
+| [defineTheme](/docs/tui/theme/define-theme) | Builder function that creates a memoized per-component theme hook |
+| [Built-in Themes](/docs/tui/theme/built-in-themes) | Dark, light, dracula, and solarized-dark presets |

@@ -1,16 +1,21 @@
 import { z } from "zod";
-import { DeleteSessionMessage } from "./requests/delete-session/delete-session.schema";
+import { GetRunMessage } from "./requests/get-run/index";
+import { ResumeRunMessage } from "./requests/resume-run/index";
 import { GetAvailableModelsMessage } from "./requests/get-available-models/get-available-models.schema";
 import { ListProvidersMessage } from "./requests/list-providers/list-providers.schema";
-import { ListSessionsMessage } from "./requests/list-sessions/list-sessions.schema";
+import { ListRunsMessage } from "./requests/list-runs/list-runs.schema";
 import { ListStrategiesMessage } from "./requests/list-strategies/list-strategies.schema";
-import { LoadSessionMessage } from "./requests/load-session/load-session.schema";
 import { PermissionDecisionMessage } from "./requests/permission-decision/permission-decision.schema";
 import { PingMessage } from "./requests/ping/ping.schema";
-import { RenameSessionMessage } from "./requests/rename-session/rename-session.schema";
+import { RegisterProviderMessage } from "./requests/register-provider/register-provider.schema";
+import { SetCredentialMessage } from "./requests/set-credential/set-credential.schema";
 import { StartStrategyMessage } from "./requests/start-strategy/start-strategy.schema";
 import { StopStrategyMessage } from "./requests/stop-strategy/stop-strategy.schema";
 import { SubscribeMessage } from "./requests/subscribe/subscribe.schema";
+import { TrashClearMessage } from "./requests/trash-clear/trash-clear.schema";
+import { TrashListMessage } from "./requests/trash-list/trash-list.schema";
+import { TrashRestoreMessage } from "./requests/trash-restore/trash-restore.schema";
+import { UnregisterProviderMessage } from "./requests/unregister-provider/unregister-provider.schema";
 import { UnsubscribeMessage } from "./requests/unsubscribe/unsubscribe.schema";
 import { UpdatePolicyMessage } from "./requests/update-policy/update-policy.schema";
 import { UserInputMessage } from "./requests/user-input/user-input.schema";
@@ -19,22 +24,26 @@ import {
   AgentOutputMessage,
   AgentStreamingMessage,
   AvailableModelsMessage,
+  CredentialSetMessage,
   ErrorMessage,
   PolicyUpdatedMessage,
   PongMessage,
   ProviderListMessage,
+  ProviderRegisteredMessage,
+  ProviderUnregisteredMessage,
   RequestInputMessage,
   RequestPermissionMessage,
-  SessionDeletedMessage,
-  SessionListMessage,
-  SessionLoadedMessage,
-  SessionRenamedMessage,
+  RunListMessage,
+  RunLoadedMessage,
   StepCompletedMessage,
   StepStartedMessage,
   StrategyCompletedMessage,
   StrategyErrorMessage,
   StrategyListMessage,
   StrategyStartedMessage,
+  TrashClearResultMessage,
+  TrashListResultMessage,
+  TrashRestoreResultMessage,
 } from "./responses";
 
 export const ClientMessage = z.discriminatedUnion("type", [
@@ -46,12 +55,17 @@ export const ClientMessage = z.discriminatedUnion("type", [
   ListStrategiesMessage,
   GetAvailableModelsMessage,
   ListProvidersMessage,
-  ListSessionsMessage,
-  LoadSessionMessage,
-  DeleteSessionMessage,
-  RenameSessionMessage,
+  RegisterProviderMessage,
+  UnregisterProviderMessage,
+  SetCredentialMessage,
+  ListRunsMessage,
+  GetRunMessage,
+  ResumeRunMessage,
   SubscribeMessage,
   UnsubscribeMessage,
+  TrashListMessage,
+  TrashRestoreMessage,
+  TrashClearMessage,
   PingMessage,
 ]);
 
@@ -71,10 +85,14 @@ export const DaemonMessage = z.discriminatedUnion("type", [
   StrategyListMessage,
   AvailableModelsMessage,
   ProviderListMessage,
-  SessionListMessage,
-  SessionLoadedMessage,
-  SessionDeletedMessage,
-  SessionRenamedMessage,
+  ProviderRegisteredMessage,
+  ProviderUnregisteredMessage,
+  CredentialSetMessage,
+  RunListMessage,
+  RunLoadedMessage,
+  TrashListResultMessage,
+  TrashRestoreResultMessage,
+  TrashClearResultMessage,
   PongMessage,
   ErrorMessage,
 ]);

@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import { useApp, useFocusManager, useInput } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -10,7 +9,6 @@ import type { TabDefinition } from "../components/Frame/Frame";
 import { OutputModal } from "../components/MessageList";
 import { Modal } from "../components/Modal";
 import type { StrategyOption } from "../components/StrategyPicker";
-import { BUILT_IN_STRATEGIES } from "../components/StrategyPicker/StrategyPicker.constants";
 import type { ChatMessage, ChatStatus } from "../hooks";
 import { useChat } from "../hooks";
 import type { LogEntry } from "../hooks/useLogs";
@@ -19,6 +17,7 @@ import { useModal } from "../hooks/useModal";
 import { ChatPage } from "../pages/ChatPage";
 import { IntroPage } from "../pages/IntroPage";
 import { LogsPage } from "../pages/LogsPage";
+import { discoverStrategies } from "../strategy-discovery";
 
 /** Whether stdin supports raw mode (false in piped/non-TTY contexts). */
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
@@ -26,17 +25,16 @@ const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
 /** Modal id for the command palette. */
 const COMMAND_PALETTE_MODAL_ID = "command-palette";
 
-/** Resolve a built-in strategy key to its absolute strategy file path. */
-function resolveStrategyPath(strategyKey: string): string {
-  return join(import.meta.dir, "..", "..", "strategies", `${strategyKey}.json`);
-}
-
-/** Look up a `StrategyOption` by its key, falling back to the first built-in. */
-function resolveStrategyOption(strategyKey: string): StrategyOption {
-  const matched = BUILT_IN_STRATEGIES.find(
-    (option) => option.value === strategyKey,
-  );
-  return matched ?? BUILT_IN_STRATEGIES[0]!;
+/** Look up a `StrategyOption` by its path, label, or value, falling back to the first available. */
+function resolveStrategyOption(
+  strategyKey: string,
+  strategies: readonly StrategyOption[],
+): StrategyOption | null {
+  const matched =
+    strategies.find((option) => option.value === strategyKey) ??
+    strategies.find((option) => option.label === strategyKey) ??
+    strategies.find((option) => option.value.endsWith(`${strategyKey}.json`));
+  return matched ?? strategies[0] ?? null;
 }
 
 /** Tab route definitions. Order determines display order in the Frame header. */
@@ -73,6 +71,8 @@ export function App({
   const { logs, clearLogs } = useLogs();
   const commandPalette = useModal(COMMAND_PALETTE_MODAL_ID);
 
+  const strategies = useMemo(() => discoverStrategies(), []);
+
   // Ensure Ink's focus system is active for tab-order cycling across inputs.
   useEffect(() => {
     enableFocus();
@@ -89,7 +89,7 @@ export function App({
     null,
   );
 
-  // When a session is loaded from disk, the chat hook surfaces its strategy
+  // When a run is loaded from disk, the chat hook surfaces its strategy
   // name/path. Synthesize a StrategyOption from that so the `/chat` route
   // renders the loaded transcript instead of falling back to IntroPage.
   const effectiveActiveStrategy = useMemo<StrategyOption | null>(() => {
@@ -98,21 +98,22 @@ export function App({
       return {
         label: chat.strategyName,
         value: chat.strategyPath ?? chat.strategyName,
-        description: chat.readOnly ? "loaded session" : "",
+        description: chat.readOnly ? "loaded run" : "",
       };
     }
     return null;
   }, [activeStrategy, chat.strategyName, chat.strategyPath, chat.readOnly]);
 
   const handleStartChat = useCallback(
-    (strategyKey: string, input: string): void => {
-      const strategyPath = resolveStrategyPath(strategyKey);
-      const option = resolveStrategyOption(strategyKey);
-      setActiveStrategy(option);
-      chat.startStrategy(strategyPath, input, process.cwd());
+    (strategyPath: string, input: string): void => {
+      const option = resolveStrategyOption(strategyPath, strategies);
+      if (option) {
+        setActiveStrategy(option);
+      }
+      chat.startStrategy(strategyPath, input, process.cwd(), option?.manifestPath);
       navigate("/chat");
     },
-    [chat, navigate],
+    [chat, navigate, strategies],
   );
 
   const handleReplySubmit = useCallback(
@@ -132,7 +133,10 @@ export function App({
   const handleResetChat = useCallback((): void => {
     chat.reset();
     setActiveStrategy(null);
-    navigate("/intro");
+    // The `/chat` route renders <IntroPage /> as its fallback when no
+    // active strategy is set — navigating there (rather than to a route
+    // that doesn't exist) makes the prompt visible again.
+    navigate("/chat");
   }, [chat, navigate]);
 
   const handleExitApp = useCallback((): void => {
@@ -152,9 +156,6 @@ export function App({
       if (key.ctrl && input === "c") {
         handleExitApp();
       }
-      if (key.ctrl && input === "r") {
-        handleResetChat();
-      }
       if (key.ctrl && input === "p") {
         commandPalette.toggle();
       }
@@ -167,14 +168,14 @@ export function App({
   );
 
   // Auto-start with `--input`: fire once on mount, then never again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: one-shot on mount
   useEffect(() => {
     if (!initialInput) return;
-    const strategyKey =
-      preselectedStrategy ?? BUILT_IN_STRATEGIES[0]?.value ?? "plan";
-    handleStartChat(strategyKey, initialInput);
-    // Intentionally one-shot: re-running on prop change would re-trigger
-    // a chat after the user navigated back to the intro screen.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on mount
+    const strategyPath = preselectedStrategy
+      ? resolveStrategyOption(preselectedStrategy, strategies)?.value
+      : strategies[0]?.value;
+    if (!strategyPath) return;
+    handleStartChat(strategyPath, initialInput);
   }, []);
 
   return (
@@ -194,16 +195,20 @@ export function App({
         onPermissionDecide={handlePermissionDecide}
         logs={logs}
         onClearLogs={clearLogs}
+        strategies={strategies}
       />
       <Modal
         title="Command Palette"
         modalId={COMMAND_PALETTE_MODAL_ID}
         closeOnEsc={false}
+        minHeight="60%"
+        maxHeight="60%"
       >
         <CommandPalette
           isVisible={commandPalette.isOpen}
           onClose={commandPalette.close}
           onExitApp={handleExitApp}
+          onResetChat={handleResetChat}
         />
       </Modal>
       <OutputModal />
@@ -244,6 +249,8 @@ export interface AppRenderProps {
   readonly logs: readonly LogEntry[];
   /** Called to clear all captured logs. */
   readonly onClearLogs: () => void;
+  /** Discovered strategy options from bundled, cwd, and data-dir. */
+  readonly strategies: readonly StrategyOption[];
 }
 
 export function AppRender({
@@ -261,6 +268,7 @@ export function AppRender({
   onPermissionDecide,
   logs,
   onClearLogs,
+  strategies,
 }: AppRenderProps): React.ReactElement {
   // /intro renders without the Frame tab bar.
   return (
@@ -281,10 +289,7 @@ export function AppRender({
                 activeStrategy={activeStrategy}
               />
             ) : (
-              <IntroPage
-                strategies={BUILT_IN_STRATEGIES}
-                onSubmit={onStartChat}
-              />
+              <IntroPage strategies={strategies} onSubmit={onStartChat} />
             )
           }
         />

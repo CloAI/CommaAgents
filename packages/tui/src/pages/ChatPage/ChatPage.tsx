@@ -1,4 +1,4 @@
-import { Box, Text, useFocusManager } from "ink";
+import { Box, useFocusManager } from "ink";
 import type React from "react";
 import { useEffect } from "react";
 
@@ -6,7 +6,6 @@ import {
   ChatTextArea,
   MessageList,
   PermissionPrompt,
-  Separator,
   StatusBar,
 } from "../../components";
 import type { PermissionDecision } from "../../components/PermissionPrompt";
@@ -163,12 +162,6 @@ export function ChatPageRender({
         error={error}
         strategyName={activeStrategy.label}
       />
-
-      <Box {...theme.footer}>
-        <Text {...theme.footer.text}>
-          ctrl+c exit | ctrl+r reset | ctrl+p commands
-        </Text>
-      </Box>
     </Box>
   );
 }

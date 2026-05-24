@@ -22,9 +22,6 @@ const STREAMING_CURSOR_CHAR = "\u258D";
 
 /**
  * Truncate long tool-call argument blobs so they fit a single visual line.
- *
- * Exported so the row-height estimator in `MessageList.utils.ts` can mirror
- * the renderer's truncation rule exactly when measuring wrapped output.
  */
 export const MAX_TOOL_ARGS_PREVIEW_LENGTH = 200;
 

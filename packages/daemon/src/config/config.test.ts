@@ -61,17 +61,17 @@ describe("DaemonConfigFileSchema", () => {
     expect(DaemonConfigFileSchema.parse({})).toEqual({});
   });
 
-  test("accepts valid full config", () => {
-    const config = {
-      port: 8080,
-      host: "0.0.0.0",
-      logLevel: "debug",
-      logFile: "/var/log/daemon.log",
-      providerCacheDir: "/tmp/providers",
-      pidFile: "/tmp/daemon.pid",
-    };
-    expect(DaemonConfigFileSchema.parse(config)).toEqual(config);
-  });
+    test("accepts valid full config", () => {
+      const config = {
+        port: 8080,
+        host: "0.0.0.0",
+        logLevel: "debug",
+        logFile: "/var/log/daemon.log",
+        providerCacheDir: "/tmp/providers",
+        pidFile: "/tmp/daemon.pid",
+      } as const;
+      expect(DaemonConfigFileSchema.parse(config)).toMatchObject(config);
+    });
 
   test("rejects port out of range", () => {
     expect(DaemonConfigFileSchema.safeParse({ port: 0 }).success).toBe(false);
@@ -99,13 +99,13 @@ describe("DaemonConfigFileSchema", () => {
     );
   });
 
-  test("accepts all valid log levels", () => {
-    for (const level of ["debug", "info", "warn", "error"]) {
-      expect(DaemonConfigFileSchema.parse({ logLevel: level }).logLevel).toBe(
-        level,
-      );
-    }
-  });
+    test("accepts all valid log levels", () => {
+      const levels = ["debug", "info", "warn", "error"] as const;
+      for (const level of levels) {
+        const parsed = DaemonConfigFileSchema.parse({ logLevel: level });
+        expect(parsed.logLevel).toBe(level);
+      }
+    });
 });
 
 // loadDaemonConfig — defaults

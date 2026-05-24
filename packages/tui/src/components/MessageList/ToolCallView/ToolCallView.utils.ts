@@ -63,10 +63,9 @@ export function formatResultSummary(
   // completed
   const text = output ?? "";
   if (text.length === 0) return "\u2192 0 lines";
-  // Count rows the same way Ink will when rendering: every \n
-  // introduces a new row, and a trailing \n produces an extra empty
-  // row inside a bordered panel (matches countWrappedLines in
-  // MessageList.utils.ts).
+  // Count rows the same way Ink will when rendering: every \n introduces
+  // a new row, and a trailing \n produces an extra empty row inside a
+  // bordered panel.
   const lineCount = text.split("\n").length;
   return `\u2192 ${lineCount} ${lineCount === 1 ? "line" : "lines"}`;
 }

@@ -1,6 +1,7 @@
 import { createContext, useMemo } from "react";
 
 import { useUserConfig } from "../../hooks/useUserConfig";
+import { defaultTheme } from "../theme";
 import type { Theme } from "../theme.types";
 import { resolveThemeByName } from "../themes";
 import type {
@@ -8,7 +9,15 @@ import type {
   ThemeContextType,
 } from "./useTheme.types";
 
-export const ThemeContext = createContext<ThemeContextType | null>(null);
+/**
+ * Default context value is `defaultTheme` so components rendered outside a
+ * live `<ThemeContextProvider>` — most importantly inside the detached tree
+ * Ink builds for `measureLayout` calls — still resolve a usable theme.
+ *
+ * Provider-aware consumers (the running app) override this via
+ * `<ThemeContextProvider>` higher up.
+ */
+export const ThemeContext = createContext<ThemeContextType>(defaultTheme);
 
 /**
  * Provides design tokens to descendant components and theme hooks.

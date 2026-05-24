@@ -3,7 +3,6 @@ import { SandboxViolationError } from "../../../errors";
 import { defineTool } from "../../define/define-tool";
 import {
   createMemoryAuditSink,
-  gcTrash,
   moveToTrash,
   STALE_FILE_RECOVERY_HINT,
   sandboxErrorToToolError,
@@ -22,7 +21,6 @@ export function createDeleteFileTool(
   config?: DeleteFileToolConfig,
 ): ToolDefinition<typeof deleteFileParams, DeleteFileData> {
   const defaultSink = config?.defaultAuditSink;
-  const trashMaxAgeMs = config?.trashMaxAgeMs;
 
   return defineTool<typeof deleteFileParams, DeleteFileData>({
     description: describeTool({
@@ -76,14 +74,15 @@ export function createDeleteFileTool(
         },
       ],
       notes: [
-        "Trash lives under `<os.tmpdir>/comma-trash/<sha256(workspaceRoot)>/<ts>-<basename>`. Entries older than 7 days are garbage-collected on each `delete_file` call.",
+        "Trash lives under `<dataDir>/trash/<sha256(workspaceRoot)>/<timestamp>-<sessionId>-<runId>-<basename>.tar.gz`. Archives are user-managed via the daemon (no automatic GC).",
         "Every delete is appended to the audit log as a `delete` operation.",
       ],
     }),
     parameters: deleteFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;
-      const sink = toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
+      const sink =
+        toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
 
       if (abort.aborted) {
         return errorResult<DeleteFileData>(
@@ -101,9 +100,7 @@ export function createDeleteFileTool(
         );
       } catch (caught) {
         if (caught instanceof SandboxViolationError) {
-          return errorResult<DeleteFileData>(
-            sandboxErrorToToolError(caught),
-          );
+          return errorResult<DeleteFileData>(sandboxErrorToToolError(caught));
         }
         throw caught;
       }
@@ -174,7 +171,11 @@ export function createDeleteFileTool(
         if (permanent) {
           await unlink(absolutePath);
         } else {
-          trashedTo = await moveToTrash(guard.cwd, absolutePath);
+          trashedTo = await moveToTrash(guard.cwd, absolutePath, {
+            sessionId,
+            agentName,
+            ...guard.trashMetadata,
+          });
         }
       } catch (caughtError) {
         const message = (caughtError as Error).message;
@@ -204,19 +205,6 @@ export function createDeleteFileTool(
             },
           ),
         );
-      }
-
-      if (trashMaxAgeMs !== 0) {
-        try {
-          await gcTrash(
-            guard.cwd,
-            trashMaxAgeMs !== undefined
-              ? { maxAgeMs: trashMaxAgeMs }
-              : undefined,
-          );
-        } catch {
-          /* GC failures are non-fatal */
-        }
       }
 
       const auditEntry: AuditEntry = {

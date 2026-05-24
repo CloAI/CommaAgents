@@ -1,0 +1,68 @@
+---
+title: TODO List System
+description: In-memory task tracking for agents — add, complete, list, and clear TODO items during a strategy run.
+---
+
+The TODO list system gives agents a lightweight, in-memory task tracker. It is not a workflow engine — it's a simple list that helps agents break large tasks into trackable steps and report progress.
+
+State is per-agent (keyed by agent name) and persists for the lifetime of the strategy run. It is not persisted to disk.
+
+## Quick Start
+
+Enable all five tools on an agent:
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "planner",
+  model: "openai/gpt-4o",
+  tools: ["todo_add", "todo_complete", "todo_get", "todo_get_next", "todo_clear"],
+});
+```
+
+## Typical workflow
+
+A typical agent interaction with the TODO system looks like this:
+
+1. **Add tasks** — The agent calls `todo_add` several times to populate the list.
+2. **Get next** — It calls `todo_get_next` to peek at the highest-priority pending item.
+3. **Work on it** — It does the work (coding, research, etc.).
+4. **Complete** — It calls `todo_complete` to mark the item done, which also returns the next pending item.
+5. **Repeat** — Steps 3-4 loop until `todo_get_next` returns null.
+6. **Review** — Optionally call `todo_get` to review the full list with completion statuses.
+
+## Tools at a glance
+
+| Tool | Purpose |
+|---|---|
+| [`todo_add`](/docs/core/tools/built-in/todo-system/todo_add) | Add a new pending item. Returns its assigned id. |
+| [`todo_complete`](/docs/core/tools/built-in/todo-system/todo_complete) | Mark an item done. Returns the next pending item. |
+| [`todo_get`](/docs/core/tools/built-in/todo-system/todo_get) | List all items with their statuses. |
+| [`todo_get_next`](/docs/core/tools/built-in/todo-system/todo_get_next) | Peek at the next pending item without changing state. |
+| [`todo_clear`](/docs/core/tools/built-in/todo-system/todo_clear) | Remove all items, resetting the list. |
+
+## Data model
+
+Each item is a simple object:
+
+```ts
+interface TodoItem {
+  id: number;
+  content: string;
+  status: "pending" | "completed";
+  createdAt: number;
+  completedAt?: number;
+}
+```
+
+Ids increment within each agent's list. Different agents maintain independent lists — agent `"planner"` and agent `"coder"` have separate todo state.
+
+## Resetting state
+
+For testing and embedder scenarios, the system exports `resetTodoStateForAgent(name)` and `resetAllTodoState()` to clear state between runs.
+
+```ts
+import { resetAllTodoState } from "@comma-agents/core";
+resetAllTodoState();
+```

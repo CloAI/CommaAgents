@@ -5,7 +5,6 @@ import { createAgent } from "../../../agents/agent/agent";
 import type { AgentCallResult } from "../../../agents/agent/agent.types";
 import { hookIntoAgent } from "../../../agents/hook-into-agent/hook-into-agent";
 import { createTokenTracker, useTokenTracking } from "./token-tracking";
-import type { TokenSnapshot } from "./token-tracking.types";
 
 // -- createTokenTracker tests --
 
@@ -49,10 +48,10 @@ describe("createTokenTracker", () => {
     const snap = tracker.snapshot();
 
     expect(snap.calls).toHaveLength(1);
-    expect(snap.calls[0]!.promptTokens).toBe(100);
-    expect(snap.calls[0]!.completionTokens).toBe(50);
-    expect(snap.calls[0]!.totalTokens).toBe(150);
-    expect(typeof snap.calls[0]!.timestamp).toBe("number");
+    expect(snap.calls[0]?.promptTokens).toBe(100);
+    expect(snap.calls[0]?.completionTokens).toBe(50);
+    expect(snap.calls[0]?.totalTokens).toBe(150);
+    expect(typeof snap.calls[0]?.timestamp).toBe("number");
   });
 
   it("should clear all data on reset", () => {

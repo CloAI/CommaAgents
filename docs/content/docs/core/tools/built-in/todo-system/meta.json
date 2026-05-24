@@ -1,0 +1,10 @@
+{
+  "title": "TODO List System",
+  "pages": [
+    "todo_add",
+    "todo_complete",
+    "todo_get",
+    "todo_get_next",
+    "todo_clear"
+  ]
+}

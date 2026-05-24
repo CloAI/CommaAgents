@@ -1,0 +1,41 @@
+---
+title: useRegion
+description: Reserve and directly write to a rectangular terminal region via ANSI escape sequences — bypasses Ink's renderer for high-frequency updates.
+---
+
+`useRegion` reserves a rectangular area in Ink's layout and writes content into it directly via ANSI cursor positioning, bypassing Ink's renderer entirely. Use this when content updates so frequently that React reconciliation would be a bottleneck.
+
+```tsx
+import { useRegion } from "@comma-agents/tui";
+
+const region = useRegion({ width: 30, height: 5 });
+
+// Reserve the region in the layout
+<Box ref={region.ref} width={region.dimensions.width} height={region.dimensions.height} />
+
+// Write content directly (no re-render)
+region.write([
+  "Line 1: status updated        ",
+  "Line 2: counter = 42            ",
+]);
+```
+
+## RegionOptions
+
+| Field | Type | Description |
+|---|---|---|
+| `width` | `number \| "auto"` | Width in columns, or `"auto"` to fill available space |
+| `height` | `number` | Height in rows |
+
+## RegionHandle
+
+| Field | Type | Description |
+|---|---|---|
+| `ref` | `React.Ref<DOMElement>` | Attach to a Box to reserve layout space |
+| `write` | `(lines: readonly string[]) => void` | Write content directly to the region |
+| `dimensions` | `RegionDimensions` | `{ width, height }` -- the region's size |
+| `position` | `RegionPosition` | `{ top, left }` -- 0-indexed absolute terminal position |
+
+## How It Works
+
+`write()` computes the absolute terminal position from Ink's Yoga layout tree, then writes lines via `stdout.write()` at that position. Lines are auto-truncated or padded to the region width. After every Ink render cycle, the region repaints itself from a cached copy via `setTimeout(0)`.

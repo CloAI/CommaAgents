@@ -37,25 +37,29 @@ export const PERMISSIVE_SANDBOX_CONFIG: SandboxConfig = {
 /**
  * Recommended default config — jailed to cwd, absolute paths rejected,
  * default forbidden globs enforced, all operations allowed within the boundary.
+ * `.comma/**` and `.` are explicitly allowlisted for reading so skills and
+ * configuration are always accessible without triggering permission prompts.
  */
 export const DEFAULT_SANDBOX_CONFIG: SandboxConfig = {
   cwd: process.cwd(),
   jail: true,
   allowAbsolutePaths: false,
   forbiddenGlobs: DEFAULT_FORBIDDEN_GLOBS,
-  read: { default: "allow" },
+  read: { default: "allow", allow: [".", ".comma/**"] },
   write: { default: "allow" },
 } as const;
 
 /**
  * Daemon default config — jailed to cwd, absolute paths allowed (daemon
  * passes absolute paths), in-cwd paths auto-allowed, anything outside
- * cwd triggers "ask" via the permission bridge.
+ * cwd triggers "ask" via the permission bridge. `.comma/**` and `.`
+ * are explicitly allowlisted for reading so skills and configuration are
+ * always accessible without prompting.
  */
 export const DEFAULT_DAEMON_SANDBOX_CONFIG: Omit<SandboxConfig, "cwd"> = {
   jail: true,
   allowAbsolutePaths: true,
   forbiddenGlobs: DEFAULT_FORBIDDEN_GLOBS,
-  read: { default: "ask", allow: ["**"] },
+  read: { default: "ask", allow: ["**", ".", ".comma/**"] },
   write: { default: "ask", allow: ["**"] },
 } as const;

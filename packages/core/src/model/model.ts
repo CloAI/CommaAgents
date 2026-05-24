@@ -145,7 +145,7 @@ async function resolveAutoModel(
     throw new ModelResolutionError(
       modelId,
       `Model "${modelId}" is not listed by any known provider in the catalog. ` +
-        "Use the \"providerID/modelID\" format to specify a provider explicitly.",
+        'Use the "providerID/modelID" format to specify a provider explicitly.',
     );
   }
 
@@ -160,10 +160,7 @@ async function resolveAutoModel(
     try {
       const factory = await resolver(providerId, credential);
       return factory(modelId);
-    } catch {
-      // Try the next candidate — resolution may fail (e.g. package not installed)
-      continue;
-    }
+    } catch {}
   }
 
   const providerList = candidateProviders.join(", ");
@@ -287,7 +284,7 @@ async function resolveAutoModel(
     throw new ModelResolutionError(
       modelId,
       `Model "${modelId}" is not listed by any known provider in the catalog. ` +
-        "Use the \"providerID/modelID\" format to specify a provider explicitly.",
+        'Use the "providerID/modelID" format to specify a provider explicitly.',
     );
   }
 
@@ -302,10 +299,7 @@ async function resolveAutoModel(
     try {
       const factory = await resolver(providerId, credential);
       return factory(modelId);
-    } catch {
-      // Try the next candidate — resolution may fail (e.g. package not installed)
-      continue;
-    }
+    } catch {}
   }
 
   const providerList = candidateProviders.join(", ");

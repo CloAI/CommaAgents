@@ -5,6 +5,7 @@ export {
   registerProvider,
   resetGlobalDefaults,
   setGlobalCredentialStore,
+  setProviderCacheDir,
   unregisterProvider,
 } from "./defaults";
 

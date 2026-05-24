@@ -1,6 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { RunOverview, RunTurn } from "@comma-agents/daemon";
 import {
   createContext,
   useCallback,
@@ -15,18 +16,18 @@ import { useDaemonCommand } from "../useDaemon/useDaemonCommand/useDaemonCommand
 import { useDaemonSubscription } from "../useDaemon/useDaemonSubscription/useDaemonSubscription";
 import type {
   ChatMessage,
-  ChatSession,
-  ChatSessionId,
-  ChatSessionsContextProviderProps,
-  ChatSessionsContextType,
-  CreateSessionInit,
+  ChatRun,
+  ChatRunId,
+  ChatRunsContextProviderProps,
+  ChatRunsContextType,
+  CreateRunInit,
   MessageSegment,
   PendingPermissionRequest,
-  PersistedSessionMeta,
 } from "./useChat.types";
+import { projectRunTurnToMessages } from "./useChat.utils";
 
-export const ChatSessionsContext =
-  createContext<ChatSessionsContextType | null>(null);
+export const ChatRunsContext =
+  createContext<ChatRunsContextType | null>(null);
 
 /** Diagnostic log file — bypasses console interception so writes always land. */
 const DEBUG_FILE = join(tmpdir(), "comma-agents-chat-debug.log");
@@ -51,11 +52,11 @@ function deriveLabelFromPath(strategyPath: string): string {
   return fileName.replace(/\.(json|yaml|yml)$/u, "");
 }
 
-/** Construct a fresh session in idle state. */
-function createInitialSession(
-  id: ChatSessionId,
-  init: CreateSessionInit,
-): ChatSession {
+/** Construct a fresh run in idle state. */
+function createInitialChatRun(
+  id: ChatRunId,
+  init: CreateRunInit,
+): ChatRun {
   const now = Date.now();
   return {
     id,
@@ -64,7 +65,7 @@ function createInitialSession(
       init.label ??
       (init.strategyPath
         ? deriveLabelFromPath(init.strategyPath)
-        : "New session"),
+        : "New run"),
     strategyPath: init.strategyPath ?? null,
     strategyName: null,
     readOnly: false,
@@ -80,106 +81,125 @@ function createInitialSession(
 }
 
 /**
- * Global provider for chat sessions.
+ * Global provider for chat runs.
  *
- * Owns a `Map<ChatSessionId, ChatSession>` plus the currently active session
+ * Owns a `Map<ChatRunId, ChatRun>` plus the currently active run
  * id. Subscribes once to every daemon message type and routes incoming
- * messages to the correct session by `daemonRunId`. Messages without a
- * `runId` (generic `error`, etc.) are routed to the active session.
+ * messages to the correct run by `daemonRunId`. Messages without a
+ * `runId` (generic `error`, etc.) are routed to the active run.
  *
  * Must be mounted inside a `<DaemonContextProvider>`.
  */
-export function ChatSessionsContextProvider(
-  props: ChatSessionsContextProviderProps,
+export function ChatRunsContextProvider(
+  props: ChatRunsContextProviderProps,
 ): React.ReactElement {
   const { children } = props;
 
-  const [sessions, setSessions] = useState<
-    ReadonlyMap<ChatSessionId, ChatSession>
+  const [chatRuns, setChatRuns] = useState<
+    ReadonlyMap<ChatRunId, ChatRun>
   >(() => new Map());
-  const [activeSessionId, setActiveSessionId] = useState<ChatSessionId | null>(
+  const [activeChatRunId, setActiveChatRunId] = useState<ChatRunId | null>(
     null,
   );
 
-  /** Per-session message id counter, kept in a ref to avoid re-renders. */
-  const messageCountersRef = useRef<Map<ChatSessionId, number>>(new Map());
+  /** Per-run message id counter, kept in a ref to avoid re-renders. */
+  const messageCountersRef = useRef<Map<ChatRunId, number>>(new Map());
 
-  /** Latest `activeSessionId` accessible inside subscription callbacks. */
-  const activeSessionIdRef = useRef<ChatSessionId | null>(null);
-  activeSessionIdRef.current = activeSessionId;
+  /** Latest `activeChatRunId` accessible inside subscription callbacks. */
+  const activeChatRunIdRef = useRef<ChatRunId | null>(null);
+  activeChatRunIdRef.current = activeChatRunId;
 
   const startStrategyCommand = useDaemonCommand("start_strategy");
   const sendUserInputCommand = useDaemonCommand("user_input");
   const stopStrategyCommand = useDaemonCommand("stop_strategy");
   const permissionDecisionCommand = useDaemonCommand("permission_decision");
-  const listSessionsCommand = useDaemonCommand("list_sessions");
-  const loadSessionCommand = useDaemonCommand("load_session");
+  const listRunsCommand = useDaemonCommand("list_runs");
+  const getRunCommand = useDaemonCommand("get_run");
+  const subscribeCommand = useDaemonCommand("subscribe");
+  const resumeRunCommand = useDaemonCommand("resume_run");
 
   const { status: daemonConnectionStatus } = useDaemon();
 
-  const [persistedSessions, setPersistedSessions] = useState<
-    readonly PersistedSessionMeta[]
-  >([]);
-  const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [persistedRuns, setPersistedRuns] = useState<readonly RunOverview[]>(
+    [],
+  );
+  const [isLoadingRun, setIsLoadingRun] = useState(false);
+  const [resumingRunId, setResumingRunId] = useState<string | null>(null);
 
-  useDaemonSubscription("session_list", (message) => {
-    const mapped: PersistedSessionMeta[] = message.sessions.map((session) => ({
-      daemonSessionId: session.id,
-      title: session.title,
-      cwd: session.cwd,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-    }));
-    setPersistedSessions(mapped);
+  useDaemonSubscription("run_list", (message) => {
+    setPersistedRuns(message.runs);
   });
 
-  useDaemonSubscription("session_loaded", (message) => {
-    setIsLoadingSession(false);
-    loadSession(message);
+  useDaemonSubscription("run_loaded", (message) => {
+    setIsLoadingRun(false);
+    loadRun(message);
   });
 
-  const fetchPersistedSessions = useCallback(
+  const fetchPersistedRuns = useCallback(
     (cwd?: string): void => {
-      listSessionsCommand(cwd !== undefined ? { cwd } : {});
+      listRunsCommand(cwd !== undefined ? { cwd } : {});
     },
-    [listSessionsCommand],
+    [listRunsCommand],
   );
 
-  const loadPersistedSession = useCallback(
-    (daemonSessionId: string): void => {
-      setIsLoadingSession(true);
-      const sent = loadSessionCommand({ sessionId: daemonSessionId });
+  const loadPersistedRun = useCallback(
+    (runId: string): void => {
+      // If we already have a local ChatRun bound to this daemon run,
+      // just switch to it — recreating a read-only copy would sever the
+      // live binding and hide the prompt area if the run is waiting for
+      // input.
+      for (const existingChatRun of chatRuns.values()) {
+        if (existingChatRun.daemonRunId === runId) {
+          setActiveChatRunId(existingChatRun.id);
+          return;
+        }
+      }
+      setIsLoadingRun(true);
+      const sent = getRunCommand({ runId });
       if (!sent) {
-        setIsLoadingSession(false);
+        setIsLoadingRun(false);
       }
     },
-    [loadSessionCommand],
+    [chatRuns, getRunCommand],
+  );
+
+  const resumeRun = useCallback(
+    (runId: string): void => {
+      setResumingRunId(runId);
+      setIsLoadingRun(true);
+      const sent = getRunCommand({ runId });
+      if (!sent) {
+        setIsLoadingRun(false);
+        setResumingRunId(null);
+      }
+    },
+    [getRunCommand],
   );
 
   useEffect(() => {
     if (daemonConnectionStatus === "connected") {
-      fetchPersistedSessions(process.cwd());
+      fetchPersistedRuns(process.cwd());
     }
-  }, [daemonConnectionStatus, fetchPersistedSessions]);
+  }, [daemonConnectionStatus, fetchPersistedRuns]);
 
   // -- Mutation helpers --
 
   /**
-   * Apply an update to a specific session, producing a new map.
-   * If the session does not exist, the map is returned unchanged.
+   * Apply an update to a specific run, producing a new map.
+   * If the run does not exist, the map is returned unchanged.
    */
-  const updateSession = useCallback(
+  const updateChatRun = useCallback(
     (
-      sessionId: ChatSessionId,
-      updater: (session: ChatSession) => ChatSession,
+      chatRunId: ChatRunId,
+      updater: (chatRun: ChatRun) => ChatRun,
     ): void => {
-      setSessions((previousSessions) => {
-        const existing = previousSessions.get(sessionId);
-        if (!existing) return previousSessions;
+      setChatRuns((previousChatRuns) => {
+        const existing = previousChatRuns.get(chatRunId);
+        if (!existing) return previousChatRuns;
         const updated = updater(existing);
-        if (updated === existing) return previousSessions;
-        const next = new Map(previousSessions);
-        next.set(sessionId, { ...updated, updatedAt: Date.now() });
+        if (updated === existing) return previousChatRuns;
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, { ...updated, updatedAt: Date.now() });
         return next;
       });
     },
@@ -187,16 +207,16 @@ export function ChatSessionsContextProvider(
   );
 
   /**
-   * Locate the session whose `daemonRunId` matches `runId`.
+   * Locate the run whose `daemonRunId` matches `runId`.
    * Reads the latest state via a functional setter trick to avoid stale closures.
    */
-  const findSessionIdByRunId = useCallback(
+  const findChatRunIdByDaemonRunId = useCallback(
     (
-      sessionsMap: ReadonlyMap<ChatSessionId, ChatSession>,
+      chatRunsMap: ReadonlyMap<ChatRunId, ChatRun>,
       runId: string,
-    ): ChatSessionId | null => {
-      for (const session of sessionsMap.values()) {
-        if (session.daemonRunId === runId) return session.id;
+    ): ChatRunId | null => {
+      for (const chatRun of chatRunsMap.values()) {
+        if (chatRun.daemonRunId === runId) return chatRun.id;
       }
       return null;
     },
@@ -206,25 +226,34 @@ export function ChatSessionsContextProvider(
   // -- Daemon subscriptions --
 
   useDaemonSubscription("strategy_started", (message) => {
-    setSessions((previousSessions) => {
-      // Find the most recently created session that's waiting to bind to a run.
-      let pendingSession: ChatSession | null = null;
-      for (const session of previousSessions.values()) {
-        if (
-          session.daemonRunId === null &&
-          session.status === "running" &&
-          (pendingSession === null ||
-            session.createdAt > pendingSession.createdAt)
-        ) {
-          pendingSession = session;
+    setChatRuns((previousChatRuns) => {
+      // Find the most recently created run that's waiting to bind to a run,
+      // or an existing run that has been resumed (matches daemonRunId).
+      let pendingChatRun: ChatRun | null = null;
+      for (const chatRun of previousChatRuns.values()) {
+        if (chatRun.daemonRunId === message.runId) {
+          pendingChatRun = chatRun;
+          break;
         }
       }
-      if (!pendingSession) return previousSessions;
+      if (!pendingChatRun) {
+        for (const chatRun of previousChatRuns.values()) {
+          if (
+            chatRun.daemonRunId === null &&
+            chatRun.status === "running" &&
+            (pendingChatRun === null ||
+              chatRun.createdAt > pendingChatRun.createdAt)
+          ) {
+            pendingChatRun = chatRun;
+          }
+        }
+      }
+      if (!pendingChatRun) return previousChatRuns;
 
-      const next = new Map(previousSessions);
+      const next = new Map(previousChatRuns);
       const agentsList = message.agents.join(", ");
       const systemMessage: ChatMessage = {
-        id: `${pendingSession.id}-msg-${(messageCountersRef.current.get(pendingSession.id) ?? 0) + 1}`,
+        id: `${pendingChatRun.id}-msg-${(messageCountersRef.current.get(pendingChatRun.id) ?? 0) + 1}`,
         role: "system",
         sender: "system",
         text: `Strategy "${message.strategyName}" started (agents: ${agentsList})`,
@@ -232,17 +261,17 @@ export function ChatSessionsContextProvider(
         timestamp: Date.now(),
       };
       messageCountersRef.current.set(
-        pendingSession.id,
-        (messageCountersRef.current.get(pendingSession.id) ?? 0) + 1,
+        pendingChatRun.id,
+        (messageCountersRef.current.get(pendingChatRun.id) ?? 0) + 1,
       );
 
-      next.set(pendingSession.id, {
-        ...pendingSession,
+      next.set(pendingChatRun.id, {
+        ...pendingChatRun,
         daemonRunId: message.runId,
         runStatus: "running",
         label: message.strategyName,
         strategyName: message.strategyName,
-        messages: [...pendingSession.messages, systemMessage],
+        messages: [...pendingChatRun.messages, systemMessage],
         updatedAt: Date.now(),
       });
       return next;
@@ -250,24 +279,24 @@ export function ChatSessionsContextProvider(
   });
 
   useDaemonSubscription("step_started", (message) => {
-    setSessions((previousSessions) => {
-      const sessionId = findSessionIdByRunId(previousSessions, message.runId);
-      if (!sessionId) return previousSessions;
-      const session = previousSessions.get(sessionId)!;
-      const counter = (messageCountersRef.current.get(sessionId) ?? 0) + 1;
-      messageCountersRef.current.set(sessionId, counter);
+    setChatRuns((previousChatRuns) => {
+      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      if (!chatRunId) return previousChatRuns;
+      const chatRun = previousChatRuns.get(chatRunId)!;
+      const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
+      messageCountersRef.current.set(chatRunId, counter);
       const systemMessage: ChatMessage = {
-        id: `${sessionId}-msg-${counter}`,
+        id: `${chatRunId}-msg-${counter}`,
         role: "system",
         sender: "system",
         text: `[${message.stepName}] started`,
         streaming: false,
         timestamp: Date.now(),
       };
-      const next = new Map(previousSessions);
-      next.set(sessionId, {
-        ...session,
-        messages: [...session.messages, systemMessage],
+      const next = new Map(previousChatRuns);
+      next.set(chatRunId, {
+        ...chatRun,
+        messages: [...chatRun.messages, systemMessage],
         updatedAt: Date.now(),
       });
       return next;
@@ -275,13 +304,13 @@ export function ChatSessionsContextProvider(
   });
 
   useDaemonSubscription("step_completed", (message) => {
-    setSessions((previousSessions) => {
-      const sessionId = findSessionIdByRunId(previousSessions, message.runId);
-      if (!sessionId) return previousSessions;
-      const session = previousSessions.get(sessionId)!;
-      const next = new Map(previousSessions);
+    setChatRuns((previousChatRuns) => {
+      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      if (!chatRunId) return previousChatRuns;
+      const chatRun = previousChatRuns.get(chatRunId)!;
+      const next = new Map(previousChatRuns);
       const systemMessage: ChatMessage = {
-        id: `${sessionId}-msg-${(messageCountersRef.current.get(sessionId) ?? 0) + 1}`,
+        id: `${chatRunId}-msg-${(messageCountersRef.current.get(chatRunId) ?? 0) + 1}`,
         role: "system",
         sender: "system",
         text: `[${message.stepName}] completed`,
@@ -289,12 +318,12 @@ export function ChatSessionsContextProvider(
         timestamp: Date.now(),
       };
       messageCountersRef.current.set(
-        sessionId,
-        (messageCountersRef.current.get(sessionId) ?? 0) + 1,
+        chatRunId,
+        (messageCountersRef.current.get(chatRunId) ?? 0) + 1,
       );
-      next.set(sessionId, {
-        ...session,
-        messages: [...session.messages, systemMessage],
+      next.set(chatRunId, {
+        ...chatRun,
+        messages: [...chatRun.messages, systemMessage],
         updatedAt: Date.now(),
       });
       return next;
@@ -302,27 +331,27 @@ export function ChatSessionsContextProvider(
   });
 
   useDaemonSubscription("agent_streaming", (message) => {
-    setSessions((previousSessions) => {
-      const sessionId = findSessionIdByRunId(previousSessions, message.runId);
-      if (!sessionId) return previousSessions;
-      const session = previousSessions.get(sessionId)!;
+    setChatRuns((previousChatRuns) => {
+      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      if (!chatRunId) return previousChatRuns;
+      const chatRun = previousChatRuns.get(chatRunId)!;
 
       // Locate (or create) the in-flight agent message for this agent. We
       // group all streaming events (text, tool-call, tool-result, ...) for
       // an agent's turn into a single message with ordered segments, so
       // the UI can render tool calls inline with the prose.
-      const lastAgentIndex = session.messages.findLastIndex(
+      const lastAgentIndex = chatRun.messages.findLastIndex(
         (existing) =>
           existing.sender === message.agentName && existing.streaming,
       );
 
       debugLog("[useChat] agent_streaming event", {
-        sessionId,
+        chatRunId,
         runId: message.runId,
         agentName: message.agentName,
         eventType: message.event.type,
         lastAgentIndex,
-        totalMessages: session.messages.length,
+        totalMessages: chatRun.messages.length,
       });
 
       const ensureAgentMessage = (
@@ -332,10 +361,10 @@ export function ChatSessionsContextProvider(
         if (lastAgentIndex >= 0) {
           return { messages: mutable, index: lastAgentIndex };
         }
-        const counter = (messageCountersRef.current.get(sessionId) ?? 0) + 1;
-        messageCountersRef.current.set(sessionId, counter);
+        const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
+        messageCountersRef.current.set(chatRunId, counter);
         const fresh: ChatMessage = {
-          id: `${sessionId}-msg-${counter}`,
+          id: `${chatRunId}-msg-${counter}`,
           role: "agent",
           sender: message.agentName,
           text: "",
@@ -364,7 +393,7 @@ export function ChatSessionsContextProvider(
 
       if (message.event.type === "text") {
         const { messages: nextMessages, index } = ensureAgentMessage(
-          session.messages,
+          chatRun.messages,
         );
         const target = nextMessages[index]!;
         const segments = target.segments ?? [];
@@ -390,9 +419,9 @@ export function ChatSessionsContextProvider(
           text: target.text + message.event.text,
           segments: nextSegments,
         };
-        const next = new Map(previousSessions);
-        next.set(sessionId, {
-          ...session,
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
           messages: nextMessages,
           updatedAt: Date.now(),
         });
@@ -401,7 +430,7 @@ export function ChatSessionsContextProvider(
 
       if (message.event.type === "tool-call") {
         const { messages: nextMessages, index } = ensureAgentMessage(
-          session.messages,
+          chatRun.messages,
         );
         nextMessages[index] = appendSegment(nextMessages[index]!, {
           type: "tool-call",
@@ -409,9 +438,9 @@ export function ChatSessionsContextProvider(
           toolName: message.event.toolName,
           args: message.event.args,
         });
-        const next = new Map(previousSessions);
-        next.set(sessionId, {
-          ...session,
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
           messages: nextMessages,
           updatedAt: Date.now(),
         });
@@ -420,7 +449,7 @@ export function ChatSessionsContextProvider(
 
       if (message.event.type === "tool-result") {
         const { messages: nextMessages, index } = ensureAgentMessage(
-          session.messages,
+          chatRun.messages,
         );
         nextMessages[index] = appendSegment(nextMessages[index]!, {
           type: "tool-result",
@@ -432,9 +461,9 @@ export function ChatSessionsContextProvider(
             ? { error: message.event.error }
             : {}),
         });
-        const next = new Map(previousSessions);
-        next.set(sessionId, {
-          ...session,
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
           messages: nextMessages,
           updatedAt: Date.now(),
         });
@@ -443,7 +472,7 @@ export function ChatSessionsContextProvider(
 
       if (message.event.type === "thinking-start") {
         const { messages: nextMessages, index } = ensureAgentMessage(
-          session.messages,
+          chatRun.messages,
         );
         const target = nextMessages[index]!;
         const segments = target.segments ?? [];
@@ -459,9 +488,9 @@ export function ChatSessionsContextProvider(
             },
           ],
         };
-        const next = new Map(previousSessions);
-        next.set(sessionId, {
-          ...session,
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
           messages: nextMessages,
           updatedAt: Date.now(),
         });
@@ -472,7 +501,7 @@ export function ChatSessionsContextProvider(
         const eventId = message.event.id;
         const eventText = message.event.text;
         const { messages: nextMessages, index } = ensureAgentMessage(
-          session.messages,
+          chatRun.messages,
         );
         const target = nextMessages[index]!;
         const segments = target.segments ?? [];
@@ -515,9 +544,9 @@ export function ChatSessionsContextProvider(
           ];
         }
         nextMessages[index] = { ...target, segments: nextSegments };
-        const next = new Map(previousSessions);
-        next.set(sessionId, {
-          ...session,
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
           messages: nextMessages,
           updatedAt: Date.now(),
         });
@@ -527,7 +556,7 @@ export function ChatSessionsContextProvider(
       if (message.event.type === "thinking-end") {
         const eventId = message.event.id;
         const { messages: nextMessages, index } = ensureAgentMessage(
-          session.messages,
+          chatRun.messages,
         );
         const target = nextMessages[index]!;
         const segments = target.segments ?? [];
@@ -538,7 +567,7 @@ export function ChatSessionsContextProvider(
             segment.streaming,
         );
         if (thinkingIndex < 0) {
-          return previousSessions;
+          return previousChatRuns;
         }
         const existing = segments[thinkingIndex] as Extract<
           MessageSegment,
@@ -553,9 +582,9 @@ export function ChatSessionsContextProvider(
             ...segments.slice(thinkingIndex + 1),
           ],
         };
-        const next = new Map(previousSessions);
-        next.set(sessionId, {
-          ...session,
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
           messages: nextMessages,
           updatedAt: Date.now(),
         });
@@ -564,18 +593,18 @@ export function ChatSessionsContextProvider(
 
       if (message.event.type === "done") {
         debugLog("[useChat] agent_streaming done", {
-          sessionId,
+          chatRunId,
           runId: message.runId,
           agentName: message.agentName,
           lastAgentIndex,
-          totalMessages: session.messages.length,
+          totalMessages: chatRun.messages.length,
           lastAgentTextLength:
             lastAgentIndex >= 0
-              ? session.messages[lastAgentIndex]!.text.length
+              ? chatRun.messages[lastAgentIndex]!.text.length
               : null,
         });
-        if (lastAgentIndex < 0) return previousSessions;
-        const mutableMessages = [...session.messages];
+        if (lastAgentIndex < 0) return previousChatRuns;
+        const mutableMessages = [...chatRun.messages];
         const target = mutableMessages[lastAgentIndex]!;
         const finalSegments = (target.segments ?? []).map<MessageSegment>(
           (segment) =>
@@ -588,9 +617,9 @@ export function ChatSessionsContextProvider(
           streaming: false,
           segments: finalSegments,
         };
-        const next = new Map(previousSessions);
-        next.set(sessionId, {
-          ...session,
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
           messages: mutableMessages,
           updatedAt: Date.now(),
         });
@@ -598,21 +627,21 @@ export function ChatSessionsContextProvider(
       }
 
       // step-start — no UI segment to render.
-      return previousSessions;
+      return previousChatRuns;
     });
   });
 
   useDaemonSubscription("agent_output", (message) => {
-    setSessions((previousSessions) => {
-      const sessionId = findSessionIdByRunId(previousSessions, message.runId);
-      if (!sessionId) {
-        debugLog("[useChat] agent_output ignored — no session for runId", {
+    setChatRuns((previousChatRuns) => {
+      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      if (!chatRunId) {
+        debugLog("[useChat] agent_output ignored — no run for runId", {
           runId: message.runId,
           agentName: message.agentName,
         });
-        return previousSessions;
+        return previousChatRuns;
       }
-      const session = previousSessions.get(sessionId)!;
+      const chatRun = previousChatRuns.get(chatRunId)!;
 
       // If the streaming subscription has already produced a message for this
       // agent (in-flight or finalized) carrying text, `agent_output` is a
@@ -620,19 +649,19 @@ export function ChatSessionsContextProvider(
       // daemon emits `agent_output` BEFORE the streaming `done` event, so the
       // streamed message is typically still `streaming: true` at this point —
       // we must NOT gate on `!streaming` here.
-      const lastAgentIndex = session.messages.findLastIndex(
+      const lastAgentIndex = chatRun.messages.findLastIndex(
         (existing) =>
           existing.role === "agent" && existing.sender === message.agentName,
       );
       const lastAgentMessage =
-        lastAgentIndex >= 0 ? session.messages[lastAgentIndex]! : null;
+        lastAgentIndex >= 0 ? chatRun.messages[lastAgentIndex]! : null;
       debugLog("[useChat] agent_output received", {
-        sessionId,
+        chatRunId,
         runId: message.runId,
         agentName: message.agentName,
         outputTextLength: message.text.length,
         outputTextPreview: message.text.slice(0, 80),
-        totalMessages: session.messages.length,
+        totalMessages: chatRun.messages.length,
         lastAgentIndex,
         lastAgentStreaming: lastAgentMessage?.streaming ?? null,
         lastAgentTextLength: lastAgentMessage?.text.length ?? null,
@@ -645,17 +674,17 @@ export function ChatSessionsContextProvider(
           "[useChat] agent_output skipped — duplicate of streamed message",
           {},
         );
-        return previousSessions;
+        return previousChatRuns;
       }
 
       debugLog(
         "[useChat] agent_output appending new message (no streamed match)",
         {},
       );
-      const counter = (messageCountersRef.current.get(sessionId) ?? 0) + 1;
-      messageCountersRef.current.set(sessionId, counter);
+      const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
+      messageCountersRef.current.set(chatRunId, counter);
       const agentMessage: ChatMessage = {
-        id: `${sessionId}-msg-${counter}`,
+        id: `${chatRunId}-msg-${counter}`,
         role: "agent",
         sender: message.agentName,
         text: message.text,
@@ -663,10 +692,10 @@ export function ChatSessionsContextProvider(
         streaming: false,
         timestamp: Date.now(),
       };
-      const next = new Map(previousSessions);
-      next.set(sessionId, {
-        ...session,
-        messages: [...session.messages, agentMessage],
+      const next = new Map(previousChatRuns);
+      next.set(chatRunId, {
+        ...chatRun,
+        messages: [...chatRun.messages, agentMessage],
         updatedAt: Date.now(),
       });
       return next;
@@ -674,18 +703,18 @@ export function ChatSessionsContextProvider(
   });
 
   useDaemonSubscription("request_input", (message) => {
-    setSessions((previousSessions) => {
-      const sessionId = findSessionIdByRunId(previousSessions, message.runId);
-      if (!sessionId) return previousSessions;
-      const session = previousSessions.get(sessionId)!;
-      let updatedMessages = session.messages;
+    setChatRuns((previousChatRuns) => {
+      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      if (!chatRunId) return previousChatRuns;
+      const chatRun = previousChatRuns.get(chatRunId)!;
+      let updatedMessages = chatRun.messages;
       if (message.prompt) {
-        const counter = (messageCountersRef.current.get(sessionId) ?? 0) + 1;
-        messageCountersRef.current.set(sessionId, counter);
+        const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
+        messageCountersRef.current.set(chatRunId, counter);
         updatedMessages = [
-          ...session.messages,
+          ...chatRun.messages,
           {
-            id: `${sessionId}-msg-${counter}`,
+            id: `${chatRunId}-msg-${counter}`,
             role: "system",
             sender: "system",
             text: message.prompt,
@@ -694,9 +723,9 @@ export function ChatSessionsContextProvider(
           },
         ];
       }
-      const next = new Map(previousSessions);
-      next.set(sessionId, {
-        ...session,
+      const next = new Map(previousChatRuns);
+      next.set(chatRunId, {
+        ...chatRun,
         status: "waiting_input",
         pendingInputAgent: message.agentName,
         messages: updatedMessages,
@@ -707,27 +736,27 @@ export function ChatSessionsContextProvider(
   });
 
   useDaemonSubscription("strategy_completed", (message) => {
-    setSessions((previousSessions) => {
-      const sessionId = findSessionIdByRunId(previousSessions, message.runId);
-      if (!sessionId) return previousSessions;
-      const session = previousSessions.get(sessionId)!;
-      const counter = (messageCountersRef.current.get(sessionId) ?? 0) + 1;
-      messageCountersRef.current.set(sessionId, counter);
+    setChatRuns((previousChatRuns) => {
+      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      if (!chatRunId) return previousChatRuns;
+      const chatRun = previousChatRuns.get(chatRunId)!;
+      const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
+      messageCountersRef.current.set(chatRunId, counter);
       const systemMessage: ChatMessage = {
-        id: `${sessionId}-msg-${counter}`,
+        id: `${chatRunId}-msg-${counter}`,
         role: "system",
         sender: "system",
         text: "Strategy completed.",
         streaming: false,
         timestamp: Date.now(),
       };
-      const next = new Map(previousSessions);
-      next.set(sessionId, {
-        ...session,
+      const next = new Map(previousChatRuns);
+      next.set(chatRunId, {
+        ...chatRun,
         status: "completed",
         runStatus: "completed",
         pendingPermissionRequests: [],
-        messages: [...session.messages, systemMessage],
+        messages: [...chatRun.messages, systemMessage],
         updatedAt: Date.now(),
       });
       return next;
@@ -735,10 +764,10 @@ export function ChatSessionsContextProvider(
   });
 
   useDaemonSubscription("request_permission", (message) => {
-    setSessions((previousSessions) => {
-      const sessionId = findSessionIdByRunId(previousSessions, message.runId);
-      if (!sessionId) return previousSessions;
-      const session = previousSessions.get(sessionId)!;
+    setChatRuns((previousChatRuns) => {
+      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      if (!chatRunId) return previousChatRuns;
+      const chatRun = previousChatRuns.get(chatRunId)!;
       const newRequest: PendingPermissionRequest = {
         permissionRequestId: message.requestId,
         runId: message.runId,
@@ -747,12 +776,12 @@ export function ChatSessionsContextProvider(
         operation: message.operation,
         resource: message.resource,
       };
-      const next = new Map(previousSessions);
-      next.set(sessionId, {
-        ...session,
+      const next = new Map(previousChatRuns);
+      next.set(chatRunId, {
+        ...chatRun,
         status: "waiting_permission",
         pendingPermissionRequests: [
-          ...session.pendingPermissionRequests,
+          ...chatRun.pendingPermissionRequests,
           newRequest,
         ],
         updatedAt: Date.now(),
@@ -770,27 +799,27 @@ export function ChatSessionsContextProvider(
   });
 
   useDaemonSubscription("strategy_error", (message) => {
-    setSessions((previousSessions) => {
-      const sessionId = findSessionIdByRunId(previousSessions, message.runId);
-      if (!sessionId) return previousSessions;
-      const session = previousSessions.get(sessionId)!;
-      const counter = (messageCountersRef.current.get(sessionId) ?? 0) + 1;
-      messageCountersRef.current.set(sessionId, counter);
+    setChatRuns((previousChatRuns) => {
+      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      if (!chatRunId) return previousChatRuns;
+      const chatRun = previousChatRuns.get(chatRunId)!;
+      const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
+      messageCountersRef.current.set(chatRunId, counter);
       const systemMessage: ChatMessage = {
-        id: `${sessionId}-msg-${counter}`,
+        id: `${chatRunId}-msg-${counter}`,
         role: "system",
         sender: "system",
         text: `Error: ${message.error.message}`,
         streaming: false,
         timestamp: Date.now(),
       };
-      const next = new Map(previousSessions);
-      next.set(sessionId, {
-        ...session,
+      const next = new Map(previousChatRuns);
+      next.set(chatRunId, {
+        ...chatRun,
         status: "error",
         runStatus: "error",
         error: message.error.message,
-        messages: [...session.messages, systemMessage],
+        messages: [...chatRun.messages, systemMessage],
         updatedAt: Date.now(),
       });
       return next;
@@ -798,11 +827,11 @@ export function ChatSessionsContextProvider(
   });
 
   useDaemonSubscription("error", (message) => {
-    const targetSessionId = activeSessionIdRef.current;
+    const targetSessionId = activeChatRunIdRef.current;
     if (!targetSessionId) return;
-    setSessions((previousSessions) => {
-      const session = previousSessions.get(targetSessionId);
-      if (!session) return previousSessions;
+    setChatRuns((previousChatRuns) => {
+      const chatRun = previousChatRuns.get(targetSessionId);
+      if (!chatRun) return previousChatRuns;
       const counter =
         (messageCountersRef.current.get(targetSessionId) ?? 0) + 1;
       messageCountersRef.current.set(targetSessionId, counter);
@@ -814,12 +843,12 @@ export function ChatSessionsContextProvider(
         streaming: false,
         timestamp: Date.now(),
       };
-      const next = new Map(previousSessions);
+      const next = new Map(previousChatRuns);
       next.set(targetSessionId, {
-        ...session,
+        ...chatRun,
         status: "error",
         error: message.message,
-        messages: [...session.messages, systemMessage],
+        messages: [...chatRun.messages, systemMessage],
         updatedAt: Date.now(),
       });
       return next;
@@ -828,13 +857,13 @@ export function ChatSessionsContextProvider(
 
   // -- Public API --
 
-  const createSession = useCallback(
-    (init: CreateSessionInit = {}): ChatSessionId => {
+  const createChatRun = useCallback(
+    (init: CreateRunInit = {}): ChatRunId => {
       const id = crypto.randomUUID();
-      const session = createInitialSession(id, init);
-      setSessions((previousSessions) => {
-        const next = new Map(previousSessions);
-        next.set(id, session);
+      const chatRun = createInitialChatRun(id, init);
+      setChatRuns((previousChatRuns) => {
+        const next = new Map(previousChatRuns);
+        next.set(id, chatRun);
         return next;
       });
       return id;
@@ -843,35 +872,41 @@ export function ChatSessionsContextProvider(
   );
 
   const startStrategy = useCallback(
-    (strategyPath: string, input?: string, cwd?: string): ChatSessionId => {
+    (
+      strategyPath: string,
+      input?: string,
+      cwd?: string,
+      manifestPath?: string,
+    ): ChatRunId => {
       const id = crypto.randomUUID();
       const now = Date.now();
-      const session: ChatSession = {
-        ...createInitialSession(id, { strategyPath }),
+      const chatRun: ChatRun = {
+        ...createInitialChatRun(id, { strategyPath }),
         status: "running",
         createdAt: now,
         updatedAt: now,
       };
 
-      setSessions((previousSessions) => {
-        const next = new Map(previousSessions);
-        next.set(id, session);
+      setChatRuns((previousChatRuns) => {
+        const next = new Map(previousChatRuns);
+        next.set(id, chatRun);
         return next;
       });
-      setActiveSessionId(id);
+      setActiveChatRunId(id);
 
       const requestId = startStrategyCommand({
         strategyPath,
         ...(input !== undefined ? { input } : {}),
         ...(cwd !== undefined ? { cwd } : {}),
+        ...(manifestPath !== undefined ? { manifestPath } : {}),
       });
 
       if (!requestId) {
         // Daemon unreachable — flip to error immediately.
-        setSessions((previousSessions) => {
-          const existing = previousSessions.get(id);
-          if (!existing) return previousSessions;
-          const next = new Map(previousSessions);
+        setChatRuns((previousChatRuns) => {
+          const existing = previousChatRuns.get(id);
+          if (!existing) return previousChatRuns;
+          const next = new Map(previousChatRuns);
           next.set(id, {
             ...existing,
             status: "error",
@@ -888,24 +923,19 @@ export function ChatSessionsContextProvider(
   );
 
   /**
-   * Project a `session_loaded` payload into a local `ChatSession`.
+   * Project a `run_loaded` payload into a local `ChatRun`.
    *
    * Each persisted turn becomes two `ChatMessage`s: a `user` message
    * carrying `turn.userMessage` and an `agent` message carrying `turn.text`
-   * (with a single non-streaming text segment). Run summaries are surfaced
-   * as system messages between turns when their boundaries are detectable
-   * via `startedAt`/`completedAt`. The hydrated session is marked `readOnly`
-   * so input/permission UIs short-circuit.
+   * (with a single non-streaming text segment). The hydrated run is
+   * marked `readOnly` so input/permission UIs short-circuit.
    */
-  const loadSession = useCallback(
-    (payload: DaemonMessageOf<"session_loaded">): ChatSessionId => {
+  const loadRun = useCallback(
+    (payload: DaemonMessageOf<"run_loaded">): ChatRunId => {
       const id = crypto.randomUUID();
       const now = Date.now();
-      const { metadata, turns, runs } = payload;
-
-      // Derive a strategyName/strategyPath from the most recent run, if any.
-      // Persisted turns predate any single run so this is best-effort metadata.
-      const lastRun = runs.length > 0 ? runs[runs.length - 1]! : null;
+      const { runId, strategyName, strategyPath, status, error, turns } =
+        payload;
 
       const projected: ChatMessage[] = [];
       let counter = 0;
@@ -914,50 +944,39 @@ export function ChatSessionsContextProvider(
         return `${id}-msg-${counter}`;
       };
 
-      for (const turn of turns) {
-        if (turn.userMessage.length > 0 && turn.userMessageSource !== "agent") {
-          projected.push({
-            id: nextId(),
-            role: "user",
-            sender: "you",
-            text: turn.userMessage,
-            streaming: false,
-            timestamp: Date.parse(turn.startedAt) || now,
-          });
-        }
-        if (turn.text.length > 0) {
-          projected.push({
-            id: nextId(),
-            role: "agent",
-            sender: turn.agentName,
-            text: turn.text,
-            segments: [{ type: "text", text: turn.text, streaming: false }],
-            streaming: false,
-            timestamp: Date.parse(turn.completedAt) || now,
-          });
-        }
+      for (const turn of turns as readonly RunTurn[]) {
+        projected.push(...projectRunTurnToMessages(turn, nextId, now));
       }
 
-      const finalRunStatus = lastRun?.status ?? null;
-      const baseStatus: ChatSession["status"] =
-        finalRunStatus === "error"
-          ? "error"
-          : finalRunStatus === "cancelled"
-            ? "cancelled"
-            : finalRunStatus === "completed"
-              ? "completed"
-              : "idle";
+      // A run is "live" if the daemon still considers it active. For live
+      // runs we bind to the daemon (so events route here), skip readOnly,
+      // and re-subscribe — the daemon's broadcast sink only fans out to
+      // currently-subscribed clients, so this is required for events such
+      // as `request_input` to reach the TUI.
+      const isResuming = runId === resumingRunId;
+      const isLive = status === "pending" || status === "running" || isResuming;
 
-      const session: ChatSession = {
+      const baseStatus: ChatRun["status"] =
+        status === "error"
+          ? "error"
+          : status === "cancelled" && !isResuming
+            ? "cancelled"
+            : status === "completed"
+              ? "completed"
+              : isLive
+                ? "running"
+                : "idle";
+
+      const chatRun: ChatRun = {
         id,
-        daemonRunId: null,
-        label: metadata.title ?? lastRun?.strategyName ?? "Loaded session",
-        strategyPath: lastRun?.strategyPath ?? null,
-        strategyName: lastRun?.strategyName ?? null,
-        readOnly: true,
+        daemonRunId: isLive ? runId : null,
+        label: strategyName ?? "Loaded run",
+        strategyPath: strategyPath ?? null,
+        strategyName: strategyName ?? null,
+        readOnly: !isLive,
         status: baseStatus,
-        runStatus: finalRunStatus,
-        error: lastRun?.error?.message ?? null,
+        runStatus: isResuming ? "running" : status,
+        error: isResuming ? null : (error?.message ?? null),
         pendingInputAgent: null,
         pendingPermissionRequests: [],
         messages: projected,
@@ -967,30 +986,37 @@ export function ChatSessionsContextProvider(
 
       messageCountersRef.current.set(id, counter);
 
-      setSessions((previousSessions) => {
-        const next = new Map(previousSessions);
-        next.set(id, session);
+      setChatRuns((previousChatRuns) => {
+        const next = new Map(previousChatRuns);
+        next.set(id, chatRun);
         return next;
       });
-      setActiveSessionId(id);
+      setActiveChatRunId(id);
+
+      if (isResuming) {
+        setResumingRunId(null);
+        resumeRunCommand({ runId });
+      } else if (isLive) {
+        subscribeCommand({ runId });
+      }
 
       return id;
     },
-    [],
+    [subscribeCommand, resumeRunCommand, resumingRunId],
   );
 
   const sendInput = useCallback(
-    (sessionId: ChatSessionId, text: string): void => {
-      setSessions((previousSessions) => {
-        const session = previousSessions.get(sessionId);
-        if (!session) return previousSessions;
-        if (!session.daemonRunId || !session.pendingInputAgent)
-          return previousSessions;
+    (chatRunId: ChatRunId, text: string): void => {
+      setChatRuns((previousChatRuns) => {
+        const chatRun = previousChatRuns.get(chatRunId);
+        if (!chatRun) return previousChatRuns;
+        if (!chatRun.daemonRunId || !chatRun.pendingInputAgent)
+          return previousChatRuns;
 
-        const counter = (messageCountersRef.current.get(sessionId) ?? 0) + 1;
-        messageCountersRef.current.set(sessionId, counter);
+        const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
+        messageCountersRef.current.set(chatRunId, counter);
         const userMessage: ChatMessage = {
-          id: `${sessionId}-msg-${counter}`,
+          id: `${chatRunId}-msg-${counter}`,
           role: "user",
           sender: "you",
           text,
@@ -999,15 +1025,15 @@ export function ChatSessionsContextProvider(
         };
 
         sendUserInputCommand({
-          runId: session.daemonRunId,
-          agentName: session.pendingInputAgent,
+          runId: chatRun.daemonRunId,
+          agentName: chatRun.pendingInputAgent,
           text,
         });
 
-        const next = new Map(previousSessions);
-        next.set(sessionId, {
-          ...session,
-          messages: [...session.messages, userMessage],
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
+          messages: [...chatRun.messages, userMessage],
           pendingInputAgent: null,
           status: "running",
           updatedAt: Date.now(),
@@ -1020,22 +1046,22 @@ export function ChatSessionsContextProvider(
 
   const sendPermissionDecision = useCallback(
     (
-      sessionId: ChatSessionId,
+      chatRunId: ChatRunId,
       decision: "allow" | "deny" | "allow-session" | "deny-session",
     ): void => {
-      setSessions((previousSessions) => {
-        const session = previousSessions.get(sessionId);
+      setChatRuns((previousChatRuns) => {
+        const chatRun = previousChatRuns.get(chatRunId);
         if (
-          !session ||
-          session.pendingPermissionRequests.length === 0 ||
-          !session.daemonRunId
+          !chatRun ||
+          chatRun.pendingPermissionRequests.length === 0 ||
+          !chatRun.daemonRunId
         )
-          return previousSessions;
+          return previousChatRuns;
 
-        const head = session.pendingPermissionRequests[0]!;
+        const head = chatRun.pendingPermissionRequests[0]!;
 
         permissionDecisionCommand({
-          runId: session.daemonRunId,
+          runId: chatRun.daemonRunId,
           permissionRequestId: head.permissionRequestId,
           decision,
         });
@@ -1046,10 +1072,10 @@ export function ChatSessionsContextProvider(
         // shorter; in practice policy_updated fires after and finds the head already
         // gone, so it dequeues the next item. To keep it simple: always dequeue here
         // immediately for UX responsiveness.
-        const remaining = session.pendingPermissionRequests.slice(1);
-        const next = new Map(previousSessions);
-        next.set(sessionId, {
-          ...session,
+        const remaining = chatRun.pendingPermissionRequests.slice(1);
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
           status: remaining.length > 0 ? "waiting_permission" : "running",
           pendingPermissionRequests: remaining,
           updatedAt: Date.now(),
@@ -1060,87 +1086,87 @@ export function ChatSessionsContextProvider(
     [permissionDecisionCommand],
   );
 
-  const stopSession = useCallback(
-    (sessionId: ChatSessionId): void => {
-      const session = sessions.get(sessionId);
-      if (!session || !session.daemonRunId) return;
-      stopStrategyCommand({ runId: session.daemonRunId });
+  const stopChatRun = useCallback(
+    (chatRunId: ChatRunId): void => {
+      const chatRun = chatRuns.get(chatRunId);
+      if (!chatRun || !chatRun.daemonRunId) return;
+      stopStrategyCommand({ runId: chatRun.daemonRunId });
     },
-    [sessions, stopStrategyCommand],
+    [chatRuns, stopStrategyCommand],
   );
 
-  const resetSession = useCallback(
-    (sessionId: ChatSessionId): void => {
-      updateSession(sessionId, (session) => ({
-        ...session,
+  const resetChatRun = useCallback(
+    (chatRunId: ChatRunId): void => {
+      updateChatRun(chatRunId, (chatRun) => ({
+        ...chatRun,
         messages: [],
         status: "idle",
         error: null,
         pendingInputAgent: null,
         pendingPermissionRequests: [],
-        // Clear loaded-session metadata so the host app falls back to its
+        // Clear loaded-run metadata so the host app falls back to its
         // intro/strategy-selection view after a reset.
         strategyName: null,
         strategyPath: null,
         readOnly: false,
       }));
-      messageCountersRef.current.set(sessionId, 0);
+      messageCountersRef.current.set(chatRunId, 0);
     },
-    [updateSession],
+    [updateChatRun],
   );
 
-  const removeSession = useCallback((sessionId: ChatSessionId): void => {
-    setSessions((previousSessions) => {
-      if (!previousSessions.has(sessionId)) return previousSessions;
-      const next = new Map(previousSessions);
-      next.delete(sessionId);
+  const removeChatRun = useCallback((chatRunId: ChatRunId): void => {
+    setChatRuns((previousChatRuns) => {
+      if (!previousChatRuns.has(chatRunId)) return previousChatRuns;
+      const next = new Map(previousChatRuns);
+      next.delete(chatRunId);
       return next;
     });
-    messageCountersRef.current.delete(sessionId);
-    setActiveSessionId((currentActive) =>
-      currentActive === sessionId ? null : currentActive,
+    messageCountersRef.current.delete(chatRunId);
+    setActiveChatRunId((currentActive) =>
+      currentActive === chatRunId ? null : currentActive,
     );
   }, []);
 
-  const contextValue = useMemo<ChatSessionsContextType>(
+  const contextValue = useMemo<ChatRunsContextType>(
     () => ({
-      sessions,
-      activeSessionId,
-      setActiveSessionId,
-      createSession,
+      chatRuns,
+      activeChatRunId,
+      setActiveChatRunId,
+      createChatRun,
       startStrategy,
-      loadSession,
       sendInput,
       sendPermissionDecision,
-      stopSession,
-      resetSession,
-      removeSession,
-      persistedSessions,
-      fetchPersistedSessions,
-      loadPersistedSession,
-      isLoadingSession,
+      stopChatRun,
+      resetChatRun,
+      removeChatRun,
+      persistedRuns,
+      fetchPersistedRuns,
+      loadPersistedRun,
+      resumeRun,
+      isLoadingRun,
     }),
     [
-      sessions,
-      activeSessionId,
-      createSession,
+      chatRuns,
+      activeChatRunId,
+      createChatRun,
       startStrategy,
-      loadSession,
       sendInput,
       sendPermissionDecision,
-      stopSession,
-      resetSession,
-      removeSession,
-      persistedSessions,
-      fetchPersistedSessions,
-      loadPersistedSession,
-      isLoadingSession,
+      stopChatRun,
+      resetChatRun,
+      removeChatRun,
+      persistedRuns,
+      fetchPersistedRuns,
+      loadPersistedRun,
+      resumeRun,
+      isLoadingRun,
     ],
   );
 
   return (
-    <ChatSessionsContext.Provider value={contextValue}>
+    <ChatRunsContext.Provider value={contextValue}>
       {children}
-    </ChatSessionsContext.Provider>
+    </ChatRunsContext.Provider>
   );
 }

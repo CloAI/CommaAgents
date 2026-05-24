@@ -113,19 +113,9 @@ The `format` parameter must be `"json"` or `"yaml"`. `loadAgent` auto-detects fo
 
 ## System Prompt Templates
 
-Instead of a static `systemPrompt`, you can define a `systemPromptTemplate` using [Liquid](https://liquidjs.com/) syntax with default variables:
+Instead of a static `systemPrompt`, you can define a `systemPromptTemplate` using [Liquid](https://liquidjs.com/) syntax with default variables. The loader converts it to a `PromptTemplate` automatically. When both `systemPromptTemplate` and `systemPrompt` are present, the template takes precedence.
 
-```yaml
-name: greeter
-model: openai/gpt-4o
-systemPromptTemplate:
-  template: "You are a {{ role }} who speaks {{ language }}."
-  variables:
-    role: friendly assistant
-    language: English
-```
-
-When both `systemPromptTemplate` and `systemPrompt` are present, the template takes precedence.
+See the [Prompts & Templates](/docs/core/prompts) documentation for the full template syntax, custom filters, and how to use `updatePromptVariables` to change defaults at runtime.
 
 ## Model and Tool Resolution
 

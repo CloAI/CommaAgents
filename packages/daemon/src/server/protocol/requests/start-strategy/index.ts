@@ -23,5 +23,6 @@ export function handleStartStrategy(
     message.requestId,
     message.modelOverride,
     message.cwd,
+    message.manifestPath,
   );
 }

@@ -1,0 +1,37 @@
+---
+title: useBreakpoint
+description: Track terminal dimensions and resolve the active mobile-first breakpoint from the theme.
+---
+
+`useBreakpoint` tracks the terminal's current column and row count via Ink's `useStdout()` resize events and resolves the active breakpoint from the theme's `breakpoints` map. Provides helper methods for responsive rendering.
+
+Must be inside `<ThemeContextProvider>`.
+
+```tsx
+import { useBreakpoint } from "@comma-agents/tui";
+
+const bp = useBreakpoint();
+
+bp.columns;           // current terminal width in columns
+bp.rows;              // current terminal height in rows
+bp.breakpoint;        // "xs" | "sm" | "md" | "lg" | "xl"
+bp.containerWidth;    // resolved max width from theme.containerWidths
+
+bp.above("md");       // true if width >= md threshold
+bp.below("sm");       // true if width < sm threshold
+bp.between("sm", "lg"); // true if sm <= width < lg
+```
+
+## BreakpointState
+
+| Field | Type | Description |
+|---|---|---|
+| `columns` | `number` | Terminal width in columns |
+| `rows` | `number` | Terminal height in rows |
+| `breakpoint` | `BreakpointName` | Active breakpoint name |
+| `containerWidth` | `number \| undefined` | Max container width (undefined = full width) |
+| `above` | `(name: BreakpointName) => boolean` | Width ``>=`` given breakpoint |
+| `below` | `(name: BreakpointName) => boolean` | Width ``<`` given breakpoint |
+| `between` | `(lower, upper) => boolean` | ``lower <= width < upper`` |
+
+Breakpoints are mobile-first (min-width). The active breakpoint is the largest one whose threshold is less than or equal to the current column count. When running outside a TTY, falls back to `process.stdout.columns` (typically `80`).

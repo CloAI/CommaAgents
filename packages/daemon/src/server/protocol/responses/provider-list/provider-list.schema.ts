@@ -24,6 +24,14 @@ export const ModelsSourceSchema = z.enum([
   "error",
 ]);
 
+/** Expected credential type for a provider. */
+export const CredentialTypeSchema = z.enum([
+  "api",
+  "oauth",
+  "custom",
+  "none",
+]);
+
 /** Normalized model metadata sent over the wire. */
 export const ModelInfoSchema = z.object({
   id: z.string(),
@@ -70,6 +78,14 @@ export const ProviderInfoSchema = z.object({
   id: z.string(),
   /** Human-friendly display name (catalog `name` when available). */
   name: z.string(),
+  /**
+   * Expected credential type for this provider.
+   * - `"api"` — simple API key (OpenAI, Anthropic, etc.)
+   * - `"oauth"` — OAuth 2.0 flow (GitHub Copilot)
+   * - `"custom"` — provider-specific opaque data
+   * - `"none"` — local runtime with no credential needed (Ollama)
+   */
+  credentialType: CredentialTypeSchema,
   /**
    * Configuration-level auth status. `"configured"` means a credential
    * is resolvable (env var, strategy scope, or global scope). Not

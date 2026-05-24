@@ -2,12 +2,12 @@ export type { BreakpointState } from "./useBreakpoint";
 export { useBreakpoint } from "./useBreakpoint";
 export type {
   ChatMessage,
-  ChatSession,
-  ChatSessionId,
-  ChatSessionsContextProviderProps,
-  ChatSessionsContextType,
+  ChatRun,
+  ChatRunId,
+  ChatRunsContextProviderProps,
+  ChatRunsContextType,
   ChatStatus,
-  CreateSessionInit,
+  CreateRunInit,
   MessageRole,
   PendingPermissionRequest,
   RunStatus,
@@ -15,9 +15,9 @@ export type {
   UseChatState,
 } from "./useChat";
 export {
-  ChatSessionsContextProvider,
+  ChatRunsContextProvider,
   useChat,
-  useChatSessions,
+  useChatRuns,
 } from "./useChat";
 export type {
   ClientMessageOf,

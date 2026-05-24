@@ -1,0 +1,94 @@
+---
+title: defineTheme
+description: Builder function that creates a memoized per-component theme hook with auto-inferred types.
+---
+
+`defineTheme` takes a pure function from `Theme` tokens to style objects and returns a memoized React hook. The returned hook's type is inferred from the builder's return value -- no parallel interface declaration needed.
+
+```ts
+import type { BoxProps, TextProps } from "ink";
+import { defineTheme, type ThemeOf } from "@comma-agents/tui";
+
+export const useMyComponentTheme = defineTheme((tokens) => ({
+  root: {
+    flexDirection: "column",
+    padding: tokens.spacing.md,
+    borderStyle: tokens.borders.style,
+    borderColor: tokens.borders.color,
+  } satisfies BoxProps,
+
+  title: {
+    bold: tokens.typography.headerBold,
+    color: tokens.colors.primary,
+  } satisfies TextProps,
+
+  body: {
+    color: tokens.colors.secondary,
+  } satisfies TextProps,
+}));
+
+// The type is inferred -- no parallel interface to maintain
+export type MyComponentTheme = ThemeOf<typeof useMyComponentTheme>;
+```
+
+## Builder Function
+
+```ts
+type ThemeBuilder<ThemeShape> = (tokens: Theme) => ThemeShape;
+```
+
+The builder receives the global `Theme` object and returns a shape of style objects. Each style object should use `satisfies BoxProps` or `satisfies TextProps` for full autocomplete on Ink prop names while preserving narrow literal types.
+
+## Using satisfies
+
+The `satisfies` keyword is the recommended pattern because it:
+
+- Gives autocomplete on Ink prop names (`flexDirection`, `borderStyle`, `color`, `bold`, etc.)
+- Preserves literal types -- `"column"` stays `"column"`, not `string`
+- Does not widen or restrict the return type
+
+## ThemeOf
+
+```ts
+type ThemeOf<ThemeHook extends () => unknown> = ReturnType<ThemeHook>;
+```
+
+Extracts the resolved theme shape from a `useXTheme` hook. Use this to type `theme` props without declaring a separate interface.
+
+## Usage in Components
+
+```tsx
+function MyComponent(): ReactElement {
+  const theme = useMyComponentTheme();
+  // theme.root, theme.title, theme.body -- fully typed
+
+  return (
+    <Box {...theme.root}>
+      <Text {...theme.title}>Hello</Text>
+      <Text {...theme.body}>World</Text>
+    </Box>
+  );
+}
+```
+
+The hook is memoized on `tokens`, so theme objects have stable references unless the user switches themes or tokens change.
+
+## Render Split Pattern
+
+When following the container/render split pattern, the container resolves the theme and passes it as a prop:
+
+```tsx
+export function MyComponent({ title }: MyComponentProps): ReactElement {
+  const theme = useMyComponentTheme();
+  return <MyComponentRender theme={theme} title={title} />;
+}
+
+export function MyComponentRender({ theme, title }: MyComponentRenderProps): ReactElement {
+  return <Box {...theme.root}><Text {...theme.title}>{title}</Text></Box>;
+}
+
+export interface MyComponentRenderProps {
+  readonly theme: MyComponentTheme;
+  readonly title: string;
+}
+```

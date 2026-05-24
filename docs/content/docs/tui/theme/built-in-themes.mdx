@@ -1,0 +1,45 @@
+---
+title: Built-in Themes
+description: Pre-built theme presets — dark, light, dracula, and solarized-dark.
+---
+
+# Built-in Themes
+
+The TUI ships with four theme presets. The active theme is selected via `useUserConfig` (`themeName`) and injected by `ThemeContextProvider`.
+
+## Available Themes
+
+| Name | Palette | Background |
+|---|---|---|
+| `dark` | Blues, grays | Dark (#1a1a2e) |
+| `light` | Blues, grays | Light (#f5f5f5) |
+| `dracula` | Purple, pink, green | Dark (#282a36) |
+| `solarized-dark` | Teal, yellow, orange | Dark (#002b36) |
+
+## Switching Themes
+
+The user switches themes through the command palette or settings. Programmatically:
+
+```tsx
+import { useUserConfig } from "@comma-agents/tui";
+
+const { updateConfig } = useUserConfig();
+
+updateConfig({ themeName: "dracula" });
+```
+
+The theme change is immediately reflected in all components -- `ThemeContextProvider` detects the `themeName` change and re-renders with the new tokens.
+
+## Theme Resolution
+
+`ThemeContextProvider` resolves the active theme by name from the registry. The default theme is `dark`. If the configured theme name does not match any registered theme, `dark` is used as the fallback.
+
+The `useTheme` hook returns the resolved `Theme` object:
+
+```tsx
+import { useTheme } from "@comma-agents/tui";
+
+const theme = useTheme();
+```
+
+For most use cases, create a per-component theme hook with `defineTheme` rather than consuming the raw `useTheme` hook directly. This keeps style logic colocated with the component.

@@ -22,7 +22,7 @@ export const DaemonConfigFileSchema = z
     providerCacheDir: z.string().optional(),
     pidFile: z.string().optional(),
     configFile: z.string().optional(),
-    sessionsDir: z.string().optional(),
+    runsDir: z.string().optional(),
   })
   .strict();
 
@@ -44,8 +44,8 @@ export interface DaemonConfig {
   readonly pidFile: string;
   /** Path to the config file that was loaded (or the default path if none found). */
   readonly configFile: string;
-  /** Directory where per-cwd session files are persisted. Env: COMMA_DAEMON_SESSIONS_DIR. */
-  readonly sessionsDir: string;
+  /** Directory where run files are persisted. Env: COMMA_DAEMON_RUNS_DIR. */
+  readonly runsDir: string;
 }
 
 function buildDefaults(): DaemonConfig {
@@ -58,7 +58,7 @@ function buildDefaults(): DaemonConfig {
     providerCacheDir: join(dataDir, "providers"),
     pidFile: join(dataDir, "daemon.pid"),
     configFile: join(dataDir, "daemon.json"),
-    sessionsDir: join(dataDir, "sessions"),
+    runsDir: join(dataDir, "runs"),
   };
 }
 
@@ -94,11 +94,11 @@ const ENV_MAP: Array<{
     key: "pidFile",
     parse: (rawValue) => rawValue,
   },
-  {
-    env: "COMMA_DAEMON_SESSIONS_DIR",
-    key: "sessionsDir",
-    parse: (rawValue) => rawValue,
-  },
+    {
+      env: "COMMA_DAEMON_RUNS_DIR",
+      key: "runsDir",
+      parse: (rawValue) => rawValue,
+    },
 ];
 
 function readEnvOverrides(

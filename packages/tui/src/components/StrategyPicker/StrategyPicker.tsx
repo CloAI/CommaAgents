@@ -8,6 +8,7 @@ export interface StrategyOption {
   readonly label: string;
   readonly value: string;
   readonly description: string;
+  readonly manifestPath?: string;
 }
 
 export interface StrategyPickerProps {

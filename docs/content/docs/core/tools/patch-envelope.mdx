@@ -62,7 +62,7 @@ Paths are workspace-relative and forward-slash separated. They are resolved thro
 *** Delete File: path/to/old.txt
 ```
 
-No body. The pre-image is captured for rollback and the file is moved to the workspace trash on commit (same mechanism as [delete_file](/docs/core/tools/built-in/delete_file)).
+No body. The pre-image is captured for rollback and the file is moved to the workspace trash on commit (same mechanism as [delete_file](/docs/core/tools/built-in/file-io/delete_file)).
 
 ## Move File
 
@@ -108,6 +108,6 @@ The flag is echoed in `data.atomic`.
 
 ## Related
 
-- [apply_patch](/docs/core/tools/built-in/apply_patch) — the tool that consumes this envelope.
-- [Stale file protocol](/docs/core/tools/stale-file-protocol) — `expectedSha256ByPath` semantics.
+- [apply_patch](/docs/core/tools/built-in/file-io/apply_patch) — the tool that consumes this envelope.
+- [Stale file protocol](/docs/core/tools/built-in/file-io) — `expectedSha256ByPath` semantics.
 - [Error kinds](/docs/core/tools/error-kinds) — `patch_parse_error` and `patch_apply_error` details.

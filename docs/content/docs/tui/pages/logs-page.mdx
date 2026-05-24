@@ -1,0 +1,28 @@
+---
+title: LogsPage
+description: Captured console log viewer — scrollable list of intercepted console output with timestamps and level colors.
+---
+
+# LogsPage
+
+Displays captured `console` output from the log store. Each entry shows a timestamp, level label, and the log message. Color-coded by log level.
+
+```tsx
+import { LogsPage } from "@comma-agents/tui";
+
+<LogsPage logs={logEntries} onClear={clearLogs} maxVisible={100} />
+```
+
+## LogsPageProps
+
+| Prop | Type | Default | Description |
+|---|---|---|
+| `logs` | `readonly LogEntry[]` | -- | Log entries from `useLogs().logs` |
+| `onClear` | `() => void` | -- | Callback to clear all logs |
+| `maxVisible` | `number` | `100` | Maximum visible entries (shows most recent) |
+
+## Empty State
+
+When there are no captured logs, the page renders `"No logs captured yet."` in the theme's `emptyState` style.
+
+The page renders the most recent `maxVisible` entries, so the view stays pinned to the newest output. Uses `useLogPageTheme()` for styling the log rows, timestamps, and level labels.

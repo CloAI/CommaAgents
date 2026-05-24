@@ -1,0 +1,51 @@
+---
+title: PermissionPrompt
+description: Sandbox permission request prompt with action buttons — allow, deny, or remember the decision for the session.
+---
+
+# PermissionPrompt
+
+Renders a permission request from the sandbox with a warning-styled border and four action buttons. Shown when a strategy attempts a sandbox operation that requires user approval.
+
+```tsx
+import { PermissionPrompt } from "@comma-agents/tui";
+
+<PermissionPrompt
+  request={{
+    agentName: "builder",
+    toolName: "run_command",
+    operation: "fs.exec",
+    resource: "/usr/bin/node",
+  }}
+  onDecide={(decision) => {
+    // "allow" | "deny" | "allow-session" | "deny-session"
+  }}
+/>
+```
+
+## PermissionPromptProps
+
+| Prop | Type | Description |
+|---|---|---|
+| `request` | `PendingPermissionRequest` | The permission request to display |
+| `onDecide` | `(decision: PermissionDecision) => void` | User decision callback |
+
+## PendingPermissionRequest
+
+| Field | Type | Description |
+|---|---|---|
+| `agentName` | `string` | Agent that triggered the operation |
+| `toolName` | `string?` | Tool that triggered the operation |
+| `operation` | `"fs.read" \| "fs.write" \| "fs.exec"` | Category of operation |
+| `resource` | `string` | Absolute resource path |
+
+## Decision Buttons
+
+| Button | Variant | Description |
+|---|---|---|
+| Allow once | Primary | Approve this single operation |
+| Allow session | Secondary | Approve all future operations of this type for the session |
+| Deny once | Danger | Deny this single operation |
+| Deny session | Ghost | Deny all future operations of this type for the session |
+
+Focus starts on "Allow once" when the prompt mounts. Tab / Shift+Tab cycles through all four buttons. Enter or left click confirms the focused choice. The prompt shows the agent name (and tool name if applicable), the human-readable operation type, and the resource path.

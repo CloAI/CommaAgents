@@ -1,0 +1,23 @@
+---
+title: Skill Tools
+description: Tools that agents use to interact with the skill system — listing and loading skills on demand.
+---
+
+Skill tools let agents discover and load [skills](/docs/core/skills) discovered at strategy load time. Skills are advertised in the agent's system prompt as one-line summaries; agents can list them all or load a specific one when needed.
+
+## Tools at a glance
+
+| Tool | Purpose |
+|---|---|
+| [`list_skills`](/docs/core/tools/built-in/skill-tools/list_skills) | List all registered skills with their names, descriptions, and origins. No content is returned — use `load_skill` for that. |
+| [`load_skill`](/docs/core/tools/built-in/skill-tools/load_skill) | Load the full markdown body of a named skill advertised in the system prompt. |
+
+## How it fits together
+
+1. Skills are discovered from `<workspace>/.comma/skills/` and the global config directory at strategy load time. See [Skills](/docs/core/skills) for authoring and discovery details.
+2. Each skill's name and description appear as a line in the `## Available Skills` block in the agent's system prompt.
+3. The agent can call `list_skills` to see all available skills and their descriptions programmatically.
+4. When the agent determines a skill is relevant, it calls `load_skill` with the skill's name.
+5. The tool returns the full markdown body, which stays in context for the rest of the turn.
+
+The skill tools bridge the skill system's discovery layer and the agent's runtime context. If no skill registry is wired into the agent, both tools return `skill_unavailable` — a clear signal to stop attempting skill operations for the rest of the turn.

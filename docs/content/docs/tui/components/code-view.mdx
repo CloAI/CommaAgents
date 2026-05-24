@@ -1,0 +1,34 @@
+---
+title: CodeView
+description: Syntax-highlighted code block powered by Shiki.
+---
+
+# CodeView
+
+Renders a code string with syntax highlighting using [Shiki](https://shiki.matsu.io/). Supports line numbers and loads languages on demand.
+
+```tsx
+import { CodeView } from "@comma-agents/tui";
+
+<CodeView code={sourceCode} language="typescript" showLineNumbers />
+```
+
+## CodeViewProps
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `code` | `string` | -- | Source code string to highlight |
+| `language` | `string` | -- | Language identifier (e.g. `"typescript"`, `"python"`) |
+| `showLineNumbers` | `boolean` | `false` | Show line numbers in the gutter |
+
+## Highlighting
+
+The component creates a Shiki `Highlighter` instance on first render (cached via ref). A set of commonly used languages is preloaded; other languages are loaded on demand when first encountered. If a language is unsupported, the code falls back to plain text. Shiki outputs ANSI escape sequences which Ink renders natively.
+
+## Line Numbers
+
+When `showLineNumbers` is `true`, a gutter column appears on the left. The gutter width adapts to the total line count (minimum 3 characters). A configurable gap separates the gutter from the code.
+
+## Container / Render Split
+
+`CodeView` handles the async Shiki lifecycle -- creating the highlighter, loading languages, and producing highlighted output. `CodeViewRender` is the pure function that takes the highlighted ANSI string and renders the lines with optional line numbers.

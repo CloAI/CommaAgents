@@ -1,0 +1,91 @@
+---
+title: Prompts & Templates
+description: Dynamic system prompts with LiquidJS templates, variable interpolation, overrides, and custom filters.
+---
+
+Prompt templates let you build dynamic system prompts using [Liquid](https://liquidjs.com/) syntax — variable interpolation, conditionals, loops, and custom filters for reading environment variables, files, and shell output.
+
+## Quick Start
+
+Create a template with `createPromptTemplate`, then pass it directly to an agent's `systemPrompt`:
+
+```ts
+import { createAgent, createPromptTemplate } from "@comma-agents/core";
+
+const template = createPromptTemplate({
+  template: "You are {{ role }}, an expert in {{ language }}.",
+  variables: {
+    role: "a code reviewer",
+    language: "TypeScript",
+  },
+});
+
+const agent = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  systemPrompt: template, // rendered automatically at call time
+});
+```
+
+When `systemPrompt` is a `PromptTemplate`, it is rendered with its baked-in variables each time the agent is called. You can also render manually and pass the string:
+
+```ts
+const prompt = await template.render({ language: "Rust" }); // override defaults
+const agent = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  systemPrompt: prompt, // static string
+});
+```
+
+## createPromptTemplate
+
+Creates a `PromptTemplate` backed by LiquidJS.
+
+```ts
+import { createPromptTemplate } from "@comma-agents/core";
+
+const template = createPromptTemplate({
+  template: "You are {{ role }}. Focus on {{ focus }}.",
+  variables: {
+    role: "a security auditor",
+    focus: "vulnerabilities",
+  },
+});
+
+// Render with defaults
+await template.render();
+// → "You are a security auditor. Focus on vulnerabilities."
+
+// Override specific variables
+await template.render({ focus: "performance" });
+// → "You are a security auditor. Focus on performance."
+```
+
+## PromptTemplateConfig
+
+Configuration passed to `createPromptTemplate`.
+
+<AutoTypeTable path="../packages/core/src/prompts/types.ts" name="PromptTemplateConfig" />
+
+## PromptTemplate
+
+The compiled template returned by `createPromptTemplate`.
+
+<AutoTypeTable path="../packages/core/src/prompts/types.ts" name="PromptTemplate" />
+
+## Template Overrides
+
+Update template defaults in-place without re-rendering. Call `updatePromptVariables` on the agent or template to merge new values — the next call picks them up automatically.
+
+See [Template Overrides](/docs/core/prompts/template-overrides) for examples and details on how updates flow through agents and shared templates.
+
+## In Description Files
+
+Agent description files (YAML/JSON) and strategy files support templates via `systemPromptTemplate`. The loader converts it to a `PromptTemplate` automatically.
+
+See [In Description Files](/docs/core/prompts/in-description-files) for YAML/JSON examples, `loadAgent` integration, and strategy file usage.
+
+## Template Syntax
+
+For details on the available template syntax and custom filters, see [Template Syntax](/docs/core/prompts/template-syntax).

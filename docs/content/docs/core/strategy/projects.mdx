@@ -1,0 +1,145 @@
+---
+title: Project-Based Strategies
+description: Folder-based strategy projects with comma-project.json manifests, custom tools, and setup entry points.
+---
+
+Project-based strategies let you organize multiple strategies, custom tools, and setup logic into a single folder with a `comma-project.json` manifest. This is useful for larger projects where you want to bundle related strategies together with their tooling.
+
+## Project Manifest
+
+A project is defined by a `comma-project.json` file in one of these locations:
+
+- **Project-local**: `<cwd>/.comma/comma-project.json` or `<cwd>/.comma/strategies/<project-name>/comma-project.json`
+- **User global**: `~/.config/comma/strategies/<project-name>/comma-project.json`
+
+### Manifest Schema
+
+```typescript
+{
+  name: string;           // Required — project name
+  version?: string;       // Optional — project version
+  description?: string;    // Optional — project description
+  strategies: string[];    // Required — relative paths to strategy files
+  tools?: string[];        // Optional — relative paths to tool files
+  entry?: string;           // Optional — setup file (defaults to "index.ts")
+  dependencies?: string[]; // Optional — future: @comma-agents/* packages
+}
+```
+
+### Example Manifest
+
+```json
+{
+  "name": "My Project",
+  "version": "1.0",
+  "description": "Custom strategies for my workflow",
+  "strategies": [
+    "./strategies/plan.json",
+    "./strategies/build.json"
+  ],
+  "tools": ["./tools/custom-tools.ts"],
+  "entry": "index.ts"
+}
+```
+
+## Project Structure
+
+```
+my-project/
+├── comma-project.json        # Project manifest
+├── index.ts                 # Entry file (setup)
+├── tools/
+│   └── custom-tools.ts     # Custom tool registrations
+└── strategies/
+    ├── plan.json            # Strategy file
+    └── build.json          # Strategy file
+```
+
+## Entry File
+
+The entry file (default: `index.ts`) runs when the project is loaded. Use it for setup logic:
+
+```typescript
+// index.ts
+import { registerTool, defineTool } from "@comma-agents/core";
+import { z } from "zod";
+
+// Register custom tools
+const myTool = defineTool({
+  description: "My custom tool",
+  parameters: z.object({ input: z.string() }),
+  execute: async ({ input }) => okResult(`Processed: ${input}`),
+});
+
+registerTool("my_tool", myTool);
+
+// Any other setup logic...
+console.log("Project loaded!");
+```
+
+## Custom Tools
+
+Tool files listed in `manifest.tools` are imported when the project loads. Each file should call `registerTool()` to make tools available to your strategies:
+
+```typescript
+// tools/custom-tools.ts
+import { registerTool, defineTool } from "@comma-agents/core";
+import { z } from "zod";
+
+export function registerAll(): void {
+  registerTool("weather", defineTool({
+    description: "Get weather for a city",
+    parameters: z.object({ city: z.string() }),
+    execute: async ({ city }) => {
+      // ... implementation
+      return okResult(`Sunny in ${city}`);
+    },
+  }));
+}
+```
+
+## Discovery
+
+Projects are automatically discovered from these locations:
+
+1. **Bundled strategies** — `packages/tui/strategies/*.json` (single-file only)
+2. **Project-local (single-file)** — `<cwd>/.comma/strategies/*.json`
+3. **Project-local (projects)** — `<cwd>/.comma/strategies/<project>/comma-project.json`
+4. **Project-local (root)** — `<cwd>/.comma/comma-project.json`
+5. **User global (single-file)** — `~/.config/comma/strategies/*.json`
+6. **User global (projects)** — `~/.config/comma/strategies/<project>/comma-project.json`
+
+When a project is discovered, all its strategies appear in the strategy picker prefixed with the project name:
+```
+My Project > Plan Strategy
+My Project > Build Strategy
+```
+
+## Loading
+
+When you select a project-based strategy, the daemon:
+
+1. Loads the `comma-project.json` manifest
+2. Runs the entry file (`index.ts` or the file specified in `manifest.entry`)
+3. Imports all tool files listed in `manifest.tools`
+4. Loads the selected strategy from the project
+
+This ensures all custom tools are registered before the strategy runs.
+
+## API
+
+### loadProject
+
+Load a project manifest, run its entry file, and register its tools.
+
+```typescript
+import { loadProject } from "@comma-agents/core";
+
+const project = await loadProject("/path/to/comma-project.json");
+console.log(project.name);        // "My Project"
+console.log(project.manifestDir); // "/path/to"
+```
+
+<AutoTypeTable path="../packages/core/src/strategy/loader/project-loader.ts" name="LoadProject" />
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="CommaProjectManifest" />

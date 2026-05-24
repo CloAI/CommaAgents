@@ -1,0 +1,8 @@
+{
+  "title": "Prompts & Templates",
+  "pages": [
+    "template-syntax",
+    "template-overrides",
+    "in-description-files"
+  ]
+}

@@ -156,14 +156,17 @@ describe("run_command", () => {
         return "allow";
       },
     });
-    const sandbox = createSandbox({ cwd: workspace, jail: true }, {
-      onAsk: async (req) => {
-        requesterCalls += 1;
-        expect(req.operation).toBe("command.execute");
-        expect(req.toolName).toBe("run_command");
-        return "allow";
+    const sandbox = createSandbox(
+      { cwd: workspace, jail: true },
+      {
+        onAsk: async (req) => {
+          requesterCalls += 1;
+          expect(req.operation).toBe("command.execute");
+          expect(req.toolName).toBe("run_command");
+          return "allow";
+        },
       },
-    });
+    );
     const guard = sandbox.guardFor("run_command", tool.policies);
     const result = await tool.execute(
       { command: "echo needs-approval-ok" },
@@ -180,9 +183,12 @@ describe("run_command", () => {
       requireApprovalPatterns: [/needs-approval/],
       requestPermission: async () => "deny",
     });
-    const sandbox = createSandbox({ cwd: workspace, jail: true }, {
-      onAsk: async () => "deny",
-    });
+    const sandbox = createSandbox(
+      { cwd: workspace, jail: true },
+      {
+        onAsk: async () => "deny",
+      },
+    );
     const guard = sandbox.guardFor("run_command", tool.policies);
     const result = await tool.execute(
       { command: "echo needs-approval bad" },

@@ -5,6 +5,8 @@
     "core",
     "---Daemon---",
     "daemon",
+    "---TUI---",
+    "tui",
     "---Debug---",
     "debug"
   ]

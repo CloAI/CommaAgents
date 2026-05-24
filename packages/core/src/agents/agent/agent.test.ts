@@ -145,7 +145,7 @@ describe("createAgent with config.execute", () => {
       await agent.call("first");
       await agent.call("second");
 
-      const allMessages = agent.getConversationContext!().allMessages();
+      const allMessages = agent.getConversationContext?.().allMessages();
 
       // Context should contain user + assistant pairs for both calls
       expect(allMessages.length).toBeGreaterThanOrEqual(4);
@@ -170,7 +170,7 @@ describe("createAgent with config.execute", () => {
       await agent.call("hello");
       await agent.call("world");
 
-      const turns = agent.getConversationContext!().allTurns();
+      const turns = agent.getConversationContext?.().allTurns();
       expect(turns).toHaveLength(2);
     });
 
@@ -182,12 +182,12 @@ describe("createAgent with config.execute", () => {
 
       await agent.call("before reset");
       expect(
-        agent.getConversationContext!().allMessages().length,
+        agent.getConversationContext?.().allMessages().length,
       ).toBeGreaterThan(0);
 
       agent.reset();
-      expect(agent.getConversationContext!().allMessages()).toHaveLength(0);
-      expect(agent.getConversationContext!().allTurns()).toHaveLength(0);
+      expect(agent.getConversationContext?.().allMessages()).toHaveLength(0);
+      expect(agent.getConversationContext?.().allTurns()).toHaveLength(0);
     });
   });
 
@@ -403,7 +403,9 @@ describe("Agent.updatePromptVariables", () => {
       systemPrompt: "You are a helpful assistant.",
     });
 
-    expect(() => agent.updatePromptVariables({ role: "reviewer" })).not.toThrow();
+    expect(() =>
+      agent.updatePromptVariables({ role: "reviewer" }),
+    ).not.toThrow();
   });
 
   it("is a no-op when the agent has no system prompt", () => {
@@ -412,7 +414,9 @@ describe("Agent.updatePromptVariables", () => {
       execute: async (msg) => msg,
     });
 
-    expect(() => agent.updatePromptVariables({ role: "reviewer" })).not.toThrow();
+    expect(() =>
+      agent.updatePromptVariables({ role: "reviewer" }),
+    ).not.toThrow();
   });
 
   it("reflects updated variables in config.systemPrompt.defaults", () => {
@@ -432,5 +436,3 @@ describe("Agent.updatePromptVariables", () => {
     expect(template.defaults).toEqual({ role: "updated" });
   });
 });
-
-

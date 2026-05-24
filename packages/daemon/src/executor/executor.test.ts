@@ -16,7 +16,7 @@ import {
   MINIMAL_STRATEGY,
   MULTI_AGENT_STRATEGY,
   mockLogger,
-  mockSessionStore,
+  mockRunStore,
   mockSink,
   setupMockModels,
   USER_AGENT_STRATEGY,
@@ -106,7 +106,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -139,7 +139,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -165,7 +165,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -197,7 +197,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -224,7 +224,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -262,7 +262,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy("{ invalid json content");
@@ -297,7 +297,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const runId = executor.startRun(
@@ -329,7 +329,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -365,7 +365,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy(USER_AGENT_STRATEGY);
@@ -410,7 +410,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     expect(executor.handleUserInput("nonexistent", "agent", "text")).toBe(
@@ -429,7 +429,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -465,7 +465,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy(MULTI_AGENT_STRATEGY);
@@ -502,7 +502,7 @@ describe("createStrategyExecutor", () => {
       state,
       sink,
       logger: mockLogger(),
-      sessionStore: mockSessionStore(),
+      runStore: mockRunStore(),
     });
 
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);

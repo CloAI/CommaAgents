@@ -9,24 +9,20 @@ import {
   resetGlobalDefaults,
   setGlobalCredentialStore,
 } from "../defaults/defaults";
-import {
-  registerModel,
-  resetModelRegistry,
-  resolveModel,
-} from "./model";
-import {
-  getProvidersForModel,
-  getReverseModelIndex,
-} from "./providers/catalog/catalog";
+import { registerModel, resetModelRegistry, resolveModel } from "./model";
 import {
   getModelCapabilities,
   getModelMetadata,
   getProviderInfo,
   listProviders,
 } from "./model.utils";
+import {
+  getProvidersForModel,
+  getReverseModelIndex,
+  resetCatalog,
+} from "./providers/catalog/catalog";
 import { registerProviderDefinition } from "./providers/index";
 import { resetProviderRegistry } from "./providers/providers";
-import { resetCatalog } from "./providers/catalog/catalog";
 
 const TEST_DIR = join(import.meta.dir, "__test_providers__");
 const TEST_FILE = join(TEST_DIR, "credentials.json");
@@ -164,7 +160,7 @@ describe("getReverseModelIndex", () => {
     // "gpt-4o" should map to at least one provider
     const providers = index.get("gpt-4o");
     expect(providers).toBeDefined();
-    expect(providers!.length).toBeGreaterThan(0);
+    expect(providers?.length).toBeGreaterThan(0);
     expect(providers).toEqual([...providers!].sort());
   });
 });
@@ -187,7 +183,7 @@ describe("getModelMetadata", () => {
     const caps = getModelCapabilities("gpt-4o");
     expect(caps).toBeDefined();
     // gpt-4o should at minimum report tools support
-    expect(caps!.tools).toBe(true);
+    expect(caps?.tools).toBe(true);
   });
 
   test("returns undefined for an unknown model", () => {
@@ -198,9 +194,9 @@ describe("getModelMetadata", () => {
   test("returns full metadata for a known model", () => {
     const info = getModelMetadata("gpt-4o");
     expect(info).toBeDefined();
-    expect(info!.id).toBe("gpt-4o");
-    expect(info!.capabilities).toBeDefined();
-    expect(info!.contextWindow).toBeGreaterThan(0);
+    expect(info?.id).toBe("gpt-4o");
+    expect(info?.capabilities).toBeDefined();
+    expect(info?.contextWindow).toBeGreaterThan(0);
   });
 });
 
@@ -269,9 +265,9 @@ describe("resolveModel", () => {
   });
 
   test("throws when bare model is not in any provider catalog", async () => {
-    await expect(
-      resolveModel("nonexistent-model-xyz-12345"),
-    ).rejects.toThrow("not listed by any known provider");
+    await expect(resolveModel("nonexistent-model-xyz-12345")).rejects.toThrow(
+      "not listed by any known provider",
+    );
   });
 
   test("throws when bare model has catalog matches but no credentials", async () => {
