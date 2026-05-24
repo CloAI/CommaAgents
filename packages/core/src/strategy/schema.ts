@@ -66,6 +66,11 @@ export const LLMAgentDefSchema = z
      * features should use `providerOptions` instead.
      */
     modelOptions: ModelOptionsSchema.optional(),
+    /**
+     * Maximum number of LLM round-trips (steps) per call.
+     * Each tool-call + response counts as one step.
+     */
+    maxSteps: z.number().int().positive().optional(),
   })
   .strict();
 

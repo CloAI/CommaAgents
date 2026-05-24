@@ -147,6 +147,7 @@ export async function loadAgentFromString(
     model: description.model,
     systemPrompt,
     tools: description.tools,
+    maxSteps: description.maxSteps,
     ...(description.providerOptions
       ? { providerOptions: description.providerOptions }
       : {}),

@@ -95,13 +95,14 @@ export interface ScrollableViewRenderProps<ItemType> {
   /** Current scroll offset in rows. */
   readonly rowOffset: number;
   /**
-   * Height of the leading spacer Box rendered above the first visible
-   * item. Equals `max(0, rowOffsets[renderStart] - rowOffset)` — i.e. the
-   * gap between the scroll line and the first item that is fully at or
-   * below it. Always non-negative because the renderer does not use
-   * negative margins (they leak past `overflow: hidden` in Ink today).
+   * Number of rows clipped off the top of the first rendered item.
+   * Equals `max(0, rowOffset - rowOffsets[renderStart])` — the portion
+   * of `items[renderStart]` that sits above the viewport when the scroll
+   * line lands inside that item's body. The renderer applies this as a
+   * negative `marginTop` on the inner content column so Ink's
+   * `overflow: hidden` clips the leading rows at the viewport top.
    */
-  readonly topSpacerHeight: number;
+  readonly topClipRows: number;
   /** First item index to mount (inclusive). */
   readonly renderStart: number;
   /** One past the last item index to mount. */

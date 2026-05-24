@@ -16,6 +16,12 @@ export type {
 } from "./edit-file";
 export { createEditFileTool } from "./edit-file";
 export type {
+  GlobData,
+  GlobMatch,
+  GlobToolConfig,
+} from "./glob";
+export { createGlobTool, globParams } from "./glob";
+export type {
   ListDirectoryData,
   ListDirectoryEntry,
   ListDirectoryToolConfig,

@@ -4,6 +4,7 @@ import { createCreateFileTool } from "./create-file";
 import { createDeleteFileTool } from "./delete-file";
 import { describeTool } from "./describe-tool";
 import { createEditFileTool } from "./edit-file";
+import { createGlobTool } from "./glob";
 import { createListDirectoryTool } from "./list-directory";
 import { createMoveFileTool } from "./move-file";
 import { createReadFileTool } from "./read-file";
@@ -95,6 +96,10 @@ describe("built-in tool descriptions", () => {
     expect(createSearchFilesTool().description).toMatchSnapshot();
   });
 
+  it("glob description", () => {
+    expect(createGlobTool().description).toMatchSnapshot();
+  });
+
   it("create_file description", () => {
     expect(createCreateFileTool().description).toMatchSnapshot();
   });
@@ -130,6 +135,7 @@ describe("built-in tool descriptions", () => {
       { name: "read_file", text: createReadFileTool().description },
       { name: "list_directory", text: createListDirectoryTool().description },
       { name: "search_files", text: createSearchFilesTool().description },
+      { name: "glob", text: createGlobTool().description },
       { name: "create_file", text: createCreateFileTool().description },
       { name: "write_file", text: createWriteFileTool().description },
       { name: "edit_file", text: createEditFileTool().description },

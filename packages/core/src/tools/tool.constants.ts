@@ -3,6 +3,7 @@ import { createAskQuestionTool } from "./built-in/ask-question";
 import { createCreateFileTool } from "./built-in/create-file";
 import { createDeleteFileTool } from "./built-in/delete-file";
 import { createEditFileTool } from "./built-in/edit-file";
+import { createGlobTool } from "./built-in/glob";
 import { createLaunchStrategyTool } from "./built-in/launch-strategy";
 import { createListDirectoryTool } from "./built-in/list-directory";
 import { createListSkillsTool } from "./built-in/list-skills";
@@ -31,6 +32,7 @@ export const BUILT_IN_TOOL_NAMES = [
   "read_file",
   "list_directory",
   "search_files",
+  "glob",
   "create_file",
   "write_file",
   "edit_file",
@@ -59,6 +61,7 @@ export const BUILT_IN_TOOL_FACTORIES: Readonly<
   read_file: () => createReadFileTool(),
   list_directory: () => createListDirectoryTool(),
   search_files: () => createSearchFilesTool(),
+  glob: () => createGlobTool(),
   create_file: () => createCreateFileTool(),
   write_file: () => createWriteFileTool(),
   edit_file: () => createEditFileTool(),

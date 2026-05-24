@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import type {
   AgentCallResult,
   AgentHooks,
@@ -24,7 +25,6 @@ import {
 } from "@comma-agents/core";
 import type { Logger } from "../logger";
 import type { RunStore } from "../runs";
-import type { ConversationTurn } from "@comma-agents/core";
 import type { AgentStreamEventWire } from "../server/protocol";
 import type { DaemonState, RunState } from "../state/state.types";
 import type { EventSink } from "./event-sink";
@@ -203,7 +203,10 @@ function toWireResult(result: AgentCallResult): {
 /** Serialize AgentStreamEvent for wire (strip the `steps` from `done` result). */
 function toWireStreamEvent(event: AgentStreamEvent): AgentStreamEventWire {
   if (event.type === "done") {
-    return { type: "done", result: toWireResult(event.result) } as AgentStreamEventWire;
+    return {
+      type: "done",
+      result: toWireResult(event.result),
+    } as AgentStreamEventWire;
   }
   // Other event types are already wire-compatible
   return { ...event } as unknown as AgentStreamEventWire;
@@ -258,11 +261,15 @@ export function createStrategyExecutor(
       beforeStep: [
         (ctx: { readonly stepName: string; readonly message: string }) => {
           const ts = new Date().toISOString();
-          void runStore.appendEvent(runId, {
-            type: "step_started",
-            ts,
-            stepName: ctx.stepName,
-          }).catch((err) => logger.warn(`Failed to append step_started: ${err}`));
+          void runStore
+            .appendEvent(runId, {
+              type: "step_started",
+              ts,
+              stepName: ctx.stepName,
+            })
+            .catch((err) =>
+              logger.warn(`Failed to append step_started: ${err}`),
+            );
 
           sink.broadcast(runId, {
             type: "step_started" as const,
@@ -280,11 +287,15 @@ export function createStrategyExecutor(
           readonly result: AgentCallResult;
         }) => {
           const ts = new Date().toISOString();
-          void runStore.appendEvent(runId, {
-            type: "step_completed",
-            ts,
-            stepName: ctx.stepName,
-          }).catch((err) => logger.warn(`Failed to append step_completed: ${err}`));
+          void runStore
+            .appendEvent(runId, {
+              type: "step_completed",
+              ts,
+              stepName: ctx.stepName,
+            })
+            .catch((err) =>
+              logger.warn(`Failed to append step_completed: ${err}`),
+            );
 
           sink.broadcast(runId, {
             type: "step_completed" as const,
@@ -415,13 +426,11 @@ export function createStrategyExecutor(
             responseMessages: result.responseMessages as ResponseMessage[],
           };
 
-          runStore
-            .appendEvent(run.id, event)
-            .catch((appendError) => {
-              logger.warn(
-                `run ${run.id}: failed to append agent_call event: ${appendError instanceof Error ? appendError.message : String(appendError)}`,
-              );
-            });
+          runStore.appendEvent(run.id, event).catch((appendError) => {
+            logger.warn(
+              `run ${run.id}: failed to append agent_call event: ${appendError instanceof Error ? appendError.message : String(appendError)}`,
+            );
+          });
         },
       ],
     };
@@ -458,7 +467,9 @@ export function createStrategyExecutor(
       }
 
       // 1. Parse the strategy file
-      const { content, format } = await parseStrategyFile(effectiveStrategyPath);
+      const { content, format } = await parseStrategyFile(
+        effectiveStrategyPath,
+      );
       logger.debug(
         `run ${run.id}: parsed (${format}, ${content.length} bytes); loading strategy`,
       );
@@ -552,6 +563,7 @@ export function createStrategyExecutor(
               subModelOverride ?? runModelOverride ?? modelOverride,
             skillRegistry,
             launchStrategy,
+            strategyDir: dirname(strategyPath),
           },
         );
         for (const [subAgentName, subAgent] of Object.entries(
@@ -583,6 +595,7 @@ export function createStrategyExecutor(
         skillRegistry,
         initialAgentTurns,
         launchStrategy,
+        strategyDir: dirname(effectiveStrategyPath),
       });
       logger.debug(
         `run ${run.id}: strategy loaded (name="${strategy.name}", agents=[${Object.keys(strategy.agents).join(",")}])`,
@@ -635,7 +648,10 @@ export function createStrategyExecutor(
       for (const [agentName, loadedAgent] of Object.entries(strategy.agents)) {
         if (loadedAgent.appendHook) {
           const isUserAgent = loadedAgent.config?.type === "user";
-          hookIntoAgent(loadedAgent, buildAgentHooks(run.id, agentName, run, isUserAgent));
+          hookIntoAgent(
+            loadedAgent,
+            buildAgentHooks(run.id, agentName, run, isUserAgent),
+          );
         }
       }
 
@@ -757,7 +773,9 @@ export function createStrategyExecutor(
         const events = await runStore.getEvents(runId);
         const startEvent = events.find((ev) => ev.type === "run_started");
         if (!startEvent || startEvent.type !== "run_started") {
-          logger.error(`resumeRun failed: run_started event not found for ${runId}`);
+          logger.error(
+            `resumeRun failed: run_started event not found for ${runId}`,
+          );
           sink.send(clientId, {
             type: "error" as const,
             code: "NOT_FOUND",
@@ -768,7 +786,8 @@ export function createStrategyExecutor(
           return;
         }
 
-        const { strategyPath, strategyName, cwd, initialInput, manifestPath } = startEvent;
+        const { strategyPath, strategyName, cwd, initialInput, manifestPath } =
+          startEvent;
 
         // 2. Re-create the in-memory RunState under the existing runId
         const run = state.createRun(strategyPath, strategyName, cwd, runId);
@@ -835,7 +854,8 @@ export function createStrategyExecutor(
         // We only pre-seed the initial input if the run has no prior turns.
         // If it already has turns, pre-seeding would cause the next live user step
         // to consume the original prompt again, causing redundant LLM execution.
-        const resumeInput = initialAgentTurns.size === 0 ? (initialInput ?? "") : "";
+        const resumeInput =
+          initialAgentTurns.size === 0 ? (initialInput ?? "") : "";
 
         await executeRun(
           run,
@@ -871,11 +891,7 @@ export function createStrategyExecutor(
       // 1. Create run in state (status: "pending")
       // Use the file path as a temporary name — the real name comes
       // from the strategy file after parsing.
-      const run = state.createRun(
-        strategyPath,
-        strategyPath,
-        effectiveCwd,
-      );
+      const run = state.createRun(strategyPath, strategyPath, effectiveCwd);
 
       // 2. Create the run file by appending the run_started event.
       // Fire-and-forget: runs.ts serializes per-runId writes, so any
@@ -1000,13 +1016,17 @@ export function createStrategyExecutor(
       if (!ctx) return false;
       const resolved = ctx.inputBridge.resolveInput(agentName, text);
       if (resolved) {
-        void runStore.appendEvent(runId, {
-          type: "user_input",
-          ts: new Date().toISOString(),
-          agentName,
-          text,
-          source: "human",
-        }).catch((err) => logger.warn(`Failed to append user_input event: ${err}`));
+        void runStore
+          .appendEvent(runId, {
+            type: "user_input",
+            ts: new Date().toISOString(),
+            agentName,
+            text,
+            source: "human",
+          })
+          .catch((err) =>
+            logger.warn(`Failed to append user_input event: ${err}`),
+          );
       }
       return resolved;
     },
@@ -1023,11 +1043,15 @@ export function createStrategyExecutor(
         decision,
       );
       if (resolved) {
-        void runStore.appendEvent(runId, {
-          type: "permission_decision",
-          ts: new Date().toISOString(),
-          decision,
-        }).catch((err) => logger.warn(`Failed to append permission_decision event: ${err}`));
+        void runStore
+          .appendEvent(runId, {
+            type: "permission_decision",
+            ts: new Date().toISOString(),
+            decision,
+          })
+          .catch((err) =>
+            logger.warn(`Failed to append permission_decision event: ${err}`),
+          );
       }
       return resolved;
     },
@@ -1044,11 +1068,15 @@ export function createStrategyExecutor(
         response,
       );
       if (resolved) {
-        void runStore.appendEvent(runId, {
-          type: "question_response",
-          ts: new Date().toISOString(),
-          response,
-        }).catch((err) => logger.warn(`Failed to append question_response event: ${err}`));
+        void runStore
+          .appendEvent(runId, {
+            type: "question_response",
+            ts: new Date().toISOString(),
+            response,
+          })
+          .catch((err) =>
+            logger.warn(`Failed to append question_response event: ${err}`),
+          );
       }
       return resolved;
     },

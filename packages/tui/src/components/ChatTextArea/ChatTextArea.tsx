@@ -1,13 +1,6 @@
-import {
-  Box,
-  type DOMElement,
-  Text,
-  useBoxMetrics,
-  useFocus,
-  useInput,
-} from "ink";
+import { Box, Text, useFocus, useInput } from "ink";
 import type React from "react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { TextAreaInput } from "../TextAreaInput";
 import { useChatTextAreaTheme } from "./ChatTextArea.theme";
@@ -46,10 +39,6 @@ export function ChatTextArea({
 
   const currentStrategy = strategies[strategyIndex] ?? strategies[0];
 
-  if (!currentStrategy) {
-    throw new Error("ChatTextArea requires at least one strategy");
-  }
-
   // Tab/ctrl+s shortcuts run in the OUTER tree on purpose — they mutate
   // outer state (strategyIndex, inputValue) and we don't want to wait for
   // the detached tree's input forwarding to deliver them. The detached
@@ -57,7 +46,7 @@ export function ChatTextArea({
   // useInput consumes character input there.
   useInput(
     (_input, key) => {
-      if (key.tab) {
+      if (key.tab && strategies.length > 0) {
         setStrategyIndex((previous) => (previous + 1) % strategies.length);
       }
     },
@@ -72,6 +61,26 @@ export function ChatTextArea({
     },
     [currentStrategy, onSubmit],
   );
+
+  if (strategies.length === 0) {
+    return (
+      <ChatTextAreaRender
+        inputValue=""
+        onInputChange={() => {}}
+        onSubmit={() => {}}
+        strategyLabel="Loading..."
+        strategyDescription="Loading available strategies..."
+        width={width}
+        height={height}
+        placeholder="Loading..."
+        id={id}
+      />
+    );
+  }
+
+  if (!currentStrategy) {
+    throw new Error("ChatTextArea requires at least one strategy");
+  }
 
   return (
     <ChatTextAreaRender
@@ -121,10 +130,13 @@ export function ChatTextAreaRender({
       />
       <Box {...theme.strategyRow}>
         <Box maxWidth={42}>
-        <Text {...theme.strategyLabel}>
-          {strategyLabel}
-          <Text {...theme.hint} wrap="wrap"> — {strategyDescription}</Text>
-        </Text>
+          <Text {...theme.strategyLabel}>
+            {strategyLabel}
+            <Text {...theme.hint} wrap="wrap">
+              {" "}
+              — {strategyDescription}
+            </Text>
+          </Text>
         </Box>
         <Text {...theme.hint}>Tab to change strategy · Enter to submit</Text>
       </Box>

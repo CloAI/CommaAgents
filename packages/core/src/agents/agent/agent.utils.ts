@@ -3,7 +3,7 @@
 // Standalone helpers for building AI SDK call options, tool sets,
 // messages, and stream event mapping.
 
-import { tool as aiTool } from "ai";
+import { tool as aiTool, stepCountIs } from "ai";
 import type { ConversationContext } from "../../context/conversation-context";
 import type {
   ModelMessage,
@@ -29,6 +29,7 @@ import { resolveTools } from "../../tools/tool.registry";
 import type { ToolContext, ToolDefinition } from "../../tools/tool.types";
 import type { InputCollector } from "../built-in/user/user-agent.types";
 import type { ToolHooks } from "../hooks";
+import { DEFAULT_MAX_STEPS } from "./agent.constants";
 import type {
   AgentCallResult,
   AgentConfig,
@@ -216,6 +217,7 @@ export async function buildCallOptions(
     messages: buildMessages({ message, context }) as ModelMessage[],
     tools,
     abortSignal,
+    stopWhen: stepCountIs(config.maxSteps ?? DEFAULT_MAX_STEPS),
     ...(config.providerOptions
       ? { providerOptions: config.providerOptions as Record<string, unknown> }
       : {}),

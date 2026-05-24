@@ -215,13 +215,16 @@ describe("AgentDescriptionSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("should reject maxSteps (removed field)", () => {
+  it("should accept maxSteps", () => {
     const result = AgentDescriptionSchema.safeParse({
       name: "test",
       model: "openai/gpt-4o",
       maxSteps: 3,
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.maxSteps).toBe(3);
+    }
   });
 
   it("should reject unknown fields (strict mode)", () => {

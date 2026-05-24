@@ -1,0 +1,69 @@
+---
+title: glob
+description: Search the workspace for files and folders matching a glob pattern, with optional exclusions and limits.
+---
+
+# glob
+
+Search the workspace for files and folders matching a glob pattern and receive both a structured `matches` array and a human-readable summary. Use this whenever you need to find files or folders by name patterns across the project — it is fast, deterministic, and respects sandbox policy.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "explorer",
+  model: "openai/gpt-4o",
+  tools: ["glob"],
+});
+```
+
+## GlobToolConfig
+
+Optional caps for the factory.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/glob/glob.types.ts" name="GlobToolConfig" />
+
+## GlobMatch
+
+One match returned in `data.matches`.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/glob/glob.types.ts" name="GlobMatch" />
+
+## GlobData
+
+The full structured payload.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/glob/glob.types.ts" name="GlobData" />
+
+## Usage Examples
+
+Match all TypeScript files:
+
+```ts
+await tool.glob({ pattern: "**/*.ts" });
+```
+
+Match all directories ending with `-folder`:
+
+```ts
+await tool.glob({ pattern: "*-folder" });
+```
+
+## Exclusions and Sandbox Policy
+
+By default, standard project directories (`node_modules`, `.git`, `dist`, `build`, `.next`, `.turbo`, `coverage`) are excluded from search and traversal. You can pass a custom `excludeGlobs` array to override this.
+
+Entries blocked by `forbiddenGlobs` or by the sandbox read policy are filtered silently. The tool only fails with `permission_denied` when the searched `root` itself is unreadable.
+
+## Errors
+
+| Kind | When |
+|---|---|
+| `not_found` | The `root` path is missing or is not a directory. |
+| `outside_workspace` | The `root` path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `permission_denied` | The `root` directory itself cannot be read. |
+
+## Related
+
+- [list_directory](/docs/core/tools/built-in/file-io/list_directory) — enumerate a single directory.
+- [search_files](/docs/core/tools/built-in/file-io/search_files) — search file contents using text or regex.

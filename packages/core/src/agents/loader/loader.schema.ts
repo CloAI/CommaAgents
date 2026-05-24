@@ -88,6 +88,11 @@ export const AgentDescriptionSchema = z
     providerOptions: z.record(z.record(z.unknown())).optional(),
     /** Model-level generation parameters (temperature, maxTokens, etc.). */
     modelOptions: ModelOptionsSchema.optional(),
+    /**
+     * Maximum number of LLM round-trips (steps) per call.
+     * Each tool-call + response counts as one step.
+     */
+    maxSteps: z.number().int().positive().optional(),
   })
   .strict();
 

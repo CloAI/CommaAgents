@@ -70,6 +70,27 @@ Notes:
   Binary files are skipped automatically in content modes. Files larger than 4194304 bytes are skipped. Traversal is capped at depth 32."
 `;
 
+exports[`built-in tool descriptions glob description 1`] = `
+"Search the workspace for files and folders matching a glob pattern.
+
+Inputs:
+  - \`pattern\` (string, required) — Glob pattern to match (e.g., "src/**/*.ts" or "**/*.json").
+  - \`root\` (string, optional, default ".") — Workspace-relative directory to search under.
+  - \`excludeGlobs\` (string[], optional, default node_modules / .git / dist / build / .next / .turbo / coverage) — Glob patterns to exclude from traversal and matching.
+  - \`maxResults\` (number, optional, default 1000) — Cap on the number of matches; sets \`data.truncated\` when hit.
+
+Outputs (\`data\`):
+  \`{ matches: [{ path, type, size, mtime }], truncated }\`.
+
+Errors:
+  - \`not_found\` — \`root\` is missing or not a directory.
+  - \`outside_workspace\` — \`root\` escapes the sandbox or is absolute when not allowed.
+  - \`permission_denied\` — \`root\` is read-blocked by the sandbox.
+
+Notes:
+  Traversal is capped at depth 32."
+`;
+
 exports[`built-in tool descriptions create_file description 1`] = `
 "Create a brand-new file at \`path\` with the given UTF-8 content. Refuses to overwrite — use \`write_file\` for existing files.
 

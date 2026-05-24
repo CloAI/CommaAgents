@@ -8,6 +8,7 @@ import type {
   ModelMessage,
   StepResult,
   ToolChoice,
+  stepCountIs,
 } from "ai";
 import type { ConversationContext } from "../../context/conversation-context";
 import type { ConversationTurn } from "../../context/conversation-context.types";
@@ -139,6 +140,12 @@ export interface AgentConfig {
    * ```
    */
   readonly modelOptions?: ModelOptions;
+  /**
+   * Maximum number of LLM round-trips (steps) per call.
+   * Each tool-call + response counts as one step.
+   * @default 10
+   */
+  readonly maxSteps?: number;
   /**
    * Custom execute override — replaces the LLM call with arbitrary logic.
    *
@@ -377,6 +384,7 @@ export interface CallOptions {
   readonly toolChoice?: ToolChoice<string> | undefined;
   readonly abortSignal?: AbortSignal | undefined;
   readonly timeout?: number | undefined;
+  readonly stopWhen?: ReturnType<typeof stepCountIs>;
   /**
    * Per-call provider options forwarded verbatim to `streamText`.
    */

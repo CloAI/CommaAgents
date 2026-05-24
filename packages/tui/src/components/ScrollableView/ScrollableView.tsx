@@ -24,6 +24,13 @@ import type {
 const DEFAULT_ROW_HEIGHT = 1;
 /** Rows of items kept mounted above and below the visible window. */
 const OVERSCAN_ROWS = 3;
+/**
+ * Terminal rows advanced per mouse-wheel tick. Matches the typical
+ * "three lines per notch" default of GUI scroll wheels and is small
+ * enough that a single tick inside a tall item still produces a visible
+ * change.
+ */
+const WHEEL_SCROLL_ROWS = 3;
 
 /**
  * Variable-height, virtualized scrollable container.
@@ -177,15 +184,13 @@ export function ScrollableView<ItemType>(
   // Switch to a binary search over `rowOffsets` if profiling shows this
   // dominates.
   //
-  // We **only** render items whose top edge lands at or below `rowOffset`,
-  // so the inner box stack uses non-negative spacers and the visible
-  // window relies on Ink's `overflow: hidden` only for clipping content
-  // that runs *past* the bottom edge. Negative margins / negative
-  // positions don't clip reliably in Ink today, so we avoid them
-  // entirely. The trade-off: items that are scrolled half-off the top
-  // disappear when their top crosses the scroll line rather than
-  // gracefully clipping at the boundary. Snap-by-item scroll behavior
-  // (via `useMouseWheelScroll` below) hides this seam in practice.
+  // `renderStart` is the item whose body contains the scroll line —
+  // i.e. the largest `i` such that `rowOffsets[i] <= rowOffset`. That
+  // item may have its top above the viewport, and we render it with a
+  // negative `marginTop` so the visible portion lines up with the
+  // viewport top. Ink's `overflow: hidden` (set on the outer viewport
+  // box) clips the part that runs off the top via `output.clip`, which
+  // correctly handles negative y positions.
   //
   // When `viewportHeight` is still zero — most commonly on the synchronous
   // first commit before `useBoxMetrics` has reported real dimensions, or
@@ -193,28 +198,23 @@ export function ScrollableView<ItemType>(
   // awaiting a microtask — we fall back to rendering every item. The
   // fallback keeps initial frames non-empty; the next commit, with real
   // viewport metrics, switches to the virtualized window.
-  const { renderStart, renderEnd, topSpacerHeight } = useMemo(() => {
+  const { renderStart, renderEnd, topClipRows } = useMemo(() => {
     if (totalCount === 0) {
-      return { renderStart: 0, renderEnd: 0, topSpacerHeight: 0 };
+      return { renderStart: 0, renderEnd: 0, topClipRows: 0 };
     }
     if (viewportHeight <= 0) {
-      return { renderStart: 0, renderEnd: totalCount, topSpacerHeight: 0 };
+      return { renderStart: 0, renderEnd: totalCount, topClipRows: 0 };
     }
-    // First item whose top edge is at or below the scroll line. Items
-    // strictly above this index are either fully above the viewport
-    // (skip cleanly) or partially scrolled — which we also skip rather
-    // than render at a negative position.
+    // Largest `i` where `rowOffsets[i] <= rowOffset`. That item's top is
+    // at or above the scroll line; the rows between `rowOffsets[start]`
+    // and `rowOffset` are clipped off the top by a negative margin in
+    // the renderer.
     let start = 0;
-    while (start < totalCount && (rowOffsets[start] ?? 0) < rowOffset) {
+    while (
+      start + 1 < totalCount &&
+      (rowOffsets[start + 1] ?? totalRows) <= rowOffset
+    ) {
       start += 1;
-    }
-    // Tall last item: if the bottom item is taller than the viewport,
-    // every item's top can end up *above* `rowOffset` while its body still
-    // intersects the viewport. Fall back to rendering that last item from
-    // its own top so the viewport doesn't go blank. The user sees the
-    // beginning of the item; scrolling can reveal the rest.
-    if (start === totalCount) {
-      start = totalCount - 1;
     }
     // Last item whose top edge is above the bottom of the viewport.
     // Bottom partial items render normally and get clipped by
@@ -227,9 +227,9 @@ export function ScrollableView<ItemType>(
       end += 1;
     }
     end = Math.min(totalCount, end + OVERSCAN_ROWS);
-    const spacer = Math.max(0, (rowOffsets[start] ?? 0) - rowOffset);
-    return { renderStart: start, renderEnd: end, topSpacerHeight: spacer };
-  }, [totalCount, viewportHeight, rowOffsets, rowOffset]);
+    const clip = Math.max(0, rowOffset - (rowOffsets[start] ?? 0));
+    return { renderStart: start, renderEnd: end, topClipRows: clip };
+  }, [totalCount, viewportHeight, rowOffsets, rowOffset, totalRows]);
 
   useEffect(() => {
     if (!stickToBottom) return;
@@ -281,29 +281,16 @@ export function ScrollableView<ItemType>(
     onScroll: (event) => {
       if (totalCount === 0) return;
       setRowOffset((current) => {
-        // Snap by item, not by raw rows. Since the renderer only mounts
-        // items whose top is at or below the scroll line (negative offsets
-        // don't clip reliably in Ink), advancing rowOffset to the next
-        // item's `rowOffsets[]` value guarantees that each wheel tick
-        // produces a visible change rather than landing the scroll inside
-        // a tall item where nothing repaints.
-        const currentIndex = (() => {
-          // Largest i where rowOffsets[i] <= current.
-          let i = 0;
-          while (
-            i < totalCount &&
-            (rowOffsets[i + 1] ?? totalRows) <= current
-          ) {
-            i += 1;
-          }
-          return Math.min(i, totalCount - 1);
-        })();
-        const targetIndex =
-          event.direction === "up"
-            ? Math.max(0, currentIndex - 1)
-            : Math.min(totalCount - 1, currentIndex + 1);
-        const targetOffset = rowOffsets[targetIndex] ?? 0;
-        const next = Math.max(0, Math.min(targetOffset, maxOffset));
+        // Advance by terminal rows, not by items. The renderer clips the
+        // partially-scrolled top item via a negative margin (see the
+        // `renderStart` memo above), so every wheel tick produces a
+        // visible change even inside a tall message that spans many
+        // rows. `MouseScrollEvent` has no delta field — every tick is
+        // discrete — so we step by a fixed amount that roughly matches
+        // the "three lines per notch" default of GUI scroll wheels.
+        const delta =
+          event.direction === "up" ? -WHEEL_SCROLL_ROWS : WHEEL_SCROLL_ROWS;
+        const next = Math.max(0, Math.min(current + delta, maxOffset));
         isPinnedRef.current = next >= maxOffset;
         return next;
       });
@@ -321,7 +308,7 @@ export function ScrollableView<ItemType>(
       viewportHeight={viewportHeight}
       totalRows={totalRows}
       rowOffset={rowOffset}
-      topSpacerHeight={topSpacerHeight}
+      topClipRows={topClipRows}
       renderStart={renderStart}
       renderEnd={renderEnd}
       showScrollbar={showScrollbar}
@@ -340,7 +327,7 @@ export function ScrollableViewRender<ItemType>({
   viewportHeight,
   totalRows,
   rowOffset,
-  topSpacerHeight,
+  topClipRows,
   renderStart,
   renderEnd,
   showScrollbar,
@@ -356,24 +343,24 @@ export function ScrollableViewRender<ItemType>({
     );
   }
 
-  // Visible items render in plain column flow underneath a non-negative
-  // spacer Box. Anything below the viewport bottom is clipped by Ink's
-  // `overflow: hidden`, which works reliably for *positive* overflow.
-  // We deliberately do **not** use `marginTop={-rowOffset}` here —
-  // negative margins leak past `overflow: hidden` in Ink today, so the
-  // overscan below `renderStart` gets painted outside the viewport.
-  // Snapping `renderStart` to the first item whose top is at or below
-  // `rowOffset` keeps the spacer non-negative and matches the wheel-scroll
-  // snap semantics in the container above.
+  // Visible items render in plain column flow. When the scroll line lands
+  // inside the first rendered item, we shift the entire stack up with a
+  // negative `marginTop` so the visible portion of that item lines up
+  // with the viewport top. Ink's `overflow: hidden` on the viewport box
+  // clips the rows that run above y=0 (see `output.clip` in Ink — it
+  // handles negative y correctly). Anything that runs past the bottom
+  // is clipped the same way.
   const visibleItems = items.slice(renderStart, renderEnd);
 
   return (
     <Box {...theme.outer}>
       <Box ref={viewportRef} {...theme.viewport}>
-        <Box flexDirection="column" width="100%" flexShrink={0}>
-          {topSpacerHeight > 0 ? (
-            <Box flexShrink={0} width="100%" height={topSpacerHeight} />
-          ) : null}
+        <Box
+          flexDirection="column"
+          width="100%"
+          flexShrink={0}
+          marginTop={-topClipRows}
+        >
           {visibleItems.map((item, offset) => {
             const index = renderStart + offset;
             return (

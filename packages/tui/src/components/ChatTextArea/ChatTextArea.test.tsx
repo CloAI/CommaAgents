@@ -2,7 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 import { render } from "ink-testing-library";
 import React from "react";
 
-import { ChatTextAreaRender } from "./ChatTextArea";
+import { ChatTextArea, ChatTextAreaRender } from "./ChatTextArea";
 
 describe("ChatTextAreaRender", () => {
   it("should display the strategy label and description", () => {
@@ -20,7 +20,8 @@ describe("ChatTextAreaRender", () => {
     );
 
     expect(lastFrame()).toContain("Plan");
-    expect(lastFrame()).toContain("Break a goal into steps");
+    expect(lastFrame()).toContain("Break a goal into");
+    expect(lastFrame()).toContain("steps");
   });
 
   it("should display keybinding hints", () => {
@@ -37,8 +38,8 @@ describe("ChatTextAreaRender", () => {
       />,
     );
 
-    expect(lastFrame()).toContain("tab");
-    expect(lastFrame()).toContain("ctrl+s");
+    expect(lastFrame()).toContain("Tab");
+    expect(lastFrame()).toContain("Enter");
   });
 
   it("should display placeholder when input is empty", () => {
@@ -73,5 +74,22 @@ describe("ChatTextAreaRender", () => {
     );
 
     expect(lastFrame()).toMatchSnapshot();
+  });
+});
+
+describe("ChatTextArea", () => {
+  it("should render Loading when strategies is empty", () => {
+    const { lastFrame } = render(
+      <ChatTextArea
+        strategies={[]}
+        onSubmit={mock()}
+        id="chat"
+        width={60}
+        height={3}
+      />,
+    );
+
+    expect(lastFrame()).toContain("Loading...");
+    expect(lastFrame()).toContain("available strategies...");
   });
 });
