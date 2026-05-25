@@ -113,6 +113,35 @@ export function createGlobTool(
       ],
       notes: [`Traversal is capped at depth ${maxDepth}.`],
     }),
+    systemPrompt: `### Using glob
+
+\`glob\` finds files and folders matching a glob pattern. Faster and more precise than recursive \`list_directory\` when you want a specific shape.
+
+**Required:**
+
+- \`pattern\`: glob pattern. **Matched against paths relative to \`root\`, not to the workspace.** Examples:
+  - \`"**/*.ts"\` — every \`.ts\` file at any depth.
+  - \`"src/**/*.{ts,tsx}"\` — TypeScript and TSX under \`src/\`.
+  - \`"**/index.ts"\` — every barrel.
+  - \`"*.json"\` — JSON files at the root only (no recursion).
+
+**Useful optional:**
+
+- \`root\`: workspace-relative directory to search under. **Defaults to \`"."\` (cwd).** Pattern matching is relative to this root.
+- \`excludeGlobs\`: array of patterns to exclude. **Replaces** the default exclude set (\`node_modules\`, \`.git\`, \`dist\`, \`build\`, \`.next\`, \`.turbo\`, \`coverage\`). Pass \`[]\` to disable all exclusions. To add to the defaults, list both the defaults and your extras.
+- \`maxResults\`: cap on returned matches; sets \`data.truncated\` if hit. Default 1000.
+
+**Gotchas:**
+
+- \`**/\` matches **zero or more** directory segments. \`**/App/**\` matches \`App/x.tsx\`, \`src/App/x.tsx\`, and \`a/b/App/x.tsx\` — but **not** the directory \`App\` itself or the file \`App.tsx\` (that's not under an \`App/\` directory).
+- \`{a,b}\` is brace expansion: \`*.{ts,tsx}\` = \`*.ts\` OR \`*.tsx\`.
+- Returned \`path\` fields are **workspace-relative**, suitable to pass directly to other tools.
+
+**Typical workflows:**
+
+- "All TS files under src/" → \`{ pattern: "**/*.ts", root: "src" }\` → paths come back as \`"src/foo.ts"\`.
+- "Every config file at the root" → \`{ pattern: "*.{json,toml,yaml,yml}", root: "." }\`.
+- "Every component folder" → \`{ pattern: "src/components/*/", root: "." }\` (trailing slash for directories only is not supported by Bun.Glob — match files inside instead: \`"src/components/*/index.ts"\`).`,
     parameters: globParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName } = toolContext;

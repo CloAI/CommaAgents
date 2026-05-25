@@ -22,11 +22,15 @@ import type { Sandbox } from "../../sandbox/sandbox.types";
 import type { SkillRegistry } from "../../skills/skills.types";
 import type { AuditSink } from "../../tools/io/audit";
 import { createFileAuditSink } from "../../tools/io/audit-sink";
-import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
 import { sandboxErrorToToolError } from "../../tools/io/sandbox-error";
+import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
 import { errorResult } from "../../tools/result";
 import { resolveTools } from "../../tools/tool.registry";
-import type { ToolContext, ToolDefinition } from "../../tools/tool.types";
+import type {
+  ToolContext,
+  ToolDefinition,
+  ToolError,
+} from "../../tools/tool.types";
 import type { InputCollector } from "../built-in/user/user-agent.types";
 import type { ToolHooks } from "../hooks";
 import { DEFAULT_MAX_STEPS } from "./agent.constants";
@@ -52,10 +56,17 @@ import type {
  * @param agentName - Surfaced on `ToolContext.agentName` and audit entries.
  * @param toolHooks - Optional side-effect hooks invoked around each call.
  * @param sandbox - Guard registry; falls back to a permissive sandbox.
- * @param sessionId - Propagated to `ToolContext.sessionId`.
+ * @param sessionId - Propagated to `ToolContext.sessionId`. Identifies a
+ *   broader user/daemon session; used by audit log / trash metadata.
  * @param auditSink - Explicit audit sink. When omitted but `sessionId` is set,
  *   a `createFileAuditSink(sandbox.cwd)` is constructed automatically.
  * @param skillRegistry - Propagated to `ToolContext.skillRegistry`.
+ * @param inputCollector - Propagated to `ToolContext.inputCollector`.
+ * @param launchStrategy - Propagated to `ToolContext.launchStrategy`.
+ * @param runId - Propagated to `ToolContext.runId`. Identifies a single
+ *   strategy invocation (top-level run *or* one `launch_strategy`
+ *   sub-load). Tools that need per-launch isolation (notably `todo_*`)
+ *   silo on this. Kept distinct from `sessionId`.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
 export function buildAgentToolSet(
@@ -68,6 +79,7 @@ export function buildAgentToolSet(
   skillRegistry?: SkillRegistry,
   inputCollector?: InputCollector,
   launchStrategy?: LaunchStrategyHandle,
+  runId?: string,
 ): Record<string, ReturnType<typeof aiTool<any, any>>> | undefined {
   if (!toolDefinitions || Object.keys(toolDefinitions).length === 0) {
     return undefined;
@@ -110,6 +122,7 @@ export function buildAgentToolSet(
           guard,
           abort: options.abortSignal ?? AbortSignal.timeout(30_000),
           ...(sessionId !== undefined ? { sessionId } : {}),
+          ...(runId !== undefined ? { runId } : {}),
           ...(effectiveAuditSink !== undefined
             ? { auditSink: effectiveAuditSink }
             : {}),
@@ -118,6 +131,61 @@ export function buildAgentToolSet(
           ...(launchStrategy !== undefined ? { launchStrategy } : {}),
         };
 
+        // AI SDK v6's `tool()` wrapper does NOT validate the
+        // `inputSchema` against the LLM's arguments before invoking
+        // execute — the schema is used only for JSON-schema
+        // generation. So an LLM that sends `{}` or partial args would
+        // crash deep inside the tool (destructuring undefined fields,
+        // calling `guard.authorize(undefined)`, etc.) and the thrown
+        // error would surface to the model as an empty string by
+        // default, with no signal to self-correct.
+        //
+        // We bridge that gap here: parse the args against the tool's
+        // declared schema ourselves. On failure, return a structured
+        // error result describing exactly what's missing or invalid
+        // so the LLM can fix its next call.
+        let parsedArguments: unknown;
+        try {
+          const parseResult = definition.parameters.safeParse(toolArguments);
+          if (!parseResult.success) {
+            const issues = parseResult.error.issues
+              .map((issue) => {
+                const path =
+                  issue.path.length > 0 ? issue.path.join(".") : "(root)";
+                return `- \`${path}\`: ${issue.message}`;
+              })
+              .join("\n");
+            const validationError: ToolError = {
+              kind: "unknown",
+              message:
+                `Invalid arguments for \`${name}\`:\n${issues}\n\n` +
+                `Received: ${argsString}`,
+              recoverable: true,
+              suggestedNextAction:
+                `Re-call \`${name}\` with the missing or corrected fields. ` +
+                `Check the tool's parameter schema in your system prompt.`,
+            };
+            const baseOutput = errorResult<unknown>(validationError).output;
+            // Mirror the success-path formatting so the LLM sees the
+            // "Next step:" suffix and treats this as a recoverable
+            // error rather than an opaque failure.
+            const validationOutput = validationError.suggestedNextAction
+              ? `${baseOutput}\n\nNext step: ${validationError.suggestedNextAction}`
+              : baseOutput;
+            await runSideEffectHooks(toolHooks?.afterToolCall, {
+              name,
+              args: argsString,
+              result: validationOutput,
+              toolContext,
+            });
+            return validationOutput;
+          }
+          parsedArguments = parseResult.data;
+        } catch (caught) {
+          // safeParse should never throw, but guard anyway.
+          return `Tool argument validation failed unexpectedly: ${caught instanceof Error ? caught.message : String(caught)}`;
+        }
+
         try {
           await runSideEffectHooks(toolHooks?.beforeToolCall, {
             name,
@@ -125,7 +193,7 @@ export function buildAgentToolSet(
             toolContext,
           });
 
-          const result = await definition.execute(toolArguments, toolContext);
+          const result = await definition.execute(parsedArguments, toolContext);
 
           const llmOutput =
             !result.ok &&
@@ -143,12 +211,34 @@ export function buildAgentToolSet(
 
           return llmOutput;
         } catch (caught) {
+          // Convert thrown errors into structured tool results so the
+          // LLM always sees a useful message instead of an empty
+          // string. Without this, AI SDK v6 surfaces uncaught throws
+          // as `output: ""`, which gives the model no feedback to
+          // self-correct and triggers infinite-retry loops.
+          let toolErr: ToolError;
           if (caught instanceof SandboxViolationError) {
-            return errorResult<unknown>(
-              sandboxErrorToToolError(caught),
-            ) as unknown as string;
+            toolErr = sandboxErrorToToolError(caught);
+          } else {
+            toolErr = {
+              kind: "unknown",
+              message: `Tool \`${name}\` threw: ${caught instanceof Error ? caught.message : String(caught)}`,
+              recoverable: true,
+              suggestedNextAction:
+                "Inspect the error message, correct your arguments or assumptions, and retry. If the cause is unclear, re-read the file with `read_file` to refresh your state.",
+            };
           }
-          throw caught;
+          const errorOutput = errorResult<unknown>(toolErr).output;
+          const llmOutput = toolErr.suggestedNextAction
+            ? `${errorOutput}\n\nNext step: ${toolErr.suggestedNextAction}`
+            : errorOutput;
+          await runSideEffectHooks(toolHooks?.afterToolCall, {
+            name,
+            args: argsString,
+            result: llmOutput,
+            toolContext,
+          });
+          return llmOutput;
         }
       },
     });
@@ -206,6 +296,7 @@ export async function buildCallOptions(
         config.skillRegistry,
         config.inputCollector,
         config.launchStrategy,
+        config.runId,
       ),
     ),
     resolveSystemPrompt({ systemPrompt: config.systemPrompt }),

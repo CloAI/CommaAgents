@@ -1,12 +1,17 @@
 import { describe, expect, it } from "bun:test";
-import type { ConversationTurn } from "@comma-agents/core";
 import { projectRunTurnToMessages } from "./useChat.utils";
 
-const makeTurn = (userText: string, assistantText: string, agentName = "expert"): any => {
+const makeTurn = (
+  userText: string,
+  assistantText: string,
+  agentName = "expert",
+): any => {
   return {
     agentName,
     userMessage: { role: "user", content: userText },
-    responseMessages: [{ role: "assistant", content: [{ type: "text", text: assistantText }] }],
+    responseMessages: [
+      { role: "assistant", content: [{ type: "text", text: assistantText }] },
+    ],
   };
 };
 
@@ -31,7 +36,11 @@ describe("TUI Resume E2E projection deduplication", () => {
 
   it("should NOT output duplicate agent-bubble when user prompt and reply are identical (user step)", () => {
     // For human-in-the-loop user agent steps, the prompt and replayed reply are identical.
-    const turn = makeTurn("What is the smallest tower in the world?", "What is the smallest tower in the world?", "user");
+    const turn = makeTurn(
+      "What is the smallest tower in the world?",
+      "What is the smallest tower in the world?",
+      "user",
+    );
     let count = 0;
     const nextId = () => `msg-${++count}`;
 

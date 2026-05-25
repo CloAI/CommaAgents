@@ -50,7 +50,7 @@ describe("createListStrategyTool", () => {
     expect(result.data?.count).toBe(result.data?.strategies.length);
     // The repo ships a "CommaAgents Strategies" project under
     // packages/core/strategies/. Discovery should pick it up.
-    expect((result.data?.count ?? 0)).toBeGreaterThan(0);
+    expect(result.data?.count ?? 0).toBeGreaterThan(0);
   });
 
   it("formats a single discovered cwd strategy with origin + label", async () => {
@@ -91,11 +91,7 @@ describe("createListStrategyTool", () => {
     const cwd = createScratchDir("warnings");
     const strategiesDir = join(cwd, ".comma", "strategies");
     mkdirSync(strategiesDir, { recursive: true });
-    writeFileSync(
-      join(strategiesDir, "bad.json"),
-      '{"name":"oops"}',
-      "utf8",
-    );
+    writeFileSync(join(strategiesDir, "bad.json"), '{"name":"oops"}', "utf8");
 
     const originalCwd = process.cwd();
     process.chdir(cwd);

@@ -9,15 +9,15 @@ import type { TabDefinition } from "../components/Frame/Frame";
 import { OutputModal } from "../components/MessageList";
 import { Modal } from "../components/Modal";
 import type { StrategyOption } from "../components/StrategyPicker";
-import type { ChatMessage, ChatStatus } from "../hooks";
 import { useChat } from "../hooks";
-import type { LogEntry } from "../hooks/useLogs";
 import { useLogs } from "../hooks/useLogs";
 import { useModal } from "../hooks/useModal";
 import { ChatPage } from "../pages/ChatPage";
 import { IntroPage } from "../pages/IntroPage";
 import { LogsPage } from "../pages/LogsPage";
 import { discoverStrategies } from "../strategy-discovery";
+import { resolveStrategyOption } from "./App.utils";
+import type { AppProps, AppRenderProps } from "./App.types";
 
 /** Whether stdin supports raw mode (false in piped/non-TTY contexts). */
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
@@ -52,18 +52,6 @@ function useDiscoveredStrategies(): readonly StrategyOption[] {
   return strategies;
 }
 
-/** Look up a `StrategyOption` by its path, label, or value, falling back to the first available. */
-function resolveStrategyOption(
-  strategyKey: string,
-  strategies: readonly StrategyOption[],
-): StrategyOption | null {
-  const matched =
-    strategies.find((option) => option.value === strategyKey) ??
-    strategies.find((option) => option.label === strategyKey) ??
-    strategies.find((option) => option.value.endsWith(`${strategyKey}.json`));
-  return matched ?? strategies[0] ?? null;
-}
-
 /** Tab route definitions. Order determines display order in the Frame header. */
 const BASE_TABS: readonly TabDefinition[] = [
   { path: "/chat", label: "Chat", shortcut: "Alt+1" },
@@ -76,19 +64,10 @@ const DEV_TAB: TabDefinition = {
   shortcut: "Alt+3",
 } as const;
 
-export interface AppProps {
-  /** Pre-select a strategy by key (used together with `initialInput` for auto-start). */
-  readonly strategy?: string;
-  /** Initial input message — auto-starts a chat on mount when provided. */
-  readonly initialInput?: string;
-  /** Enable the component playground (Dev tab, Alt+4). */
-  readonly dev?: boolean;
-}
-
 export function App({
   strategy: preselectedStrategy,
   initialInput,
-  dev = false,
+  devMode = false,
 }: AppProps): React.ReactElement {
   const { exit } = useApp();
   const { enableFocus } = useFocusManager();
@@ -106,8 +85,8 @@ export function App({
   }, [enableFocus]);
 
   const tabs = useMemo<readonly TabDefinition[]>(
-    () => (dev ? [...BASE_TABS, DEV_TAB] : BASE_TABS),
-    [dev],
+    () => (devMode ? [...BASE_TABS, DEV_TAB] : BASE_TABS),
+    [devMode],
   );
 
   // The active strategy is owned here (not in the chat hook) so the chat
@@ -132,27 +111,32 @@ export function App({
   }, [activeStrategy, chat.strategyName, chat.strategyPath, chat.readOnly]);
 
   const handleStartChat = useCallback(
-    (strategyPath: string, input: string): void => {
+    (strategyPath: string, inputText: string): void => {
       const option = resolveStrategyOption(strategyPath, strategies);
       if (option) {
         setActiveStrategy(option);
       }
-      chat.startStrategy(strategyPath, input, process.cwd(), option?.manifestPath);
+      chat.startStrategy(
+        strategyPath,
+        inputText,
+        process.cwd(),
+        option?.manifestPath,
+      );
       navigate("/chat");
     },
     [chat, navigate, strategies],
   );
 
   const handleReplySubmit = useCallback(
-    (text: string): void => {
-      chat.sendInput(text);
+    (submittedText: string): void => {
+      chat.sendInput(submittedText);
     },
     [chat],
   );
 
   const handlePermissionDecide = useCallback(
-    (decision: "allow" | "deny" | "allow-session" | "deny-session"): void => {
-      chat.sendPermissionDecision(decision);
+    (decisionValue: "allow" | "deny" | "allow-session" | "deny-session"): void => {
+      chat.sendPermissionDecision(decisionValue);
     },
     [chat],
   );
@@ -172,24 +156,24 @@ export function App({
   }, [chat, exit]);
 
   const handleTabSelect = useCallback(
-    (path: string): void => {
-      navigate(path);
+    (tabPath: string): void => {
+      navigate(tabPath);
     },
     [navigate],
   );
 
   useInput(
-    (input, key) => {
-      if (key.ctrl && input === "c") {
+    (inputText, keyPress) => {
+      if (keyPress.ctrl && inputText === "c") {
         handleExitApp();
       }
-      if (key.ctrl && input === "p") {
+      if (keyPress.ctrl && inputText === "p") {
         commandPalette.toggle();
       }
       // Tab shortcuts — only active when on a tabbed route (not /intro).
-      if (key.meta && input === "1") navigate("/chat");
-      if (key.meta && input === "2") navigate("/logs");
-      if (key.meta && input === "3" && dev) navigate("/dev");
+      if (keyPress.meta && inputText === "1") navigate("/chat");
+      if (keyPress.meta && inputText === "2") navigate("/logs");
+      if (keyPress.meta && inputText === "3" && devMode) navigate("/dev");
     },
     { isActive: RAW_MODE_SUPPORTED },
   );
@@ -215,86 +199,30 @@ export function App({
   ]);
 
   return (
-    <>
-      <AppRender
-        tabs={tabs}
-        activeTabPath={location.pathname}
-        onTabSelect={handleTabSelect}
-        activeStrategy={effectiveActiveStrategy}
-        chatMessages={chat.messages}
-        chatStatus={chat.status}
-        chatError={chat.error}
-        chatPendingInputAgent={chat.pendingInputAgent}
-        chatPendingPermissionRequest={chat.pendingPermissionRequest}
-        chatPendingQuestionRequest={chat.pendingQuestionRequest}
-        onStartChat={handleStartChat}
-        onReplySubmit={handleReplySubmit}
-        onPermissionDecide={handlePermissionDecide}
-        onQuestionSubmit={chat.sendQuestionResponse}
-        logs={logs}
-        onClearLogs={clearLogs}
-        strategies={strategies}
-      />
-      <Modal
-        title="Command Palette"
-        modalId={COMMAND_PALETTE_MODAL_ID}
-        closeOnEsc={false}
-        minHeight="60%"
-        maxHeight="60%"
-      >
-        <CommandPalette
-          isVisible={commandPalette.isOpen}
-          onClose={commandPalette.close}
-          onExitApp={handleExitApp}
-          onResetChat={handleResetChat}
-        />
-      </Modal>
-      <OutputModal />
-    </>
+    <AppRender
+      tabs={tabs}
+      activeTabPath={location.pathname}
+      onTabSelect={handleTabSelect}
+      activeStrategy={effectiveActiveStrategy}
+      chatMessages={chat.messages}
+      chatStatus={chat.status}
+      chatError={chat.error}
+      chatPendingInputAgent={chat.pendingInputAgent}
+      chatPendingPermissionRequest={chat.pendingPermissionRequest}
+      chatPendingQuestionRequest={chat.pendingQuestionRequest}
+      onStartChat={handleStartChat}
+      onReplySubmit={handleReplySubmit}
+      onPermissionDecide={handlePermissionDecide}
+      onQuestionSubmit={chat.sendQuestionResponse}
+      logs={logs}
+      onClearLogs={clearLogs}
+      strategies={strategies}
+      commandPaletteOpen={commandPalette.isOpen}
+      onCommandPaletteClose={commandPalette.close}
+      onExitApp={handleExitApp}
+      onResetChat={handleResetChat}
+    />
   );
-}
-
-export interface AppRenderProps {
-  /** Tab definitions to pass to Frame. */
-  readonly tabs: readonly TabDefinition[];
-  /** Route path of the currently active tab. */
-  readonly activeTabPath: string;
-  /** Called when a tab is selected. */
-  readonly onTabSelect: (path: string) => void;
-  /** Active strategy (null when no chat has been started). */
-  readonly activeStrategy: StrategyOption | null;
-  /** Chat messages — passed through to ChatPage. */
-  readonly chatMessages: readonly ChatMessage[];
-  /** Chat lifecycle status — passed through to ChatPage. */
-  readonly chatStatus: ChatStatus;
-  /** Current chat error message, or null. */
-  readonly chatError: string | null;
-  /** Agent currently waiting for user input, or null. */
-  readonly chatPendingInputAgent: string | null;
-  /** Pending permission request, or null. */
-  readonly chatPendingPermissionRequest:
-    | import("../hooks").PendingPermissionRequest
-    | null;
-  /** Pending question request, or null. */
-  readonly chatPendingQuestionRequest:
-    | import("../hooks").PendingQuestionRequest
-    | null;
-  /** Called when the user submits their first prompt on the intro screen. */
-  readonly onStartChat: (strategyKey: string, input: string) => void;
-  /** Called when the user replies to an agent on the chat screen. */
-  readonly onReplySubmit: (text: string) => void;
-  /** Called when the user resolves a permission request. */
-  readonly onPermissionDecide: (
-    decision: "allow" | "deny" | "allow-session" | "deny-session",
-  ) => void;
-  /** Called when the user submits an answer to a question. */
-  readonly onQuestionSubmit: (response: string) => void;
-  /** Captured log entries to display in the Logs tab. */
-  readonly logs: readonly LogEntry[];
-  /** Called to clear all captured logs. */
-  readonly onClearLogs: () => void;
-  /** Discovered strategy options from bundled, cwd, and data-dir. */
-  readonly strategies: readonly StrategyOption[];
 }
 
 export function AppRender({
@@ -315,37 +243,58 @@ export function AppRender({
   logs,
   onClearLogs,
   strategies,
+  commandPaletteOpen,
+  onCommandPaletteClose,
+  onExitApp,
+  onResetChat,
 }: AppRenderProps): React.ReactElement {
   // /intro renders without the Frame tab bar.
   return (
-    <Frame tabs={tabs} activeTabPath={activeTabPath} onTabSelect={onTabSelect}>
-      <Routes>
-        <Route
-          path="/chat"
-          element={
-            activeStrategy ? (
-              <ChatPage
-                messages={chatMessages}
-                chatStatus={chatStatus}
-                error={chatError}
-                pendingInputAgent={chatPendingInputAgent}
-                pendingPermissionRequest={chatPendingPermissionRequest}
-                pendingQuestionRequest={chatPendingQuestionRequest}
-                onReplySubmit={onReplySubmit}
-                onPermissionDecide={onPermissionDecide}
-                onQuestionSubmit={onQuestionSubmit}
-                activeStrategy={activeStrategy}
-              />
-            ) : (
-              <IntroPage strategies={strategies} onSubmit={onStartChat} />
-            )
-          }
+    <>
+      <Frame tabs={tabs} activeTabPath={activeTabPath} onTabSelect={onTabSelect}>
+        <Routes>
+          <Route
+            path="/chat"
+            element={
+              activeStrategy ? (
+                <ChatPage
+                  messages={chatMessages}
+                  chatStatus={chatStatus}
+                  error={chatError}
+                  pendingInputAgent={chatPendingInputAgent}
+                  pendingPermissionRequest={chatPendingPermissionRequest}
+                  pendingQuestionRequest={chatPendingQuestionRequest}
+                  onReplySubmit={onReplySubmit}
+                  onPermissionDecide={onPermissionDecide}
+                  onQuestionSubmit={onQuestionSubmit}
+                  activeStrategy={activeStrategy}
+                />
+              ) : (
+                <IntroPage strategies={strategies} onSubmit={onStartChat} />
+              )
+            }
+          />
+          <Route
+            path="/logs"
+            element={<LogsPage logs={logs} onClear={onClearLogs} />}
+          />
+        </Routes>
+      </Frame>
+      <Modal
+        title="Command Palette"
+        modalId={COMMAND_PALETTE_MODAL_ID}
+        closeOnEsc={false}
+        minHeight="60%"
+        maxHeight="60%"
+      >
+        <CommandPalette
+          isVisible={commandPaletteOpen}
+          onClose={onCommandPaletteClose}
+          onExitApp={onExitApp}
+          onResetChat={onResetChat}
         />
-        <Route
-          path="/logs"
-          element={<LogsPage logs={logs} onClear={onClearLogs} />}
-        />
-      </Routes>
-    </Frame>
+      </Modal>
+      <OutputModal />
+    </>
   );
 }

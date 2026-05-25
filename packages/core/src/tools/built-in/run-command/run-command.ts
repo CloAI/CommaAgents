@@ -86,6 +86,46 @@ export function createRunCommandTool(
 
   return defineTool<typeof runCommandParams, RunCommandData>({
     description: buildRunCommandDescription(platformInfo),
+    systemPrompt: `### Using run_command
+
+\`run_command\` executes a shell command. Use it for project verification (linters, type-checkers, tests, build), running scripts, and one-off CLI operations.
+
+**Required:**
+
+- \`command\`: the shell command to run, as a string. Run **one** command per call.
+
+**Useful optional:**
+
+- \`cwd\`: workspace-relative directory to run the command in (e.g. \`"packages/tui"\`). Defaults to the workspace root.
+- \`timeoutMs\`: maximum runtime in milliseconds. Long-running commands are killed past this. Default is generous but finite.
+- \`stdin\`: feed input on stdin (rare).
+
+**The cwd rule — read this carefully:**
+
+**Always pass \`cwd\` explicitly** when the command needs a specific working directory. **Never** write \`"cd packages/tui && bun test"\` in the \`command\` — use \`{ command: "bun test", cwd: "packages/tui" }\` instead. Chained \`cd; cmd\` patterns:
+
+- Hide the actual cwd from the tool layer (so error messages are misleading).
+- Break when commands fail (the \`cd\` succeeds, the next command runs in the wrong dir on retry).
+- Make it impossible for the tool to display the right "Running in X" message.
+
+**Typical verification commands:**
+
+- Type-check (TypeScript): \`{ command: "tsc --noEmit", cwd: "<project root>" }\`.
+- Lint: \`{ command: "eslint . --max-warnings 0", cwd: "<project root>" }\`.
+- Tests: \`{ command: "bun test", cwd: "<project root>" }\` or \`{ command: "bun test path/to/file.test.ts", cwd: "..." }\`.
+- Format check: \`{ command: "prettier --check .", cwd: "..." }\`.
+
+**The result includes:**
+
+- \`exitCode\`: 0 = success. Non-zero = failed.
+- \`stdout\` and \`stderr\`: captured output (each capped — long output is truncated and flagged).
+- \`durationMs\`: how long it ran.
+
+**Hard rules:**
+
+- One command per call. Use multiple \`run_command\` calls for sequential operations.
+- Honour the abort signal — long commands time out cleanly.
+- Some commands (\`rm -rf\`, etc.) may require user approval via the sandbox — that's expected behaviour, not a bug.`,
     parameters: runCommandParams,
     policies: toolPolicies.length > 0 ? toolPolicies : undefined,
     execute: async (validatedArguments, toolContext) => {

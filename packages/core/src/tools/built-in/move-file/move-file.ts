@@ -130,6 +130,42 @@ export function createMoveFileTool(
         "Every move is appended to the audit log as a `move` operation.",
       ],
     }),
+    systemPrompt: `### Using move_file
+
+\`move_file\` renames or moves a file. Source must exist, destination must not — there is **no overwrite**.
+
+**Required:**
+
+- \`source\`: workspace-relative path of the existing file or directory.
+- \`destination\`: workspace-relative path of the new location. If \`destination\` already exists, you get \`already_exists\`. Delete it first (\`delete_file\`) or pick a different name.
+
+**Useful optional:**
+
+- \`expectedSha256\`: when set, must match the source file's current hash. Recommended after any \`read_file\` on the source — same staleness protection as \`edit_file\` / \`write_file\`.
+- \`createParentDirectories: true\`: create missing parent directories under \`destination\`. Useful when moving a file into a fresh folder.
+
+**Common uses:**
+
+- Rename: \`source: "src/oldName.ts", destination: "src/newName.ts"\`.
+- Move to a new folder: \`source: "src/foo.ts", destination: "src/components/foo.ts"\`.
+- PascalCase folder rename: combine with \`list_directory\` to walk children, then several \`move_file\` calls (one per child).
+
+**Post-move verification (MANDATORY) — moves break imports silently:**
+
+After every \`move_file\` call, **run the project's type-checker with \`run_command\`** (e.g. \`tsc --noEmit\`). Moves are the most dangerous mutation for silent regressions:
+
+- Imports in **other files** still reference the old path. \`tsc --noEmit\` is the only thing that flags every broken import in one shot.
+- The new file's own imports may need updating (relative paths shift when a file moves between directories).
+- If the moved file is a barrel re-export target, downstream barrels may need to update.
+
+**Workflow after every move:**
+
+1. \`move_file\` succeeds.
+2. \`run_command({ command: "tsc --noEmit", cwd: "<project root>" })\` — read the errors.
+3. For each error, \`read_file\` the broken file, then \`edit_file\` to fix the import path.
+4. Re-run the type-check until it's green.
+
+**Never** call \`move_file\` expecting overwrite — it always refuses. **Never** end your turn with broken imports caused by a move — the verifier must be green.`,
     parameters: moveFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;

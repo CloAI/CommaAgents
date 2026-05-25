@@ -78,6 +78,27 @@ export function createDeleteFileTool(
         "Every delete is appended to the audit log as a `delete` operation.",
       ],
     }),
+    systemPrompt: `### Using delete_file
+
+\`delete_file\` moves a file to the workspace trash. **Recoverable** with \`restore_file\` — this is a soft delete, not a hard \`rm\`.
+
+**Required:**
+
+- \`path\`: workspace-relative path of the file to delete.
+
+**Useful optional:**
+
+- \`expectedSha256\`: when set, must match the file's current hash. Use this if you read the file recently and want staleness protection against concurrent modification.
+
+The result includes a \`trashId\` you can pass to \`restore_file\` to undo the deletion within the same workspace.
+
+**Pre-delete check + post-delete verification (MANDATORY):**
+
+Before deleting, \`search_files\` for references to the file you're about to delete — if anything imports it, deleting will break that import.
+
+After every successful \`delete_file\` call, **run the project's type-checker with \`run_command\`** (e.g. \`tsc --noEmit\`) to confirm no surviving file still imports the deleted one. If the verifier reports broken imports, either fix the importers (\`edit_file\` to remove the references) or \`restore_file\` to undo the delete.
+
+**Never** end your turn with broken imports caused by a delete.`,
     parameters: deleteFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;

@@ -126,4 +126,103 @@ describe("todo tools", () => {
     const result = await get.execute({}, primaryContext);
     expect(result.metadata?.totalItems).toBe(2);
   });
+
+  describe("runId isolation", () => {
+    // Two agents that share `agentName` but have different `runId`s — the
+    // canonical recursive-`launch_strategy` scenario where the daemon
+    // supplies a fresh `runId` per sub-launch. They MUST see independent
+    // silos; otherwise a sub-manager's writes corrupt the parent
+    // manager's drain.
+    const parentManagerContext = makeToolContext({
+      agentName: "manager",
+      runId: "run-parent",
+    });
+    const subManagerContext = makeToolContext({
+      agentName: "manager",
+      runId: "run-sub-1",
+    });
+
+    it("agents with the same name but different runId have isolated silos", async () => {
+      const add = createTodoAddTool();
+      const get = createTodoGetTool();
+
+      await add.execute({ content: "parent item A" }, parentManagerContext);
+      await add.execute({ content: "parent item B" }, parentManagerContext);
+      await add.execute({ content: "sub item X" }, subManagerContext);
+
+      const parentList = await get.execute({}, parentManagerContext);
+      const subList = await get.execute({}, subManagerContext);
+
+      expect(parentList.output).toContain("parent item A");
+      expect(parentList.output).toContain("parent item B");
+      expect(parentList.output).not.toContain("sub item X");
+      expect(parentList.metadata?.totalItems).toBe(2);
+
+      expect(subList.output).toContain("sub item X");
+      expect(subList.output).not.toContain("parent item");
+      expect(subList.metadata?.totalItems).toBe(1);
+    });
+
+    it("clearing a sub-run's silo does not touch the parent run's silo", async () => {
+      // The original bug: a recursive sub-manager calling todo_clear
+      // wiped the parent manager's outstanding todos, breaking the
+      // parent's drain loop the moment control returned to it.
+      const add = createTodoAddTool();
+      const get = createTodoGetTool();
+      const clear = createTodoClearTool();
+
+      await add.execute({ content: "parent A" }, parentManagerContext);
+      await add.execute({ content: "parent B" }, parentManagerContext);
+      await add.execute({ content: "sub Z" }, subManagerContext);
+
+      const cleared = await clear.execute({}, subManagerContext);
+      expect(cleared.metadata?.cleared).toBe(1);
+
+      const parentList = await get.execute({}, parentManagerContext);
+      expect(parentList.metadata?.totalItems).toBe(2);
+      expect(parentList.output).toContain("parent A");
+      expect(parentList.output).toContain("parent B");
+
+      const subList = await get.execute({}, subManagerContext);
+      expect(subList.metadata?.totalItems).toBe(0);
+    });
+
+    it("completing in the sub-run does not advance the parent run's list", async () => {
+      const add = createTodoAddTool();
+      const complete = createTodoCompleteTool();
+      const getNext = createTodoGetNextTool();
+
+      // Parent seeds two todos.
+      await add.execute({ content: "parent task 1" }, parentManagerContext);
+      await add.execute({ content: "parent task 2" }, parentManagerContext);
+
+      // Sub-run seeds one and completes it.
+      await add.execute({ content: "sub task" }, subManagerContext);
+      const subComplete = await complete.execute(
+        { id: "1" },
+        subManagerContext,
+      );
+      expect(subComplete.output).toContain("All todos are done");
+
+      // Parent's next pending is still its first item — sub-run's
+      // complete didn't touch the parent silo.
+      const parentNext = await getNext.execute({}, parentManagerContext);
+      expect(parentNext.output).toContain("parent task 1");
+      expect(parentNext.metadata?.hasNext).toBe(true);
+    });
+
+    it("agents with same name but runId omitted on both share a legacy silo", async () => {
+      // Backwards compatibility: callers (tests, embedded users without
+      // a daemon) that don't supply runId still get the original
+      // agentName-only keying so their existing code works unchanged.
+      const noRunId1 = makeToolContext({ agentName: "legacy-agent" });
+      const noRunId2 = makeToolContext({ agentName: "legacy-agent" });
+      const add = createTodoAddTool();
+      const get = createTodoGetTool();
+
+      await add.execute({ content: "shared item" }, noRunId1);
+      const result = await get.execute({}, noRunId2);
+      expect(result.output).toContain("shared item");
+    });
+  });
 });

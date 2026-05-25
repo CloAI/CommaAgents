@@ -13,6 +13,7 @@ export type {
   CreateRunInit,
   MessageRole,
   PendingPermissionRequest,
+  PendingQuestionRequest,
   PersistedRunMeta,
   RunStatus,
   RunSummary,

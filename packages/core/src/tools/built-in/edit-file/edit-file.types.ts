@@ -15,6 +15,25 @@ export interface AppliedEdit {
   readonly editIndex: number;
   /** Number of occurrences replaced. */
   readonly occurrences: number;
+  /**
+   * True when the exact substring match failed and a fallback replacer
+   * recovered the edit (line-trimmed, whitespace-normalized, or block
+   * anchor). Surfaces in the tool's text output so the LLM can spot when
+   * its `oldText` was approximate and tighten it next time.
+   */
+  readonly usedFallback?: boolean;
+  /**
+   * Name of the replacer that produced the match. Always present;
+   * `"exactReplacer"` for the strict path.
+   */
+  readonly replacerName?: string;
+  /**
+   * The actual substring of the file that was matched and replaced.
+   * Populated only when a fallback was used so the caller can show the
+   * LLM exactly what got swapped (the LLM's `oldText` is approximate by
+   * definition in that case).
+   */
+  readonly matchedText?: string;
 }
 
 export interface MatchRange {

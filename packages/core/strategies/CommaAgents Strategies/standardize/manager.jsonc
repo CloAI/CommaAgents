@@ -1,0 +1,54 @@
+{
+  "name": "Standardize",
+  "version": "4.0",
+  "description": "Recursive standardization orchestrator. A single Manager agent resolves the target + standards + scope, walks one directory at a time with read/write/run tools, fixes structural issues directly (folder layout, missing barrels, misplaced files, naming), then dispatches work two ways: per-file content audits go to `Standardize Worker` via `launch_strategy`, and per-folder recursion goes to `Standardize` itself (this same strategy) via `launch_strategy`. Each `launch_strategy` invocation receives a fresh `runId` from the daemon, so the `todo_*` tools' silos are isolated per sub-run \u2014 recursive sub-Managers cannot corrupt the parent's todo list. The Manager runs in one of two modes detected by input shape: *top-level mode* (free-form user request, resolves standards from configs and skills) or *sub-folder mode* (structured `Audit folder:` input from a parent Manager, inherits standards verbatim). Both modes use the todo tool freely \u2014 the runId silo makes recursion safe.",
+  "agents": {
+    "user": {
+      "type": "user",
+      "description": "Collects the user's standardization request \u2014 what codebase to audit, which standards to enforce, any scope limits. The TUI seeds this step with the initial prompt; no human re-prompt is needed.",
+      "config": {
+        "requireInput": true
+      }
+    },
+
+    "manager": {
+      "description": "Plans, walks, fixes structural issues, dispatches per-file work, and reports. Full read/write/run toolset. Resolves standards once up-front (configs + skills), maintains its own todo list of files to audit, performs structural fixes itself (rename, move, add barrels), then launches `Standardize Worker` for each file's content audit. Emits the final user-facing report.",
+      "model": "openrouter/google/gemini-3.5-flash",
+      "systemPrompt": "./prompts/manager.md",
+      "maxSteps": 500,
+      "tools": [
+        "read_file",
+        "list_directory",
+        "glob",
+        "search_files",
+        "create_file",
+        "write_file",
+        "edit_file",
+        "move_file",
+        "delete_file",
+        "restore_file",
+        "run_command",
+        "list_skills",
+        "load_skill",
+        "list_strategy",
+        "launch_strategy",
+        "todo_add",
+        "todo_complete",
+        "todo_get",
+        "todo_get_next",
+        "todo_clear",
+        "ask_question"
+      ]
+    }
+  },
+
+  "flow": {
+    "name": "Standardize Flow",
+    "type": "sequential",
+    "description": "User describes the target \u2192 manager resolves standards, fixes structural issues, dispatches `Standardize Worker` per file, and emits the final report.",
+    "steps": [
+      { "agent": "user" },
+      { "agent": "manager" }
+    ]
+  }
+}

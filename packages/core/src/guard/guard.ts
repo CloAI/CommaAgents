@@ -306,9 +306,7 @@ export function createGuard(
     ctx: AuthorizationContext,
   ): Promise<string> {
     if (!callbacks?.onQuestion) {
-      throw new Error(
-        "No onQuestion handler is configured.",
-      );
+      throw new Error("No onQuestion handler is configured.");
     }
     return callbacks.onQuestion({
       agentName: ctx.agentName,

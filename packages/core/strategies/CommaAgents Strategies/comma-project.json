@@ -8,7 +8,7 @@
     "./qa.json",
     "./reduce-complexity/reduce-complexity.jsonc",
     "./talk.json",
-    "./standardize/standardize.jsonc",
-    "./standardize/standardize-file-audit.jsonc"
+    "./standardize/manager.jsonc",
+    "./standardize/worker.jsonc"
   ]
 }

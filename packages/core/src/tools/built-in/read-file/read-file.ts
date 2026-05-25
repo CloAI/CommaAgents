@@ -141,6 +141,26 @@ export function createReadFileTool(
         "Slicing operates on LF-normalized content; `sha256` is computed on the raw bytes (BOM and CRLF preserved).",
       ],
     }),
+    systemPrompt: `### Using read_file
+
+\`read_file\` is the **starting point of every file modification**. Always read before you write or edit.
+
+**The sha256 chain:**
+
+Every \`read_file\` response includes a \`sha256\` field — a 64-char lowercase hex hash of the file's current bytes. **Save it.** You will pass it as \`expectedSha256\` to your next \`edit_file\` / \`write_file\` / \`move_file\` / \`delete_file\` call on the same file. This is how the tools detect concurrent edits and refuse stale writes.
+
+If a subsequent edit/write returns \`stale_file\`, the file changed under you — re-call \`read_file\` to get a fresh \`sha256\` and retry.
+
+**Required:**
+
+- \`path\`: workspace-relative file path (e.g. \`"src/App.tsx"\`). Use \`./relative/path\` or just \`"src/foo.ts"\` — absolute paths are rejected unless the sandbox explicitly permits them.
+
+**Useful optional arguments:**
+
+- \`startLine\` / \`endLine\` (1-indexed, inclusive): read only a slice of a large file. The \`sha256\` is **always** the hash of the full file, never the slice — so chaining writes still works.
+- \`allowBinary: true\`: return binary content as base64 instead of \`binary_file\` error. Rarely needed for source-code work.
+
+**Never** edit, write, move, or delete a file without first reading it to obtain a fresh \`sha256\`.`,
     parameters: readFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName } = toolContext;

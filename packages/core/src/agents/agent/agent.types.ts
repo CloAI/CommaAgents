@@ -7,8 +7,8 @@ import type {
   LanguageModel,
   ModelMessage,
   StepResult,
-  ToolChoice,
   stepCountIs,
+  ToolChoice,
 } from "ai";
 import type { ConversationContext } from "../../context/conversation-context";
 import type { ConversationTurn } from "../../context/conversation-context.types";
@@ -96,6 +96,28 @@ export interface AgentConfig {
    * `<configRoot>/comma-agents/skills/` plus `./.comma/skills/`.
    */
   readonly skillRegistry?: SkillRegistry;
+  /**
+   * Per-invocation run identifier propagated to {@link ToolContext.runId}.
+   *
+   * Distinct from {@link AgentConfig.sessionId} — `runId` identifies one
+   * strategy invocation (top-level run *or* one `launch_strategy`
+   * sub-invocation), while `sessionId` identifies a broader user/daemon
+   * session that may span many runs. The two are deliberately separate:
+   * audit logs are session-scoped, but per-run isolation (notably the
+   * `todo_*` tools' silo, which would otherwise be process-global and
+   * shared across every recursive `launch_strategy` call because every
+   * recursive sub-agent has the same `agentName`) keys on `runId`.
+   *
+   * The strategy loader sets this from {@link LoadStrategyOptions.runId};
+   * the daemon executor passes the top-level run id at the entry point
+   * and a fresh derived id for each sub-launch so recursive strategy
+   * invocations get isolated state.
+   *
+   * When omitted, runId-aware tools fall back to `agentName`-only keying
+   * (their original behaviour) — safe for tests and embedded callers
+   * that don't care about cross-launch isolation.
+   */
+  readonly runId?: string;
   /**
    * Input collector threaded into the {@link ToolContext} of every tool
    * call. Used by tools (e.g., `launch_strategy`) that need to forward

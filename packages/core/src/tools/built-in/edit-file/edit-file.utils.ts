@@ -1,3 +1,4 @@
+import { findFallbackMatch } from "./edit-file.replacers";
 import type { AppliedEdit, MatchRange } from "./edit-file.types";
 
 interface PlannedReplacement {
@@ -5,6 +6,16 @@ interface PlannedReplacement {
   readonly startOffset: number;
   readonly endOffset: number;
   readonly newText: string;
+}
+
+/** Outcome details for a single edit, surfaced into the AppliedEdit return. */
+interface EditMatchOutcome {
+  /** The actual substring matched in the snapshot (post-fallback if used). */
+  readonly matchedText: string;
+  /** Which replacer in the chain produced this match. */
+  readonly replacerName: string;
+  /** True iff the match was found via exact substring lookup (no fallback). */
+  readonly isExact: boolean;
 }
 
 /**
@@ -48,8 +59,20 @@ export function findAllOccurrences(haystack: string, needle: string): number[] {
  * Locate every occurrence of each edit's `oldText` in the snapshot, verify
  * match counts, and build the planned replacements list.
  *
+ * Matching is tiered:
+ *
+ * 1. **Exact substring.** The strict legacy behaviour — `oldText` is
+ *    matched character-for-character. If found, use it.
+ * 2. **Fallback chain.** If exact match yields zero hits, the
+ *    `DEFAULT_REPLACER_CHAIN` (line-trimmed → whitespace-normalized →
+ *    block-anchor) is tried in priority order. The first replacer to
+ *    produce a *unique* candidate substring of the snapshot wins.
+ *    `expectedOccurrences > 1` disables fallback entirely (because the
+ *    LLM is asking for batch replacement of a literal string).
+ *
  * Returns `{ planned, appliedEdits }` on success, or a `ToolError`-shaped
- * object `{ errorKind, errorMessage, errorDetails }` on failure.
+ * object on failure. `AppliedEdit` carries a `usedFallback` flag and the
+ * `replacerName` so callers can surface the heuristic to the LLM.
  */
 export function locateEditOccurrences(
   snapshot: string,
@@ -79,49 +102,131 @@ export function locateEditOccurrences(
     const newNormalized = stripBomToLF(edit.newText);
     const offsets = findAllOccurrences(snapshot, oldNormalized);
 
-    if (offsets.length === 0) {
+    // Path 1: exact substring matched the expected number of times.
+    if (offsets.length === expected) {
+      for (const off of offsets) {
+        planned.push({
+          editIndex,
+          startOffset: off,
+          endOffset: off + oldNormalized.length,
+          newText: newNormalized,
+        });
+      }
+      appliedEdits.push({
+        editIndex,
+        occurrences: offsets.length,
+        usedFallback: false,
+        replacerName: "exactReplacer",
+      });
+      continue;
+    }
+
+    // Path 2: exact match found nothing AND the LLM asked for a single
+    // replacement (expected === 1). Try the fallback chain — the LLM
+    // probably has slightly off whitespace or indentation. Skip
+    // fallbacks for expected > 1 because batch replacement is
+    // inherently a "match literal text N times" operation.
+    if (offsets.length === 0 && expected === 1) {
+      const fallback = findFallbackMatch(snapshot, oldNormalized);
+      if (fallback && "match" in fallback && !fallback.isExact) {
+        const matchStart = snapshot.indexOf(fallback.match);
+        if (matchStart !== -1) {
+          planned.push({
+            editIndex,
+            startOffset: matchStart,
+            endOffset: matchStart + fallback.match.length,
+            newText: newNormalized,
+          });
+          appliedEdits.push({
+            editIndex,
+            occurrences: 1,
+            usedFallback: true,
+            replacerName: fallback.replacerName,
+            matchedText: fallback.match,
+          });
+          continue;
+        }
+      }
+      if (fallback && "ambiguous" in fallback) {
+        // The fallback found multiple candidates — surface them so the
+        // LLM can tighten `oldText` rather than guess.
+        const matchRanges: MatchRange[] = fallback.ambiguous.map((cand) => {
+          const off = snapshot.indexOf(cand);
+          const { startLine, endLine } = offsetsToLineRange(
+            snapshot,
+            off,
+            off + cand.length,
+          );
+          return {
+            startLine,
+            endLine,
+            startOffset: off,
+            endOffset: off + cand.length,
+          };
+        });
+        return {
+          errorKind: "multiple_matches",
+          errorMessage:
+            `Edit #${editIndex}: \`oldText\` matched no exact substring of ${filePath}, ` +
+            `but ${fallback.ambiguous.length} block candidates were found via fallback ` +
+            `(${fallback.replacerName}). Tighten \`oldText\` with more surrounding context to pick one.`,
+          errorDetails: {
+            editIndex,
+            replacerName: fallback.replacerName,
+            matchCount: fallback.ambiguous.length,
+            matchRanges,
+          },
+        };
+      }
+
+      // No exact, no fallback — genuinely not in the file.
       return {
         errorKind: "old_text_not_found",
-        errorMessage: `Edit #${editIndex}: oldText not found in ${filePath}.`,
+        errorMessage:
+          `Edit #${editIndex}: \`oldText\` not found in ${filePath}. ` +
+          `Re-read the file and copy the exact text you want to replace, ` +
+          `or pass \`oldText\` that uniquely identifies the block (multi-line is fine).`,
         errorDetails: { editIndex },
       };
     }
 
-    if (offsets.length !== expected) {
-      const matchRanges: MatchRange[] = offsets.map((off) => {
-        const { startLine, endLine } = offsetsToLineRange(
-          snapshot,
-          off,
-          off + oldNormalized.length,
-        );
-        return {
-          startLine,
-          endLine,
-          startOffset: off,
-          endOffset: off + oldNormalized.length,
-        };
-      });
+    // Path 3: exact match found, but not the expected number of times.
+    // Surface the actual locations so the LLM can either tighten
+    // `oldText` or raise `expectedOccurrences`.
+    if (offsets.length === 0) {
       return {
-        errorKind: "multiple_matches",
-        errorMessage: `Edit #${editIndex}: expected ${expected} match(es) for oldText in ${filePath}, found ${offsets.length}.`,
-        errorDetails: {
-          editIndex,
-          matchCount: offsets.length,
-          expectedOccurrences: expected,
-          matchRanges,
-        },
+        errorKind: "old_text_not_found",
+        errorMessage: `Edit #${editIndex}: \`oldText\` not found in ${filePath}.`,
+        errorDetails: { editIndex },
       };
     }
 
-    for (const off of offsets) {
-      planned.push({
-        editIndex,
+    const matchRanges: MatchRange[] = offsets.map((off) => {
+      const { startLine, endLine } = offsetsToLineRange(
+        snapshot,
+        off,
+        off + oldNormalized.length,
+      );
+      return {
+        startLine,
+        endLine,
         startOffset: off,
         endOffset: off + oldNormalized.length,
-        newText: newNormalized,
-      });
-    }
-    appliedEdits.push({ editIndex, occurrences: offsets.length });
+      };
+    });
+    return {
+      errorKind: "multiple_matches",
+      errorMessage:
+        `Edit #${editIndex}: expected ${expected} match(es) for \`oldText\` in ${filePath}, ` +
+        `found ${offsets.length}. Tighten \`oldText\` with more surrounding context, ` +
+        `or set \`expectedOccurrences: ${offsets.length}\` to replace every match.`,
+      errorDetails: {
+        editIndex,
+        matchCount: offsets.length,
+        expectedOccurrences: expected,
+        matchRanges,
+      },
+    };
   }
 
   return { planned, appliedEdits };
@@ -178,3 +283,6 @@ function stripBomToLF(text: string): string {
   }
   return result.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 }
+
+/** Re-export for outcome reporting. */
+export type { EditMatchOutcome };

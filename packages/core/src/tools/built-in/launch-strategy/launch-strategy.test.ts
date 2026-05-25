@@ -10,12 +10,11 @@ import { describe, expect, it } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-import { makeToolContext } from "../../test.utils";
 import type {
   LaunchStrategyHandle,
   LaunchStrategyResult,
 } from "../../launch-strategy.types";
+import { makeToolContext } from "../../test.utils";
 import { createLaunchStrategyTool } from "./launch-strategy";
 
 const ECHO_STRATEGY = {
@@ -44,7 +43,10 @@ function createScratchDir(label: string): string {
   return dir;
 }
 
-function withCwdContaining(strategy: object): { cwd: string; cleanup: () => void } {
+function withCwdContaining(strategy: object): {
+  cwd: string;
+  cleanup: () => void;
+} {
   const cwd = createScratchDir("strategy-host");
   const strategiesDir = join(cwd, ".comma", "strategies");
   mkdirSync(strategiesDir, { recursive: true });
@@ -75,7 +77,11 @@ describe("createLaunchStrategyTool", () => {
     );
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("not_found");
-    expect(Array.isArray((result.error?.details as { available?: string[] })?.available)).toBe(true);
+    expect(
+      Array.isArray(
+        (result.error?.details as { available?: string[] })?.available,
+      ),
+    ).toBe(true);
   });
 
   it("delegates to toolContext.launchStrategy when present", async () => {
@@ -130,6 +136,67 @@ describe("createLaunchStrategyTool", () => {
       // the incoming message through.
       expect(result.data?.strategyName).toBe("echo-strategy");
       expect(result.data?.result).toBe("hello-fallback");
+    } finally {
+      process.chdir(originalCwd);
+      cleanup();
+    }
+  });
+
+  it("seeds the sub-strategy's first user step with the parent agent's input (fallback path)", async () => {
+    // Regression: the in-process fallback used to pass the parent's
+    // inputCollector through untouched. A sub-strategy whose first
+    // step is a user agent with `requireInput: true` would then call
+    // the collector and re-prompt the human, ignoring the structured
+    // payload the parent agent passed via `launch_strategy`. The
+    // fallback now wraps the collector with a one-shot seed primed
+    // with `input` so the first user step receives the parent's
+    // payload transparently.
+    const interactiveStrategy = {
+      name: "interactive-strategy",
+      version: "1.0.0",
+      description: "First step is a user agent with requireInput: true.",
+      agents: {
+        user: {
+          type: "user" as const,
+          config: { requireInput: true },
+        },
+      },
+      flow: {
+        type: "sequential" as const,
+        name: "main",
+        steps: [{ agent: "user" }],
+      },
+    };
+    const { cwd, cleanup } = withCwdContaining(interactiveStrategy);
+    const originalCwd = process.cwd();
+    process.chdir(cwd);
+    try {
+      const collectorCalls: Array<{ agentName: string; prompt: string }> = [];
+      const inputCollector = async (request: {
+        agentName: string;
+        prompt: string;
+      }): Promise<string> => {
+        collectorCalls.push({
+          agentName: request.agentName,
+          prompt: request.prompt,
+        });
+        // If we ever reach here the seed wrapper failed.
+        return "FROM_HUMAN";
+      };
+
+      const tool = createLaunchStrategyTool();
+      const result = await tool.execute(
+        {
+          name: "interactive-strategy",
+          input: "payload from parent agent",
+        },
+        makeToolContext({ inputCollector }),
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.data?.result).toBe("payload from parent agent");
+      // The seed is consumed before the real collector is ever invoked.
+      expect(collectorCalls).toHaveLength(0);
     } finally {
       process.chdir(originalCwd);
       cleanup();

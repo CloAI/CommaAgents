@@ -530,14 +530,47 @@ export function createStrategyExecutor(
       //    Nested agent activity is broadcast under the parent run id,
       //    so the TUI sees a single timeline.
       //
-      //    Sandbox: nested strategies inherit the parent's process-wide
-      //    `Sandbox` state via `getSandbox(strategy)`; we do not re-apply
-      //    `inSandbox()` for nested loads. Per design, sub-strategies are
-      //    subject to the parent's policies.
+      //    Sandbox: nested strategies MUST be wrapped with `inSandbox`
+      //    too, using the same config + callbacks as the parent. Without
+      //    this, sub-strategy agents fall back to a default permissive
+      //    Guard whose cwd is `process.cwd()` (the daemon's startup
+      //    directory) rather than the run's `runCwd` — which makes
+      //    workspace-relative paths like `src/App` resolve against the
+      //    wrong directory inside any `launch_strategy` call. The
+      //    sandbox config is captured below so both the parent
+      //    `inSandbox` call and every sub-launch use the exact same
+      //    policy shape.
       //
       //    Self-reference: declared with `let` and assigned below so the
       //    closure can pass itself into nested `loadStrategyFromString`
       //    calls, enabling arbitrarily-nested `launch_strategy` use.
+      const sandboxConfig = {
+        cwd: runCwd,
+        jail: false,
+        allowAbsolutePaths: true,
+        read: { default: "ask", allow: ["**"] },
+        write: { default: "ask", allow: ["**"] },
+        trashMetadata: {
+          runId: run.id,
+        },
+      } as const;
+      const sandboxCallbacks = {
+        onAsk: ctx.permissionBridge.requester,
+        onQuestion: ctx.questionBridge.requester,
+        onPolicyChange: (snapshot: {
+          toolName: string;
+          policies: unknown;
+        }): void => {
+          sink.broadcast(run.id, {
+            type: "policy_updated" as const,
+            runId: run.id,
+            tool: snapshot.toolName,
+            policies: snapshot.policies,
+            ts: new Date().toISOString(),
+          });
+        },
+      };
+
       let launchStrategy!: LaunchStrategyHandle;
       launchStrategy = async ({
         strategyPath,
@@ -553,19 +586,72 @@ export function createStrategyExecutor(
         }
         const { content: subContent, format: subFormat } =
           await readStrategyFile(strategyPath);
+
+        // Per-sub-launch seed-aware collector. The parent run's outer
+        // `wrappedCollector` only carries the TOP-LEVEL prompt as its
+        // seed, and that seed was consumed by the parent's first user
+        // step before this handle ever fires. Reusing it here would
+        // make the sub-strategy's first user step fall through to the
+        // human input bridge — exactly the bug where launching a
+        // sub-strategy "prompts the user instead of taking the parent's
+        // input". Build a fresh wrapper seeded with `subInput` so the
+        // sub-strategy's first user agent receives the parent agent's
+        // structured payload transparently. Later user steps in the
+        // sub-strategy (if any) still delegate to the real input
+        // bridge, preserving human-in-the-loop semantics.
+        let subSeed: string | null = subInput.length > 0 ? subInput : null;
+        const subCollector =
+          subSeed !== null
+            ? (request: {
+                agentName: string;
+                prompt: string;
+              }): Promise<string> => {
+                if (subSeed !== null) {
+                  const value = subSeed;
+                  subSeed = null;
+                  logger.debug(
+                    `run ${run.id}: pre-seeding sub-strategy "${strategyPath}" first user input for agent "${request.agentName}" (${value.length} bytes)`,
+                  );
+                  return Promise.resolve(value);
+                }
+                return ctx.inputBridge.collector(request);
+              }
+            : ctx.inputBridge.collector;
+
         const subStrategy = await loadStrategyFromString(
           subContent,
           subFormat,
           {
-            inputCollector: wrappedCollector,
+            inputCollector: subCollector,
             flowHooks: buildFlowHooks(run.id),
             modelOverride:
               subModelOverride ?? runModelOverride ?? modelOverride,
             skillRegistry,
             launchStrategy,
             strategyDir: dirname(strategyPath),
+            // Fresh `runId` per sub-launch so tools that key on
+            // `ToolContext.runId` (notably `todo_*`, whose store is
+            // process-global and would otherwise be shared across every
+            // recursive sub-manager because they all have
+            // `agentName: "manager"`) silo their state per sub-run.
+            // Distinct from the broadcast / flow-hook `run.id`, which
+            // stays constant across sub-launches so the TUI sees a
+            // single timeline.
+            runId: `${run.id}.${crypto.randomUUID().slice(0, 8)}`,
           },
         );
+
+        // Wrap the sub-strategy in the SAME sandbox config as the
+        // parent. Without this, sub-strategy agents have no
+        // `config.sandbox`, which means tool calls fall through to the
+        // default permissive Guard at `process.cwd()` — so
+        // workspace-relative paths inside a `launch_strategy` call
+        // resolve against the daemon's startup directory, not the
+        // run's `runCwd`. Re-applying creates a separate `Sandbox`
+        // instance per sub-launch, but the policy shape is identical
+        // and the cwd is correct.
+        inSandbox(subStrategy, sandboxConfig, sandboxCallbacks);
+
         for (const [subAgentName, subAgent] of Object.entries(
           subStrategy.agents,
         )) {
@@ -596,12 +682,23 @@ export function createStrategyExecutor(
         initialAgentTurns,
         launchStrategy,
         strategyDir: dirname(effectiveStrategyPath),
+        // Top-level `runId` = the daemon's run id. Sub-launches derive
+        // fresh ids inside the `launchStrategy` handle above so tools
+        // that silo on `runId` (notably `todo_*`) get per-invocation
+        // isolation without leaking across recursive `launch_strategy`
+        // calls. Distinct from the broadcast / flow-hook run id, which
+        // stays constant for the entire TUI timeline.
+        runId: run.id,
       });
       logger.debug(
         `run ${run.id}: strategy loaded (name="${strategy.name}", agents=[${Object.keys(strategy.agents).join(",")}])`,
       );
 
-      // 5. Apply sandbox to the loaded strategy.
+      // 5. Apply sandbox to the loaded strategy. Uses the same config
+      // + callbacks captured above for sub-strategies, so both the
+      // top-level run and any `launch_strategy` sub-runs enforce
+      // identical policies and resolve workspace-relative paths
+      // against the same `runCwd`.
       //
       // Policy shape:
       //   - `allowAbsolutePaths: true`     — tools may pass absolute paths.
@@ -612,32 +709,7 @@ export function createStrategyExecutor(
       //                                       the TUI permission prompt.
       //   - `forbiddenGlobs` (defaults)    — still enforced for `.git`, `.env*`,
       //                                       keys, secrets, regardless of cwd.
-      inSandbox(
-        strategy,
-        {
-          cwd: runCwd,
-          jail: false,
-          allowAbsolutePaths: true,
-          read: { default: "ask", allow: ["**"] },
-          write: { default: "ask", allow: ["**"] },
-          trashMetadata: {
-            runId: run.id,
-          },
-        },
-        {
-          onAsk: ctx.permissionBridge.requester,
-          onQuestion: ctx.questionBridge.requester,
-          onPolicyChange: (snapshot) => {
-            sink.broadcast(run.id, {
-              type: "policy_updated" as const,
-              runId: run.id,
-              tool: snapshot.toolName,
-              policies: snapshot.policies,
-              ts: new Date().toISOString(),
-            });
-          },
-        },
-      );
+      inSandbox(strategy, sandboxConfig, sandboxCallbacks);
 
       const sandbox = getSandbox(strategy)!;
 

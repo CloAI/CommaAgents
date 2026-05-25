@@ -160,6 +160,35 @@ export function createSearchFilesTool(
         `Binary files are skipped automatically in content modes. Files larger than ${maxFileBytes} bytes are skipped. Traversal is capped at depth ${maxDepth}.`,
       ],
     }),
+    systemPrompt: `### Using search_files
+
+\`search_files\` searches the workspace by file path **or** by file contents. Pick the right \`mode\`:
+
+**\`mode: "path"\`** — match \`query\` as a **glob** against file paths. Equivalent to \`glob\` but as a search verb. Use this when you only need file names.
+
+**\`mode: "text"\`** — search file **contents** for a **literal substring** (no regex escaping needed). Returns match locations with \`line\`/\`column\`/\`preview\`. **Use this for any "find usages of identifier X" search** unless you need regex.
+
+**\`mode: "regex"\`** — search file contents with a **JavaScript regex** (compiled with the \`m\` flag, so \`^\` / \`$\` anchor on lines). Use only when you genuinely need pattern matching.
+
+**Required:**
+
+- \`query\`: the pattern. Interpretation depends on \`mode\`.
+- \`mode\`: one of \`"path"\`, \`"text"\`, \`"regex"\`.
+
+**Useful optional:**
+
+- \`root\`: workspace-relative directory to search under. Defaults to \`"."\`.
+- \`contextLines\`: lines of surrounding context to include in each \`preview\` (default 0, so just the matching line). \`contextLines: 2\` is a nice default for human-readable results.
+- \`maxResults\`: cap on matches.
+- \`includePathPatterns\` / \`excludePathPatterns\`: scope to specific files (e.g. \`includePathPatterns: ["**/*.ts"]\`).
+
+**Common uses:**
+
+- "Find every import of \`createAgent\`" → \`mode: "text", query: "createAgent", includePathPatterns: ["**/*.ts"]\`.
+- "Find every file named \`*.test.ts\`" → \`mode: "path", query: "**/*.test.ts"\` (or just use \`glob\` directly).
+- "Find every line ending with a TODO" → \`mode: "regex", query: "TODO\\\\s*$"\`.
+
+**Tip:** binary files and files larger than the per-tool cap are skipped silently in content modes — your search won't find matches in them.`,
     parameters: searchFilesParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName } = toolContext;

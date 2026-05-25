@@ -96,7 +96,14 @@ describe("createEditFileTool", () => {
       ),
     );
 
-    expect(data.appliedEdits).toEqual([{ editIndex: 0, occurrences: 1 }]);
+    expect(data.appliedEdits).toEqual([
+      {
+        editIndex: 0,
+        occurrences: 1,
+        usedFallback: false,
+        replacerName: "exactReplacer",
+      },
+    ]);
     expect(data.beforeSha256).toBe(sha);
     expect(data.afterSha256).toBe(sha256OfBuffer("hello there\n"));
     expect(data.diff).toContain("-hello world");
@@ -502,5 +509,140 @@ describe("createEditFileTool", () => {
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("command_failed");
     expect(await readFile(join(workspaceRoot, "a.txt"), "utf8")).toBe("x");
+  });
+
+  describe("optional expectedSha256 + fallback matching", () => {
+    it("succeeds without expectedSha256 (no staleness chain)", async () => {
+      await seedFile("a.ts", "const x = 1;\n");
+      const tool = createEditFileTool();
+      const result = await tool.execute(
+        {
+          path: "a.ts",
+          // expectedSha256 omitted
+          edits: [{ oldText: "const x = 1;", newText: "const x = 2;" }],
+        },
+        makeCtx(),
+      );
+      const data = await getOk(result);
+      expect(data.appliedEdits[0]?.occurrences).toBe(1);
+      expect(data.appliedEdits[0]?.usedFallback).toBeFalsy();
+      expect(await readFile(join(workspaceRoot, "a.ts"), "utf8")).toBe(
+        "const x = 2;\n",
+      );
+    });
+
+    it("recovers via line-trimmed fallback when LLM indented oldText slightly off", async () => {
+      // File has 4-space indent; LLM gave us a tab-indented version.
+      await seedFile("a.ts", "function f() {\n    return 1;\n}\n");
+      const tool = createEditFileTool();
+      const result = await tool.execute(
+        {
+          path: "a.ts",
+          edits: [
+            {
+              oldText: "function f() {\n\treturn 1;\n}",
+              newText: "function f() {\n    return 2;\n}",
+            },
+          ],
+        },
+        makeCtx(),
+      );
+      const data = await getOk(result);
+      expect(data.appliedEdits[0]?.usedFallback).toBe(true);
+      expect(data.appliedEdits[0]?.replacerName).toBe("lineTrimmedReplacer");
+      const updated = await readFile(join(workspaceRoot, "a.ts"), "utf8");
+      expect(updated).toContain("return 2;");
+      expect(updated).not.toContain("return 1;");
+    });
+
+    it("recovers a multi-line block when leading indent drifts", async () => {
+      await seedFile(
+        "a.ts",
+        "  function greet(name) {\n    console.log(`hi ${name}`);\n    return name;\n  }\n",
+      );
+      const tool = createEditFileTool();
+      // LLM dropped the leading indent on every line.
+      const result = await tool.execute(
+        {
+          path: "a.ts",
+          edits: [
+            {
+              oldText:
+                "function greet(name) {\n  console.log(`hi ${name}`);\n  return name;\n}",
+              newText:
+                "function greet(name) {\n  console.log(`hello ${name}`);\n  return name;\n}",
+            },
+          ],
+        },
+        makeCtx(),
+      );
+      const data = await getOk(result);
+      expect(data.appliedEdits[0]?.usedFallback).toBe(true);
+      const updated = await readFile(join(workspaceRoot, "a.ts"), "utf8");
+      expect(updated).toContain("hello ${name}");
+      expect(updated).not.toContain("hi ${name}");
+    });
+
+    it("uses block-anchor fallback when middle of a block differs", async () => {
+      await seedFile(
+        "a.ts",
+        "function f() {\n  const a = 1;\n  const b = 2;\n  return a + b;\n}\n",
+      );
+      const tool = createEditFileTool();
+      // LLM rewrote the body slightly but kept the first and last lines.
+      const result = await tool.execute(
+        {
+          path: "a.ts",
+          edits: [
+            {
+              oldText:
+                "function f() {\n  // anything different here\n  return a + b;\n}",
+              newText: "function f() {\n  return 42;\n}",
+            },
+          ],
+        },
+        makeCtx(),
+      );
+      const data = await getOk(result);
+      expect(data.appliedEdits[0]?.usedFallback).toBe(true);
+      expect(data.appliedEdits[0]?.replacerName).toBe("blockAnchorReplacer");
+      const updated = await readFile(join(workspaceRoot, "a.ts"), "utf8");
+      expect(updated).toContain("return 42;");
+    });
+
+    it("still enforces expectedSha256 when explicitly provided", async () => {
+      await seedFile("a.ts", "x");
+      const tool = createEditFileTool();
+      const result = await tool.execute(
+        {
+          path: "a.ts",
+          expectedSha256: "0".repeat(64),
+          edits: [{ oldText: "x", newText: "y" }],
+        },
+        makeCtx(),
+      );
+      expect(result.ok).toBe(false);
+      expect(result.error?.kind).toBe("stale_file");
+    });
+
+    it("still reports old_text_not_found when no replacer matches", async () => {
+      await seedFile("a.ts", "function f() {}\n");
+      const tool = createEditFileTool();
+      const result = await tool.execute(
+        {
+          path: "a.ts",
+          edits: [
+            {
+              oldText: "function notInFile() {}",
+              newText: "function whatever() {}",
+            },
+          ],
+        },
+        makeCtx(),
+      );
+      expect(result.ok).toBe(false);
+      expect(result.error?.kind).toBe("old_text_not_found");
+      expect(result.error?.recoverable).toBe(true);
+    });
   });
 });

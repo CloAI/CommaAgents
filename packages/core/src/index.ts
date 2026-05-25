@@ -339,6 +339,11 @@ export {
   verifySessionFileState,
   writeAtomic,
 } from "./tools/io";
+export type {
+  LaunchStrategyHandle,
+  LaunchStrategyRequest,
+  LaunchStrategyResult,
+} from "./tools/launch-strategy.types";
 export { errorResult, okResult, toolError } from "./tools/result";
 export {
   getRegisteredToolNames,
@@ -354,8 +359,3 @@ export type {
   ToolErrorKind,
   ToolResult,
 } from "./tools/tool.types";
-export type {
-  LaunchStrategyHandle,
-  LaunchStrategyRequest,
-  LaunchStrategyResult,
-} from "./tools/launch-strategy.types";

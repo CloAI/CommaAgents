@@ -1,7 +1,6 @@
 // Strategy discovery — public barrel.
 
 export { discoverStrategies } from "./discover";
-export { readStrategyFile } from "./discover.utils";
 export type {
   DiscoveredStrategy,
   DiscoveredStrategyOrigin,
@@ -9,3 +8,4 @@ export type {
   DiscoverStrategiesResult,
   DiscoveryWarning,
 } from "./discover.types";
+export { readStrategyFile } from "./discover.utils";

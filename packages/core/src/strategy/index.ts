@@ -1,8 +1,6 @@
 // Strategy module barrel — single import point for strategy internals.
 // Public API is exported from the package index.
 
-// Discovery
-export { discoverStrategies, readStrategyFile } from "./discover/index";
 export type {
   DiscoveredStrategy,
   DiscoveredStrategyOrigin,
@@ -10,6 +8,8 @@ export type {
   DiscoverStrategiesResult,
   DiscoveryWarning,
 } from "./discover/index";
+// Discovery
+export { discoverStrategies, readStrategyFile } from "./discover/index";
 // Factories
 export { exportStrategy } from "./exporter/exporter";
 // Config types

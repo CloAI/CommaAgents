@@ -89,7 +89,7 @@ render(
               <App
                 strategy={argv.strategy}
                 initialInput={argv.input}
-                dev={argv.dev}
+                devMode={argv.dev}
               />
             </ModalContextProvider>
           </ChatRunsContextProvider>

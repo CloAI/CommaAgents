@@ -1,3 +1,4 @@
+import type { DOMElement } from "ink";
 import type React from "react";
 
 /**
@@ -38,4 +39,15 @@ export interface AlphaDimProps {
    * written. `1` is a no-op; `0` is fully black. Default `0.4`.
    */
   readonly dimFactor?: number;
+}
+
+export interface AlphaDimRenderProps {
+  /** The application content rendered as the base layer. */
+  readonly background: React.ReactNode;
+  /** The overlay content drawn on top of the dimmed background. */
+  readonly overlay: React.ReactNode;
+  /** Whether the dim + overlay are currently active. */
+  readonly isActive: boolean;
+  /** Ref to the overlay container for measuring its height. */
+  readonly overlayRef: React.RefObject<DOMElement | null>;
 }

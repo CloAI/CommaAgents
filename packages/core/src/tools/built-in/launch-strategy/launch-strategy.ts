@@ -131,9 +131,7 @@ export function createLaunchStrategyTool(): ToolDefinition<
         try {
           const result = await toolContext.launchStrategy({
             strategyPath: match.path,
-            ...(match.manifestPath
-              ? { manifestPath: match.manifestPath }
-              : {}),
+            ...(match.manifestPath ? { manifestPath: match.manifestPath } : {}),
             input,
             ...(modelOverride ? { modelOverride } : {}),
           });
@@ -164,13 +162,42 @@ export function createLaunchStrategyTool(): ToolDefinition<
       // still usable in tests and embedded callers without a daemon.
       try {
         const { content, format } = await readStrategyFile(match.path);
+
+        // Seed-aware wrapper around the inherited inputCollector. The
+        // parent agent that invoked `launch_strategy` passed `input` as
+        // the structured payload the sub-strategy should consume. If
+        // the sub-strategy's first step is a `user` agent with
+        // `requireInput: true` (the common case — `Plan`, `Build`,
+        // `Standardize`, etc.), it would otherwise call the inherited
+        // collector and re-prompt a human, ignoring the parent agent's
+        // payload entirely. By pre-seeding the first user call with
+        // `input`, the sub-strategy receives the parent's payload
+        // transparently. Later user steps still delegate to the real
+        // collector, preserving human-in-the-loop semantics for
+        // follow-up turns inside the sub-strategy.
+        let seed: string | null = input.length > 0 ? input : null;
+        const baseCollector = toolContext.inputCollector;
+        const seededCollector = baseCollector
+          ? seed !== null
+            ? (request: {
+                agentName: string;
+                prompt: string;
+              }): Promise<string> => {
+                if (seed !== null) {
+                  const value = seed;
+                  seed = null;
+                  return Promise.resolve(value);
+                }
+                return baseCollector(request);
+              }
+            : baseCollector
+          : undefined;
+
         const options: LoadStrategyOptions = {
           ...(toolContext.skillRegistry
             ? { skillRegistry: toolContext.skillRegistry }
             : {}),
-          ...(toolContext.inputCollector
-            ? { inputCollector: toolContext.inputCollector }
-            : {}),
+          ...(seededCollector ? { inputCollector: seededCollector } : {}),
           ...(modelOverride ? { modelOverride } : {}),
         };
         const loaded = await loadStrategyFromString(content, format, options);

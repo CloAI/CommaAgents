@@ -10,6 +10,7 @@ export type {
   CreateRunInit,
   MessageRole,
   PendingPermissionRequest,
+  PendingQuestionRequest,
   RunStatus,
   RunSummary,
   UseChatState,

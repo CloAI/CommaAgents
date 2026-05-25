@@ -255,6 +255,7 @@ async function buildLLMAgent(
     ...(options.launchStrategy
       ? { launchStrategy: options.launchStrategy }
       : {}),
+    ...(options.runId ? { runId: options.runId } : {}),
   });
 }
 

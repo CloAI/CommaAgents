@@ -1,19 +1,17 @@
 import { useMemo } from "react";
 
 import { useTheme } from "../theme";
-
-/** Spread-ready style objects for the App component. */
-export interface AppTheme {
-  /** Root container (column layout, full height). */
-  readonly root: {
-    readonly flexDirection: "column";
-    readonly height: "100%";
-  };
-}
+import type { AppTheme } from "./App.types";
 
 /**
  * Returns themed style objects for the App component.
  * Consumes global tokens via `useTheme()`.
+ *
+ * @example
+ * ```tsx
+ * const theme = useAppTheme();
+ * return <div style={theme.root}>...</div>;
+ * ```
  */
 export function useAppTheme(): AppTheme {
   // Reserved for future token-driven app chrome styles.

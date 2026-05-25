@@ -566,6 +566,7 @@ describe("BUILT_IN_TOOL_NAMES", () => {
       "read_file",
       "list_directory",
       "search_files",
+      "glob",
       "create_file",
       "write_file",
       "edit_file",

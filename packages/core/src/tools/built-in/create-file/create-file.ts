@@ -99,6 +99,35 @@ export function createCreateFileTool(
         "Every create is appended to the audit log as a `create` operation.",
       ],
     }),
+    systemPrompt: `### Using create_file
+
+\`create_file\` makes a **new** file. If the path already exists you get \`already_exists\` — for overwrites, use \`write_file\` (which requires \`expectedSha256\` from a prior \`read_file\`).
+
+**Required:**
+
+- \`path\`: workspace-relative path to the new file (e.g. \`"src/components/Button/index.ts"\`).
+- \`content\`: the file contents as a string.
+
+**Useful optional:**
+
+- \`createParentDirectories: true\`: create missing parent directories along the path. Use this freely — most "make a new file in a new folder" workflows need it.
+
+**Decision tree:**
+
+- New path → \`create_file\`.
+- Existing path → \`write_file\` (full rewrite) or \`edit_file\` (surgical change).
+
+The result includes \`sha256\` of the new file — save it if you plan to immediately edit or write to the file you just created.
+
+**Post-create verification (MANDATORY):**
+
+After every successful \`create_file\` call, **run the project's linter and type-checker on the new file (and the project as a whole) using \`run_command\`**. New files often have:
+
+- Typos in identifiers that won't compile.
+- Imports referencing modules that don't exist yet (or wrong paths to ones that do).
+- Missing exports the rest of the codebase expects (especially when creating an \`index.ts\` barrel).
+
+Use \`tsc --noEmit\`, \`eslint <path>\`, or \`biome check <path>\`. **If anything surfaces, fix it before reporting.**`,
     parameters: createFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;

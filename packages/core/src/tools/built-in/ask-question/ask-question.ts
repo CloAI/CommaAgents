@@ -62,11 +62,11 @@ export function createAskQuestionTool(): ToolDefinition<
       try {
         if (!guard.askQuestion) {
           return errorResult(
-            toolError({
-              kind: "unknown",
-              message: "askQuestion callback is not available on guard",
-              recoverable: false,
-            }),
+            toolError(
+              "unknown",
+              "askQuestion callback is not available on guard",
+              { recoverable: false },
+            ),
           );
         }
 
@@ -76,14 +76,14 @@ export function createAskQuestionTool(): ToolDefinition<
           signal: abort,
         });
 
-        return okResult({ response }, `User response: "${response}"`);
+        return okResult(`User response: "${response}"`, { data: { response } });
       } catch (error) {
         return errorResult(
-          toolError({
-            kind: "unknown",
-            message: error instanceof Error ? error.message : String(error),
-            recoverable: true,
-          }),
+          toolError(
+            "unknown",
+            error instanceof Error ? error.message : String(error),
+            { recoverable: true },
+          ),
         );
       }
     },

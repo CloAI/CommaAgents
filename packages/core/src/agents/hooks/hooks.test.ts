@@ -154,3 +154,109 @@ describe("buildAgentToolSet with ToolHooks", () => {
     ]);
   });
 });
+
+// Universal argument validation + error surfacing — regression cover for
+// the "edit_file infinite-retry loop" bug where AI SDK v6 does not
+// enforce `inputSchema` and bare throws from `execute` surfaced to the
+// LLM as empty strings, giving it no signal to self-correct.
+
+describe("buildAgentToolSet argument validation and error surfacing", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK tool generics
+  async function callTool(tool: any, args: unknown): Promise<unknown> {
+    return tool.execute(args, { abortSignal: AbortSignal.timeout(5000) });
+  }
+
+  const strictTool = {
+    description: "Strict tool requiring path and value",
+    parameters: z.object({
+      path: z.string().min(1),
+      value: z.string().min(1),
+    }),
+    execute: async (args: { path: string; value: string }) =>
+      okResult(`wrote ${args.value} to ${args.path}`),
+  };
+
+  it("rejects calls with empty args and tells the LLM what's missing", async () => {
+    const toolSet = buildAgentToolSet({ strict: strictTool }, "test-agent")!;
+
+    const output = (await callTool(toolSet.strict, {})) as string;
+    expect(typeof output).toBe("string");
+    // The LLM-facing output must call out both missing fields by name,
+    // include the received args, and suggest a recoverable next step.
+    expect(output).toContain("Invalid arguments for `strict`");
+    expect(output).toContain("path");
+    expect(output).toContain("value");
+    expect(output).toContain("Received: {}");
+    expect(output).toContain("Next step:");
+  });
+
+  it("rejects partial args with a per-field diagnostic", async () => {
+    const toolSet = buildAgentToolSet({ strict: strictTool }, "test-agent")!;
+
+    const output = (await callTool(toolSet.strict, {
+      path: "ok.ts",
+      // value missing
+    })) as string;
+    expect(output).toContain("Invalid arguments for `strict`");
+    expect(output).toContain("value");
+    // path was valid — error should not call it out
+    expect(output).not.toMatch(/^- `path`:/m);
+  });
+
+  it("surfaces thrown errors from execute as a structured tool result, not empty string", async () => {
+    // The previous behaviour: AI SDK swallowed throws and the LLM
+    // saw `output=0 chars`, triggering infinite-retry loops.
+    const throwingTool = {
+      description: "Always throws",
+      parameters: z.object({ x: z.string() }),
+      execute: async () => {
+        throw new Error("oops, internal failure");
+      },
+    };
+
+    const toolSet = buildAgentToolSet({ throwy: throwingTool }, "test-agent")!;
+
+    const output = (await callTool(toolSet.throwy, { x: "ok" })) as string;
+    expect(output.length).toBeGreaterThan(0);
+    expect(output).toContain("oops, internal failure");
+    // Recoverable suggestion present so the LLM knows it can retry.
+    expect(output).toContain("Next step:");
+  });
+
+  it("passes the validated (typed) args through to execute on the happy path", async () => {
+    let receivedArgs: unknown;
+    const observingTool = {
+      description: "Records its args",
+      parameters: z.object({ a: z.number(), b: z.string() }),
+      execute: async (args: { a: number; b: string }) => {
+        receivedArgs = args;
+        return okResult("ok");
+      },
+    };
+
+    const toolSet = buildAgentToolSet(
+      { observe: observingTool },
+      "test-agent",
+    )!;
+
+    await callTool(toolSet.observe, { a: 42, b: "hello" });
+    expect(receivedArgs).toEqual({ a: 42, b: "hello" });
+  });
+
+  it("returns a single result per call (no AI SDK swallow / double-call)", async () => {
+    let callCount = 0;
+    const tool = {
+      description: "Counts calls",
+      parameters: z.object({ id: z.string() }),
+      execute: async () => {
+        callCount += 1;
+        return okResult(`call #${callCount}`);
+      },
+    };
+
+    const toolSet = buildAgentToolSet({ counter: tool }, "test-agent")!;
+    const output = (await callTool(toolSet.counter, { id: "one" })) as string;
+    expect(callCount).toBe(1);
+    expect(output).toBe("call #1");
+  });
+});

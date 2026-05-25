@@ -118,6 +118,25 @@ export function createListDirectoryTool(
         "Entries blocked by `forbiddenGlobs` or `canRead` are filtered silently — best-effort listing semantics.",
       ],
     }),
+    systemPrompt: `### Using list_directory
+
+\`list_directory\` enumerates the contents of a directory. Use it to confirm a path exists before reading/editing, to discover the shape of a folder, and to drive structural decisions.
+
+**Required:**
+
+- \`path\`: workspace-relative directory. **Use \`"."\` for the workspace root.** Workspace-relative paths resolve against the run's cwd (your sandbox cwd), NOT the daemon's startup directory.
+
+**Useful optional:**
+
+- \`recursive: true\` to walk subdirectories (capped by \`maxDepth\`, default 8). Use this when you need a full tree view.
+- \`maxDepth: <n>\`: explicit recursion depth (hard cap 32).
+- \`includeHidden: true\`: include dot-prefixed entries like \`.git\`.
+
+**First call in any session:** \`list_directory(".")\` — this confirms the cwd's shape and tells you whether paths like \`"src/foo"\` will resolve correctly. If \`"."\` doesn't contain what you expected, your assumptions about the working directory are wrong; do not guess relative paths.
+
+The result includes \`entries: [{ name, relativePath, type, size, mtime, depth }]\`. \`relativePath\` is relative to the \`path\` you queried — combine with \`path\` to build full workspace-relative paths for subsequent tool calls.
+
+**Tip:** for "find all files matching a pattern", \`glob\` is usually faster and more precise than \`list_directory(recursive: true)\`.`,
     parameters: listDirectoryParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName } = toolContext;

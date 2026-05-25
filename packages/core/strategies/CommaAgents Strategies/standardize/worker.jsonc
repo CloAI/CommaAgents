@@ -1,0 +1,67 @@
+{
+  "name": "Standardize Worker",
+  "version": "4.0",
+  "description": "Per-file standardization worker. Receives a structured input from the Manager (file path + resolved standards + skills already named). An auditor reads the file, applies minimal in-place fixes, and verifies with the project's linter/tests. A reviewer observes each iteration and either accepts the work (DONE) or sends a one-sentence directive (CONTINUE: ...). Loops until DONE. Always launched as a sub-run by `Standardize`'s Manager \u2014 not invoked standalone in the common flow.",
+  "agents": {
+    "user": {
+      "type": "user",
+      "description": "Seed step. Receives the Manager's structured input block (file path + standards bullets + skills to load) verbatim \u2014 no human re-prompt.",
+      "config": {
+        "requireInput": true
+      }
+    },
+
+    "auditor": {
+      "description": "Reads the target file, identifies standards violations, applies minimal in-place fixes (edit_file > write_file), and runs the project's verification commands. Reuses the Manager's resolved standards from the seed input \u2014 only loads a skill if the seed explicitly names one and the auditor needs it. Emits one structured report per iteration.",
+      "model": "openrouter/google/gemma-4-31b-it",
+      "systemPrompt": "./prompts/worker-auditor.md",
+      "maxSteps": 100,
+      "tools": [
+        "read_file",
+        "list_directory",
+        "search_files",
+        "write_file",
+        "edit_file",
+        "run_command",
+        "list_skills",
+        "load_skill",
+        "todo_add",
+        "todo_complete",
+        "todo_get",
+        "todo_get_next"
+      ]
+    },
+
+    "reviewer": {
+      "description": "Cycle observer. Reads the Auditor's iteration report (and the file itself when needed) and decides whether the file now meets the agreed standards. Emits `DONE` when satisfied or `CONTINUE: <directive>` otherwise.",
+      "model": "openrouter/google/gemma-4-31b-it",
+      "systemPrompt": "./prompts/worker-reviewer.md",
+      "maxSteps": 20,
+      "tools": [
+        "read_file",
+        "search_files",
+        "run_command",
+        "load_skill"
+      ]
+    }
+  },
+
+  "flow": {
+    "name": "File Audit Loop",
+    "type": "sequential",
+    "description": "User (seeded by Manager) names a file and the standards \u2192 auditor + reviewer iterate until the file is compliant.",
+    "steps": [
+      { "agent": "user" },
+      {
+        "name": "Audit-Review Loop",
+        "type": "cycle",
+        "cycles": "Infinity",
+        "observer": "reviewer",
+        "description": "Auditor fixes and verifies; reviewer decides accept or send back. Loops until DONE.",
+        "steps": [
+          { "agent": "auditor" }
+        ]
+      }
+    ]
+  }
+}

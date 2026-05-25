@@ -115,6 +115,41 @@ export function createWriteFileTool(
         "Every write is appended to the audit log as an `update` operation.",
       ],
     }),
+    systemPrompt: `### Using write_file
+
+\`write_file\` **overwrites the entire contents of an existing file**. Use it for major rewrites; for smaller changes, prefer \`edit_file\` (surgical, safer, leaves unchanged lines untouched).
+
+**The read-then-write chain (mandatory for existing files):**
+
+1. Call \`read_file\` on the target. The result includes a \`sha256\` field.
+2. Call \`write_file\` with that hash as \`expectedSha256\`. A mismatch returns \`stale_file\` — re-read and retry.
+3. After a successful write, the result includes a new \`afterSha256\`. Save it for the next operation on this file.
+
+**Required arguments:**
+
+- \`path\`: workspace-relative path to an **existing** file. To create a new file, use \`create_file\` instead.
+- \`expectedSha256\`: 64-char lowercase hex string from your last \`read_file\` / write.
+- \`content\`: the full new file content as a string.
+
+**When to use which:**
+
+- New file → \`create_file\`.
+- Surgical change to one or a few lines → \`edit_file\`.
+- More than ~60% of the file changes → \`write_file\`.
+- Want to rename or move → \`move_file\`.
+
+**Post-write verification (MANDATORY):**
+
+After every successful \`write_file\` call, **run the project's linter and type-checker on the file (and the rest of the project) using \`run_command\`**. Rewriting an entire file is the highest-risk mutation — it can silently break imports the rest of the codebase relies on. The linter/type-checker is your safety net for:
+
+- Typos in identifiers.
+- Broken imports (wrong path, removed export).
+- Unused imports.
+- Type errors.
+
+Use \`tsc --noEmit\`, \`eslint <path>\`, or \`biome check <path>\` per the project's conventions. **If anything surfaces, fix it before reporting.** Do not assume the rewrite is clean just because the new content compiled in your head.
+
+**Never** call \`write_file\` without first reading the file. **Never** use it on a new path — that's \`create_file\`'s job (it fails with \`not_found\` here). **Never** end your turn with unaddressed lint or type errors caused by your write.`,
     parameters: writeFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;

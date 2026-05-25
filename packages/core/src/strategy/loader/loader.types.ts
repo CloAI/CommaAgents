@@ -79,6 +79,26 @@ export interface LoadStrategyOptions {
    * `loadStrategy` + `flow.call()` invocation with no broadcast.
    */
   readonly launchStrategy?: LaunchStrategyHandle;
+
+  /**
+   * Optional run identifier propagated to every agent's
+   * {@link AgentConfig.runId} (and from there into each tool's
+   * {@link ToolContext.runId}).
+   *
+   * Distinct from `sessionId` (which scopes the audit log and trash
+   * metadata across an entire user/daemon session): `runId` identifies
+   * a single strategy invocation. The daemon executor passes the
+   * top-level run id here, and gives each `launch_strategy` sub-load
+   * a *fresh* derived id, so recursive strategy invocations have
+   * isolated state for tools that key on `runId` (notably `todo_*`,
+   * which would otherwise share a process-global silo across every
+   * recursive sub-manager that has the same `agentName`).
+   *
+   * When omitted, runId-aware tools fall back to `agentName`-only
+   * keying (their original behaviour) — safe for tests and embedded
+   * callers that don't care about cross-launch isolation.
+   */
+  readonly runId?: string;
 }
 
 /**

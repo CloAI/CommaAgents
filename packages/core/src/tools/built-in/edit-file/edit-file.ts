@@ -68,9 +68,12 @@ export const editFileParams = z.object({
       /^[0-9a-f]{64}$/,
       "expectedSha256 must be a 64-character lowercase hex string",
     )
+    .optional()
     .describe(
-      "SHA-256 of the file's current on-disk bytes, as returned by `read_file`. " +
-        "Required to detect concurrent edits — a mismatch yields `stale_file`.",
+      "Optional. SHA-256 of the file's current on-disk bytes, as returned by `read_file`. " +
+        "When present, a mismatch yields `stale_file` so concurrent edits are caught. " +
+        "When omitted, the tool reads the file at edit time and proceeds without staleness " +
+        "protection — fine for typical single-agent runs.",
     ),
   edits: z
     .array(editSchema)
@@ -112,9 +115,9 @@ export function createEditFileTool(
         {
           name: "expectedSha256",
           type: "string",
-          required: true,
+          required: false,
           description:
-            "sha256 of the file as last read. Mismatch returns `stale_file`.",
+            "Optional. sha256 of the file as last read. When present, a mismatch returns `stale_file`. When omitted, the tool reads the file at edit time without staleness protection (typical single-agent workflow).",
         },
         {
           name: "edits",
@@ -174,6 +177,54 @@ export function createEditFileTool(
         "Every successful run is appended to the audit log as an `update` operation.",
       ],
     }),
+    systemPrompt: `### Using edit_file
+
+\`edit_file\` is the **preferred** tool for changing existing files. Surgical, atomic, and forgiving of trivial whitespace drift.
+
+**Required arguments — every call must include all of these:**
+
+- \`path\`: workspace-relative file path (e.g. \`"src/App.tsx"\`).
+- \`edits\`: an **array** of at least one \`{ oldText, newText, expectedOccurrences? }\` object. Each edit must have a non-empty \`oldText\` (the string to find) and a \`newText\` (the replacement; may be \`""\` to delete). Calling with \`edits: []\` or \`edits: [{ newText: "..." }]\` (missing \`oldText\`) is invalid and the tool will reject the call with an explicit error.
+
+**Optional:**
+
+- \`expectedSha256\`: a 64-char lowercase hex hash from a prior \`read_file\` / \`edit_file\`. When set, the tool refuses the edit if the file changed under you (\`stale_file\` error). When omitted, the tool reads the file fresh at edit time and proceeds — fine for typical single-agent workflows.
+
+**How matching works (the helpful part):**
+
+The tool tries \`oldText\` against the file in this order:
+
+1. **Exact substring** — character-for-character match, including whitespace.
+2. **Line-trimmed** — same lines, possibly different leading/trailing whitespace per line. Catches typical indent drift.
+3. **Whitespace-normalized** (single-line only) — all whitespace runs collapsed.
+4. **Block anchor** (≥3 lines) — first and last lines (trimmed) match an unambiguous block in the file; middle is allowed to differ.
+
+The first strategy to produce a **unique** match wins. The result tells you which one was used (\`usedFallback: true\`, \`replacerName: ...\`) so you can tighten \`oldText\` next time if you want the strict path.
+
+**Read first, then edit:**
+
+You don't *need* \`expectedSha256\`, but you DO need to know what's in the file. Call \`read_file\` before any edit. The exact \`oldText\` should come from what you read — copying real lines is the most reliable way to get a unique match.
+
+**When to use \`write_file\` instead:** when more than ~60% of the file is changing. For everything else, \`edit_file\` is correct.
+
+**Post-edit verification (MANDATORY):**
+
+After every successful \`edit_file\` call, **run the project's linter and type-checker on the affected file(s) using \`run_command\`** before moving to your next task. The most common silent regressions are:
+
+- **Typos** in identifiers — the linter / type-checker flags them as "Cannot find name 'X'" or "'Y' is declared but never used".
+- **Broken imports** — wrong path, missing extension, removed export. The type-checker catches these; the editor does not.
+- **Unused imports** left over from the edit — the linter catches.
+- **Type errors** introduced by changed signatures or refactored shapes.
+
+Typical verifier commands (pick what the project uses — read \`package.json\` scripts and config files on iteration 1 to find out):
+
+- TypeScript: \`tsc --noEmit\` (project-wide) or \`tsc --noEmit -p <tsconfig>\`.
+- ESLint: \`eslint <path>\` or \`eslint . --max-warnings 0\`.
+- Biome: \`biome check <path>\`.
+
+**If the verifier reports anything — even one warning — fix it with another \`edit_file\` call before reporting.** Do not assume an edit is good just because it looked right; the verifier is the only ground truth.
+
+**Never** call \`edit_file\` without first reading the file. **Never** pass an empty \`edits\` array. **Never** end your turn with unaddressed lint or type errors caused by your edits.`,
     parameters: editFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;
@@ -252,7 +303,17 @@ export function createEditFileTool(
       }
 
       const beforeSha256 = sha256OfBuffer(beforeBytes);
-      if (beforeSha256 !== validatedArguments.expectedSha256) {
+      // `expectedSha256` is optional. When the LLM provides it, we
+      // enforce staleness protection (concurrent edits would yield a
+      // hash mismatch). When omitted — the more common single-agent
+      // workflow, mirroring OpenCode's edit tool — we read the file
+      // fresh inside this call and proceed without the chain. Either
+      // way, `afterSha256` is returned in the result so the caller can
+      // opt into the chain on subsequent edits if they want.
+      if (
+        validatedArguments.expectedSha256 !== undefined &&
+        beforeSha256 !== validatedArguments.expectedSha256
+      ) {
         return errorResult<EditFileData>(
           toolError(
             "stale_file",

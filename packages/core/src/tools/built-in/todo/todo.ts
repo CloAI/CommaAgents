@@ -2,25 +2,55 @@ import { z } from "zod";
 
 import { defineTool } from "../../define/define-tool";
 import { okResult } from "../../result";
-import type { ToolDefinition } from "../../tool.types";
+import type { ToolContext, ToolDefinition } from "../../tool.types";
 import type { TodoItem } from "./todo.types";
 
+// The store is process-global. We key on a composite of
+// `runId` (when present) plus `agentName` so each strategy
+// invocation gets its own silo, isolated from:
+//
+//   - other top-level runs in the same daemon process
+//   - recursive `launch_strategy` sub-runs (which the daemon
+//     gives a fresh derived `runId` per invocation)
+//   - sibling agents in *other* runs that happen to share the
+//     same name (e.g., two "manager" agents in two different
+//     runs)
+//
+// Sibling agents *within* one run still share a key by
+// `agentName` only (because they share the same `runId`), which
+// is the original intra-run behaviour. When `runId` is absent
+// (tests, embedded callers without a daemon) we fall back to
+// pure `agentName` keying for backwards compatibility.
 const todoStore = new Map<string, TodoItem[]>();
 const idCounters = new Map<string, number>();
 
-function getList(agentName: string): TodoItem[] {
-  let list = todoStore.get(agentName);
+/**
+ * Build the store key for a tool invocation.
+ *
+ * `runId` is the per-invocation discriminator the daemon
+ * supplies; falling back to `agentName`-only keeps the legacy
+ * behaviour for callers (tests, plain `loadStrategy` users)
+ * that don't pass one.
+ */
+function storeKey(context: Pick<ToolContext, "agentName" | "runId">): string {
+  return context.runId === undefined
+    ? context.agentName
+    : `${context.runId}:${context.agentName}`;
+}
+
+function getList(key: string): TodoItem[] {
+  let list = todoStore.get(key);
   if (!list) {
     list = [];
-    todoStore.set(agentName, list);
+    todoStore.set(key, list);
   }
   return list;
 }
 
-function nextId(agentName: string): string {
-  const current = idCounters.get(agentName) ?? 0;
+function nextId(key: string): string {
+  const current = idCounters.get(key) ?? 0;
   const next = current + 1;
-  idCounters.set(agentName, next);
+  idCounters.set(key, next);
   return String(next);
 }
 
@@ -30,15 +60,17 @@ function formatItem(item: TodoItem): string {
 }
 
 /**
- * Reset the todo state for a single agent. Exposed for tests and embedders.
+ * Reset the todo state for a single agent (by raw store key — typically
+ * `agentName` for legacy callers or `${runId}:${agentName}` when a runId
+ * is supplied). Exposed for tests and embedders.
  */
-export function resetTodoStateForAgent(agentName: string): void {
-  todoStore.delete(agentName);
-  idCounters.delete(agentName);
+export function resetTodoStateForAgent(key: string): void {
+  todoStore.delete(key);
+  idCounters.delete(key);
 }
 
 /**
- * Reset all todo state across all agents. Exposed for tests.
+ * Reset all todo state across all agents and runs. Exposed for tests.
  */
 export function resetAllTodoState(): void {
   todoStore.clear();
@@ -60,9 +92,10 @@ export function createTodoAddTool(): ToolDefinition<typeof todoAddParams> {
       "Use this to track sub-tasks while working on a larger task.",
     parameters: todoAddParams,
     execute: async (validatedArguments, toolContext) => {
-      const list = getList(toolContext.agentName);
+      const key = storeKey(toolContext);
+      const list = getList(key);
       const item: TodoItem = {
-        id: nextId(toolContext.agentName),
+        id: nextId(key),
         content: validatedArguments.content,
         status: "pending",
         createdAt: new Date().toISOString(),
@@ -96,7 +129,7 @@ export function createTodoCompleteTool(): ToolDefinition<
       "your task list one item at a time.",
     parameters: todoCompleteParams,
     execute: async (validatedArguments, toolContext) => {
-      const list = getList(toolContext.agentName);
+      const list = getList(storeKey(toolContext));
       const target = list.find((entry) => entry.id === validatedArguments.id);
       if (!target) {
         return okResult(
@@ -140,7 +173,7 @@ export function createTodoGetTool(): ToolDefinition<typeof todoGetParams> {
       "Use this to review progress or remember outstanding tasks.",
     parameters: todoGetParams,
     execute: async (_validatedArguments, toolContext) => {
-      const list = getList(toolContext.agentName);
+      const list = getList(storeKey(toolContext));
       if (list.length === 0) {
         return okResult("[No todo items]", { metadata: { totalItems: 0 } });
       }
@@ -170,7 +203,7 @@ export function createTodoGetNextTool(): ToolDefinition<
       "Returns a message indicating no pending items if the list is exhausted.",
     parameters: todoGetNextParams,
     execute: async (_validatedArguments, toolContext) => {
-      const list = getList(toolContext.agentName);
+      const list = getList(storeKey(toolContext));
       const next = list.find((entry) => entry.status === "pending");
       if (!next) {
         return okResult("[No pending todo items]", {
@@ -196,8 +229,9 @@ export function createTodoClearTool(): ToolDefinition<typeof todoClearParams> {
       "or when the existing list is no longer relevant.",
     parameters: todoClearParams,
     execute: async (_validatedArguments, toolContext) => {
-      const previousLength = getList(toolContext.agentName).length;
-      resetTodoStateForAgent(toolContext.agentName);
+      const key = storeKey(toolContext);
+      const previousLength = getList(key).length;
+      resetTodoStateForAgent(key);
       return okResult(`Cleared ${previousLength} todo item(s).`, {
         metadata: { cleared: previousLength },
       });

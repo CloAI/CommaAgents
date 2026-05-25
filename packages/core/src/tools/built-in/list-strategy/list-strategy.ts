@@ -70,8 +70,7 @@ export function createListStrategyTool(): ToolDefinition<
       };
 
       if (entries.length === 0) {
-        const headerLine =
-          "No strategies are currently available to launch.";
+        const headerLine = "No strategies are currently available to launch.";
         const warningLines = warnings.length
           ? [
               "",

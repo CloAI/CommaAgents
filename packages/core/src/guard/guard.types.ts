@@ -77,13 +77,11 @@ export interface GuardCallbacks {
   /**
    * Called when a tool requests direct user input/feedback.
    */
-  readonly onQuestion?: (
-    request: {
-      readonly agentName: string;
-      readonly toolName: string;
-      readonly question: string;
-    },
-  ) => Promise<string>;
+  readonly onQuestion?: (request: {
+    readonly agentName: string;
+    readonly toolName: string;
+    readonly question: string;
+  }) => Promise<string>;
 }
 
 /**

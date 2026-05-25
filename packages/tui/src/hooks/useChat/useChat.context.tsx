@@ -27,8 +27,7 @@ import type {
 } from "./useChat.types";
 import { projectRunTurnToMessages } from "./useChat.utils";
 
-export const ChatRunsContext =
-  createContext<ChatRunsContextType | null>(null);
+export const ChatRunsContext = createContext<ChatRunsContextType | null>(null);
 
 /** Diagnostic log file — bypasses console interception so writes always land. */
 const DEBUG_FILE = join(tmpdir(), "comma-agents-chat-debug.log");
@@ -54,19 +53,14 @@ function deriveLabelFromPath(strategyPath: string): string {
 }
 
 /** Construct a fresh run in idle state. */
-function createInitialChatRun(
-  id: ChatRunId,
-  init: CreateRunInit,
-): ChatRun {
+function createInitialChatRun(id: ChatRunId, init: CreateRunInit): ChatRun {
   const now = Date.now();
   return {
     id,
     daemonRunId: null,
     label:
       init.label ??
-      (init.strategyPath
-        ? deriveLabelFromPath(init.strategyPath)
-        : "New run"),
+      (init.strategyPath ? deriveLabelFromPath(init.strategyPath) : "New run"),
     strategyPath: init.strategyPath ?? null,
     strategyName: null,
     readOnly: false,
@@ -97,9 +91,9 @@ export function ChatRunsContextProvider(
 ): React.ReactElement {
   const { children } = props;
 
-  const [chatRuns, setChatRuns] = useState<
-    ReadonlyMap<ChatRunId, ChatRun>
-  >(() => new Map());
+  const [chatRuns, setChatRuns] = useState<ReadonlyMap<ChatRunId, ChatRun>>(
+    () => new Map(),
+  );
   const [activeChatRunId, setActiveChatRunId] = useState<ChatRunId | null>(
     null,
   );
@@ -192,10 +186,7 @@ export function ChatRunsContextProvider(
    * If the run does not exist, the map is returned unchanged.
    */
   const updateChatRun = useCallback(
-    (
-      chatRunId: ChatRunId,
-      updater: (chatRun: ChatRun) => ChatRun,
-    ): void => {
+    (chatRunId: ChatRunId, updater: (chatRun: ChatRun) => ChatRun): void => {
       setChatRuns((previousChatRuns) => {
         const existing = previousChatRuns.get(chatRunId);
         if (!existing) return previousChatRuns;
@@ -283,7 +274,10 @@ export function ChatRunsContextProvider(
 
   useDaemonSubscription("step_started", (message) => {
     setChatRuns((previousChatRuns) => {
-      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      const chatRunId = findChatRunIdByDaemonRunId(
+        previousChatRuns,
+        message.runId,
+      );
       if (!chatRunId) return previousChatRuns;
       const chatRun = previousChatRuns.get(chatRunId)!;
       const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
@@ -308,7 +302,10 @@ export function ChatRunsContextProvider(
 
   useDaemonSubscription("step_completed", (message) => {
     setChatRuns((previousChatRuns) => {
-      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      const chatRunId = findChatRunIdByDaemonRunId(
+        previousChatRuns,
+        message.runId,
+      );
       if (!chatRunId) return previousChatRuns;
       const chatRun = previousChatRuns.get(chatRunId)!;
       const next = new Map(previousChatRuns);
@@ -335,7 +332,10 @@ export function ChatRunsContextProvider(
 
   useDaemonSubscription("agent_streaming", (message) => {
     setChatRuns((previousChatRuns) => {
-      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      const chatRunId = findChatRunIdByDaemonRunId(
+        previousChatRuns,
+        message.runId,
+      );
       if (!chatRunId) return previousChatRuns;
       const chatRun = previousChatRuns.get(chatRunId)!;
 
@@ -636,7 +636,10 @@ export function ChatRunsContextProvider(
 
   useDaemonSubscription("agent_output", (message) => {
     setChatRuns((previousChatRuns) => {
-      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      const chatRunId = findChatRunIdByDaemonRunId(
+        previousChatRuns,
+        message.runId,
+      );
       if (!chatRunId) {
         debugLog("[useChat] agent_output ignored — no run for runId", {
           runId: message.runId,
@@ -707,7 +710,10 @@ export function ChatRunsContextProvider(
 
   useDaemonSubscription("request_input", (message) => {
     setChatRuns((previousChatRuns) => {
-      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      const chatRunId = findChatRunIdByDaemonRunId(
+        previousChatRuns,
+        message.runId,
+      );
       if (!chatRunId) return previousChatRuns;
       const chatRun = previousChatRuns.get(chatRunId)!;
       let updatedMessages = chatRun.messages;
@@ -740,7 +746,10 @@ export function ChatRunsContextProvider(
 
   useDaemonSubscription("strategy_completed", (message) => {
     setChatRuns((previousChatRuns) => {
-      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      const chatRunId = findChatRunIdByDaemonRunId(
+        previousChatRuns,
+        message.runId,
+      );
       if (!chatRunId) return previousChatRuns;
       const chatRun = previousChatRuns.get(chatRunId)!;
       const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
@@ -769,7 +778,10 @@ export function ChatRunsContextProvider(
 
   useDaemonSubscription("request_permission", (message) => {
     setChatRuns((previousChatRuns) => {
-      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      const chatRunId = findChatRunIdByDaemonRunId(
+        previousChatRuns,
+        message.runId,
+      );
       if (!chatRunId) return previousChatRuns;
       const chatRun = previousChatRuns.get(chatRunId)!;
       const newRequest: PendingPermissionRequest = {
@@ -796,7 +808,10 @@ export function ChatRunsContextProvider(
 
   useDaemonSubscription("request_question", (message) => {
     setChatRuns((previousChatRuns) => {
-      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      const chatRunId = findChatRunIdByDaemonRunId(
+        previousChatRuns,
+        message.runId,
+      );
       if (!chatRunId) return previousChatRuns;
       const chatRun = previousChatRuns.get(chatRunId)!;
       const newRequest: PendingQuestionRequest = {
@@ -830,7 +845,10 @@ export function ChatRunsContextProvider(
 
   useDaemonSubscription("strategy_error", (message) => {
     setChatRuns((previousChatRuns) => {
-      const chatRunId = findChatRunIdByDaemonRunId(previousChatRuns, message.runId);
+      const chatRunId = findChatRunIdByDaemonRunId(
+        previousChatRuns,
+        message.runId,
+      );
       if (!chatRunId) return previousChatRuns;
       const chatRun = previousChatRuns.get(chatRunId)!;
       const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
@@ -887,19 +905,16 @@ export function ChatRunsContextProvider(
 
   // -- Public API --
 
-  const createChatRun = useCallback(
-    (init: CreateRunInit = {}): ChatRunId => {
-      const id = crypto.randomUUID();
-      const chatRun = createInitialChatRun(id, init);
-      setChatRuns((previousChatRuns) => {
-        const next = new Map(previousChatRuns);
-        next.set(id, chatRun);
-        return next;
-      });
-      return id;
-    },
-    [],
-  );
+  const createChatRun = useCallback((init: CreateRunInit = {}): ChatRunId => {
+    const id = crypto.randomUUID();
+    const chatRun = createInitialChatRun(id, init);
+    setChatRuns((previousChatRuns) => {
+      const next = new Map(previousChatRuns);
+      next.set(id, chatRun);
+      return next;
+    });
+    return id;
+  }, []);
 
   const startStrategy = useCallback(
     (

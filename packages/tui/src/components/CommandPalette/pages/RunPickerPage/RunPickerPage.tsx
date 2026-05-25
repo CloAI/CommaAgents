@@ -62,10 +62,26 @@ interface RunAction {
 }
 
 const RUN_ACTIONS: readonly RunAction[] = [
-  { id: "resume", label: "Resume", description: "Continue execution from the last step" },
-  { id: "restart", label: "Restart", description: "Start the strategy fresh from the beginning" },
-  { id: "readonly", label: "Read-only", description: "Open the run as a static transcript log" },
-  { id: "cancel", label: "Cancel", description: "Go back to the run picker list" },
+  {
+    id: "resume",
+    label: "Resume",
+    description: "Continue execution from the last step",
+  },
+  {
+    id: "restart",
+    label: "Restart",
+    description: "Start the strategy fresh from the beginning",
+  },
+  {
+    id: "readonly",
+    label: "Read-only",
+    description: "Open the run as a static transcript log",
+  },
+  {
+    id: "cancel",
+    label: "Cancel",
+    description: "Go back to the run picker list",
+  },
 ];
 
 export function RunPickerPage({
@@ -143,7 +159,10 @@ export function RunPickerPage({
             setActiveChatRunId(item.chatRun.id);
             close();
           } else {
-            if (item.meta.status === "cancelled" || item.meta.status === "error") {
+            if (
+              item.meta.status === "cancelled" ||
+              item.meta.status === "error"
+            ) {
               setPromptTarget(item.meta);
               setPromptIndex(0);
             } else {
@@ -206,9 +225,15 @@ export function RunPickerPage({
           }}
           isFocused={isFocused}
           renderItem={(action, isSelected) => (
-            <Box {...(isSelected ? searchTheme.itemSelected : searchTheme.item)}>
-              <Text bold={isSelected} color={isSelected ? tokens.colors.primary : undefined}>
-                {isSelected ? "› " : "  "}{action.label}
+            <Box
+              {...(isSelected ? searchTheme.itemSelected : searchTheme.item)}
+            >
+              <Text
+                bold={isSelected}
+                color={isSelected ? tokens.colors.primary : undefined}
+              >
+                {isSelected ? "› " : "  "}
+                {action.label}
               </Text>
               <Text color={tokens.colors.muted}> — {action.description}</Text>
             </Box>
@@ -240,7 +265,10 @@ export function RunPickerPage({
             setActiveChatRunId(item.chatRun.id);
             close();
           } else {
-            if (item.meta.status === "cancelled" || item.meta.status === "error") {
+            if (
+              item.meta.status === "cancelled" ||
+              item.meta.status === "error"
+            ) {
               setPromptTarget(item.meta);
               setPromptIndex(0);
             } else {

@@ -26,8 +26,25 @@ export interface ToolContext {
    * Optional session identifier. When present, mutations are written to a
    * session-scoped audit log and `SessionFileState` can be reconstructed
    * across runtime restarts.
+   *
+   * Sessions are a broader concept than runs — one user/daemon session
+   * typically spans many strategy runs and is the unit of audit-log
+   * grouping and trash-archive identification. For per-run isolation
+   * (notably `todo_*` silos across recursive `launch_strategy` calls),
+   * use {@link runId} instead.
    */
   readonly sessionId?: string;
+  /**
+   * Optional run identifier — one strategy invocation. The daemon
+   * supplies the top-level run's id at the entry point and a *fresh*
+   * derived id for each `launch_strategy` sub-load, so recursive
+   * sub-strategies get isolated state for tools that key on `runId`.
+   *
+   * Distinct from {@link sessionId}: sessionId groups many runs (audit,
+   * trash); runId identifies a single run. Tools that need per-launch
+   * isolation (e.g., `todo_*`) silo on `runId`.
+   */
+  readonly runId?: string;
   /**
    * Optional audit sink for destructive file operations.
    */

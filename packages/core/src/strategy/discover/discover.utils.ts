@@ -10,10 +10,7 @@ import { dirname, join, resolve } from "node:path";
 import stripJsonComments from "strip-json-comments";
 import YAML from "yaml";
 
-import {
-  CommaProjectManifestSchema,
-  StrategySchema,
-} from "../schema";
+import { CommaProjectManifestSchema, StrategySchema } from "../schema";
 import type {
   DiscoveredStrategy,
   DiscoveredStrategyOrigin,
