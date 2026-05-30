@@ -1,4 +1,4 @@
-import type { Theme } from "../theme.types";
+import type { Theme } from "../Theme.types";
 import { darkTheme } from "./dark";
 import { draculaTheme } from "./dracula";
 import { lightTheme } from "./light";

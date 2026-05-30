@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { ChatStatus } from "../../hooks/useChat/useChat.types";
-import { useTheme } from "../../theme";
+import { useTheme } from "../../Theme";
 
 /** Display info for a single status value. */
 export interface StatusInfo {

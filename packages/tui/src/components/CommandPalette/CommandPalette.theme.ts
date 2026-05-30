@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useTheme } from "../../theme";
+import { useTheme } from "../../Theme";
 
 /** Spread-ready style objects for the CommandPalette component. */
 export interface CommandPaletteTheme {

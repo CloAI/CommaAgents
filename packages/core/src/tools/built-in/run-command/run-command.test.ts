@@ -74,6 +74,56 @@ describe("run_command", () => {
     expect(result.data?.exitCode).toBe(7);
   });
 
+  it("surfaces non-zero exit with an explicit STATUS: FAILED banner in the LLM-facing output", async () => {
+    // Regression: the legacy `(exit code 7)` suffix was easy for the
+    // LLM to scan past in voluminous command output, especially when
+    // the verifier (linter / type-checker) produced pages of
+    // diagnostics. Explicit `STATUS: FAILED — exit code N` plus a
+    // "did NOT succeed" follow-up makes the failure unmissable.
+    const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
+    const toolContext = makeToolContext({
+      sandbox: createSandbox({ cwd: workspace, jail: true }),
+    });
+    const result = await tool.execute({ command: "exit 7" }, toolContext);
+    expect(result.output).toContain("STATUS: FAILED");
+    expect(result.output).toContain("exit code 7");
+    expect(result.output).toContain("did NOT succeed");
+  });
+
+  it("uses STATUS: SUCCESS for exit 0 (no scary banner for the happy path)", async () => {
+    const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
+    const toolContext = makeToolContext({
+      sandbox: createSandbox({ cwd: workspace, jail: true }),
+    });
+    const result = await tool.execute({ command: "true" }, toolContext);
+    expect(result.output).toContain("STATUS: SUCCESS");
+    expect(result.output).not.toContain("STATUS: FAILED");
+    expect(result.output).not.toContain("did NOT succeed");
+  });
+
+  it("treats signal-killed processes (null / negative exit codes) as failure with a clear banner", async () => {
+    // The original bug behind "exit code ?" / "-1" confusion: when a
+    // verifier crashed (segfault, SIGKILL from the OOM killer, etc.)
+    // the LLM saw `(exit code ?)` and assumed it was just a quirk to
+    // ignore. The new banner makes it impossible to miss: "process
+    // killed by signal X" plus an explicit "did NOT pass" warning.
+    const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
+    const toolContext = makeToolContext({
+      sandbox: createSandbox({ cwd: workspace, jail: true }),
+    });
+    // Spawn a sub-shell, get its pid, then send it SIGKILL — the
+    // child closes with signalCode set and exitCode = null.
+    const result = await tool.execute(
+      { command: "sh -c 'kill -9 $$'" },
+      toolContext,
+    );
+    expect(result.ok).toBe(true);
+    expect(result.data?.exitCode).toBeNull();
+    expect(result.output).toContain("STATUS: FAILED");
+    expect(result.output).toContain("killed by signal");
+    expect(result.output).toContain("did NOT pass");
+  });
+
   it("honors cwd inside the workspace", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({

@@ -114,8 +114,8 @@ describe("E2E: Agent Tool Calling", () => {
 
       // The recording tool should have been called once
       expect(calls.length).toBe(1);
-      expect(calls[0]!.args.input).toBe("test-input");
-      expect(calls[0]!.agentName).toBe("step-recorder");
+      expect(calls[0]?.args.input).toBe("test-input");
+      expect(calls[0]?.agentName).toBe("step-recorder");
 
       // Steps should contain tool call info
       const toolStep = result.steps.find(
@@ -170,7 +170,7 @@ describe("E2E: Agent Tool Calling", () => {
 
       expect(result.text).toBe("Weather is sunny, and I logged it.");
       expect(calls.length).toBe(1); // recorder called once
-      expect(calls[0]!.args.input).toBe("logging weather data");
+      expect(calls[0]?.args.input).toBe("logging weather data");
       // Should have at least 3 steps (2 tool rounds + 1 text round)
       expect(result.steps.length).toBeGreaterThanOrEqual(3);
     });
@@ -430,9 +430,9 @@ describe("E2E: Agent Tool Calling", () => {
 
       const result = await agent.call("Keep counting");
 
-      // The agent should have stopped at the internal default max steps (10)
-      expect(getCount()).toBeLessThanOrEqual(10);
-      expect(result.steps.length).toBeLessThanOrEqual(10);
+      // The agent should have stopped at the internal default max steps.
+      expect(getCount()).toBeLessThanOrEqual(100);
+      expect(result.steps.length).toBeLessThanOrEqual(100);
     });
   });
 

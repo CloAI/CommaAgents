@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import { render } from "ink-testing-library";
-import React from "react";
 
 import { CodeViewRender } from "./CodeView";
 import type { CodeViewTheme } from "./CodeView.theme";

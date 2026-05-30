@@ -1,7 +1,7 @@
 import type { BoxProps } from "ink";
 import { useMemo } from "react";
 
-import { useTheme } from "../../theme";
+import { useTheme } from "../../Theme";
 
 /** Spread-ready style objects for the SearchInput component. */
 export interface SearchInputTheme {

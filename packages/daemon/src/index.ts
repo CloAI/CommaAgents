@@ -21,6 +21,10 @@ export {
   createStrategyExecutor,
   extractProviderIds,
 } from "./executor";
+export {
+  createTypeScriptLanguageService,
+  type TypeScriptLanguageServiceOptions,
+} from "./language";
 export type {
   CreateLoggerOptions,
   LogEntry,
@@ -36,6 +40,14 @@ export {
   describeSystemLogging,
 } from "./logger";
 export { isRunning, readPid, removePid, writePid } from "./pid";
+export type {
+  CreateRunStoreOptions,
+  PersistedRun,
+  RunOverview,
+  RunStore,
+  RunTurn,
+} from "./runs";
+export { createRunStore } from "./runs";
 export type {
   AgentCallResultWire,
   AgentStreamEventWire,
@@ -53,12 +65,6 @@ export {
   parseClientMessage,
   parseDaemonMessage,
 } from "./server/protocol";
-export type {
-  CreateRunStoreOptions,
-  PersistedRun,
-  RunOverview,
-  RunStore,
-  RunTurn,
-} from "./runs";
-export { createRunStore } from "./runs";
+export { createDaemon } from "./server/server";
+export type { CreateDaemonOptions, Daemon } from "./server/server.types";
 export type { RunStatus } from "./state";

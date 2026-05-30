@@ -13,11 +13,12 @@
       "recommended": true,
       "style": {
         "noDefaultExport": "error",
+        "noNonNullAssertion": "off",
         "useConst": "error",
         "useTemplate": "warn"
       },
       "suspicious": {
-        "noExplicitAny": "warn"
+        "noExplicitAny": "off"
       },
       "complexity": {
         "noForEach": "off"
@@ -83,6 +84,57 @@
         "rules": {
           "style": {
             "noDefaultExport": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "examples/**/*.ts",
+        "examples/**/*.tsx",
+        "packages/**/*.stories.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off",
+            "noTemplateCurlyInString": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/**/*.stories.tsx",
+        "packages/tui-storybook/**/*.ts",
+        "packages/tui-storybook/**/*.tsx",
+        "packages/tui-storybook/.storybook/**/*.ts",
+        "packages/tui-storybook/.storybook/**/*.tsx",
+        "packages/**/vite.config.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDefaultExport": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/tui/src/components/CodeView/CodeView.tsx",
+        "packages/tui/src/components/MessageList/MarkdownView/MarkdownView.tsx",
+        "packages/tui/src/components/MessageList/OutputModal/OutputModal.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noArrayIndexKey": "off"
           }
         }
       }

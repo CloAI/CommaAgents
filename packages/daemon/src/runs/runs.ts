@@ -1,13 +1,13 @@
 import {
+  appendFileSync,
+  closeSync,
   existsSync,
+  fsyncSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
   rmSync,
-  appendFileSync,
-  openSync,
-  fsyncSync,
-  closeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import type { TimelineEvent } from "@comma-agents/core";

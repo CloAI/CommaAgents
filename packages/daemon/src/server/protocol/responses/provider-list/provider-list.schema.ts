@@ -25,12 +25,7 @@ export const ModelsSourceSchema = z.enum([
 ]);
 
 /** Expected credential type for a provider. */
-export const CredentialTypeSchema = z.enum([
-  "api",
-  "oauth",
-  "custom",
-  "none",
-]);
+export const CredentialTypeSchema = z.enum(["api", "oauth", "custom", "none"]);
 
 /** Normalized model metadata sent over the wire. */
 export const ModelInfoSchema = z.object({

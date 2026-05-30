@@ -82,7 +82,9 @@ describe("createListSkillsTool", () => {
     );
     expect(result.ok).toBe(true);
     expect(result.data?.count).toBe(1);
-    const entry = result.data?.skills[0]!;
+    const entry = result.data?.skills[0];
+    expect(entry).toBeDefined();
+    if (!entry) throw new Error("Expected one skill entry");
     expect(entry.name).toBe("my-skill");
     expect(entry.description).toBe("A skill.");
     expect(entry.origin).toBe("project");

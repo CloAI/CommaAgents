@@ -140,16 +140,22 @@ export function createWriteFileTool(
 
 **Post-write verification (MANDATORY):**
 
-After every successful \`write_file\` call, **run the project's linter and type-checker on the file (and the rest of the project) using \`run_command\`**. Rewriting an entire file is the highest-risk mutation — it can silently break imports the rest of the codebase relies on. The linter/type-checker is your safety net for:
+After every successful \`write_file\` call, **run the project's configured verifier on the file (and the rest of the project) using \`run_command\`**. Rewriting an entire file is the highest-risk mutation — it can silently break imports the rest of the codebase relies on.
 
-- Typos in identifiers.
-- Broken imports (wrong path, removed export).
-- Unused imports.
-- Type errors.
+**Use the project's actual verifier — not a generic default.**
 
-Use \`tsc --noEmit\`, \`eslint <path>\`, or \`biome check <path>\` per the project's conventions. **If anything surfaces, fix it before reporting.** Do not assume the rewrite is clean just because the new content compiled in your head.
+1. If the seed input you received contains a \`Verifier:\` section, use those commands **verbatim**.
+2. Otherwise inspect \`package.json\` scripts and config files once on iteration 1:
+   - **Biome project** (\`biome.json\` / \`biome.jsonc\`): \`bun run lint\` (typically \`biome check\`). Do NOT also run \`tsc --noEmit\` unless the project's scripts list it separately.
+   - **ESLint + TS**: \`bun run lint\` and \`bun run typecheck\`.
+   - **Ruff / Cargo / etc.**: use the project's chosen tool.
+   - **Single \`check\` / \`verify\` script**: prefer those.
 
-**Never** call \`write_file\` without first reading the file. **Never** use it on a new path — that's \`create_file\`'s job (it fails with \`not_found\` here). **Never** end your turn with unaddressed lint or type errors caused by your write.`,
+**Never** run a verifier that isn't configured for this project — the noise tempts you to "fix" things the project intentionally doesn't enforce.
+
+**If anything surfaces, fix it before reporting.** Do not assume the rewrite is clean just because the new content compiled in your head.
+
+**Never** call \`write_file\` without first reading the file. **Never** use it on a new path — that's \`create_file\`'s job (it fails with \`not_found\` here). **Never** end your turn with unaddressed verifier failures caused by your write.`,
     parameters: writeFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;

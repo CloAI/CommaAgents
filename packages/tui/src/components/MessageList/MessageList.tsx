@@ -1,5 +1,6 @@
 import { Box, Text } from "ink";
 import type React from "react";
+import { useMemo } from "react";
 
 import type { ChatMessage } from "../../hooks/useChat/useChat.types";
 import { useDebugRender } from "../../hooks/useDebugRender";
@@ -7,6 +8,7 @@ import { ScrollableView } from "../ScrollableView";
 import { AgentMessage } from "./AgentMessage";
 import { useMessageListTheme } from "./MessageList.theme";
 import type {
+  GroupedChatMessage,
   MessageListProps,
   MessageListRenderProps,
 } from "./MessageList.types";
@@ -28,10 +30,14 @@ export function MessageList({
     props: { messages },
   });
   const theme = useMessageListTheme();
+  const groupedMessages = useMemo(
+    () => groupSubStrategyMessages(messages),
+    [messages],
+  );
 
   return (
     <MessageListRender
-      messages={messages}
+      messages={groupedMessages}
       debugRef={debug.ref}
       containerProps={theme.container}
       emptyStateProps={theme.emptyState}
@@ -57,7 +63,7 @@ export function MessageListRender({
 
   return (
     <Box ref={debugRef} {...containerProps}>
-      <ScrollableView<ChatMessage>
+      <ScrollableView<GroupedChatMessage>
         items={messages}
         getKey={(message) => message.id}
         renderItem={(message) => <MessageRow message={message} />}
@@ -68,7 +74,7 @@ export function MessageListRender({
 }
 
 interface MessageRowProps {
-  readonly message: ChatMessage;
+  readonly message: GroupedChatMessage;
 }
 
 /** Routes a single ChatMessage to the role-specific renderer. */
@@ -83,8 +89,59 @@ function MessageRow({ message }: MessageRowProps): React.ReactElement | null {
         segments={message.segments}
         fallbackText={message.text}
         streaming={message.streaming}
+        subMessages={message.subMessages}
       />
     );
   }
   return null;
+}
+
+interface MutableGroupedChatMessage extends ChatMessage {
+  subMessages: GroupedChatMessage[];
+}
+
+/** Build a nested message tree from `parentToolCallId` lineage metadata. */
+export function groupSubStrategyMessages(
+  messages: readonly ChatMessage[],
+): readonly GroupedChatMessage[] {
+  const groupedByMessageId = new Map<string, MutableGroupedChatMessage>();
+  const launchToolCallToMessageId = new Map<string, string>();
+
+  for (const message of messages) {
+    const groupedMessage: MutableGroupedChatMessage = {
+      ...message,
+      subMessages: [],
+    };
+    groupedByMessageId.set(message.id, groupedMessage);
+
+    for (const segment of message.segments ?? []) {
+      if (
+        segment.type === "tool-call" &&
+        segment.toolName === "launch_strategy"
+      ) {
+        launchToolCallToMessageId.set(segment.toolCallId, message.id);
+      }
+    }
+  }
+
+  const rootMessages: MutableGroupedChatMessage[] = [];
+  for (const message of messages) {
+    const groupedMessage = groupedByMessageId.get(message.id);
+    if (!groupedMessage) continue;
+
+    const parentMessageId = message.parentToolCallId
+      ? launchToolCallToMessageId.get(message.parentToolCallId)
+      : undefined;
+    const parentMessage = parentMessageId
+      ? groupedByMessageId.get(parentMessageId)
+      : undefined;
+
+    if (parentMessage && parentMessage.id !== message.id) {
+      parentMessage.subMessages.push(groupedMessage);
+    } else {
+      rootMessages.push(groupedMessage);
+    }
+  }
+
+  return rootMessages;
 }

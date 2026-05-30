@@ -96,7 +96,9 @@ The result includes a \`trashId\` you can pass to \`restore_file\` to undo the d
 
 Before deleting, \`search_files\` for references to the file you're about to delete — if anything imports it, deleting will break that import.
 
-After every successful \`delete_file\` call, **run the project's type-checker with \`run_command\`** (e.g. \`tsc --noEmit\`) to confirm no surviving file still imports the deleted one. If the verifier reports broken imports, either fix the importers (\`edit_file\` to remove the references) or \`restore_file\` to undo the delete.
+After every successful \`delete_file\` call, **run the project's configured verifier with \`run_command\`** to confirm no surviving file still imports the deleted one. If the verifier reports broken imports, either fix the importers (\`edit_file\` to remove the references) or \`restore_file\` to undo the delete.
+
+**Use the project's actual verifier** (from the seed's \`Verifier:\` section, or discovered from \`package.json\` scripts on iteration 1). For TypeScript projects this is typically \`bun run lint\` (Biome) or \`bun run typecheck\` (ESLint+TS setup) — the type-checker is what catches broken module references. Do not run a verifier the project doesn't configure.
 
 **Never** end your turn with broken imports caused by a delete.`,
     parameters: deleteFileParams,

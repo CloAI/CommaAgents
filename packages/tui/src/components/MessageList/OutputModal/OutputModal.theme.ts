@@ -3,7 +3,7 @@ import {
   defineTheme,
   type TextProps,
   type ThemeOf,
-} from "../../../theme";
+} from "../../../Theme";
 
 /**
  * Memoized themed style objects for the {@link OutputModal} component.

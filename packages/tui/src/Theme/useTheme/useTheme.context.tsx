@@ -1,8 +1,8 @@
 import { createContext, useMemo } from "react";
 
 import { useUserConfig } from "../../hooks/useUserConfig";
-import { defaultTheme } from "../theme";
-import type { Theme } from "../theme.types";
+import { defaultTheme } from "../Theme";
+import type { Theme } from "../Theme.types";
 import { resolveThemeByName } from "../themes";
 import type {
   ThemeContextProviderProps,

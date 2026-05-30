@@ -183,62 +183,6 @@ export function getProvidersForModel(modelId: string): string[] {
   return getReverseModelIndex().get(modelId) ?? [];
 }
 
-/**
- * Build a reverse lookup from model IDs to the provider IDs that offer them.
- * Scans every provider in the catalog snapshot.
- */
-function buildReverseModelIndex(snapshot: CatalogData): Map<string, string[]> {
-  const index = new Map<string, string[]>();
-  for (const [providerId, provider] of Object.entries(snapshot)) {
-    for (const modelId of Object.keys(provider.models)) {
-      const list = index.get(modelId);
-      if (list) {
-        list.push(providerId);
-      } else {
-        index.set(modelId, [providerId]);
-      }
-    }
-  }
-  return index;
-}
-
-/**
- * Return a lazy-built reverse model index.
- *
- * The index maps each model ID (e.g. `"gpt-4o"`) to an alphabetically-sorted
- * array of provider IDs that list that model in the models.dev catalog.
- * Providers are sorted alphabetically for deterministic resolution order.
- *
- * Built once from `getCatalogSnapshot()` and invalidated via `resetCatalog()`.
- */
-export function getReverseModelIndex(): Map<string, string[]> {
-  if (reverseModelIndex) return reverseModelIndex;
-  const snapshot = getCatalogSnapshot();
-  const index = buildReverseModelIndex(snapshot);
-  // Sort provider lists for deterministic resolution ordering.
-  // TODO: when priority settings are implemented, apply a weighting/ranking
-  // function here instead of simple alphabetical sort.
-  for (const providers of index.values()) {
-    providers.sort();
-  }
-  reverseModelIndex = index;
-  return reverseModelIndex;
-}
-
-/**
- * Return the list of provider IDs known to offer a given model ID.
- *
- * Only includes providers registered in the models.dev catalog. Live-only
- * providers (ollama, GitHub Copilot models fetched at runtime) are NOT
- * included here.
- *
- * @param modelId - The bare model ID to look up (e.g. `"gpt-4o"`).
- * @returns Sorted array of provider IDs, or empty array if unknown.
- */
-export function getProvidersForModel(modelId: string): string[] {
-  return getReverseModelIndex().get(modelId) ?? [];
-}
-
 function readCache(cachePath: string): CachedCatalog | undefined {
   try {
     const raw = readFileSync(cachePath, "utf8");

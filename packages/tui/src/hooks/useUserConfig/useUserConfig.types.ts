@@ -1,4 +1,4 @@
-import type { ThemeName } from "../../theme";
+import type { ThemeName } from "../../Theme";
 
 /**
  * Persisted user configuration for the TUI.

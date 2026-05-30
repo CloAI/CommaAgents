@@ -9,7 +9,7 @@ export interface MessageListProps {
 
 export interface MessageListRenderProps {
   /** Messages to render in chronological order. */
-  readonly messages: readonly ChatMessage[];
+  readonly messages: readonly GroupedChatMessage[];
   /** Debug render ref from useDebugRender. */
   readonly debugRef: React.RefObject<HTMLElement>;
   /** Props for the outer container Box. */
@@ -18,4 +18,9 @@ export interface MessageListRenderProps {
   readonly emptyStateProps: InkBoxProps;
   /** Props for the empty state Text. */
   readonly emptyStateTextProps: Omit<InkBoxProps, "children">;
+}
+
+export interface GroupedChatMessage extends ChatMessage {
+  /** Messages spawned by a `launch_strategy` tool call inside this message. */
+  readonly subMessages: readonly GroupedChatMessage[];
 }

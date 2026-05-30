@@ -71,9 +71,17 @@ function createInitialChatRun(id: ChatRunId, init: CreateRunInit): ChatRun {
     pendingPermissionRequests: [],
     pendingQuestionRequests: [],
     messages: [],
+    activeLaunchStrategyIds: [],
     createdAt: now,
     updatedAt: now,
   };
+}
+
+/** Return the innermost active spawned-strategy tool-call id for a run. */
+function getActiveLaunchStrategyId(chatRun: ChatRun): string | undefined {
+  return chatRun.activeLaunchStrategyIds[
+    chatRun.activeLaunchStrategyIds.length - 1
+  ];
 }
 
 /**
@@ -282,12 +290,14 @@ export function ChatRunsContextProvider(
       const chatRun = previousChatRuns.get(chatRunId)!;
       const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
       messageCountersRef.current.set(chatRunId, counter);
+      const parentToolCallId = getActiveLaunchStrategyId(chatRun);
       const systemMessage: ChatMessage = {
         id: `${chatRunId}-msg-${counter}`,
         role: "system",
         sender: "system",
         text: `[${message.stepName}] started`,
         streaming: false,
+        ...(parentToolCallId !== undefined ? { parentToolCallId } : {}),
         timestamp: Date.now(),
       };
       const next = new Map(previousChatRuns);
@@ -309,12 +319,14 @@ export function ChatRunsContextProvider(
       if (!chatRunId) return previousChatRuns;
       const chatRun = previousChatRuns.get(chatRunId)!;
       const next = new Map(previousChatRuns);
+      const parentToolCallId = getActiveLaunchStrategyId(chatRun);
       const systemMessage: ChatMessage = {
         id: `${chatRunId}-msg-${(messageCountersRef.current.get(chatRunId) ?? 0) + 1}`,
         role: "system",
         sender: "system",
         text: `[${message.stepName}] completed`,
         streaming: false,
+        ...(parentToolCallId !== undefined ? { parentToolCallId } : {}),
         timestamp: Date.now(),
       };
       messageCountersRef.current.set(
@@ -366,6 +378,7 @@ export function ChatRunsContextProvider(
         }
         const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
         messageCountersRef.current.set(chatRunId, counter);
+        const parentToolCallId = getActiveLaunchStrategyId(chatRun);
         const fresh: ChatMessage = {
           id: `${chatRunId}-msg-${counter}`,
           role: "agent",
@@ -373,6 +386,7 @@ export function ChatRunsContextProvider(
           text: "",
           segments: [],
           streaming: true,
+          ...(parentToolCallId !== undefined ? { parentToolCallId } : {}),
           timestamp: Date.now(),
         };
         debugLog("[useChat] agent_streaming creating new in-flight message", {
@@ -426,6 +440,10 @@ export function ChatRunsContextProvider(
         next.set(chatRunId, {
           ...chatRun,
           messages: nextMessages,
+          activeLaunchStrategyIds:
+            message.event.toolName === "launch_strategy"
+              ? [...chatRun.activeLaunchStrategyIds, message.event.toolCallId]
+              : chatRun.activeLaunchStrategyIds,
           updatedAt: Date.now(),
         });
         return next;
@@ -445,6 +463,12 @@ export function ChatRunsContextProvider(
         next.set(chatRunId, {
           ...chatRun,
           messages: nextMessages,
+          activeLaunchStrategyIds:
+            message.event.toolName === "launch_strategy"
+              ? chatRun.activeLaunchStrategyIds.filter(
+                  (toolCallId) => toolCallId !== message.event.toolCallId,
+                )
+              : chatRun.activeLaunchStrategyIds,
           updatedAt: Date.now(),
         });
         return next;
@@ -603,7 +627,7 @@ export function ChatRunsContextProvider(
           totalMessages: chatRun.messages.length,
           lastAgentTextLength:
             lastAgentIndex >= 0
-              ? chatRun.messages[lastAgentIndex]!.text.length
+              ? chatRun.messages[lastAgentIndex]?.text.length
               : null,
         });
         if (lastAgentIndex < 0) return previousChatRuns;
@@ -689,6 +713,7 @@ export function ChatRunsContextProvider(
       );
       const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
       messageCountersRef.current.set(chatRunId, counter);
+      const parentToolCallId = getActiveLaunchStrategyId(chatRun);
       const agentMessage: ChatMessage = {
         id: `${chatRunId}-msg-${counter}`,
         role: "agent",
@@ -696,6 +721,7 @@ export function ChatRunsContextProvider(
         text: message.text,
         segments: [{ type: "text", text: message.text, streaming: false }],
         streaming: false,
+        ...(parentToolCallId !== undefined ? { parentToolCallId } : {}),
         timestamp: Date.now(),
       };
       const next = new Map(previousChatRuns);
@@ -720,6 +746,7 @@ export function ChatRunsContextProvider(
       if (message.prompt) {
         const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
         messageCountersRef.current.set(chatRunId, counter);
+        const parentToolCallId = getActiveLaunchStrategyId(chatRun);
         updatedMessages = [
           ...chatRun.messages,
           {
@@ -728,6 +755,7 @@ export function ChatRunsContextProvider(
             sender: "system",
             text: message.prompt,
             streaming: false,
+            ...(parentToolCallId !== undefined ? { parentToolCallId } : {}),
             timestamp: Date.now(),
           },
         ];
@@ -769,6 +797,7 @@ export function ChatRunsContextProvider(
         runStatus: "completed",
         pendingPermissionRequests: [],
         pendingQuestionRequests: [],
+        activeLaunchStrategyIds: [],
         messages: [...chatRun.messages, systemMessage],
         updatedAt: Date.now(),
       });
@@ -867,6 +896,7 @@ export function ChatRunsContextProvider(
         status: "error",
         runStatus: "error",
         error: message.error.message,
+        activeLaunchStrategyIds: [],
         messages: [...chatRun.messages, systemMessage],
         updatedAt: Date.now(),
       });
@@ -1026,6 +1056,7 @@ export function ChatRunsContextProvider(
         pendingPermissionRequests: [],
         pendingQuestionRequests: [],
         messages: projected,
+        activeLaunchStrategyIds: [],
         createdAt: now,
         updatedAt: now,
       };
@@ -1061,12 +1092,14 @@ export function ChatRunsContextProvider(
 
         const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
         messageCountersRef.current.set(chatRunId, counter);
+        const parentToolCallId = getActiveLaunchStrategyId(chatRun);
         const userMessage: ChatMessage = {
           id: `${chatRunId}-msg-${counter}`,
           role: "user",
           sender: "you",
           text,
           streaming: false,
+          ...(parentToolCallId !== undefined ? { parentToolCallId } : {}),
           timestamp: Date.now(),
         };
 
@@ -1184,6 +1217,7 @@ export function ChatRunsContextProvider(
         pendingInputAgent: null,
         pendingPermissionRequests: [],
         pendingQuestionRequests: [],
+        activeLaunchStrategyIds: [],
         // Clear loaded-run metadata so the host app falls back to its
         // intro/strategy-selection view after a reset.
         strategyName: null,

@@ -8,7 +8,7 @@ import type {
 import { useChatRuns } from "../../../../hooks/useChat/useChatRuns";
 import { useDebugRender } from "../../../../hooks/useDebugRender";
 import { useModal } from "../../../../hooks/useModal";
-import { useTheme } from "../../../../theme";
+import { useTheme } from "../../../../Theme";
 import { isMouseEscape } from "../../../../utils/mouseEscape";
 import { ScrollableList } from "../../../ScrollableList";
 import { SearchInputRender, useSearchInputTheme } from "../../../SearchInput";

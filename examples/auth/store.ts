@@ -12,7 +12,6 @@ import {
   type CredentialStore,
   createCredentialStore,
   createJsonFileBackend,
-  type OAuthCredential,
   resolveCredentialsPath,
 } from "@comma-agents/core";
 

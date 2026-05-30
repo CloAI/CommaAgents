@@ -3,8 +3,8 @@ import type React from "react";
 import { useState } from "react";
 
 import { useUserConfig } from "../../../../hooks/useUserConfig";
-import { THEME_REGISTRY, type ThemeName } from "../../../../theme/themes";
-import { useTheme } from "../../../../theme/useTheme";
+import { THEME_REGISTRY, type ThemeName } from "../../../../Theme/themes";
+import { useTheme } from "../../../../Theme/useTheme";
 import { ScrollableList } from "../../../ScrollableList";
 
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";

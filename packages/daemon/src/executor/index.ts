@@ -9,5 +9,8 @@ export type {
 export { createStrategyExecutor } from "./executor";
 export type { CreateInputBridgeOptions, InputBridge } from "./input-bridge";
 export { createInputBridge } from "./input-bridge";
-export type { CreateQuestionBridgeOptions, QuestionBridge } from "./question-bridge";
+export type {
+  CreateQuestionBridgeOptions,
+  QuestionBridge,
+} from "./question-bridge";
 export { createQuestionBridge } from "./question-bridge";

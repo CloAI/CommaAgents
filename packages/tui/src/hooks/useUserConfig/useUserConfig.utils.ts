@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
-import { THEME_REGISTRY, type ThemeName } from "../../theme";
+import { THEME_REGISTRY, type ThemeName } from "../../Theme";
 import { DEFAULT_USER_CONFIG } from "./useUserConfig.constants";
 import type { UserConfig } from "./useUserConfig.types";
 

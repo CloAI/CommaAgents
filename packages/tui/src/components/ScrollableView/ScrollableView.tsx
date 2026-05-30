@@ -32,6 +32,16 @@ const OVERSCAN_ROWS = 3;
  */
 const WHEEL_SCROLL_ROWS = 3;
 
+interface MeasurementCacheEntry<ItemType> {
+  readonly widths: Map<
+    number,
+    {
+      readonly item: ItemType;
+      readonly height: number;
+    }
+  >;
+}
+
 /**
  * Variable-height, virtualized scrollable container.
  *
@@ -44,10 +54,10 @@ const WHEEL_SCROLL_ROWS = 3;
  *
  * Measurement runs in a `useLayoutEffect` immediately after commit, so
  * the rendered frame the user sees always reflects the post-measurement
- * geometry. The cache survives across renders via `useRef`, and entries
- * invalidate when an item's reference identity changes (so streaming
- * chat messages that produce a new object on every chunk are re-measured
- * with their new content).
+ * geometry. The cache survives across renders via `useRef`; when an item
+ * reference changes, the previous height is reused until the replacement
+ * object is re-measured, keeping streaming chat updates from briefly
+ * collapsing the scroll geometry.
  *
  * The view does **not** handle keyboard input. Use {@link ScrollableList}
  * for keyboard-driven single-selection lists.
@@ -85,14 +95,14 @@ export function ScrollableView<ItemType>(
   const totalCount = items.length;
 
   // Per-(item identity, viewport width) measurement cache. Outer map keys
-  // by `getKey(item)`; the entry holds the original item reference so we
-  // can detect content changes and invalidate. Inner map keys by width so
-  // resizing the terminal keeps measurements for other widths intact.
+  // by `getKey(item)`. Inner entries remember both the measured height and
+  // the item reference that produced it, so streaming updates can reuse the
+  // last known height for one render while the new object is remeasured.
   // The cache lives across renders via useRef and is populated in
   // useLayoutEffect (synchronously after commit, before paint).
-  const cacheRef = useRef<
-    Map<string, { item: ItemType; widths: Map<number, number> }>
-  >(new Map());
+  const cacheRef = useRef<Map<string, MeasurementCacheEntry<ItemType>>>(
+    new Map(),
+  );
 
   // Bumped after a measurement pass adds new cache entries; used as the
   // dependency that wakes up `rowOffsets` / visible-window math.
@@ -118,39 +128,35 @@ export function ScrollableView<ItemType>(
       if (item === undefined) continue;
       const key = getKey(item, index);
       let entry = cacheRef.current.get(key);
-      if (entry !== undefined && entry.item !== item) {
-        // Item reference changed — invalidate every cached width for this key.
-        cacheRef.current.delete(key);
-        entry = undefined;
-      }
       if (entry === undefined) {
-        entry = { item, widths: new Map() };
+        entry = { widths: new Map() };
         cacheRef.current.set(key, entry);
       }
-      if (entry.widths.has(viewportWidth)) continue;
+      const cached = entry.widths.get(viewportWidth);
+      if (cached?.item === item) continue;
       const measured = measureLayout(renderItem(item, index), {
         width: viewportWidth,
       });
-      entry.widths.set(viewportWidth, Math.max(0, measured.height));
+      entry.widths.set(viewportWidth, {
+        item,
+        height: Math.max(0, measured.height),
+      });
       mutated = true;
     }
     if (mutated) bumpMeasureRevision();
   }, [items, getKey, renderItem, viewportWidth]);
 
-  // Synchronous read from the cache. Returns `DEFAULT_ROW_HEIGHT` when an
-  // item has not yet been measured (first commit, or freshly invalidated).
-  // The follow-up useLayoutEffect measures the missing items and triggers
-  // a re-render with the real heights, all before the user sees a frame.
+  // Synchronous read from the cache. Returns `DEFAULT_ROW_HEIGHT` only when
+  // the row has never been measured at this width. If a streaming update
+  // swaps in a new item object with the same key, the previous height is
+  // reused until the follow-up useLayoutEffect records the fresh height.
   const rowHeight = useCallback(
     (index: number): number => {
       const item = items[index];
       if (item === undefined) return 0;
       if (viewportWidth <= 0) return DEFAULT_ROW_HEIGHT;
       const entry = cacheRef.current.get(getKey(item, index));
-      if (entry === undefined || entry.item !== item) {
-        return DEFAULT_ROW_HEIGHT;
-      }
-      return entry.widths.get(viewportWidth) ?? DEFAULT_ROW_HEIGHT;
+      return entry?.widths.get(viewportWidth)?.height ?? DEFAULT_ROW_HEIGHT;
     },
     [items, getKey, viewportWidth],
   );

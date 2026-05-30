@@ -122,6 +122,25 @@ export const CycleFlowDefSchema = z
       .union([z.number().int().positive(), z.literal("Infinity")])
       .optional(),
     observer: z.string().optional(),
+    /**
+     * Custom break-signal tokens. The cycle ends when the observer's
+     * output contains one of these signals per `breakCycleSignalMatch`.
+     * Defaults to `["end cycle", "stop", "done"]` — fine for legacy
+     * strategies but brittle for verbose observers (e.g. "not done yet"
+     * triggers the "done" signal). Prefer a unique token like
+     * `"==CYCLE_DONE=="` paired with `breakCycleSignalMatch: "first-line"`.
+     */
+    breakCycleSignals: z.array(z.string().min(1)).min(1).optional(),
+    /**
+     * How to match `breakCycleSignals` against the observer's output.
+     * One of `"substring"` (legacy default, prone to false positives),
+     * `"first-line"` (recommended — observer's verdict is line 1),
+     * `"any-line"`, or `"exact"`. See {@link CycleFlowConfig.breakCycleSignalMatch}
+     * for full semantics.
+     */
+    breakCycleSignalMatch: z
+      .enum(["substring", "first-line", "any-line", "exact"])
+      .optional(),
   })
   .strict();
 

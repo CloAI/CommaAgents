@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { useTheme } from "../theme";
+import { useTheme } from "../Theme";
 import type { AppTheme } from "./App.types";
 
 /**
@@ -14,7 +14,8 @@ import type { AppTheme } from "./App.types";
  * ```
  */
 export function useAppTheme(): AppTheme {
-  // Reserved for future token-driven app chrome styles.
+  // Note: useTheme() is called here to ensure the App component is wrapped
+  // in the ThemeProvider, as these styles rely on global design tokens.
   useTheme();
 
   return useMemo<AppTheme>(

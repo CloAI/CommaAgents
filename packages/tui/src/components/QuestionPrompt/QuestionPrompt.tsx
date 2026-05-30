@@ -1,7 +1,7 @@
 import { Box, Text, useFocusManager } from "ink";
 import type React from "react";
 import { useEffect, useState } from "react";
-import { useTheme } from "../../theme";
+import { useTheme } from "../../Theme";
 import { TextAreaInput } from "../TextAreaInput";
 import type { QuestionPromptProps } from "./QuestionPrompt.types";
 

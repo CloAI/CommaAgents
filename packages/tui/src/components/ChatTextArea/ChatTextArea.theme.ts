@@ -1,4 +1,4 @@
-import { type BoxProps, defineTheme, type TextProps } from "../../theme";
+import { type BoxProps, defineTheme, type TextProps } from "../../Theme";
 
 /**
  * Returns themed style objects for the ChatTextArea component.

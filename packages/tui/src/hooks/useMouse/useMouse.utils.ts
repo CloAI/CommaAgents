@@ -106,15 +106,15 @@ export function parseMouseEvents(input: string): readonly MouseEvent[] {
 
   const events: MouseEvent[] = [];
   SGR_MOUSE_TOKEN.lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = SGR_MOUSE_TOKEN.exec(input)) !== null) {
+  let match = SGR_MOUSE_TOKEN.exec(input);
+  while (match !== null) {
     const rawButton = Number.parseInt(match[1] ?? "", 10);
     const column = Number.parseInt(match[2] ?? "", 10);
     const row = Number.parseInt(match[3] ?? "", 10);
     const terminator = match[4] ?? "";
     const event = toMouseEvent(rawButton, column, row, terminator);
     if (event !== null) events.push(event);
+    match = SGR_MOUSE_TOKEN.exec(input);
   }
 
   return events;

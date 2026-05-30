@@ -23,6 +23,7 @@ import {
   pathPolicy,
   readStrategyFile,
 } from "@comma-agents/core";
+import { createWorkspaceLanguageService } from "../language";
 import type { Logger } from "../logger";
 import type { RunStore } from "../runs";
 import type { AgentStreamEventWire } from "../server/protocol";
@@ -357,7 +358,7 @@ export function createStrategyExecutor(
     isUserAgent?: boolean,
   ): AgentHooks {
     let pendingUserMessage: string | null = null;
-    let pendingUserMessageSource: "human" | "agent" = "human";
+    let _pendingUserMessageSource: "human" | "agent" = "human";
 
     return {
       beforeCall: [
@@ -369,9 +370,9 @@ export function createStrategyExecutor(
             ctx.lastAgentOutputText !== null &&
             message === ctx.lastAgentOutputText
           ) {
-            pendingUserMessageSource = "agent";
+            _pendingUserMessageSource = "agent";
           } else {
-            pendingUserMessageSource = "human";
+            _pendingUserMessageSource = "human";
           }
         },
       ],
@@ -570,6 +571,9 @@ export function createStrategyExecutor(
           });
         },
       };
+      const languageService = createWorkspaceLanguageService({
+        workspaceRoot: runCwd ?? process.cwd(),
+      });
 
       let launchStrategy!: LaunchStrategyHandle;
       launchStrategy = async ({
@@ -628,6 +632,7 @@ export function createStrategyExecutor(
               subModelOverride ?? runModelOverride ?? modelOverride,
             skillRegistry,
             launchStrategy,
+            ...(languageService ? { languageService } : {}),
             strategyDir: dirname(strategyPath),
             // Fresh `runId` per sub-launch so tools that key on
             // `ToolContext.runId` (notably `todo_*`, whose store is
@@ -681,6 +686,7 @@ export function createStrategyExecutor(
         skillRegistry,
         initialAgentTurns,
         launchStrategy,
+        ...(languageService ? { languageService } : {}),
         strategyDir: dirname(effectiveStrategyPath),
         // Top-level `runId` = the daemon's run id. Sub-launches derive
         // fresh ids inside the `launchStrategy` handle above so tools

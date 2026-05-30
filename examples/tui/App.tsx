@@ -23,7 +23,6 @@ import {
   ALL_EXAMPLES,
   CORE_EXAMPLES,
   DAEMON_EXAMPLES,
-  E2E_EXAMPLES,
   findProvider,
 } from "./examples";
 

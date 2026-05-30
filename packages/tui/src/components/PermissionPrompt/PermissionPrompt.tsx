@@ -2,7 +2,7 @@ import { Box, Text, useFocusManager } from "ink";
 import type React from "react";
 import { useEffect } from "react";
 import type { PendingPermissionRequest } from "../../hooks/useChat";
-import { useTheme } from "../../theme";
+import { useTheme } from "../../Theme";
 import { Button } from "../Button";
 
 /** Decision option presented to the user. */
@@ -79,7 +79,7 @@ export function PermissionPrompt({
 
   useEffect(() => {
     if (RAW_MODE_SUPPORTED) focus(FOCUS_IDS.allow);
-  }, [focus, request]);
+  }, [focus]);
 
   return (
     <PermissionPromptRender

@@ -1,4 +1,4 @@
-import { Box, Spacer, useFocusManager } from "ink";
+import { Box, useFocusManager } from "ink";
 import type React from "react";
 import { useEffect } from "react";
 import { ChatTextArea } from "../../components";

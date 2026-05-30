@@ -339,7 +339,7 @@ flow:
       const loaded = await loadStrategyFromString(json, "json");
 
       expect(loaded.agents.user).toBeDefined();
-      expect(loaded.agents.user!.name).toBe("user");
+      expect(loaded.agents.user?.name).toBe("user");
 
       // The user agent with preset message should return the preset
       const result = await loaded.flow.call("Start review");
@@ -413,11 +413,7 @@ flow:
 
       registerMockModels({ "mock/model": ["Response"] });
 
-      // Tool resolution now happens at call time, so loading succeeds
-      const loaded = await loadStrategyFromString(json, "json");
-
-      // Calling the flow fails because the tool can't be resolved
-      await expect(loaded.flow.call("Test")).rejects.toThrow(
+      await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
         /nonexistent-tool/,
       );
     });

@@ -29,11 +29,10 @@ export interface ScrollableViewState {
  * need keyboard-driven selection.
  *
  * Row heights are measured automatically via Ink's headless layout
- * (`measureLayout`) keyed by `(getKey(item, index), viewportWidth)`. Cache
- * entries invalidate when an item's identity changes (so streaming
- * messages that produce a new object per chunk are re-measured). Only
- * items inside the visible window plus a small overscan are mounted in
- * the rendered tree.
+ * (`measureLayout`) keyed by `(getKey(item, index), viewportWidth)`. When
+ * an item's identity changes, the previous height is reused until the new
+ * object is re-measured. Only items inside the visible window plus a small
+ * overscan are mounted in the rendered tree.
  */
 export interface ScrollableViewProps<ItemType> {
   /** The items to render. */

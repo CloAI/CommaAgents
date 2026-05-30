@@ -177,7 +177,7 @@ describe("useChat", () => {
       });
 
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-123",
           strategyName: "test-strategy",
           agents: ["agent-a", "agent-b"],
@@ -187,9 +187,9 @@ describe("useChat", () => {
       expect(result.current.runId).toBe("run-123");
       expect(result.current.status).toBe("running");
       expect(result.current.messages).toHaveLength(1);
-      expect(result.current.messages[0]!.role).toBe("system");
-      expect(result.current.messages[0]!.text).toContain("test-strategy");
-      expect(result.current.messages[0]!.text).toContain("agent-a");
+      expect(result.current.messages[0]?.role).toBe("system");
+      expect(result.current.messages[0]?.text).toContain("test-strategy");
+      expect(result.current.messages[0]?.text).toContain("agent-a");
 
       cleanup();
     });
@@ -205,7 +205,7 @@ describe("useChat", () => {
         result.current.startStrategy("/strategy.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId,
           strategyName: "s",
           agents: ["assistant"],
@@ -218,7 +218,7 @@ describe("useChat", () => {
       bootstrapRun(result);
 
       act(() => {
-        subscriptionHandlers["agent_streaming"]!({
+        subscriptionHandlers.agent_streaming?.({
           runId: "run-1",
           agentName: "assistant",
           event: { type: "text", text: "Hello" },
@@ -229,9 +229,9 @@ describe("useChat", () => {
         (m) => m.role === "agent",
       );
       expect(agentMessages).toHaveLength(1);
-      expect(agentMessages[0]!.sender).toBe("assistant");
-      expect(agentMessages[0]!.text).toBe("Hello");
-      expect(agentMessages[0]!.streaming).toBe(true);
+      expect(agentMessages[0]?.sender).toBe("assistant");
+      expect(agentMessages[0]?.text).toBe("Hello");
+      expect(agentMessages[0]?.streaming).toBe(true);
 
       cleanup();
     });
@@ -241,7 +241,7 @@ describe("useChat", () => {
       bootstrapRun(result);
 
       act(() => {
-        subscriptionHandlers["agent_streaming"]!({
+        subscriptionHandlers.agent_streaming?.({
           runId: "run-1",
           agentName: "assistant",
           event: { type: "text", text: "Hello" },
@@ -249,7 +249,7 @@ describe("useChat", () => {
       });
 
       act(() => {
-        subscriptionHandlers["agent_streaming"]!({
+        subscriptionHandlers.agent_streaming?.({
           runId: "run-1",
           agentName: "assistant",
           event: { type: "text", text: " world" },
@@ -260,8 +260,8 @@ describe("useChat", () => {
         (m) => m.role === "agent",
       );
       expect(agentMessages).toHaveLength(1);
-      expect(agentMessages[0]!.text).toBe("Hello world");
-      expect(agentMessages[0]!.streaming).toBe(true);
+      expect(agentMessages[0]?.text).toBe("Hello world");
+      expect(agentMessages[0]?.streaming).toBe(true);
 
       cleanup();
     });
@@ -271,7 +271,7 @@ describe("useChat", () => {
       bootstrapRun(result);
 
       act(() => {
-        subscriptionHandlers["agent_streaming"]!({
+        subscriptionHandlers.agent_streaming?.({
           runId: "run-1",
           agentName: "assistant",
           event: { type: "text", text: "Done" },
@@ -279,7 +279,7 @@ describe("useChat", () => {
       });
 
       act(() => {
-        subscriptionHandlers["agent_streaming"]!({
+        subscriptionHandlers.agent_streaming?.({
           runId: "run-1",
           agentName: "assistant",
           event: { type: "done" },
@@ -290,7 +290,7 @@ describe("useChat", () => {
         (m) => m.role === "agent",
       );
       expect(agentMessages).toHaveLength(1);
-      expect(agentMessages[0]!.streaming).toBe(false);
+      expect(agentMessages[0]?.streaming).toBe(false);
 
       cleanup();
     });
@@ -304,7 +304,7 @@ describe("useChat", () => {
         result.current.startStrategy("/s.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-1",
           strategyName: "s",
           agents: ["assistant"],
@@ -312,7 +312,7 @@ describe("useChat", () => {
       });
 
       act(() => {
-        subscriptionHandlers["agent_output"]!({
+        subscriptionHandlers.agent_output?.({
           runId: "run-1",
           agentName: "assistant",
           text: "Final output",
@@ -323,8 +323,8 @@ describe("useChat", () => {
         (m) => m.role === "agent",
       );
       expect(agentMessages).toHaveLength(1);
-      expect(agentMessages[0]!.text).toBe("Final output");
-      expect(agentMessages[0]!.streaming).toBe(false);
+      expect(agentMessages[0]?.text).toBe("Final output");
+      expect(agentMessages[0]?.streaming).toBe(false);
 
       cleanup();
     });
@@ -338,7 +338,7 @@ describe("useChat", () => {
         result.current.startStrategy("/s.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-1",
           strategyName: "s",
           agents: ["user-agent"],
@@ -346,7 +346,7 @@ describe("useChat", () => {
       });
 
       act(() => {
-        subscriptionHandlers["request_input"]!({
+        subscriptionHandlers.request_input?.({
           runId: "run-1",
           agentName: "user-agent",
           prompt: "Please provide input:",
@@ -370,7 +370,7 @@ describe("useChat", () => {
         result.current.startStrategy("/s.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-1",
           strategyName: "s",
           agents: ["user-agent"],
@@ -380,7 +380,7 @@ describe("useChat", () => {
       const beforeCount = result.current.messages.length;
 
       act(() => {
-        subscriptionHandlers["request_input"]!({
+        subscriptionHandlers.request_input?.({
           runId: "run-1",
           agentName: "user-agent",
         });
@@ -401,14 +401,14 @@ describe("useChat", () => {
         result.current.startStrategy("/s.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-123",
           strategyName: "test",
           agents: ["user-agent"],
         });
       });
       act(() => {
-        subscriptionHandlers["request_input"]!({
+        subscriptionHandlers.request_input?.({
           runId: "run-123",
           agentName: "user-agent",
           prompt: "Enter input:",
@@ -423,8 +423,8 @@ describe("useChat", () => {
         (message) => message.role === "user",
       );
       expect(userMessage).toBeDefined();
-      expect(userMessage!.text).toBe("my answer");
-      expect(userMessage!.sender).toBe("you");
+      expect(userMessage?.text).toBe("my answer");
+      expect(userMessage?.sender).toBe("you");
 
       expect(mockSendUserInputCommand).toHaveBeenCalledWith({
         runId: "run-123",
@@ -460,7 +460,7 @@ describe("useChat", () => {
         result.current.startStrategy("/s.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-123",
           strategyName: "s",
           agents: ["a"],
@@ -499,7 +499,7 @@ describe("useChat", () => {
         result.current.startStrategy("/s.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-1",
           strategyName: "s",
           agents: ["a"],
@@ -507,7 +507,7 @@ describe("useChat", () => {
       });
 
       act(() => {
-        subscriptionHandlers["strategy_completed"]!({ runId: "run-1" });
+        subscriptionHandlers.strategy_completed?.({ runId: "run-1" });
       });
 
       expect(result.current.status).toBe("completed");
@@ -528,7 +528,7 @@ describe("useChat", () => {
         result.current.startStrategy("/s.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-1",
           strategyName: "s",
           agents: ["a"],
@@ -536,7 +536,7 @@ describe("useChat", () => {
       });
 
       act(() => {
-        subscriptionHandlers["strategy_error"]!({
+        subscriptionHandlers.strategy_error?.({
           runId: "run-1",
           error: { message: "Something went wrong" },
         });
@@ -562,7 +562,7 @@ describe("useChat", () => {
       });
 
       act(() => {
-        subscriptionHandlers["error"]!({
+        subscriptionHandlers.error?.({
           message: "Connection lost",
         });
       });
@@ -577,7 +577,7 @@ describe("useChat", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
-        subscriptionHandlers["error"]!({ message: "ignored" });
+        subscriptionHandlers.error?.({ message: "ignored" });
       });
 
       expect(result.current.error).toBeNull();
@@ -594,7 +594,7 @@ describe("useChat", () => {
         result.current.startStrategy("/s.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-1",
           strategyName: "s",
           agents: ["a"],
@@ -602,13 +602,13 @@ describe("useChat", () => {
       });
 
       act(() => {
-        subscriptionHandlers["step_started"]!({
+        subscriptionHandlers.step_started?.({
           runId: "run-1",
           stepName: "planning",
         });
       });
       act(() => {
-        subscriptionHandlers["step_completed"]!({
+        subscriptionHandlers.step_completed?.({
           runId: "run-1",
           stepName: "planning",
         });
@@ -635,14 +635,14 @@ describe("useChat", () => {
         result.current.startStrategy("/s.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-1",
           strategyName: "s",
           agents: ["a"],
         });
       });
       act(() => {
-        subscriptionHandlers["strategy_error"]!({
+        subscriptionHandlers.strategy_error?.({
           runId: "run-1",
           error: { message: "fail" },
         });
@@ -674,7 +674,7 @@ describe("useChat", () => {
         sessionA = chatRuns.current.startStrategy("/a.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-A",
           strategyName: "A",
           agents: ["agent-a"],
@@ -685,7 +685,7 @@ describe("useChat", () => {
         sessionB = chatRuns.current.startStrategy("/b.json");
       });
       act(() => {
-        subscriptionHandlers["strategy_started"]!({
+        subscriptionHandlers.strategy_started?.({
           runId: "run-B",
           strategyName: "B",
           agents: ["agent-b"],
@@ -694,7 +694,7 @@ describe("useChat", () => {
 
       // Send an agent_output for run-A only.
       act(() => {
-        subscriptionHandlers["agent_output"]!({
+        subscriptionHandlers.agent_output?.({
           runId: "run-A",
           agentName: "agent-a",
           text: "from A",

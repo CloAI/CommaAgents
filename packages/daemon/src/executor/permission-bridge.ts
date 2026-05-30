@@ -31,7 +31,7 @@ interface PendingPermission {
 /** The permission bridge instance. */
 export interface PermissionBridge {
   /**
-   * PermissionRequester function that can be passed to `inSandbox()`. 
+   * PermissionRequester function that can be passed to `inSandbox()`.
    * When invoked by the sandbox (policy resolves to `"ask"`), it broadcasts
    * `request_permission` and returns a Promise that resolves when the client
    * sends a `permission_decision` response.

@@ -1,4 +1,4 @@
-import type { Theme } from "../theme.types";
+import type { Theme } from "../Theme.types";
 
 /**
  * Light — bright background with dark text, suitable for light terminals.

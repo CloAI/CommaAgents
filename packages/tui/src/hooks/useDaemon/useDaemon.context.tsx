@@ -42,7 +42,6 @@ export function DaemonContextProvider({
     const set = listenersRef.current.get(message.type);
     if (!set) return;
     for (const listener of set) {
-      // biome-ignore lint: The listener is already narrowed by the consumer's generic
       (listener as DaemonMessageListener<typeof message.type>)(
         message as never,
       );

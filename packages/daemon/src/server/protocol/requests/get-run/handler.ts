@@ -2,9 +2,9 @@
 // Returns the full run file (including turns) for the given runId.
 
 import type { TimelineEvent } from "@comma-agents/core";
+import type { RunStatus } from "../../../../state/state.types";
 import type { HandlerContext } from "../../dispatcher.types";
 import type { GetRunMessage } from "./index";
-import type { RunStatus } from "../../../../state/state.types";
 
 export { GetRunMessage } from "./index";
 
@@ -45,7 +45,10 @@ export async function handleGetRun(
 
   // Project turns from agent_call events
   const turns = events
-    .filter((ev): ev is Extract<TimelineEvent, { type: "agent_call" }> => ev.type === "agent_call")
+    .filter(
+      (ev): ev is Extract<TimelineEvent, { type: "agent_call" }> =>
+        ev.type === "agent_call",
+    )
     .map((ev) => ({
       agentName: ev.agentName,
       userMessage: ev.userMessage,

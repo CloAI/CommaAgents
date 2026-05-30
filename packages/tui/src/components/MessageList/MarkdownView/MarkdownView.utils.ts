@@ -47,7 +47,6 @@ export function tokenizeMarkdown(source: string): readonly MdBlock[] {
  * tedious to import piecewise; this internal alias keeps the converter
  * readable without leaking the dependency through our types.
  */
-// biome-ignore lint/suspicious/noExplicitAny: marked's token shape is intentionally narrow at use sites.
 type MarkedToken = any;
 
 function blockFromMarkedToken(token: MarkedToken): MdBlock | null {

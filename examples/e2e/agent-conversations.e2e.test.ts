@@ -70,7 +70,7 @@ describe("E2E: Agent Conversations", () => {
 
       // Verify the third call received the full history
       // The messages array should contain: history (turn1 user + assistant, turn2 user + assistant) + current message
-      const thirdCallMessages = calls[2]!.messages as any[];
+      const thirdCallMessages = calls[2]?.messages as any[];
       // Should have at least 5 messages (2 turns * 2 messages + 1 current)
       expect(thirdCallMessages.length).toBeGreaterThanOrEqual(5);
     });
@@ -90,10 +90,10 @@ describe("E2E: Agent Conversations", () => {
       await agent.call("How are you?");
 
       // Both calls should have the system prompt
-      expect(calls[0]!.system).toBe(
+      expect(calls[0]?.system).toBe(
         "You are a pirate. Speak in pirate language.",
       );
-      expect(calls[1]!.system).toBe(
+      expect(calls[1]?.system).toBe(
         "You are a pirate. Speak in pirate language.",
       );
     });
@@ -127,7 +127,7 @@ describe("E2E: Agent Conversations", () => {
 
       await agent.call("Review my code");
 
-      expect(calls[0]!.system).toBe(
+      expect(calls[0]?.system).toBe(
         "You are a senior engineer, reviewing TypeScript code.",
       );
     });
@@ -151,7 +151,7 @@ describe("E2E: Agent Conversations", () => {
       await agent.call("Test");
 
       // Template should be rendered with baked-in variables
-      expect(calls[0]!.system).toBe("Template prompt: tester");
+      expect(calls[0]?.system).toBe("Template prompt: tester");
     });
 
     it("should render PromptTemplate with baked-in variables", async () => {
@@ -175,7 +175,7 @@ describe("E2E: Agent Conversations", () => {
 
       await agent.call("Test");
 
-      expect(calls[0]!.system).toBe("You are a developer, working in Rust.");
+      expect(calls[0]?.system).toBe("You are a developer, working in Rust.");
     });
   });
 
@@ -283,7 +283,7 @@ describe("E2E: Agent Conversations", () => {
 
       // Context should be empty — verify via getConversationContext()
       // Reset was called before third call, so context should only have the post-reset call
-      const context = agent.getConversationContext!();
+      const context = agent.getConversationContext?.();
       // Should have 2 entries (1 user + 1 assistant from the post-reset call)
       expect(context.allMessages().length).toBe(2);
     });

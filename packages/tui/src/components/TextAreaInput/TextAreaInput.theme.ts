@@ -1,4 +1,4 @@
-import { type BoxProps, defineTheme, type TextProps } from "../../theme";
+import { type BoxProps, defineTheme, type TextProps } from "../../Theme";
 
 export const useTextAreaInputTheme = defineTheme((tokens) => ({
   textAreaInput: {

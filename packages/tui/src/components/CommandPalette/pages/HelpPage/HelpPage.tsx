@@ -1,6 +1,6 @@
 import { Box, Text } from "ink";
 import type React from "react";
-import { useTheme } from "../../../../theme";
+import { useTheme } from "../../../../Theme";
 
 /** A single shortcut entry for the help page. */
 interface ShortcutEntry {

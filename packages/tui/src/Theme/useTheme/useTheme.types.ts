@@ -1,4 +1,4 @@
-import type { Theme } from "../theme.types";
+import type { Theme } from "../Theme.types";
 
 /** Shape of the theme context value. */
 export type ThemeContextType = Theme;

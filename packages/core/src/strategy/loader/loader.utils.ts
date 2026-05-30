@@ -20,6 +20,7 @@ import {
   mergeSystemPrompts,
 } from "../../tools/build-tool-system-prompt";
 import { resolveTools } from "../../tools/tool.registry";
+import type { ToolContext } from "../../tools/tool.types";
 import type {
   CycleFlowDef,
   FlowDef,
@@ -255,6 +256,9 @@ async function buildLLMAgent(
     ...(options.launchStrategy
       ? { launchStrategy: options.launchStrategy }
       : {}),
+    ...(options.languageService
+      ? { languageService: options.languageService }
+      : {}),
     ...(options.runId ? { runId: options.runId } : {}),
   });
 }
@@ -317,7 +321,13 @@ export function buildFlow(
         name: flowDef.name,
         steps,
         cycles,
-        observer,
+        ...(observer ? { observer } : {}),
+        ...(cycleDef.breakCycleSignals
+          ? { breakCycleSignals: cycleDef.breakCycleSignals }
+          : {}),
+        ...(cycleDef.breakCycleSignalMatch
+          ? { breakCycleSignalMatch: cycleDef.breakCycleSignalMatch }
+          : {}),
       });
       break;
     }

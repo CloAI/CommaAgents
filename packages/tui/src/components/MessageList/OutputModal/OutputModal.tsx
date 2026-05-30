@@ -57,7 +57,7 @@ export function OutputModal(): React.ReactElement | null {
       setQuery("");
       setScrollOffset(0);
     }
-  }, [isOpen, payload?.title, payload?.body]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, payload?.title, payload?.body, payload]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const compiled = useMemo<OutputModalQuery>(
     () => compileQuery(query),
@@ -65,7 +65,7 @@ export function OutputModal(): React.ReactElement | null {
   );
   const lines = useMemo<readonly OutputModalLine[]>(
     () => (payload ? filterAndHighlight(payload.body, compiled.regex) : []),
-    [payload?.body, compiled.regex], // eslint-disable-line react-hooks/exhaustive-deps
+    [payload?.body, compiled.regex, payload], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const contentRef = useRef<DOMElement | null>(null);

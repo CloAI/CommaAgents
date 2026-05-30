@@ -40,7 +40,7 @@ async function main() {
   console.log("Streaming response:");
   process.stdout.write("  ");
 
-  const stream = agent.stream!(
+  const stream = agent.stream?.(
     "Describe a sunset over the ocean in 3 sentences.",
   );
 
@@ -75,7 +75,7 @@ async function main() {
   });
 
   console.log("Streaming response with tool calls:");
-  const toolStream = toolAgent.stream!(
+  const toolStream = toolAgent.stream?.(
     "What files are in the current directory? List the first 5.",
   );
 

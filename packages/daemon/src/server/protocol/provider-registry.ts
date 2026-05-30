@@ -1,8 +1,8 @@
 // Provider registry persistence — reads/writes `provider-registry.json`
 // in the platform data directory (same directory as credentials.json).
 
-import { join } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { resolveDataDir } from "@comma-agents/core";
 
 const PROVIDER_REGISTRY_FILENAME = "provider-registry.json";

@@ -170,6 +170,7 @@ export function ExampleRunner({
     provider.model,
     provider.envVar,
     provider.apiKey,
+    example.category,
   ]);
 
   const visibleOutput = output.slice(scrollOffset, scrollOffset + pageSize);

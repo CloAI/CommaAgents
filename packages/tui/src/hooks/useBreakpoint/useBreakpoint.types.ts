@@ -1,4 +1,4 @@
-import type { BreakpointName } from "../../theme";
+import type { BreakpointName } from "../../Theme";
 
 /** Result returned by `useBreakpoint()`. */
 export interface BreakpointState {

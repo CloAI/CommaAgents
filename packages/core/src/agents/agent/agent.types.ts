@@ -12,6 +12,7 @@ import type {
 } from "ai";
 import type { ConversationContext } from "../../context/conversation-context";
 import type { ConversationTurn } from "../../context/conversation-context.types";
+import type { LanguageService } from "../../language";
 import type { PromptTemplate, TemplateVariables } from "../../prompts/types";
 import type { Sandbox } from "../../sandbox/sandbox.types";
 import type { SkillRegistry } from "../../skills/skills.types";
@@ -104,9 +105,8 @@ export interface AgentConfig {
    * sub-invocation), while `sessionId` identifies a broader user/daemon
    * session that may span many runs. The two are deliberately separate:
    * audit logs are session-scoped, but per-run isolation (notably the
-   * `todo_*` tools' silo, which would otherwise be process-global and
-   * shared across every recursive `launch_strategy` call because every
-   * recursive sub-agent has the same `agentName`) keys on `runId`.
+   * `todo_*` tools' shared run-level silo, which must not leak into
+   * recursive `launch_strategy` calls) keys on `runId`.
    *
    * The strategy loader sets this from {@link LoadStrategyOptions.runId};
    * the daemon executor passes the top-level run id at the entry point
@@ -130,6 +130,11 @@ export interface AgentConfig {
    * receives it via {@link LoadStrategyOptions}).
    */
   readonly launchStrategy?: LaunchStrategyHandle;
+  /**
+   * Runtime language service exposed to language-aware tools.
+   * Usually supplied by the daemon for a workspace.
+   */
+  readonly languageService?: LanguageService;
   /**
    * Per-call provider options forwarded to the model provider. Used to enable
    * provider-specific behaviour such as reasoning / extended thinking.

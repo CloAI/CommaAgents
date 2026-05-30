@@ -1,8 +1,8 @@
 import { useStdout } from "ink";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { BreakpointName, ThemeBreakpoints } from "../../theme";
-import { useTheme } from "../../theme";
+import type { BreakpointName, ThemeBreakpoints } from "../../Theme";
+import { useTheme } from "../../Theme";
 import type { BreakpointState } from "./useBreakpoint.types";
 
 /** Ordered breakpoint names from smallest to largest. */

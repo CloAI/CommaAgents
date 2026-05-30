@@ -1,8 +1,8 @@
 import type React from "react";
 
 import { useBreakpoint } from "../../hooks/useBreakpoint";
-import type { BreakpointName } from "../../theme";
-import { useTheme } from "../../theme";
+import type { BreakpointName } from "../../Theme";
+import { useTheme } from "../../Theme";
 import type { BreakpointOrColumns, HideProps } from "./Hide.types";
 
 /** Resolve a breakpoint name or raw column number to a column threshold. */

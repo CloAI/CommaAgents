@@ -52,7 +52,8 @@ describe("E2E: Agent Streaming", () => {
       });
 
       const events: AgentStreamEvent[] = [];
-      for await (const event of agent.stream!("Hi")) {
+      if (!agent.stream) throw new Error("Expected agent.stream to be defined");
+      for await (const event of agent.stream("Hi")) {
         events.push(event);
       }
 
@@ -79,7 +80,8 @@ describe("E2E: Agent Streaming", () => {
       });
 
       const textParts: string[] = [];
-      for await (const event of agent.stream!("Test")) {
+      if (!agent.stream) throw new Error("Expected agent.stream to be defined");
+      for await (const event of agent.stream("Test")) {
         if (event.type === "text") {
           textParts.push(event.text);
         }
@@ -117,7 +119,8 @@ describe("E2E: Agent Streaming", () => {
       });
 
       const events: AgentStreamEvent[] = [];
-      for await (const event of agent.stream!("Echo something")) {
+      if (!agent.stream) throw new Error("Expected agent.stream to be defined");
+      for await (const event of agent.stream("Echo something")) {
         events.push(event);
       }
 
@@ -172,7 +175,8 @@ describe("E2E: Agent Streaming", () => {
 
       // Use stream() generator to trigger streaming
       const directEvents: AgentStreamEvent[] = [];
-      for await (const event of agent.stream!("Test")) {
+      if (!agent.stream) throw new Error("Expected agent.stream to be defined");
+      for await (const event of agent.stream("Test")) {
         directEvents.push(event);
       }
 
@@ -201,7 +205,9 @@ describe("E2E: Agent Streaming", () => {
       const events: AgentStreamEvent[] = [];
 
       try {
-        const streamGenerator = agent.stream!("Test abort");
+        if (!agent.stream)
+          throw new Error("Expected agent.stream to be defined");
+        const streamGenerator = agent.stream("Test abort");
 
         // Abort almost immediately
         setTimeout(() => streamGenerator.abort(), 5);
@@ -209,12 +215,16 @@ describe("E2E: Agent Streaming", () => {
         for await (const event of streamGenerator) {
           events.push(event);
         }
-      } catch (error: any) {
+      } catch (error) {
         // Expected: streaming should throw on abort
+        const caughtError = error as {
+          readonly message?: string;
+          readonly name?: string;
+        };
         expect(
-          error.message?.includes("abort") ||
-            error.message?.includes("Abort") ||
-            error.name === "AbortError",
+          caughtError.message?.includes("abort") ||
+            caughtError.message?.includes("Abort") ||
+            caughtError.name === "AbortError",
         ).toBe(true);
       }
 

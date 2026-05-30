@@ -152,18 +152,25 @@ export function createMoveFileTool(
 
 **Post-move verification (MANDATORY) — moves break imports silently:**
 
-After every \`move_file\` call, **run the project's type-checker with \`run_command\`** (e.g. \`tsc --noEmit\`). Moves are the most dangerous mutation for silent regressions:
+After every \`move_file\` call, **run the project's configured verifier with \`run_command\`**. Moves are the most dangerous mutation for silent regressions:
 
-- Imports in **other files** still reference the old path. \`tsc --noEmit\` is the only thing that flags every broken import in one shot.
+- Imports in **other files** still reference the old path. The verifier is the only thing that flags every broken import in one shot.
 - The new file's own imports may need updating (relative paths shift when a file moves between directories).
 - If the moved file is a barrel re-export target, downstream barrels may need to update.
+
+**Use the project's actual verifier — not a generic default.**
+
+1. If the seed input contains a \`Verifier:\` section, use those commands verbatim.
+2. Otherwise inspect \`package.json\` scripts: a Biome project's \`bun run lint\` catches broken module references; an ESLint+TS project needs both \`bun run lint\` AND \`bun run typecheck\` (only the type-checker traces imports across files). For Cargo / Ruff / Go, the equivalent project-configured command.
+
+Do not run \`tsc --noEmit\` in a Biome-only project — Biome's linter does its own module-resolution checks if the project is configured for it; running a tool the project doesn't use produces noise.
 
 **Workflow after every move:**
 
 1. \`move_file\` succeeds.
-2. \`run_command({ command: "tsc --noEmit", cwd: "<project root>" })\` — read the errors.
+2. \`run_command\` with the project's verifier — read the errors.
 3. For each error, \`read_file\` the broken file, then \`edit_file\` to fix the import path.
-4. Re-run the type-check until it's green.
+4. Re-run the verifier until it's green.
 
 **Never** call \`move_file\` expecting overwrite — it always refuses. **Never** end your turn with broken imports caused by a move — the verifier must be green.`,
     parameters: moveFileParams,

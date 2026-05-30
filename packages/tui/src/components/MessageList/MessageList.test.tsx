@@ -3,7 +3,7 @@ import { Box } from "ink";
 import { render } from "ink-testing-library";
 import type React from "react";
 import { ModalContextProvider } from "../../hooks/useModal";
-import { MessageList } from "./MessageList";
+import { groupSubStrategyMessages, MessageList } from "./MessageList";
 import { createChatMessage } from "./test.utils";
 
 /**
@@ -82,6 +82,85 @@ describe("MessageList", () => {
       // The list auto-pins to the bottom; the latest visible message is the
       // assistant reply (system role intentionally renders nothing).
       expect(result.lastFrame()).toContain("Hi! How can I help?");
+      expect(result.lastFrame()).toMatchSnapshot();
+    });
+
+    it("should group spawned strategy messages under the launch_strategy call", () => {
+      const messages = [
+        createChatMessage({
+          id: "1",
+          role: "agent",
+          sender: "manager",
+          text: "",
+          segments: [
+            {
+              type: "tool-call",
+              toolCallId: "launch-1",
+              toolName: "launch_strategy",
+              args: JSON.stringify({ name: "Plan", input: "Draft a plan" }),
+            },
+          ],
+        }),
+        createChatMessage({
+          id: "2",
+          role: "agent",
+          sender: "planner",
+          text: "Nested plan output",
+          segments: [
+            { type: "text", text: "Nested plan output", streaming: false },
+          ],
+          parentToolCallId: "launch-1",
+        }),
+      ];
+
+      const groupedMessages = groupSubStrategyMessages(messages);
+
+      expect(groupedMessages).toHaveLength(1);
+      expect(groupedMessages[0]?.subMessages).toHaveLength(1);
+      expect(groupedMessages[0]?.subMessages[0]?.sender).toBe("planner");
+    });
+
+    it("should render spawned strategy output as a nested panel", async () => {
+      const messages = [
+        createChatMessage({
+          id: "1",
+          role: "agent",
+          sender: "manager",
+          text: "",
+          segments: [
+            {
+              type: "tool-call",
+              toolCallId: "launch-1",
+              toolName: "launch_strategy",
+              args: JSON.stringify({ name: "Plan", input: "Draft a plan" }),
+            },
+            {
+              type: "tool-result",
+              toolCallId: "launch-1",
+              toolName: "launch_strategy",
+              output: "Plan complete",
+              status: "completed",
+            },
+          ],
+        }),
+        createChatMessage({
+          id: "2",
+          role: "agent",
+          sender: "planner",
+          text: "Nested plan output",
+          segments: [
+            { type: "text", text: "Nested plan output", streaming: false },
+          ],
+          parentToolCallId: "launch-1",
+        }),
+      ];
+
+      const result = renderSized(<MessageList messages={messages} />);
+      await flushFrames();
+
+      expect(result.lastFrame()).toContain("spawned Plan");
+      expect(result.lastFrame()).toContain("launch_strategy");
+      expect(result.lastFrame()).toContain("Nested plan output");
       expect(result.lastFrame()).toMatchSnapshot();
     });
   });

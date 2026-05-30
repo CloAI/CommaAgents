@@ -94,11 +94,11 @@ const ENV_MAP: Array<{
     key: "pidFile",
     parse: (rawValue) => rawValue,
   },
-    {
-      env: "COMMA_DAEMON_RUNS_DIR",
-      key: "runsDir",
-      parse: (rawValue) => rawValue,
-    },
+  {
+    env: "COMMA_DAEMON_RUNS_DIR",
+    key: "runsDir",
+    parse: (rawValue) => rawValue,
+  },
 ];
 
 function readEnvOverrides(

@@ -1,5 +1,4 @@
 import type { Preview } from "@storybook/react-vite";
-import React from "react";
 // Establish Node-like globals BEFORE Ink (and friends) are imported below.
 import "../src/global-shims";
 import { XtermInkPreview } from "../src/XtermInkPreview";

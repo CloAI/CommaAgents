@@ -11,14 +11,11 @@ function makeCtx(overrides?: {
   }) => Promise<string>;
   agentName?: string;
 }): ToolContext {
-  // biome-ignore lint/suspicious/noExplicitAny: test mock
   const mockGuard: any = {
     toolName: "ask_question",
     cwd: "",
     askQuestion: overrides?.onQuestion
-      ? // biome-ignore lint/suspicious/noExplicitAny: test mock
-        async (question: string, ctx: any) => {
-          // biome-ignore lint/style/noNonNullAssertion: test mock
+      ? async (question: string, ctx: any) => {
           return overrides.onQuestion!({
             agentName: ctx.agentName,
             toolName: ctx.toolName,

@@ -3,8 +3,13 @@ export type {
   AgentMessageRenderProps,
 } from "./AgentMessage";
 export { AgentMessage, AgentMessageRender } from "./AgentMessage";
-export { MessageList, MessageListRender } from "./MessageList";
+export {
+  groupSubStrategyMessages,
+  MessageList,
+  MessageListRender,
+} from "./MessageList";
 export type {
+  GroupedChatMessage,
   MessageListProps,
   MessageListRenderProps,
 } from "./MessageList.types";
@@ -18,6 +23,14 @@ export {
   OutputModal,
   OutputModalRender,
 } from "./OutputModal";
+export type {
+  SpawnedStrategyViewProps,
+  SpawnedStrategyViewRenderProps,
+} from "./SpawnedStrategyView";
+export {
+  SpawnedStrategyView,
+  SpawnedStrategyViewRender,
+} from "./SpawnedStrategyView";
 export type {
   SystemMessageProps,
   SystemMessageRenderProps,

@@ -1,4 +1,4 @@
-import { type BoxProps, defineTheme, type ThemeOf } from "../../theme";
+import { type BoxProps, defineTheme, type ThemeOf } from "../../Theme";
 
 /**
  * Memoized themed style objects for the `Button` component.

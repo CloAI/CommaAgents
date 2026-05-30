@@ -41,16 +41,6 @@ export interface ModelCapabilities {
  */
 export type CredentialType = "api" | "oauth" | "custom" | "none";
 
-/**
- * Expected credential type for a provider.
- *
- * - `"api"` — simple API key (OpenAI, Anthropic, etc.)
- * - `"oauth"` — OAuth 2.0 flow (GitHub Copilot)
- * - `"custom"` — provider-specific opaque data
- * - `"none"` — local runtime with no credential needed (Ollama)
- */
-export type CredentialType = "api" | "oauth" | "custom" | "none";
-
 /** Per-million-token prices in USD. */
 export interface ModelCost {
   /** Cost per 1M input tokens. */

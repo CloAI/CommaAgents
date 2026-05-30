@@ -42,7 +42,7 @@ describe("createAbortablePromise", () => {
 
     pending.abort();
 
-    expect(receivedSignal!.aborted).toBe(true);
+    expect(receivedSignal?.aborted).toBe(true);
   });
 
   it("should reject with an abort error when aborted during execution", async () => {
@@ -73,15 +73,15 @@ describe("createAbortablePromise", () => {
       signals.push(signal);
       return "first";
     });
-    const second = createAbortablePromise(async (signal) => {
+    const _second = createAbortablePromise(async (signal) => {
       signals.push(signal);
       return "second";
     });
 
     first.abort();
 
-    expect(signals[0]!.aborted).toBe(true);
-    expect(signals[1]!.aborted).toBe(false);
+    expect(signals[0]?.aborted).toBe(true);
+    expect(signals[1]?.aborted).toBe(false);
   });
 });
 
@@ -140,7 +140,7 @@ describe("createAbortableGenerator", () => {
     await stream.next();
     stream.abort();
 
-    expect(receivedSignal!.aborted).toBe(true);
+    expect(receivedSignal?.aborted).toBe(true);
   });
 
   it("should provide a unique signal per invocation", async () => {
@@ -161,8 +161,8 @@ describe("createAbortableGenerator", () => {
 
     first.abort();
 
-    expect(signals[0]!.aborted).toBe(true);
-    expect(signals[1]!.aborted).toBe(false);
+    expect(signals[0]?.aborted).toBe(true);
+    expect(signals[1]?.aborted).toBe(false);
   });
 
   it("should support return() to end iteration", async () => {

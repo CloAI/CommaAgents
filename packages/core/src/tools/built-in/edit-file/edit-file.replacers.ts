@@ -63,8 +63,8 @@ export const lineTrimmedReplacer: Replacer = function* (content, find) {
   for (let i = 0; i <= originalLines.length - searchLines.length; i++) {
     let matches = true;
     for (let j = 0; j < searchLines.length; j++) {
-      const originalTrimmed = originalLines[i + j]!.trim();
-      const searchTrimmed = searchLines[j]!.trim();
+      const originalTrimmed = originalLines[i + j]?.trim();
+      const searchTrimmed = searchLines[j]?.trim();
       if (originalTrimmed !== searchTrimmed) {
         matches = false;
         break;
@@ -76,10 +76,10 @@ export const lineTrimmedReplacer: Replacer = function* (content, find) {
     // `searchLines.length`. We walk character positions so newline
     // accounting stays correct.
     let matchStart = 0;
-    for (let k = 0; k < i; k++) matchStart += originalLines[k]!.length + 1;
+    for (let k = 0; k < i; k++) matchStart += originalLines[k]?.length + 1;
     let matchEnd = matchStart;
     for (let k = 0; k < searchLines.length; k++) {
-      matchEnd += originalLines[i + k]!.length;
+      matchEnd += originalLines[i + k]?.length;
       if (k < searchLines.length - 1) matchEnd += 1;
     }
     yield content.substring(matchStart, matchEnd);
@@ -105,14 +105,14 @@ export const blockAnchorReplacer: Replacer = function* (content, find) {
   }
   if (searchLines.length < 3) return;
 
-  const firstAnchor = searchLines[0]!.trim();
-  const lastAnchor = searchLines[searchLines.length - 1]!.trim();
+  const firstAnchor = searchLines[0]?.trim();
+  const lastAnchor = searchLines[searchLines.length - 1]?.trim();
 
   const candidates: Array<{ startLine: number; endLine: number }> = [];
   for (let i = 0; i < originalLines.length; i++) {
-    if (originalLines[i]!.trim() !== firstAnchor) continue;
+    if (originalLines[i]?.trim() !== firstAnchor) continue;
     for (let j = i + 2; j < originalLines.length; j++) {
-      if (originalLines[j]!.trim() === lastAnchor) {
+      if (originalLines[j]?.trim() === lastAnchor) {
         candidates.push({ startLine: i, endLine: j });
         break;
       }
@@ -127,10 +127,10 @@ export const blockAnchorReplacer: Replacer = function* (content, find) {
   const { startLine, endLine } = candidates[0]!;
   let matchStart = 0;
   for (let k = 0; k < startLine; k++)
-    matchStart += originalLines[k]!.length + 1;
+    matchStart += originalLines[k]?.length + 1;
   let matchEnd = matchStart;
   for (let k = startLine; k <= endLine; k++) {
-    matchEnd += originalLines[k]!.length;
+    matchEnd += originalLines[k]?.length;
     if (k < endLine) matchEnd += 1;
   }
   yield content.substring(matchStart, matchEnd);

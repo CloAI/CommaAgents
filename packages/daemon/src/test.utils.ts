@@ -12,8 +12,8 @@ import { join } from "node:path";
 import { registerModel } from "@comma-agents/core";
 import type { EventSink } from "./executor/event-sink";
 import type { Logger } from "./logger/logger.types";
-import type { DaemonMessage } from "./server/protocol/messages";
 import type { PersistedRun, RunStore } from "./runs";
+import type { DaemonMessage } from "./server/protocol/messages";
 
 // Mock model registration
 
@@ -151,7 +151,7 @@ export function mockRunStore(): RunStore & {
         turns: [...existing.turns, turn],
       });
     },
-    async appendEvent(runId, event) {
+    async appendEvent(_runId, _event) {
       // no-op is sufficient for mock tests
     },
     async deleteRun(runId) {

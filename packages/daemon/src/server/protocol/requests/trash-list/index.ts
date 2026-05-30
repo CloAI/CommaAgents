@@ -11,17 +11,20 @@ export async function handleTrashList(
   const cwd = message.cwd ?? process.cwd();
   const entries = await listTrash(cwd);
 
-  const workspaces = entries.length > 0
-    ? [{
-        cwd,
-        trashDir: "", // not needed on wire — the entries have absolute paths
-        entries: entries.map((entry) => ({
-          path: entry.path,
-          metadata: entry.metadata,
-          sizeBytes: entry.sizeBytes,
-        })),
-      }]
-    : [];
+  const workspaces =
+    entries.length > 0
+      ? [
+          {
+            cwd,
+            trashDir: "", // not needed on wire — the entries have absolute paths
+            entries: entries.map((entry) => ({
+              path: entry.path,
+              metadata: entry.metadata,
+              sizeBytes: entry.sizeBytes,
+            })),
+          },
+        ]
+      : [];
 
   const totalEntries = entries.length;
   const totalBytes = entries.reduce((sum, entry) => sum + entry.sizeBytes, 0);

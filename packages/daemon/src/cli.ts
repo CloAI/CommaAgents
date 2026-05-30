@@ -18,8 +18,8 @@ import type { LogSink } from "./logger/logger.types";
 import { createFileSink } from "./logger/sinks/file";
 import { createStderrSink } from "./logger/sinks/stderr";
 import { isRunning, readPid, removePid, writePid } from "./pid";
-import { createDaemon } from "./server/server";
 import { loadRegisteredProviders } from "./server/protocol/provider-registry";
+import { createDaemon } from "./server/server";
 
 // Argument parsing via yargs
 

@@ -77,7 +77,7 @@ async function main() {
   });
 
   // stream() returns an AbortableAsyncGenerator with an .abort() method
-  const stream = streamAgent.stream!("Document the WebSocket protocol");
+  const stream = streamAgent.stream?.("Document the WebSocket protocol");
 
   // Cancel after 2 seconds
   const streamTimer = setTimeout(() => {

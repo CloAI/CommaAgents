@@ -1,7 +1,7 @@
 export type { BoxProps, TextProps } from "ink";
-export type { ThemeBuilder, ThemeOf } from "./defineTheme";
-export { defineTheme } from "./defineTheme";
-export { defaultTheme } from "./theme";
+export type { ThemeBuilder, ThemeOf } from "./DefineTheme";
+export { defineTheme } from "./DefineTheme";
+export { defaultTheme } from "./Theme";
 export type {
   BreakpointName,
   Theme,
@@ -12,7 +12,7 @@ export type {
   ThemeSeparator,
   ThemeSpacing,
   ThemeTypography,
-} from "./theme.types";
+} from "./Theme.types";
 export type { ThemeName, ThemeRegistryEntry } from "./themes";
 export {
   DEFAULT_THEME_NAME,

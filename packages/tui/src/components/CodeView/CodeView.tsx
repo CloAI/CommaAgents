@@ -10,7 +10,6 @@ import {
   MIN_LINE_NUMBER_WIDTH,
   PRELOADED_LANGUAGES,
 } from "./CodeView.constants";
-import type { CodeViewTheme } from "./CodeView.theme";
 import { useCodeViewTheme } from "./CodeView.theme";
 import type { CodeViewProps, CodeViewRenderProps } from "./CodeView.types";
 

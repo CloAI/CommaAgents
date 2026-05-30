@@ -1,6 +1,9 @@
 // Unregister-provider request handler.
 
-import { unregisterProvider, unregisterProviderDefinition } from "@comma-agents/core";
+import {
+  unregisterProvider,
+  unregisterProviderDefinition,
+} from "@comma-agents/core";
 
 import type { HandlerContext } from "../../dispatcher.types";
 import {

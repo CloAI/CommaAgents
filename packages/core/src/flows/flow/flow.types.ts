@@ -139,11 +139,47 @@ export interface CycleFlowConfig extends FlowConfig {
    */
   readonly observer?: Agent;
   /**
-   * Keywords that cause the observer to break the cycle loop.
-   * Case-insensitive substring match.
+   * Keywords that cause the observer to break the cycle loop. Matched
+   * against the observer's textual output using {@link breakCycleSignalMatch}.
+   *
+   * Pick tokens unlikely to appear by accident — `"==CYCLE_DONE=="` is
+   * far safer than `"done"`, which appears in casual prose like
+   * `"not done yet"` and false-fires the cycle.
+   *
    * @default ["end cycle", "stop", "done"]
    */
   readonly breakCycleSignals?: ReadonlyArray<string>;
+  /**
+   * Strategy used to compare the observer's output against the break
+   * signals.
+   *
+   * - `"substring"` (default, legacy): the observer output (lowercased)
+   *   contains the signal (lowercased) anywhere. Permissive — `"done"`
+   *   matches `"not done yet"`. Backward compatible with existing
+   *   strategies; brittle for verbose observers.
+   * - `"first-line"`: the first non-blank line of the observer output
+   *   (after trim) equals the signal or starts with the signal followed
+   *   by whitespace. Recommended for LLM observers that emit a verdict
+   *   on line 1 and optional reasoning below. Case-insensitive.
+   * - `"any-line"`: any line of the observer output (after trim) equals
+   *   the signal or starts with the signal followed by whitespace.
+   *   Case-insensitive. Looser than `"first-line"`; useful when the
+   *   verdict isn't pinned to line 1.
+   * - `"exact"`: the entire observer output (after trim) equals the
+   *   signal. The strictest mode — the observer must output **only** the
+   *   signal token, nothing else. Use with tokens like `"DONE"` when
+   *   you want zero false positives.
+   *
+   * Matching is case-insensitive in every mode except `"exact"` (which
+   * is also case-insensitive — use a distinctive token if case matters).
+   *
+   * @default "substring"
+   */
+  readonly breakCycleSignalMatch?:
+    | "substring"
+    | "first-line"
+    | "any-line"
+    | "exact";
 }
 
 /** Configuration for broadcast flows. */

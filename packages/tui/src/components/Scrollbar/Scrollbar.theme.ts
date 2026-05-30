@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { useTheme } from "../../theme";
+import { useTheme } from "../../Theme";
 
 /** Spread-ready style tokens for the `Scrollbar` component. */
 export interface ScrollbarTheme {

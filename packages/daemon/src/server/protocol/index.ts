@@ -22,13 +22,9 @@ export {
   handleGetAvailableModels,
 } from "./requests/get-available-models";
 export {
-  handleGetRun,
   GetRunMessage,
+  handleGetRun,
 } from "./requests/get-run";
-export {
-  handleResumeRun,
-  ResumeRunMessage,
-} from "./requests/resume-run";
 export {
   handleListRuns,
   ListRunsMessage,
@@ -43,6 +39,10 @@ export {
   PermissionDecisionMessage,
 } from "./requests/permission-decision";
 export { handlePing, PingMessage } from "./requests/ping";
+export {
+  handleResumeRun,
+  ResumeRunMessage,
+} from "./requests/resume-run";
 export {
   handleStartStrategy,
   StartStrategyMessage,

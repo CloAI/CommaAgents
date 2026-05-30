@@ -1,4 +1,4 @@
-import type { Theme } from "../theme.types";
+import type { Theme } from "../Theme.types";
 
 /**
  * Solarized Dark — low-contrast balanced palette popular for terminals.

@@ -91,3 +91,26 @@ exports[`MessageList streaming indicator should show streaming cursor for messag
 
 "
 `;
+
+exports[`MessageList message rendering should render spawned strategy output as a nested panel 1`] = `
+" ╭ manager ────────────────────────────────────────────────────────────────────
+ │
+ │ ╭ spawned Plan ────────────────────────────────────────────────────────────
+ │ │  ✓ launch_strategy Draft a plan
+ │ │
+ │ │  ╭ planner ─────────────────────────────────────────────────────────────
+ │ │  │ Nested plan output
+ │ │
+ │
+
+
+
+
+
+
+
+
+
+
+"
+`;

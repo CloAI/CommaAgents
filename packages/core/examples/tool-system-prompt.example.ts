@@ -4,26 +4,27 @@
 // in `defineTool()` to inject tool-specific context into the agent's
 // system prompt.
 
-import { defineTool } from "../define/define-tool";
 import { z } from "zod";
+import { defineTool } from "../define/define-tool";
 import type { ToolContext } from "../tool.types";
 
 // Example 1: Static string systemPrompt
-const readFileWithPrompt = defineTool({
+const _readFileWithPrompt = defineTool({
   description: "Read a file from the filesystem",
   parameters: z.object({
     path: z.string(),
   }),
   // This will be injected ONCE into the agent's system prompt
-  systemPrompt: "When reading files, always check if the path is relative to the workspace root.",
-  execute: async (args, ctx) => {
+  systemPrompt:
+    "When reading files, always check if the path is relative to the workspace root.",
+  execute: async (_args, _ctx) => {
     // ... implementation
     return { ok: true, output: "file content" };
   },
 });
 
 // Example 2: Dynamic function systemPrompt (sync)
-const writeFileWithPrompt = defineTool({
+const _writeFileWithPrompt = defineTool({
   description: "Write content to a file",
   parameters: z.object({
     path: z.string(),
@@ -33,14 +34,14 @@ const writeFileWithPrompt = defineTool({
   systemPrompt: (ctx: ToolContext) => {
     return `Files will be written in: ${ctx.guard.cwd}. Always use absolute paths or paths relative to this directory.`;
   },
-  execute: async (args, ctx) => {
+  execute: async (_args, _ctx) => {
     // ... implementation
     return { ok: true, output: "file written" };
   },
 });
 
 // Example 3: Dynamic function systemPrompt (async)
-const searchToolWithPrompt = defineTool({
+const _searchToolWithPrompt = defineTool({
   description: "Search for files matching a pattern",
   parameters: z.object({
     pattern: z.string(),
@@ -49,7 +50,7 @@ const searchToolWithPrompt = defineTool({
   systemPrompt: async (ctx: ToolContext) => {
     return `Search is performed in: ${ctx.guard.cwd}. Use glob patterns like "**/*.ts" for broad searches.`;
   },
-  execute: async (args, ctx) => {
+  execute: async (_args, _ctx) => {
     // ... implementation
     return { ok: true, output: "search results" };
   },

@@ -134,8 +134,8 @@ describe("E2E: Flow Composition", () => {
 
       expect(result.text).toBe("Step-B done");
       expect(result.stepResults.length).toBe(2);
-      expect(result.stepResults[0]!.text).toBe("Step-A done");
-      expect(result.stepResults[1]!.text).toBe("Step-B done");
+      expect(result.stepResults[0]?.text).toBe("Step-A done");
+      expect(result.stepResults[1]?.text).toBe("Step-B done");
     });
 
     it("should aggregate token usage across all steps", async () => {
@@ -864,17 +864,17 @@ describe("E2E: Flow Composition", () => {
       // First call builds up context
       await flow.call("First run");
       expect(
-        agentA.getConversationContext!().allMessages().length,
+        agentA.getConversationContext?.().allMessages().length,
       ).toBeGreaterThan(0);
       expect(
-        agentB.getConversationContext!().allMessages().length,
+        agentB.getConversationContext?.().allMessages().length,
       ).toBeGreaterThan(0);
 
       // Reset flow — should reset all child agents
       flow.reset();
 
-      expect(agentA.getConversationContext!().allMessages().length).toBe(0);
-      expect(agentB.getConversationContext!().allMessages().length).toBe(0);
+      expect(agentA.getConversationContext?.().allMessages().length).toBe(0);
+      expect(agentB.getConversationContext?.().allMessages().length).toBe(0);
     });
 
     it("should reset nested flows recursively", async () => {
@@ -913,16 +913,20 @@ describe("E2E: Flow Composition", () => {
       await outerFlow.call("Run");
 
       expect(
-        innerAgent.getConversationContext!().allMessages().length,
+        innerAgent.getConversationContext?.().allMessages().length,
       ).toBeGreaterThan(0);
       expect(
-        outerAgent.getConversationContext!().allMessages().length,
+        outerAgent.getConversationContext?.().allMessages().length,
       ).toBeGreaterThan(0);
 
       outerFlow.reset();
 
-      expect(innerAgent.getConversationContext!().allMessages().length).toBe(0);
-      expect(outerAgent.getConversationContext!().allMessages().length).toBe(0);
+      expect(innerAgent.getConversationContext?.().allMessages().length).toBe(
+        0,
+      );
+      expect(outerAgent.getConversationContext?.().allMessages().length).toBe(
+        0,
+      );
     });
 
     it("should reset cycle flow including observer", async () => {
@@ -957,13 +961,13 @@ describe("E2E: Flow Composition", () => {
 
       // Both should have context
       expect(
-        worker.getConversationContext!().allMessages().length,
+        worker.getConversationContext?.().allMessages().length,
       ).toBeGreaterThan(0);
 
       flow.reset();
 
-      expect(worker.getConversationContext!().allMessages().length).toBe(0);
-      expect(observer.getConversationContext!().allMessages().length).toBe(0);
+      expect(worker.getConversationContext?.().allMessages().length).toBe(0);
+      expect(observer.getConversationContext?.().allMessages().length).toBe(0);
     });
   });
 });

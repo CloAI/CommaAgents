@@ -6,6 +6,7 @@ import {
   createTodoCompleteTool,
   createTodoGetNextTool,
   createTodoGetTool,
+  createTodoRemoveTool,
   resetAllTodoState,
 } from "./index";
 
@@ -103,6 +104,31 @@ describe("todo tools", () => {
     expect(result.output).toContain("[No todo items]");
   });
 
+  it("todo_remove removes one obsolete item without clearing the list", async () => {
+    const add = createTodoAddTool();
+    const remove = createTodoRemoveTool();
+    const get = createTodoGetTool();
+
+    await add.execute({ content: "keep" }, primaryContext);
+    await add.execute({ content: "remove" }, primaryContext);
+
+    const removed = await remove.execute({ id: "2" }, primaryContext);
+    expect(removed.output).toContain("Removed todo #2");
+    expect(removed.metadata?.removedId).toBe("2");
+    expect(removed.metadata?.totalItems).toBe(1);
+
+    const result = await get.execute({}, primaryContext);
+    expect(result.output).toContain("keep");
+    expect(result.output).not.toContain("remove");
+  });
+
+  it("todo_remove handles unknown ids gracefully", async () => {
+    const remove = createTodoRemoveTool();
+    const result = await remove.execute({ id: "999" }, primaryContext);
+    expect(result.output).toContain("No todo item");
+    expect(result.metadata?.found).toBe(false);
+  });
+
   it("state is isolated between agents", async () => {
     const add = createTodoAddTool();
     const get = createTodoGetTool();
@@ -128,7 +154,7 @@ describe("todo tools", () => {
   });
 
   describe("runId isolation", () => {
-    // Two agents that share `agentName` but have different `runId`s — the
+    // Two invocations that share `agentName` but have different `runId`s — the
     // canonical recursive-`launch_strategy` scenario where the daemon
     // supplies a fresh `runId` per sub-launch. They MUST see independent
     // silos; otherwise a sub-manager's writes corrupt the parent
@@ -141,8 +167,28 @@ describe("todo tools", () => {
       agentName: "manager",
       runId: "run-sub-1",
     });
+    const parentReviewerContext = makeToolContext({
+      agentName: "reviewer",
+      runId: "run-parent",
+    });
 
-    it("agents with the same name but different runId have isolated silos", async () => {
+    it("agents in the same runId share a run-level silo", async () => {
+      const add = createTodoAddTool();
+      const get = createTodoGetTool();
+      const complete = createTodoCompleteTool();
+
+      await add.execute({ content: "planner item" }, parentManagerContext);
+
+      const reviewerList = await get.execute({}, parentReviewerContext);
+      expect(reviewerList.output).toContain("planner item");
+      expect(reviewerList.metadata?.totalItems).toBe(1);
+
+      await complete.execute({ id: "1" }, parentReviewerContext);
+      const managerList = await get.execute({}, parentManagerContext);
+      expect(managerList.output).toContain("[x] #1: planner item");
+    });
+
+    it("invocations with different runId have isolated silos", async () => {
       const add = createTodoAddTool();
       const get = createTodoGetTool();
 

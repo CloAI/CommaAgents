@@ -95,9 +95,7 @@ export function XtermInkPreview({
     const stdin = createStdinShim(term);
 
     const instance = inkRender(<StoryProviders>{children}</StoryProviders>, {
-      // biome-ignore lint/suspicious/noExplicitAny: shim mirrors NodeJS.WriteStream surface
       stdout: stdout as any,
-      // biome-ignore lint/suspicious/noExplicitAny: shim mirrors NodeJS.ReadStream surface
       stdin: stdin as any,
       patchConsole: false,
       exitOnCtrlC: false,

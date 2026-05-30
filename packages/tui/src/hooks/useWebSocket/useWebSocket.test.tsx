@@ -9,10 +9,10 @@ console.error = (...args: unknown[]) => {
   originalConsoleError(...args);
 };
 
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Text } from "ink";
 import { render } from "ink-testing-library";
-import React, { act } from "react";
+import { act } from "react";
 
 import { useWebSocket } from "./useWebSocket";
 import type { WebSocketState } from "./useWebSocket.types";
@@ -108,7 +108,7 @@ describe("useWebSocket", () => {
     expect(socket.readyState).toBe(FakeWebSocket.CONNECTING);
 
     // Submitting a message before OPEN must report success (queued).
-    const ok = capture.current!.send("first-message");
+    const ok = capture.current?.send("first-message");
     expect(ok).toBe(true);
     expect(socket.sent).toEqual([]);
 
@@ -131,7 +131,7 @@ describe("useWebSocket", () => {
       socket.triggerOpen();
     });
 
-    const ok = capture.current!.send("live");
+    const ok = capture.current?.send("live");
     expect(ok).toBe(true);
     expect(socket.sent).toEqual(["live"]);
   });

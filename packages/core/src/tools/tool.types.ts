@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { InputCollector } from "../agents/built-in/user/user-agent.types";
 import type { Guard, Policy } from "../guard/guard.types";
+import type { LanguageService } from "../language";
 import type { SkillRegistry } from "../skills/skills.types";
 import type { AuditSink } from "./io/audit";
 import type { LaunchStrategyHandle } from "./launch-strategy.types";
@@ -41,8 +42,8 @@ export interface ToolContext {
    * sub-strategies get isolated state for tools that key on `runId`.
    *
    * Distinct from {@link sessionId}: sessionId groups many runs (audit,
-   * trash); runId identifies a single run. Tools that need per-launch
-   * isolation (e.g., `todo_*`) silo on `runId`.
+   * trash); runId identifies a single run. Tools that need per-run shared
+   * state with per-launch isolation (e.g., `todo_*`) silo on `runId`.
    */
   readonly runId?: string;
   /**
@@ -70,6 +71,14 @@ export interface ToolContext {
    * broadcast wiring are reused for the nested run.
    */
   readonly launchStrategy?: LaunchStrategyHandle;
+  /**
+   * Optional runtime language service.
+   *
+   * Core defines the stable contract and language tools; runtimes such as the
+   * daemon provide concrete implementations (TypeScript today, more language
+   * adapters later).
+   */
+  readonly languageService?: LanguageService;
 }
 
 /**
@@ -95,6 +104,7 @@ export type ToolErrorKind =
   | "command_failed"
   | "timeout"
   | "skill_unavailable"
+  | "language_unavailable"
   | "unknown";
 
 /**

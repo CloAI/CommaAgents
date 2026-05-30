@@ -1,7 +1,7 @@
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
 
-import { DEFAULT_THEME_NAME } from "../../theme/themes";
+import { DEFAULT_THEME_NAME } from "../../Theme/themes";
 import type { UserConfig } from "./useUserConfig.types";
 
 /** Subdirectory under the OS config dir that holds all comma-agents files. */

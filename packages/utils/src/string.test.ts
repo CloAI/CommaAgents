@@ -94,7 +94,7 @@ describe("breakLines", () => {
     const lines = result.split("\n");
     // Continuation lines should also have the leading indent
     if (lines.length > 1) {
-      expect(lines[1]!.startsWith("  ")).toBe(true);
+      expect(lines[1]?.startsWith("  ")).toBe(true);
     }
   });
 

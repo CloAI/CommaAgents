@@ -57,7 +57,9 @@
         "type": "cycle",
         "cycles": "Infinity",
         "observer": "reviewer",
-        "description": "Auditor fixes and verifies; reviewer decides accept or send back. Loops until DONE.",
+        "breakCycleSignals": ["==CYCLE_DONE=="],
+        "breakCycleSignalMatch": "first-line",
+        "description": "Auditor fixes and verifies; reviewer decides accept or send back. The reviewer emits `==CYCLE_DONE==` on the first line of its response to break the cycle; anything else (typically `CONTINUE: <directive>`) keeps it going. Using an explicit unique token plus first-line matching prevents the LLM's CONTINUE prose from accidentally containing a break substring \u2014 a real source of false breaks under the legacy `[\"done\", \"stop\", \"end cycle\"]` substring matching.",
         "steps": [
           { "agent": "auditor" }
         ]

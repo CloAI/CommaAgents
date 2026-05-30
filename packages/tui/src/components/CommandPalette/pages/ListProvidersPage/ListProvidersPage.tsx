@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useDaemon } from "../../../../hooks/useDaemon";
 import type { DaemonMessageOf } from "../../../../hooks/useDaemon/useDaemon.types";
 import { useDebugRender } from "../../../../hooks/useDebugRender";
-import { useTheme } from "../../../../theme";
+import { useTheme } from "../../../../Theme";
 import { isMouseEscape } from "../../../../utils/mouseEscape";
 import { ScrollableList } from "../../../ScrollableList";
 import { SearchInputRender, useSearchInputTheme } from "../../../SearchInput";

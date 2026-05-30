@@ -8,8 +8,11 @@ import { useMouseClick } from "../../../hooks/useMouseClick";
 import { BorderedPanel } from "../../BorderedPanel";
 import { MarkdownView, truncateThinking } from "../MarkdownView";
 import { useMessageListTheme } from "../MessageList.theme";
+import type { GroupedChatMessage } from "../MessageList.types";
 import { OUTPUT_MODAL_ID, type OutputModalPayload } from "../OutputModal";
+import { SpawnedStrategyView } from "../SpawnedStrategyView";
 import { ToolCallView } from "../ToolCallView";
+import { UserMessage } from "../UserMessage";
 
 /**
  * Streaming-cursor glyph appended to in-flight text/thinking segments.
@@ -38,6 +41,8 @@ export interface AgentMessageProps {
   readonly fallbackText: string;
   /** Whether the message is still receiving streaming events. */
   readonly streaming: boolean;
+  /** Messages emitted by `launch_strategy` calls inside this agent message. */
+  readonly subMessages?: readonly GroupedChatMessage[];
 }
 
 /**
@@ -52,6 +57,7 @@ export function AgentMessage({
   segments,
   fallbackText,
   streaming,
+  subMessages = [],
 }: AgentMessageProps): React.ReactElement {
   const theme = useMessageListTheme();
 
@@ -66,6 +72,7 @@ export function AgentMessage({
       sender={sender}
       segments={resolvedSegments}
       streaming={streaming}
+      subMessages={subMessages}
     />
   );
 }
@@ -79,6 +86,8 @@ export interface AgentMessageRenderProps {
   readonly segments: readonly MessageSegment[];
   /** Whether the message is still receiving streaming events. */
   readonly streaming: boolean;
+  /** Messages emitted by `launch_strategy` calls inside this agent message. */
+  readonly subMessages: readonly GroupedChatMessage[];
 }
 
 export function AgentMessageRender({
@@ -86,6 +95,7 @@ export function AgentMessageRender({
   sender,
   segments,
   streaming,
+  subMessages,
 }: AgentMessageRenderProps): React.ReactElement {
   const styles = theme.agentMessage;
 
@@ -142,6 +152,14 @@ export function AgentMessageRender({
                   ? resultsByCallId.get(segment.toolCallId)
                   : undefined
               }
+              subMessages={
+                segment.type === "tool-call"
+                  ? subMessages.filter(
+                      (message) =>
+                        message.parentToolCallId === segment.toolCallId,
+                    )
+                  : []
+              }
             />
           );
         })}
@@ -166,12 +184,14 @@ interface SegmentViewProps {
     MessageSegment,
     { readonly type: "tool-result" }
   >;
+  readonly subMessages: readonly GroupedChatMessage[];
 }
 
 function SegmentView({
   segment,
   theme,
   pairedResult,
+  subMessages,
 }: SegmentViewProps): React.ReactElement | null {
   const styles = theme.agentMessage;
   const { open } = useModal(OUTPUT_MODAL_ID);
@@ -227,6 +247,24 @@ function SegmentView({
   }
 
   if (segment.type === "tool-call") {
+    if (segment.toolName === "launch_strategy") {
+      return (
+        <SpawnedStrategyView
+          args={segment.args}
+          status={pairedResult === undefined ? "running" : pairedResult.status}
+          error={pairedResult?.error}
+        >
+          {subMessages.length > 0 ? (
+            subMessages.map((message) => (
+              <NestedMessageView key={message.id} message={message} />
+            ))
+          ) : (
+            <Text {...styles.streamingCursor}>Waiting for spawned output…</Text>
+          )}
+        </SpawnedStrategyView>
+      );
+    }
+
     return (
       <Box ref={toolCallRef} flexDirection="column">
         <ToolCallView
@@ -295,6 +333,32 @@ function SegmentView({
   // Exhaustiveness guard — TypeScript's discriminated union catches new
   // segment kinds at compile time, but we still render nothing rather
   // than crashing if a new variant slips through at runtime.
+  return null;
+}
+
+interface NestedMessageViewProps {
+  readonly message: GroupedChatMessage;
+}
+
+function NestedMessageView({
+  message,
+}: NestedMessageViewProps): React.ReactElement | null {
+  if (message.role === "user") {
+    return <UserMessage text={message.text} label={message.sender} />;
+  }
+
+  if (message.role === "agent") {
+    return (
+      <AgentMessage
+        sender={message.sender}
+        segments={message.segments}
+        fallbackText={message.text}
+        streaming={message.streaming}
+        subMessages={message.subMessages}
+      />
+    );
+  }
+
   return null;
 }
 

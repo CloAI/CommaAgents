@@ -14,5 +14,4 @@
  * const agent = await loadAgent("./agents/researcher.yaml");
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-interface -- reserved for future loader options
-export type LoadAgentOptions = {};
+export type LoadAgentOptions = Record<never, never>;

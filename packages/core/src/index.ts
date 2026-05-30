@@ -147,6 +147,19 @@ export {
   useTokenTracking,
 } from "./hooks/built-in/token-tracking/index";
 export type {
+  LanguageDiagnostic,
+  LanguageDiagnosticSeverity,
+  LanguageHoverResult,
+  LanguageLocation,
+  LanguagePosition,
+  LanguageRange,
+  LanguageService,
+  LanguageSymbol,
+  LspMethod,
+  LspRequest,
+  LspResponse,
+} from "./language/index";
+export type {
   CatalogData,
   CatalogModel,
   CatalogProvider,
@@ -300,6 +313,7 @@ export {
   buildToolSystemPrompt,
   mergeSystemPrompts,
 } from "./tools/build-tool-system-prompt";
+export type { LspRequestData } from "./tools/built-in/lsp-request";
 export { defineTool } from "./tools/define/define-tool";
 export type {
   AuditEntry,

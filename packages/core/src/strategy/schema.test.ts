@@ -296,6 +296,53 @@ describe("FlowDefSchema", () => {
       expect(result.success).toBe(false);
     });
 
+    it("accepts custom breakCycleSignals", () => {
+      const result = FlowDefSchema.safeParse({
+        name: "Loop",
+        type: "cycle",
+        cycles: "Infinity",
+        observer: "critic",
+        breakCycleSignals: ["==CYCLE_DONE=="],
+        steps: [{ agent: "a" }],
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects empty breakCycleSignals array", () => {
+      const result = FlowDefSchema.safeParse({
+        name: "Loop",
+        type: "cycle",
+        breakCycleSignals: [],
+        steps: [{ agent: "a" }],
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("accepts every breakCycleSignalMatch mode", () => {
+      for (const mode of ["substring", "first-line", "any-line", "exact"]) {
+        const result = FlowDefSchema.safeParse({
+          name: "Loop",
+          type: "cycle",
+          cycles: 3,
+          observer: "critic",
+          breakCycleSignals: ["DONE"],
+          breakCycleSignalMatch: mode,
+          steps: [{ agent: "a" }],
+        });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("rejects an unknown breakCycleSignalMatch mode", () => {
+      const result = FlowDefSchema.safeParse({
+        name: "Loop",
+        type: "cycle",
+        breakCycleSignalMatch: "fuzzy",
+        steps: [{ agent: "a" }],
+      });
+      expect(result.success).toBe(false);
+    });
+
     it("rejects negative cycles", () => {
       const result = FlowDefSchema.safeParse({
         name: "Loop",
@@ -584,8 +631,10 @@ describe("BUILT_IN_TOOL_NAMES", () => {
       "todo_complete",
       "todo_get",
       "todo_get_next",
+      "todo_remove",
       "todo_clear",
       "ask_question",
+      "lsp_request",
     ]);
   });
 });

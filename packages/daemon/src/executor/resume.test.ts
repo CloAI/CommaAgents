@@ -1,20 +1,15 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { rmSync } from "node:fs";
 import { join } from "node:path";
+import { createRunStore } from "../runs";
 import { createDaemonState } from "../state/state";
 import {
-  MINIMAL_STRATEGY,
-  MULTI_AGENT_STRATEGY,
   mockLogger,
-  mockRunStore,
   mockSink,
   setupMockModels,
-  USER_AGENT_STRATEGY,
-  waitForBroadcasts,
   writeTempStrategy,
 } from "../test.utils";
 import { createStrategyExecutor } from "./executor";
-import { createRunStore } from "../runs";
 
 const TEST_RUNS_DIR = join(
   "/tmp",
@@ -80,7 +75,9 @@ describe("StrategyExecutor Resume", () => {
     await new Promise((resolve) => setTimeout(resolve, 150));
 
     // Confirm we are waiting on input
-    expect(sink.broadcasts.some((b) => b.message.type === "request_input")).toBe(true);
+    expect(
+      sink.broadcasts.some((b) => b.message.type === "request_input"),
+    ).toBe(true);
 
     // 2. Stop/abort the run. This transition status to cancelled.
     executor.stopRun(runId);
@@ -100,8 +97,12 @@ describe("StrategyExecutor Resume", () => {
     console.log("RESUME BROADCASTS:", JSON.stringify(sink.broadcasts, null, 2));
 
     // The resumed run should have successfully re-started and blocked on input again!
-    expect(sink.broadcasts.some((b) => b.message.type === "strategy_started")).toBe(true);
-    expect(sink.broadcasts.some((b) => b.message.type === "request_input")).toBe(true);
+    expect(
+      sink.broadcasts.some((b) => b.message.type === "strategy_started"),
+    ).toBe(true);
+    expect(
+      sink.broadcasts.some((b) => b.message.type === "request_input"),
+    ).toBe(true);
 
     // And the run should be in "running" state in memory!
     const resumedRun = state.getRun(runId);

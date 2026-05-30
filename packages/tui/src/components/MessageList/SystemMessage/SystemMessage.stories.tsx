@@ -28,7 +28,7 @@ export const StepCompleted: Story = {
   },
 };
 
-export const Error: Story = {
+export const ErrorMessage: Story = {
   args: {
     text: "Error: failed to load strategy at /strategies/missing.ts (ENOENT).",
   },

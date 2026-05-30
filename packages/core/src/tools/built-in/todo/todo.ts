@@ -5,9 +5,10 @@ import { okResult } from "../../result";
 import type { ToolContext, ToolDefinition } from "../../tool.types";
 import type { TodoItem } from "./todo.types";
 
-// The store is process-global. We key on a composite of
-// `runId` (when present) plus `agentName` so each strategy
-// invocation gets its own silo, isolated from:
+// The store is process-global. When `runId` is present, all agents
+// in one strategy invocation share one list keyed by that run id.
+// This lets reviewers, planners, workers, and observers see the same
+// state while still isolating:
 //
 //   - other top-level runs in the same daemon process
 //   - recursive `launch_strategy` sub-runs (which the daemon
@@ -16,26 +17,20 @@ import type { TodoItem } from "./todo.types";
 //     same name (e.g., two "manager" agents in two different
 //     runs)
 //
-// Sibling agents *within* one run still share a key by
-// `agentName` only (because they share the same `runId`), which
-// is the original intra-run behaviour. When `runId` is absent
-// (tests, embedded callers without a daemon) we fall back to
-// pure `agentName` keying for backwards compatibility.
+// When `runId` is absent (tests, embedded callers without a daemon)
+// we fall back to pure `agentName` keying for backwards compatibility.
 const todoStore = new Map<string, TodoItem[]>();
 const idCounters = new Map<string, number>();
 
 /**
  * Build the store key for a tool invocation.
  *
- * `runId` is the per-invocation discriminator the daemon
- * supplies; falling back to `agentName`-only keeps the legacy
- * behaviour for callers (tests, plain `loadStrategy` users)
- * that don't pass one.
+ * `runId` is the shared per-invocation discriminator the daemon supplies.
+ * Falling back to `agentName`-only keeps the legacy behaviour for callers
+ * (tests, plain `loadStrategy` users) that don't pass one.
  */
 function storeKey(context: Pick<ToolContext, "agentName" | "runId">): string {
-  return context.runId === undefined
-    ? context.agentName
-    : `${context.runId}:${context.agentName}`;
+  return context.runId ?? context.agentName;
 }
 
 function getList(key: string): TodoItem[] {
@@ -60,9 +55,8 @@ function formatItem(item: TodoItem): string {
 }
 
 /**
- * Reset the todo state for a single agent (by raw store key — typically
- * `agentName` for legacy callers or `${runId}:${agentName}` when a runId
- * is supplied). Exposed for tests and embedders.
+ * Reset the todo state for a raw store key — typically `runId` when supplied
+ * or `agentName` for legacy callers. Exposed for tests and embedders.
  */
 export function resetTodoStateForAgent(key: string): void {
   todoStore.delete(key);
@@ -82,14 +76,15 @@ const todoAddParams = z.object({
 });
 
 /**
- * Create the `todo_add` tool, which appends a new pending item to the agent's
+ * Create the `todo_add` tool, which appends a new pending item to the current
  * todo list and returns its assigned id.
  */
 export function createTodoAddTool(): ToolDefinition<typeof todoAddParams> {
   return defineTool({
     description:
       "Add a new item to the todo list. Returns the new item's id. " +
-      "Use this to track sub-tasks while working on a larger task.",
+      "Use this to track sub-tasks while working on a larger task. " +
+      "When requirements pivot, prefer adding the new item and removing only the obsolete item instead of clearing the whole list.",
     parameters: todoAddParams,
     execute: async (validatedArguments, toolContext) => {
       const key = storeKey(toolContext);
@@ -103,6 +98,52 @@ export function createTodoAddTool(): ToolDefinition<typeof todoAddParams> {
       list.push(item);
       return okResult(`Added todo #${item.id}: ${item.content}`, {
         metadata: { id: item.id, totalItems: list.length },
+      });
+    },
+  });
+}
+
+const todoRemoveParams = z.object({
+  id: z
+    .string()
+    .min(1)
+    .describe("The id of the todo item to remove from the list."),
+});
+
+/**
+ * Create the `todo_remove` tool, which deletes a single obsolete todo item.
+ */
+export function createTodoRemoveTool(): ToolDefinition<
+  typeof todoRemoveParams
+> {
+  return defineTool({
+    description:
+      "Remove a single obsolete todo item by id without touching the rest of the list. " +
+      "Use this when requirements pivot or a todo no longer belongs; prefer this over todo_clear unless the entire goal changed.",
+    parameters: todoRemoveParams,
+    execute: async (validatedArguments, toolContext) => {
+      const list = getList(storeKey(toolContext));
+      const index = list.findIndex(
+        (entry) => entry.id === validatedArguments.id,
+      );
+      if (index === -1) {
+        return okResult(
+          `No todo item with id #${validatedArguments.id} was found.`,
+          {
+            metadata: { found: false },
+          },
+        );
+      }
+
+      const [removed] = list.splice(index, 1);
+      const pending = list.filter((entry) => entry.status === "pending").length;
+      return okResult(`Removed todo #${removed.id}: ${removed.content}`, {
+        metadata: {
+          found: true,
+          removedId: removed.id,
+          totalItems: list.length,
+          pending,
+        },
       });
     },
   });
@@ -164,12 +205,12 @@ export function createTodoCompleteTool(): ToolDefinition<
 const todoGetParams = z.object({});
 
 /**
- * Create the `todo_get` tool, which returns the full todo list for the agent.
+ * Create the `todo_get` tool, which returns the full current todo list.
  */
 export function createTodoGetTool(): ToolDefinition<typeof todoGetParams> {
   return defineTool({
     description:
-      "Get all todo items for the current agent, including completed and pending ones. " +
+      "Get all todo items for the current run, including completed and pending ones. " +
       "Use this to review progress or remember outstanding tasks.",
     parameters: todoGetParams,
     execute: async (_validatedArguments, toolContext) => {
@@ -220,13 +261,13 @@ export function createTodoGetNextTool(): ToolDefinition<
 const todoClearParams = z.object({});
 
 /**
- * Create the `todo_clear` tool, which removes all todo items for the agent.
+ * Create the `todo_clear` tool, which removes all items from the current list.
  */
 export function createTodoClearTool(): ToolDefinition<typeof todoClearParams> {
   return defineTool({
     description:
-      "Clear all todo items for the current agent. Use this when starting a new task " +
-      "or when the existing list is no longer relevant.",
+      "Clear all todo items for the current run. Use only when the whole goal or requirement set has changed " +
+      "and the existing list is no longer relevant. For normal pivots, prefer todo_remove for obsolete items and todo_add for new items.",
     parameters: todoClearParams,
     execute: async (_validatedArguments, toolContext) => {
       const key = storeKey(toolContext);

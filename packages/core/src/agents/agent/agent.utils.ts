@@ -11,6 +11,7 @@ import type {
 } from "../../context/conversation-context.types";
 import { SandboxViolationError } from "../../errors/index";
 import { runSideEffectHooks } from "../../hooks";
+import type { LanguageService } from "../../language";
 import { resolveModel } from "../../model/model";
 import {
   buildMessages,
@@ -63,6 +64,7 @@ import type {
  * @param skillRegistry - Propagated to `ToolContext.skillRegistry`.
  * @param inputCollector - Propagated to `ToolContext.inputCollector`.
  * @param launchStrategy - Propagated to `ToolContext.launchStrategy`.
+ * @param languageService - Propagated to `ToolContext.languageService`.
  * @param runId - Propagated to `ToolContext.runId`. Identifies a single
  *   strategy invocation (top-level run *or* one `launch_strategy`
  *   sub-load). Tools that need per-launch isolation (notably `todo_*`)
@@ -79,6 +81,7 @@ export function buildAgentToolSet(
   skillRegistry?: SkillRegistry,
   inputCollector?: InputCollector,
   launchStrategy?: LaunchStrategyHandle,
+  languageService?: LanguageService,
   runId?: string,
 ): Record<string, ReturnType<typeof aiTool<any, any>>> | undefined {
   if (!toolDefinitions || Object.keys(toolDefinitions).length === 0) {
@@ -129,6 +132,7 @@ export function buildAgentToolSet(
           ...(skillRegistry !== undefined ? { skillRegistry } : {}),
           ...(inputCollector !== undefined ? { inputCollector } : {}),
           ...(launchStrategy !== undefined ? { launchStrategy } : {}),
+          ...(languageService !== undefined ? { languageService } : {}),
         };
 
         // AI SDK v6's `tool()` wrapper does NOT validate the
@@ -296,6 +300,7 @@ export async function buildCallOptions(
         config.skillRegistry,
         config.inputCollector,
         config.launchStrategy,
+        config.languageService,
         config.runId,
       ),
     ),

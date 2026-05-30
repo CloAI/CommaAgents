@@ -6,7 +6,9 @@
 // - Observer: agent runs after each cycle's steps; can break loop with signals
 // - Cycle hooks: alterMessageBeforeCycle / alterMessageAfterCycle
 // - Break signals: observer output containing "end cycle", "stop", "done"
-//   (case-insensitive) breaks the cycle and returns the step output
+//   (case-insensitive substring by default) breaks the cycle and returns
+//   the step output. Strategy authors can override both the signal set
+//   and the match strategy (substring / first-line / any-line / exact).
 //
 // Built on buildFlowAgent().
 
@@ -15,6 +17,65 @@ import { runTransformHooks } from "../../../hooks";
 import type { HookStore } from "../../flow/flow";
 import { buildFlowAgent } from "../../flow/flow";
 import type { CycleFlowConfig, CycleHooks } from "../../flow/flow.types";
+
+/**
+ * Check whether `observerOutput` contains any of the break signals
+ * under the chosen matching mode.
+ *
+ * Exposed for tests; not part of the public API.
+ *
+ * @internal
+ */
+export function matchesBreakSignal(
+  observerOutput: string,
+  signals: ReadonlyArray<string>,
+  mode: "substring" | "first-line" | "any-line" | "exact",
+): boolean {
+  const lowerOutput = observerOutput.toLowerCase();
+  const lowerSignals = signals.map((signal) => signal.toLowerCase());
+  const matchesLineSignal = (line: string) =>
+    lowerSignals.some(
+      (signal) =>
+        line === signal ||
+        (line.startsWith(signal) &&
+          /\s/.test(line.charAt(signal.length) ?? "")),
+    );
+
+  switch (mode) {
+    case "substring": {
+      // Legacy behaviour — case-insensitive substring anywhere. Prone
+      // to false positives on verbose observers (e.g. "not done yet"
+      // matches "done"); kept as default for backwards compatibility.
+      return lowerSignals.some((signal) => lowerOutput.includes(signal));
+    }
+
+    case "exact": {
+      const trimmed = lowerOutput.trim();
+      return lowerSignals.includes(trimmed);
+    }
+
+    case "first-line": {
+      // Walk to the first non-blank line and compare its verdict prefix.
+      const lines = lowerOutput.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.length === 0) continue;
+        return matchesLineSignal(trimmed);
+      }
+      return false;
+    }
+
+    case "any-line": {
+      const lines = lowerOutput.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.length === 0) continue;
+        if (matchesLineSignal(trimmed)) return true;
+      }
+      return false;
+    }
+  }
+}
 
 // createCycleFlow
 
@@ -27,9 +88,9 @@ import type { CycleFlowConfig, CycleHooks } from "../../flow/flow.types";
  * - **Finite cycles**: `cycles: 3` runs the pipeline 3 times.
  * - **Infinite cycles**: `cycles: Infinity` runs until externally cancelled.
  * - **Observer**: An agent that processes each cycle's step output.
- *   If the observer's response contains a break signal ("end cycle",
- *   "stop", "done" by default), the cycle breaks and returns the
- *   step output (before the observer ran).
+ *   If the observer's response matches a break signal under the
+ *   configured match strategy (`breakCycleSignalMatch`), the cycle
+ *   breaks and returns the step output (before the observer ran).
  * - **Cycle hooks**: `alterMessageBeforeCycle` / `alterMessageAfterCycle`
  *   transform the message at cycle boundaries.
  *
@@ -45,14 +106,18 @@ import type { CycleFlowConfig, CycleHooks } from "../../flow/flow.types";
  *   cycles: 3,
  * });
  *
- * // Observer with break signal support
+ * // Infinite refine-until-good with a unique unambiguous break token.
+ * // First-line match means the reviewer's verdict is on line 1, with
+ * // optional reasoning below — and casual prose like "not done yet"
+ * // in the CONTINUE branch cannot accidentally trigger the break.
  * const flow = createCycleFlow({
  *   name: "refine-loop",
  *   steps: [writer],
  *   cycles: Infinity,
  *   observer: critic,
+ *   breakCycleSignals: ["==CYCLE_DONE=="],
+ *   breakCycleSignalMatch: "first-line",
  * });
- * // critic can respond with "done" or "end cycle" to break
  * ```
  */
 export function createCycleFlow(config: CycleFlowConfig): Agent {
@@ -62,6 +127,7 @@ export function createCycleFlow(config: CycleFlowConfig): Agent {
     "stop",
     "done",
   ];
+  const matchMode = config.breakCycleSignalMatch ?? "substring";
 
   // Empty hook store — hooks are attached via hookIntoFlow after creation.
   // The store is read by the executor on each cycle, so hooks appended
@@ -99,11 +165,7 @@ export function createCycleFlow(config: CycleFlowConfig): Agent {
           const observerResult = await config.observer.call(current);
           const observerOutput = observerResult.text;
 
-          const hasBreakSignal = breakSignals.some((signal) =>
-            observerOutput.toLowerCase().includes(signal.toLowerCase()),
-          );
-
-          if (hasBreakSignal) {
+          if (matchesBreakSignal(observerOutput, breakSignals, matchMode)) {
             return current; // Return step output, not observer output
           }
 

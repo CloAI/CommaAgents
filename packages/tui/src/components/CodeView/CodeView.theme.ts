@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { useTheme } from "../../theme";
+import { useTheme } from "../../Theme";
 
 /** Spread-ready style objects for the CodeView component. */
 export interface CodeViewTheme {

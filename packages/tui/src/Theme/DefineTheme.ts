@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Theme } from "./theme.types";
+import type { Theme } from "./Theme.types";
 import { useTheme } from "./useTheme";
 
 /**

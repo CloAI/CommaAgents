@@ -94,6 +94,8 @@ export interface ChatMessage {
   readonly segments?: readonly MessageSegment[];
   /** Whether this message is still receiving streaming tokens. */
   readonly streaming: boolean;
+  /** Tool call id of the `launch_strategy` invocation that spawned this message. */
+  readonly parentToolCallId?: string;
   readonly timestamp: number;
 }
 
@@ -191,6 +193,8 @@ export interface ChatRun {
   readonly pendingQuestionRequests: readonly PendingQuestionRequest[];
   /** Accumulated messages for this run. */
   readonly messages: readonly ChatMessage[];
+  /** Stack of active `launch_strategy` tool-call ids for nested strategy output. */
+  readonly activeLaunchStrategyIds: readonly string[];
   /** Creation timestamp (ms since epoch). */
   readonly createdAt: number;
   /** Last-updated timestamp (ms since epoch). */

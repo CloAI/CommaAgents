@@ -4,6 +4,7 @@ import type { Agent } from "../../agents/agent/agent.types";
 import type { InputCollector } from "../../agents/built-in/user/user-agent.types";
 import type { ConversationTurn } from "../../context/conversation-context.types";
 import type { FlowHooks } from "../../flows/flow/flow.types";
+import type { LanguageService } from "../../language";
 import type { SkillRegistry } from "../../skills/skills.types";
 import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
 import type { Strategy } from "../schema";
@@ -79,6 +80,8 @@ export interface LoadStrategyOptions {
    * `loadStrategy` + `flow.call()` invocation with no broadcast.
    */
   readonly launchStrategy?: LaunchStrategyHandle;
+  /** Optional runtime language service threaded into every agent tool call. */
+  readonly languageService?: LanguageService;
 
   /**
    * Optional run identifier propagated to every agent's
@@ -91,8 +94,8 @@ export interface LoadStrategyOptions {
    * top-level run id here, and gives each `launch_strategy` sub-load
    * a *fresh* derived id, so recursive strategy invocations have
    * isolated state for tools that key on `runId` (notably `todo_*`,
-   * which would otherwise share a process-global silo across every
-   * recursive sub-manager that has the same `agentName`).
+   * which shares state across agents within one invocation but must not
+   * leak into recursive sub-runs).
    *
    * When omitted, runId-aware tools fall back to `agentName`-only
    * keying (their original behaviour) — safe for tests and embedded

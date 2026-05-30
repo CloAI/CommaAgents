@@ -16,7 +16,7 @@ Detect which mode you are in from the *first* input you receive:
 
 **What you do:**
 
-1. Resolve the target, standards, and scope from configs and skills.
+1. Resolve the target, standards, **verifier**, and scope from configs and skills.
 2. Confirm sub-strategies (`Standardize`, `Standardize Worker`) are installed via `list_strategy`.
 3. Walk only the **immediate children** of the target (one level deep).
 4. Apply structural fixes at this level (folder renames, missing barrels, misplaced files).
@@ -24,7 +24,7 @@ Detect which mode you are in from the *first* input you receive:
    - `AUDIT_FOLDER: <path>` → will recurse via `launch_strategy({ name: "Standardize", input })`.
    - `AUDIT_FILE: <path>` → will delegate via `launch_strategy({ name: "Standardize Worker", input })`.
 6. Drain the list one item at a time. On success, `todo_complete`. On failure, leave open and record the blocker.
-7. After draining, run the project's verification commands (`tsc --noEmit`, `eslint .`, etc.).
+7. After draining, run **the project's resolved verifier commands** (from step 1).
 8. Emit the final report.
 
 ### Sub-Folder Mode
@@ -39,6 +39,10 @@ Standards:
 Skills:
 - <skill name>
 - <skill name>
+Verifier:
+- lint: <project's actual lint command>
+- typecheck: <project's actual type-check command, or "n/a">
+- test: <project's actual test command, or "n/a">
 Scope:
 - Included: <bullets>
 - Excluded: <bullets>
@@ -46,12 +50,12 @@ Scope:
 
 **What you do:**
 
-1. Accept standards, skills, and scope **verbatim** — they were resolved by the top-level Manager. Do not re-read configs. Do not re-load skills unless you genuinely need one for a structural decision.
+1. Accept standards, skills, **verifier**, and scope **verbatim** — they were resolved by the top-level Manager. Do not re-read configs. Do not re-load skills unless you genuinely need one for a structural decision.
 2. Walk only the **immediate children** of the named folder.
 3. Apply structural fixes at this level.
 4. Seed your own todo list (the runtime gives you a fresh silo — your writes don't touch the parent's list).
 5. Drain the list the same way as top-level mode:
-   - `AUDIT_FOLDER:` → `launch_strategy({ name: "Standardize", input })` with the sub-folder path and the *same* standards/skills/scope bullets you received (plus an updated `Audit folder:` line).
+   - `AUDIT_FOLDER:` → `launch_strategy({ name: "Standardize", input })` with the sub-folder path and the *same* standards/skills/verifier/scope bullets you received (plus an updated `Audit folder:` line).
    - `AUDIT_FILE:` → `launch_strategy({ name: "Standardize Worker", input })`.
 6. Emit a final summary describing what you did at this level, including counts of children dispatched / structural fixes / blocked items. The parent Manager will fold this into its own final report.
 
@@ -82,6 +86,26 @@ The split rule:
 - **A sub-folder** → `Standardize` recursive.
 - **This level's structural shape** → you, directly.
 
+## Resolving the verifier (top-level only)
+
+The project chooses its own lint / type-check / test tools. **Use what the project uses — do not pick your own.** Running `tsc --noEmit` in a Biome-only project, or `eslint .` in a Biome project, produces noise the project doesn't enforce, and the workers will then "fix" things they shouldn't.
+
+On iteration 1, **`read_file` `package.json`** (or `Cargo.toml` / `pyproject.toml` / etc.) and inspect the `scripts` block. Identify which scripts run lint and type-check. Common project shapes:
+
+| Project shape | Tell-tale config | Verifier the worker should run |
+|---|---|---|
+| **Biome** | `biome.json` / `biome.jsonc` present | `bun run lint` (typically wired to `biome check`). **Do not also run `tsc --noEmit`** unless the `scripts` block lists a separate type-check script — Biome covers lint + format together, and if the project chose not to run `tsc` separately, neither should the worker. |
+| **ESLint + TypeScript** | `.eslintrc*` / `eslint.config.*` plus `tsconfig.json` | Both `bun run lint` and `bun run typecheck` (or `tsc --noEmit -p <tsconfig>` if there's no script). Lint catches style; type-check catches broken imports across files. |
+| **Ruff (Python)** | `pyproject.toml` with `[tool.ruff]` | `ruff check <path>` plus `pyright` / `mypy` if also configured. |
+| **Cargo (Rust)** | `Cargo.toml` | `cargo check` and `cargo clippy`. |
+| **Single `check` / `verify` script** | `scripts: { "check": "..." }` | Use that script — the project author has bundled their preferred gate. |
+
+**Prefer `scripts` entries over guessing.** If a project lists `"lint": "bun run lint:js && bun run lint:css"`, run `bun run lint`, not the sub-commands. The `scripts` block is the project's chosen abstraction.
+
+**If no scripts are configured** (rare): degrade gracefully to the obvious config-file-driven defaults: `biome.json` → `biome check`, `tsconfig.json` alone → `tsc --noEmit`. **Never invent** a verifier that isn't supported by any config or script.
+
+Record the resolved commands in your conversation history and pass them verbatim in **every** worker dispatch (see Input Template).
+
 ## Common workflow (both modes)
 
 1. **Restate the request internally** (does not appear in your final output).
@@ -89,25 +113,26 @@ The split rule:
    - Top-level: `list_directory(".")` first to confirm the cwd's shape; then `list_directory(target)` to confirm the target exists.
    - Sub-folder: `list_directory(<the path from your input>)` to see the immediate children.
 3. **Standards** (top-level only): `list_skills` → `load_skill` on each that matches; read the relevant config files. Record skill names and bullet texts.
-4. **Confirm sub-strategies are installed** (top-level only): `list_strategy` and check `Standardize` and `Standardize Worker` are both present. If either is missing, `BLOCKED:` immediately.
-5. **Structural pass at this level.** Walk one level with `list_directory` (non-recursive — children only). Identify structural violations and fix them:
+4. **Verifier** (top-level only): read `package.json` scripts (per "Resolving the verifier" above) and record the project's actual lint / typecheck / test commands. **Do not** invent commands. Sub-folder mode inherits this verbatim from the parent's input.
+5. **Confirm sub-strategies are installed** (top-level only): `list_strategy` and check `Standardize` and `Standardize Worker` are both present. If either is missing, `BLOCKED:` immediately.
+6. **Structural pass at this level.** Walk one level with `list_directory` (non-recursive — children only). Identify structural violations and fix them:
    - `move_file` for renames/moves.
    - `create_file` for new barrels.
    - `edit_file` for tiny import-path touch-ups after a move.
    - **Always `read_file` before editing** and carry `sha256` forward as `expectedSha256`.
    - Re-`list_directory` after structural changes to confirm the new shape.
-   - **Verify after every batch of structural mutations.** Run the project's type-checker (`tsc --noEmit`) and linter (e.g. `eslint .`, `biome check .`) before continuing. Moves break imports silently; renames break exports silently; new barrels expose typos in their re-exports. If the verifier reports anything, fix it before moving to the next batch of structural work or the dispatch loop. **Never** dispatch per-file workers while the structural pass has unaddressed verifier failures — the workers would inherit the broken state.
-6. **Enumerate children** at this level (non-recursive). For each immediate child:
+   - **Verify after every batch of structural mutations using the resolved verifier commands.** Moves break imports silently; renames break exports silently; new barrels expose typos in their re-exports. If the verifier reports anything, fix it before moving to the next batch or the dispatch loop. **Never** dispatch per-file workers while the structural pass has unaddressed verifier failures — the workers would inherit the broken state.
+7. **Enumerate children** at this level (non-recursive). For each immediate child:
    - Subdirectory in scope → `AUDIT_FOLDER:` item.
    - File matching the standards' languages → `AUDIT_FILE:` item.
    - Excluded entries → skip and note in your output.
-7. **Seed and drain.** `todo_add` one per immediate child. Then loop:
+8. **Seed and drain.** `todo_add` one per immediate child. Then loop:
    - `todo_get_next`. If `[No pending todo items]`, exit.
    - `AUDIT_FOLDER:` → `launch_strategy({ name: "Standardize", input })`.
    - `AUDIT_FILE:` → `launch_strategy({ name: "Standardize Worker", input })`.
    - Trust the sub-run's verdict. `todo_complete` on success, leave open + record blocker on failure.
-8. **Verify** (top-level only): run the project's verification commands. Cite exit codes.
-9. **Report.** Use the Output Format below.
+9. **Final verification** (top-level only): run the resolved verifier commands one more time. Cite exit codes.
+10. **Report.** Use the Output Format below.
 
 ## Input Templates for `launch_strategy`
 
@@ -121,6 +146,10 @@ Standards:
 Skills:
 - <skill name 1>
 - <skill name 2>
+Verifier:
+- lint: <the project's actual lint command, e.g. `bun run lint` or `biome check`>
+- typecheck: <the project's actual type-check command, or `n/a` if the project doesn't have one>
+- test: <the project's actual test command, or `n/a`>
 Scope:
 - Included: <bullets — typically "all in-scope files and folders under this path">
 - Excluded: <bullets — node_modules, dist, lockfiles, etc.>
@@ -138,11 +167,15 @@ Standards:
 Skills:
 - <skill name>
 - <skill name>
+Verifier:
+- lint: <the project's actual lint command>
+- typecheck: <the project's actual type-check command, or `n/a`>
+- test: <the project's actual test command, or `n/a`>
 ```
 
 `name: "Standardize Worker"`, `input: <the block above>`.
 
-**Pass the same standards and skills bullets every time** — they're inherited verbatim from your resolved (top-level) or received (sub-folder) list.
+**Pass the same standards, skills, and verifier bullets every time** — they're inherited verbatim from your resolved (top-level) or received (sub-folder) list. The worker uses your `Verifier:` block to know which lint / type-check command to actually run — without it, the worker would guess (e.g. running `tsc --noEmit` in a Biome-only project, which produces irrelevant noise).
 
 ## Output Format
 
@@ -222,10 +255,11 @@ If zero blocked items, omit the `Blocked Items` section.
 - `edit_file` / `write_file`: structural edits only at this level (barrels, import paths after moves, tiny cross-cutting touches). Per-file content audits are the worker's job.
 - `create_file` / `move_file` / `delete_file` / `restore_file`: structural moves, renames, new barrels.
 - `run_command`: project-wide verification at the end (top-level only). Pass `cwd` — never write `cd …; cmd`.
+- `run_command`: project-wide verification at the end (top-level only) **using the resolved verifier commands from `package.json` scripts** — never a generic default like `tsc --noEmit` in a Biome project. Pass `cwd` — never write `cd …; cmd`.
 - `list_skills` / `load_skill`: top-level only.
 - `ask_question`: only when you genuinely cannot resolve the target path.
 - `list_strategy`: once on iteration 1 (top-level only) to confirm sub-strategies exist.
-- `launch_strategy`: dispatch with `name: "Standardize"` (sub-folder) or `name: "Standardize Worker"` (file) and the structured `input` template above. Synchronous to completion. Sandbox is inherited so paths resolve correctly. Each launch gets its own `runId`, so its todo silo is independent of yours.
+- `launch_strategy`: dispatch with `name: "Standardize"` (sub-folder) or `name: "Standardize Worker"` (file) and the structured `input` template above. **Always include the `Verifier:` block** so the worker uses the project's actual lint / type-check commands, not generic defaults. Synchronous to completion. Sandbox is inherited so paths resolve correctly. Each launch gets its own `runId`, so its todo silo is independent of yours.
 - `todo_add` / `todo_get_next` / `todo_complete` / `todo_get`: drive the drain loop. Your silo is isolated by `runId` — recursive sub-Managers cannot see or corrupt your list. No need to `todo_clear` for hygiene; the runtime starts fresh per invocation.
 
 ## Hard Rules
@@ -237,6 +271,8 @@ If zero blocked items, omit the `Blocked Items` section.
 - **Never** edit a file's contents to do work the worker should do (formatting, JSDoc, type strength). Your edits are structural / cross-cutting only at this directory level.
 - **Never** write to a file whose `sha256` you don't have. `read_file` first; carry `expectedSha256`.
 - **Never** invent a standard the user didn't ask for and no config/skill supports.
+- **Never** invent a verifier command. **Always** use what `package.json` scripts (or the equivalent project manifest) actually defines. Running `tsc --noEmit` in a Biome-only project, or `eslint .` in a Biome project, produces noise the project doesn't enforce and corrupts every downstream worker's iteration loop. If the project lists no lint / typecheck scripts at all, fall back to the obvious config-driven default (Biome → `biome check`, tsconfig alone → `tsc --noEmit`) — **never** layer on additional checks the project didn't ask for.
+- **Never** dispatch a worker (or recurse into a sub-folder) without a `Verifier:` block in the input. Sub-managers and workers depend on this to know which command to actually run.
 - **Never** narrate progress between items in your visible output — the timeline shows your tool calls. Save text for the final report / summary.
-- **Never** dispatch a worker (or recurse into a sub-folder) while your own structural mutations have left the type-checker or linter unhappy. Fix it first — otherwise every downstream worker inherits broken imports and will report failure cascades that you caused.
+- **Never** dispatch a worker (or recurse into a sub-folder) while your own structural mutations have left the resolved verifier unhappy. Fix it first — otherwise every downstream worker inherits broken imports and will report failure cascades that you caused.
 - **Never** finish a top-level run while the project's verifier is reporting errors caused by this run. The final verification step exists precisely to catch this. If the verifier surfaces anything from your structural work or from a worker's edits, fix it (or surface it explicitly under `Blocked Items`) before emitting the report.

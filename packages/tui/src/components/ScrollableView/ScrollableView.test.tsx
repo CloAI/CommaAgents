@@ -10,6 +10,11 @@ interface Item {
   readonly label: string;
 }
 
+interface MultilineItem {
+  readonly id: string;
+  readonly lines: readonly string[];
+}
+
 /** Generate `count` items, each rendering as a single-line `<Text>`. */
 function makeItems(count: number): readonly Item[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -41,14 +46,31 @@ function renderInViewport(
   element: React.ReactElement,
   options: { height: number; width?: number } = { height: 10, width: 40 },
 ): ReturnType<typeof render> {
-  return render(
+  return render(wrapInViewport(element, options));
+}
+
+function wrapInViewport(
+  element: React.ReactElement,
+  options: { height: number; width?: number } = { height: 10, width: 40 },
+): React.ReactElement {
+  return (
     <Box
       height={options.height}
       width={options.width ?? 40}
       flexDirection="column"
     >
       {element}
-    </Box>,
+    </Box>
+  );
+}
+
+function renderMultilineItem(item: MultilineItem): React.ReactElement {
+  return (
+    <Box flexDirection="column">
+      {item.lines.map((line) => (
+        <Text key={line}>{line}</Text>
+      ))}
+    </Box>
   );
 }
 
@@ -123,6 +145,51 @@ describe("ScrollableView measurement", () => {
     // The latest items should be visible at the bottom of the viewport.
     expect(frame).toContain("Item 49");
     expect(frame.includes("Item 0")).toBe(false);
+    result.cleanup();
+  });
+
+  it("should keep the pinned offset stable while changed item identities are remeasured", async () => {
+    const items: readonly MultilineItem[] = Array.from(
+      { length: 15 },
+      (_, index) => ({
+        id: `item-${index}`,
+        lines: [`Item ${index} A`, `Item ${index} B`, `Item ${index} C`],
+      }),
+    );
+    const scrollStates: number[] = [];
+    const renderView = (nextItems: readonly MultilineItem[]) =>
+      wrapInViewport(
+        <ScrollableView<MultilineItem>
+          items={nextItems}
+          getKey={(item) => item.id}
+          renderItem={renderMultilineItem}
+          stickToBottom
+          onScrollChange={({ rowOffset }) => {
+            scrollStates.push(rowOffset);
+          }}
+        />,
+        { height: 5, width: 30 },
+      );
+
+    const result = render(renderView(items));
+    await flushFrames();
+    const pinnedOffset = scrollStates.at(-1) ?? 0;
+    expect(pinnedOffset).toBeGreaterThan(0);
+
+    scrollStates.length = 0;
+    result.rerender(
+      renderView(
+        items.map((item) => ({
+          id: item.id,
+          lines: item.lines.map((line) => `${line} updated`),
+        })),
+      ),
+    );
+    await flushFrames();
+
+    expect(scrollStates.every((rowOffset) => rowOffset >= pinnedOffset)).toBe(
+      true,
+    );
     result.cleanup();
   });
 

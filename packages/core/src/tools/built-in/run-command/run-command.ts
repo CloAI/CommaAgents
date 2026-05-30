@@ -110,10 +110,17 @@ export function createRunCommandTool(
 
 **Typical verification commands:**
 
-- Type-check (TypeScript): \`{ command: "tsc --noEmit", cwd: "<project root>" }\`.
-- Lint: \`{ command: "eslint . --max-warnings 0", cwd: "<project root>" }\`.
-- Tests: \`{ command: "bun test", cwd: "<project root>" }\` or \`{ command: "bun test path/to/file.test.ts", cwd: "..." }\`.
-- Format check: \`{ command: "prettier --check .", cwd: "..." }\`.
+**Use what the project actually configures, not generic defaults.** Read \`package.json\`'s \`scripts\` block (or the equivalent project manifest) once to find out — then reuse those commands for the rest of the session.
+
+- **Biome project** (\`biome.json\` present): the project's lint script (typically \`bun run lint\` → \`biome check\`). Do not also run \`tsc --noEmit\` unless the project's scripts list it as a separate step.
+- **ESLint + TypeScript**: both \`bun run lint\` and \`bun run typecheck\` (or \`tsc --noEmit -p <tsconfig>\` if no script).
+- **Ruff (Python)**: \`ruff check <path>\`.
+- **Cargo (Rust)**: \`cargo check\` and \`cargo clippy\`.
+- **Tests**: prefer \`bun test <file>\` or \`bun run test\` (scoped to the file when possible).
+
+**Never run a verifier the project doesn't configure** — running \`tsc --noEmit\` in a Biome-only project, or \`eslint .\` in a Biome project, produces noise the project intentionally doesn't enforce and corrupts downstream iteration loops.
+
+**If you receive a \`Verifier:\` block in your seed input** (typical when launched by the Standardize Manager): those are the project's actual commands — use them verbatim, do not substitute or augment.
 
 **The result includes:**
 
@@ -349,12 +356,51 @@ export function createRunCommandTool(
         );
       }
 
-      const exitSuffix =
-        exitCode === 0 ? "" : ` (exit code ${exitCode ?? "?"})`;
-      return okResult<RunCommandData>(
-        `Ran ${validatedArguments.command} in ${resolvedCwd}${exitSuffix} in ${durationMs}ms.`,
-        { data },
-      );
+      // Format the exit-status banner so the LLM cannot miss it. The
+      // original suffix `(exit code 1)` was easy to overlook when the
+      // model was scanning a multi-page command output; with explicit
+      // `STATUS: FAILED — exit code N` it surfaces clearly even when
+      // the stdout / stderr are voluminous.
+      //
+      // Special cases:
+      //   - `exitCode === 0` → success.
+      //   - `exitCode === null` → process was killed by a signal (the
+      //     `signal` field carries the signal name) or the runtime
+      //     could not report an exit code. Treat as failure with an
+      //     explicit explanation; this is the situation behind the
+      //     reported `(exit code ?)` / `(exit code -1)` confusion that
+      //     trapped agents into retry loops.
+      //   - Negative `exitCode` (rare; some runtimes use this for
+      //     signal-killed processes encoded as `128 + signum` or as
+      //     `-signum`) → also treat as failure with the signal note.
+      const wasSignalKilled =
+        exitCode === null || (typeof exitCode === "number" && exitCode < 0);
+      const isFailure = exitCode !== 0;
+
+      let exitSummary: string;
+      if (exitCode === 0) {
+        exitSummary = "STATUS: SUCCESS — exit code 0";
+      } else if (wasSignalKilled) {
+        const signalLabel = signal ?? "unknown";
+        exitSummary =
+          `STATUS: FAILED — process killed by signal ${signalLabel}` +
+          ` (no exit code; this means the command crashed, was killed externally, or its runtime could not capture the exit status — it did NOT pass).`;
+      } else {
+        exitSummary = `STATUS: FAILED — exit code ${exitCode}`;
+      }
+
+      const summaryParts: string[] = [
+        `Ran \`${validatedArguments.command}\` in ${resolvedCwd} (${durationMs}ms).`,
+        exitSummary,
+      ];
+
+      if (isFailure) {
+        summaryParts.push(
+          "The command did NOT succeed. Inspect `stdout` / `stderr` for the diagnostics, then either fix the underlying issue and re-run, or surface this as a `BLOCKED:` outcome — do not treat this output as a green verifier pass.",
+        );
+      }
+
+      return okResult<RunCommandData>(summaryParts.join("\n"), { data });
     },
   });
 }

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { useTheme } from "../../theme";
+import { useTheme } from "../../Theme";
 
 /** Per-role text style (color + bold). */
 export interface RoleStyle {

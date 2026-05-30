@@ -4,6 +4,7 @@ export {
   createTodoCompleteTool,
   createTodoGetNextTool,
   createTodoGetTool,
+  createTodoRemoveTool,
   resetAllTodoState,
   resetTodoStateForAgent,
 } from "./todo";

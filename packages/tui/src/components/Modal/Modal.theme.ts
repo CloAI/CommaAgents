@@ -3,7 +3,7 @@ import {
   defineTheme,
   type TextProps,
   type ThemeOf,
-} from "../../theme";
+} from "../../Theme";
 
 /**
  * Returns themed style objects for the Modal component.

@@ -588,3 +588,257 @@ describe("createCycleFlow (step hooks)", () => {
     expect(events).toEqual(["before:a", "after:a", "before:b", "after:b"]);
   });
 });
+
+// Regression cover for the false-positive substring matching bug:
+// a verbose observer saying "CONTINUE: not done yet" was triggering
+// the default `"done"` signal and breaking the cycle prematurely.
+
+describe("createCycleFlow breakCycleSignalMatch modes", () => {
+  // Reuse the local makeAgent helper from the top-level describe block.
+  // It is defined at module scope in this file.
+
+  it("substring mode (default) — legacy behaviour, prone to false positives", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    // Observer says "not done yet" — under substring matching this
+    // contains "done" and breaks the cycle even though the observer
+    // clearly meant "continue".
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      return "CONTINUE: not done yet";
+    });
+
+    const flow = createCycleFlow({
+      name: "false-positive",
+      steps: [step],
+      cycles: 5,
+      observer,
+      // breakCycleSignalMatch omitted → default "substring"
+    });
+
+    await flow.call("x");
+    // Bug: cycle breaks after cycle 1 because "done" is a substring
+    // of "CONTINUE: not done yet". We assert the legacy behaviour so
+    // future changes have to opt into something better.
+    expect(cycleCount).toBe(1);
+  });
+
+  it("first-line mode — only breaks when first non-blank line has a signal verdict", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      // Same prose that false-fires under substring — but here line 1
+      // is "CONTINUE: not done yet" which does NOT equal any signal.
+      return "CONTINUE: not done yet";
+    });
+
+    const flow = createCycleFlow({
+      name: "first-line-strict",
+      steps: [step],
+      cycles: 4,
+      observer,
+      breakCycleSignals: ["==CYCLE_DONE=="],
+      breakCycleSignalMatch: "first-line",
+    });
+
+    await flow.call("x");
+    expect(cycleCount).toBe(4); // ran every cycle — no false break
+  });
+
+  it("first-line mode — breaks when line 1 is exactly the signal", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      if (cycleCount === 2) {
+        return "==CYCLE_DONE==\nReason: all checks green.";
+      }
+      return "CONTINUE: still working";
+    });
+
+    const flow = createCycleFlow({
+      name: "first-line-break",
+      steps: [step],
+      cycles: 10,
+      observer,
+      breakCycleSignals: ["==CYCLE_DONE=="],
+      breakCycleSignalMatch: "first-line",
+    });
+
+    const result = await flow.call("x");
+    expect(cycleCount).toBe(2);
+    // Result is the step output (not the observer's verdict text).
+    expect(result.text).toContain("step:");
+  });
+
+  it("first-line mode — breaks when line 1 starts with the signal plus prose", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      return "==PLAN_APPROVED== The plan is complete and fully verified.";
+    });
+
+    const flow = createCycleFlow({
+      name: "first-line-prefix-break",
+      steps: [step],
+      cycles: 5,
+      observer,
+      breakCycleSignals: ["==PLAN_APPROVED=="],
+      breakCycleSignalMatch: "first-line",
+    });
+
+    await flow.call("x");
+    expect(cycleCount).toBe(1);
+  });
+
+  it("first-line mode — refuses partial signal prefixes", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      return "==PLAN_APPROVED==ish but not actually approved.";
+    });
+
+    const flow = createCycleFlow({
+      name: "first-line-partial-prefix",
+      steps: [step],
+      cycles: 3,
+      observer,
+      breakCycleSignals: ["==PLAN_APPROVED=="],
+      breakCycleSignalMatch: "first-line",
+    });
+
+    await flow.call("x");
+    expect(cycleCount).toBe(3);
+  });
+
+  it("first-line mode — ignores leading blank lines before the verdict", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      return "\n\n==CYCLE_DONE==\nLooks good.";
+    });
+
+    const flow = createCycleFlow({
+      name: "leading-blanks",
+      steps: [step],
+      cycles: 5,
+      observer,
+      breakCycleSignals: ["==CYCLE_DONE=="],
+      breakCycleSignalMatch: "first-line",
+    });
+
+    await flow.call("x");
+    expect(cycleCount).toBe(1);
+  });
+
+  it("first-line mode — case-insensitive", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      return "==cycle_done==\nlowercase still breaks.";
+    });
+
+    const flow = createCycleFlow({
+      name: "case-insensitive",
+      steps: [step],
+      cycles: 5,
+      observer,
+      breakCycleSignals: ["==CYCLE_DONE=="],
+      breakCycleSignalMatch: "first-line",
+    });
+
+    await flow.call("x");
+    expect(cycleCount).toBe(1);
+  });
+
+  it("any-line mode — matches if the signal appears as a line verdict anywhere", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      return "Preamble paragraph.\n\n==CYCLE_DONE==\n\nFooter.";
+    });
+
+    const flow = createCycleFlow({
+      name: "any-line",
+      steps: [step],
+      cycles: 5,
+      observer,
+      breakCycleSignals: ["==CYCLE_DONE=="],
+      breakCycleSignalMatch: "any-line",
+    });
+
+    await flow.call("x");
+    expect(cycleCount).toBe(1);
+  });
+
+  it("any-line mode — does NOT match the signal as a substring of a line", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      // ==CYCLE_DONE== appears but not as a trimmed line verdict.
+      return "Some prose ==CYCLE_DONE== inline.\nMore text.";
+    });
+
+    const flow = createCycleFlow({
+      name: "any-line-substring-immune",
+      steps: [step],
+      cycles: 3,
+      observer,
+      breakCycleSignals: ["==CYCLE_DONE=="],
+      breakCycleSignalMatch: "any-line",
+    });
+
+    await flow.call("x");
+    expect(cycleCount).toBe(3);
+  });
+
+  it("exact mode — observer output must equal the signal (after trim)", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      return cycleCount === 2 ? "  DONE  " : "still going";
+    });
+
+    const flow = createCycleFlow({
+      name: "exact",
+      steps: [step],
+      cycles: 5,
+      observer,
+      breakCycleSignals: ["DONE"],
+      breakCycleSignalMatch: "exact",
+    });
+
+    await flow.call("x");
+    expect(cycleCount).toBe(2);
+  });
+
+  it("exact mode — refuses to break on extra prose around the signal", async () => {
+    const step = makeAgent("s", (msg) => `step:${msg}`);
+    let cycleCount = 0;
+    const observer = makeAgent("obs", () => {
+      cycleCount++;
+      return "DONE\nReason: ...";
+    });
+
+    const flow = createCycleFlow({
+      name: "exact-strict",
+      steps: [step],
+      cycles: 4,
+      observer,
+      breakCycleSignals: ["DONE"],
+      breakCycleSignalMatch: "exact",
+    });
+
+    await flow.call("x");
+    // "DONE\nReason: ..." trimmed isn't exactly "DONE" — runs all 4.
+    expect(cycleCount).toBe(4);
+  });
+});

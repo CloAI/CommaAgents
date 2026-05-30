@@ -12,7 +12,7 @@ import { DaemonContextProvider } from "./hooks/useDaemon";
 import { logStore } from "./hooks/useLogs/logStore";
 import { ModalContextProvider } from "./hooks/useModal";
 import { UserConfigContextProvider } from "./hooks/useUserConfig";
-import { ThemeContextProvider } from "./theme";
+import { ThemeContextProvider } from "./Theme";
 
 const argv = yargs(hideBin(process.argv))
   .scriptName("comma-agents-tui")

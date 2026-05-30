@@ -37,6 +37,8 @@ export type { ListStrategyData, ListStrategyEntry } from "./list-strategy";
 export { createListStrategyTool } from "./list-strategy";
 export type { LoadSkillData } from "./load-skill";
 export { createLoadSkillTool } from "./load-skill";
+export type { LspRequestData } from "./lsp-request";
+export { createLspRequestTool } from "./lsp-request";
 export type {
   MoveFileData,
   MoveFileToolConfig,
@@ -65,6 +67,7 @@ export {
   createTodoCompleteTool,
   createTodoGetNextTool,
   createTodoGetTool,
+  createTodoRemoveTool,
 } from "./todo";
 export { createWebFetchTool } from "./webfetch";
 export type {

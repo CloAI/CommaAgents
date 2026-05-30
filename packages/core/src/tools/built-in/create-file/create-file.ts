@@ -121,13 +121,18 @@ The result includes \`sha256\` of the new file — save it if you plan to immedi
 
 **Post-create verification (MANDATORY):**
 
-After every successful \`create_file\` call, **run the project's linter and type-checker on the new file (and the project as a whole) using \`run_command\`**. New files often have:
+After every successful \`create_file\` call, **run the project's configured verifier on the new file (and the project as a whole) using \`run_command\`**. New files often have:
 
 - Typos in identifiers that won't compile.
 - Imports referencing modules that don't exist yet (or wrong paths to ones that do).
 - Missing exports the rest of the codebase expects (especially when creating an \`index.ts\` barrel).
 
-Use \`tsc --noEmit\`, \`eslint <path>\`, or \`biome check <path>\`. **If anything surfaces, fix it before reporting.**`,
+**Use the project's actual verifier — not a generic default.**
+
+1. If the seed input contains a \`Verifier:\` section, use those commands verbatim.
+2. Otherwise read \`package.json\` scripts on iteration 1: Biome project → \`bun run lint\`; ESLint+TS → \`bun run lint\` + \`bun run typecheck\`; Ruff / Cargo / etc. → the project's chosen tool. Never run \`tsc --noEmit\` in a Biome-only project.
+
+**If anything surfaces, fix it before reporting.**`,
     parameters: createFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;

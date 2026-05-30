@@ -1,4 +1,4 @@
-import type { Theme } from "../theme.types";
+import type { Theme } from "../Theme.types";
 
 /**
  * Dracula — dark palette with purple/cyan/pink accents.

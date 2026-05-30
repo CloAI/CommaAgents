@@ -9,6 +9,7 @@ import { createListDirectoryTool } from "./built-in/list-directory";
 import { createListSkillsTool } from "./built-in/list-skills";
 import { createListStrategyTool } from "./built-in/list-strategy";
 import { createLoadSkillTool } from "./built-in/load-skill";
+import { createLspRequestTool } from "./built-in/lsp-request";
 import { createMoveFileTool } from "./built-in/move-file";
 import { createReadFileTool } from "./built-in/read-file";
 import { createRestoreFileTool } from "./built-in/restore-file";
@@ -20,6 +21,7 @@ import {
   createTodoCompleteTool,
   createTodoGetNextTool,
   createTodoGetTool,
+  createTodoRemoveTool,
 } from "./built-in/todo/todo";
 import { createWebFetchTool } from "./built-in/webfetch/webfetch";
 import { createWriteFileTool } from "./built-in/write-file";
@@ -50,8 +52,10 @@ export const BUILT_IN_TOOL_NAMES = [
   "todo_complete",
   "todo_get",
   "todo_get_next",
+  "todo_remove",
   "todo_clear",
   "ask_question",
+  "lsp_request",
 ] as const;
 
 /** Factory map for instantiating built-in tools by name. */
@@ -79,6 +83,8 @@ export const BUILT_IN_TOOL_FACTORIES: Readonly<
   todo_complete: () => createTodoCompleteTool(),
   todo_get: () => createTodoGetTool(),
   todo_get_next: () => createTodoGetNextTool(),
+  todo_remove: () => createTodoRemoveTool(),
   todo_clear: () => createTodoClearTool(),
   ask_question: () => createAskQuestionTool(),
+  lsp_request: () => createLspRequestTool(),
 };

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Text } from "ink";
 import { render } from "ink-testing-library";
-import React from "react";
 
 import { ModalRender } from "./Modal";
 

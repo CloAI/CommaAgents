@@ -284,55 +284,6 @@ export function getModelCapabilities(
 }
 
 /**
- * Look up normalized metadata for a bare model ID from the catalog.
- *
- * Scans the reverse model index for the first provider that lists the
- * model, then returns the full `ModelInfo` (including capabilities,
- * modalities, cost, context window, etc.). Returns `undefined` if the
- * model is not found in any provider catalog.
- *
- * @example
- * ```ts
- * const info = getModelMetadata("gpt-4o");
- * console.log(info?.capabilities?.reasoning); // true
- * console.log(info?.contextWindow);           // 128000
- * ```
- */
-export function getModelMetadata(modelId: string): ModelInfo | undefined {
-  const providerIds = getProvidersForModel(modelId);
-  for (const providerId of providerIds) {
-    const provider = getCatalogProviderSync(providerId);
-    if (!provider?.models[modelId]) continue;
-    return toModelInfo(provider.models[modelId]);
-  }
-  return undefined;
-}
-
-/**
- * Look up capability flags for a bare model ID.
- *
- * Returns the model's `ModelCapabilities` (tools, reasoning, vision,
- * attachment, structuredOutput) from the catalog. Returns `undefined` if
- * the model is not found in any provider catalog.
- *
- * This is a convenience wrapper around `getModelMetadata()` for the common
- * case of checking what features a model supports at runtime.
- *
- * @example
- * ```ts
- * const caps = getModelCapabilities("gpt-4o");
- * if (caps?.reasoning) {
- *   // use reasoning-related options
- * }
- * ```
- */
-export function getModelCapabilities(
-  modelId: string,
-): ModelCapabilities | undefined {
-  return getModelMetadata(modelId)?.capabilities;
-}
-
-/**
  * Convert a provider ID to a human-friendly display name.
  *
  * Hyphen-separated tokens are capitalized (e.g., `github-copilot` ->
