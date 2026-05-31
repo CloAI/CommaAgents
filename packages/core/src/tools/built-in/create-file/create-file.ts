@@ -4,13 +4,15 @@ import { z } from "zod";
 import { SandboxViolationError } from "../../../errors";
 import { defineTool } from "../../define/define-tool";
 import {
+  buildAuditBase,
   createMemoryAuditSink,
+  logAuditFailure,
+  logAuditSuccess,
   sandboxErrorToToolError,
   sha256OfBuffer,
   unifiedDiff,
   writeAtomic,
 } from "../../io";
-import type { AuditEntry } from "../../io/audit";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
@@ -127,17 +129,11 @@ After every successful \`create_file\` call, **run the project's configured veri
 - Imports referencing modules that don't exist yet (or wrong paths to ones that do).
 - Missing exports the rest of the codebase expects (especially when creating an \`index.ts\` barrel).
 
-**Use the project's actual verifier — not a generic default.**
-
-1. If the seed input contains a \`Verifier:\` section, use those commands verbatim.
-2. Otherwise read \`package.json\` scripts on iteration 1: Biome project → \`bun run lint\`; ESLint+TS → \`bun run lint\` + \`bun run typecheck\`; Ruff / Cargo / etc. → the project's chosen tool. Never run \`tsc --noEmit\` in a Biome-only project.
-
 **If anything surfaces, fix it before reporting.**`,
     parameters: createFileParams,
     execute: async (validatedArguments, toolContext) => {
-      const { guard, abort, agentName, sessionId } = toolContext;
-      const sink =
-        toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
+      const { guard, abort, agentName } = toolContext;
+      const sink = toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
 
       if (toolContext.abort.aborted) {
         return errorResult<CreateFileData>(
@@ -217,26 +213,16 @@ After every successful \`create_file\` call, **run the project's configured veri
         path: validatedArguments.path,
       });
 
-      const auditBase: Omit<AuditEntry, "success"> = {
-        timestamp: new Date().toISOString(),
-        ...(sessionId !== undefined ? { sessionId } : {}),
-        agentName,
-        toolName: "create_file",
-        operation: "create",
-        path: validatedArguments.path,
+      const auditBase = buildAuditBase(toolContext, "create_file", "create", validatedArguments.path, {
         afterSha256: sha256,
         diff,
-      };
+      });
 
       try {
         await writeAtomic(absolutePath, contentBytes);
       } catch (writeError) {
         const message = (writeError as Error).message;
-        try {
-          await sink.append({ ...auditBase, success: false, error: message });
-        } catch {
-          /* ignore */
-        }
+        await logAuditFailure(sink, auditBase, message);
         return errorResult<CreateFileData>(
           toolError(
             "command_failed",
@@ -249,11 +235,7 @@ After every successful \`create_file\` call, **run the project's configured veri
         );
       }
 
-      try {
-        await sink.append({ ...auditBase, success: true });
-      } catch {
-        /* audit failures are non-fatal; the write succeeded */
-      }
+      await logAuditSuccess(sink, auditBase);
 
       const data: CreateFileData = {
         created: true,

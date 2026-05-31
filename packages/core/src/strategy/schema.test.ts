@@ -620,7 +620,7 @@ describe("BUILT_IN_TOOL_NAMES", () => {
       "delete_file",
       "restore_file",
       "move_file",
-      "apply_patch",
+      // "apply_patch",
       "run_command",
       "webfetch",
       "load_skill",

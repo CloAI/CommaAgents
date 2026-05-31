@@ -60,6 +60,22 @@ export function useChat(chatRunId?: ChatRunId): UseChatState {
     [context, resolvedChatRunId],
   );
 
+  const sendSteer = useCallback(
+    (text: string): void => {
+      if (!resolvedChatRunId) return;
+      context.sendSteer(resolvedChatRunId, text);
+    },
+    [context, resolvedChatRunId],
+  );
+
+  const continueRun = useCallback(
+    (input: string, strategyPath?: string): void => {
+      if (!resolvedChatRunId) return;
+      context.continueChatRun(resolvedChatRunId, input, strategyPath);
+    },
+    [context, resolvedChatRunId],
+  );
+
   const sendPermissionDecision = useCallback(
     (decision: "allow" | "deny" | "allow-session" | "deny-session"): void => {
       if (!resolvedChatRunId) return;
@@ -103,6 +119,8 @@ export function useChat(chatRunId?: ChatRunId): UseChatState {
       startStrategy,
       resumeRun,
       sendInput,
+      sendSteer,
+      continueRun,
       sendPermissionDecision,
       sendQuestionResponse,
       reset,
@@ -115,6 +133,8 @@ export function useChat(chatRunId?: ChatRunId): UseChatState {
       startStrategy,
       resumeRun,
       sendInput,
+      sendSteer,
+      continueRun,
       sendPermissionDecision,
       sendQuestionResponse,
       reset,

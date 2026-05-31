@@ -108,4 +108,74 @@ describe("StrategyExecutor Resume", () => {
     const resumedRun = state.getRun(runId);
     expect(resumedRun?.status).toBe("running");
   });
+
+  it("should continue a finished run with a new prompt and reach a new completion", async () => {
+    setupMockModels();
+    const state = createDaemonState();
+    const sink = mockSink();
+    const runStore = createRunStore({ runsDir: TEST_RUNS_DIR });
+
+    state.addClient("client-1");
+
+    const executor = createStrategyExecutor({
+      state,
+      sink,
+      logger: mockLogger(),
+      runStore,
+    });
+
+    // A single-agent strategy that completes without blocking.
+    const filePath = await writeTempStrategy(
+      JSON.stringify({
+        name: "ContinueTest",
+        version: "1.0",
+        agents: { assistant: { model: "openai/gpt-4o" } },
+        flow: {
+          name: "Main",
+          type: "sequential",
+          steps: [{ agent: "assistant" }],
+        },
+      }),
+    );
+    tempFiles.push(filePath);
+
+    const runId = executor.startRun("client-1", filePath, "first prompt");
+
+    // Wait for the initial run to complete.
+    const waitForCompletions = async (count: number): Promise<void> => {
+      const start = Date.now();
+      while (
+        sink.broadcasts.filter((b) => b.message.type === "strategy_completed")
+          .length < count
+      ) {
+        if (Date.now() - start > 10000) {
+          throw new Error(`Timed out waiting for ${count} completions`);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    };
+
+    await waitForCompletions(1);
+    expect(state.getRun(runId)?.status).toBe("completed");
+
+    // Continue the same run with a new prompt.
+    executor.continueRun("client-1", runId, "second prompt");
+
+    await waitForCompletions(2);
+
+    // The same run id is reused and a fresh strategy_started was broadcast.
+    const restarted = sink.broadcasts.filter(
+      (b) => b.message.type === "strategy_started" && b.message.runId === runId,
+    );
+    expect(restarted.length).toBeGreaterThanOrEqual(2);
+
+    // The continuation's new prompt is persisted as the latest run_started input.
+    const events = await runStore.getEvents(runId);
+    const startEvents = events.filter((ev) => ev.type === "run_started");
+    const lastStart = startEvents[startEvents.length - 1];
+    expect(lastStart && lastStart.type === "run_started").toBe(true);
+    if (lastStart && lastStart.type === "run_started") {
+      expect(lastStart.initialInput).toBe("second prompt");
+    }
+  });
 });

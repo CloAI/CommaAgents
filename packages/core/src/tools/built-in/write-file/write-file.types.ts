@@ -1,4 +1,4 @@
-import type { AuditSink } from "../../io/audit";
+import type { AuditSink } from "../../io/audit.types";
 
 export interface WriteFileToolConfig {
   readonly defaultAuditSink?: AuditSink;

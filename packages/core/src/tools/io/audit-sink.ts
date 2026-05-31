@@ -7,7 +7,7 @@
 
 import { appendFile, mkdir, open, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { AuditEntry, AuditSink } from "./audit";
+import type { AuditEntry, AuditSink } from "./audit.types";
 
 /**
  * In-memory audit sink. Used for tests and as a fallback when no

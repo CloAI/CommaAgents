@@ -21,7 +21,7 @@ import { createSandbox } from "../../sandbox/sandbox";
 import { PERMISSIVE_SANDBOX_CONFIG } from "../../sandbox/sandbox.constants";
 import type { Sandbox } from "../../sandbox/sandbox.types";
 import type { SkillRegistry } from "../../skills/skills.types";
-import type { AuditSink } from "../../tools/io/audit";
+import type { AuditSink } from "../../tools/io/audit.types";
 import { createFileAuditSink } from "../../tools/io/audit-sink";
 import { sandboxErrorToToolError } from "../../tools/io/sandbox-error";
 import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";

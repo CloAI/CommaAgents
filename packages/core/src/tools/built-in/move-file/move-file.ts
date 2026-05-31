@@ -14,7 +14,7 @@ import {
   sha256OfBuffer,
   sha256OfFile,
 } from "../../io";
-import type { AuditEntry } from "../../io/audit";
+import type { AuditEntry } from "../../io/audit.types";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
@@ -136,18 +136,17 @@ export function createMoveFileTool(
 
 **Required:**
 
-- \`source\`: workspace-relative path of the existing file or directory.
-- \`destination\`: workspace-relative path of the new location. If \`destination\` already exists, you get \`already_exists\`. Delete it first (\`delete_file\`) or pick a different name.
+- \`fromPath\`: workspace-relative path of the existing file or directory.
+- \`toPath\`: workspace-relative path of the new location. If \`toPath\` already exists, you get \`already_exists\`. Delete it first (\`delete_file\`) or pick a different name.
 
 **Useful optional:**
 
 - \`expectedSha256\`: when set, must match the source file's current hash. Recommended after any \`read_file\` on the source — same staleness protection as \`edit_file\` / \`write_file\`.
-- \`createParentDirectories: true\`: create missing parent directories under \`destination\`. Useful when moving a file into a fresh folder.
 
 **Common uses:**
 
-- Rename: \`source: "src/oldName.ts", destination: "src/newName.ts"\`.
-- Move to a new folder: \`source: "src/foo.ts", destination: "src/components/foo.ts"\`.
+- Rename: \`fromPath: "src/oldName.ts", toPath: "src/newName.ts"\`.
+- Move to a new folder: \`fromPath: "src/foo.ts", toPath: "src/components/foo.ts"\`.
 - PascalCase folder rename: combine with \`list_directory\` to walk children, then several \`move_file\` calls (one per child).
 
 **Post-move verification (MANDATORY) — moves break imports silently:**
@@ -157,13 +156,6 @@ After every \`move_file\` call, **run the project's configured verifier with \`r
 - Imports in **other files** still reference the old path. The verifier is the only thing that flags every broken import in one shot.
 - The new file's own imports may need updating (relative paths shift when a file moves between directories).
 - If the moved file is a barrel re-export target, downstream barrels may need to update.
-
-**Use the project's actual verifier — not a generic default.**
-
-1. If the seed input contains a \`Verifier:\` section, use those commands verbatim.
-2. Otherwise inspect \`package.json\` scripts: a Biome project's \`bun run lint\` catches broken module references; an ESLint+TS project needs both \`bun run lint\` AND \`bun run typecheck\` (only the type-checker traces imports across files). For Cargo / Ruff / Go, the equivalent project-configured command.
-
-Do not run \`tsc --noEmit\` in a Biome-only project — Biome's linter does its own module-resolution checks if the project is configured for it; running a tool the project doesn't use produces noise.
 
 **Workflow after every move:**
 

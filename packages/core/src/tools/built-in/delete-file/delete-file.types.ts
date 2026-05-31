@@ -1,4 +1,4 @@
-import type { AuditSink } from "../../io/audit";
+import type { AuditSink } from "../../io/audit.types";
 
 /** Configuration for `delete_file`. */
 export interface DeleteFileToolConfig {

@@ -1,15 +1,3 @@
-// Audit entry types and helpers.
-//
-// Every destructive file-system operation (create_file, write_file,
-// edit_file, apply_patch, delete_file, move_file) appends one
-// `AuditEntry` to the active sink. The same log is replayed on session
-// load to build `SessionFileState` — the map of `path → most-recent
-// known sha256` the prompt-builder hands the LLM so it doesn't have to
-// re-`read_file` just to recover a hash.
-//
-// This module deliberately contains no I/O — see `audit-sink.ts` for
-// the in-memory and file-backed sinks.
-
 /**
  * The kind of destructive file operation an audit entry records.
  *

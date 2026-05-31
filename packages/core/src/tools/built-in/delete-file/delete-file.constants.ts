@@ -15,9 +15,11 @@ export const deleteFileParams = z.object({
       /^[0-9a-f]{64}$/,
       "expectedSha256 must be a 64-character lowercase hex string",
     )
+    .optional()
     .describe(
-      "SHA-256 of the file's current on-disk bytes, as returned by `read_file`. " +
-        "Required to detect concurrent edits — a mismatch yields `stale_file`.",
+      "Optional. SHA-256 of the file's current on-disk bytes, as returned by `read_file`. " +
+        "When present, a mismatch yields `stale_file` so concurrent edits are caught. " +
+        "When omitted, the file is deleted without staleness protection.",
     ),
   permanent: z
     .boolean()

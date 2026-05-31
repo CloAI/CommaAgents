@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSandbox } from "../../../sandbox/sandbox";
-import type { AuditSink } from "../../io/audit";
+import type { AuditSink } from "../../io/audit.types";
 import { createMemoryAuditSink } from "../../io/audit-sink";
 import { BOM } from "../../io/bom";
 import { sha256OfBuffer } from "../../io/hash";

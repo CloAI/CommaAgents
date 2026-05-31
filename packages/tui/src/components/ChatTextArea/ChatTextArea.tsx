@@ -32,6 +32,7 @@ export function ChatTextArea({
   width = "100%",
   height = 5,
   placeholder = "Enter your prompt...",
+  showStrategyRow = true,
 }: ChatTextAreaProps): React.ReactElement {
   const { isFocused } = useFocus({ id });
   const [inputValue, setInputValue] = useState("");
@@ -46,7 +47,7 @@ export function ChatTextArea({
   // useInput consumes character input there.
   useInput(
     (_input, key) => {
-      if (key.tab && strategies.length > 0) {
+      if (key.tab && showStrategyRow && strategies.length > 0) {
         setStrategyIndex((previous) => (previous + 1) % strategies.length);
       }
     },
@@ -73,6 +74,7 @@ export function ChatTextArea({
         width={width}
         height={height}
         placeholder="Loading..."
+        showStrategyRow={showStrategyRow}
         id={id}
       />
     );
@@ -92,6 +94,7 @@ export function ChatTextArea({
       width={width}
       height={height}
       placeholder={placeholder}
+      showStrategyRow={showStrategyRow}
       id={id}
     />
   );
@@ -113,6 +116,7 @@ export function ChatTextAreaRender({
   width,
   height,
   placeholder,
+  showStrategyRow,
   id,
 }: ChatTextAreaRenderProps): React.ReactElement {
   const theme = useChatTextAreaTheme();
@@ -128,18 +132,20 @@ export function ChatTextAreaRender({
         onSubmit={onSubmit}
         id={id}
       />
-      <Box {...theme.strategyRow}>
-        <Box maxWidth={42}>
-          <Text {...theme.strategyLabel}>
-            {strategyLabel}
-            <Text {...theme.hint} wrap="wrap">
-              {" "}
-              — {strategyDescription}
+      {showStrategyRow ? (
+        <Box {...theme.strategyRow}>
+          <Box maxWidth={42}>
+            <Text {...theme.strategyLabel}>
+              {strategyLabel}
+              <Text {...theme.hint} wrap="wrap">
+                {" "}
+                — {strategyDescription}
+              </Text>
             </Text>
-          </Text>
+          </Box>
+          <Text {...theme.hint}>Tab to change strategy · Enter to submit</Text>
         </Box>
-        <Text {...theme.hint}>Tab to change strategy · Enter to submit</Text>
-      </Box>
+      ) : null}
     </Box>
   );
 }

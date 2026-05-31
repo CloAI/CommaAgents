@@ -27,8 +27,12 @@ export interface TextAreaInputProps {
   readonly onChange: (value: string) => void;
   /** Width — columns (number) or CSS-like string (e.g. "100%"). */
   readonly width?: number | string;
-  /** Visible row count. */
+  /** Fixed visible row count. When set, disables auto-expanding. */
   readonly height?: number;
+  /** Minimum visible rows when auto-expanding (default: 3). */
+  readonly minHeight?: number;
+  /** Maximum visible rows when auto-expanding (default: 5). */
+  readonly maxHeight?: number;
   /** Placeholder shown when value is empty. */
   readonly placeholder?: string;
   /**
@@ -59,7 +63,9 @@ export function TextAreaInput({
   value,
   onChange,
   width = "100%",
-  height = 5,
+  height,
+  minHeight = 3,
+  maxHeight = 5,
   placeholder = "Type here...",
   id,
   onSubmit,
@@ -88,6 +94,9 @@ export function TextAreaInput({
     }).split("\n"),
   );
 
+  const effectiveHeight =
+    height ?? Math.max(minHeight, Math.min(textLines.length, maxHeight));
+
   // Re-derive cell + scroll offset from `cursorIndex` every render. Edits
   // and arrow keys both go through `computeNextCursorState`, so we never
   // store a cell that can drift away from the index.
@@ -97,7 +106,7 @@ export function TextAreaInput({
     rows: textLines,
     currentCursorIndex: cursorIndex,
     currentRowDisplayOffset: rowDisplayOffset,
-    viewportHeight: height,
+    viewportHeight: effectiveHeight,
     measureWidth: stringWidth,
   });
 
@@ -116,7 +125,7 @@ export function TextAreaInput({
       rows: textLines,
       currentCursorIndex: cursorIndex,
       currentRowDisplayOffset: rowDisplayOffset,
-      viewportHeight: height,
+      viewportHeight: effectiveHeight,
       measureWidth: stringWidth,
     });
     setCursorIndex(nextState.cursorIndex);
@@ -175,13 +184,13 @@ export function TextAreaInput({
     <TextAreaInputRender
       boxRef={boxRef}
       width={width}
-      height={height}
+      height={effectiveHeight}
       rows={textLines}
       rowDisplayOffset={derivedState.rowDisplayOffset}
       cursorCell={derivedState.cell}
       showCursor={isFocused}
       textAreaColumns={textAreaColumns}
-      showScrollbar={textLines.length > height}
+      showScrollbar={textLines.length > effectiveHeight}
       showPlaceholder={value.length === 0}
       placeholder={placeholder}
     />

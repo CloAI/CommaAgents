@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ContinueRunMessage } from "./requests/continue-run/index";
 import { GetAvailableModelsMessage } from "./requests/get-available-models/get-available-models.schema";
 import { GetRunMessage } from "./requests/get-run/index";
 import { ListProvidersMessage } from "./requests/list-providers/list-providers.schema";
@@ -11,6 +12,7 @@ import { RegisterProviderMessage } from "./requests/register-provider/register-p
 import { ResumeRunMessage } from "./requests/resume-run/index";
 import { SetCredentialMessage } from "./requests/set-credential/set-credential.schema";
 import { StartStrategyMessage } from "./requests/start-strategy/start-strategy.schema";
+import { SteerRunMessage } from "./requests/steer-run/steer-run.schema";
 import { StopStrategyMessage } from "./requests/stop-strategy/stop-strategy.schema";
 import { SubscribeMessage } from "./requests/subscribe/subscribe.schema";
 import { TrashClearMessage } from "./requests/trash-clear/trash-clear.schema";
@@ -37,6 +39,7 @@ import {
   RequestQuestionMessage,
   RunListMessage,
   RunLoadedMessage,
+  SteerQueuedMessage,
   StepCompletedMessage,
   StepStartedMessage,
   StrategyCompletedMessage,
@@ -55,6 +58,8 @@ export const ClientMessage = z.discriminatedUnion("type", [
   PermissionDecisionMessage,
   QuestionResponseMessage,
   UpdatePolicyMessage,
+  SteerRunMessage,
+  ContinueRunMessage,
   ListStrategiesMessage,
   GetAvailableModelsMessage,
   ListProvidersMessage,
@@ -82,6 +87,7 @@ export const DaemonMessage = z.discriminatedUnion("type", [
   AgentStreamingMessage,
   StepStartedMessage,
   StepCompletedMessage,
+  SteerQueuedMessage,
   RequestInputMessage,
   RequestPermissionMessage,
   RequestQuestionMessage,

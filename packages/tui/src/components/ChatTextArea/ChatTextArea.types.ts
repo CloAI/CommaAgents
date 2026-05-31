@@ -17,6 +17,12 @@ export interface ChatTextAreaProps {
   readonly height?: number;
   /** Placeholder shown when the text area is empty. */
   readonly placeholder?: string;
+  /**
+   * Whether to show the strategy row (label + "Tab to change strategy" hint).
+   * Hide it when the strategy is fixed (e.g. steering or replying mid-run).
+   * @default true
+   */
+  readonly showStrategyRow?: boolean;
 }
 
 /** Props for the ChatTextArea render function. */
@@ -37,6 +43,8 @@ export interface ChatTextAreaRenderProps {
   readonly height: number;
   /** Placeholder text. */
   readonly placeholder: string;
+  /** Whether to show the strategy row. */
+  readonly showStrategyRow: boolean;
   /**
    * Focus ID forwarded from `ChatTextAreaProps`. Passed through to `TextAreaInput`
    * so both the container's `useInput` (tab/ctrl+s) and the leaf's `useInput`

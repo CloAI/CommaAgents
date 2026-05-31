@@ -16,7 +16,7 @@ import {
   sha256OfBuffer,
   unifiedDiff,
 } from "../../io";
-import type { AuditEntry, AuditSink } from "../../io/audit";
+import type { AuditEntry, AuditSink } from "../../io/audit.types";
 import { okResult, toolError } from "../../result";
 import type { ToolResult } from "../../tool.types";
 import {

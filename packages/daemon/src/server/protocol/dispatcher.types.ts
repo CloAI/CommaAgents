@@ -40,6 +40,8 @@ export interface RequestResponseMap {
   readonly permission_decision: never;
   readonly question_response: never;
   readonly update_policy: never;
+  readonly steer_run: never;
+  readonly continue_run: never;
   readonly list_strategies: StrategyListMessage;
   readonly get_available_models: AvailableModelsMessage;
   readonly list_providers: ProviderListMessage;

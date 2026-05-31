@@ -15,6 +15,7 @@ describe("ChatTextAreaRender", () => {
         width={60}
         height={3}
         placeholder="Enter your prompt..."
+        showStrategyRow={true}
       />,
     );
 
@@ -34,6 +35,7 @@ describe("ChatTextAreaRender", () => {
         width={60}
         height={3}
         placeholder="Enter your prompt..."
+        showStrategyRow={true}
       />,
     );
 
@@ -52,10 +54,30 @@ describe("ChatTextAreaRender", () => {
         width={60}
         height={3}
         placeholder="Type something..."
+        showStrategyRow={true}
       />,
     );
 
     expect(lastFrame()).toContain("Type something...");
+  });
+
+  it("should hide the strategy row when showStrategyRow is false", () => {
+    const { lastFrame } = render(
+      <ChatTextAreaRender
+        inputValue=""
+        onInputChange={mock()}
+        onSubmit={mock()}
+        strategyLabel="Plan"
+        strategyDescription="Break a goal into steps"
+        width={60}
+        height={3}
+        placeholder="Steer the agents..."
+        showStrategyRow={false}
+      />,
+    );
+
+    expect(lastFrame()).not.toContain("Tab to change strategy");
+    expect(lastFrame()).not.toContain("Break a goal into");
   });
 
   it("should match snapshot for default state", () => {
@@ -69,6 +91,7 @@ describe("ChatTextAreaRender", () => {
         width={60}
         height={3}
         placeholder="Enter your prompt..."
+        showStrategyRow={true}
       />,
     );
 

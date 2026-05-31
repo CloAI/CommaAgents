@@ -5,18 +5,20 @@ import { defineTool } from "../../define/define-tool";
 import {
   applyBom,
   applyNewline,
+  buildAuditBase,
   createMemoryAuditSink,
   detectNewline,
   hasBom,
-  STALE_FILE_RECOVERY_HINT,
+  logAuditFailure,
+  logAuditSuccess,
   sandboxErrorToToolError,
   sha256OfBuffer,
+  STALE_FILE_RECOVERY_HINT,
   stripBom,
   toLF,
   unifiedDiff,
   writeAtomic,
 } from "../../io";
-import type { AuditEntry } from "../../io/audit";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
@@ -142,25 +144,13 @@ export function createWriteFileTool(
 
 After every successful \`write_file\` call, **run the project's configured verifier on the file (and the rest of the project) using \`run_command\`**. Rewriting an entire file is the highest-risk mutation — it can silently break imports the rest of the codebase relies on.
 
-**Use the project's actual verifier — not a generic default.**
-
-1. If the seed input you received contains a \`Verifier:\` section, use those commands **verbatim**.
-2. Otherwise inspect \`package.json\` scripts and config files once on iteration 1:
-   - **Biome project** (\`biome.json\` / \`biome.jsonc\`): \`bun run lint\` (typically \`biome check\`). Do NOT also run \`tsc --noEmit\` unless the project's scripts list it separately.
-   - **ESLint + TS**: \`bun run lint\` and \`bun run typecheck\`.
-   - **Ruff / Cargo / etc.**: use the project's chosen tool.
-   - **Single \`check\` / \`verify\` script**: prefer those.
-
-**Never** run a verifier that isn't configured for this project — the noise tempts you to "fix" things the project intentionally doesn't enforce.
-
 **If anything surfaces, fix it before reporting.** Do not assume the rewrite is clean just because the new content compiled in your head.
 
 **Never** call \`write_file\` without first reading the file. **Never** use it on a new path — that's \`create_file\`'s job (it fails with \`not_found\` here). **Never** end your turn with unaddressed verifier failures caused by your write.`,
     parameters: writeFileParams,
     execute: async (validatedArguments, toolContext) => {
-      const { guard, abort, agentName, sessionId } = toolContext;
-      const sink =
-        toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
+      const { guard, abort, agentName } = toolContext;
+      const sink = toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
 
       if (toolContext.abort.aborted) {
         return errorResult<WriteFileData>(
@@ -256,27 +246,17 @@ After every successful \`write_file\` call, **run the project's configured verif
         path: validatedArguments.path,
       });
 
-      const auditBase: Omit<AuditEntry, "success"> = {
-        timestamp: new Date().toISOString(),
-        ...(sessionId !== undefined ? { sessionId } : {}),
-        agentName,
-        toolName: "write_file",
-        operation: "update",
-        path: validatedArguments.path,
+      const auditBase = buildAuditBase(toolContext, "write_file", "update", validatedArguments.path, {
         beforeSha256,
         afterSha256,
         diff,
-      };
+      });
 
       try {
         await writeAtomic(absolutePath, finalBytes);
       } catch (writeError) {
         const message = (writeError as Error).message;
-        try {
-          await sink.append({ ...auditBase, success: false, error: message });
-        } catch {
-          /* ignore */
-        }
+        await logAuditFailure(sink, auditBase, message);
         return errorResult<WriteFileData>(
           toolError(
             "command_failed",
@@ -289,11 +269,7 @@ After every successful \`write_file\` call, **run the project's configured verif
         );
       }
 
-      try {
-        await sink.append({ ...auditBase, success: true });
-      } catch {
-        /* audit failures are non-fatal */
-      }
+      await logAuditSuccess(sink, auditBase);
 
       const data: WriteFileData = {
         path: validatedArguments.path,

@@ -231,6 +231,21 @@ export interface ChatRunsContextType {
   ) => ChatRunId;
   /** Send user input for a specific run. No-op if no daemon run or no pending input. */
   readonly sendInput: (chatRunId: ChatRunId, text: string) => void;
+  /**
+   * Queue a steering message for a running run. No-op unless the run is
+   * live and running/pending. The daemon merges the text into the next
+   * agent turn.
+   */
+  readonly sendSteer: (chatRunId: ChatRunId, text: string) => void;
+  /**
+   * Continue a finished run with a new prompt, optionally switching to a
+   * different strategy. No-op without a bound daemon run.
+   */
+  readonly continueChatRun: (
+    chatRunId: ChatRunId,
+    input: string,
+    strategyPath?: string,
+  ) => void;
   /** Resolve the head permission request for a specific run. */
   readonly sendPermissionDecision: (
     chatRunId: ChatRunId,
@@ -304,6 +319,16 @@ export interface UseChatState {
   readonly resumeRun: (runId: string) => void;
   /** Send user input to the bound run. No-op if no run or no pending input. */
   readonly sendInput: (text: string) => void;
+  /**
+   * Queue a steering message for the bound run. No-op unless the run is
+   * live and running/pending.
+   */
+  readonly sendSteer: (text: string) => void;
+  /**
+   * Continue the bound run with a new prompt, optionally switching strategy.
+   * No-op if no bound daemon run.
+   */
+  readonly continueRun: (input: string, strategyPath?: string) => void;
   /** Resolve the pending permission request for the bound run. */
   readonly sendPermissionDecision: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",

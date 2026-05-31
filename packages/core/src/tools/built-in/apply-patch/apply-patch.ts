@@ -19,7 +19,7 @@ import {
   sha256OfBuffer,
   unifiedDiff,
 } from "../../io";
-import type { AuditEntry, AuditSink } from "../../io/audit";
+import type { AuditEntry, AuditSink } from "../../io/audit.types";
 import type { TrashMetadata } from "../../io/trash";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";

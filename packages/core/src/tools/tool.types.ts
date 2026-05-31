@@ -3,7 +3,7 @@ import type { InputCollector } from "../agents/built-in/user/user-agent.types";
 import type { Guard, Policy } from "../guard/guard.types";
 import type { LanguageService } from "../language";
 import type { SkillRegistry } from "../skills/skills.types";
-import type { AuditSink } from "./io/audit";
+import type { AuditSink } from "./io/audit.types";
 import type { LaunchStrategyHandle } from "./launch-strategy.types";
 
 /**

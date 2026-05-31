@@ -116,6 +116,8 @@ export function ChatRunsContextProvider(
   const startStrategyCommand = useDaemonCommand("start_strategy");
   const sendUserInputCommand = useDaemonCommand("user_input");
   const stopStrategyCommand = useDaemonCommand("stop_strategy");
+  const steerRunCommand = useDaemonCommand("steer_run");
+  const continueRunCommand = useDaemonCommand("continue_run");
   const permissionDecisionCommand = useDaemonCommand("permission_decision");
   const questionResponseCommand = useDaemonCommand("question_response");
   const listRunsCommand = useDaemonCommand("list_runs");
@@ -772,6 +774,36 @@ export function ChatRunsContextProvider(
     });
   });
 
+  useDaemonSubscription("steer_queued", (message) => {
+    setChatRuns((previousChatRuns) => {
+      const chatRunId = findChatRunIdByDaemonRunId(
+        previousChatRuns,
+        message.runId,
+      );
+      if (!chatRunId) return previousChatRuns;
+      const chatRun = previousChatRuns.get(chatRunId)!;
+      const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
+      messageCountersRef.current.set(chatRunId, counter);
+      const parentToolCallId = getActiveLaunchStrategyId(chatRun);
+      const steerMessage: ChatMessage = {
+        id: `${chatRunId}-msg-${counter}`,
+        role: "user",
+        sender: "you",
+        text: message.text,
+        streaming: false,
+        ...(parentToolCallId !== undefined ? { parentToolCallId } : {}),
+        timestamp: Date.now(),
+      };
+      const next = new Map(previousChatRuns);
+      next.set(chatRunId, {
+        ...chatRun,
+        messages: [...chatRun.messages, steerMessage],
+        updatedAt: Date.now(),
+      });
+      return next;
+    });
+  });
+
   useDaemonSubscription("strategy_completed", (message) => {
     setChatRuns((previousChatRuns) => {
       const chatRunId = findChatRunIdByDaemonRunId(
@@ -1123,6 +1155,65 @@ export function ChatRunsContextProvider(
     [sendUserInputCommand],
   );
 
+  const sendSteer = useCallback(
+    (chatRunId: ChatRunId, text: string): void => {
+      const chatRun = chatRuns.get(chatRunId);
+      if (!chatRun || !chatRun.daemonRunId) return;
+      if (chatRun.status !== "running" && chatRun.status !== "pending") return;
+      // The daemon echoes the queued text back via `steer_queued`, which
+      // appends the user message — so we don't optimistically add it here.
+      steerRunCommand({ runId: chatRun.daemonRunId, text });
+    },
+    [chatRuns, steerRunCommand],
+  );
+
+  const continueChatRun = useCallback(
+    (chatRunId: ChatRunId, input: string, strategyPath?: string): void => {
+      setChatRuns((previousChatRuns) => {
+        const chatRun = previousChatRuns.get(chatRunId);
+        if (!chatRun || !chatRun.daemonRunId) return previousChatRuns;
+
+        const sent = continueRunCommand({
+          runId: chatRun.daemonRunId,
+          input,
+          ...(strategyPath !== undefined ? { strategyPath } : {}),
+        });
+
+        const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
+        messageCountersRef.current.set(chatRunId, counter);
+        const userMessage: ChatMessage = {
+          id: `${chatRunId}-msg-${counter}`,
+          role: "user",
+          sender: "you",
+          text: input,
+          streaming: false,
+          timestamp: Date.now(),
+        };
+
+        const next = new Map(previousChatRuns);
+        next.set(chatRunId, {
+          ...chatRun,
+          status: sent ? "pending" : "error",
+          error: sent ? null : DAEMON_UNREACHABLE_ERROR,
+          messages: [...chatRun.messages, userMessage],
+          pendingInputAgent: null,
+          pendingPermissionRequests: [],
+          pendingQuestionRequests: [],
+          ...(strategyPath !== undefined
+            ? {
+                strategyPath,
+                label: deriveLabelFromPath(strategyPath),
+                strategyName: null,
+              }
+            : {}),
+          updatedAt: Date.now(),
+        });
+        return next;
+      });
+    },
+    [continueRunCommand],
+  );
+
   const sendPermissionDecision = useCallback(
     (
       chatRunId: ChatRunId,
@@ -1250,6 +1341,8 @@ export function ChatRunsContextProvider(
       createChatRun,
       startStrategy,
       sendInput,
+      sendSteer,
+      continueChatRun,
       sendPermissionDecision,
       sendQuestionResponse,
       stopChatRun,
@@ -1267,6 +1360,8 @@ export function ChatRunsContextProvider(
       createChatRun,
       startStrategy,
       sendInput,
+      sendSteer,
+      continueChatRun,
       sendPermissionDecision,
       sendQuestionResponse,
       stopChatRun,

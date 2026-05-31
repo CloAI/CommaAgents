@@ -54,6 +54,8 @@ All daemon-to-client messages include a `ts` field (ISO-8601 timestamp) and an o
 | [`subscribe`](/docs/daemon/protocol/list-and-subscribe) | `error` (only on failure) | Silent success |
 | [`unsubscribe`](/docs/daemon/protocol/list-and-subscribe) | _(none)_ | Silent |
 | [`user_input`](/docs/daemon/protocol/user-input) | `error` (only if no pending request) | Silent success |
+| [`steer_run`](/docs/daemon/protocol/steering) | `steer_queued` (or `error` if not steerable) | Fire-and-forget + async event |
+| [`continue_run`](/docs/daemon/protocol/steering) | `strategy_started`, `strategy_completed`, `strategy_error` | Fire-and-forget + async events |
 
 During strategy execution, subscribers receive [observation events](/docs/daemon/protocol/strategy-observation): `step_started`, `step_completed`, `agent_output`, `agent_streaming`, and `request_input`.
 
@@ -81,3 +83,4 @@ The daemon sends an `error` message for protocol-level failures. Every error inc
 | `SUBSCRIBE_ERROR` | `subscribe` failed (run not found or client not registered) |
 | `EXECUTION_ERROR` | Strategy file not found, parse error, or model resolution failure |
 | `CANCELLED` | Run was explicitly stopped via `stop_strategy` |
+| `RUN_NOT_STEERABLE` | `steer_run` sent for a run that is not found or has already finished |

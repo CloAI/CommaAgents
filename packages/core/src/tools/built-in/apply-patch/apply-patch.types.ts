@@ -1,4 +1,4 @@
-import type { AuditSink } from "../../io/audit";
+import type { AuditSink } from "../../io/audit.types";
 
 /** Configuration for `apply_patch`. */
 export interface ApplyPatchToolConfig {

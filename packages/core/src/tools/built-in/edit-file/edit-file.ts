@@ -5,19 +5,21 @@ import { defineTool } from "../../define/define-tool";
 import {
   applyBom,
   applyNewline,
+  buildAuditBase,
   createMemoryAuditSink,
   detectNewline,
   hasBom,
   isLikelyBinary,
-  STALE_FILE_RECOVERY_HINT,
+  logAuditFailure,
+  logAuditSuccess,
   sandboxErrorToToolError,
   sha256OfBuffer,
+  STALE_FILE_RECOVERY_HINT,
   stripBom,
   toLF,
   unifiedDiff,
   writeAtomic,
 } from "../../io";
-import type { AuditEntry } from "../../io/audit";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
@@ -216,28 +218,13 @@ After every successful \`edit_file\` call, **run the project's configured verifi
 - **Unused imports** left over from the edit.
 - **Type errors** introduced by changed signatures or refactored shapes.
 
-**Use the project's actual verifier — not a generic default.** Running the wrong tool produces irrelevant noise and tempts you to "fix" things the project intentionally doesn't enforce. On iteration 1, read \`package.json\`'s \`scripts\` block (or \`Cargo.toml\` / \`pyproject.toml\` / \`go.mod\`) **once** to identify the actual commands. Cache them — every subsequent edit reuses the same list.
-
-**Discovery rules:**
-
-1. If the seed input you received contains a \`Verifier:\` section (the Manager resolves this and passes it down), use those commands **verbatim**. Do not second-guess.
-2. Otherwise inspect the project:
-   - **Biome project** (\`biome.json\` or \`biome.jsonc\` present): the canonical command is \`bun run lint\` / \`npm run lint\` — typically wired to \`biome check\` or \`biome ci\`. **Do not also run \`tsc --noEmit\`** unless the project's scripts list it as a separate step; Biome covers lint + format together and the project chose not to run \`tsc\` if it isn't in \`scripts\`.
-   - **ESLint + TypeScript project** (\`eslint*\` config + \`tsconfig.json\`): run both \`bun run lint\` (or \`npm run lint\`) and \`bun run typecheck\` (or \`tsc --noEmit\` if no script exists).
-   - **Ruff (Python)**: \`ruff check <path>\`.
-   - **Cargo**: \`cargo check\` and \`cargo clippy\`.
-   - **Single-script projects**: prefer \`bun run check\` / \`bun run verify\` / \`bun run validate\` when present — these are the project's chosen "is this OK?" gate.
-
-**Never** run \`tsc --noEmit\` in a Biome-only project. **Never** run \`eslint .\` in a Biome project. **Never** run a verifier that isn't configured in \`package.json\` scripts or a config file — you'll get noise the project doesn't care about.
-
 **If the verifier reports anything — even one warning — fix it with another \`edit_file\` call before reporting.** Do not assume an edit is good just because it looked right; the project's verifier is the only ground truth.
 
 **Never** call \`edit_file\` without first reading the file. **Never** pass an empty \`edits\` array. **Never** end your turn with unaddressed verifier failures caused by your edits.`,
     parameters: editFileParams,
     execute: async (validatedArguments, toolContext) => {
-      const { guard, abort, agentName, sessionId } = toolContext;
-      const sink =
-        toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
+      const { guard, abort, agentName } = toolContext;
+      const sink = toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
 
       if (toolContext.abort.aborted) {
         return errorResult<EditFileData>(
@@ -397,27 +384,17 @@ After every successful \`edit_file\` call, **run the project's configured verifi
         path: validatedArguments.path,
       });
 
-      const auditBase: Omit<AuditEntry, "success"> = {
-        timestamp: new Date().toISOString(),
-        ...(sessionId !== undefined ? { sessionId } : {}),
-        agentName,
-        toolName: "edit_file",
-        operation: "update",
-        path: validatedArguments.path,
+      const auditBase = buildAuditBase(toolContext, "edit_file", "update", validatedArguments.path, {
         beforeSha256,
         afterSha256,
         diff,
-      };
+      });
 
       try {
         await writeAtomic(absolutePath, finalBytes);
       } catch (writeError) {
         const message = (writeError as Error).message;
-        try {
-          await sink.append({ ...auditBase, success: false, error: message });
-        } catch {
-          /* ignore */
-        }
+        await logAuditFailure(sink, auditBase, message);
         return errorResult<EditFileData>(
           toolError(
             "command_failed",
@@ -430,11 +407,7 @@ After every successful \`edit_file\` call, **run the project's configured verifi
         );
       }
 
-      try {
-        await sink.append({ ...auditBase, success: true });
-      } catch {
-        /* audit failures are non-fatal */
-      }
+      await logAuditSuccess(sink, auditBase);
 
       const data: EditFileData = {
         path: validatedArguments.path,

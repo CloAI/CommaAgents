@@ -98,7 +98,6 @@ export function createRunCommandTool(
 
 - \`cwd\`: workspace-relative directory to run the command in (e.g. \`"packages/tui"\`). Defaults to the workspace root.
 - \`timeoutMs\`: maximum runtime in milliseconds. Long-running commands are killed past this. Default is generous but finite.
-- \`stdin\`: feed input on stdin (rare).
 
 **The cwd rule — read this carefully:**
 

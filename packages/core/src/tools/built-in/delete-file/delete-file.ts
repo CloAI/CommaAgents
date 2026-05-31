@@ -2,14 +2,16 @@ import { readFile, stat, unlink } from "node:fs/promises";
 import { SandboxViolationError } from "../../../errors";
 import { defineTool } from "../../define/define-tool";
 import {
+  buildAuditBase,
   createMemoryAuditSink,
+  logAuditFailure,
+  logAuditSuccess,
   moveToTrash,
-  STALE_FILE_RECOVERY_HINT,
   sandboxErrorToToolError,
   sha256OfBuffer,
+  STALE_FILE_RECOVERY_HINT,
   unifiedDiff,
 } from "../../io";
-import type { AuditEntry } from "../../io/audit";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
@@ -37,9 +39,9 @@ export function createDeleteFileTool(
         {
           name: "expectedSha256",
           type: "string",
-          required: true,
+          required: false,
           description:
-            "sha256 of the file as last read. Mismatch returns `stale_file`.",
+            "Optional. sha256 of the file as last read. When present, a mismatch returns `stale_file`. When omitted, the file is deleted without staleness protection.",
         },
         {
           name: "permanent",
@@ -98,14 +100,11 @@ Before deleting, \`search_files\` for references to the file you're about to del
 
 After every successful \`delete_file\` call, **run the project's configured verifier with \`run_command\`** to confirm no surviving file still imports the deleted one. If the verifier reports broken imports, either fix the importers (\`edit_file\` to remove the references) or \`restore_file\` to undo the delete.
 
-**Use the project's actual verifier** (from the seed's \`Verifier:\` section, or discovered from \`package.json\` scripts on iteration 1). For TypeScript projects this is typically \`bun run lint\` (Biome) or \`bun run typecheck\` (ESLint+TS setup) — the type-checker is what catches broken module references. Do not run a verifier the project doesn't configure.
-
 **Never** end your turn with broken imports caused by a delete.`,
     parameters: deleteFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;
-      const sink =
-        toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
+      const sink = toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
 
       if (abort.aborted) {
         return errorResult<DeleteFileData>(
@@ -159,7 +158,10 @@ After every successful \`delete_file\` call, **run the project's configured veri
 
       const beforeBytes = await readFile(absolutePath);
       const beforeSha256 = sha256OfBuffer(beforeBytes);
-      if (beforeSha256 !== validatedArguments.expectedSha256) {
+      if (
+        validatedArguments.expectedSha256 !== undefined &&
+        beforeSha256 !== validatedArguments.expectedSha256
+      ) {
         return errorResult<DeleteFileData>(
           toolError(
             "stale_file",
@@ -202,22 +204,12 @@ After every successful \`delete_file\` call, **run the project's configured veri
         }
       } catch (caughtError) {
         const message = (caughtError as Error).message;
-        const failureBase: Omit<AuditEntry, "success"> = {
-          timestamp: new Date().toISOString(),
-          ...(sessionId !== undefined ? { sessionId } : {}),
-          agentName,
-          toolName: "delete_file",
-          operation: "delete",
-          path: validatedArguments.path,
+        const failureBase = buildAuditBase(toolContext, "delete_file", "delete", validatedArguments.path, {
           beforeSha256,
           diff,
           details: { permanent },
-        };
-        try {
-          await sink.append({ ...failureBase, success: false, error: message });
-        } catch {
-          /* ignore */
-        }
+        });
+        await logAuditFailure(sink, failureBase, message);
         return errorResult<DeleteFileData>(
           toolError(
             "command_failed",
@@ -230,26 +222,15 @@ After every successful \`delete_file\` call, **run the project's configured veri
         );
       }
 
-      const auditEntry: AuditEntry = {
-        timestamp: new Date().toISOString(),
-        ...(sessionId !== undefined ? { sessionId } : {}),
-        agentName,
-        toolName: "delete_file",
-        operation: "delete",
-        path: validatedArguments.path,
+      const successBase = buildAuditBase(toolContext, "delete_file", "delete", validatedArguments.path, {
         beforeSha256,
         diff,
-        success: true,
         details: {
           permanent,
           ...(trashedTo !== undefined ? { trashedTo } : {}),
         },
-      };
-      try {
-        await sink.append(auditEntry);
-      } catch {
-        /* audit failures are non-fatal */
-      }
+      });
+      await logAuditSuccess(sink, successBase);
 
       const data: DeleteFileData = {
         deleted: true,

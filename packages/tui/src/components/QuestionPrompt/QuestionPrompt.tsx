@@ -51,7 +51,7 @@ export function QuestionPrompt({
         </Text>
       </Box>
 
-      <Box height={5}>
+      <Box>
         <TextAreaInput
           id={QUESTION_INPUT_ID}
           value={inputValue}

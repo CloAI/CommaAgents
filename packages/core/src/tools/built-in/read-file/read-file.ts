@@ -145,6 +145,15 @@ export function createReadFileTool(
 
 \`read_file\` is the **starting point of every file modification**. Always read before you write or edit.
 
+**Reading specific sections of large files:**
+
+For large files, use \`startLine\` and \`endLine\` (1-indexed, inclusive) to read only the section you need instead of the entire file. This is more efficient and keeps your context focused. For example:
+- Read lines 10-50: \`{ path: "src/file.ts", startLine: 10, endLine: 50 }\`
+- Read from line 100 to end: \`{ path: "src/file.ts", startLine: 100 }\`
+- Read first 20 lines: \`{ path: "src/file.ts", endLine: 20 }\`
+
+The \`sha256\` is **always** the hash of the full file, never the slice — so chaining writes still works.
+
 **The sha256 chain:**
 
 Every \`read_file\` response includes a \`sha256\` field — a 64-char lowercase hex hash of the file's current bytes. **Save it.** You will pass it as \`expectedSha256\` to your next \`edit_file\` / \`write_file\` / \`move_file\` / \`delete_file\` call on the same file. This is how the tools detect concurrent edits and refuse stale writes.
@@ -157,7 +166,7 @@ If a subsequent edit/write returns \`stale_file\`, the file changed under you �
 
 **Useful optional arguments:**
 
-- \`startLine\` / \`endLine\` (1-indexed, inclusive): read only a slice of a large file. The \`sha256\` is **always** the hash of the full file, never the slice — so chaining writes still works.
+- \`startLine\` / \`endLine\`: read only a slice of a large file (see examples above).
 - \`allowBinary: true\`: return binary content as base64 instead of \`binary_file\` error. Rarely needed for source-code work.
 
 **Never** edit, write, move, or delete a file without first reading it to obtain a fresh \`sha256\`.`,

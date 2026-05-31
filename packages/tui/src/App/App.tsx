@@ -149,6 +149,30 @@ export function App({
     [chat],
   );
 
+  const handleSteerSubmit = useCallback(
+    (submittedText: string): void => {
+      chat.sendSteer(submittedText);
+    },
+    [chat],
+  );
+
+  const handleContinueSubmit = useCallback(
+    (strategyPath: string, submittedText: string): void => {
+      // When the strategy changed, switch the active option (and tell the
+      // daemon to continue under the new strategy). Otherwise continue with
+      // the same strategy this run already uses.
+      const switching = strategyPath !== effectiveActiveStrategy?.value;
+      if (switching) {
+        const option = resolveStrategyOption(strategyPath, strategies);
+        if (option) setActiveStrategy(option);
+        chat.continueRun(submittedText, strategyPath);
+      } else {
+        chat.continueRun(submittedText);
+      }
+    },
+    [chat, effectiveActiveStrategy, strategies],
+  );
+
   const handlePermissionDecide = useCallback(
     (
       decisionValue: "allow" | "deny" | "allow-session" | "deny-session",
@@ -227,8 +251,11 @@ export function App({
       chatPendingInputAgent={chat.pendingInputAgent}
       chatPendingPermissionRequest={chat.pendingPermissionRequest}
       chatPendingQuestionRequest={chat.pendingQuestionRequest}
+      chatReadOnly={chat.readOnly}
       onStartChat={handleStartChat}
       onReplySubmit={handleReplySubmit}
+      onSteerSubmit={handleSteerSubmit}
+      onContinueSubmit={handleContinueSubmit}
       onPermissionDecide={handlePermissionDecide}
       onQuestionSubmit={chat.sendQuestionResponse}
       logs={logs}
@@ -263,10 +290,16 @@ export interface AppRenderProps {
   readonly chatPendingPermissionRequest: PendingPermissionRequest | null;
   /** Pending question request, or null. */
   readonly chatPendingQuestionRequest: PendingQuestionRequest | null;
+  /** Whether the active chat run is a read-only replay. */
+  readonly chatReadOnly: boolean;
   /** Called when the user submits their first prompt on the intro screen. */
   readonly onStartChat: (strategyKey: string, input: string) => void;
   /** Called when the user replies to an agent on the chat screen. */
   readonly onReplySubmit: (text: string) => void;
+  /** Called when the user steers a running strategy mid-run. */
+  readonly onSteerSubmit: (text: string) => void;
+  /** Called when the user continues a finished run with a new prompt. */
+  readonly onContinueSubmit: (strategyPath: string, text: string) => void;
   /** Called when the user resolves a permission request. */
   readonly onPermissionDecide: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
@@ -300,8 +333,11 @@ export function AppRender({
   chatPendingInputAgent,
   chatPendingPermissionRequest,
   chatPendingQuestionRequest,
+  chatReadOnly,
   onStartChat,
   onReplySubmit,
+  onSteerSubmit,
+  onContinueSubmit,
   onPermissionDecide,
   onQuestionSubmit,
   logs,
@@ -332,10 +368,14 @@ export function AppRender({
                   pendingInputAgent={chatPendingInputAgent}
                   pendingPermissionRequest={chatPendingPermissionRequest}
                   pendingQuestionRequest={chatPendingQuestionRequest}
+                  readOnly={chatReadOnly}
                   onReplySubmit={onReplySubmit}
+                  onSteerSubmit={onSteerSubmit}
+                  onContinueSubmit={onContinueSubmit}
                   onPermissionDecide={onPermissionDecide}
                   onQuestionSubmit={onQuestionSubmit}
                   activeStrategy={activeStrategy}
+                  strategies={strategies}
                 />
               ) : (
                 <IntroPage strategies={strategies} onSubmit={onStartChat} />

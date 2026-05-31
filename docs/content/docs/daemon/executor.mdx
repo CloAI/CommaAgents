@@ -1,23 +1,189 @@
 ---
 title: Executor
-description: Strategy executor, auth bridge, and input bridge types.
+description: Strategy executor and systems architecture for managing agent execution lifecycle.
 ---
 
 # Executor
 
-The executor module runs strategy-defined agent graphs, bridging authentication and user input between the daemon and the core framework.
+The executor module orchestrates strategy execution through a modular systems architecture. Each system handles a specific concern (input collection, permissions, streaming, persistence, etc.) and communicates through shared data stores and action registries.
+
+## Architecture Overview
+
+The executor uses a **systems-based architecture** where each system is responsible for a single concern:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    StrategyExecutor                          │
+│                                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ InputSystem  │  │PermissionSys │  │QuestionSystem│     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│                                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │SteeringSystem│  │StreamingSys  │  │PersistenceSys│     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│                                                             │
+│  ┌──────────────┐  ┌──────────────┐                        │
+│  │ SandboxSystem│  │SubLaunchSys  │                        │
+│  └──────────────┘  └──────────────┘                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Systems communicate through:
+- **SystemDataStore**: Shared state across systems (bridges, collectors, etc.)
+- **RunActionRegistry**: Message routing between daemon and systems
+- **Lifecycle Hooks**: `onRunStart`, `onStrategyLoaded`, `onBeforeExecute`, `onRunComplete`, `onRunError`, `onRunCleanup`
 
 ## StrategyExecutor
 
-The executor interface for running loaded strategies.
+The main executor interface for running strategies.
 
 <AutoTypeTable path="../packages/daemon/src/executor/executor.ts" name="StrategyExecutor" />
 
 ## CreateStrategyExecutorOptions
 
-Options for `createStrategyExecutor`.
+Options for creating a strategy executor.
 
 <AutoTypeTable path="../packages/daemon/src/executor/executor.ts" name="CreateStrategyExecutorOptions" />
+
+## Systems
+
+### InputSystem
+
+Manages user input collection through the InputBridge.
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/input/input.ts" name="InputSystem" />
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/input/input.ts" name="InputSystemOptions" />
+
+**Responsibilities:**
+- Creates and manages InputBridge lifecycle
+- Stores `inputCollector` in systemData for strategy loading
+- Registers `resolveInput` action for handling user responses
+
+### PermissionSystem
+
+Manages permission requests through the PermissionBridge.
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/permission/permission.ts" name="PermissionSystem" />
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/permission/permission.ts" name="PermissionSystemOptions" />
+
+**Responsibilities:**
+- Creates and manages PermissionBridge lifecycle
+- Stores `permissionBridge` in systemData for sandbox callbacks
+- Registers `resolvePermission` action for handling user decisions
+
+### QuestionSystem
+
+Manages question requests through the QuestionBridge.
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/question/question.ts" name="QuestionSystem" />
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/question/question.ts" name="QuestionSystemOptions" />
+
+**Responsibilities:**
+- Creates and manages QuestionBridge lifecycle
+- Stores `questionBridge` in systemData for sandbox callbacks
+- Registers `resolveQuestion` action for handling user responses
+
+### StreamingSystem
+
+Manages agent and flow hooks for event broadcasting.
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/streaming/streaming.ts" name="StreamingSystem" />
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/streaming/streaming.ts" name="StreamingSystemOptions" />
+
+**Responsibilities:**
+- Builds and attaches agent hooks (beforeCall, onStreamEvent, afterCallResult)
+- Builds and attaches flow hooks (beforeStep, afterStep)
+- Broadcasts events to connected clients via EventSink
+- Logs tool events for debugging
+
+### PersistenceSystem
+
+Manages run event persistence to disk.
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/persistence/persistence.ts" name="PersistenceSystem" />
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/persistence/persistence.ts" name="PersistenceSystemOptions" />
+
+**Responsibilities:**
+- Appends `run_started` event on strategy load
+- Appends `run_completed` event on success or error
+- Handles error classification and storage
+
+### SandboxSystem
+
+Manages sandbox creation and policy enforcement.
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/sandbox/sandbox.ts" name="SandboxSystem" />
+
+**Responsibilities:**
+- Creates sandbox with permission and question callbacks
+- Registers `updatePolicy` action for runtime policy changes
+- Enforces file system access policies
+
+### SteeringSystem
+
+Manages steering message injection.
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/steering/steering.ts" name="SteeringSystem" />
+
+**Responsibilities:**
+- Maintains steering mailbox for pending messages
+- Registers `steer` action for adding steering messages
+- Injects steering messages into agent prompts via alterCallMessage hook
+
+### SubLaunchSystem
+
+Handles nested strategy launching.
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/sub-launch/sub-launch.ts" name="SubLaunchSystem" />
+
+**Responsibilities:**
+- Creates launch strategy function for nested execution
+- Stores `launchStrategy` in systemData for strategy loading
+- Manages sub-strategy lifecycle and event routing
+
+## System Communication
+
+### SystemDataStore
+
+Shared state store for cross-system communication.
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/systems.types.ts" name="SystemDataStore" />
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/systems.types.ts" name="SystemDataMap" />
+
+### RunActionRegistry
+
+Message routing registry for daemon-to-system communication.
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/systems.types.ts" name="RunActionRegistry" />
+
+**Registered Actions:**
+- `resolveInput`: Routes user input to InputSystem
+- `resolvePermission`: Routes permission decisions to PermissionSystem
+- `resolveQuestion`: Routes question responses to QuestionSystem
+- `updatePolicy`: Routes policy updates to SandboxSystem
+- `steer`: Routes steering messages to SteeringSystem
+
+## Lifecycle Hooks
+
+Systems can hook into the execution lifecycle through these hooks:
+
+<AutoTypeTable path="../packages/daemon/src/executor/systems/systems.types.ts" name="DaemonSystem" />
+
+### Hook Execution Order
+
+1. **onRunStart**: Called when execution begins (InputSystem, PermissionSystem, QuestionSystem, SteeringSystem, SandboxSystem, SubLaunchSystem)
+2. **onStrategyLoaded**: Called after strategy is loaded (StreamingSystem, PersistenceSystem, SandboxSystem)
+3. **onBeforeExecute**: Called before flow execution (reserved for future use)
+4. **onRunComplete**: Called on successful completion (PersistenceSystem)
+5. **onRunError**: Called on error (PersistenceSystem)
+6. **onRunCleanup**: Called when execution ends (InputSystem, PermissionSystem, QuestionSystem)
 
 ## EventSink
 
@@ -25,12 +191,28 @@ Interface for publishing execution events to connected clients.
 
 <AutoTypeTable path="../packages/daemon/src/executor/event-sink.ts" name="EventSink" />
 
-## InputBridge
+## Bridges
+
+### InputBridge
 
 Bridges user input requests between agents and connected clients.
 
 <AutoTypeTable path="../packages/daemon/src/executor/input-bridge.ts" name="InputBridge" />
 
-## CreateInputBridgeOptions
-
 <AutoTypeTable path="../packages/daemon/src/executor/input-bridge.ts" name="CreateInputBridgeOptions" />
+
+### PermissionBridge
+
+Bridges permission requests between sandbox and connected clients.
+
+<AutoTypeTable path="../packages/daemon/src/executor/permission-bridge.ts" name="PermissionBridge" />
+
+<AutoTypeTable path="../packages/daemon/src/executor/permission-bridge.ts" name="CreatePermissionBridgeOptions" />
+
+### QuestionBridge
+
+Bridges question requests between agents and connected clients.
+
+<AutoTypeTable path="../packages/daemon/src/executor/question-bridge.ts" name="QuestionBridge" />
+
+<AutoTypeTable path="../packages/daemon/src/executor/question-bridge.ts" name="CreateQuestionBridgeOptions" />

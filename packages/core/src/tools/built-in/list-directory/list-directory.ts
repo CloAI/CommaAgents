@@ -120,7 +120,13 @@ export function createListDirectoryTool(
     }),
     systemPrompt: `### Using list_directory
 
-\`list_directory\` enumerates the contents of a directory. Use it to confirm a path exists before reading/editing, to discover the shape of a folder, and to drive structural decisions.
+\`list_directory\` enumerates the contents of a directory. Use it to understand project structure, confirm a path exists before reading/editing, and discover the shape of a folder.
+
+**When to use list_directory vs other tools:**
+
+- **Understanding structure**: Use \`list_directory\` to see what's in a specific directory (e.g., "what's in src/components?").
+- **Finding files by pattern**: Use \`glob\` instead — it's faster and more precise than recursive \`list_directory\`. For example, to find all TypeScript files, use \`glob("**/*.ts")\` rather than \`list_directory(".", { recursive: true })\`.
+- **Searching file contents**: Use \`search_files\` instead of listing directories and reading files manually.
 
 **Required:**
 
@@ -128,15 +134,11 @@ export function createListDirectoryTool(
 
 **Useful optional:**
 
-- \`recursive: true\` to walk subdirectories (capped by \`maxDepth\`, default 8). Use this when you need a full tree view.
+- \`recursive: true\` to walk subdirectories (capped by \`maxDepth\`, default 8). Use this when you need a full tree view, but prefer \`glob\` for pattern-based searches.
 - \`maxDepth: <n>\`: explicit recursion depth (hard cap 32).
 - \`includeHidden: true\`: include dot-prefixed entries like \`.git\`.
 
-**First call in any session:** \`list_directory(".")\` — this confirms the cwd's shape and tells you whether paths like \`"src/foo"\` will resolve correctly. If \`"."\` doesn't contain what you expected, your assumptions about the working directory are wrong; do not guess relative paths.
-
-The result includes \`entries: [{ name, relativePath, type, size, mtime, depth }]\`. \`relativePath\` is relative to the \`path\` you queried — combine with \`path\` to build full workspace-relative paths for subsequent tool calls.
-
-**Tip:** for "find all files matching a pattern", \`glob\` is usually faster and more precise than \`list_directory(recursive: true)\`.`,
+The result includes \`entries: [{ name, relativePath, type, size, mtime, depth }]\`. \`relativePath\` is relative to the \`path\` you queried — combine with \`path\` to build full workspace-relative paths for subsequent tool calls.`,
     parameters: listDirectoryParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName } = toolContext;

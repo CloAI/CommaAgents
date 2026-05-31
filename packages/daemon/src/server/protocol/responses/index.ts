@@ -20,6 +20,7 @@ export { RunLoadedMessage } from "./run-loaded";
 // Shared response schemas
 export type { AgentCallResultWire, Usage } from "./shared";
 export { AgentCallResultSchema, UsageSchema } from "./shared";
+export { SteerQueuedMessage } from "./steer-queued";
 export { StepCompletedMessage } from "./step-completed";
 export { StepStartedMessage } from "./step-started";
 export { StrategyCompletedMessage } from "./strategy-completed";

@@ -175,7 +175,7 @@ exports[`built-in tool descriptions delete_file description 1`] = `
 
 Inputs:
   - \`path\` (string, required) — Workspace-relative path to a regular file. Directories are not deletable through this tool.
-  - \`expectedSha256\` (string, required) — sha256 of the file as last read. Mismatch returns \`stale_file\`.
+  - \`expectedSha256\` (string, optional) — Optional. sha256 of the file as last read. When present, a mismatch returns \`stale_file\`. When omitted, the file is deleted without staleness protection.
   - \`permanent\` (boolean, optional, default false) — Unlink directly without going through the trash. Not recoverable.
 
 Outputs (\`data\`):

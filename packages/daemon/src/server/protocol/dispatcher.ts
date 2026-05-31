@@ -5,6 +5,7 @@ import type { DaemonState } from "../../state/state.types";
 import type { HandlerContext, MessageDispatcher } from "./dispatcher.types";
 import type { DaemonMessage } from "./messages";
 import { parseClientMessage } from "./messages";
+import { handleContinueRun } from "./requests/continue-run";
 import { handleGetAvailableModels } from "./requests/get-available-models";
 import { handleGetRun } from "./requests/get-run";
 import { handleListProviders } from "./requests/list-providers";
@@ -17,6 +18,7 @@ import { handleRegisterProvider } from "./requests/register-provider";
 import { handleResumeRun } from "./requests/resume-run";
 import { handleSetCredential } from "./requests/set-credential";
 import { handleStartStrategy } from "./requests/start-strategy";
+import { handleSteerRun } from "./requests/steer-run";
 import { handleStopStrategy } from "./requests/stop-strategy";
 import { handleSubscribe } from "./requests/subscribe";
 import { handleTrashClear } from "./requests/trash-clear";
@@ -154,6 +156,12 @@ export function createDispatcher(
           break;
         case "update_policy":
           handleUpdatePolicy(message, context);
+          break;
+        case "steer_run":
+          handleSteerRun(message, context);
+          break;
+        case "continue_run":
+          handleContinueRun(message, context);
           break;
         case "list_strategies":
           handleListStrategies(message, context);

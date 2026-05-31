@@ -266,8 +266,10 @@ const todoClearParams = z.object({});
 export function createTodoClearTool(): ToolDefinition<typeof todoClearParams> {
   return defineTool({
     description:
-      "Clear all todo items for the current run. Use only when the whole goal or requirement set has changed " +
-      "and the existing list is no longer relevant. For normal pivots, prefer todo_remove for obsolete items and todo_add for new items.",
+      "Clear all todo items for the current run. **WARNING: This destroys all progress tracking and should almost never be used.** " +
+      "Only use when the entire goal has fundamentally changed and every existing item is obsolete. " +
+      "For normal pivots, partial changes, or when some items become irrelevant, use todo_remove for specific obsolete items and todo_add for new ones. " +
+      "Clearing loses the history of what was completed and what remains — this information is valuable for tracking progress and avoiding repeated work.",
     parameters: todoClearParams,
     execute: async (_validatedArguments, toolContext) => {
       const key = storeKey(toolContext);

@@ -1,0 +1,130 @@
+---
+title: Steering & Continuation
+description: Mid-run steering and end-of-run continuation — the steer_run / steer_queued messages and continue_run.
+---
+
+These messages let the client influence a run that is already underway, or pick the conversation back up once it finishes. Steering nudges a live run without interrupting the current agent turn; continuation re-drives a finished run with a new prompt, optionally switching strategy.
+
+## Request: `steer_run`
+
+Sent by the client to queue a steering message for a run that is currently `running` or `pending`. The daemon does not interrupt the in-flight agent turn — the text is merged into the message delivered to the **next** agent call, so the current turn finishes uninterrupted.
+
+```json
+{
+  "type": "steer_run",
+  "runId": "run_abc123",
+  "text": "Focus on the login bug, ignore the styling for now",
+  "requestId": "steer-1"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"steer_run"` | yes | Message type discriminator |
+| `runId` | `string` | yes | The run to steer |
+| `text` | `string` | yes | The steering text to inject before the next agent turn |
+| `requestId` | `string` | no | Echoed on any error response |
+
+On success the daemon broadcasts a [`steer_queued`](#event-steer_queued) event to all subscribers. If the run is not found or has already finished, the daemon replies with an error:
+
+```json
+{
+  "type": "error",
+  "code": "RUN_NOT_STEERABLE",
+  "message": "Cannot steer run run_abc123: not running",
+  "ts": "2025-01-15T10:30:02.000Z"
+}
+```
+
+The queued text is persisted to the run timeline as a `user_input` event (with `source: "human"`), so it is preserved across [continuation](#request-continue_run) and resume.
+
+## Event: `steer_queued`
+
+Sent by the daemon to all subscribers when a steering message has been accepted. Clients render this as a pending user message in the transcript.
+
+```json
+{
+  "type": "steer_queued",
+  "runId": "run_abc123",
+  "text": "Focus on the login bug, ignore the styling for now",
+  "ts": "2025-01-15T10:30:01.500Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"steer_queued"` | Message type discriminator |
+| `runId` | `string` | The run the steering message was queued for |
+| `text` | `string` | The steering text that was queued |
+| `requestId` | `string?` | Echoed from the request |
+| `ts` | `string` | ISO-8601 timestamp |
+
+## Request: `continue_run`
+
+Sent by the client to continue a finished run (`completed`, `error`, or `cancelled`) with a new prompt. The daemon replays the run's prior agent turns to rehydrate each agent's conversation context, then drives the entry flow with the new `input`. The original `runId` is reused, and a fresh `strategy_started` is broadcast as the continuation begins.
+
+Supplying `strategyPath` switches the continuation to a different strategy. Replayed turns rehydrate only the agents whose names match the new strategy; agents with no matching name start fresh.
+
+```json
+{
+  "type": "continue_run",
+  "runId": "run_abc123",
+  "input": "Now write tests for the fix",
+  "strategyPath": "/strategies/qa.json",
+  "modelOverride": "github-copilot/gpt-4o",
+  "requestId": "continue-1"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"continue_run"` | yes | Message type discriminator |
+| `runId` | `string` | yes | The run to continue |
+| `input` | `string` | yes | The new prompt to drive the continued flow |
+| `strategyPath` | `string` | no | Strategy path to switch to for the continuation |
+| `modelOverride` | `string` | no | Per-run model override (`providerID/modelID`) |
+| `requestId` | `string` | no | Echoed on any error response |
+
+There is no direct success response — the continuation re-broadcasts `strategy_started`, streams the usual [observation events](/docs/daemon/protocol/strategy-observation), and ends in `strategy_completed` or `strategy_error`. If the run's start event cannot be found, the daemon replies with an error:
+
+```json
+{
+  "type": "error",
+  "code": "NOT_FOUND",
+  "message": "Cannot continue run: start event not found for run_abc123",
+  "ts": "2025-01-15T10:30:02.000Z"
+}
+```
+
+## Sequence Diagram
+
+```
+Client                          Daemon
+  |                               |
+  |  steer_run                    |
+  |  (text: "focus on the bug")   |
+  |------------------------------>|
+  |                               |
+  |        steer_queued           |
+  |<------------------------------|
+  |                               |
+  |   (current turn finishes,     |
+  |    steering merged into the   |
+  |    next agent call)           |
+  |                               |
+  |     strategy_completed        |
+  |<------------------------------|
+  |                               |
+  |  continue_run                 |
+  |  (input: "now write tests")   |
+  |------------------------------>|
+  |                               |
+  |   strategy_started (same runId)|
+  |<------------------------------|
+  |                               |
+  |     agent_output, ...         |
+  |<------------------------------|
+  |                               |
+  |     strategy_completed        |
+  |<------------------------------|
+```

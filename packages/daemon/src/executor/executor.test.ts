@@ -491,6 +491,79 @@ describe("createStrategyExecutor", () => {
     expect(types).toContain("strategy_completed");
   });
 
+  it("steerRun returns false for an unknown run", () => {
+    const state = createDaemonState();
+    const sink = mockSink();
+
+    const executor = createStrategyExecutor({
+      state,
+      sink,
+      logger: mockLogger(),
+      runStore: mockRunStore(),
+    });
+
+    expect(executor.steerRun("nonexistent", "hello")).toBe(false);
+  });
+
+  it("steerRun queues text and broadcasts steer_queued for a running run", async () => {
+    setupMockModels();
+    const state = createDaemonState();
+    const sink = mockSink();
+
+    state.addClient("client-1");
+
+    const executor = createStrategyExecutor({
+      state,
+      sink,
+      logger: mockLogger(),
+      runStore: mockRunStore(),
+    });
+
+    // A user-agent strategy blocks at the first step, keeping the run live.
+    const filePath = await writeTempStrategy(USER_AGENT_STRATEGY);
+    tempFiles.push(filePath);
+
+    const runId = executor.startRun("client-1", filePath, "");
+    await waitForBroadcasts(sink, 2, 10000);
+
+    const queued = executor.steerRun(runId, "steer toward the bug");
+    expect(queued).toBe(true);
+
+    const steerQueued = sink.broadcasts.find(
+      (b) => b.message.type === "steer_queued",
+    );
+    expect(steerQueued).toBeDefined();
+    if (steerQueued && steerQueued.message.type === "steer_queued") {
+      expect(steerQueued.message.runId).toBe(runId);
+      expect(steerQueued.message.text).toBe("steer toward the bug");
+    }
+  });
+
+  it("steerRun returns false once a run has finished", async () => {
+    setupMockModels();
+    const state = createDaemonState();
+    const sink = mockSink();
+
+    state.addClient("client-1");
+
+    const executor = createStrategyExecutor({
+      state,
+      sink,
+      logger: mockLogger(),
+      runStore: mockRunStore(),
+    });
+
+    const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
+    tempFiles.push(filePath);
+
+    const runId = executor.startRun("client-1", filePath, "hello");
+    await waitForBroadcasts(sink, 4, 10000);
+
+    // Run has completed — steering is no longer accepted.
+    expect(state.getRun(runId)?.status).toBe("completed");
+    expect(executor.steerRun(runId, "too late")).toBe(false);
+  });
+
   it("requestId is echoed in strategy_started and strategy_completed", async () => {
     setupMockModels();
     const state = createDaemonState();

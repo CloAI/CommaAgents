@@ -1,4 +1,4 @@
-import { createApplyPatchTool } from "./built-in/apply-patch";
+// // import { createApplyPatchTool } from "./built-in/apply-patch";
 import { createAskQuestionTool } from "./built-in/ask-question";
 import { createCreateFileTool } from "./built-in/create-file";
 import { createDeleteFileTool } from "./built-in/delete-file";
@@ -41,7 +41,7 @@ export const BUILT_IN_TOOL_NAMES = [
   "delete_file",
   "restore_file",
   "move_file",
-  "apply_patch",
+  // "apply_patch",
   "run_command",
   "webfetch",
   "load_skill",
@@ -72,7 +72,7 @@ export const BUILT_IN_TOOL_FACTORIES: Readonly<
   delete_file: () => createDeleteFileTool(),
   restore_file: () => createRestoreFileTool(),
   move_file: () => createMoveFileTool(),
-  apply_patch: () => createApplyPatchTool(),
+  // apply_patch: () => createApplyPatchTool(),
   run_command: () => createRunCommandTool(),
   webfetch: () => createWebFetchTool(),
   load_skill: () => createLoadSkillTool(),

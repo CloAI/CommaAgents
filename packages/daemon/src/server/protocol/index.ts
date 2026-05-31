@@ -18,6 +18,10 @@ export {
   parseDaemonMessage,
 } from "./messages";
 export {
+  ContinueRunMessage,
+  handleContinueRun,
+} from "./requests/continue-run";
+export {
   GetAvailableModelsMessage,
   handleGetAvailableModels,
 } from "./requests/get-available-models";
@@ -47,6 +51,10 @@ export {
   handleStartStrategy,
   StartStrategyMessage,
 } from "./requests/start-strategy";
+export {
+  handleSteerRun,
+  SteerRunMessage,
+} from "./requests/steer-run";
 export {
   handleStopStrategy,
   StopStrategyMessage,
@@ -92,6 +100,7 @@ export { RunLoadedMessage as RunLoadedMessageSchema } from "./responses/run-load
 // Colocated schemas re-exported for public API
 export type { AgentCallResultWire, Usage } from "./responses/shared";
 export { AgentCallResultSchema, UsageSchema } from "./responses/shared";
+export { SteerQueuedMessage } from "./responses/steer-queued";
 export { StepCompletedMessage } from "./responses/step-completed";
 export { StepStartedMessage } from "./responses/step-started";
 export { StrategyCompletedMessage } from "./responses/strategy-completed";

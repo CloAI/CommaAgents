@@ -180,11 +180,11 @@ export function createSearchFilesTool(
 - \`root\`: workspace-relative directory to search under. Defaults to \`"."\`.
 - \`contextLines\`: lines of surrounding context to include in each \`preview\` (default 0, so just the matching line). \`contextLines: 2\` is a nice default for human-readable results.
 - \`maxResults\`: cap on matches.
-- \`includePathPatterns\` / \`excludePathPatterns\`: scope to specific files (e.g. \`includePathPatterns: ["**/*.ts"]\`).
+- \`includeGlobs\` / \`excludeGlobs\`: scope to specific files (e.g. \`includeGlobs: ["**/*.ts"]\`).
 
 **Common uses:**
 
-- "Find every import of \`createAgent\`" → \`mode: "text", query: "createAgent", includePathPatterns: ["**/*.ts"]\`.
+- "Find every import of \`createAgent\`" → \`mode: "text", query: "createAgent", includeGlobs: ["**/*.ts"]\`.
 - "Find every file named \`*.test.ts\`" → \`mode: "path", query: "**/*.test.ts"\` (or just use \`glob\` directly).
 - "Find every line ending with a TODO" → \`mode: "regex", query: "TODO\\\\s*$"\`.
 
