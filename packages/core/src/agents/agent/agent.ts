@@ -8,13 +8,9 @@ import {
 } from "@comma-agents/utils";
 import { streamText } from "ai";
 import { createConversationContext } from "../../context/conversation-context";
-import type { ConversationTurn } from "../../context/conversation-context.types";
 import { AgentCallError } from "../../errors/index";
-import type { SideEffectHook, TransformHook } from "../../hooks";
-import { runSideEffectHooks, runTransformHooks } from "../../hooks";
+import { runSideEffectHooks } from "../../hooks";
 import type { TemplateVariables } from "../../prompts/prompts.types";
-import type { ToolHooks } from "../hooks";
-import { resolveHook } from "../hooks";
 import type {
   Agent,
   AgentCallResult,
@@ -22,10 +18,13 @@ import type {
   AgentStreamEvent,
 } from "./agent.types";
 import {
+  type AgentHookStore,
   buildCallOptions,
-  buildReplayCallResult,
   buildStreamCallResult,
+  getToolHooks,
   mapStreamPart,
+  runPostCallHooks,
+  runPreCallHooks,
 } from "./agent.utils";
 
 /**
@@ -53,37 +52,13 @@ import {
 export function createAgent(config: AgentConfig): Agent {
   const context = createConversationContext();
   let firstCall = true;
-  let replayTurns: readonly ConversationTurn[] = [];
-  let callIndex = 0;
 
   // Mutable hooks store — starts empty, populated via appendHook (hookIntoAgent).
   // All hook reads go through this store so that dynamically appended hooks
   // take effect on subsequent calls.
   // Fields start as undefined (preserving resolveHook fallback semantics)
   // and become arrays when hooks are appended via hookIntoAgent.
-  const hooks: {
-    alterFirstCallMessage: Array<TransformHook<string>> | undefined;
-    beforeFirstCall: Array<SideEffectHook<string>> | undefined;
-    afterFirstCallResult: Array<SideEffectHook<AgentCallResult>> | undefined;
-    alterFirstResponse: Array<TransformHook<string>> | undefined;
-    alterCallMessage: Array<TransformHook<string>> | undefined;
-    beforeCall: Array<SideEffectHook<string>> | undefined;
-    alterResponse: Array<TransformHook<string>> | undefined;
-    afterCallResult: Array<SideEffectHook<AgentCallResult>> | undefined;
-    onStreamEvent: Array<SideEffectHook<AgentStreamEvent>> | undefined;
-    beforeToolCall:
-      | Array<SideEffectHook<{ readonly name: string; readonly args: string }>>
-      | undefined;
-    afterToolCall:
-      | Array<
-          SideEffectHook<{
-            readonly name: string;
-            readonly args: string;
-            readonly result: string;
-          }>
-        >
-      | undefined;
-  } = {
+  const hooks: AgentHookStore = {
     alterFirstCallMessage: undefined,
     beforeFirstCall: undefined,
     afterFirstCallResult: undefined,
@@ -105,61 +80,6 @@ export function createAgent(config: AgentConfig): Agent {
     return wasFirstCall;
   }
 
-  // TODO: I really feel like these get*Hooks could really just be pure util
-  // functions, not sure if they really need to be per object.
-
-  /** Build a ToolHooks view from the mutable store for passing to buildCallOptions. */
-  function getToolHooks(): ToolHooks {
-    return {
-      beforeToolCall: hooks.beforeToolCall,
-      afterToolCall: hooks.afterToolCall,
-    };
-  }
-
-  /**
-   * Run the pre-call hook lifecycle (steps 1-2) and return the altered
-   * message and the first-call flag. Shared by both `call()` (execute
-   * override path) and `stream()` (LLM path).
-   */
-  async function runPreCallHooks(
-    message: string,
-    isFirst: boolean,
-  ): Promise<string> {
-    // 1. Alter message
-    const alteredMessage = await runTransformHooks(
-      resolveHook(hooks.alterFirstCallMessage, hooks.alterCallMessage, isFirst),
-      message,
-    );
-    // 2. Before call
-    await runSideEffectHooks(
-      resolveHook(hooks.beforeFirstCall, hooks.beforeCall, isFirst),
-      alteredMessage,
-    );
-    return alteredMessage;
-  }
-
-  /**
-   * Run the post-call hook lifecycle (steps 4-5) and return the final
-   * result with the altered text. Shared by both `call()` (execute
-   * override path) and `stream()` (LLM path).
-   */
-  async function runPostCallHooks(
-    result: AgentCallResult,
-    isFirst: boolean,
-  ): Promise<AgentCallResult> {
-    // 4. After call result (full result with usage)
-    await runSideEffectHooks(
-      resolveHook(hooks.afterFirstCallResult, hooks.afterCallResult, isFirst),
-      result,
-    );
-    // 5. Alter response
-    const alteredText = await runTransformHooks(
-      resolveHook(hooks.alterFirstResponse, hooks.alterResponse, isFirst),
-      result.text,
-    );
-    return { ...result, text: alteredText };
-  }
-
   // The agent object
 
   const agent: Agent = {
@@ -170,12 +90,12 @@ export function createAgent(config: AgentConfig): Agent {
       return createAbortablePromise(
         async (signal): Promise<AgentCallResult> => {
           const streamGenerator = agent.stream?.(message);
-          signal.addEventListener("abort", () => streamGenerator.abort(), {
+          signal.addEventListener("abort", () => streamGenerator?.abort(), {
             once: true,
           });
 
           let finalResult: AgentCallResult | undefined;
-          for await (const event of streamGenerator) {
+          for await (const event of streamGenerator ?? []) {
             if (event.type === "done") {
               finalResult = event.result;
             }
@@ -185,11 +105,6 @@ export function createAgent(config: AgentConfig): Agent {
       );
     },
 
-    // TODO: Right now the stream is the main function for execution, however,
-    // I think we need to create a internal helper, that basically will
-    // be called execute(callOrStream: boolean) that will either call generate
-    // or stream it to the user... But for now stream will just be the centric
-    // way we execute LLM requests.
     stream(message: string): AbortableAsyncGenerator<AgentStreamEvent> {
       return createAbortableGenerator(async function* (signal): AsyncGenerator<
         AgentStreamEvent,
@@ -199,18 +114,9 @@ export function createAgent(config: AgentConfig): Agent {
         const isFirst = consumeFirstCall();
         const streamEventHooks = hooks.onStreamEvent;
 
-        // Intercept for replay of hydrated turns
-        if (callIndex < replayTurns.length) {
-          const turn = replayTurns[callIndex]!;
-          callIndex += 1;
-          const result = buildReplayCallResult(turn.responseMessages);
-          yield { type: "done", result };
-          return;
-        }
-
         try {
           // 1-2. Pre-call hooks
-          const alteredMessage = await runPreCallHooks(message, isFirst);
+          const alteredMessage = await runPreCallHooks(hooks, message, isFirst);
 
           // 3. Execute — either custom override or LLM stream
           let result: AgentCallResult;
@@ -236,7 +142,7 @@ export function createAgent(config: AgentConfig): Agent {
               config,
               alteredMessage,
               context,
-              getToolHooks(),
+              getToolHooks(hooks),
               signal,
             );
             const streamResult = streamText(
@@ -266,7 +172,7 @@ export function createAgent(config: AgentConfig): Agent {
           context.append(alteredMessage, result.responseMessages, config.name);
 
           // 4-5. Post-call hooks
-          const finalResult = await runPostCallHooks(result, isFirst);
+          const finalResult = await runPostCallHooks(hooks, result, isFirst);
 
           // Yield done event
           const doneEvent: AgentStreamEvent = {
@@ -293,12 +199,6 @@ export function createAgent(config: AgentConfig): Agent {
       return context;
     },
 
-    hydrateForReplay(turns: readonly ConversationTurn[]): void {
-      context.restore(turns);
-      replayTurns = [...turns];
-      callIndex = 0;
-    },
-
     /** Append a hook callback to this agent's lifecycle. */
     appendHook(hookName: string, callback: unknown): void {
       if (!(hookName in hooks)) {
@@ -316,8 +216,6 @@ export function createAgent(config: AgentConfig): Agent {
 
     reset(): void {
       firstCall = true;
-      replayTurns = [];
-      callIndex = 0;
       context.clear();
     },
 

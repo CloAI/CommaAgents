@@ -277,33 +277,6 @@ export interface Agent {
   updatePromptVariables?(variables: TemplateVariables): void;
 
   /**
-   * Hydrate the agent's conversation context with prior turns and enter
-   * replay mode for the next `turns.length` calls.
-   *
-   * In replay mode, each subsequent `call()` / `stream()` returns the
-   * corresponding turn's cached response without executing the agent's
-   * LLM call or `config.execute` override — no hooks fire, no tokens are
-   * spent, and (for user agents) the input collector is not invoked.
-   *
-   * Once the hydrated turns are exhausted, the agent transitions back to
-   * normal live execution and any further calls run the real agent and
-   * append to the context as usual.
-   *
-   * Intended to be called once at construction time by `loadStrategy`,
-   * before the flow is run. Calling it again resets the call counter and
-   * re-enters replay mode for the new set of turns.
-   *
-   * @param turns - Persisted turns whose `agentName` matches this agent.
-   * @example
-   * ```ts
-   * const persisted = await loadPriorTurns(runId, "writer");
-   * agent.hydrateForReplay?.(persisted);
-   * await flow.call(initialInput); // writer replays before going live
-   * ```
-   */
-  hydrateForReplay?(turns: readonly ConversationTurn[]): void;
-
-  /**
    * Append a hook callback to this agent's lifecycle.
    * Used internally by `hookIntoAgent` — not part of the public API.
    * @internal

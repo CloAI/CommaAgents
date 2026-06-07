@@ -56,26 +56,16 @@ function itemHaystack(item: RunItem): string {
 }
 
 interface RunAction {
-  readonly id: "resume" | "restart" | "readonly" | "cancel";
+  readonly id: "restart" | "cancel";
   readonly label: string;
   readonly description: string;
 }
 
 const RUN_ACTIONS: readonly RunAction[] = [
   {
-    id: "resume",
-    label: "Resume",
-    description: "Continue execution from the last step",
-  },
-  {
     id: "restart",
     label: "Restart",
     description: "Start the strategy fresh from the beginning",
-  },
-  {
-    id: "readonly",
-    label: "Read-only",
-    description: "Open the run as a static transcript log",
   },
   {
     id: "cancel",
@@ -100,7 +90,6 @@ export function RunPickerPage({
     persistedRuns,
     fetchPersistedRuns,
     loadPersistedRun,
-    resumeRun,
     startStrategy,
     isLoadingRun,
   } = useChatRuns();
@@ -211,12 +200,8 @@ export function RunPickerPage({
           selectedIndex={promptIndex}
           onSelectedIndexChange={setPromptIndex}
           onSelected={(action) => {
-            if (action.id === "resume") {
-              resumeRun(promptTarget.runId);
-            } else if (action.id === "restart") {
+            if (action.id === "restart") {
               startStrategy(promptTarget.strategyPath);
-            } else if (action.id === "readonly") {
-              loadPersistedRun(promptTarget.runId);
             }
             setPromptTarget(null);
             if (action.id !== "cancel") {

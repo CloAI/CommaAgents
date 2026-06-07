@@ -41,7 +41,6 @@ export interface RequestResponseMap {
   readonly question_response: never;
   readonly update_policy: never;
   readonly steer_run: never;
-  readonly continue_run: never;
   readonly list_strategies: StrategyListMessage;
   readonly get_available_models: AvailableModelsMessage;
   readonly list_providers: ProviderListMessage;
@@ -51,7 +50,6 @@ export interface RequestResponseMap {
   readonly unsubscribe: never;
   readonly list_runs: RunListMessage;
   readonly get_run: RunLoadedMessage;
-  readonly resume_run: never;
   readonly trash_list: TrashListResultMessage;
   readonly trash_restore: TrashRestoreResultMessage;
   readonly trash_clear: TrashClearResultMessage;

@@ -400,6 +400,20 @@ describe("createStrategyExecutor", () => {
       (b) => b.message.type === "strategy_completed",
     );
     expect(flowCompleted).toBeDefined();
+
+    const agentEvents = sink.broadcasts.filter(
+      (broadcast) =>
+        broadcast.message.type === "agent_streaming" ||
+        broadcast.message.type === "agent_output",
+    );
+    expect(
+      agentEvents.some(
+        (broadcast) => broadcast.message.agentName === "assistant",
+      ),
+    ).toBe(true);
+    expect(
+      agentEvents.some((broadcast) => broadcast.message.agentName === "user"),
+    ).toBe(false);
   });
 
   it("handleUserInput returns false for unknown run", () => {

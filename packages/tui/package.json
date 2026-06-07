@@ -9,7 +9,7 @@
     "comma-agents-tui": "src/main.tsx"
   },
   "scripts": {
-    "start": "bun run src/main.tsx",
+    "start": "bun --inspect-wait=127.0.0.1:6499/tui run src/main.tsx",
     "build": "bun build src/index.tsx --outdir dist --target bun",
     "generate:frames": "bun run src/components/TitleIcon/icon-generator/generator.ts",
     "test": "bun test --coverage",

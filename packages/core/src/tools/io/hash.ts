@@ -1,9 +1,3 @@
-// SHA-256 helpers for content addressing and stale-file detection.
-//
-// Both helpers return lowercase hex strings (64 chars). We use Bun's
-// CryptoHasher because it is faster than `crypto.createHash` under the
-// Bun runtime and avoids a Node `Buffer` round trip.
-
 import { readFile } from "node:fs/promises";
 
 /**

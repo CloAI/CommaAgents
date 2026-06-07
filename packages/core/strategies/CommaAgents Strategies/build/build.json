@@ -1,0 +1,69 @@
+{
+  "name": "Build",
+  "version": "2.1",
+  "description": "Implementation strategy. The user describes work to do, often referencing a Plan strategy todo list; the coder implements changes and the tester observes each iteration until implementation, tests, and configured project checks are approved. The final output is the accepted coder summary.",
+  "agents": {
+    "user": {
+      "type": "user",
+      "description": "Collects the user's build request.",
+      "config": {
+        "requireInput": true
+      }
+    },
+    "coder": {
+      "description": "Implements code changes using filesystem and command tools, revising when the tester provides a CONTINUE directive.",
+      "model": "openrouter/google/gemini-3.5-flash",
+      "maxSteps": 120,
+      "systemPrompt": "./prompts/coder.md",
+      "tools": [
+        "read_file",
+        "list_directory",
+        "search_files",
+        "create_file",
+        "write_file",
+        "edit_file",
+        "delete_file",
+        "move_file",
+        "run_command",
+        "load_skill",
+        "todo_add",
+        "todo_complete",
+        "todo_get",
+        "todo_get_next"
+      ]
+    },
+    "tester": {
+      "description": "Cycle observer. Validates the coder's implementation by inspecting changed code, checking test quality, running configured verification commands, and approving only when the work is ready.",
+      "model": "openrouter/google/gemini-3.5-flash",
+      "maxSteps": 80,
+      "systemPrompt": "./prompts/tester.md",
+      "tools": [
+        "read_file",
+        "list_directory",
+        "search_files",
+        "run_command",
+        "load_skill"
+      ]
+    }
+  },
+  "flow": {
+    "name": "Build Flow",
+    "type": "sequential",
+    "description": "User describes the work; coder implements and revises under tester observation until the tester approves. The cycle returns the accepted coder summary.",
+    "steps": [
+      { "agent": "user" },
+      {
+        "name": "Build Approval Loop",
+        "type": "cycle",
+        "description": "Coder implements; tester observes and either approves with a first-line token or sends one concrete revision directive.",
+        "steps": [
+          { "agent": "coder" }
+        ],
+        "cycles": "Infinity",
+        "observer": "tester",
+        "breakCycleSignals": ["==BUILD_APPROVED=="],
+        "breakCycleSignalMatch": "first-line"
+      }
+    ]
+  }
+}

@@ -62,6 +62,12 @@ class FakeWebSocket {
     this.dispatch("open", {});
   }
 
+  /** Test helper: simulate a connection dropping remotely. */
+  triggerClose(): void {
+    this.readyState = FakeWebSocket.CLOSED;
+    this.dispatch("close", {});
+  }
+
   private dispatch(type: string, event: unknown): void {
     for (const listener of this.listeners[type] ?? []) {
       listener(event);
@@ -87,11 +93,13 @@ afterEach(() => {
 function HookHarness({
   url,
   capture,
+  reconnectDelayMs,
 }: {
   url: string;
   capture: { current: WebSocketState | null };
+  reconnectDelayMs?: number;
 }) {
-  const state = useWebSocket({ url, onMessage: () => {} });
+  const state = useWebSocket({ url, reconnectDelayMs, onMessage: () => {} });
   capture.current = state;
   return <Text>ws</Text>;
 }
@@ -134,5 +142,60 @@ describe("useWebSocket", () => {
     const ok = capture.current?.send("live");
     expect(ok).toBe(true);
     expect(socket.sent).toEqual(["live"]);
+  });
+
+  it("reconnects after the connection drops", async () => {
+    const capture: { current: WebSocketState | null } = { current: null };
+
+    await act(async () => {
+      render(
+        <HookHarness
+          url="ws://test/ws"
+          reconnectDelayMs={5}
+          capture={capture}
+        />,
+      );
+    });
+
+    const firstSocket = FakeWebSocket.instances[0]!;
+    await act(async () => {
+      firstSocket.triggerOpen();
+      firstSocket.triggerClose();
+      await Bun.sleep(10);
+    });
+
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    expect(capture.current?.status).toBe("connecting");
+
+    const secondSocket = FakeWebSocket.instances[1]!;
+    capture.current?.send("while-reconnecting");
+    await act(async () => {
+      secondSocket.triggerOpen();
+    });
+
+    expect(capture.current?.status).toBe("connected");
+    expect(secondSocket.sent).toEqual(["while-reconnecting"]);
+  });
+
+  it("does not reconnect after being closed manually", async () => {
+    const capture: { current: WebSocketState | null } = { current: null };
+
+    await act(async () => {
+      render(
+        <HookHarness
+          url="ws://test/ws"
+          reconnectDelayMs={5}
+          capture={capture}
+        />,
+      );
+    });
+
+    await act(async () => {
+      capture.current?.close();
+      await Bun.sleep(10);
+    });
+
+    expect(capture.current?.status).toBe("disconnected");
+    expect(FakeWebSocket.instances).toHaveLength(1);
   });
 });

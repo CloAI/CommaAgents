@@ -1,19 +1,4 @@
-// Session file state — derives "files the agent has already touched"
-// from an audit log so the prompt-builder can hand the LLM the most
-// recent known sha256 for each path.
-//
-// Resumed sessions read the audit JSONL on load (see `Session.hydrate`
-// in the agents package) and store the resulting `SessionFileState` so
-// follow-up tool calls can pass `expectedSha256` without re-reading
-// the file just to retrieve a hash that's already in the log.
-//
-// Cross-session staleness:
-//   If the on-disk sha256 no longer matches the audit log's
-//   `afterSha256` for a path (someone edited the file outside the
-//   agent), we mark the entry as `stale: true` in the state so the
-//   LLM is forced to re-read before mutating.
-
-import type { AuditEntry } from "./audit";
+import type { AuditEntry } from "./audit.types";
 import { sha256OfFile } from "./hash";
 
 /**

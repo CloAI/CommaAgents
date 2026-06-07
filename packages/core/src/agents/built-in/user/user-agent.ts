@@ -53,7 +53,7 @@ export function createUserAgent(config: UserAgentConfig): Agent {
   const agent = createAgent({
     name: config.name,
     execute: async (message: string): Promise<string> => {
-      if (requireInput) {
+      if (requireInput && message === "") {
         return collector({
           agentName: config.name,
           prompt: message,

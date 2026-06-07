@@ -1,9 +1,3 @@
-// Unified-diff helper wrapping the `diff` npm package.
-//
-// Only this module imports `diff` directly. Tools and audit entries
-// call `unifiedDiff` so we can swap implementations later without
-// touching call sites.
-
 import { createTwoFilesPatch } from "diff";
 
 /**

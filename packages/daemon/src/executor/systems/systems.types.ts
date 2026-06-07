@@ -1,6 +1,5 @@
 import type {
   AgentCallResult,
-  ConversationTurn,
   InputCollector,
   LaunchStrategyHandle,
   LoadedStrategy,
@@ -69,7 +68,6 @@ export interface StrategyLoadedContext extends SystemRunContext {
   readonly strategy: LoadedStrategy;
   readonly input: string;
   readonly cwd: string;
-  readonly initialAgentTurns?: ReadonlyMap<string, readonly ConversationTurn[]>;
 }
 
 export interface ExecutionContext extends StrategyLoadedContext {}

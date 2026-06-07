@@ -20,26 +20,14 @@ import type {
   ChatRunId,
   ChatRunsContextProviderProps,
   ChatRunsContextType,
-  CreateRunInit,
   MessageSegment,
   PendingPermissionRequest,
   PendingQuestionRequest,
 } from "./useChat.types";
 import { projectRunTurnToMessages } from "./useChat.utils";
+import { CreateRunInit } from ".";
 
 export const ChatRunsContext = createContext<ChatRunsContextType | null>(null);
-
-/** Diagnostic log file — bypasses console interception so writes always land. */
-const DEBUG_FILE = join(tmpdir(), "comma-agents-chat-debug.log");
-function debugLog(tag: string, payload: unknown): void {
-  try {
-    const ts = new Date().toISOString();
-    appendFileSync(DEBUG_FILE, `[${ts}] ${tag} ${JSON.stringify(payload)}\n`);
-  } catch {
-    // ignore
-  }
-}
-debugLog("[useChat] module loaded", { pid: process.pid, file: DEBUG_FILE });
 
 /** Error code emitted when the daemon WebSocket is unreachable on start. */
 const DAEMON_UNREACHABLE_ERROR =
@@ -63,7 +51,6 @@ function createInitialChatRun(id: ChatRunId, init: CreateRunInit): ChatRun {
       (init.strategyPath ? deriveLabelFromPath(init.strategyPath) : "New run"),
     strategyPath: init.strategyPath ?? null,
     strategyName: null,
-    readOnly: false,
     status: "idle",
     runStatus: null,
     error: null,
@@ -117,13 +104,11 @@ export function ChatRunsContextProvider(
   const sendUserInputCommand = useDaemonCommand("user_input");
   const stopStrategyCommand = useDaemonCommand("stop_strategy");
   const steerRunCommand = useDaemonCommand("steer_run");
-  const continueRunCommand = useDaemonCommand("continue_run");
   const permissionDecisionCommand = useDaemonCommand("permission_decision");
   const questionResponseCommand = useDaemonCommand("question_response");
   const listRunsCommand = useDaemonCommand("list_runs");
   const getRunCommand = useDaemonCommand("get_run");
   const subscribeCommand = useDaemonCommand("subscribe");
-  const resumeRunCommand = useDaemonCommand("resume_run");
 
   const { status: daemonConnectionStatus } = useDaemon();
 
@@ -131,7 +116,6 @@ export function ChatRunsContextProvider(
     [],
   );
   const [isLoadingRun, setIsLoadingRun] = useState(false);
-  const [resumingRunId, setResumingRunId] = useState<string | null>(null);
 
   useDaemonSubscription("run_list", (message) => {
     setPersistedRuns(message.runs);
@@ -151,10 +135,6 @@ export function ChatRunsContextProvider(
 
   const loadPersistedRun = useCallback(
     (runId: string): void => {
-      // If we already have a local ChatRun bound to this daemon run,
-      // just switch to it — recreating a read-only copy would sever the
-      // live binding and hide the prompt area if the run is waiting for
-      // input.
       for (const existingChatRun of chatRuns.values()) {
         if (existingChatRun.daemonRunId === runId) {
           setActiveChatRunId(existingChatRun.id);
@@ -168,19 +148,6 @@ export function ChatRunsContextProvider(
       }
     },
     [chatRuns, getRunCommand],
-  );
-
-  const resumeRun = useCallback(
-    (runId: string): void => {
-      setResumingRunId(runId);
-      setIsLoadingRun(true);
-      const sent = getRunCommand({ runId });
-      if (!sent) {
-        setIsLoadingRun(false);
-        setResumingRunId(null);
-      }
-    },
-    [getRunCommand],
   );
 
   useEffect(() => {
@@ -230,6 +197,12 @@ export function ChatRunsContextProvider(
   // -- Daemon subscriptions --
 
   useDaemonSubscription("strategy_started", (message) => {
+    // The daemon only broadcasts run events to subscribed clients, so we must
+    // subscribe as soon as we learn the daemon-assigned runId. Without this,
+    // `agent_streaming` and other events for the newly started run are
+    // silently dropped and the UI sits on an empty "running" state forever.
+    subscribeCommand({ runId: message.runId });
+
     setChatRuns((previousChatRuns) => {
       // Find the most recently created run that's waiting to bind to a run,
       // or an existing run that has been resumed (matches daemonRunId).
@@ -362,14 +335,14 @@ export function ChatRunsContextProvider(
           existing.sender === message.agentName && existing.streaming,
       );
 
-      debugLog("[useChat] agent_streaming event", {
-        chatRunId,
-        runId: message.runId,
-        agentName: message.agentName,
-        eventType: message.event.type,
-        lastAgentIndex,
-        totalMessages: chatRun.messages.length,
-      });
+      // console.log("[useChat] agent_streaming event", {
+      //   chatRunId,
+      //   runId: message.runId,
+      //   agentName: message.agentName,
+      //   eventType: message.event.type,
+      //   lastAgentIndex,
+      //   totalMessages: chatRun.messages.length,
+      // });
 
       const ensureAgentMessage = (
         currentMessages: readonly ChatMessage[],
@@ -391,10 +364,10 @@ export function ChatRunsContextProvider(
           ...(parentToolCallId !== undefined ? { parentToolCallId } : {}),
           timestamp: Date.now(),
         };
-        debugLog("[useChat] agent_streaming creating new in-flight message", {
-          messageId: fresh.id,
-          agentName: message.agentName,
-        });
+        // console.log("[useChat] agent_streaming creating new in-flight message", {
+        //   messageId: fresh.id,
+        //   agentName: message.agentName,
+        // });
         mutable.push(fresh);
         return { messages: mutable, index: mutable.length - 1 };
       };
@@ -621,7 +594,7 @@ export function ChatRunsContextProvider(
       }
 
       if (message.event.type === "done") {
-        debugLog("[useChat] agent_streaming done", {
+        console.log("[useChat] agent_streaming done", {
           chatRunId,
           runId: message.runId,
           agentName: message.agentName,
@@ -667,7 +640,7 @@ export function ChatRunsContextProvider(
         message.runId,
       );
       if (!chatRunId) {
-        debugLog("[useChat] agent_output ignored — no run for runId", {
+        console.log("[useChat] agent_output ignored — no run for runId", {
           runId: message.runId,
           agentName: message.agentName,
         });
@@ -687,7 +660,7 @@ export function ChatRunsContextProvider(
       );
       const lastAgentMessage =
         lastAgentIndex >= 0 ? chatRun.messages[lastAgentIndex]! : null;
-      debugLog("[useChat] agent_output received", {
+      console.log("[useChat] agent_output received", {
         chatRunId,
         runId: message.runId,
         agentName: message.agentName,
@@ -702,14 +675,14 @@ export function ChatRunsContextProvider(
         lastAgentSender: lastAgentMessage?.sender ?? null,
       });
       if (lastAgentMessage && lastAgentMessage.text.length > 0) {
-        debugLog(
+        console.log(
           "[useChat] agent_output skipped — duplicate of streamed message",
           {},
         );
         return previousChatRuns;
       }
 
-      debugLog(
+      console.log(
         "[useChat] agent_output appending new message (no streamed match)",
         {},
       );
@@ -965,18 +938,6 @@ export function ChatRunsContextProvider(
     });
   });
 
-  // -- Public API --
-
-  const createChatRun = useCallback((init: CreateRunInit = {}): ChatRunId => {
-    const id = crypto.randomUUID();
-    const chatRun = createInitialChatRun(id, init);
-    setChatRuns((previousChatRuns) => {
-      const next = new Map(previousChatRuns);
-      next.set(id, chatRun);
-      return next;
-    });
-    return id;
-  }, []);
 
   const startStrategy = useCallback(
     (
@@ -984,6 +945,7 @@ export function ChatRunsContextProvider(
       input?: string,
       cwd?: string,
       manifestPath?: string,
+      previousRunId?: string,
     ): ChatRunId => {
       const id = crypto.randomUUID();
       const now = Date.now();
@@ -1000,12 +962,13 @@ export function ChatRunsContextProvider(
         return next;
       });
       setActiveChatRunId(id);
-
+      console.log("What are we running?", id)
       const requestId = startStrategyCommand({
         strategyPath,
         ...(input !== undefined ? { input } : {}),
         ...(cwd !== undefined ? { cwd } : {}),
         ...(manifestPath !== undefined ? { manifestPath } : {}),
+        ...(previousRunId !== undefined ? { previousRunId } : {}),
       });
 
       if (!requestId) {
@@ -1034,8 +997,7 @@ export function ChatRunsContextProvider(
    *
    * Each persisted turn becomes two `ChatMessage`s: a `user` message
    * carrying `turn.userMessage` and an `agent` message carrying `turn.text`
-   * (with a single non-streaming text segment). The hydrated run is
-   * marked `readOnly` so input/permission UIs short-circuit.
+   * (with a single non-streaming text segment).
    */
   const loadRun = useCallback(
     (payload: DaemonMessageOf<"run_loaded">): ChatRunId => {
@@ -1055,18 +1017,12 @@ export function ChatRunsContextProvider(
         projected.push(...projectRunTurnToMessages(turn, nextId, now));
       }
 
-      // A run is "live" if the daemon still considers it active. For live
-      // runs we bind to the daemon (so events route here), skip readOnly,
-      // and re-subscribe — the daemon's broadcast sink only fans out to
-      // currently-subscribed clients, so this is required for events such
-      // as `request_input` to reach the TUI.
-      const isResuming = runId === resumingRunId;
-      const isLive = status === "pending" || status === "running" || isResuming;
+      const isLive = status === "pending" || status === "running";
 
       const baseStatus: ChatRun["status"] =
         status === "error"
           ? "error"
-          : status === "cancelled" && !isResuming
+          : status === "cancelled"
             ? "cancelled"
             : status === "completed"
               ? "completed"
@@ -1080,10 +1036,9 @@ export function ChatRunsContextProvider(
         label: strategyName ?? "Loaded run",
         strategyPath: strategyPath ?? null,
         strategyName: strategyName ?? null,
-        readOnly: !isLive,
         status: baseStatus,
-        runStatus: isResuming ? "running" : status,
-        error: isResuming ? null : (error?.message ?? null),
+        runStatus: status,
+        error: error?.message ?? null,
         pendingInputAgent: null,
         pendingPermissionRequests: [],
         pendingQuestionRequests: [],
@@ -1102,16 +1057,13 @@ export function ChatRunsContextProvider(
       });
       setActiveChatRunId(id);
 
-      if (isResuming) {
-        setResumingRunId(null);
-        resumeRunCommand({ runId });
-      } else if (isLive) {
+      if (isLive) {
         subscribeCommand({ runId });
       }
 
       return id;
     },
-    [subscribeCommand, resumeRunCommand, resumingRunId],
+    [subscribeCommand],
   );
 
   const sendInput = useCallback(
@@ -1165,53 +1117,6 @@ export function ChatRunsContextProvider(
       steerRunCommand({ runId: chatRun.daemonRunId, text });
     },
     [chatRuns, steerRunCommand],
-  );
-
-  const continueChatRun = useCallback(
-    (chatRunId: ChatRunId, input: string, strategyPath?: string): void => {
-      setChatRuns((previousChatRuns) => {
-        const chatRun = previousChatRuns.get(chatRunId);
-        if (!chatRun || !chatRun.daemonRunId) return previousChatRuns;
-
-        const sent = continueRunCommand({
-          runId: chatRun.daemonRunId,
-          input,
-          ...(strategyPath !== undefined ? { strategyPath } : {}),
-        });
-
-        const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
-        messageCountersRef.current.set(chatRunId, counter);
-        const userMessage: ChatMessage = {
-          id: `${chatRunId}-msg-${counter}`,
-          role: "user",
-          sender: "you",
-          text: input,
-          streaming: false,
-          timestamp: Date.now(),
-        };
-
-        const next = new Map(previousChatRuns);
-        next.set(chatRunId, {
-          ...chatRun,
-          status: sent ? "pending" : "error",
-          error: sent ? null : DAEMON_UNREACHABLE_ERROR,
-          messages: [...chatRun.messages, userMessage],
-          pendingInputAgent: null,
-          pendingPermissionRequests: [],
-          pendingQuestionRequests: [],
-          ...(strategyPath !== undefined
-            ? {
-                strategyPath,
-                label: deriveLabelFromPath(strategyPath),
-                strategyName: null,
-              }
-            : {}),
-          updatedAt: Date.now(),
-        });
-        return next;
-      });
-    },
-    [continueRunCommand],
   );
 
   const sendPermissionDecision = useCallback(
@@ -1309,11 +1214,8 @@ export function ChatRunsContextProvider(
         pendingPermissionRequests: [],
         pendingQuestionRequests: [],
         activeLaunchStrategyIds: [],
-        // Clear loaded-run metadata so the host app falls back to its
-        // intro/strategy-selection view after a reset.
         strategyName: null,
         strategyPath: null,
-        readOnly: false,
       }));
       messageCountersRef.current.set(chatRunId, 0);
     },
@@ -1333,44 +1235,54 @@ export function ChatRunsContextProvider(
     );
   }, []);
 
+  /**
+   * Drop every chat run and clear the active selection.
+   *
+   * Used by the "New Run" command to return the TUI to a clean slate
+   * without leaving orphaned runs (and their daemon subscriptions) in
+   * memory. Called alongside `setActiveStrategy(null)` + `navigate("/chat")`
+   * so the user lands on the intro screen with no residual chat state.
+   */
+  const clearAllChatRuns = useCallback((): void => {
+    setChatRuns(new Map());
+    setActiveChatRunId(null);
+    messageCountersRef.current.clear();
+  }, []);
+
   const contextValue = useMemo<ChatRunsContextType>(
     () => ({
       chatRuns,
       activeChatRunId,
       setActiveChatRunId,
-      createChatRun,
       startStrategy,
       sendInput,
       sendSteer,
-      continueChatRun,
       sendPermissionDecision,
       sendQuestionResponse,
       stopChatRun,
       resetChatRun,
       removeChatRun,
+      clearAllChatRuns,
       persistedRuns,
       fetchPersistedRuns,
       loadPersistedRun,
-      resumeRun,
       isLoadingRun,
     }),
     [
       chatRuns,
       activeChatRunId,
-      createChatRun,
       startStrategy,
       sendInput,
       sendSteer,
-      continueChatRun,
       sendPermissionDecision,
       sendQuestionResponse,
       stopChatRun,
       resetChatRun,
       removeChatRun,
+      clearAllChatRuns,
       persistedRuns,
       fetchPersistedRuns,
       loadPersistedRun,
-      resumeRun,
       isLoadingRun,
     ],
   );

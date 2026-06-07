@@ -80,15 +80,13 @@ function resolveStdin(): NodeJS.ReadStream | import("node:tty").ReadStream {
 const stdin = resolveStdin();
 
 render(
-  <MemoryRouter initialEntries={["/chat"]}>
+  <MemoryRouter>
     <UserConfigContextProvider>
       <ThemeContextProvider>
         <DaemonContextProvider url={argv.daemonUrl}>
           <ChatRunsContextProvider>
             <ModalContextProvider>
               <App
-                strategy={argv.strategy}
-                initialInput={argv.input}
                 devMode={argv.dev}
               />
             </ModalContextProvider>
@@ -99,6 +97,10 @@ render(
   </MemoryRouter>,
   {
     stdin,
+    // The TUI has its own console capture pipeline (`logStore`). Ink's default
+    // console patch would replace those interceptors and print logs above the
+    // rendered UI, which makes logs flicker instead of appearing in /logs.
+    patchConsole: false,
     incrementalRendering: true,
     concurrent: true,
   },

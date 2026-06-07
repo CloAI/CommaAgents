@@ -1,10 +1,3 @@
-// Atomic file write helper.
-//
-// All destructive writes (create_file, write_file, edit_file, apply_patch,
-// move_file) go through this primitive so a crash or aborted run can
-// never leave a half-written file behind. The pattern: write to a
-// sibling `*.tmp-<random>`, fsync, rename, cleanup on error.
-
 import { randomBytes } from "node:crypto";
 import { chmod, open, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";

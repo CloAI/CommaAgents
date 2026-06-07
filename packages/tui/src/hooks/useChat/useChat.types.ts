@@ -11,7 +11,7 @@ export type MessageRole = "user" | "agent" | "system";
 /**
  * A single segment within an agent's message body.
  *
- * Agents stream a sequence of typed events (text, tool calls, tool results,
+ * Agents stream a series of typed events (text, tool calls, tool results,
  * reasoning/thinking, MCP calls). Rather than collapsing all of them into a
  * single text blob, we keep an ordered list of segments so the UI can render
  * each kind with the right affordance (collapsed tool call panel, dimmed
@@ -169,12 +169,6 @@ export interface ChatRun {
    * on `label` instead). May be null until the daemon reports it.
    */
   readonly strategyName: string | null;
-  /**
-   * True when this run was hydrated from a persisted snapshot rather
-   * than bound to a live daemon run. Read-only — input/permission UIs are
-   * disabled by consumers when this flag is set.
-   */
-  readonly readOnly: boolean;
   /** UI lifecycle status (see `ChatStatus`). */
   readonly status: ChatStatus;
   /** Mirror of the daemon's `RunStatus` for this run, if known. */
@@ -220,14 +214,13 @@ export interface ChatRunsContextType {
   readonly activeChatRunId: ChatRunId | null;
   /** Change the active run. */
   readonly setActiveChatRunId: (id: ChatRunId | null) => void;
-  /** Create a run in `idle` state. Returns its id. Does not make it active. */
-  readonly createChatRun: (init?: CreateRunInit) => ChatRunId;
   /** Create a run, start a strategy on it, and make it active. Returns its id. */
   readonly startStrategy: (
     strategyPath: string,
     input?: string,
     cwd?: string,
     manifestPath?: string,
+    previousRunId?: string,
   ) => ChatRunId;
   /** Send user input for a specific run. No-op if no daemon run or no pending input. */
   readonly sendInput: (chatRunId: ChatRunId, text: string) => void;
@@ -237,15 +230,6 @@ export interface ChatRunsContextType {
    * agent turn.
    */
   readonly sendSteer: (chatRunId: ChatRunId, text: string) => void;
-  /**
-   * Continue a finished run with a new prompt, optionally switching to a
-   * different strategy. No-op without a bound daemon run.
-   */
-  readonly continueChatRun: (
-    chatRunId: ChatRunId,
-    input: string,
-    strategyPath?: string,
-  ) => void;
   /** Resolve the head permission request for a specific run. */
   readonly sendPermissionDecision: (
     chatRunId: ChatRunId,
@@ -262,14 +246,18 @@ export interface ChatRunsContextType {
   readonly resetChatRun: (chatRunId: ChatRunId) => void;
   /** Remove a run from the map entirely. */
   readonly removeChatRun: (chatRunId: ChatRunId) => void;
+  /**
+   * Remove every run and clear the active selection. Used by the "New Run"
+   * command to return the TUI to a clean slate (intro screen with no
+   * residual chat state).
+   */
+  readonly clearAllChatRuns: () => void;
   /** Persisted run summaries fetched from the daemon via `list_runs`. */
   readonly persistedRuns: readonly RunOverview[];
   /** Trigger a fresh `list_runs` request. */
   readonly fetchPersistedRuns: (cwd?: string) => void;
   /** Load a persisted run from the daemon by its run id. */
   readonly loadPersistedRun: (runId: string) => void;
-  /** Resume a previously stopped/interrupted run by its run id. */
-  readonly resumeRun: (runId: string) => void;
   /** Whether a run is currently being loaded from the daemon. */
   readonly isLoadingRun: boolean;
 }
@@ -298,8 +286,6 @@ export interface UseChatState {
   readonly strategyName: string | null;
   /** Strategy file path, if known. */
   readonly strategyPath: string | null;
-  /** Whether this run is a read-only replay (no live run). */
-  readonly readOnly: boolean;
   /** Current pending permission request (head of queue), or null. */
   readonly pendingPermissionRequest: PendingPermissionRequest | null;
   /** Current pending question request (head of queue), or null. */
@@ -314,9 +300,8 @@ export interface UseChatState {
     input?: string,
     cwd?: string,
     manifestPath?: string,
+    previousRunId?: string,
   ) => ChatRunId;
-  /** Resume a previously stopped/cancelled/interrupted run. */
-  readonly resumeRun: (runId: string) => void;
   /** Send user input to the bound run. No-op if no run or no pending input. */
   readonly sendInput: (text: string) => void;
   /**
@@ -324,11 +309,6 @@ export interface UseChatState {
    * live and running/pending.
    */
   readonly sendSteer: (text: string) => void;
-  /**
-   * Continue the bound run with a new prompt, optionally switching strategy.
-   * No-op if no bound daemon run.
-   */
-  readonly continueRun: (input: string, strategyPath?: string) => void;
   /** Resolve the pending permission request for the bound run. */
   readonly sendPermissionDecision: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",

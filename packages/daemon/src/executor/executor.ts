@@ -47,23 +47,8 @@ export interface StrategyExecutor {
     modelOverride?: string,
     cwd?: string,
     manifestPath?: string,
+    previousRunId?: string,
   ): string;
-
-  resumeRun(
-    clientId: string,
-    runId: string,
-    requestId?: string,
-    modelOverride?: string,
-  ): void;
-
-  continueRun(
-    clientId: string,
-    runId: string,
-    input: string,
-    strategyPath?: string,
-    requestId?: string,
-    modelOverride?: string,
-  ): void;
 
   stopRun(runId: string): void;
   steerRun(runId: string, text: string): boolean;
@@ -92,8 +77,14 @@ export interface StrategyExecutor {
 export function createStrategyExecutor(
   options: CreateStrategyExecutorOptions,
 ): StrategyExecutor {
-  const { state, sink, logger, runStore, bridgeTimeout, modelOverride } =
-    options;
+  const {
+    state,
+    sink,
+    logger,
+    runStore,
+    bridgeTimeout,
+    modelOverride: defaultModelOverride,
+  } = options;
 
   const systems: DaemonSystem[] = [
     createInputSystem({ bridgeTimeout }),
@@ -110,13 +101,14 @@ export function createStrategyExecutor(
 
   async function executeRun(
     run: RunState,
+    clientId: string,
     strategyPath: string,
     input: string,
     requestId: string | undefined,
     runModelOverride: string | undefined,
     runCwd: string | undefined,
     _manifestPath: string | undefined,
-    initialAgentTurns?: Map<string, readonly ConversationTurn[]>,
+    previousRunId?: string,
   ): Promise<void> {
     const systemData = createSystemDataStore();
     const runActionRegistry = createRunActionRegistry();
@@ -126,9 +118,9 @@ export function createStrategyExecutor(
       sink,
       runStore,
       logger,
-      clientId: state.getRun(run.id)?.cwd ?? process.cwd(),
+      clientId,
       requestId,
-      modelOverride: runModelOverride ?? modelOverride,
+      modelOverride: runModelOverride ?? defaultModelOverride,
       abortSignal: run.abortController.signal,
       systemData,
       runActionRegistry,
@@ -142,19 +134,45 @@ export function createStrategyExecutor(
     try {
       await invokeOnRunStart(systems, runContext, logger);
 
-      const inputCollector = systemData.get("inputCollector");
-      if (!inputCollector) {
+      if (!systemData.get("inputCollector")) {
         throw new Error("InputCollector not initialized by systems");
+      }
+
+      // Load previous conversation context if continuing from a previous run
+      let previousTurns: Map<string, ConversationTurn[]> | undefined;
+      if (previousRunId) {
+        try {
+          const events = await runStore.getEvents(previousRunId);
+          previousTurns = new Map<string, ConversationTurn[]>();
+
+          for (const event of events) {
+            if (event.type === "agent_call") {
+              const turns = previousTurns.get(event.agentName) ?? [];
+              turns.push({
+                agentName: event.agentName,
+                userMessage: event.userMessage,
+                responseMessages: event.responseMessages,
+              });
+              previousTurns.set(event.agentName, turns);
+            }
+          }
+
+          logger.debug(
+            `Loaded ${previousTurns.size} agent conversations from previous run ${previousRunId}`,
+          );
+        } catch (error) {
+          logger.warn(
+            `Failed to load previous run ${previousRunId}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
       }
 
       const strategy = await prepareStrategy({
         strategyPath,
-        inputCollector,
-        modelOverride: runModelOverride ?? modelOverride,
-        cwd: runCwd ?? process.cwd(),
+        modelOverride: runContext.modelOverride,
         runId: run.id,
-        sink,
         systemData,
+        previousTurns,
         logger,
       });
 
@@ -164,8 +182,7 @@ export function createStrategyExecutor(
           ...runContext,
           strategy,
           input,
-          cwd: runCwd ?? process.cwd(),
-          initialAgentTurns,
+          cwd: runContext.cwd,
         },
         logger,
       );
@@ -262,6 +279,7 @@ export function createStrategyExecutor(
       runModelOverride?: string,
       runCwd?: string,
       manifestPath?: string,
+      previousRunId?: string,
     ): string {
       const effectiveCwd = runCwd ?? process.cwd();
       const run = state.createRun(strategyPath, strategyPath, effectiveCwd);
@@ -270,173 +288,21 @@ export function createStrategyExecutor(
 
       executeRun(
         run,
+        clientId,
         strategyPath,
         input ?? "",
         requestId,
         runModelOverride,
         runCwd,
         manifestPath,
+        previousRunId,
       ).catch((error) => {
-        logger.error(`Unexpected error in executeRun for ${run.id}: ${error}`);
+        logger.error(
+          `Failed to execute run ${run.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       });
 
       return run.id;
-    },
-
-    resumeRun(
-      clientId: string,
-      runId: string,
-      requestId?: string,
-      runModelOverride?: string,
-    ): void {
-      logger.info(`resumeRun: client=${clientId} runId=${runId}`);
-
-      const startResuming = async () => {
-        const events = await runStore.getEvents(runId);
-        const startEvent = events.find((ev) => ev.type === "run_started");
-        if (!startEvent || startEvent.type !== "run_started") {
-          logger.error(
-            `resumeRun failed: run_started event not found for ${runId}`,
-          );
-          sink.send(clientId, {
-            type: "error" as const,
-            code: "NOT_FOUND",
-            message: `Cannot resume run: start event not found for ${runId}`,
-            ts: new Date().toISOString(),
-            ...(requestId ? { requestId } : {}),
-          });
-          return;
-        }
-
-        const { strategyPath, strategyName, cwd, initialInput, manifestPath } =
-          startEvent;
-
-        const run = state.createRun(strategyPath, strategyName, cwd, runId);
-        state.subscribe(clientId, run.id);
-
-        const initialAgentTurns = new Map<string, ConversationTurn[]>();
-        for (const event of events) {
-          if (event.type === "agent_call") {
-            const list = initialAgentTurns.get(event.agentName) ?? [];
-            list.push({
-              agentName: event.agentName,
-              userMessage: event.userMessage,
-              responseMessages: event.responseMessages,
-            });
-            initialAgentTurns.set(event.agentName, list);
-          }
-        }
-
-        await runStore.appendEvent(run.id, {
-          type: "run_started",
-          ts: run.startedAt.toISOString(),
-          strategyPath,
-          strategyName,
-          cwd,
-          initialInput,
-          manifestPath,
-        });
-
-        const resumeInput =
-          initialAgentTurns.size === 0 ? (initialInput ?? "") : "";
-
-        await executeRun(
-          run,
-          strategyPath,
-          resumeInput,
-          requestId,
-          runModelOverride,
-          cwd,
-          manifestPath,
-          initialAgentTurns,
-        );
-      };
-
-      startResuming().catch((error) => {
-        logger.error(`Unexpected error in resumeRun for ${runId}: ${error}`);
-      });
-    },
-
-    continueRun(
-      clientId: string,
-      runId: string,
-      input: string,
-      newStrategyPath?: string,
-      requestId?: string,
-      runModelOverride?: string,
-    ): void {
-      logger.info(
-        `continueRun: client=${clientId} runId=${runId} switchStrategy=${newStrategyPath ?? "<same>"}`,
-      );
-
-      const startContinuing = async () => {
-        const events = await runStore.getEvents(runId);
-        const startEvent = events.find((ev) => ev.type === "run_started");
-        if (!startEvent || startEvent.type !== "run_started") {
-          logger.error(
-            `continueRun failed: run_started event not found for ${runId}`,
-          );
-          sink.send(clientId, {
-            type: "error" as const,
-            code: "NOT_FOUND",
-            message: `Cannot continue run: start event not found for ${runId}`,
-            ts: new Date().toISOString(),
-            ...(requestId ? { requestId } : {}),
-          });
-          return;
-        }
-
-        const reuseStrategy = newStrategyPath === undefined;
-        const strategyPath = newStrategyPath ?? startEvent.strategyPath;
-        const strategyName = reuseStrategy
-          ? startEvent.strategyName
-          : strategyPath;
-        const manifestPath = reuseStrategy
-          ? startEvent.manifestPath
-          : undefined;
-        const { cwd } = startEvent;
-
-        const run = state.createRun(strategyPath, strategyName, cwd, runId);
-        state.subscribe(clientId, run.id);
-
-        const initialAgentTurns = new Map<string, ConversationTurn[]>();
-        for (const event of events) {
-          if (event.type === "agent_call") {
-            const list = initialAgentTurns.get(event.agentName) ?? [];
-            list.push({
-              agentName: event.agentName,
-              userMessage: event.userMessage,
-              responseMessages: event.responseMessages,
-            });
-            initialAgentTurns.set(event.agentName, list);
-          }
-        }
-
-        await runStore.appendEvent(run.id, {
-          type: "run_started",
-          ts: run.startedAt.toISOString(),
-          strategyPath,
-          strategyName,
-          cwd,
-          initialInput: input,
-          ...(manifestPath ? { manifestPath } : {}),
-        });
-
-        await executeRun(
-          run,
-          strategyPath,
-          input,
-          requestId,
-          runModelOverride,
-          cwd,
-          manifestPath,
-          initialAgentTurns,
-        );
-      };
-
-      startContinuing().catch((error) => {
-        logger.error(`Unexpected error in continueRun for ${runId}: ${error}`);
-      });
     },
 
     stopRun(runId: string): void {

@@ -91,11 +91,23 @@ export function createLogStore(maxEntries: number = MAX_LOG_ENTRIES): LogStore {
     };
   }
 
-  console.log = createInterceptor("log");
-  console.info = createInterceptor("info");
-  console.warn = createInterceptor("warn");
-  console.error = createInterceptor("error");
-  console.debug = createInterceptor("debug");
+  const intercepted: Record<LogLevel, (...args: unknown[]) => void> = {
+    log: createInterceptor("log"),
+    info: createInterceptor("info"),
+    warn: createInterceptor("warn"),
+    error: createInterceptor("error"),
+    debug: createInterceptor("debug"),
+  };
+
+  function install(): void {
+    console.log = intercepted.log;
+    console.info = intercepted.info;
+    console.warn = intercepted.warn;
+    console.error = intercepted.error;
+    console.debug = intercepted.debug;
+  }
+
+  install();
 
   return {
     getSnapshot(): readonly LogEntry[] {
@@ -119,6 +131,9 @@ export function createLogStore(maxEntries: number = MAX_LOG_ENTRIES): LogStore {
     },
 
     commit(): void {
+      // Some renderers/libraries patch `console.*` during startup. Reassert the
+      // store interceptors when entering capture mode so logs keep flowing here.
+      install();
       committed = true;
     },
 

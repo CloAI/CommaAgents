@@ -1,9 +1,3 @@
-// Newline-style detection and preservation.
-//
-// File-editing tools must round-trip the file's existing newline
-// convention so that a `write_file` doesn't churn CRLF → LF on
-// Windows-authored sources. We detect on read and re-apply on write.
-
 /**
  * Newline style as detected in a source buffer.
  *

@@ -57,10 +57,16 @@ export async function buildAgentRegistry(
       registry[name] = await buildLLMAgent(name, agentDefinition, options);
     }
 
-    // Hydrate agent if we have prior turns to replay
-    if (options.initialAgentTurns?.has(name)) {
-      const turns = options.initialAgentTurns.get(name)!;
-      registry[name]?.hydrateForReplay?.(turns);
+    // Restore previous conversation turns if provided
+    if (options.previousTurns?.has(name)) {
+      const agent = registry[name];
+      const turns = options.previousTurns.get(name)!;
+      if (agent && turns.length > 0) {
+        const context = agent.getConversationContext?.();
+        if (context) {
+          context.restore(turns);
+        }
+      }
     }
   }
 

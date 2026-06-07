@@ -1,4 +1,4 @@
-export type { IntroPageProps, IntroPageRenderProps } from "./IntroPage";
+export type { IntroPageRenderProps } from "./IntroPage";
 export { IntroPage, IntroPageRender } from "./IntroPage";
 
 export type { IntroPageTheme } from "./IntroPage.theme";

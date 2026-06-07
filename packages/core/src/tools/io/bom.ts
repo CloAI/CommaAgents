@@ -1,9 +1,3 @@
-// Byte-order-mark (BOM) detection and preservation.
-//
-// Some Windows-authored UTF-8 files begin with `\uFEFF`. We strip it on
-// read so structural edits don't have to think about it, and re-emit
-// it on write when the source had one.
-
 /** The UTF-8 BOM as a string. */
 export const BOM = "\uFEFF";
 

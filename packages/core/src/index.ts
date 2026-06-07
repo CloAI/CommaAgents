@@ -298,7 +298,6 @@ export {
 // Timeline and unified event timeline types/factories
 export type {
   ProjectedConversationContext,
-  StepCursor,
   Timeline,
   TimelineEvent,
   TimelineFilter,
@@ -307,7 +306,6 @@ export {
   createTimeline,
   projectConversationContext,
   projectFileState,
-  projectStepCursor,
 } from "./timeline/index";
 export {
   buildToolSystemPrompt,

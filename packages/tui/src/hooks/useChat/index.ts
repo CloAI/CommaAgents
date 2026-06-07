@@ -1,8 +1,14 @@
 export { useChat } from "./useChat";
+export { useChatActions } from "./useChatActions";
+export type { UseChatActionsResult } from "./useChatActions";
 export {
   ChatRunsContext,
   ChatRunsContextProvider,
 } from "./useChat.context";
+export { useChatLifecycle } from "./useChatLifecycle";
+export type { UseChatLifecycleResult } from "./useChatLifecycle";
+export { useChatState } from "./useChatState";
+export type { UseChatStateResult } from "./useChatState";
 export type {
   ChatMessage,
   ChatRun,

@@ -1,0 +1,66 @@
+{
+  "name": "Plan",
+  "version": "2.1",
+  "description": "Planning strategy. The user describes a goal; the planner investigates the codebase, produces a concrete implementation plan and todo list, and a reviewer observes each iteration until the plan is approved. The final output is the approved planner response, not the review verdict.",
+  "agents": {
+    "user": {
+      "type": "user",
+      "description": "Collects the user's planning goal.",
+      "config": {
+        "requireInput": true
+      }
+    },
+    "planner": {
+      "description": "Produces and revises a detailed, file-aware implementation plan and a synchronized todo list.",
+      "model": "openrouter/google/gemini-3.5-flash",
+      "maxSteps": 80,
+      "systemPrompt": "./prompts/planner.md",
+      "tools": [
+        "read_file",
+        "list_directory",
+        "search_files",
+        "load_skill",
+        "todo_add",
+        "todo_complete",
+        "todo_get",
+        "todo_remove",
+        "todo_clear",
+        "lsp_request"
+      ]
+    },
+    "reviewer": {
+      "description": "Cycle observer. Critiques the plan for feasibility, completeness, todo consistency, and adherence to project conventions; approves only when it is ready for Build.",
+      "model": "openrouter/google/gemini-3.5-flash",
+      "maxSteps": 40,
+      "systemPrompt": "./prompts/reviewer.md",
+      "tools": [
+        "read_file",
+        "list_directory",
+        "search_files",
+        "load_skill",
+        "todo_get",
+        "lsp_request"
+      ]
+    }
+  },
+  "flow": {
+    "name": "Plan Flow",
+    "type": "sequential",
+    "description": "User states a goal; planner revises under reviewer observation until the reviewer approves. The cycle returns the approved planner output.",
+    "steps": [
+      { "agent": "user" },
+      {
+        "name": "Plan Approval Loop",
+        "type": "cycle",
+        "description": "Planner drafts and revises; reviewer observes and either approves with a first-line token or sends one concrete revision directive.",
+        "steps": [
+          { "agent": "planner" }
+        ],
+        "cycles": "Infinity",
+        "observer": "reviewer",
+        "breakCycleSignals": ["==PLAN_APPROVED=="],
+        "breakCycleSignalMatch": "first-line"
+      }
+    ]
+  }
+}

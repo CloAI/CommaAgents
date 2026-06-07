@@ -6,10 +6,11 @@ import type {
   ResponseMessage,
   UserModelMessage,
 } from "@comma-agents/core";
+import { isUserAgentDef } from "@comma-agents/core";
+import type { Logger } from "../../../logger";
+import type { RunStore } from "../../../runs";
+import type { RunState } from "../../../state";
 import type { EventSink } from "../../event-sink";
-import type { Logger } from "../../logger/logger.types";
-import type { RunStore } from "../../runs/runs.types";
-import type { RunState } from "../../state/state.types";
 import type { DaemonSystem, StrategyLoadedContext } from "../systems.types";
 
 export interface StreamingSystemOptions {
@@ -38,7 +39,9 @@ export function createStreamingSystem(
       for (const [agentName, agent] of Object.entries(strategy.agents)) {
         if (!agent.appendHook) continue;
 
-        const isUserAgent = agent.config?.type === "user";
+        const agentDefinition = strategy.raw.agents[agentName];
+        const isUserAgent =
+          agentDefinition !== undefined && isUserAgentDef(agentDefinition);
         const agentHooks = buildAgentHooks(
           agentName,
           run,

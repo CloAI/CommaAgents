@@ -1,11 +1,7 @@
-export type {
-  ProjectedConversationContext,
-  StepCursor,
-} from "./projections";
+export type { ProjectedConversationContext } from "./projections";
 export {
   projectConversationContext,
   projectFileState,
-  projectStepCursor,
 } from "./projections";
 export { createTimeline } from "./timeline";
 export type {

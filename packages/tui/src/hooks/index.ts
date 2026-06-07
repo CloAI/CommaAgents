@@ -17,8 +17,12 @@ export type {
 } from "./useChat";
 export {
   ChatRunsContextProvider,
+  useActiveStrategy,
   useChat,
+  useChatActions,
+  useChatLifecycle,
   useChatRuns,
+  useChatState,
 } from "./useChat";
 export type {
   ClientMessageOf,
@@ -51,7 +55,7 @@ export type {
   LogStoreListener,
   LogsState,
 } from "./useLogs";
-export { createLogStore, logStore, useLogs } from "./useLogs";
+export { createLogStore, useLogs } from "./useLogs";
 export type {
   ModalContextProviderProps,
   ModalContextType,

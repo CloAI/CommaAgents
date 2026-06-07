@@ -1,10 +1,3 @@
-// Translate `SandboxViolationError.reason` into a structured `ToolError`.
-//
-// Every file-system tool catches `SandboxViolationError` at its entry point
-// and converts it through this helper, so the LLM receives a stable
-// `ToolError.kind` (`outside_workspace` or `permission_denied`) instead of
-// a thrown exception bubbling out as `unknown`.
-
 import type { SandboxViolationError } from "../../errors";
 import { toolError } from "../result";
 import type { ToolError } from "../tool.types";

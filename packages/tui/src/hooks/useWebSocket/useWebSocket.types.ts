@@ -9,11 +9,13 @@ export type WebSocketStatus =
 export interface UseWebSocketConfig {
   /** WebSocket endpoint URL (e.g. "ws://localhost:7422/ws"). */
   readonly url: string;
+  /** Delay before reconnecting after a dropped connection. Default: 2000ms. */
+  readonly reconnectDelayMs?: number;
   /** Called with every incoming message (raw string data). */
   readonly onMessage: (data: string) => void;
   /** Called when the connection status changes. */
   readonly onStatus?: (status: WebSocketStatus) => void;
-  /** Called on unrecoverable connection errors. */
+  /** Called when a connection attempt reports an error. */
   readonly onError?: (error: string) => void;
 }
 
@@ -23,9 +25,9 @@ export interface WebSocketState {
   readonly status: WebSocketStatus;
   /**
    * Send a string payload over the socket.
-   * Returns `true` if the socket was open and the message was sent.
+   * Returns `true` if the message was sent or queued while connecting.
    */
   readonly send: (data: string) => boolean;
-  /** Manually close the connection. */
+  /** Manually close the connection and stop reconnecting. */
   readonly close: () => void;
 }

@@ -10,7 +10,8 @@ import type {
   ResponseMessage,
 } from "../../context/conversation-context.types";
 import { SandboxViolationError } from "../../errors/index";
-import { runSideEffectHooks } from "../../hooks";
+import { runSideEffectHooks, runTransformHooks } from "../../hooks";
+import type { SideEffectHook, TransformHook } from "../../hooks/hooks.types";
 import type { LanguageService } from "../../language";
 import { resolveModel } from "../../model/model";
 import {
@@ -34,6 +35,7 @@ import type {
 } from "../../tools/tool.types";
 import type { InputCollector } from "../built-in/user/user-agent.types";
 import type { ToolHooks } from "../hooks";
+import { resolveHook } from "../hooks";
 import { DEFAULT_MAX_STEPS } from "./agent.constants";
 import type {
   AgentCallResult,
@@ -41,6 +43,83 @@ import type {
   AgentStreamEvent,
   CallOptions,
 } from "./agent.types";
+
+export type AgentHookStore = {
+  alterFirstCallMessage: Array<TransformHook<string>> | undefined;
+  beforeFirstCall: Array<SideEffectHook<string>> | undefined;
+  afterFirstCallResult: Array<SideEffectHook<AgentCallResult>> | undefined;
+  alterFirstResponse: Array<TransformHook<string>> | undefined;
+  alterCallMessage: Array<TransformHook<string>> | undefined;
+  beforeCall: Array<SideEffectHook<string>> | undefined;
+  alterResponse: Array<TransformHook<string>> | undefined;
+  afterCallResult: Array<SideEffectHook<AgentCallResult>> | undefined;
+  onStreamEvent: Array<SideEffectHook<AgentStreamEvent>> | undefined;
+  beforeToolCall:
+    | Array<
+        SideEffectHook<{
+          readonly name: string;
+          readonly args: string;
+          readonly toolContext: ToolContext;
+        }>
+      >
+    | undefined;
+  afterToolCall:
+    | Array<
+        SideEffectHook<{
+          readonly name: string;
+          readonly args: string;
+          readonly result: string;
+          readonly toolContext: ToolContext;
+        }>
+      >
+    | undefined;
+};
+
+/** Build a ToolHooks view from the mutable store for passing to buildCallOptions. */
+export function getToolHooks(hooks: AgentHookStore): ToolHooks {
+  return {
+    beforeToolCall: hooks.beforeToolCall,
+    afterToolCall: hooks.afterToolCall,
+  };
+}
+
+/**
+ * Run the pre-call hook lifecycle and return the altered message.
+ */
+export async function runPreCallHooks(
+  hooks: AgentHookStore,
+  message: string,
+  isFirst: boolean,
+): Promise<string> {
+  const alteredMessage = await runTransformHooks(
+    resolveHook(hooks.alterFirstCallMessage, hooks.alterCallMessage, isFirst),
+    message,
+  );
+  await runSideEffectHooks(
+    resolveHook(hooks.beforeFirstCall, hooks.beforeCall, isFirst),
+    alteredMessage,
+  );
+  return alteredMessage;
+}
+
+/**
+ * Run the post-call hook lifecycle and return the result with altered text.
+ */
+export async function runPostCallHooks(
+  hooks: AgentHookStore,
+  result: AgentCallResult,
+  isFirst: boolean,
+): Promise<AgentCallResult> {
+  await runSideEffectHooks(
+    resolveHook(hooks.afterFirstCallResult, hooks.afterCallResult, isFirst),
+    result,
+  );
+  const alteredText = await runTransformHooks(
+    resolveHook(hooks.alterFirstResponse, hooks.alterResponse, isFirst),
+    result.text,
+  );
+  return { ...result, text: alteredText };
+}
 
 // Tool set builder
 
@@ -414,43 +493,5 @@ export function buildStreamCallResult(
       completionTokens: totalUsage.outputTokens ?? 0,
     },
     finishReason: finishReason ?? "stop",
-  };
-}
-
-// Replay result builder
-
-/** Extract a flat text body from an assistant turn's response messages. */
-function extractTextFromResponseMessages(
-  responseMessages: readonly ResponseMessage[],
-): string {
-  let text = "";
-  for (const responseMessage of responseMessages) {
-    if (responseMessage.role !== "assistant") continue;
-    const { content } = responseMessage;
-    if (typeof content === "string") {
-      text += content;
-    } else if (Array.isArray(content)) {
-      for (const part of content) {
-        if (part.type === "text") text += part.text;
-      }
-    }
-  }
-  return text;
-}
-
-/**
- * Build an `AgentCallResult` from a hydrated `ConversationTurn`'s response
- * messages. Used by the agent's replay path: no LLM call, no tokens,
- * no steps — just rehydrate the prior call's output.
- */
-export function buildReplayCallResult(
-  responseMessages: readonly ResponseMessage[],
-): AgentCallResult {
-  return {
-    text: extractTextFromResponseMessages(responseMessages),
-    responseMessages,
-    steps: [],
-    usage: { promptTokens: 0, completionTokens: 0 },
-    finishReason: "stop",
   };
 }

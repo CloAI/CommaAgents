@@ -1,10 +1,3 @@
-// Heuristic detection of binary file content.
-//
-// The spec calls out a two-step opt-in for binary reads: the first
-// `read_file` returns `binary_file` with `{ binary, sizeBytes, sha256 }`
-// metadata; the LLM must re-request with `allowBinary: true` to receive
-// the base64 payload. This module supplies the detection primitive.
-
 /** Sample size in bytes used for binary detection. */
 export const BINARY_DETECTION_SAMPLE_BYTES = 8 * 1024;
 

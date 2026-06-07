@@ -174,6 +174,20 @@ describe("createLogStore", () => {
       expect(entries[0].message).toBe("after-commit");
     });
 
+    it("should reassert console interception when commit is called", () => {
+      console.log = ((message?: unknown) => {
+        process.stdout.write(`external:${String(message)}\n`);
+      }) as typeof console.log;
+
+      store.commit();
+      console.log("after-reinstall");
+
+      const entries = store.getSnapshot();
+      expect(entries.length).toBe(1);
+      expect(entries[0].message).toBe("after-reinstall");
+      expect(captured.stdout.join("")).toBe("");
+    });
+
     it("should preserve pre-commit entries when commit is called", () => {
       console.log("before");
       store.commit();

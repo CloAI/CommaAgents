@@ -1,24 +1,28 @@
 import { readFileSync } from "node:fs";
-import type { AgentHooks, FlowHooks, LoadedStrategy } from "@comma-agents/core";
+import { dirname } from "node:path";
+import type {
+  AgentHooks,
+  ConversationTurn,
+  FlowHooks,
+  LoadedStrategy,
+} from "@comma-agents/core";
 import {
   hookIntoAgent,
-  inSandbox,
+  isUserAgentDef,
   loadStrategyFromString,
 } from "@comma-agents/core";
-import type { Logger } from "../../logger/logger.types";
-import type { EventSink } from "../../server/protocol/event-sink";
-import type { SystemDataStore } from "./systems.types";
+import type { Logger } from "../logger/logger.types";
+import type { SystemDataStore } from "./systems/systems.types";
 
 export interface PrepareStrategyOptions {
   readonly strategyPath: string;
   readonly modelOverride?: string;
-  readonly cwd: string;
   readonly runId: string;
-  readonly sink: EventSink;
   readonly systemData: SystemDataStore;
   readonly logger: Logger;
   readonly flowHooks?: FlowHooks;
   readonly agentHooks?: AgentHooks;
+  readonly previousTurns?: ReadonlyMap<string, readonly ConversationTurn[]>;
 }
 
 export async function prepareStrategy(
@@ -27,13 +31,12 @@ export async function prepareStrategy(
   const {
     strategyPath,
     modelOverride,
-    cwd,
     runId,
-    sink,
     systemData,
     logger,
     flowHooks,
     agentHooks,
+    previousTurns,
   } = options;
 
   logger.debug(`Loading strategy from ${strategyPath}`);
@@ -53,68 +56,27 @@ export async function prepareStrategy(
   const strategy = await loadStrategyFromString(content, format, {
     inputCollector,
     launchStrategy,
+    flowHooks,
     modelOverride,
-    cwd,
+    strategyDir: dirname(strategyPath),
     runId,
+    previousTurns,
   });
 
   logger.info(
     `Strategy loaded: ${strategy.name} with ${Object.keys(strategy.agents).length} agents`,
   );
 
-  if (flowHooks) {
-    hookIntoAgent(strategy.flow, flowHooks);
-  }
-
   if (agentHooks) {
-    for (const [_agentName, agent] of Object.entries(strategy.agents)) {
+    for (const [agentName, agent] of Object.entries(strategy.agents)) {
       if (!agent.appendHook) continue;
 
-      const isUserAgent = agent.config?.type === "user";
-
-      if (!isUserAgent) {
+      const agentDefinition = strategy.raw.agents[agentName];
+      if (agentDefinition && !isUserAgentDef(agentDefinition)) {
         hookIntoAgent(agent, agentHooks);
       }
     }
   }
-
-  const permissionBridge = systemData.get("permissionBridge");
-  const questionBridge = systemData.get("questionBridge");
-
-  if (!permissionBridge || !questionBridge) {
-    throw new Error(
-      "prepareStrategy requires InteractionBridgesSystem to run first",
-    );
-  }
-
-  const sandboxConfig = {
-    cwd,
-    jail: false,
-    allowAbsolutePaths: true,
-    read: { default: "ask", allow: ["**"], deny: [] },
-    write: { default: "ask", allow: ["**"], deny: [] },
-    execute: { default: "ask", allow: ["**"], deny: [] },
-  };
-
-  const sandboxCallbacks = {
-    onAsk: permissionBridge.requester,
-    onQuestion: questionBridge.requester,
-    onPolicyChange: (snapshot: {
-      toolName: string;
-      policies: unknown;
-    }): void => {
-      sink.broadcast(runId, {
-        type: "policy_updated",
-        runId,
-        tool: snapshot.toolName,
-        policies: snapshot.policies,
-        ts: new Date().toISOString(),
-      });
-    },
-  };
-
-  const sandbox = inSandbox(strategy, sandboxConfig, sandboxCallbacks);
-  systemData.set("sandbox", sandbox);
 
   return strategy;
 }

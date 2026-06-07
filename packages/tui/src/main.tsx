@@ -15,9 +15,18 @@ import { logStore } from "./hooks/useLogs/logStore";
 import { DEBUG_LOG, LOG_FILE_PATH } from "./utils/debug";
 
 // Step 2 — capture process-level exceptions into the store (and disk fallback).
-function captureException(label: string, err: Error): void {
+function captureException(
+  label: string,
+  err: Error,
+  options?: { readonly writeToStderr?: boolean },
+): void {
   const message = `${label}: ${err.name}: ${err.message}${err.stack ? `\n${err.stack}` : ""}`;
   logStore.push("error", message);
+
+  if (options?.writeToStderr === true || !logStore.isCommitted()) {
+    process.stderr.write(`${message}\n`);
+  }
+
   if (DEBUG_LOG) {
     try {
       const timestamp = new Date().toISOString();
@@ -29,7 +38,7 @@ function captureException(label: string, err: Error): void {
 }
 
 process.on("uncaughtException", (err: Error) => {
-  captureException("Uncaught exception", err);
+  captureException("Uncaught exception", err, { writeToStderr: true });
   process.exit(1);
 });
 
@@ -41,7 +50,6 @@ process.on("unhandledRejection", (reason: unknown) => {
 // Step 3 — dynamically import the rest of the app now that the store is live.
 import("./bootstrap").catch((err: unknown) => {
   const error = err instanceof Error ? err : new Error(String(err));
-  captureException("Failed to load app", error);
-  // console.log(error);
+  captureException("Failed to load app", error, { writeToStderr: true });
   process.exit(1);
 });

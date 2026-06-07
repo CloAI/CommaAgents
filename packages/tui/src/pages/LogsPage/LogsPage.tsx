@@ -1,27 +1,18 @@
 import { Box, Text } from "ink";
 import type React from "react";
 import { useDebugRender } from "../../hooks/useDebugRender";
-import type { LogEntry } from "../../hooks/useLogs";
+import { useLogs, type LogEntry } from "../../hooks/useLogs";
 import type { LogsPageTheme } from "./LogsPage.theme";
 import { useLogsPageTheme } from "./LogsPage.theme";
 import { formatLevel, formatTimestamp } from "./LogsPage.utils";
+import { ScrollableView } from "../../components";
 
-export interface LogsPageProps {
-  /** The log entries to display. */
-  readonly logs: readonly LogEntry[];
-  /** Callback to clear all logs. */
-  readonly onClear: () => void;
-  /** Max visible log entries (scrolls to bottom). @default 100 */
-  readonly maxVisible?: number;
-}
+export interface LogsPageProps {}
 
-export function LogsPage({
-  logs,
-  onClear,
-  maxVisible = 100,
-}: LogsPageProps): React.ReactElement {
+export function LogsPage({}: LogsPageProps): React.ReactElement {
+  const { logs, clearLogs } = useLogs();
   const debug = useDebugRender("LogsPage", {
-    props: { logs, onClear, maxVisible },
+    props: { logs, clearLogs },
   });
   const theme = useLogsPageTheme();
 
@@ -29,7 +20,6 @@ export function LogsPage({
     <LogsPageRender
       theme={theme}
       logs={logs}
-      maxVisible={maxVisible}
       debugRef={debug.ref}
     />
   );
@@ -40,8 +30,6 @@ export interface LogsPageRenderProps {
   readonly theme: LogsPageTheme;
   /** The log entries to display. */
   readonly logs: readonly LogEntry[];
-  /** Max visible log entries (scrolls to bottom). */
-  readonly maxVisible: number;
   /** Debug render ref. */
   readonly debugRef?: React.Ref<import("ink").DOMElement>;
 }
@@ -49,12 +37,10 @@ export interface LogsPageRenderProps {
 export function LogsPageRender({
   theme,
   logs,
-  maxVisible,
   debugRef,
 }: LogsPageRenderProps): React.ReactElement {
-  const visible = logs.slice(-maxVisible);
 
-  if (visible.length === 0) {
+  if (logs.length === 0) {
     return (
       <Box ref={debugRef} {...theme.root}>
         <Text {...theme.emptyState}>No logs captured yet.</Text>
@@ -64,13 +50,15 @@ export function LogsPageRender({
 
   return (
     <Box ref={debugRef} {...theme.root}>
-      {visible.map((entry) => (
+      <ScrollableView
+        items={logs}
+        getKey={(item, index) => `log_item-${index}`}
+        renderItem={(entry, _index) => (
         <Box key={entry.id} {...theme.logRow}>
           <Text {...theme.timestamp}>{formatTimestamp(entry.timestamp)}</Text>
           <Text {...theme.levels[entry.level]}>{formatLevel(entry.level)}</Text>
           <Text {...theme.messageBody}>{entry.message}</Text>
-        </Box>
-      ))}
+        </Box>)} />
     </Box>
   );
 }

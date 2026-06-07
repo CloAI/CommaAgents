@@ -1,10 +1,3 @@
-// Audit sink implementations: in-memory + JSONL file.
-//
-// File sink layout:
-//   <workspaceRoot>/.comma/audit/<sessionId>.jsonl
-// One JSON-encoded `AuditEntry` per line, no trailing comma, fsync'd
-// on every append for crash durability.
-
 import { appendFile, mkdir, open, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AuditEntry, AuditSink } from "./audit.types";
@@ -62,10 +55,12 @@ export function createFileAuditSink(
   const auditDir = join(workspaceRoot, ".comma", "audit");
   const maxDiffBytes = options.maxDiffBytes ?? DEFAULT_MAX_DIFF_BYTES;
 
+  /** Resolve the JSONL file path for a given session ID. */
   function fileForSession(sessionId: string | undefined): string {
     return join(auditDir, `${sessionId ?? "default"}.jsonl`);
   }
 
+  /** Truncate the diff field if it exceeds the configured maximum. */
   function truncateDiff(entry: AuditEntry): AuditEntry {
     if (entry.diff === undefined) return entry;
     if (entry.diff.length <= maxDiffBytes) return entry;
@@ -75,6 +70,7 @@ export function createFileAuditSink(
     };
   }
 
+  /** Read all JSONL files from the audit directory. */
   async function readAllSessions(): Promise<AuditEntry[]> {
     let files: string[];
     try {
@@ -91,6 +87,7 @@ export function createFileAuditSink(
     return out;
   }
 
+  /** Parse a JSONL file into an array of audit entries. */
   async function readJsonl(absolutePath: string): Promise<AuditEntry[]> {
     let content: string;
     try {

@@ -4,10 +4,32 @@ import { useCallback, useState } from "react";
 
 import { TextAreaInput } from "../TextAreaInput";
 import { useChatTextAreaTheme } from "./ChatTextArea.theme";
-import type {
-  ChatTextAreaProps,
-  ChatTextAreaRenderProps,
-} from "./ChatTextArea.types";
+import type { DiscoveredStrategy } from "@comma-agents/core";
+
+/** Props for the ChatTextArea container. */
+export interface ChatTextAreaProps {
+  /**
+   * Stable focus ID for programmatic focusing via `useFocusManager().focus(id)`.
+   * When omitted the component still participates in tab-order cycling.
+   */
+  readonly id?: string;
+  /** Available strategies the user can cycle through. */
+  readonly strategies: readonly DiscoveredStrategy[];
+  /** Width — columns (number) or CSS-like string. @default "100%" */
+  readonly width?: number | string;
+  /** Visible row count for the text area. @default 10 */
+  readonly height?: number;
+  /** Placeholder shown when the text area is empty. */
+  readonly placeholder?: string;
+  /**
+   * Whether to show the strategy row (label + "Tab to change strategy" hint).
+   * Hide it when the strategy is fixed (e.g. steering or replying mid-run).
+   * @default true
+   */
+  readonly showStrategyRow?: boolean;
+  /** Called when the user submits a message with the selected strategy. */
+  readonly onSubmit: (strategyPath: DiscoveredStrategy, input: string) => void;
+}
 
 /**
  * Outer-tree shell that measures the available width and hands a numeric
@@ -26,13 +48,13 @@ import type {
  * but the JS closures still work normally.
  */
 export function ChatTextArea({
-  strategies,
-  onSubmit,
   id,
+  strategies,
   width = "100%",
   height = 5,
   placeholder = "Enter your prompt...",
   showStrategyRow = true,
+  onSubmit,
 }: ChatTextAreaProps): React.ReactElement {
   const { isFocused } = useFocus({ id });
   const [inputValue, setInputValue] = useState("");
@@ -58,7 +80,7 @@ export function ChatTextArea({
     (text: string) => {
       if (!currentStrategy) return;
       setInputValue("");
-      onSubmit(currentStrategy.value, text);
+      onSubmit(currentStrategy, text);
     },
     [currentStrategy, onSubmit],
   );
@@ -86,18 +108,46 @@ export function ChatTextArea({
 
   return (
     <ChatTextAreaRender
-      inputValue={inputValue}
-      onInputChange={setInputValue}
-      onSubmit={handleSubmit}
-      strategyLabel={currentStrategy.label}
-      strategyDescription={currentStrategy.description}
+      id={id}
       width={width}
       height={height}
+      inputValue={inputValue}
+      strategyLabel={currentStrategy.label}
+      strategyDescription={currentStrategy.description}
       placeholder={placeholder}
       showStrategyRow={showStrategyRow}
-      id={id}
+      onInputChange={setInputValue}
+      onSubmit={handleSubmit}
     />
   );
+}
+
+/** Props for the ChatTextArea render function. */
+export interface ChatTextAreaRenderProps {
+  /**
+   * Focus ID forwarded from `ChatTextAreaProps`. Passed through to `TextAreaInput`
+   * so both the container's `useInput` (tab/ctrl+s) and the leaf's `useInput`
+   * (typing) share a single focus slot.
+   */
+  readonly id?: string;
+  /** Current text input value. */
+  readonly inputValue: string;
+  /** Label of the currently selected strategy. */
+  readonly strategyLabel: string;
+  /** Description of the currently selected strategy. */
+  readonly strategyDescription: string | undefined;
+  /** Width for the text area. */
+  readonly width: number | string;
+  /** Height for the text area. */
+  readonly height: number;
+  /** Placeholder text. */
+  readonly placeholder: string;
+  /** Whether to show the strategy row. */
+  readonly showStrategyRow: boolean;
+  /** Called when the text input value changes. */
+  readonly onInputChange: (value: string) => void;
+  /** Called on Meta+Enter with the current text. */
+  readonly onSubmit: (text: string) => void;
 }
 
 /**
@@ -108,6 +158,7 @@ export function ChatTextArea({
  * against the first frame and produce a one-tick layout flash).
  */
 export function ChatTextAreaRender({
+  id,
   inputValue,
   onInputChange,
   onSubmit,
@@ -117,7 +168,6 @@ export function ChatTextAreaRender({
   height,
   placeholder,
   showStrategyRow,
-  id,
 }: ChatTextAreaRenderProps): React.ReactElement {
   const theme = useChatTextAreaTheme();
 
@@ -137,10 +187,12 @@ export function ChatTextAreaRender({
           <Box maxWidth={42}>
             <Text {...theme.strategyLabel}>
               {strategyLabel}
-              <Text {...theme.hint} wrap="wrap">
-                {" "}
-                — {strategyDescription}
-              </Text>
+              { strategyDescription &&
+                <Text {...theme.hint} wrap="wrap">
+                  {" "}
+                  — {strategyDescription}
+                </Text>
+              }
             </Text>
           </Box>
           <Text {...theme.hint}>Tab to change strategy · Enter to submit</Text>

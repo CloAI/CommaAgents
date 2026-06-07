@@ -19,13 +19,6 @@ import type { Strategy } from "../schema";
  */
 export interface LoadStrategyOptions {
   /**
-   * Optional map of agent name → prior conversation turns to hydrate for replay.
-   * When provided, each instantiated agent is hydrated with these turns
-   * and enters replay mode, enabling resuming execution from the last step.
-   */
-  readonly initialAgentTurns?: ReadonlyMap<string, readonly ConversationTurn[]>;
-
-  /**
    * Input collector function for user agents.
    * Required if the strategy contains any user agents with `requireInput: true`.
    */
@@ -97,11 +90,26 @@ export interface LoadStrategyOptions {
    * which shares state across agents within one invocation but must not
    * leak into recursive sub-runs).
    *
-   * When omitted, runId-aware tools fall back to `agentName`-only
-   * keying (their original behaviour) — safe for tests and embedded
-   * callers that don't care about cross-launch isolation.
-   */
+    * When omitted, runId-aware tools fall back to `agentName`-only
+    * keying (their original behaviour) — safe for tests and embedded
+    * callers that don't care about cross-launch isolation.
+    */
   readonly runId?: string;
+
+  /**
+   * Optional map of agent name → previous conversation turns to restore
+   * into each agent's conversation context before the strategy runs.
+   *
+   * When provided, each agent whose name appears in this map has its
+   * conversation context restored with the given turns, so the agent
+   * "remembers" its prior exchanges from a previous run. This enables
+   * continuing a conversation from where a previous run left off without
+   * replaying the flow.
+   *
+   * Agents whose names do not appear in the map start with an empty
+   * conversation context as usual.
+   */
+  readonly previousTurns?: ReadonlyMap<string, readonly ConversationTurn[]>;
 }
 
 /**

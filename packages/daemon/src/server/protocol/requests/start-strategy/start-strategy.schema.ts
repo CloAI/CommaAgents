@@ -28,6 +28,12 @@ export const StartStrategyMessage = ClientBase.extend({
    * manifest's directory.
    */
   manifestPath: z.string().min(1).optional(),
+  /**
+   * Optional run ID from a previous execution to continue the conversation from.
+   * When provided, the daemon loads the previous run's conversation history
+   * and passes it to the agents so they can continue from where they left off.
+   */
+  previousRunId: z.string().min(1).optional(),
 });
 
 export type StartStrategyMessage = z.infer<typeof StartStrategyMessage>;

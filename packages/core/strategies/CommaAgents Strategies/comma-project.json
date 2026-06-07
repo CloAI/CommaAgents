@@ -3,8 +3,8 @@
   "version": "1.0",
   "description": "Built-in strategies for CommaAgents",
   "strategies": [
-    "./build.json",
-    "./plan.json",
+    "./build/build.json",
+    "./plan/plan.json",
     "./qa.json",
     "./reduce-complexity/reduce-complexity.jsonc",
     "./talk.json",

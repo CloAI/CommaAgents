@@ -1,34 +1,34 @@
+import type { DiscoveredStrategy } from "@comma-agents/core";
 import { Box, useFocusManager } from "ink";
-import type React from "react";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router";
 import { ChatTextArea } from "../../components";
-import type { StrategyOption } from "../../components/StrategyPicker";
+import type { ChatTextAreaProps } from "../../components/ChatTextArea/ChatTextArea";
 import { TitleIcon } from "../../components/TitleIcon";
+import { useDiscoveredStrategies } from "../../hooks/useStrategies/useStrategies";
+import type { ChatPageRouteState } from "../ChatPage";
 import type { IntroPageTheme } from "./IntroPage.theme";
 import { useIntroPageTheme } from "./IntroPage.theme";
 
-export interface IntroPageProps {
-  /** Strategies the user can cycle through with Tab in the input. */
-  readonly strategies: readonly StrategyOption[];
-  /**
-   * Called when the user submits their first prompt. Receives the selected
-   * strategy key and the raw input text. The host (App) is responsible for
-   * navigating to the chat screen and opening the daemon run.
-   */
-  readonly onSubmit: (strategyKey: string, input: string) => void;
-}
-
-export function IntroPage({
-  strategies,
-  onSubmit,
-}: IntroPageProps): React.ReactElement {
+export function IntroPage(): React.ReactElement {
   const theme = useIntroPageTheme();
+  const navigate = useNavigate();
+
+  const strategies = useDiscoveredStrategies();
+  const handleStartChat = React.useCallback<ChatTextAreaProps["onSubmit"]>(
+    (strategy: DiscoveredStrategy, inputText: string): void => {
+      navigate("/chat", {
+        state: { strategy, inputText } satisfies ChatPageRouteState,
+      });
+    },
+    [navigate],
+  );
 
   return (
     <IntroPageRender
       theme={theme}
       strategies={strategies}
-      onSubmit={onSubmit}
+      onSubmit={handleStartChat}
     />
   );
 }
@@ -37,9 +37,9 @@ export interface IntroPageRenderProps {
   /** Resolved theme style objects. */
   readonly theme: IntroPageTheme;
   /** Strategies to expose to the input's strategy switcher. */
-  readonly strategies: readonly StrategyOption[];
+  readonly strategies: readonly DiscoveredStrategy[];
   /** Submit handler — `(strategyKey, input)`. */
-  readonly onSubmit: (strategyKey: string, input: string) => void;
+  readonly onSubmit: ChatTextAreaProps["onSubmit"];
 }
 
 export function IntroPageRender({

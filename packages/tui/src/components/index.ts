@@ -150,11 +150,6 @@ export type {
 
 export { useStatusBarTheme } from "./StatusBar/StatusBar.theme";
 
-export type { StrategyOption } from "./StrategyPicker";
-export { StrategyPicker, StrategyPickerRender } from "./StrategyPicker";
-export type { StrategyPickerTheme } from "./StrategyPicker/StrategyPicker.theme";
-export { useStrategyPickerTheme } from "./StrategyPicker/StrategyPicker.theme";
-
 export type { TextAreaInputProps } from "./TextAreaInput";
 export { TextAreaInput } from "./TextAreaInput";
 export { useTextAreaInputTheme } from "./TextAreaInput/TextAreaInput.theme";

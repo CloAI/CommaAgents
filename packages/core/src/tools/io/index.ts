@@ -1,10 +1,3 @@
-// Shared file-I/O primitives used by every file-editing tool.
-//
-// These modules are intentionally pure (no sandbox dependency) — the
-// tool layer threads `sandbox.assertReadable` / `assertWritable`
-// before invoking any function here. Tests can exercise the helpers
-// directly against tmp dirs without touching the sandbox.
-
 export type { WriteAtomicOptions } from "./atomic-write";
 export { writeAtomic } from "./atomic-write";
 

@@ -1,31 +1,7 @@
-import { useCallback, useContext, useMemo } from "react";
-
-import { useDaemon } from "../useDaemon/useDaemon";
-import { ChatRunsContext } from "./useChat.context";
-import type {
-  ChatRunId,
-  ChatRunsContextType,
-  UseChatState,
-} from "./useChat.types";
-
-/** Empty-messages singleton used when no run is bound (stable reference). */
-const EMPTY_MESSAGES = Object.freeze([]) as UseChatState["messages"];
-
-/**
- * Internal consumer — resolves the `ChatRunsContext` or throws.
- *
- * Used by both `useChat` and `useChatRuns`. Must be called inside a
- * `<ChatRunsContextProvider>`.
- */
-function useChatRunsContext(): ChatRunsContextType {
-  const contextValue = useContext(ChatRunsContext);
-  if (!contextValue) {
-    throw new Error(
-      "useChat / useChatRuns must be used within a <ChatRunsContextProvider>",
-    );
-  }
-  return contextValue;
-}
+import type { ChatRunId, UseChatState } from "./useChat.types";
+import { useChatState } from "./useChatState";
+import { useChatActions } from "./useChatActions";
+import { useChatLifecycle } from "./useChatLifecycle";
 
 /**
  * Bind a view to a single chat run.
@@ -40,108 +16,13 @@ function useChatRunsContext(): ChatRunsContextType {
  * `<ChatRunsContextProvider>`.
  */
 export function useChat(chatRunId?: ChatRunId): UseChatState {
-  const context = useChatRunsContext();
-  const { status: connectionStatus } = useDaemon();
+  const state = useChatState(chatRunId);
+  const actions = useChatActions(chatRunId);
+  const lifecycle = useChatLifecycle(chatRunId);
 
-  const resolvedChatRunId: ChatRunId | null =
-    chatRunId ?? context.activeChatRunId;
-  const chatRun = resolvedChatRunId
-    ? (context.chatRuns.get(resolvedChatRunId) ?? null)
-    : null;
-
-  const startStrategy = context.startStrategy;
-  const resumeRun = context.resumeRun;
-
-  const sendInput = useCallback(
-    (text: string): void => {
-      if (!resolvedChatRunId) return;
-      context.sendInput(resolvedChatRunId, text);
-    },
-    [context, resolvedChatRunId],
-  );
-
-  const sendSteer = useCallback(
-    (text: string): void => {
-      if (!resolvedChatRunId) return;
-      context.sendSteer(resolvedChatRunId, text);
-    },
-    [context, resolvedChatRunId],
-  );
-
-  const continueRun = useCallback(
-    (input: string, strategyPath?: string): void => {
-      if (!resolvedChatRunId) return;
-      context.continueChatRun(resolvedChatRunId, input, strategyPath);
-    },
-    [context, resolvedChatRunId],
-  );
-
-  const sendPermissionDecision = useCallback(
-    (decision: "allow" | "deny" | "allow-session" | "deny-session"): void => {
-      if (!resolvedChatRunId) return;
-      context.sendPermissionDecision(resolvedChatRunId, decision);
-    },
-    [context, resolvedChatRunId],
-  );
-
-  const sendQuestionResponse = useCallback(
-    (response: string): void => {
-      if (!resolvedChatRunId) return;
-      context.sendQuestionResponse(resolvedChatRunId, response);
-    },
-    [context, resolvedChatRunId],
-  );
-
-  const reset = useCallback((): void => {
-    if (!resolvedChatRunId) return;
-    context.resetChatRun(resolvedChatRunId);
-  }, [context, resolvedChatRunId]);
-
-  const stop = useCallback((): void => {
-    if (!resolvedChatRunId) return;
-    context.stopChatRun(resolvedChatRunId);
-  }, [context, resolvedChatRunId]);
-
-  return useMemo<UseChatState>(
-    () => ({
-      chatRunId: resolvedChatRunId,
-      messages: chatRun?.messages ?? EMPTY_MESSAGES,
-      status: chatRun?.status ?? "idle",
-      error: chatRun?.error ?? null,
-      pendingInputAgent: chatRun?.pendingInputAgent ?? null,
-      strategyName: chatRun?.strategyName ?? null,
-      strategyPath: chatRun?.strategyPath ?? null,
-      readOnly: chatRun?.readOnly ?? false,
-      pendingPermissionRequest: chatRun?.pendingPermissionRequests[0] ?? null,
-      pendingQuestionRequest: chatRun?.pendingQuestionRequests[0] ?? null,
-      runId: chatRun?.daemonRunId ?? null,
-      connectionStatus,
-      startStrategy,
-      resumeRun,
-      sendInput,
-      sendSteer,
-      continueRun,
-      sendPermissionDecision,
-      sendQuestionResponse,
-      reset,
-      stop,
-    }),
-    [
-      resolvedChatRunId,
-      chatRun,
-      connectionStatus,
-      startStrategy,
-      resumeRun,
-      sendInput,
-      sendSteer,
-      continueRun,
-      sendPermissionDecision,
-      sendQuestionResponse,
-      reset,
-      stop,
-    ],
-  );
+  return {
+    ...state,
+    ...actions,
+    ...lifecycle,
+  };
 }
-
-// Re-export for legacy imports.
-export { useChatRunsContext };

@@ -18,10 +18,6 @@ export {
   parseDaemonMessage,
 } from "./messages";
 export {
-  ContinueRunMessage,
-  handleContinueRun,
-} from "./requests/continue-run";
-export {
   GetAvailableModelsMessage,
   handleGetAvailableModels,
 } from "./requests/get-available-models";
@@ -43,10 +39,6 @@ export {
   PermissionDecisionMessage,
 } from "./requests/permission-decision";
 export { handlePing, PingMessage } from "./requests/ping";
-export {
-  handleResumeRun,
-  ResumeRunMessage,
-} from "./requests/resume-run";
 export {
   handleStartStrategy,
   StartStrategyMessage,

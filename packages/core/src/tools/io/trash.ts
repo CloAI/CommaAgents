@@ -1,20 +1,3 @@
-// Workspace trash helpers.
-//
-// Recoverable deletions are stored as tar.gz archives in a persistent
-// data directory. Each archive preserves the file's workspace-relative
-// path and includes a metadata.json entry with audit information
-// (sessionId, runId, agentName, timestamp, original path, sha256).
-//
-// Layout:
-//   <resolveDataDir()>/trash/<sha256(workspaceRoot)>/<timestamp>-<sessionId>-<runId>-<basename>.tar.gz
-//
-// Archive contents:
-//   metadata.json  — { sessionId, runId, agentName, trashedAt, originalPath, originalSha256 }
-//   <relativePath> — the original file at its workspace-relative path
-//
-// No automatic garbage collection — trash is user-managed via
-// `listTrash`, `restoreFromTrash`, and `clearTrash`.
-
 import { createHash } from "node:crypto";
 import {
   mkdir,
@@ -58,6 +41,8 @@ export function trashWorkspaceDir(workspaceRoot: string): string {
   return join(resolveDataDir(), "trash", key);
 }
 
+/** Generate a short hash prefix for unique archive naming. */
+/** Generate a short hash prefix for unique archive naming. */
 function shortHash(input: string, length: number): string {
   return createHash("sha256").update(input).digest("hex").slice(0, length);
 }
