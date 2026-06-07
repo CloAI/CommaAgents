@@ -98,7 +98,7 @@ export type {
   QuestionPromptProps,
   QuestionPromptRenderProps,
 } from "./QuestionPrompt";
-export { QuestionPrompt } from "./QuestionPrompt";
+export { QuestionPrompt, QuestionPromptRender } from "./QuestionPrompt";
 
 export type {
   ScrollableListProps,

@@ -52,10 +52,12 @@ export async function prepareStrategy(
 
   const inputCollector = systemData.get("inputCollector");
   const launchStrategy = systemData.get("launchStrategy");
+  const skillRegistry = systemData.get("skillRegistry");
 
   const strategy = await loadStrategyFromString(content, format, {
     inputCollector,
     launchStrategy,
+    skillRegistry,
     flowHooks,
     modelOverride,
     strategyDir: dirname(strategyPath),

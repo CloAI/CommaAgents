@@ -9,6 +9,7 @@ import { StrategyValidationError } from "../../errors/index";
 import type { FlowHooks } from "../../flows/flow/flow.types";
 import { registerModel, resetModelRegistry } from "../../model/model";
 import { extractProviderIds } from "../../model/model.utils";
+import { createSkillRegistry } from "../../skills/skills.registry";
 import { okResult } from "../../tools/result";
 import { registerTool, resetToolRegistry } from "../../tools/tool.registry";
 import type { ToolDefinition } from "../../tools/tool.types";
@@ -216,6 +217,80 @@ describe("agent instantiation", () => {
     const result = await loadStrategyFromString(json, "json");
     expect(result.agents.user).toBeDefined();
     expect(result.agents.user?.name).toBe("user");
+  });
+
+  it("loads required skills while advertising every available skill", async () => {
+    setupMockModels();
+    const skillRegistry = createSkillRegistry();
+    skillRegistry.register({
+      name: "required-skill",
+      description: "Required conventions.",
+      content: "Always follow the required convention.",
+      sourcePath: "/skills/required-skill/SKILL.md",
+      origin: "global",
+    });
+    skillRegistry.register({
+      name: "optional-skill",
+      description: "Optional conventions.",
+      content: "Optional details.",
+      sourcePath: "/skills/optional-skill/SKILL.md",
+      origin: "global",
+    });
+
+    const result = await loadStrategyFromString(
+      JSON.stringify({
+        name: "Skills",
+        version: "1.0",
+        agents: {
+          assistant: {
+            model: "openai/gpt-4o",
+            systemPromptTemplate: { template: "You are {{ role }}." },
+            skills: ["required-skill"],
+          },
+        },
+        flow: {
+          name: "Main",
+          type: "sequential",
+          steps: [{ agent: "assistant" }],
+        },
+      }),
+      "json",
+      { skillRegistry },
+    );
+
+    const prompt = result.agents.assistant?.config?.systemPrompt;
+    expect(prompt).toBeDefined();
+    expect(JSON.stringify(prompt)).toContain("optional-skill");
+    expect(JSON.stringify(prompt)).toContain(
+      "Always follow the required convention.",
+    );
+  });
+
+  it("rejects an agent that requires an unknown skill", async () => {
+    setupMockModels();
+    const skillRegistry = createSkillRegistry();
+
+    await expect(
+      loadStrategyFromString(
+        JSON.stringify({
+          name: "Skills",
+          version: "1.0",
+          agents: {
+            assistant: {
+              model: "openai/gpt-4o",
+              skills: ["missing-skill"],
+            },
+          },
+          flow: {
+            name: "Main",
+            type: "sequential",
+            steps: [{ agent: "assistant" }],
+          },
+        }),
+        "json",
+        { skillRegistry },
+      ),
+    ).rejects.toThrow('requires unknown skill "missing-skill"');
   });
 
   it("user agents pass through preset message", async () => {

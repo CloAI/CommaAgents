@@ -1,0 +1,1 @@
+export { createSkillsSystem } from "./skills";

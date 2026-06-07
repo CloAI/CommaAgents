@@ -3,6 +3,7 @@ export * from "./permission";
 export * from "./persistence";
 export * from "./question";
 export * from "./sandbox";
+export * from "./skills";
 export * from "./steering";
 export * from "./streaming";
 export * from "./sub-launch";

@@ -131,13 +131,11 @@ async function buildLLMAgent(
   }
 
   // Build system prompt — template takes precedence over static string.
-  // When a skill registry is supplied, prepend a compact "## Available
-  // Skills" block to string prompts so the model knows what it can call
-  // `load_skill` with. Template-based prompts are left untouched so
-  // authors retain full control over template variables and ordering.
-  const skillsHeader = options.skillRegistry
-    ? buildSkillsPromptHeader(options.skillRegistry)
-    : "";
+  const skillsPrompt = buildAgentSkillsPrompt(
+    name,
+    agentDefinition.skills,
+    options.skillRegistry,
+  );
 
   // Resolve tool definitions early so we can collect system prompt contributions
   const toolDefinitions = agentDefinition.tools
@@ -214,15 +212,18 @@ async function buildLLMAgent(
 
   // Build base prompt (template or static + skills header)
   let basePrompt: string | PromptTemplate | undefined;
+  let templatePrompt: string | undefined;
   if (agentDefinition.systemPromptTemplate) {
-    // For PromptTemplate, we'll merge tool prompts into the template string
+    templatePrompt = prependSkillsHeader(
+      resolvedTemplate ?? agentDefinition.systemPromptTemplate.template,
+      skillsPrompt,
+    );
     basePrompt = createPromptTemplate({
-      template:
-        resolvedTemplate ?? agentDefinition.systemPromptTemplate.template,
+      template: templatePrompt,
       variables: agentDefinition.systemPromptTemplate.variables,
     });
   } else {
-    basePrompt = prependSkillsHeader(resolvedSystemPrompt, skillsHeader);
+    basePrompt = prependSkillsHeader(resolvedSystemPrompt, skillsPrompt);
   }
 
   // Merge: base prompt + tool contributions
@@ -233,10 +234,8 @@ async function buildLLMAgent(
       systemPrompt = mergeSystemPrompts([basePrompt, toolSystemPrompt]);
     } else {
       // basePrompt is a PromptTemplate - append tool prompt to template
-      const _template = basePrompt as PromptTemplate;
-      // Create a new template with tool prompt appended
       systemPrompt = createPromptTemplate({
-        template: `${resolvedTemplate ?? agentDefinition.systemPromptTemplate?.template}\n\n${toolSystemPrompt}`,
+        template: `${templatePrompt}\n\n${toolSystemPrompt}`,
         variables: agentDefinition.systemPromptTemplate?.variables,
       });
     }
@@ -270,11 +269,66 @@ async function buildLLMAgent(
   });
 }
 
+function buildAgentSkillsPrompt(
+  agentName: string,
+  requiredSkillNames: readonly string[] | undefined,
+  registry: SkillRegistry | undefined,
+): string {
+  if (!registry) {
+    if (requiredSkillNames && requiredSkillNames.length > 0) {
+      throw new StrategyValidationError(
+        `Agent "${agentName}" requires skills, but no skill registry is configured.`,
+      );
+    }
+    return "";
+  }
+
+  const availableSkills = buildSkillsPromptHeader(registry);
+  if (!requiredSkillNames || requiredSkillNames.length === 0) {
+    return availableSkills;
+  }
+
+  const requiredSkills = requiredSkillNames.map((skillName) => {
+    const skill = registry.get(skillName);
+    if (!skill) {
+      throw new StrategyValidationError(
+        `Agent "${agentName}" requires unknown skill "${skillName}". Available skills: ${
+          registry
+            .list()
+            .map((entry) => entry.name)
+            .join(", ") || "(none)"
+        }.`,
+      );
+    }
+    return skill;
+  });
+
+  const requiredSkillsPrompt = [
+    "## Required Skills",
+    "The following mandatory skill instructions are already loaded. Follow them for this agent's work:",
+    ...requiredSkills.map(
+      (skill) => `### ${skill.name}\n${skill.content.trim()}`,
+    ),
+  ].join("\n\n");
+
+  return availableSkills
+    ? `${availableSkills}\n\n${requiredSkillsPrompt}`
+    : requiredSkillsPrompt;
+}
+
 /**
  * Concatenate the skills header onto a static system prompt. Used by
  * `buildLLMAgent` so callers don't have to remember to inject skills into
  * every prompt themselves.
  */
+function prependSkillsHeader(
+  systemPrompt: string,
+  skillsHeader: string,
+): string;
+function prependSkillsHeader(
+  systemPrompt: string | undefined,
+  skillsHeader: string,
+): string | undefined;
 function prependSkillsHeader(
   systemPrompt: string | undefined,
   skillsHeader: string,

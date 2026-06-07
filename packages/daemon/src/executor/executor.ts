@@ -14,6 +14,7 @@ import { createPermissionSystem } from "./systems/permission";
 import { createPersistenceSystem } from "./systems/persistence";
 import { createQuestionSystem } from "./systems/question";
 import { createSandboxSystem } from "./systems/sandbox";
+import { createSkillsSystem } from "./systems/skills";
 import { createSteeringSystem } from "./systems/steering";
 import { createStreamingSystem } from "./systems/streaming";
 import { createSubLaunchSystem } from "./systems/sub-launch";
@@ -100,6 +101,7 @@ export function createStrategyExecutor(
     createInputSystem({ bridgeTimeout }),
     createPermissionSystem({ bridgeTimeout }),
     createQuestionSystem({ bridgeTimeout }),
+    createSkillsSystem(),
     createSteeringSystem(),
     createStreamingSystem({ logger, runStore, sink }),
     createPersistenceSystem({ logger, runStore }),

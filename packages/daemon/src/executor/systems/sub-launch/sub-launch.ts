@@ -25,6 +25,7 @@ export function createSubLaunchSystem(): DaemonSystem {
         const permissionBridge = systemData.get("permissionBridge");
         const questionBridge = systemData.get("questionBridge");
         const inputBridge = systemData.get("inputBridge");
+        const skillRegistry = systemData.get("skillRegistry");
         const _parentSandbox = systemData.get("sandbox");
 
         if (!permissionBridge || !questionBridge || !inputBridge) {
@@ -52,6 +53,7 @@ export function createSubLaunchSystem(): DaemonSystem {
           inputCollector: wrappedCollector,
           modelOverride,
           cwd: run.cwd,
+          skillRegistry,
         });
 
         const sandboxConfig = {

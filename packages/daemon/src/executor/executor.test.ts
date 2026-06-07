@@ -6,6 +6,9 @@
 // pipeline. Model and credential resolution happen via global registries.
 
 import { afterEach, describe, expect, it } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   extractProviderIds,
   registerModel,
@@ -28,6 +31,7 @@ import { createStrategyExecutor } from "./executor";
 
 // Track temp files for cleanup
 const tempFiles: string[] = [];
+const tempDirs: string[] = [];
 
 afterEach(async () => {
   // Clean up global registries
@@ -43,6 +47,11 @@ afterEach(async () => {
     }
   }
   tempFiles.length = 0;
+
+  for (const dir of tempDirs) {
+    await rm(dir, { recursive: true, force: true });
+  }
+  tempDirs.length = 0;
 });
 
 // extractProviderIds tests
@@ -251,6 +260,65 @@ describe("createStrategyExecutor", () => {
     expect(run?.status).toBe("completed");
     expect(run?.completedAt).toBeDefined();
     expect(run?.result).toBeDefined();
+  });
+
+  it("discovers project skills and wires them into strategy agents", async () => {
+    setupMockModels();
+    const state = createDaemonState();
+    const sink = mockSink();
+    state.addClient("client-1");
+
+    const cwd = await mkdtemp(join(tmpdir(), "comma-skills-"));
+    tempDirs.push(cwd);
+    const skillDir = join(cwd, ".comma", "skills", "required-skill");
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(
+      join(skillDir, "SKILL.md"),
+      [
+        "---",
+        "name: required-skill",
+        "description: Required test instructions.",
+        "---",
+        "Follow the required test instructions.",
+      ].join("\n"),
+    );
+
+    const executor = createStrategyExecutor({
+      state,
+      sink,
+      logger: mockLogger(),
+      runStore: mockRunStore(),
+    });
+    const filePath = await writeTempStrategy(
+      JSON.stringify({
+        name: "Skills",
+        version: "1.0",
+        agents: {
+          assistant: {
+            model: "openai/gpt-4o",
+            skills: ["required-skill"],
+          },
+        },
+        flow: {
+          name: "Main",
+          type: "sequential",
+          steps: [{ agent: "assistant" }],
+        },
+      }),
+    );
+    tempFiles.push(filePath);
+
+    const runId = executor.startRun(
+      "client-1",
+      filePath,
+      "hello",
+      undefined,
+      undefined,
+      cwd,
+    );
+    await waitForBroadcasts(sink, 4, 10000);
+
+    expect(state.getRun(runId)?.status).toBe("completed");
   });
 
   it("broadcasts strategy_error when strategy file is invalid", async () => {

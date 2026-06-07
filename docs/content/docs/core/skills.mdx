@@ -124,7 +124,19 @@ const agent = createAgent({
 });
 ```
 
-Skills are not auto-injected — the LLM decides what to load and when. This keeps the system prompt small (one line per skill) while still giving the agent access to detailed instructions when it needs them.
+By default, skills are not auto-injected — the LLM decides what to load and when. This keeps the system prompt small (one line per skill) while still giving the agent access to detailed instructions when it needs them.
+
+To require skills for a specific strategy agent, list them in the agent's `skills` field. Their full instructions are loaded into that agent's system prompt during strategy loading, while every discovered skill remains available through `list_skills` and `load_skill`:
+
+```yaml
+agents:
+  coder:
+    model: openai/gpt-4o
+    tools: [list_skills, load_skill]
+    skills: [typescript, testing]
+```
+
+Strategy loading fails when a required skill is not registered, so a required instruction bundle cannot be silently skipped.
 
 A typical interaction:
 

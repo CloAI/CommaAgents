@@ -212,12 +212,6 @@ export function ChatTextAreaRender({
           <Box maxWidth={42}>
             <Text {...theme.strategyLabel}>
               {strategyLabel}
-              {strategyDescription && (
-                <Text {...theme.hint} wrap="wrap">
-                  {" "}
-                  — {strategyDescription}
-                </Text>
-              )}
             </Text>
           </Box>
           <Text {...theme.hint}>Tab to change strategy · Enter to submit</Text>

@@ -54,6 +54,11 @@ export const LLMAgentDefSchema = z
       .optional(),
     tools: z.array(z.string()).optional(),
     /**
+     * Skills whose full instructions must be loaded into this agent's system
+     * prompt. All discovered skills remain available through the skill tools.
+     */
+    skills: z.array(z.string().min(1)).optional(),
+    /**
      * Per-call provider options forwarded verbatim to the AI SDK. Used to
      * enable provider-specific features such as Anthropic extended thinking
      * or OpenAI reasoning effort. Shape:

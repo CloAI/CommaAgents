@@ -1,4 +1,4 @@
-export { QuestionPrompt } from "./QuestionPrompt";
+export { QuestionPrompt, QuestionPromptRender } from "./QuestionPrompt";
 export type {
   QuestionPromptProps,
   QuestionPromptRenderProps,

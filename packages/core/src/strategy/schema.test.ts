@@ -152,6 +152,7 @@ describe("AgentDefSchema", () => {
         model: "openai/gpt-4o",
         systemPrompt: "You write code.",
         tools: ["bash", "write"],
+        skills: ["typescript", "testing"],
       });
       expect(result.success).toBe(true);
     });
