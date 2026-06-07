@@ -1,6 +1,4 @@
-import { appendFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import type { DiscoveredStrategy } from "@comma-agents/core";
 import type { RunOverview, RunTurn } from "@comma-agents/daemon";
 import {
   createContext,
@@ -14,6 +12,7 @@ import { useDaemon } from "../useDaemon/useDaemon";
 import type { DaemonMessageOf } from "../useDaemon/useDaemon.types";
 import { useDaemonCommand } from "../useDaemon/useDaemonCommand/useDaemonCommand";
 import { useDaemonSubscription } from "../useDaemon/useDaemonSubscription/useDaemonSubscription";
+import type { CreateRunInit } from ".";
 import type {
   ChatMessage,
   ChatRun,
@@ -25,7 +24,6 @@ import type {
   PendingQuestionRequest,
 } from "./useChat.types";
 import { projectRunTurnToMessages } from "./useChat.utils";
-import { CreateRunInit } from ".";
 
 export const ChatRunsContext = createContext<ChatRunsContextType | null>(null);
 
@@ -101,6 +99,7 @@ export function ChatRunsContextProvider(
   activeChatRunIdRef.current = activeChatRunId;
 
   const startStrategyCommand = useDaemonCommand("start_strategy");
+  const continueRunCommand = useDaemonCommand("continue_run");
   const sendUserInputCommand = useDaemonCommand("user_input");
   const stopStrategyCommand = useDaemonCommand("stop_strategy");
   const steerRunCommand = useDaemonCommand("steer_run");
@@ -938,14 +937,12 @@ export function ChatRunsContextProvider(
     });
   });
 
-
   const startStrategy = useCallback(
     (
       strategyPath: string,
       input?: string,
       cwd?: string,
       manifestPath?: string,
-      previousRunId?: string,
     ): ChatRunId => {
       const id = crypto.randomUUID();
       const now = Date.now();
@@ -962,13 +959,11 @@ export function ChatRunsContextProvider(
         return next;
       });
       setActiveChatRunId(id);
-      console.log("What are we running?", id)
       const requestId = startStrategyCommand({
         strategyPath,
         ...(input !== undefined ? { input } : {}),
         ...(cwd !== undefined ? { cwd } : {}),
         ...(manifestPath !== undefined ? { manifestPath } : {}),
-        ...(previousRunId !== undefined ? { previousRunId } : {}),
       });
 
       if (!requestId) {
@@ -990,6 +985,62 @@ export function ChatRunsContextProvider(
       return id;
     },
     [startStrategyCommand],
+  );
+
+  const continueRun = useCallback(
+    (
+      sourceChatRunId: ChatRunId,
+      strategy: DiscoveredStrategy,
+      input: string,
+    ): ChatRunId | null => {
+      const sourceRun = chatRuns.get(sourceChatRunId);
+      if (!sourceRun?.daemonRunId) return null;
+
+      const id = crypto.randomUUID();
+      const now = Date.now();
+      const chatRun: ChatRun = {
+        ...createInitialChatRun(id, { strategyPath: strategy.path }),
+        label: strategy.label,
+        strategyName: strategy.name,
+        status: "running",
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      setChatRuns((previousChatRuns) => {
+        const next = new Map(previousChatRuns);
+        next.set(id, chatRun);
+        return next;
+      });
+      setActiveChatRunId(id);
+
+      const requestId = continueRunCommand({
+        runId: sourceRun.daemonRunId,
+        input,
+        strategyPath: strategy.path,
+        ...(strategy.manifestPath !== undefined
+          ? { manifestPath: strategy.manifestPath }
+          : {}),
+      });
+
+      if (!requestId) {
+        setChatRuns((previousChatRuns) => {
+          const existing = previousChatRuns.get(id);
+          if (!existing) return previousChatRuns;
+          const next = new Map(previousChatRuns);
+          next.set(id, {
+            ...existing,
+            status: "error",
+            error: DAEMON_UNREACHABLE_ERROR,
+            updatedAt: Date.now(),
+          });
+          return next;
+        });
+      }
+
+      return id;
+    },
+    [chatRuns, continueRunCommand],
   );
 
   /**
@@ -1032,7 +1083,7 @@ export function ChatRunsContextProvider(
 
       const chatRun: ChatRun = {
         id,
-        daemonRunId: isLive ? runId : null,
+        daemonRunId: runId,
         label: strategyName ?? "Loaded run",
         strategyPath: strategyPath ?? null,
         strategyName: strategyName ?? null,
@@ -1255,6 +1306,7 @@ export function ChatRunsContextProvider(
       activeChatRunId,
       setActiveChatRunId,
       startStrategy,
+      continueRun,
       sendInput,
       sendSteer,
       sendPermissionDecision,
@@ -1272,6 +1324,7 @@ export function ChatRunsContextProvider(
       chatRuns,
       activeChatRunId,
       startStrategy,
+      continueRun,
       sendInput,
       sendSteer,
       sendPermissionDecision,

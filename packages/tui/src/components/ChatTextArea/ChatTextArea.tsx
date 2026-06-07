@@ -1,10 +1,9 @@
+import type { DiscoveredStrategy } from "@comma-agents/core";
 import { Box, Text, useFocus, useInput } from "ink";
 import type React from "react";
-import { useCallback, useState } from "react";
-
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TextAreaInput } from "../TextAreaInput";
 import { useChatTextAreaTheme } from "./ChatTextArea.theme";
-import type { DiscoveredStrategy } from "@comma-agents/core";
 
 /** Props for the ChatTextArea container. */
 export interface ChatTextAreaProps {
@@ -15,6 +14,8 @@ export interface ChatTextAreaProps {
   readonly id?: string;
   /** Available strategies the user can cycle through. */
   readonly strategies: readonly DiscoveredStrategy[];
+  /** Strategy path selected when the composer is first shown. */
+  readonly initialStrategyPath?: string;
   /** Width — columns (number) or CSS-like string. @default "100%" */
   readonly width?: number | string;
   /** Visible row count for the text area. @default 10 */
@@ -50,6 +51,7 @@ export interface ChatTextAreaProps {
 export function ChatTextArea({
   id,
   strategies,
+  initialStrategyPath,
   width = "100%",
   height = 5,
   placeholder = "Enter your prompt...",
@@ -58,7 +60,30 @@ export function ChatTextArea({
 }: ChatTextAreaProps): React.ReactElement {
   const { isFocused } = useFocus({ id });
   const [inputValue, setInputValue] = useState("");
-  const [strategyIndex, setStrategyIndex] = useState(0);
+  const [strategyIndex, setStrategyIndex] = useState(() => {
+    const initialIndex = strategies.findIndex(
+      (strategy) => strategy.path === initialStrategyPath,
+    );
+    return initialIndex >= 0 ? initialIndex : 0;
+  });
+  const appliedInitialStrategyPath = useRef<string | undefined>(
+    strategies[strategyIndex]?.path,
+  );
+
+  useEffect(() => {
+    if (
+      initialStrategyPath === undefined ||
+      appliedInitialStrategyPath.current === initialStrategyPath
+    ) {
+      return;
+    }
+    const initialIndex = strategies.findIndex(
+      (strategy) => strategy.path === initialStrategyPath,
+    );
+    if (initialIndex < 0) return;
+    appliedInitialStrategyPath.current = initialStrategyPath;
+    setStrategyIndex(initialIndex);
+  }, [initialStrategyPath, strategies]);
 
   const currentStrategy = strategies[strategyIndex] ?? strategies[0];
 
@@ -187,12 +212,12 @@ export function ChatTextAreaRender({
           <Box maxWidth={42}>
             <Text {...theme.strategyLabel}>
               {strategyLabel}
-              { strategyDescription &&
+              {strategyDescription && (
                 <Text {...theme.hint} wrap="wrap">
                   {" "}
                   — {strategyDescription}
                 </Text>
-              }
+              )}
             </Text>
           </Box>
           <Text {...theme.hint}>Tab to change strategy · Enter to submit</Text>

@@ -18,6 +18,10 @@ export {
   parseDaemonMessage,
 } from "./messages";
 export {
+  ContinueRunMessage,
+  handleContinueRun,
+} from "./requests/continue-run";
+export {
   GetAvailableModelsMessage,
   handleGetAvailableModels,
 } from "./requests/get-available-models";

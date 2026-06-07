@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import {
   extractProviderIds,
+  registerModel,
   resetGlobalDefaults,
   resetModelRegistry,
 } from "@comma-agents/core";
@@ -608,5 +609,118 @@ describe("createStrategyExecutor", () => {
 
     expect(flowStarted?.message.requestId).toBe("req-123");
     expect(flowCompleted?.message.requestId).toBe("req-123");
+  });
+
+  it("continueRun can change strategies while restoring context", async () => {
+    const prompts: unknown[] = [];
+    registerModel("mock/context", {
+      modelId: "mock/context",
+      specificationVersion: "v3",
+      provider: "mock",
+      defaultObjectGenerationMode: undefined,
+      doGenerate: async () => ({
+        content: [],
+        finishReason: { unified: "stop" as const, raw: undefined },
+        usage: {
+          inputTokens: {
+            total: 0,
+            noCache: undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: { total: 0, text: undefined, reasoning: undefined },
+        },
+        warnings: [],
+      }),
+      doStream: async (options: { prompt: unknown }) => {
+        prompts.push(options.prompt);
+        return {
+          stream: new ReadableStream({
+            start(controller) {
+              controller.close();
+            },
+          }),
+        };
+      },
+    } as any);
+    const state = createDaemonState();
+    const sink = mockSink();
+    const runStore = mockRunStore();
+
+    state.addClient("client-1");
+
+    const executor = createStrategyExecutor({
+      state,
+      sink,
+      logger: mockLogger(),
+      runStore,
+    });
+
+    const planStrategyPath = await writeTempStrategy(
+      JSON.stringify({
+        name: "Plan",
+        version: "1.0",
+        agents: {
+          planner: { model: "mock/context" },
+        },
+        flow: {
+          name: "Main",
+          type: "sequential",
+          steps: [{ agent: "planner" }],
+        },
+      }),
+    );
+    const buildStrategyPath = await writeTempStrategy(
+      JSON.stringify({
+        name: "Build",
+        version: "1.0",
+        agents: {
+          builder: { model: "mock/context" },
+        },
+        flow: {
+          name: "Build",
+          type: "sequential",
+          steps: [{ agent: "builder" }],
+        },
+      }),
+    );
+    tempFiles.push(planStrategyPath, buildStrategyPath);
+
+    const firstRunId = executor.startRun(
+      "client-1",
+      planStrategyPath,
+      "first message",
+    );
+    await waitForBroadcasts(sink, 4, 10000);
+
+    const continuedRunId = await executor.continueRun(
+      "client-1",
+      firstRunId,
+      "continue message",
+      buildStrategyPath,
+    );
+    await waitForBroadcasts(sink, 8, 10000);
+
+    expect(continuedRunId).not.toBe(firstRunId);
+    expect(state.getRun(continuedRunId)?.strategyPath).toBe(buildStrategyPath);
+
+    const continuedEvents = await runStore.getEvents(continuedRunId);
+    const started = continuedEvents.find(
+      (event) => event.type === "run_started",
+    );
+    expect(started?.type).toBe("run_started");
+    if (started?.type === "run_started") {
+      expect(started.previousRunId).toBe(firstRunId);
+      expect(started.initialInput).toBe("continue message");
+    }
+    expect(
+      sink.broadcasts.some(
+        ({ message }) =>
+          message.type === "strategy_completed" &&
+          message.runId === continuedRunId,
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(prompts[1])).toContain("first message");
+    expect(JSON.stringify(prompts[1])).toContain("continue message");
   });
 });

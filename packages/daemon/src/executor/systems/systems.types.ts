@@ -62,6 +62,8 @@ export interface SystemRunContext {
   readonly strategyPath: string;
   readonly input: string;
   readonly cwd: string;
+  readonly manifestPath: string | undefined;
+  readonly previousRunId: string | undefined;
 }
 
 export interface StrategyLoadedContext extends SystemRunContext {

@@ -5,6 +5,7 @@ import type { DaemonState } from "../../state/state.types";
 import type { HandlerContext, MessageDispatcher } from "./dispatcher.types";
 import type { DaemonMessage } from "./messages";
 import { parseClientMessage } from "./messages";
+import { handleContinueRun } from "./requests/continue-run";
 import { handleGetAvailableModels } from "./requests/get-available-models";
 import { handleGetRun } from "./requests/get-run";
 import { handleListProviders } from "./requests/list-providers";
@@ -140,6 +141,9 @@ export function createDispatcher(
         case "start_strategy":
           handleStartStrategy(message, context);
           break;
+        case "continue_run":
+          handleContinueRun(message, context);
+          break;
         case "stop_strategy":
           handleStopStrategy(message, context);
           break;
@@ -157,9 +161,6 @@ export function createDispatcher(
           break;
         case "steer_run":
           handleSteerRun(message, context);
-          break;
-        case "list_strategies":
-          handleListStrategies(message, context);
           break;
         case "list_strategies":
           handleListStrategies(message, context);

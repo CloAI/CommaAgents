@@ -57,10 +57,11 @@ export async function buildAgentRegistry(
       registry[name] = await buildLLMAgent(name, agentDefinition, options);
     }
 
-    // Restore previous conversation turns if provided
-    if (options.previousTurns?.has(name)) {
+    // Restore agent-specific turns, or shared lineage when changing strategies.
+    const turns =
+      options.previousTurns?.get(name) ?? options.previousTurns?.get("*");
+    if (turns) {
       const agent = registry[name];
-      const turns = options.previousTurns.get(name)!;
       if (agent && turns.length > 0) {
         const context = agent.getConversationContext?.();
         if (context) {

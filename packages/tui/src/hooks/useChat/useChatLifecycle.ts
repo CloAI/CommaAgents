@@ -19,12 +19,11 @@ export interface UseChatLifecycleResult {
     input?: string,
     cwd?: string,
     manifestPath?: string,
-    previousRunId?: string,
   ) => ChatRunId;
 }
 
 export function useChatLifecycle(
-  chatRunId?: ChatRunId,
+  _chatRunId?: ChatRunId,
 ): UseChatLifecycleResult {
   const context = useChatRunsContext();
 
@@ -34,9 +33,8 @@ export function useChatLifecycle(
       input?: string,
       cwd?: string,
       manifestPath?: string,
-      previousRunId?: string,
     ): ChatRunId => {
-      return context.startStrategy(strategyPath, input, cwd, manifestPath, previousRunId);
+      return context.startStrategy(strategyPath, input, cwd, manifestPath);
     },
     [context],
   );

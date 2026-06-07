@@ -1,3 +1,4 @@
+import type { DiscoveredStrategy } from "@comma-agents/core";
 import type { RunOverview, RunStatus, RunSummary } from "@comma-agents/daemon";
 
 import type { WebSocketStatus } from "../useWebSocket/useWebSocket.types";
@@ -220,8 +221,13 @@ export interface ChatRunsContextType {
     input?: string,
     cwd?: string,
     manifestPath?: string,
-    previousRunId?: string,
   ) => ChatRunId;
+  /** Restart a completed run's strategy with its conversation context restored. */
+  readonly continueRun: (
+    chatRunId: ChatRunId,
+    strategy: DiscoveredStrategy,
+    input: string,
+  ) => ChatRunId | null;
   /** Send user input for a specific run. No-op if no daemon run or no pending input. */
   readonly sendInput: (chatRunId: ChatRunId, text: string) => void;
   /**
@@ -300,7 +306,6 @@ export interface UseChatState {
     input?: string,
     cwd?: string,
     manifestPath?: string,
-    previousRunId?: string,
   ) => ChatRunId;
   /** Send user input to the bound run. No-op if no run or no pending input. */
   readonly sendInput: (text: string) => void;
@@ -309,6 +314,8 @@ export interface UseChatState {
    * live and running/pending.
    */
   readonly sendSteer: (text: string) => void;
+  /** Restart the bound run's strategy with its conversation context restored. */
+  readonly sendContinue: (strategy: DiscoveredStrategy, text: string) => void;
   /** Resolve the pending permission request for the bound run. */
   readonly sendPermissionDecision: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",

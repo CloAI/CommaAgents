@@ -35,6 +35,7 @@ import type { TrashRestoreResultMessage } from "./responses/trash-restore-result
 export interface RequestResponseMap {
   readonly ping: PongMessage;
   readonly start_strategy: never;
+  readonly continue_run: never;
   readonly stop_strategy: never;
   readonly user_input: never;
   readonly permission_decision: never;

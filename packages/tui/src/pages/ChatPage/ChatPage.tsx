@@ -2,14 +2,13 @@ import type { DiscoveredStrategy } from "@comma-agents/core";
 import { Box, useFocusManager } from "ink";
 import type React from "react";
 import { useEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 
 import {
   ChatTextArea,
   MessageList,
   PermissionPrompt,
   QuestionPrompt,
-  StatusBar,
 } from "../../components";
 import {
   useChatActions,
@@ -17,9 +16,9 @@ import {
   useChatState,
 } from "../../hooks/useChat";
 import { useDebugRender } from "../../hooks/useDebugRender";
+import { useDiscoveredStrategies } from "../../hooks/useStrategies/useStrategies";
 import type { ChatPageTheme } from "./ChatPage.theme";
 import { useChatPageTheme } from "./ChatPage.theme";
-import { useDiscoveredStrategies } from "../../hooks/useStrategies/useStrategies";
 
 export interface ChatPageRouteState {
   readonly strategy: DiscoveredStrategy;
@@ -29,7 +28,6 @@ export interface ChatPageRouteState {
 const REPLY_INPUT_ID = "chat-reply";
 
 export function ChatPage(): React.ReactElement {
-  const navigate = useNavigate();
   const location = useLocation();
   const routeState = location.state as ChatPageRouteState | null;
   const strategies = useDiscoveredStrategies();
@@ -53,8 +51,7 @@ export function ChatPage(): React.ReactElement {
       process.cwd(),
       strategy.manifestPath,
     );
-    // navigate(location.pathname, { replace: true, state: null });
-  }, [routeState, chatLifecycle, navigate, location.pathname]);
+  }, [routeState, chatLifecycle]);
 
   const debug = useDebugRender("ChatPage", {
     props: {
@@ -74,6 +71,7 @@ export function ChatPage(): React.ReactElement {
       pendingInputAgent={chatState.pendingInputAgent}
       pendingPermissionRequest={chatState.pendingPermissionRequest}
       pendingQuestionRequest={chatState.pendingQuestionRequest}
+      activeStrategyPath={chatState.strategyPath}
       onReplySubmit={chatActions.sendInput}
       onSteerSubmit={chatActions.sendSteer}
       onContinueSubmit={chatActions.sendContinue}
@@ -97,9 +95,13 @@ export interface ChatPageRenderProps {
   readonly pendingQuestionRequest:
     | import("../../hooks").PendingQuestionRequest
     | null;
+  readonly activeStrategyPath: string | null;
   readonly onReplySubmit: (text: string) => void;
   readonly onSteerSubmit: (text: string) => void;
-  readonly onContinueSubmit: (strategyPath: string, text: string) => void;
+  readonly onContinueSubmit: (
+    strategy: DiscoveredStrategy,
+    text: string,
+  ) => void;
   readonly onPermissionDecide: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
@@ -112,10 +114,11 @@ export function ChatPageRender({
   theme,
   messages,
   chatStatus,
-  error,
+  error: _error,
   pendingInputAgent,
   pendingPermissionRequest,
   pendingQuestionRequest,
+  activeStrategyPath,
   onReplySubmit,
   onSteerSubmit,
   onContinueSubmit,
@@ -149,7 +152,7 @@ export function ChatPageRender({
         ? `Reply to ${pendingInputAgent}...`
         : "Type your message..."
       : composerMode === "continue"
-        ? "Continue — Tab to switch strategy, Enter to submit..."
+        ? "Continue with selected strategy..."
         : "Steer the agents...";
 
   const { focus } = useFocusManager();
@@ -158,11 +161,14 @@ export function ChatPageRender({
     if (showComposer) focus(REPLY_INPUT_ID);
   }, [focus, showComposer, composerMode]);
 
-  const handleComposerSubmit = (strategyPath: string, text: string): void => {
+  const handleComposerSubmit = (
+    strategy: DiscoveredStrategy,
+    text: string,
+  ): void => {
     if (composerMode === "reply") {
       onReplySubmit(text);
     } else if (composerMode === "continue") {
-      onContinueSubmit(strategyPath, text);
+      onContinueSubmit(strategy, text);
     } else {
       onSteerSubmit(text);
     }
@@ -187,6 +193,7 @@ export function ChatPageRender({
       ) : showComposer ? (
         <ChatTextArea
           strategies={strategies}
+          initialStrategyPath={activeStrategyPath ?? undefined}
           onSubmit={handleComposerSubmit}
           placeholder={composerPlaceholder}
           showStrategyRow={composerMode === "continue"}

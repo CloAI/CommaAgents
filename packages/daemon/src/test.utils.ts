@@ -9,10 +9,10 @@
 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { registerModel } from "@comma-agents/core";
+import { registerModel, type TimelineEvent } from "@comma-agents/core";
 import type { EventSink } from "./executor/event-sink";
 import type { Logger } from "./logger/logger.types";
-import type { PersistedRun, RunStore } from "./runs";
+import type { RunStore } from "./runs";
 import type { DaemonMessage } from "./server/protocol/messages";
 
 // Mock model registration
@@ -106,53 +106,22 @@ export function mockLogger(): Logger {
  * observable via the returned `runs` map.
  */
 export function mockRunStore(): RunStore & {
-  runs: Map<string, PersistedRun>;
+  runs: Map<string, TimelineEvent[]>;
 } {
-  const runs = new Map<string, PersistedRun>();
+  const runs = new Map<string, TimelineEvent[]>();
 
   return {
     runs,
-    async createRun(run) {
-      if (runs.has(run.runId)) {
-        throw new Error(`Run already exists: ${run.runId}`);
-      }
-      const fullRun: PersistedRun = {
-        schemaVersion: 1,
-        ...run,
-        completedAt: null,
-        turns: [],
-      };
-      runs.set(run.runId, fullRun);
+    async appendEvent(runId, event) {
+      const events = runs.get(runId) ?? [];
+      events.push(event);
+      runs.set(runId, events);
     },
-    async getRun(runId) {
-      return runs.get(runId) ?? null;
+    async getEvents(runId) {
+      return runs.get(runId) ?? [];
     },
-    async saveRun(run) {
-      runs.set(run.runId, run);
-    },
-    async listRuns(filter) {
-      const all = Array.from(runs.values()).map((r) => ({
-        runId: r.runId,
-        cwd: r.cwd,
-        strategyName: r.strategyName,
-        strategyPath: r.strategyPath,
-        startedAt: r.startedAt,
-        completedAt: r.completedAt,
-        status: r.status,
-      }));
-      if (filter?.cwd) return all.filter((r) => r.cwd === filter.cwd);
-      return all;
-    },
-    async appendTurn(runId, turn) {
-      const existing = runs.get(runId);
-      if (!existing) throw new Error(`unknown run ${runId}`);
-      runs.set(runId, {
-        ...existing,
-        turns: [...existing.turns, turn],
-      });
-    },
-    async appendEvent(_runId, _event) {
-      // no-op is sufficient for mock tests
+    async listRuns() {
+      return [];
     },
     async deleteRun(runId) {
       return runs.delete(runId);

@@ -2,6 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { ClientMessage, parseClientMessage } from "./messages";
+import { ContinueRunMessage } from "./requests/continue-run/continue-run.schema";
 import { ListStrategiesMessage } from "./requests/list-strategies/list-strategies.schema";
 import { PingMessage } from "./requests/ping/ping.schema";
 import { StartStrategyMessage } from "./requests/start-strategy/start-strategy.schema";
@@ -80,6 +81,48 @@ describe("StartStrategyMessage", () => {
       StartStrategyMessage.safeParse({
         type: "stop_strategy",
         strategyPath: "/p",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("ContinueRunMessage", () => {
+  test("parses a run id and new input", () => {
+    const msg = {
+      type: "continue_run",
+      runId: "run-1",
+      input: "Continue with the failing tests",
+    };
+    expect(ContinueRunMessage.parse(msg)).toEqual(msg);
+  });
+
+  test("accepts empty input", () => {
+    expect(
+      ContinueRunMessage.parse({
+        type: "continue_run",
+        runId: "run-1",
+        input: "",
+      }).input,
+    ).toBe("");
+  });
+
+  test("accepts a strategy override", () => {
+    const result = ContinueRunMessage.parse({
+      type: "continue_run",
+      runId: "run-1",
+      input: "Implement the approved plan",
+      strategyPath: "/strategies/build.json",
+      manifestPath: "/strategies/comma-project.json",
+    });
+    expect(result.strategyPath).toBe("/strategies/build.json");
+    expect(result.manifestPath).toBe("/strategies/comma-project.json");
+  });
+
+  test("rejects a missing run id", () => {
+    expect(
+      ContinueRunMessage.safeParse({
+        type: "continue_run",
+        input: "continue",
       }).success,
     ).toBe(false);
   });
@@ -212,6 +255,15 @@ describe("ClientMessage union", () => {
       strategyPath: "/p.json",
     });
     expect(result.type).toBe("start_strategy");
+  });
+
+  test("routes continue_run correctly", () => {
+    const result = ClientMessage.parse({
+      type: "continue_run",
+      runId: "r",
+      input: "continue",
+    });
+    expect(result.type).toBe("continue_run");
   });
 
   test("routes stop_strategy correctly", () => {

@@ -2,6 +2,7 @@ import type {
   ConversationTurn,
   PermissionDecision,
   PolicyPatch,
+  TimelineEvent,
 } from "@comma-agents/core";
 import type { Logger } from "../logger";
 import type { RunStore } from "../runs";
@@ -49,6 +50,15 @@ export interface StrategyExecutor {
     manifestPath?: string,
     previousRunId?: string,
   ): string;
+
+  continueRun(
+    clientId: string,
+    previousRunId: string,
+    input: string,
+    strategyPath?: string,
+    manifestPath?: string,
+    requestId?: string,
+  ): Promise<string>;
 
   stopRun(runId: string): void;
   steerRun(runId: string, text: string): boolean;
@@ -107,7 +117,7 @@ export function createStrategyExecutor(
     requestId: string | undefined,
     runModelOverride: string | undefined,
     runCwd: string | undefined,
-    _manifestPath: string | undefined,
+    manifestPath: string | undefined,
     previousRunId?: string,
   ): Promise<void> {
     const systemData = createSystemDataStore();
@@ -127,6 +137,8 @@ export function createStrategyExecutor(
       strategyPath,
       input,
       cwd: runCwd ?? process.cwd(),
+      manifestPath,
+      previousRunId,
     };
 
     runContexts.set(run.id, runContext);
@@ -142,23 +154,38 @@ export function createStrategyExecutor(
       let previousTurns: Map<string, ConversationTurn[]> | undefined;
       if (previousRunId) {
         try {
-          const events = await runStore.getEvents(previousRunId);
+          const events = await getRunLineageEvents(runStore, previousRunId);
           previousTurns = new Map<string, ConversationTurn[]>();
+          const previousStart = [...events]
+            .reverse()
+            .find((event) => event.type === "run_started");
+          const strategyChanged =
+            previousStart?.type === "run_started" &&
+            previousStart.strategyPath !== strategyPath;
+          const sharedTurns: ConversationTurn[] = [];
 
           for (const event of events) {
             if (event.type === "agent_call") {
-              const turns = previousTurns.get(event.agentName) ?? [];
-              turns.push({
+              const turn = {
                 agentName: event.agentName,
                 userMessage: event.userMessage,
                 responseMessages: event.responseMessages,
-              });
+              };
+              if (strategyChanged) {
+                sharedTurns.push(turn);
+                continue;
+              }
+              const turns = previousTurns.get(event.agentName) ?? [];
+              turns.push(turn);
               previousTurns.set(event.agentName, turns);
             }
           }
+          if (strategyChanged && sharedTurns.length > 0) {
+            previousTurns.set("*", sharedTurns);
+          }
 
           logger.debug(
-            `Loaded ${previousTurns.size} agent conversations from previous run ${previousRunId}`,
+            `Loaded ${previousTurns.size} agent conversations from run lineage ending at ${previousRunId}`,
           );
         } catch (error) {
           logger.warn(
@@ -270,39 +297,75 @@ export function createStrategyExecutor(
     }
   }
 
+  function startRun(
+    clientId: string,
+    strategyPath: string,
+    input?: string,
+    requestId?: string,
+    runModelOverride?: string,
+    runCwd?: string,
+    manifestPath?: string,
+    previousRunId?: string,
+  ): string {
+    const effectiveCwd = runCwd ?? process.cwd();
+    const run = state.createRun(strategyPath, strategyPath, effectiveCwd);
+
+    state.subscribe(clientId, run.id);
+
+    executeRun(
+      run,
+      clientId,
+      strategyPath,
+      input ?? "",
+      requestId,
+      runModelOverride,
+      runCwd,
+      manifestPath,
+      previousRunId,
+    ).catch((error) => {
+      logger.error(
+        `Failed to execute run ${run.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
+
+    return run.id;
+  }
+
   return {
-    startRun(
+    startRun,
+
+    async continueRun(
       clientId: string,
-      strategyPath: string,
-      input?: string,
-      requestId?: string,
-      runModelOverride?: string,
-      runCwd?: string,
+      previousRunId: string,
+      input: string,
+      strategyPath?: string,
       manifestPath?: string,
-      previousRunId?: string,
-    ): string {
-      const effectiveCwd = runCwd ?? process.cwd();
-      const run = state.createRun(strategyPath, strategyPath, effectiveCwd);
+      requestId?: string,
+    ): Promise<string> {
+      const activeRun = state.getRun(previousRunId);
+      if (
+        activeRun &&
+        (activeRun.status === "pending" || activeRun.status === "running")
+      ) {
+        throw new Error(`Run ${previousRunId} is still running`);
+      }
 
-      state.subscribe(clientId, run.id);
+      const events = await runStore.getEvents(previousRunId);
+      const started = events.find((event) => event.type === "run_started");
+      if (!started || started.type !== "run_started") {
+        throw new Error(`Run not found: ${previousRunId}`);
+      }
 
-      executeRun(
-        run,
+      return startRun(
         clientId,
-        strategyPath,
-        input ?? "",
+        strategyPath ?? started.strategyPath,
+        input,
         requestId,
-        runModelOverride,
-        runCwd,
-        manifestPath,
+        started.modelOverride,
+        started.cwd,
+        strategyPath === undefined ? started.manifestPath : manifestPath,
         previousRunId,
-      ).catch((error) => {
-        logger.error(
-          `Failed to execute run ${run.id}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      });
-
-      return run.id;
+      );
     },
 
     stopRun(runId: string): void {
@@ -403,4 +466,24 @@ export function createStrategyExecutor(
       );
     },
   };
+}
+
+async function getRunLineageEvents(
+  runStore: RunStore,
+  runId: string,
+): Promise<readonly TimelineEvent[]> {
+  const lineage: Array<readonly TimelineEvent[]> = [];
+  const visited = new Set<string>();
+  let currentRunId: string | undefined = runId;
+
+  while (currentRunId && !visited.has(currentRunId)) {
+    visited.add(currentRunId);
+    const events = await runStore.getEvents(currentRunId);
+    lineage.unshift(events);
+    const started = events.find((event) => event.type === "run_started");
+    currentRunId =
+      started?.type === "run_started" ? started.previousRunId : undefined;
+  }
+
+  return lineage.flat();
 }

@@ -114,4 +114,34 @@ describe("ChatTextArea", () => {
     expect(lastFrame()).toContain("Loading...");
     expect(lastFrame()).toContain("available strategies...");
   });
+
+  it("selects the active strategy before allowing continuation changes", () => {
+    const { lastFrame } = render(
+      <ChatTextArea
+        strategies={[
+          {
+            name: "build",
+            version: "1.0",
+            path: "/build.json",
+            origin: "cwd",
+            label: "Build",
+          },
+          {
+            name: "plan",
+            version: "1.0",
+            path: "/plan.json",
+            origin: "cwd",
+            label: "Plan",
+          },
+        ]}
+        initialStrategyPath="/plan.json"
+        onSubmit={mock()}
+        id="chat"
+        width={60}
+        height={3}
+      />,
+    );
+
+    expect(lastFrame()).toContain("Plan");
+  });
 });

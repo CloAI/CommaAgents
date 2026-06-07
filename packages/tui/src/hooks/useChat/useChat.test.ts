@@ -23,6 +23,9 @@ let subscriptionHandlers: Record<string, (message: unknown) => void> = {};
 const mockStartStrategyCommand = mock<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-1");
+const mockContinueRunCommand = mock<
+  (payload: Record<string, unknown>) => string | null
+>(() => "req-continue");
 const mockSendUserInputCommand = mock<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-2");
@@ -42,6 +45,7 @@ mock.module("../useDaemon/useDaemon", () => ({
 mock.module("../useDaemon/useDaemonCommand/useDaemonCommand", () => ({
   useDaemonCommand: (type: string) => {
     if (type === "start_strategy") return mockStartStrategyCommand;
+    if (type === "continue_run") return mockContinueRunCommand;
     if (type === "user_input") return mockSendUserInputCommand;
     if (type === "stop_strategy") return mockStopStrategyCommand;
     return mock(() => null);
@@ -100,9 +104,11 @@ function renderChatHook(): {
 beforeEach(() => {
   subscriptionHandlers = {};
   mockStartStrategyCommand.mockClear();
+  mockContinueRunCommand.mockClear();
   mockSendUserInputCommand.mockClear();
   mockStopStrategyCommand.mockClear();
   mockStartStrategyCommand.mockReturnValue("req-1");
+  mockContinueRunCommand.mockReturnValue("req-continue");
 });
 
 describe("useChat", () => {
@@ -190,6 +196,58 @@ describe("useChat", () => {
       expect(result.current.messages[0]?.role).toBe("system");
       expect(result.current.messages[0]?.text).toContain("test-strategy");
       expect(result.current.messages[0]?.text).toContain("agent-a");
+
+      cleanup();
+    });
+  });
+
+  describe("sendContinue", () => {
+    it("starts a new local run through continue_run", () => {
+      const { result, cleanup } = renderChatHook();
+
+      act(() => {
+        result.current.startStrategy("/path/to/strategy.json", "first");
+      });
+      act(() => {
+        subscriptionHandlers.strategy_started?.({
+          runId: "run-123",
+          strategyName: "test-strategy",
+          agents: ["assistant"],
+        });
+      });
+      act(() => {
+        subscriptionHandlers.strategy_completed?.({
+          runId: "run-123",
+          result: "done",
+          usage: { promptTokens: 1, completionTokens: 1 },
+        });
+      });
+
+      const originalChatRunId = result.current.chatRunId;
+      act(() => {
+        result.current.sendContinue(
+          {
+            name: "build",
+            version: "1.0",
+            path: "/path/to/build.json",
+            manifestPath: "/path/to/comma-project.json",
+            origin: "cwd-project",
+            label: "Project > build",
+          },
+          "keep going",
+        );
+      });
+
+      expect(result.current.chatRunId).not.toBe(originalChatRunId);
+      expect(result.current.status).toBe("running");
+      expect(mockContinueRunCommand).toHaveBeenCalledWith({
+        runId: "run-123",
+        input: "keep going",
+        strategyPath: "/path/to/build.json",
+        manifestPath: "/path/to/comma-project.json",
+      });
+      expect(result.current.strategyPath).toBe("/path/to/build.json");
+      expect(result.current.strategyName).toBe("build");
 
       cleanup();
     });

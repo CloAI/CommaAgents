@@ -94,8 +94,7 @@ export function TextAreaInput({
     }).split("\n"),
   );
 
-  const effectiveHeight =
-    height ?? Math.max(minHeight, Math.min(textLines.length, maxHeight));
+  const effectiveHeight = 5;
 
   // Re-derive cell + scroll offset from `cursorIndex` every render. Edits
   // and arrow keys both go through `computeNextCursorState`, so we never

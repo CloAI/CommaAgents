@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ContinueRunMessage } from "./requests/continue-run/continue-run.schema";
 import { GetAvailableModelsMessage } from "./requests/get-available-models/get-available-models.schema";
 import { GetRunMessage } from "./requests/get-run/index";
 import { ListProvidersMessage } from "./requests/list-providers/list-providers.schema";
@@ -51,6 +52,7 @@ import {
 
 export const ClientMessage = z.discriminatedUnion("type", [
   StartStrategyMessage,
+  ContinueRunMessage,
   StopStrategyMessage,
   UserInputMessage,
   PermissionDecisionMessage,

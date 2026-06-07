@@ -1,8 +1,8 @@
+import type { DiscoveredStrategy } from "@comma-agents/core";
 import { useCallback, useContext } from "react";
 
 import { ChatRunsContext } from "./useChat.context";
 import type { ChatRunId, ChatRunsContextType } from "./useChat.types";
-import { DiscoveredStrategy } from "@comma-agents/core";
 
 function useChatRunsContext(): ChatRunsContextType {
   const contextValue = useContext(ChatRunsContext);
@@ -49,11 +49,9 @@ export function useChatActions(chatRunId?: ChatRunId): UseChatActionsResult {
   );
 
   const sendContinue = useCallback(
-    (strategyPath: string, text: string): void => {
+    (strategy: DiscoveredStrategy, text: string): void => {
       if (!resolvedChatRunId) return;
-      const chatRun = context.chatRuns.get(resolvedChatRunId);
-      if (!chatRun?.daemonRunId) return;
-      context.startStrategy(strategyPath, text, undefined, undefined, chatRun.daemonRunId);
+      context.continueRun(resolvedChatRunId, strategy, text);
     },
     [context, resolvedChatRunId],
   );

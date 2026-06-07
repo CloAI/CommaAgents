@@ -67,7 +67,7 @@ async function startDaemon(overrides?: {
       providerCacheDir: join(tmpdir(), "providers"),
       pidFile: join(tmpdir(), "test.pid"),
       configFile: join(tmpdir(), "test.json"),
-      sessionsDir: join(tmpdir(), `sessions-${crypto.randomUUID()}`),
+      runsDir: join(tmpdir(), `runs-${crypto.randomUUID()}`),
     },
     logger: mockLogger(),
     bridgeTimeout: overrides?.bridgeTimeout ?? 0,
@@ -532,6 +532,84 @@ describe("start_strategy end-to-end", () => {
     expect(completed.usage).toBeDefined();
     expect(typeof completed.usage.promptTokens).toBe("number");
     expect(typeof completed.usage.completionTokens).toBe("number");
+    client.close();
+  });
+});
+
+describe("continue_run end-to-end", () => {
+  it("can restart with a different strategy and a new run id", async () => {
+    const daemon = await startDaemon();
+    const client = await connectClient(daemon);
+
+    const strategyPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
+    const buildStrategyPath = await writeTrackedTempStrategy(
+      JSON.stringify({
+        name: "Build",
+        version: "1.0",
+        agents: {
+          assistant: { model: "openai/gpt-4o" },
+        },
+        flow: {
+          name: "Build",
+          type: "sequential",
+          steps: [{ agent: "assistant" }],
+        },
+      }),
+    );
+    client.send({
+      type: "start_strategy",
+      strategyPath,
+      input: "first message",
+      requestId: "initial",
+    });
+
+    const firstCompleted: any = await client.waitForMessage(
+      (message: any) =>
+        message?.type === "strategy_completed" &&
+        message.requestId === "initial",
+    );
+
+    client.send({
+      type: "continue_run",
+      runId: firstCompleted.runId,
+      input: "continue message",
+      strategyPath: buildStrategyPath,
+      requestId: "continued",
+    });
+
+    const continuedStarted: any = await client.waitForMessage(
+      (message: any) =>
+        message?.type === "strategy_started" &&
+        message.requestId === "continued",
+    );
+    const continuedCompleted: any = await client.waitForMessage(
+      (message: any) =>
+        message?.type === "strategy_completed" &&
+        message.requestId === "continued",
+    );
+
+    expect(continuedStarted.runId).not.toBe(firstCompleted.runId);
+    expect(continuedStarted.strategyName).toBe("Build");
+    expect(continuedCompleted.runId).toBe(continuedStarted.runId);
+    client.close();
+  });
+
+  it("rejects an unknown previous run", async () => {
+    const daemon = await startDaemon();
+    const client = await connectClient(daemon);
+
+    client.send({
+      type: "continue_run",
+      runId: "missing-run",
+      input: "continue",
+      requestId: "continued-missing",
+    });
+
+    const error: any = await client.waitForMessage(
+      (message: any) =>
+        message?.type === "error" && message.requestId === "continued-missing",
+    );
+    expect(error.code).toBe("RUN_NOT_CONTINUABLE");
     client.close();
   });
 });

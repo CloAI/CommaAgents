@@ -24,6 +24,5 @@ export function handleStartStrategy(
     message.modelOverride,
     message.cwd,
     message.manifestPath,
-    message.previousRunId,
   );
 }
