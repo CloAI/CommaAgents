@@ -1,6 +1,6 @@
 import { useApp, useFocusManager, useInput } from "ink";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router";
 
 import { CommandPalette } from "../components/CommandPalette";
@@ -30,6 +30,7 @@ const DEV_TAB: TabDefinition = {
 } as const;
 
 export interface AppProps {
+  /** Whether to enable developer-specific tabs and tools. @default false */
   readonly devMode?: boolean;
 }
 
@@ -94,12 +95,19 @@ export function App({ devMode = false }: AppProps): React.ReactElement {
 }
 
 export interface AppRenderProps {
+  /** The list of tabs to display in the frame. */
   readonly tabs: readonly TabDefinition[];
+  /** The path of the currently active tab. */
   readonly activeTabPath: string;
+  /** Callback invoked when a tab is selected. */
   readonly onTabSelect: (path: string) => void;
+  /** Whether the command palette modal is currently open. */
   readonly commandPaletteOpen: boolean;
+  /** Callback invoked to close the command palette. */
   readonly onCommandPaletteClose: () => void;
+  /** Callback invoked to exit the application. */
   readonly onExitApp: () => void;
+  /** Callback invoked to reset the chat history. */
   readonly onResetChat: () => void;
 }
 

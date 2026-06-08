@@ -86,9 +86,7 @@ render(
         <DaemonContextProvider url={argv.daemonUrl}>
           <ChatRunsContextProvider>
             <ModalContextProvider>
-              <App
-                devMode={argv.dev}
-              />
+              <App devMode={argv.dev} />
             </ModalContextProvider>
           </ChatRunsContextProvider>
         </DaemonContextProvider>

@@ -14,26 +14,16 @@ import { type ButtonTheme, useButtonTheme } from "./Button.theme";
 import type { ButtonVariant } from "./Button.types";
 
 export interface ButtonProps {
-  /**
-   * Ink focus id. When supplied the button participates in Ink's global focus
-   * cycle. When omitted the button manages its own internal focus zone.
-   */
+  /** Ink focus id. When supplied the button participates in Ink's global focus cycle. When omitted the button manages its own internal focus zone. */
   readonly id?: string;
 
   /** Text label rendered inside the button. */
   readonly label: string;
-  /**
-   * Visual variant that controls border and text coloring.
-   * @default "primary"
-   */
+  /** Visual variant that controls border and text coloring. @default "primary" */
   readonly variant?: ButtonVariant;
   /** Callback invoked when the button is activated (Enter key or left/right click). */
   readonly onPress: () => void;
-  /**
-   * When `true` the button is rendered as disabled: it does not respond to
-   * clicks or key presses and is visually dimmed.
-   * @default false
-   */
+  /** When `true` the button is rendered as disabled: it does not respond to clicks or key presses and is visually dimmed. @default false */
   readonly disabled?: boolean;
 }
 
@@ -53,6 +43,7 @@ export interface ButtonProps {
  * Must be rendered inside a `<Frame>` (which mounts `<MouseProvider>`) for
  * mouse events to work.
  *
+ * @param props - The button properties including label, variant, and activation callback.
  * @example
  * ```tsx
  * <Button label="Confirm" variant="primary" onPress={() => submit()} />
@@ -67,19 +58,20 @@ export function Button({
   onPress,
   disabled = false,
 }: ButtonProps): React.ReactElement {
+  // 1. State
+  const boxRef = useRef<DOMElement | null>(null);
+
+  // 2. Memos
+  // (None)
+
+  // 3. Custom hooks
   const theme = useButtonTheme();
-  const boxRef = useRef<DOMElement | null>(
-    null,
-  ) as RefObject<DOMElement | null>;
-
-  // Focus management — skip own zone when parent supplies `isFocused`.
-  const { isFocused } = useFocus({
-    id,
-  });
+  const { isFocused } = useFocus({ id });
   const { focus } = useFocusManager();
-
-  // Hover tracking via ?1003h mouse mode.
   const { isHovered } = useMouseHover({ ref: boxRef });
+
+  // 4. Callbacks
+  // (Mouse clicks and keyboard input are handled by custom hooks below)
 
   // Left click (button 0): focus then activate.
   useMouseClick({
@@ -148,6 +140,8 @@ export interface ButtonRenderProps {
  *
  * Accepts fully-resolved props — no theme fallback logic, no hooks.
  * Useful for isolated visual testing and Storybook stories.
+ *
+ * @param props - The resolved rendering properties for the button.
  */
 export function ButtonRender({
   theme,

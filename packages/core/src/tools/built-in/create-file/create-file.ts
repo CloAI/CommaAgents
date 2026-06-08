@@ -133,7 +133,8 @@ After every successful \`create_file\` call, **run the project's configured veri
     parameters: createFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName } = toolContext;
-      const sink = toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
+      const sink =
+        toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
 
       if (toolContext.abort.aborted) {
         return errorResult<CreateFileData>(
@@ -213,10 +214,16 @@ After every successful \`create_file\` call, **run the project's configured veri
         path: validatedArguments.path,
       });
 
-      const auditBase = buildAuditBase(toolContext, "create_file", "create", validatedArguments.path, {
-        afterSha256: sha256,
-        diff,
-      });
+      const auditBase = buildAuditBase(
+        toolContext,
+        "create_file",
+        "create",
+        validatedArguments.path,
+        {
+          afterSha256: sha256,
+          diff,
+        },
+      );
 
       try {
         await writeAtomic(absolutePath, contentBytes);

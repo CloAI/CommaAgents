@@ -33,20 +33,16 @@ export interface ChatTextAreaProps {
 }
 
 /**
- * Outer-tree shell that measures the available width and hands a numeric
- * column count down to the detached `<DynamicContent>` boundary.
+ * Component that provides a text area for user prompts with strategy selection.
  *
- * Why split: `DynamicContent` requires an exact numeric width because its
- * detached Yoga layout has no parent to inherit flex sizing from. We keep
- * the existing public `width` prop polymorphic (`number | "100%"` etc.) by
- * using a thin outer placeholder whose box metrics give us the resolved
- * column count, then we forward that into the detached tree.
- *
- * The shell also owns the input state (text + strategy index) so that the
- * detached tree only needs to render — not coordinate. State setters cross
- * the boundary via closure; React itself doesn't know they're "outside",
- * because the detached instance is its own root with its own reconciler
- * but the JS closures still work normally.
+ * @param props - Props for the ChatTextArea container including strategies and onSubmit handler.
+ * @example
+ * ```tsx
+ * <ChatTextArea
+ *   strategies={discoveredStrategies}
+ *   onSubmit={(strategy, text) => handleSend(strategy, text)}
+ * />
+ * ```
  */
 export function ChatTextArea({
   id,
@@ -58,7 +54,7 @@ export function ChatTextArea({
   showStrategyRow = true,
   onSubmit,
 }: ChatTextAreaProps): React.ReactElement {
-  const { isFocused } = useFocus({ id });
+  // 1. State
   const [inputValue, setInputValue] = useState("");
   const [strategyIndex, setStrategyIndex] = useState(() => {
     const initialIndex = strategies.findIndex(
@@ -66,10 +62,36 @@ export function ChatTextArea({
     );
     return initialIndex >= 0 ? initialIndex : 0;
   });
+
+  // 2. Memos
+  const currentStrategy = strategies[strategyIndex] ?? strategies[0];
+
+  // 3. Custom hooks
+  const { isFocused } = useFocus({ id });
   const appliedInitialStrategyPath = useRef<string | undefined>(
     strategies[strategyIndex]?.path,
   );
 
+  // 4. Callbacks
+  const handleSubmit = useCallback(
+    (text: string) => {
+      if (!currentStrategy) return;
+      setInputValue("");
+      onSubmit(currentStrategy, text);
+    },
+    [currentStrategy, onSubmit],
+  );
+
+  useInput(
+    (_input, key) => {
+      if (key.tab && showStrategyRow && strategies.length > 0) {
+        setStrategyIndex((previous) => (previous + 1) % strategies.length);
+      }
+    },
+    { isActive: isFocused },
+  );
+
+  // 5. Effects
   useEffect(() => {
     if (
       initialStrategyPath === undefined ||
@@ -84,31 +106,6 @@ export function ChatTextArea({
     appliedInitialStrategyPath.current = initialStrategyPath;
     setStrategyIndex(initialIndex);
   }, [initialStrategyPath, strategies]);
-
-  const currentStrategy = strategies[strategyIndex] ?? strategies[0];
-
-  // Tab/ctrl+s shortcuts run in the OUTER tree on purpose — they mutate
-  // outer state (strategyIndex, inputValue) and we don't want to wait for
-  // the detached tree's input forwarding to deliver them. The detached
-  // tree gets its own forwarded copy too, but only TextAreaInput's
-  // useInput consumes character input there.
-  useInput(
-    (_input, key) => {
-      if (key.tab && showStrategyRow && strategies.length > 0) {
-        setStrategyIndex((previous) => (previous + 1) % strategies.length);
-      }
-    },
-    { isActive: isFocused },
-  );
-
-  const handleSubmit = useCallback(
-    (text: string) => {
-      if (!currentStrategy) return;
-      setInputValue("");
-      onSubmit(currentStrategy, text);
-    },
-    [currentStrategy, onSubmit],
-  );
 
   if (strategies.length === 0) {
     return (
@@ -176,11 +173,20 @@ export interface ChatTextAreaRenderProps {
 }
 
 /**
- * Internal render component executed inside the detached Ink instance.
+ * Pure render component for the ChatTextArea.
  *
- * Receives a fully-resolved numeric `width` so it does not depend on
- * `useBoxMetrics` measurement inside the detached tree (which would race
- * against the first frame and produce a one-tick layout flash).
+ * @param props - Props for the layout and content of the text area.
+ * @example
+ * ```tsx
+ * <ChatTextAreaRender
+ *   inputValue="Hello"
+ *   strategyLabel="General"
+ *   width={80}
+ *   height={5}
+ *   onInputChange={setVal}
+ *   onSubmit={send}
+ * />
+ * ```
  */
 export function ChatTextAreaRender({
   id,
@@ -188,7 +194,7 @@ export function ChatTextAreaRender({
   onInputChange,
   onSubmit,
   strategyLabel,
-  strategyDescription,
+  strategyDescription: _strategyDescription,
   width,
   height,
   placeholder,
@@ -210,9 +216,7 @@ export function ChatTextAreaRender({
       {showStrategyRow ? (
         <Box {...theme.strategyRow}>
           <Box maxWidth={42}>
-            <Text {...theme.strategyLabel}>
-              {strategyLabel}
-            </Text>
+            <Text {...theme.strategyLabel}>{strategyLabel}</Text>
           </Box>
           <Text {...theme.hint}>Tab to change strategy · Enter to submit</Text>
         </Box>

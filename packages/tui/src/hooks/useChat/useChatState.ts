@@ -1,6 +1,7 @@
 import { useContext, useMemo } from "react";
 
 import { useDaemon } from "../useDaemon/useDaemon";
+import type { WebSocketStatus } from "../useWebSocket/useWebSocket.types";
 import { ChatRunsContext } from "./useChat.context";
 import type {
   ChatMessage,
@@ -10,7 +11,6 @@ import type {
   PendingPermissionRequest,
   PendingQuestionRequest,
 } from "./useChat.types";
-import type { WebSocketStatus } from "../useWebSocket/useWebSocket.types";
 
 const EMPTY_MESSAGES = Object.freeze([]) as readonly ChatMessage[];
 

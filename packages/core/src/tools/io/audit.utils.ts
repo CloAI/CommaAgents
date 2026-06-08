@@ -1,5 +1,5 @@
-import type { AuditEntry } from "./audit.types";
 import type { ToolContext } from "../tool.types";
+import type { AuditEntry, AuditSink } from "./audit.types";
 
 /**
  * Build a base audit entry with common fields from tool context.
@@ -30,11 +30,24 @@ export function buildAuditBase(
   toolName: string,
   operation: AuditEntry["operation"],
   path: string,
-  additionalFields: Partial<Omit<AuditEntry, "timestamp" | "sessionId" | "agentName" | "toolName" | "operation" | "path" | "success">> = {},
+  additionalFields: Partial<
+    Omit<
+      AuditEntry,
+      | "timestamp"
+      | "sessionId"
+      | "agentName"
+      | "toolName"
+      | "operation"
+      | "path"
+      | "success"
+    >
+  > = {},
 ): Omit<AuditEntry, "success"> {
   return {
     timestamp: new Date().toISOString(),
-    ...(context.sessionId !== undefined ? { sessionId: context.sessionId } : {}),
+    ...(context.sessionId !== undefined
+      ? { sessionId: context.sessionId }
+      : {}),
     agentName: context.agentName,
     toolName,
     operation,

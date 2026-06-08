@@ -19,6 +19,10 @@ export const useSpawnedStrategyViewTheme = defineTheme((tokens) => ({
     flexDirection: "row",
     marginBottom: tokens.spacing.xs,
   } satisfies BoxProps,
+  detailRow: {
+    flexDirection: "row",
+    paddingLeft: tokens.spacing.sm,
+  } satisfies BoxProps,
   nestedMessages: {
     flexDirection: "column",
   } satisfies BoxProps,
@@ -34,6 +38,9 @@ export const useSpawnedStrategyViewTheme = defineTheme((tokens) => ({
   title: {
     bold: tokens.typography.labelBold,
     color: tokens.colors.primary,
+  } satisfies TextProps,
+  detailLabel: {
+    bold: tokens.typography.labelBold,
   } satisfies TextProps,
   muted: {
     dimColor: tokens.typography.secondaryDim,

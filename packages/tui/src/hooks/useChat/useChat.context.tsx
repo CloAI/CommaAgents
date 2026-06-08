@@ -414,10 +414,6 @@ export function ChatRunsContextProvider(
         next.set(chatRunId, {
           ...chatRun,
           messages: nextMessages,
-          activeLaunchStrategyIds:
-            message.event.toolName === "launch_strategy"
-              ? [...chatRun.activeLaunchStrategyIds, message.event.toolCallId]
-              : chatRun.activeLaunchStrategyIds,
           updatedAt: Date.now(),
         });
         return next;
@@ -439,9 +435,7 @@ export function ChatRunsContextProvider(
           messages: nextMessages,
           activeLaunchStrategyIds:
             message.event.toolName === "launch_strategy"
-              ? chatRun.activeLaunchStrategyIds.filter(
-                  (toolCallId) => toolCallId !== message.event.toolCallId,
-                )
+              ? [...chatRun.activeLaunchStrategyIds, message.event.toolCallId]
               : chatRun.activeLaunchStrategyIds,
           updatedAt: Date.now(),
         });
@@ -466,6 +460,12 @@ export function ChatRunsContextProvider(
         next.set(chatRunId, {
           ...chatRun,
           messages: nextMessages,
+          activeLaunchStrategyIds:
+            message.event.toolName === "launch_strategy"
+              ? chatRun.activeLaunchStrategyIds.filter(
+                  (toolCallId) => toolCallId !== message.event.toolCallId,
+                )
+              : chatRun.activeLaunchStrategyIds,
           updatedAt: Date.now(),
         });
         return next;
@@ -998,14 +998,24 @@ export function ChatRunsContextProvider(
 
       const id = crypto.randomUUID();
       const now = Date.now();
+      const userMessage: ChatMessage = {
+        id: `${id}-msg-1`,
+        role: "user",
+        sender: "you",
+        text: input,
+        streaming: false,
+        timestamp: now,
+      };
       const chatRun: ChatRun = {
         ...createInitialChatRun(id, { strategyPath: strategy.path }),
         label: strategy.label,
         strategyName: strategy.name,
         status: "running",
+        messages: [...sourceRun.messages, userMessage],
         createdAt: now,
         updatedAt: now,
       };
+      messageCountersRef.current.set(id, 1);
 
       setChatRuns((previousChatRuns) => {
         const next = new Map(previousChatRuns);

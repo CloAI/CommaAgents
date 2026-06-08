@@ -97,7 +97,11 @@ describe("MessageList", () => {
               type: "tool-call",
               toolCallId: "launch-1",
               toolName: "launch_strategy",
-              args: JSON.stringify({ name: "Plan", input: "Draft a plan" }),
+              args: JSON.stringify({
+                name: "Plan",
+                input: "Draft a plan",
+                modelOverride: "openai/gpt-5",
+              }),
             },
           ],
         }),
@@ -132,13 +136,25 @@ describe("MessageList", () => {
               type: "tool-call",
               toolCallId: "launch-1",
               toolName: "launch_strategy",
-              args: JSON.stringify({ name: "Plan", input: "Draft a plan" }),
+              args: JSON.stringify({
+                name: "Plan",
+                input: "Draft a plan",
+                modelOverride: "openai/gpt-5",
+              }),
             },
             {
               type: "tool-result",
               toolCallId: "launch-1",
               toolName: "launch_strategy",
-              output: "Plan complete",
+              output: JSON.stringify({
+                ok: true,
+                data: {
+                  strategyName: "Plan",
+                  path: "/strategies/plan.yaml",
+                  result: "Plan complete",
+                  finishReason: "stop",
+                },
+              }),
               status: "completed",
             },
           ],
@@ -160,6 +176,11 @@ describe("MessageList", () => {
 
       expect(result.lastFrame()).toContain("spawned Plan");
       expect(result.lastFrame()).toContain("launch_strategy");
+      expect(result.lastFrame()).toContain("input: Draft a plan");
+      expect(result.lastFrame()).toContain("model: openai/gpt-5");
+      expect(result.lastFrame()).toContain("path: /strategies/plan.yaml");
+      expect(result.lastFrame()).toContain("finish: stop");
+      expect(result.lastFrame()).toContain("result: Plan complete");
       expect(result.lastFrame()).toContain("Nested plan output");
       expect(result.lastFrame()).toMatchSnapshot();
     });

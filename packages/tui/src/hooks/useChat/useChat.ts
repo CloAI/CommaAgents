@@ -1,7 +1,7 @@
 import type { ChatRunId, UseChatState } from "./useChat.types";
-import { useChatState } from "./useChatState";
 import { useChatActions } from "./useChatActions";
 import { useChatLifecycle } from "./useChatLifecycle";
+import { useChatState } from "./useChatState";
 
 /**
  * Bind a view to a single chat run.

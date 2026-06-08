@@ -8,6 +8,7 @@ export {
   BorderedPanelRender,
   useBorderedPanelTheme,
 } from "./BorderedPanel";
+
 export type {
   ButtonProps,
   ButtonRenderProps,
@@ -15,6 +16,7 @@ export type {
   ButtonVariant,
 } from "./Button";
 export { Button, ButtonRender, useButtonTheme } from "./Button";
+
 export type {
   ChatTextAreaProps,
   ChatTextAreaRenderProps,
@@ -57,7 +59,6 @@ export type {
   UserMessageProps,
   UserMessageRenderProps,
 } from "./MessageList";
-
 export {
   AgentMessage,
   AgentMessageRender,
@@ -68,7 +69,6 @@ export {
   UserMessage,
   UserMessageRender,
 } from "./MessageList";
-
 export type {
   MessageListTheme,
   RoleStyle,
@@ -121,10 +121,7 @@ export {
 } from "./ScrollableView";
 
 export type { ScrollbarProps, ScrollbarRenderProps } from "./Scrollbar";
-export {
-  Scrollbar,
-  ScrollbarRender,
-} from "./Scrollbar";
+export { Scrollbar, ScrollbarRender } from "./Scrollbar";
 export type { ScrollbarTheme } from "./Scrollbar/Scrollbar.theme";
 export { useScrollbarTheme } from "./Scrollbar/Scrollbar.theme";
 
@@ -142,12 +139,10 @@ export { Separator, SeparatorRender, useSeparatorTheme } from "./Separator";
 
 export type { StatusBarProps, StatusBarRenderProps } from "./StatusBar";
 export { StatusBar, StatusBarRender } from "./StatusBar";
-
 export type {
   StatusBarTheme,
   StatusInfo,
 } from "./StatusBar/StatusBar.theme";
-
 export { useStatusBarTheme } from "./StatusBar/StatusBar.theme";
 
 export type { TextAreaInputProps } from "./TextAreaInput";

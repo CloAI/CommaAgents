@@ -12,9 +12,9 @@ import {
   isLikelyBinary,
   logAuditFailure,
   logAuditSuccess,
+  STALE_FILE_RECOVERY_HINT,
   sandboxErrorToToolError,
   sha256OfBuffer,
-  STALE_FILE_RECOVERY_HINT,
   stripBom,
   toLF,
   unifiedDiff,
@@ -224,7 +224,8 @@ After every successful \`edit_file\` call, **run the project's configured verifi
     parameters: editFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName } = toolContext;
-      const sink = toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
+      const sink =
+        toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
 
       if (toolContext.abort.aborted) {
         return errorResult<EditFileData>(
@@ -384,11 +385,17 @@ After every successful \`edit_file\` call, **run the project's configured verifi
         path: validatedArguments.path,
       });
 
-      const auditBase = buildAuditBase(toolContext, "edit_file", "update", validatedArguments.path, {
-        beforeSha256,
-        afterSha256,
-        diff,
-      });
+      const auditBase = buildAuditBase(
+        toolContext,
+        "edit_file",
+        "update",
+        validatedArguments.path,
+        {
+          beforeSha256,
+          afterSha256,
+          diff,
+        },
+      );
 
       try {
         await writeAtomic(absolutePath, finalBytes);

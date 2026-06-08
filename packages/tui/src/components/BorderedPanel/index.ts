@@ -1,10 +1,10 @@
-export {
-  BorderedPanel,
-  type BorderedPanelProps,
-  BorderedPanelRender,
-  type BorderedPanelRenderProps,
+export type {
+  BorderedPanelProps,
+  BorderedPanelRenderProps,
 } from "./BorderedPanel";
 export {
-  type BorderedPanelTheme,
-  useBorderedPanelTheme,
-} from "./BorderedPanel.theme";
+  BorderedPanel,
+  BorderedPanelRender,
+} from "./BorderedPanel";
+export type { BorderedPanelTheme } from "./BorderedPanel.theme";
+export { useBorderedPanelTheme } from "./BorderedPanel.theme";

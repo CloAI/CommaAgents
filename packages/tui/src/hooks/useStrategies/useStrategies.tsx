@@ -1,5 +1,8 @@
-import React from 'react';
-import { type DiscoveredStrategy, discoverStrategies } from '@comma-agents/core'
+import {
+  type DiscoveredStrategy,
+  discoverStrategies,
+} from "@comma-agents/core";
+import React from "react";
 
 /**
  * Discover available strategies once on mount.
@@ -10,7 +13,9 @@ import { type DiscoveredStrategy, discoverStrategies } from '@comma-agents/core'
  * single frame and then populates.
  */
 export function useDiscoveredStrategies(): readonly DiscoveredStrategy[] {
-  const [strategies, setStrategies] = React.useState<readonly DiscoveredStrategy[]>([]);
+  const [strategies, setStrategies] = React.useState<
+    readonly DiscoveredStrategy[]
+  >([]);
   React.useEffect(() => {
     let cancelled = false;
     discoverStrategies()

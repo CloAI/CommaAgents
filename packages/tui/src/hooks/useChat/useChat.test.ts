@@ -224,6 +224,7 @@ describe("useChat", () => {
       });
 
       const originalChatRunId = result.current.chatRunId;
+      const originalMessages = result.current.messages;
       act(() => {
         result.current.sendContinue(
           {
@@ -248,6 +249,31 @@ describe("useChat", () => {
       });
       expect(result.current.strategyPath).toBe("/path/to/build.json");
       expect(result.current.strategyName).toBe("build");
+      expect(result.current.messages.slice(0, originalMessages.length)).toEqual(
+        originalMessages,
+      );
+      expect(result.current.messages.at(-1)).toMatchObject({
+        role: "user",
+        sender: "you",
+        text: "keep going",
+      });
+
+      act(() => {
+        subscriptionHandlers.strategy_started?.({
+          runId: "run-456",
+          strategyName: "build",
+          agents: ["builder"],
+        });
+      });
+
+      expect(result.current.runId).toBe("run-456");
+      expect(result.current.messages.slice(0, originalMessages.length)).toEqual(
+        originalMessages,
+      );
+      expect(result.current.messages.at(-2)).toMatchObject({
+        role: "user",
+        text: "keep going",
+      });
 
       cleanup();
     });
@@ -349,6 +375,64 @@ describe("useChat", () => {
       );
       expect(agentMessages).toHaveLength(1);
       expect(agentMessages[0]?.streaming).toBe(false);
+
+      cleanup();
+    });
+
+    it("should attach spawned strategy output to its launch tool call", () => {
+      const { result, cleanup } = renderChatHook();
+      bootstrapRun(result);
+
+      act(() => {
+        subscriptionHandlers.agent_streaming?.({
+          runId: "run-1",
+          agentName: "manager",
+          event: {
+            type: "tool-call",
+            toolCallId: "launch-1",
+            toolName: "launch_strategy",
+            args: JSON.stringify({ name: "Plan", input: "Draft a plan" }),
+          },
+        });
+      });
+      act(() => {
+        subscriptionHandlers.agent_output?.({
+          runId: "run-1",
+          agentName: "planner",
+          text: "Nested plan output",
+        });
+      });
+
+      expect(result.current.messages.at(-1)).toMatchObject({
+        sender: "planner",
+        parentToolCallId: "launch-1",
+      });
+
+      act(() => {
+        subscriptionHandlers.agent_streaming?.({
+          runId: "run-1",
+          agentName: "manager",
+          event: {
+            type: "tool-result",
+            toolCallId: "launch-1",
+            toolName: "launch_strategy",
+            output: "Plan complete",
+            status: "completed",
+          },
+        });
+      });
+      act(() => {
+        subscriptionHandlers.agent_output?.({
+          runId: "run-1",
+          agentName: "manager",
+          text: "Manager complete",
+        });
+      });
+
+      expect(result.current.messages.at(-1)).toMatchObject({
+        sender: "manager",
+      });
+      expect(result.current.messages.at(-1)?.parentToolCallId).toBeUndefined();
 
       cleanup();
     });

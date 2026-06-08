@@ -252,6 +252,7 @@ function SegmentView({
         <SpawnedStrategyView
           args={segment.args}
           status={pairedResult === undefined ? "running" : pairedResult.status}
+          output={pairedResult?.output}
           error={pairedResult?.error}
         >
           {subMessages.length > 0 ? (

@@ -1,13 +1,13 @@
 import { Box, Text } from "ink";
 import type React from "react";
+import { ScrollableView } from "../../components";
 import { useDebugRender } from "../../hooks/useDebugRender";
-import { useLogs, type LogEntry } from "../../hooks/useLogs";
+import { type LogEntry, useLogs } from "../../hooks/useLogs";
 import type { LogsPageTheme } from "./LogsPage.theme";
 import { useLogsPageTheme } from "./LogsPage.theme";
 import { formatLevel, formatTimestamp } from "./LogsPage.utils";
-import { ScrollableView } from "../../components";
 
-export interface LogsPageProps {}
+export type LogsPageProps = {};
 
 export function LogsPage({}: LogsPageProps): React.ReactElement {
   const { logs, clearLogs } = useLogs();
@@ -16,13 +16,7 @@ export function LogsPage({}: LogsPageProps): React.ReactElement {
   });
   const theme = useLogsPageTheme();
 
-  return (
-    <LogsPageRender
-      theme={theme}
-      logs={logs}
-      debugRef={debug.ref}
-    />
-  );
+  return <LogsPageRender theme={theme} logs={logs} debugRef={debug.ref} />;
 }
 
 export interface LogsPageRenderProps {
@@ -39,7 +33,6 @@ export function LogsPageRender({
   logs,
   debugRef,
 }: LogsPageRenderProps): React.ReactElement {
-
   if (logs.length === 0) {
     return (
       <Box ref={debugRef} {...theme.root}>
@@ -54,11 +47,15 @@ export function LogsPageRender({
         items={logs}
         getKey={(item, index) => `log_item-${index}`}
         renderItem={(entry, _index) => (
-        <Box key={entry.id} {...theme.logRow}>
-          <Text {...theme.timestamp}>{formatTimestamp(entry.timestamp)}</Text>
-          <Text {...theme.levels[entry.level]}>{formatLevel(entry.level)}</Text>
-          <Text {...theme.messageBody}>{entry.message}</Text>
-        </Box>)} />
+          <Box key={entry.id} {...theme.logRow}>
+            <Text {...theme.timestamp}>{formatTimestamp(entry.timestamp)}</Text>
+            <Text {...theme.levels[entry.level]}>
+              {formatLevel(entry.level)}
+            </Text>
+            <Text {...theme.messageBody}>{entry.message}</Text>
+          </Box>
+        )}
+      />
     </Box>
   );
 }

@@ -5,6 +5,12 @@ import { type BoxProps, defineTheme, type ThemeOf } from "../../Theme";
  *
  * Each variant gets its own resolved color set so the render function only
  * needs to index by `ButtonVariant` — no conditional logic inside JSX.
+ *
+ * @example
+ * ```ts
+ * const theme = useButtonTheme();
+ * const styles = theme.variants.primary;
+ * ```
  */
 export const useButtonTheme = defineTheme((tokens) => ({
   buttonContainer: {

@@ -23,11 +23,11 @@ const meta: Meta<typeof BorderedPanel> = {
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
+type StoryType = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+export const Default: StoryType = {};
 
-export const ColoredBorder: Story = {
+export const ColoredBorder: StoryType = {
   args: {
     header: "warning",
     borderColor: "yellow",
@@ -36,7 +36,7 @@ export const ColoredBorder: Story = {
   },
 };
 
-export const MultilineContent: Story = {
+export const MultilineContent: StoryType = {
   args: {
     header: "summary",
     borderColor: "cyan",

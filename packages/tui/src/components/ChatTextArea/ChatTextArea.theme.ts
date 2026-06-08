@@ -3,6 +3,12 @@ import { type BoxProps, defineTheme, type TextProps } from "../../Theme";
 /**
  * Returns themed style objects for the ChatTextArea component.
  * Consumes global tokens via `useTheme()`.
+ *
+ * @example
+ * ```ts
+ * const theme = useChatTextAreaTheme();
+ * return <Box style={theme.container}>...</Box>;
+ * ```
  */
 export const useChatTextAreaTheme = defineTheme((tokens) => ({
   container: {

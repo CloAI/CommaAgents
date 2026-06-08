@@ -4,7 +4,7 @@ import { useTheme } from "../Theme";
 import type { AppTheme } from "./App.types";
 
 /**
- * Returns themed style objects for the App component.
+ * Hook that returns themed style objects for the App component.
  * Consumes global tokens via `useTheme()`.
  *
  * @example

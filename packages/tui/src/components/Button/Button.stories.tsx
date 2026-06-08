@@ -9,7 +9,17 @@ import { Button } from "./Button";
  * click handling. We wrap each story in it here so individual stories stay
  * focused on the component under inspection.
  */
-function WithMouse({ children }: { children: React.ReactNode }) {
+interface WithMouseProps {
+  /** Child components to be wrapped in the mouse provider. */
+  readonly children: React.ReactNode;
+}
+
+/**
+ * The `Button` requires `<MouseProvider>` higher in the tree for hover and
+ * click handling. We wrap each story in it here so individual stories stay
+ * focused on the component under inspection.
+ */
+function WithMouse({ children }: WithMouseProps) {
   return <MouseProvider>{children}</MouseProvider>;
 }
 

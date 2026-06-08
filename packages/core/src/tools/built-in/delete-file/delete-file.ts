@@ -7,9 +7,9 @@ import {
   logAuditFailure,
   logAuditSuccess,
   moveToTrash,
+  STALE_FILE_RECOVERY_HINT,
   sandboxErrorToToolError,
   sha256OfBuffer,
-  STALE_FILE_RECOVERY_HINT,
   unifiedDiff,
 } from "../../io";
 import { errorResult, okResult, toolError } from "../../result";
@@ -104,7 +104,8 @@ After every successful \`delete_file\` call, **run the project's configured veri
     parameters: deleteFileParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName, sessionId } = toolContext;
-      const sink = toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
+      const sink =
+        toolContext.auditSink ?? defaultSink ?? createMemoryAuditSink();
 
       if (abort.aborted) {
         return errorResult<DeleteFileData>(
@@ -204,11 +205,17 @@ After every successful \`delete_file\` call, **run the project's configured veri
         }
       } catch (caughtError) {
         const message = (caughtError as Error).message;
-        const failureBase = buildAuditBase(toolContext, "delete_file", "delete", validatedArguments.path, {
-          beforeSha256,
-          diff,
-          details: { permanent },
-        });
+        const failureBase = buildAuditBase(
+          toolContext,
+          "delete_file",
+          "delete",
+          validatedArguments.path,
+          {
+            beforeSha256,
+            diff,
+            details: { permanent },
+          },
+        );
         await logAuditFailure(sink, failureBase, message);
         return errorResult<DeleteFileData>(
           toolError(
@@ -222,14 +229,20 @@ After every successful \`delete_file\` call, **run the project's configured veri
         );
       }
 
-      const successBase = buildAuditBase(toolContext, "delete_file", "delete", validatedArguments.path, {
-        beforeSha256,
-        diff,
-        details: {
-          permanent,
-          ...(trashedTo !== undefined ? { trashedTo } : {}),
+      const successBase = buildAuditBase(
+        toolContext,
+        "delete_file",
+        "delete",
+        validatedArguments.path,
+        {
+          beforeSha256,
+          diff,
+          details: {
+            permanent,
+            ...(trashedTo !== undefined ? { trashedTo } : {}),
+          },
         },
-      });
+      );
       await logAuditSuccess(sink, successBase);
 
       const data: DeleteFileData = {

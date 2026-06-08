@@ -33,7 +33,7 @@ export function useDaemonCommand<CommandKind extends DaemonCommandType>(
     (payload: DaemonCommandMap[CommandKind]): string | null => {
       const requestId = crypto.randomUUID();
       const message = { ...payload, type, requestId };
-      console.log("Sending to deamon")
+      console.log("Sending to deamon");
       const ok = send(message as Record<string, unknown>);
       return ok ? requestId : null;
     },

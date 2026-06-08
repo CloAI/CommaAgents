@@ -20,8 +20,7 @@ describe("ChatTextAreaRender", () => {
     );
 
     expect(lastFrame()).toContain("Plan");
-    expect(lastFrame()).toContain("Break a goal into");
-    expect(lastFrame()).toContain("steps");
+    expect(lastFrame()).toContain("Tab to change strategy");
   });
 
   it("should display keybinding hints", () => {
@@ -112,7 +111,7 @@ describe("ChatTextArea", () => {
     );
 
     expect(lastFrame()).toContain("Loading...");
-    expect(lastFrame()).toContain("available strategies...");
+    expect(lastFrame()).toContain("Tab to change strategy");
   });
 
   it("selects the active strategy before allowing continuation changes", () => {
