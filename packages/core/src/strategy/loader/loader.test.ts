@@ -143,6 +143,37 @@ describe("loadStrategyFromString", () => {
       expect(result.agents.reviewer).toBeDefined();
     });
 
+    it("converts an agent outputSchema to an AI SDK schema", async () => {
+      setupMockModels();
+      const outputSchema = {
+        type: "object",
+        properties: { answer: { type: "string" } },
+        required: ["answer"],
+      };
+      const result = await loadStrategyFromString(
+        JSON.stringify({
+          name: "Structured",
+          version: "1.0",
+          agents: {
+            assistant: {
+              model: "openai/gpt-4o",
+              outputSchema,
+            },
+          },
+          flow: {
+            name: "Main",
+            type: "sequential",
+            steps: [{ agent: "assistant" }],
+          },
+        }),
+        "json",
+      );
+
+      expect(
+        await result.agents.assistant?.config?.outputSchema?.jsonSchema,
+      ).toEqual(outputSchema);
+    });
+
     it("throws StrategyValidationError for invalid JSON syntax", async () => {
       await expect(
         loadStrategyFromString("not { json", "json"),

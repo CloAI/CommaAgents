@@ -31,8 +31,8 @@ export type DaemonMessageOf<MessageKind extends DaemonMessageType> = Simplify<
 /**
  * Narrow a ClientMessage to the variant matching a specific `type`.
  *
- * Example: `ClientMessageOf<"start_strategy">` resolves to the
- * `StartStrategyMessage` branch of the union.
+ * Example: `ClientMessageOf<"prepare_run">` resolves to the
+ * `PrepareRunMessage` branch of the union.
  */
 export type ClientMessageOf<CommandKind extends ClientMessageType> = Simplify<
   Extract<ClientMessage, { type: CommandKind }>

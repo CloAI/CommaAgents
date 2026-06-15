@@ -12,7 +12,7 @@ export async function handleListRuns(
   context: HandlerContext<"list_runs">,
 ): Promise<void> {
   const filter = message.cwd !== undefined ? { cwd: message.cwd } : undefined;
-  const runs = await context.runStore.listRuns(filter);
+  const runs = await context.runSystem.runStore.listRuns(filter);
   context.reply({
     type: "run_list" as const,
     runs: [...runs],

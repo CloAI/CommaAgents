@@ -4,8 +4,7 @@ import type { Command } from "./CommandPalette.types";
  * The built-in command registry shown in the palette home view.
  *
  * Commands that navigate to a sub-page supply `page`; commands that fire
- * an effect immediately supply `action`. The corresponding page components
- * are set in `CommandPalette.tsx` after import to avoid circular refs.
+ * an effect immediately supply `action`.
  */
 export const BUILT_IN_COMMANDS: readonly Command[] = [
   {
@@ -23,14 +22,28 @@ export const BUILT_IN_COMMANDS: readonly Command[] = [
   {
     id: "list-providers",
     label: "List Providers",
-    description: "Browse and inspect configured AI providers",
-    keywords: ["models", "llm", "openai", "anthropic", "providers"],
+    description:
+      "Browse and inspect configured artificial intelligence providers",
+    keywords: [
+      "models",
+      "large language model",
+      "openai",
+      "anthropic",
+      "providers",
+    ],
   },
   {
     id: "register-providers",
     label: "Register Providers",
-    description: "Enable or disable LLM provider packages",
-    keywords: ["register", "enable", "disable", "api", "oauth", "install"],
+    description: "Enable or disable large language model provider packages",
+    keywords: [
+      "register",
+      "enable",
+      "disable",
+      "application programming interface",
+      "oauth",
+      "install",
+    ],
   },
   {
     id: "run-picker",

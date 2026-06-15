@@ -26,6 +26,7 @@ export function useDaemonSubscription<MessageKind extends DaemonMessageType>(
   type: MessageKind,
   callback: DaemonMessageListener<MessageKind>,
   runId?: string | null,
+  enabled = true,
 ): void {
   // Keep the latest callback in a ref so the effect doesn't re-subscribe
   // every time the consumer's closure changes.
@@ -35,6 +36,8 @@ export function useDaemonSubscription<MessageKind extends DaemonMessageType>(
   const { on } = useDaemon();
 
   useEffect(() => {
+    if (!enabled) return;
+
     const handler: DaemonMessageListener<MessageKind> = (message) => {
       // If a runId filter is active, skip messages that don't match.
       // Some daemon messages (pong, error, strategy_list) don't have runId;
@@ -51,5 +54,5 @@ export function useDaemonSubscription<MessageKind extends DaemonMessageType>(
 
     const unsubscribe = on(type, handler);
     return unsubscribe;
-  }, [type, runId, on]);
+  }, [type, runId, on, enabled]);
 }

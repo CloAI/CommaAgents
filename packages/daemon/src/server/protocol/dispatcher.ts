@@ -1,24 +1,23 @@
-import type { StrategyExecutor } from "../../executor/executor";
 import type { Logger } from "../../logger/logger.types";
-import type { RunStore } from "../../runs";
+import type { RunSystem } from "../../run-system";
 import type { DaemonState } from "../../state/state.types";
 import type { HandlerContext, MessageDispatcher } from "./dispatcher.types";
 import type { DaemonMessage } from "./messages";
 import { parseClientMessage } from "./messages";
 import { handleContinueRun } from "./requests/continue-run";
 import { handleGetAvailableModels } from "./requests/get-available-models";
-import { handleGetRun } from "./requests/get-run";
 import { handleListProviders } from "./requests/list-providers";
 import { handleListRuns } from "./requests/list-runs";
 import { handleListStrategies } from "./requests/list-strategies";
 import { handlePermissionDecision } from "./requests/permission-decision";
 import { handlePing } from "./requests/ping";
+import { handlePrepareRun } from "./requests/prepare-run";
 import { handleQuestionResponse } from "./requests/question-response";
 import { handleRegisterProvider } from "./requests/register-provider";
 import { handleSetCredential } from "./requests/set-credential";
-import { handleStartStrategy } from "./requests/start-strategy";
+import { handleStartRun } from "./requests/start-run";
 import { handleSteerRun } from "./requests/steer-run";
-import { handleStopStrategy } from "./requests/stop-strategy";
+import { handleStopRun } from "./requests/stop-run";
 import { handleSubscribe } from "./requests/subscribe";
 import { handleTrashClear } from "./requests/trash-clear";
 import { handleTrashList } from "./requests/trash-list";
@@ -30,12 +29,10 @@ import { handleUserInput } from "./requests/user-input";
 
 /** Dependencies needed to construct a dispatcher (everything except per-request state). */
 export interface CreateDispatcherOptions {
-  /** The strategy executor for starting/stopping runs and routing input/auth. */
-  readonly executor: StrategyExecutor;
+  /** Run lifecycle, actions, and persisted run storage. */
+  readonly runSystem: RunSystem;
   /** Centralized daemon state for run/client/subscription tracking. */
   readonly state: DaemonState;
-  /** Persistent run store. */
-  readonly runStore: RunStore;
   /** Logger for dispatcher-level diagnostics. */
   readonly logger: Logger;
 }
@@ -69,7 +66,7 @@ function buildErrorMessage(
  *
  * @example
  * ```ts
- * const dispatch = createDispatcher({ executor, state, logger });
+ * const dispatch = createDispatcher({ runSystem, state, logger });
  * // In the WebSocket message handler:
  * dispatch(clientId, raw, (msg) => ws.send(JSON.stringify(msg)));
  * ```
@@ -77,7 +74,7 @@ function buildErrorMessage(
 export function createDispatcher(
   options: CreateDispatcherOptions,
 ): MessageDispatcher {
-  const { executor, state, runStore, logger } = options;
+  const { runSystem, state, logger } = options;
 
   return function dispatch(
     clientId: string,
@@ -125,9 +122,8 @@ export function createDispatcher(
 
     const context: HandlerContext = {
       clientId,
-      executor,
+      runSystem,
       state,
-      runStore,
       logger,
       reply,
     };
@@ -138,14 +134,17 @@ export function createDispatcher(
         case "ping":
           handlePing(message, context);
           break;
-        case "start_strategy":
-          handleStartStrategy(message, context);
+        case "prepare_run":
+          void handlePrepareRun(message, context);
+          break;
+        case "start_run":
+          handleStartRun(message, context);
           break;
         case "continue_run":
           handleContinueRun(message, context);
           break;
-        case "stop_strategy":
-          handleStopStrategy(message, context);
+        case "stop_run":
+          handleStopRun(message, context);
           break;
         case "user_input":
           handleUserInput(message, context);
@@ -185,9 +184,6 @@ export function createDispatcher(
           break;
         case "list_runs":
           void handleListRuns(message, context);
-          break;
-        case "get_run":
-          void handleGetRun(message, context);
           break;
         case "trash_list":
           void handleTrashList(message, context);

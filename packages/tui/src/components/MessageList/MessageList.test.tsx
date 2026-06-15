@@ -3,7 +3,12 @@ import { Box } from "ink";
 import { render } from "ink-testing-library";
 import type React from "react";
 import { ModalContextProvider } from "../../hooks/useModal";
-import { groupSubStrategyMessages, MessageList } from "./MessageList";
+import {
+  findSubStrategyName,
+  groupSubStrategyMessages,
+  MessageList,
+  selectSubStrategyMessages,
+} from "./MessageList";
 import { createChatMessage } from "./test.utils";
 
 /**
@@ -85,6 +90,30 @@ describe("MessageList", () => {
       expect(result.lastFrame()).toMatchSnapshot();
     });
 
+    it("should display agent model, context usage, and elapsed time", async () => {
+      const messages = [
+        createChatMessage({
+          id: "1",
+          role: "agent",
+          sender: "planner",
+          text: "Done",
+          model: "openai/gpt-5",
+          contextWindow: 128_000,
+          usage: { promptTokens: 32_000, completionTokens: 1_000 },
+          contextTokens: 33_000,
+          timestamp: 1_000,
+          completedAt: 6_000,
+        }),
+      ];
+
+      const result = renderSized(<MessageList messages={messages} />);
+      await flushFrames();
+
+      expect(result.lastFrame()).toContain(
+        "planner · openai/gpt-5 · ▰▰▱▱▱▱ 33k/128k · 5s",
+      );
+    });
+
     it("should group spawned strategy messages under the launch_strategy call", () => {
       const messages = [
         createChatMessage({
@@ -122,6 +151,64 @@ describe("MessageList", () => {
       expect(groupedMessages).toHaveLength(1);
       expect(groupedMessages[0]?.subMessages).toHaveLength(1);
       expect(groupedMessages[0]?.subMessages[0]?.sender).toBe("planner");
+    });
+
+    it("should select only a spawned strategy transcript and its descendants", () => {
+      const messages = [
+        createChatMessage({
+          id: "parent",
+          role: "agent",
+          sender: "manager",
+          segments: [
+            {
+              type: "tool-call",
+              toolCallId: "launch-plan",
+              toolName: "launch_strategy",
+              args: JSON.stringify({ name: "Plan", input: "Draft a plan" }),
+            },
+            {
+              type: "tool-call",
+              toolCallId: "launch-sibling",
+              toolName: "launch_strategy",
+              args: JSON.stringify({ name: "Sibling", input: "" }),
+            },
+          ],
+        }),
+        createChatMessage({
+          id: "plan",
+          role: "agent",
+          sender: "planner",
+          parentToolCallId: "launch-plan",
+          segments: [
+            {
+              type: "tool-call",
+              toolCallId: "launch-review",
+              toolName: "launch_strategy",
+              args: JSON.stringify({ name: "Review", input: "Review it" }),
+            },
+          ],
+        }),
+        createChatMessage({
+          id: "review",
+          role: "agent",
+          sender: "reviewer",
+          parentToolCallId: "launch-review",
+        }),
+        createChatMessage({
+          id: "sibling",
+          role: "agent",
+          sender: "sibling",
+          parentToolCallId: "launch-sibling",
+        }),
+      ];
+
+      expect(
+        selectSubStrategyMessages(messages, "launch-plan").map(
+          (message) => message.id,
+        ),
+      ).toEqual(["plan", "review"]);
+      expect(findSubStrategyName(messages, "launch-plan")).toBe("Plan");
+      expect(findSubStrategyName(messages, "missing")).toBe("strategy");
     });
 
     it("should render spawned strategy output as a nested panel", async () => {
@@ -171,11 +258,14 @@ describe("MessageList", () => {
         }),
       ];
 
-      const result = renderSized(<MessageList messages={messages} />);
+      const result = renderSized(
+        <MessageList messages={messages} onOpenSubStrategy={() => {}} />,
+      );
       await flushFrames();
 
       expect(result.lastFrame()).toContain("spawned Plan");
       expect(result.lastFrame()).toContain("launch_strategy");
+      expect(result.lastFrame()).toContain("open");
       expect(result.lastFrame()).toContain("input: Draft a plan");
       expect(result.lastFrame()).toContain("model: openai/gpt-5");
       expect(result.lastFrame()).toContain("path: /strategies/plan.yaml");

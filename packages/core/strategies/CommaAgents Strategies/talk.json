@@ -7,8 +7,7 @@
       "type": "user",
       "description": "Collects the user's next question.",
       "config": {
-        "requireInput": true,
-        "presetMessage": "What's your question?"
+        "requireInput": true
       }
     },
     "expert": {

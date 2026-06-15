@@ -28,7 +28,7 @@ bun run tui -- --dev
 
 1. The TUI opens a WebSocket to the daemon at `ws://localhost:7422/ws`
 2. You select a strategy and enter a prompt
-3. The TUI sends `start_strategy` and receives streaming agent output, tool calls, thinking blocks, and status updates
+3. The TUI sends `prepare_run`, then `start_run`, and receives streaming agent output, tool calls, thinking blocks, and status updates
 4. When the agent needs input or sandbox permission, the TUI prompts you inline
 5. You can cycle between Chat and Logs tabs, open the command palette with Ctrl+P, or load persisted sessions
 

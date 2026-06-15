@@ -53,6 +53,25 @@ const creative = createAgent({
 
 For supported fields, see the [modelOptions table](/docs/core/agents/load-agent#modelOptions) in the load agent docs.
 
+## Structured Output
+
+Set `outputSchema` to a Zod schema or another AI SDK-compatible schema. The
+agent passes it to `streamText` as structured object output:
+
+```ts
+import { createAgent } from "@comma-agents/core";
+import { z } from "zod";
+
+const classifier = createAgent({
+  name: "classifier",
+  model: "openai/gpt-4o",
+  outputSchema: z.object({
+    category: z.string(),
+    confidence: z.number(),
+  }),
+});
+```
+
 ## AgentConfig
 
 The configuration object passed to `createAgent`.

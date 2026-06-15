@@ -50,6 +50,7 @@ export function buildFlowResult(
 export function createFlowContext(
   name: string,
   hooks?: FlowHooks,
+  abortSignal?: AbortSignal,
 ): FlowContext {
   const collected: AgentCallResult[] = [];
 
@@ -57,14 +58,27 @@ export function createFlowContext(
     name,
 
     async runStep(step: Agent, message: string): Promise<AgentCallResult> {
+      abortSignal?.throwIfAborted();
+
       // Step pre-hook
       await runSideEffectHooks(hooks?.beforeStep, {
         stepName: step.name,
         message,
       });
+      abortSignal?.throwIfAborted();
 
       try {
-        const result = await step.call(message);
+        const pending = step.call(message);
+        const abortStep = (): void => pending.abort();
+        abortSignal?.addEventListener("abort", abortStep, { once: true });
+
+        let result: AgentCallResult;
+        try {
+          result = await pending;
+        } finally {
+          abortSignal?.removeEventListener("abort", abortStep);
+        }
+        abortSignal?.throwIfAborted();
         collected.push(result);
 
         // Step post-hook
@@ -73,6 +87,7 @@ export function createFlowContext(
           message,
           result,
         });
+        abortSignal?.throwIfAborted();
 
         return result;
       } catch (error) {

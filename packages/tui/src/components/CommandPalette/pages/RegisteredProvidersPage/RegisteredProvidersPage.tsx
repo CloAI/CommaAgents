@@ -3,77 +3,35 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useDaemon } from "../../../../hooks/useDaemon";
-import type { DaemonMessageOf } from "../../../../hooks/useDaemon/useDaemon.types";
 import { useDebugRender } from "../../../../hooks/useDebugRender";
 import { useTheme } from "../../../../Theme";
+import type { Theme } from "../../../../Theme/Theme.types";
 import { isMouseEscape } from "../../../../utils/mouseEscape";
 import { ScrollableList } from "../../../ScrollableList";
 import { SearchInputRender, useSearchInputTheme } from "../../../SearchInput";
+import type { SearchInputTheme } from "../../../SearchInput/SearchInput.theme";
 import { filterByQuery } from "../../../SearchInput/SearchInput.utils";
+import {
+  CREDENTIAL_TYPE_LABELS,
+  RAW_MODE_SUPPORTED,
+} from "./RegisteredProvidersPage.constants";
+import type {
+  ProviderInfo,
+  RegisteredProvidersViewState,
+} from "./RegisteredProvidersPage.types";
+import {
+  createProviderSearchString,
+  isPrintableCharacter,
+} from "./RegisteredProvidersPage.utils";
 
-type ProviderInfo = DaemonMessageOf<"provider_list">["providers"][number];
-
-type ViewState =
-  | { readonly kind: "list" }
-  | {
-      readonly kind: "api-input";
-      readonly provider: ProviderInfo;
-    }
-  | {
-      readonly kind: "oauth-confirm";
-      readonly provider: ProviderInfo;
-    };
-
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
-const CREDENTIAL_TYPE_LABELS: Readonly<Record<string, string>> = {
-  api: "API Key",
-  oauth: "OAuth",
-  custom: "Custom",
-  none: "local",
-};
-
-function providerHaystack(p: ProviderInfo): string {
-  return [
-    p.id,
-    p.name,
-    CREDENTIAL_TYPE_LABELS[p.credentialType] ?? "",
-    ...p.models.map((m: { id: string }) => m.id),
-  ].join(" ");
-}
-
-const UNPRINTABLE_KEYS = new Set([
-  "upArrow",
-  "downArrow",
-  "leftArrow",
-  "rightArrow",
-  "escape",
-  "return",
-  "tab",
-  "delete",
-  "backspace",
-  "pageUp",
-  "pageDown",
-  "home",
-  "end",
-]);
-
-function isPrintable(input: string, key: Record<string, unknown>): boolean {
-  if (!input) return false;
-  if (key.meta) return false;
-  if (key.ctrl) return false;
-  if (key.tab) return false;
-  for (const k of UNPRINTABLE_KEYS) {
-    if (key[k] === true) return false;
-  }
-  return true;
+export interface RegisteredProvidersPageProps {
+  /** Unique identifier for the page to manage focus. */
+  readonly focusId: string;
 }
 
 export function RegisteredProvidersPage({
   focusId,
-}: {
-  readonly focusId: string;
-}): React.ReactElement {
+}: RegisteredProvidersPageProps): React.ReactElement {
   const debug = useDebugRender("RegisteredProvidersPage", {});
   const { send, on } = useDaemon();
   const tokens = useTheme();
@@ -82,35 +40,40 @@ export function RegisteredProvidersPage({
   const [providers, setProviders] = useState<readonly ProviderInfo[]>([]);
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
-  const [pending, setPending] = useState(false);
-  const [viewState, setViewState] = useState<ViewState>({ kind: "list" });
+  const [isPending, setIsPending] = useState(false);
+  const [viewState, setViewState] = useState<RegisteredProvidersViewState>({
+    kind: "list",
+  });
   const [apiKeyInput, setApiKeyInput] = useState("");
 
-  const { isFocused } = useFocus({ id: focusId, isActive: RAW_MODE_SUPPORTED });
+  const { isFocused } = useFocus({
+    id: focusId,
+    isActive: RAW_MODE_SUPPORTED,
+  });
 
-  const registered = useMemo(
-    () => providers.filter((p) => p.isCustom),
+  const registeredProviders = useMemo(
+    () => providers.filter((provider) => provider.isCustom),
     [providers],
   );
 
-  const available = useMemo(
-    () => providers.filter((p) => !p.isCustom),
+  const availableProviders = useMemo(
+    () => providers.filter((provider) => !provider.isCustom),
     [providers],
   );
 
-  const filteredRegistered = useMemo(
-    () => filterByQuery(registered, query, providerHaystack),
-    [registered, query],
+  const filteredRegisteredProviders = useMemo(
+    () => filterByQuery(registeredProviders, query, createProviderSearchString),
+    [registeredProviders, query],
   );
 
-  const filteredAvailable = useMemo(
-    () => filterByQuery(available, query, providerHaystack),
-    [available, query],
+  const filteredAvailableProviders = useMemo(
+    () => filterByQuery(availableProviders, query, createProviderSearchString),
+    [availableProviders, query],
   );
 
-  const unified = useMemo(
-    () => [...filteredRegistered, ...filteredAvailable],
-    [filteredRegistered, filteredAvailable],
+  const unifiedProviders = useMemo(
+    () => [...filteredRegisteredProviders, ...filteredAvailableProviders],
+    [filteredRegisteredProviders, filteredAvailableProviders],
   );
 
   const fetchProviders = useCallback(() => {
@@ -118,61 +81,79 @@ export function RegisteredProvidersPage({
   }, [send]);
 
   const registerProvider = useCallback(
-    (p: ProviderInfo) => {
-      if (p.isCustom || pending) return;
-      setPending(true);
-      send({ type: "register_provider", providerId: p.id });
+    (provider: ProviderInfo) => {
+      if (provider.isCustom || isPending) return;
+      setIsPending(true);
+      send({ type: "register_provider", providerId: provider.id });
       setTimeout(() => {
         fetchProviders();
-        setPending(false);
+        setIsPending(false);
       }, 300);
     },
-    [pending, send, fetchProviders],
+    [isPending, send, fetchProviders],
   );
 
   const saveCredentialAndRegister = useCallback(
-    (p: ProviderInfo, key: string) => {
-      if (pending) return;
-      setPending(true);
+    (provider: ProviderInfo, key: string) => {
+      if (isPending) return;
+      setIsPending(true);
       send({
         type: "set_credential",
-        providerId: p.id,
+        providerId: provider.id,
         credentialType: "api",
         apiKey: key,
       });
-      send({ type: "register_provider", providerId: p.id });
+      send({ type: "register_provider", providerId: provider.id });
       setTimeout(() => {
         fetchProviders();
-        setPending(false);
+        setIsPending(false);
       }, 300);
     },
-    [pending, send, fetchProviders],
+    [isPending, send, fetchProviders],
   );
 
   const activateRegistration = useCallback(
-    (p: ProviderInfo) => {
-      if (pending) return;
-      if (p.isCustom) {
-        setPending(true);
-        send({ type: "unregister_provider", providerId: p.id });
+    (provider: ProviderInfo) => {
+      if (isPending) return;
+      if (provider.isCustom) {
+        setIsPending(true);
+        send({ type: "unregister_provider", providerId: provider.id });
         setTimeout(() => {
           fetchProviders();
-          setPending(false);
+          setIsPending(false);
         }, 300);
         return;
       }
-      if (p.credentialType === "api" && p.authStatus === "none") {
-        setViewState({ kind: "api-input", provider: p });
+      if (provider.credentialType === "api" && provider.authStatus === "none") {
+        setViewState({ kind: "api-input", provider });
         setApiKeyInput("");
         return;
       }
-      if (p.credentialType === "oauth" && p.authStatus === "none") {
-        setViewState({ kind: "oauth-confirm", provider: p });
+      if (
+        provider.credentialType === "oauth" &&
+        provider.authStatus === "none"
+      ) {
+        setViewState({ kind: "oauth-confirm", provider });
         return;
       }
-      registerProvider(p);
+      registerProvider(provider);
     },
-    [pending, send, fetchProviders, registerProvider],
+    [isPending, send, fetchProviders, registerProvider],
+  );
+
+  const statusColor = useCallback(
+    (status: string) =>
+      status === "configured" ? tokens.colors.success : tokens.colors.muted,
+    [tokens.colors.success, tokens.colors.muted],
+  );
+
+  const credentialTypeColor = useCallback(
+    (type: string) => {
+      if (type === "oauth") return tokens.colors.info ?? tokens.colors.primary;
+      if (type === "none") return tokens.colors.muted;
+      return tokens.colors.muted;
+    },
+    [tokens.colors],
   );
 
   useInput(
@@ -195,7 +176,7 @@ export function RegisteredProvidersPage({
           setApiKeyInput((v) => v.slice(0, -1));
           return;
         }
-        if (isPrintable(input, key)) {
+        if (isPrintableCharacter(input, key)) {
           setApiKeyInput((v) => v + input);
         }
         return;
@@ -218,11 +199,11 @@ export function RegisteredProvidersPage({
         return;
       }
       if (key.downArrow) {
-        setSelectedIdx((i) => Math.min(unified.length - 1, i + 1));
+        setSelectedIdx((i) => Math.min(unifiedProviders.length - 1, i + 1));
         return;
       }
       if (key.return) {
-        const selected = unified[selectedIdx];
+        const selected = unifiedProviders[selectedIdx];
         if (selected) activateRegistration(selected);
         return;
       }
@@ -231,7 +212,7 @@ export function RegisteredProvidersPage({
         setSelectedIdx(0);
         return;
       }
-      if (isPrintable(input, key)) {
+      if (isPrintableCharacter(input, key)) {
         setQuery((q) => q + input);
         setSelectedIdx(0);
       }
@@ -254,26 +235,78 @@ export function RegisteredProvidersPage({
     return unsub;
   }, [fetchProviders, on]);
 
-  const statusColor = useCallback(
-    (status: string) =>
-      status === "configured" ? tokens.colors.success : tokens.colors.muted,
-    [tokens.colors.success, tokens.colors.muted],
+  return (
+    <RegisteredProvidersPageRender
+      debugRef={debug.ref}
+      tokens={tokens}
+      searchTheme={searchTheme}
+      providers={providers}
+      unifiedProviders={unifiedProviders}
+      filteredRegisteredProviders={filteredRegisteredProviders}
+      query={query}
+      selectedIdx={selectedIdx}
+      onSelectedIndexChange={setSelectedIdx}
+      viewState={viewState}
+      apiKeyInput={apiKeyInput}
+      isPending={isPending}
+      statusColor={statusColor}
+      credentialTypeColor={credentialTypeColor}
+    />
   );
+}
 
-  const credentialTypeColor = useCallback(
-    (type: string) => {
-      if (type === "oauth") return tokens.colors.info ?? tokens.colors.primary;
-      if (type === "none") return tokens.colors.muted;
-      return tokens.colors.muted;
-    },
-    [tokens.colors],
-  );
+export interface RegisteredProvidersPageRenderProps {
+  /** Reference for debug rendering. */
+  readonly debugRef: React.RefObject<unknown>;
+  /** Global theme tokens. */
+  readonly tokens: Theme;
+  /** Theme for the search input. */
+  readonly searchTheme: SearchInputTheme;
+  /** All fetched providers. */
+  readonly providers: readonly ProviderInfo[];
+  /** All filtered providers (registered first, then available). */
+  readonly unifiedProviders: readonly ProviderInfo[];
+  /** Filtered list of registered providers to determine section boundary. */
+  readonly filteredRegisteredProviders: readonly ProviderInfo[];
+  /** Current search query. */
+  readonly query: string;
+  /** Index of the currently selected provider. */
+  readonly selectedIdx: number;
+  /** Callback to update the selected index. */
+  readonly onSelectedIndexChange: (index: number) => void;
+  /** Current view state (list, api-input, or oauth-confirm). */
+  readonly viewState: RegisteredProvidersViewState;
+  /** Current text in the API key input field. */
+  readonly apiKeyInput: string;
+  /** Whether a registration process is currently pending. */
+  readonly isPending: boolean;
+  /** Function to resolve the status color for a provider. */
+  readonly statusColor: (status: string) => string;
+  /** Function to resolve the credential type color for a provider. */
+  readonly credentialTypeColor: (type: string) => string;
+}
 
+export function RegisteredProvidersPageRender({
+  debugRef,
+  tokens,
+  searchTheme,
+  providers,
+  unifiedProviders,
+  filteredRegisteredProviders,
+  query,
+  selectedIdx,
+  onSelectedIndexChange,
+  viewState,
+  apiKeyInput,
+  isPending,
+  statusColor,
+  credentialTypeColor,
+}: RegisteredProvidersPageRenderProps): React.ReactElement {
   if (viewState.kind === "api-input") {
     const p = viewState.provider;
     return (
       <Box
-        ref={debug.ref}
+        ref={debugRef}
         flexDirection="column"
         width="100%"
         flexGrow={1}
@@ -306,7 +339,7 @@ export function RegisteredProvidersPage({
         <Box marginTop={1}>
           <Text color={tokens.colors.muted}>
             Enter to confirm · Esc to cancel
-            {pending ? " · Processing..." : ""}
+            {isPending ? " · Processing..." : ""}
           </Text>
         </Box>
       </Box>
@@ -317,7 +350,7 @@ export function RegisteredProvidersPage({
     const p = viewState.provider;
     return (
       <Box
-        ref={debug.ref}
+        ref={debugRef}
         flexDirection="column"
         width="100%"
         flexGrow={1}
@@ -359,7 +392,7 @@ export function RegisteredProvidersPage({
   }
 
   return (
-    <Box ref={debug.ref} flexDirection="column" width="100%" flexGrow={1}>
+    <Box ref={debugRef} flexDirection="column" width="100%" flexGrow={1}>
       <Box flexShrink={0} marginBottom={1}>
         <SearchInputRender
           theme={searchTheme}
@@ -371,11 +404,11 @@ export function RegisteredProvidersPage({
 
       {providers.length === 0 ? (
         <Text color={tokens.colors.muted}>Loading providers...</Text>
-      ) : unified.length === 0 ? (
+      ) : unifiedProviders.length === 0 ? (
         <Text color={tokens.colors.muted}>No providers match</Text>
       ) : (
         <Box flexDirection="column" flexGrow={1} overflow="hidden">
-          {filteredRegistered.length > 0 && (
+          {filteredRegisteredProviders.length > 0 && (
             <Box flexShrink={0} marginTop={0} marginBottom={1}>
               <Text bold color={tokens.colors.primary}>
                 Registered
@@ -384,17 +417,18 @@ export function RegisteredProvidersPage({
           )}
 
           <ScrollableList
-            items={unified}
+            items={unifiedProviders}
             getKey={(p) => p.id}
             selectedIndex={selectedIdx}
-            onSelectedIndexChange={setSelectedIdx}
+            onSelectedIndexChange={onSelectedIndexChange}
             isFocused={false}
             emptyText=""
             renderItem={(p, isSelected) => {
               const ctLabel = CREDENTIAL_TYPE_LABELS[p.credentialType] ?? "api";
               const isAvailableSection =
-                filteredRegistered.length > 0 &&
-                unified.indexOf(p) === filteredRegistered.length;
+                filteredRegisteredProviders.length > 0 &&
+                unifiedProviders.indexOf(p) ===
+                  filteredRegisteredProviders.length;
 
               return (
                 <Box flexDirection="column">
@@ -457,10 +491,10 @@ export function RegisteredProvidersPage({
 
       <Box flexShrink={0} marginTop={1}>
         <Text color={tokens.colors.muted}>
-          {providers.some((p) => !p.isCustom)
+          {providers.some((provider) => !provider.isCustom)
             ? "Enter to register & set credentials · Esc to go back"
             : "Enter to toggle · Esc to go back"}
-          {pending ? " · Processing..." : ""}
+          {isPending ? " · Processing..." : ""}
         </Text>
       </Box>
     </Box>

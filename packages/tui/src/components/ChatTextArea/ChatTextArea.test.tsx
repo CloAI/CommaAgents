@@ -114,7 +114,7 @@ describe("ChatTextArea", () => {
     expect(lastFrame()).toContain("Tab to change strategy");
   });
 
-  it("selects the active strategy before allowing continuation changes", () => {
+  it("selects the active strategy before allowing strategy changes", () => {
     const { lastFrame } = render(
       <ChatTextArea
         strategies={[

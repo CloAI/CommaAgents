@@ -20,8 +20,8 @@ import type {
  * @param type - The daemon command type to send.
  * @example
  * ```tsx
- * const startStrategy = useDaemonCommand("start_strategy");
- * const reqId = startStrategy({ strategyPath: "/path/plan.json" });
+ * const prepareRun = useDaemonCommand("prepare_run");
+ * const reqId = prepareRun({ strategyPath: "/path/plan.json" });
  * ```
  */
 export function useDaemonCommand<CommandKind extends DaemonCommandType>(

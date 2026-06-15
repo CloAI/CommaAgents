@@ -1,6 +1,6 @@
 import { Box, type DOMElement, Text } from "ink";
 import type React from "react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { MessageSegment } from "../../../hooks/useChat/useChat.types";
 import { useModal } from "../../../hooks/useModal";
@@ -41,14 +41,26 @@ export interface AgentMessageProps {
   readonly fallbackText: string;
   /** Whether the message is still receiving streaming events. */
   readonly streaming: boolean;
+  /** Provider/model identifier used for this call. */
+  readonly model?: string;
+  /** Maximum model context tokens, when known. */
+  readonly contextWindow?: number;
+  /** Tokens occupying the final model step's context window. */
+  readonly contextTokens?: number;
+  /** Call start timestamp in milliseconds. */
+  readonly startedAt: number;
+  /** Call completion timestamp in milliseconds. */
+  readonly completedAt?: number;
   /** Messages emitted by `launch_strategy` calls inside this agent message. */
   readonly subMessages?: readonly GroupedChatMessage[];
+  /** Opens a spawned strategy transcript in its dedicated page. */
+  readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }
 
 /**
  * Renders a single agent message with rich, ordered body segments.
  *
- * Each segment kind (text, tool-call, tool-result, thinking, mcp-call)
+ * Each segment kind (text, tool-call, tool-result, thinking)
  * gets its own visual treatment so that the user can distinguish the
  * agent's prose from its tool invocations and reasoning at a glance.
  */
@@ -57,7 +69,13 @@ export function AgentMessage({
   segments,
   fallbackText,
   streaming,
+  model,
+  contextWindow,
+  contextTokens,
+  startedAt,
+  completedAt,
   subMessages = [],
+  onOpenSubStrategy,
 }: AgentMessageProps): React.ReactElement {
   const theme = useMessageListTheme();
 
@@ -72,7 +90,13 @@ export function AgentMessage({
       sender={sender}
       segments={resolvedSegments}
       streaming={streaming}
+      model={model}
+      contextWindow={contextWindow}
+      contextTokens={contextTokens}
+      startedAt={startedAt}
+      completedAt={completedAt}
       subMessages={subMessages}
+      onOpenSubStrategy={onOpenSubStrategy}
     />
   );
 }
@@ -86,8 +110,15 @@ export interface AgentMessageRenderProps {
   readonly segments: readonly MessageSegment[];
   /** Whether the message is still receiving streaming events. */
   readonly streaming: boolean;
+  readonly model?: string;
+  readonly contextWindow?: number;
+  readonly contextTokens?: number;
+  readonly startedAt: number;
+  readonly completedAt?: number;
   /** Messages emitted by `launch_strategy` calls inside this agent message. */
   readonly subMessages: readonly GroupedChatMessage[];
+  /** Opens a spawned strategy transcript in its dedicated page. */
+  readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }
 
 export function AgentMessageRender({
@@ -95,9 +126,16 @@ export function AgentMessageRender({
   sender,
   segments,
   streaming,
+  model,
+  contextWindow,
+  contextTokens,
+  startedAt,
+  completedAt,
   subMessages,
+  onOpenSubStrategy,
 }: AgentMessageRenderProps): React.ReactElement {
   const styles = theme.agentMessage;
+  const elapsed = useElapsed(startedAt, completedAt, streaming);
 
   // Build a `toolCallId → tool-result` index so each tool-call row can
   // render with its paired result inline (single collapsed row),
@@ -119,7 +157,16 @@ export function AgentMessageRender({
   return (
     <Box {...styles.container}>
       <BorderedPanel
-        header={sender}
+        header={
+          <AgentMessageHeader
+            sender={sender}
+            model={model}
+            contextWindow={contextWindow}
+            contextTokens={contextTokens}
+            elapsed={elapsed}
+            theme={theme}
+          />
+        }
         borderColor={styles.borderColor}
         headerColor={styles.label.color}
       >
@@ -160,6 +207,7 @@ export function AgentMessageRender({
                     )
                   : []
               }
+              onOpenSubStrategy={onOpenSubStrategy}
             />
           );
         })}
@@ -185,6 +233,7 @@ interface SegmentViewProps {
     { readonly type: "tool-result" }
   >;
   readonly subMessages: readonly GroupedChatMessage[];
+  readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }
 
 function SegmentView({
@@ -192,6 +241,7 @@ function SegmentView({
   theme,
   pairedResult,
   subMessages,
+  onOpenSubStrategy,
 }: SegmentViewProps): React.ReactElement | null {
   const styles = theme.agentMessage;
   const { open } = useModal(OUTPUT_MODAL_ID);
@@ -254,10 +304,19 @@ function SegmentView({
           status={pairedResult === undefined ? "running" : pairedResult.status}
           output={pairedResult?.output}
           error={pairedResult?.error}
+          onOpen={
+            onOpenSubStrategy
+              ? () => onOpenSubStrategy(segment.toolCallId)
+              : undefined
+          }
         >
           {subMessages.length > 0 ? (
             subMessages.map((message) => (
-              <NestedMessageView key={message.id} message={message} />
+              <NestedMessageView
+                key={message.id}
+                message={message}
+                onOpenSubStrategy={onOpenSubStrategy}
+              />
             ))
           ) : (
             <Text {...styles.streamingCursor}>Waiting for spawned output…</Text>
@@ -313,24 +372,6 @@ function SegmentView({
     );
   }
 
-  if (segment.type === "mcp-call") {
-    const argsPreview = truncatePreview(segment.args);
-    return (
-      <Box {...styles.mcpCall.container}>
-        <Text>
-          <Text
-            {...styles.mcpCall.header}
-          >{`\u2192 mcp ${segment.serverName} `}</Text>
-          <Text>{segment.toolName}</Text>
-        </Text>
-        <Text {...styles.mcpCall.args}>{argsPreview}</Text>
-        {segment.output !== undefined ? (
-          <Text {...styles.mcpCall.output}>{segment.output}</Text>
-        ) : null}
-      </Box>
-    );
-  }
-
   // Exhaustiveness guard — TypeScript's discriminated union catches new
   // segment kinds at compile time, but we still render nothing rather
   // than crashing if a new variant slips through at runtime.
@@ -339,10 +380,12 @@ function SegmentView({
 
 interface NestedMessageViewProps {
   readonly message: GroupedChatMessage;
+  readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }
 
 function NestedMessageView({
   message,
+  onOpenSubStrategy,
 }: NestedMessageViewProps): React.ReactElement | null {
   if (message.role === "user") {
     return <UserMessage text={message.text} label={message.sender} />;
@@ -355,12 +398,110 @@ function NestedMessageView({
         segments={message.segments}
         fallbackText={message.text}
         streaming={message.streaming}
+        model={message.model}
+        contextWindow={message.contextWindow}
+        contextTokens={message.contextTokens}
+        startedAt={message.timestamp}
+        completedAt={message.completedAt}
         subMessages={message.subMessages}
+        onOpenSubStrategy={onOpenSubStrategy}
       />
     );
   }
 
   return null;
+}
+
+interface AgentMessageHeaderProps {
+  readonly sender: string;
+  readonly model?: string;
+  readonly contextWindow?: number;
+  readonly contextTokens?: number;
+  readonly elapsed?: string;
+  readonly theme: ReturnType<typeof useMessageListTheme>;
+}
+
+function AgentMessageHeader({
+  sender,
+  model,
+  contextWindow,
+  contextTokens,
+  elapsed,
+  theme,
+}: AgentMessageHeaderProps): React.ReactElement {
+  const styles = theme.agentMessage;
+  return (
+    <Text>
+      <Text {...styles.label}>{sender}</Text>
+      {model ? (
+        <>
+          <Text {...styles.headerDetail.separator}> {"\u00B7"} </Text>
+          <Text {...styles.headerDetail.model}>{model}</Text>
+        </>
+      ) : null}
+      {contextWindow !== undefined ? (
+        <>
+          <Text {...styles.headerDetail.separator}> {"\u00B7"} </Text>
+          <Text {...styles.headerDetail.context}>
+            {formatContextUsage(contextTokens, contextWindow)}
+          </Text>
+        </>
+      ) : null}
+      {elapsed ? (
+        <>
+          <Text {...styles.headerDetail.separator}> {"\u00B7"} </Text>
+          <Text {...styles.headerDetail.time}>{elapsed}</Text>
+        </>
+      ) : null}
+    </Text>
+  );
+}
+
+function useElapsed(
+  startedAt: number,
+  completedAt: number | undefined,
+  streaming: boolean,
+): string | undefined {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!streaming) return;
+    const timer = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(timer);
+  }, [streaming]);
+
+  return streaming || completedAt !== undefined
+    ? formatElapsed((completedAt ?? now) - startedAt)
+    : undefined;
+}
+
+function formatContextUsage(
+  contextTokens: number | undefined,
+  contextWindow: number,
+): string {
+  const units = 6;
+  const filled =
+    contextTokens === undefined
+      ? 0
+      : Math.min(units, Math.ceil((contextTokens / contextWindow) * units));
+  const bar = `${"█".repeat(filled)}${" ".repeat(units - filled)}`;
+  return `${bar} ${formatTokens(contextTokens)}/${formatTokens(contextWindow)}`;
+}
+
+function formatTokens(tokens: number | undefined): string {
+  if (tokens === undefined) return "?";
+  if (tokens < 1_000) return String(tokens);
+  if (tokens < 1_000_000) return `${Math.round(tokens / 1_000)}k`;
+  return `${Math.round(tokens / 100_000) / 10}m`;
+}
+
+function formatElapsed(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1_000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0
+    ? `${minutes}m ${String(seconds).padStart(2, "0")}s`
+    : `${seconds}s`;
 }
 
 /**

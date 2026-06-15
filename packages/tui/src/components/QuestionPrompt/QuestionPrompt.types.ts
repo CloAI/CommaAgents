@@ -1,8 +1,8 @@
-import type { PendingQuestionRequest } from "../../hooks/useChat/useChat.types";
+import type { RequestQuestionMessage } from "@comma-agents/daemon";
 
 export interface QuestionPromptProps {
-  /** The question request to display. */
-  readonly request: PendingQuestionRequest;
+  /** The daemon's `request_question` message to display. */
+  readonly request: RequestQuestionMessage;
   /** Called when the user submits their answer. */
   readonly onSubmit: (response: string) => void;
 }

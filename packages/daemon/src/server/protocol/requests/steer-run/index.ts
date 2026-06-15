@@ -1,5 +1,5 @@
 // Steer-run request handler.
-// Queues a steering message that the executor injects into the running
+// Queues a steering message that the run system injects into the running
 // strategy before its next agent turn.
 
 import type { HandlerContext } from "../../dispatcher.types";
@@ -10,7 +10,7 @@ export { SteerRunMessage } from "./steer-run.schema";
 
 /**
  * Handle a `steer_run` request by queueing the text on the run's steering
- * mailbox. The text is merged into the next agent call by the executor.
+ * mailbox. The text is merged into the next agent call by the run system.
  *
  * If the run is not found or has already finished, sends a
  * `RUN_NOT_STEERABLE` error back to the client.
@@ -19,7 +19,11 @@ export function handleSteerRun(
   message: SteerRunMessage,
   context: HandlerContext<"steer_run">,
 ): void {
-  const queued = context.executor.steerRun(message.runId, message.text);
+  const queued = context.runSystem.actions.invoke(
+    "steer",
+    message.runId,
+    message.text,
+  );
   if (!queued) {
     context.reply({
       type: "error" as const,

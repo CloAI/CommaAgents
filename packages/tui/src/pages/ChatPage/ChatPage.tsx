@@ -1,9 +1,12 @@
 import type { DiscoveredStrategy } from "@comma-agents/core";
-import { Box, useFocusManager } from "ink";
+import type {
+  RequestPermissionMessage,
+  RequestQuestionMessage,
+} from "@comma-agents/daemon";
+import { Box, useFocusManager, useInput } from "ink";
 import type React from "react";
-import { useEffect, useRef } from "react";
-import { useLocation } from "react-router";
-
+import { useCallback, useContext, useEffect, useRef } from "react";
+import { useNavigate, useParams } from "react-router";
 import {
   ChatTextArea,
   MessageList,
@@ -11,56 +14,75 @@ import {
   QuestionPrompt,
 } from "../../components";
 import {
-  useChatActions,
-  useChatLifecycle,
+  useChatInputRequests,
+  useChatPermissionRequests,
+  useChatQuestionRequests,
+  useChatRunLifecycle,
   useChatState,
+  useChatSteering,
 } from "../../hooks/useChat";
-import { useDebugRender } from "../../hooks/useDebugRender";
+import { ModalContext } from "../../hooks/useModal/useModal.context";
 import { useDiscoveredStrategies } from "../../hooks/useStrategies/useStrategies";
+import { isMouseEscape } from "../../utils/mouseEscape";
+import { DOUBLE_ESCAPE_WINDOW_MS, REPLY_INPUT_ID } from "./ChatPage.constants";
 import type { ChatPageTheme } from "./ChatPage.theme";
 import { useChatPageTheme } from "./ChatPage.theme";
 
-export interface ChatPageRouteState {
-  readonly strategy: DiscoveredStrategy;
-  readonly inputText: string;
-}
-
-const REPLY_INPUT_ID = "chat-reply";
-
 export function ChatPage(): React.ReactElement {
-  const location = useLocation();
-  const routeState = location.state as ChatPageRouteState | null;
+  const { chatRunId = "" } = useParams<{ chatRunId: string }>();
+  const navigate = useNavigate();
   const strategies = useDiscoveredStrategies();
+  const chatState = useChatState(chatRunId);
 
-  const chatState = useChatState();
-  const chatActions = useChatActions();
-  const chatLifecycle = useChatLifecycle();
+  const { continueRun, stopChatRun } = useChatRunLifecycle();
+  const { sendInput } = useChatInputRequests();
+  const { sendSteer } = useChatSteering();
+  const { sendPermissionDecision } = useChatPermissionRequests();
+  const { sendQuestionResponse } = useChatQuestionRequests();
 
-  const firedRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!routeState) return;
-    const { strategy, inputText } = routeState;
-    const fireKey = `${strategy.path}:${inputText}`;
-    if (firedRef.current === fireKey) return;
-    firedRef.current = fireKey;
-
-    chatLifecycle.startStrategy(
-      strategy.path,
-      inputText,
-      process.cwd(),
-      strategy.manifestPath,
-    );
-  }, [routeState, chatLifecycle]);
-
-  const debug = useDebugRender("ChatPage", {
-    props: {
-      chatStatus: chatState.status,
-      messages: chatState.messages,
-      error: chatState.error,
-    },
-  });
   const theme = useChatPageTheme();
+
+  const handleOpenSubStrategy = useCallback(
+    (toolCallId: string): void => {
+      navigate(
+        `/chat/${encodeURIComponent(chatRunId)}/spawned/${encodeURIComponent(toolCallId)}`,
+      );
+    },
+    [chatRunId, navigate],
+  );
+  const handleReplySubmit = useCallback(
+    (text: string): void => {
+      sendInput(chatRunId, text);
+    },
+    [chatRunId, sendInput],
+  );
+  const handleSteerSubmit = useCallback(
+    (text: string): void => {
+      sendSteer(chatRunId, text);
+    },
+    [chatRunId, sendSteer],
+  );
+  const handleContinueSubmit = useCallback(
+    (strategy: DiscoveredStrategy, text: string): void => {
+      continueRun(chatRunId, strategy, text);
+    },
+    [chatRunId, continueRun],
+  );
+  const handlePermissionDecide = useCallback(
+    (decision: "allow" | "deny" | "allow-session" | "deny-session"): void => {
+      sendPermissionDecision(chatRunId, decision);
+    },
+    [chatRunId, sendPermissionDecision],
+  );
+  const handleQuestionSubmit = useCallback(
+    (response: string): void => {
+      sendQuestionResponse(chatRunId, response);
+    },
+    [chatRunId, sendQuestionResponse],
+  );
+  const handleAbort = useCallback((): void => {
+    stopChatRun(chatRunId);
+  }, [chatRunId, stopChatRun]);
 
   return (
     <ChatPageRender
@@ -72,13 +94,15 @@ export function ChatPage(): React.ReactElement {
       pendingPermissionRequest={chatState.pendingPermissionRequest}
       pendingQuestionRequest={chatState.pendingQuestionRequest}
       activeStrategyPath={chatState.strategyPath}
-      onReplySubmit={chatActions.sendInput}
-      onSteerSubmit={chatActions.sendSteer}
-      onContinueSubmit={chatActions.sendContinue}
-      onPermissionDecide={chatActions.sendPermissionDecision}
-      onQuestionSubmit={chatActions.sendQuestionResponse}
+      canContinue={chatState.runId !== null}
+      onReplySubmit={handleReplySubmit}
+      onSteerSubmit={handleSteerSubmit}
+      onContinueSubmit={handleContinueSubmit}
+      onPermissionDecide={handlePermissionDecide}
+      onQuestionSubmit={handleQuestionSubmit}
+      onAbort={handleAbort}
+      onOpenSubStrategy={handleOpenSubStrategy}
       strategies={strategies}
-      debugRef={debug.ref}
     />
   );
 }
@@ -89,13 +113,11 @@ export interface ChatPageRenderProps {
   readonly chatStatus: import("../../hooks").ChatStatus;
   readonly error: string | null;
   readonly pendingInputAgent: string | null;
-  readonly pendingPermissionRequest:
-    | import("../../hooks").PendingPermissionRequest
-    | null;
-  readonly pendingQuestionRequest:
-    | import("../../hooks").PendingQuestionRequest
-    | null;
+  readonly pendingPermissionRequest: RequestPermissionMessage | null;
+  readonly pendingQuestionRequest: RequestQuestionMessage | null;
   readonly activeStrategyPath: string | null;
+  readonly canContinue: boolean;
+  readonly strategies: readonly DiscoveredStrategy[];
   readonly onReplySubmit: (text: string) => void;
   readonly onSteerSubmit: (text: string) => void;
   readonly onContinueSubmit: (
@@ -106,8 +128,8 @@ export interface ChatPageRenderProps {
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
   readonly onQuestionSubmit: (response: string) => void;
-  readonly strategies: readonly DiscoveredStrategy[];
-  readonly debugRef?: React.Ref<import("ink").DOMElement>;
+  readonly onAbort: () => void;
+  readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }
 
 export function ChatPageRender({
@@ -119,14 +141,15 @@ export function ChatPageRender({
   pendingPermissionRequest,
   pendingQuestionRequest,
   activeStrategyPath,
+  canContinue,
   onReplySubmit,
   onSteerSubmit,
   onContinueSubmit,
   onPermissionDecide,
   onQuestionSubmit,
-  // activeStrategy,
+  onAbort,
   strategies,
-  debugRef,
+  onOpenSubStrategy,
 }: ChatPageRenderProps): React.ReactElement {
   const showPermission =
     chatStatus === "waiting_permission" && pendingPermissionRequest !== null;
@@ -137,47 +160,84 @@ export function ChatPageRender({
     chatStatus === "completed" ||
     chatStatus === "error" ||
     chatStatus === "cancelled";
-  const showComposer = !showPermission && !showQuestion;
+  const { openStack } = useContext(ModalContext);
+  const abortShortcutActive = !isFinished && openStack.length === 0;
+  const lastEscapeAtRef = useRef<number | null>(null);
 
-  const composerMode: "reply" | "continue" | "steer" =
-    chatStatus === "waiting_input"
-      ? "reply"
-      : isFinished
-        ? "continue"
+  useInput(
+    (input, key) => {
+      if (isMouseEscape(input)) return;
+      if (!key.escape) {
+        lastEscapeAtRef.current = null;
+        return;
+      }
+
+      const now = Date.now();
+      const lastEscapeAt = lastEscapeAtRef.current;
+      if (
+        lastEscapeAt !== null &&
+        now - lastEscapeAt <= DOUBLE_ESCAPE_WINDOW_MS
+      ) {
+        lastEscapeAtRef.current = null;
+        onAbort();
+        return;
+      }
+
+      lastEscapeAtRef.current = now;
+    },
+    { isActive: abortShortcutActive },
+  );
+
+  useEffect(() => {
+    if (!abortShortcutActive) lastEscapeAtRef.current = null;
+  }, [abortShortcutActive]);
+
+  const showComposer =
+    !showPermission &&
+    !showQuestion &&
+    (!isFinished || (chatStatus === "completed" && canContinue));
+
+  const composerMode: "continue" | "reply" | "steer" =
+    chatStatus === "completed"
+      ? "continue"
+      : chatStatus === "waiting_input"
+        ? "reply"
         : "steer";
 
   const composerPlaceholder =
-    composerMode === "reply"
-      ? pendingInputAgent
-        ? `Reply to ${pendingInputAgent}...`
-        : "Type your message..."
-      : composerMode === "continue"
-        ? "Continue with selected strategy..."
+    composerMode === "continue"
+      ? "Continue the conversation..."
+      : composerMode === "reply"
+        ? pendingInputAgent
+          ? `Reply to ${pendingInputAgent}...`
+          : "Type your message..."
         : "Steer the agents...";
 
   const { focus } = useFocusManager();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: composerMode re-triggers focus on phase change
   useEffect(() => {
     if (showComposer) focus(REPLY_INPUT_ID);
-  }, [focus, showComposer, composerMode]);
+  }, [focus, showComposer]);
 
   const handleComposerSubmit = (
     strategy: DiscoveredStrategy,
     text: string,
   ): void => {
-    if (composerMode === "reply") {
-      onReplySubmit(text);
-    } else if (composerMode === "continue") {
+    if (composerMode === "continue") {
       onContinueSubmit(strategy, text);
+    } else if (composerMode === "reply") {
+      onReplySubmit(text);
     } else {
       onSteerSubmit(text);
     }
   };
 
   return (
-    <Box ref={debugRef} {...theme.root}>
+    <Box {...theme.root}>
       <Box {...theme.messageArea}>
-        <MessageList messages={messages} />
+        <MessageList
+          messages={messages}
+          onOpenSubStrategy={onOpenSubStrategy}
+        />
       </Box>
 
       {showPermission && pendingPermissionRequest ? (
@@ -200,12 +260,6 @@ export function ChatPageRender({
           id={REPLY_INPUT_ID}
         />
       ) : null}
-
-      {/* <StatusBar
-        status={chatStatus}
-        error={error}
-        strategyName={activeStrategy?.label ?? ""}
-      /> */}
     </Box>
   );
 }

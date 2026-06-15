@@ -17,4 +17,4 @@ export const PRELOADED_LANGUAGES = [
 ] as const;
 
 /** Minimum gutter width (characters) for line numbers. */
-export const MIN_LINE_NUMBER_WIDTH = 3;
+export const MIN_LINE_NUMBER_WIDTH = 3 as const;

@@ -73,7 +73,7 @@ exports[`MessageList message rendering should render spawned strategy output as 
 " ╭ manager ────────────────────────────────────────────────────────────────────
  │
  │ ╭ spawned Plan ────────────────────────────────────────────────────────────
- │ │  ✓ launch_strategy
+ │ │  ✓ launch_strategy open
  │ │
  │ │   input: Draft a plan
  │ │   model: openai/gpt-5
@@ -93,7 +93,7 @@ exports[`MessageList message rendering should render spawned strategy output as 
 `;
 
 exports[`MessageList streaming indicator should show streaming cursor for messages that are still streaming 1`] = `
-" ╭ assistant ──────────────────────────────────────────────────────────────────
+" ╭ assistant · 0s ─────────────────────────────────────────────────────────────
  │ Thinking
  │ ▍
 

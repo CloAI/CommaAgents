@@ -11,10 +11,16 @@ export const AgentOutputMessage = DaemonBase.extend({
   runId: z.string(),
   /** Name of the agent that produced the output. */
   agentName: z.string(),
+  /** Provider/model identifier used by this agent call. */
+  model: z.string().optional(),
+  /** Maximum context tokens supported by the model, when known. */
+  contextWindow: z.number().optional(),
   /** The agent's final text response. */
   text: z.string(),
   /** Token usage for this agent call. */
   usage: UsageSchema,
+  /** Tokens occupying the final model step's context window. */
+  contextTokens: z.number().optional(),
 });
 
 export type AgentOutputMessage = z.infer<typeof AgentOutputMessage>;

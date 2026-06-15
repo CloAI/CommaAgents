@@ -8,19 +8,6 @@ export {
   loadDaemonConfig,
   resolveDataDir,
 } from "./config";
-export type {
-  CreateInputBridgeOptions,
-  CreateStrategyExecutorOptions,
-  EventSink,
-  InputBridge,
-  ProviderResolver,
-  StrategyExecutor,
-} from "./executor";
-export {
-  createInputBridge,
-  createStrategyExecutor,
-  extractProviderIds,
-} from "./executor";
 export {
   createTypeScriptLanguageService,
   type TypeScriptLanguageServiceOptions,
@@ -41,13 +28,17 @@ export {
 } from "./logger";
 export { isRunning, readPid, removePid, writePid } from "./pid";
 export type {
-  CreateRunStoreOptions,
-  PersistedRun,
+  CreateRunSystemOptions,
+  EventSink,
+  ProviderResolver,
   RunOverview,
   RunStore,
-  RunTurn,
-} from "./runs";
-export { createRunStore } from "./runs";
+  RunSystem,
+} from "./run-system";
+export {
+  createRunSystem,
+  extractProviderIds,
+} from "./run-system";
 export type {
   AgentCallResultWire,
   AgentStreamEventWire,
@@ -56,6 +47,8 @@ export type {
   ErrorInfo,
   HandlerContext,
   MessageDispatcher,
+  RequestPermissionMessage,
+  RequestQuestionMessage,
   RequestResponseMap,
   RunOverviewWire,
   RunSummary,

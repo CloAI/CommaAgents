@@ -1,37 +1,63 @@
 ---
-title: Strategy Execution
-description: Starting and stopping strategies — start_strategy, stop_strategy, and the strategy lifecycle events they produce.
+title: Run Execution
+description: Preparing, starting, and stopping strategy runs.
 ---
 
-Strategy execution is fire-and-forget. The client sends `start_strategy` to begin executing a strategy. The daemon loads the strategy, starts the run, and emits lifecycle events asynchronously to all subscribers. Send `stop_strategy` to cancel a running strategy.
+Run creation and execution are separate operations. `prepare_run` loads the
+strategy and initializes its daemon systems. After the daemon replies with
+`run_prepared`, send `start_run` with the returned run ID and optional initial
+input. Send `stop_run` to cancel either a prepared or running run.
 
-## Starting a Strategy
-
-### Request: `start_strategy`
+## Prepare A Run
 
 ```json
 {
-  "type": "start_strategy",
+  "type": "prepare_run",
+  "runId": "run_abc123",
   "strategyPath": "./strategies/code-review.yaml",
-  "input": "Review this function: function add(a, b) { return a + b; }",
   "modelOverride": "anthropic/claude-sonnet-4-20250514",
-  "requestId": "run-1"
+  "cwd": "/workspace",
+  "requestId": "prepare-1"
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `type` | `"start_strategy"` | yes | Message type discriminator |
-| `strategyPath` | `string` | yes | Path to the strategy JSON/YAML file |
-| `input` | `string` | no | Initial input message for the strategy |
-| `modelOverride` | `string` | no | Override the model for all agents in this run. Format: `"providerID/modelID"` (e.g. `"openai/gpt-4o"`). When set, ignores model strings in the strategy file. |
-| `requestId` | `string` | no | Echoed on all events for this run |
+For a new run, `strategyPath` is required and `runId` is optional. To prepare
+an existing run for continuation, send its persisted `runId`; `strategyPath`,
+`modelOverride`, `cwd`, and `manifestPath` may override the previous
+execution's configuration. The requesting client is automatically subscribed
+to the run.
 
-The client that sends `start_strategy` is automatically subscribed to the run's events. There is no direct success response — instead, the daemon emits a `strategy_started` event when execution begins.
+Successful preparation replies directly:
 
-### Event: `strategy_started`
+```json
+{
+  "type": "run_prepared",
+  "runId": "run_abc123",
+  "strategyName": "Code Review Pipeline",
+  "agents": ["analyzer", "reviewer"],
+  "flowTree": { "name": "Review Pipeline", "type": "sequential" },
+  "requestId": "prepare-1",
+  "ts": "2026-06-14T10:30:00.000Z"
+}
+```
 
-Sent to all subscribers when the strategy has been loaded and execution begins.
+The run remains `pending` and is not persisted until it is started.
+Preparation failures return a correlated `error` with code `PREPARE_FAILED`.
+
+## Start A Run
+
+```json
+{
+  "type": "start_run",
+  "runId": "run_abc123",
+  "input": "Review this function.",
+  "requestId": "start-1"
+}
+```
+
+`runId` is required and `input` is optional. A successful start emits
+`strategy_started`, followed by execution events. Lifecycle events echo the
+`start_run` request ID.
 
 ```json
 {
@@ -39,107 +65,63 @@ Sent to all subscribers when the strategy has been loaded and execution begins.
   "runId": "run_abc123",
   "strategyName": "Code Review Pipeline",
   "agents": ["analyzer", "reviewer"],
-  "flowTree": { "name": "Review Pipeline", "type": "sequential", "steps": ["..."] },
-  "ts": "2025-01-15T10:30:00.000Z"
+  "flowTree": { "name": "Review Pipeline", "type": "sequential" },
+  "requestId": "start-1",
+  "ts": "2026-06-14T10:30:01.000Z"
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `type` | `"strategy_started"` | Message type discriminator |
-| `runId` | `string` | Unique identifier for this run |
-| `strategyName` | `string` | Name of the strategy being executed |
-| `agents` | `string[]` | List of agent names in the strategy |
-| `flowTree` | `Record<string, unknown>` | Serialized flow tree structure (for UI rendering) |
-| `requestId` | `string?` | Echoed from the request |
-| `ts` | `string` | ISO-8601 timestamp |
+Successful execution ends with `strategy_completed`. Execution failures end
+with `strategy_error`.
 
-### Event: `strategy_completed`
+## Continue A Run
 
-Sent when the strategy finishes successfully.
+Prepare the completed run by ID before continuing it:
 
 ```json
 {
-  "type": "strategy_completed",
+  "type": "prepare_run",
   "runId": "run_abc123",
-  "result": "The function looks correct but could benefit from type annotations...",
-  "usage": { "promptTokens": 150, "completionTokens": 87 },
-  "ts": "2025-01-15T10:30:05.000Z"
+  "requestId": "prepare-continuation-1"
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `type` | `"strategy_completed"` | Message type discriminator |
-| `runId` | `string` | The run that completed |
-| `result` | `string` | Final text output of the strategy |
-| `usage` | [`Usage`](/docs/daemon/protocol/shared-types#usage) | Aggregated token usage across all steps |
-| `requestId` | `string?` | Echoed from the request |
-| `ts` | `string` | ISO-8601 timestamp |
-
-### Event: `strategy_error`
-
-Sent when the strategy encounters an error or is cancelled.
+Preparation reloads the strategy and restores each matching agent's persisted
+conversation context. It does not append timeline events until execution
+starts. Then send the new input with `continue_run`:
 
 ```json
 {
-  "type": "strategy_error",
+  "type": "continue_run",
   "runId": "run_abc123",
-  "error": { "code": "EXECUTION_ERROR", "message": "Model resolution failed for openai/gpt-4o" },
-  "ts": "2025-01-15T10:30:02.000Z"
+  "input": "Refine the result using the review feedback.",
+  "requestId": "continue-1"
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `type` | `"strategy_error"` | Message type discriminator |
-| `runId` | `string` | The run that errored |
-| `error` | [`ErrorInfo`](/docs/daemon/protocol/shared-types#errorinfo) | Structured error with `code` and `message` |
-| `requestId` | `string?` | Echoed from the request |
-| `ts` | `string` | ISO-8601 timestamp |
+The continuation reuses the same run ID and appends another lifecycle segment
+to its persisted timeline. `continue_run` only accepts a run prepared from an
+existing timeline; synchronous failures return a correlated `error` with code
+`CONTINUE_FAILED`.
 
-## Stopping a Strategy
-
-### Request: `stop_strategy`
-
-Cancels a running strategy. The daemon aborts execution and emits a `strategy_error` with code `CANCELLED`.
+## Stop A Run
 
 ```json
 {
-  "type": "stop_strategy",
-  "runId": "run_abc123",
-  "requestId": "cancel-1"
+  "type": "stop_run",
+  "runId": "run_abc123"
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `type` | `"stop_strategy"` | yes | Message type discriminator |
-| `runId` | `string` | yes | The run to cancel |
-| `requestId` | `string` | no | Echoed on the resulting `strategy_error` |
-
-There is no direct response. Subscribers receive a `strategy_error` event:
-
-```json
-{
-  "type": "strategy_error",
-  "runId": "run_abc123",
-  "error": { "code": "CANCELLED", "message": "Run cancelled by client" },
-  "ts": "2025-01-15T10:30:03.000Z"
-}
-```
+Stopping a pending run releases its prepared resources. Stopping a running run
+aborts execution. Subscribers receive `strategy_error` with code `CANCELLED`.
 
 ## Event Sequence
 
-A typical successful run produces events in this order:
-
+```text
+prepare_run -> run_prepared
+start_run -> strategy_started -> step/agent events -> strategy_completed
+prepare_run(existing) -> run_prepared
+continue_run -> strategy_started -> step/agent events -> strategy_completed
+stop_run -> strategy_error (CANCELLED)
 ```
-start_strategy →
-  strategy_started →
-    step_started → agent_streaming* → agent_output → step_completed →
-    step_started → agent_streaming* → agent_output → step_completed →
-    ...
-  strategy_completed
-```
-
-See [Strategy Observation](/docs/daemon/protocol/strategy-observation) for details on the per-step events.

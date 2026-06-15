@@ -4,14 +4,15 @@ import type {
 } from "@comma-agents/utils";
 import type {
   CallSettings,
+  FlexibleSchema,
   LanguageModel,
   ModelMessage,
   StepResult,
   stepCountIs,
+  streamText,
   ToolChoice,
 } from "ai";
 import type { ConversationContext } from "../../context/conversation-context";
-import type { ConversationTurn } from "../../context/conversation-context.types";
 import type { LanguageService } from "../../language";
 import type { PromptTemplate, TemplateVariables } from "../../prompts/types";
 import type { Sandbox } from "../../sandbox/sandbox.types";
@@ -40,6 +41,9 @@ export type ModelOptions = Pick<
   | "presencePenalty"
   | "seed"
 >;
+
+/** Schema used to constrain and validate an agent's structured output. */
+export type AgentOutputSchema = FlexibleSchema<unknown>;
 
 /** Configuration for creating an LLM-backed agent via `createAgent()`. */
 export interface AgentConfig {
@@ -167,6 +171,15 @@ export interface AgentConfig {
    * ```
    */
   readonly modelOptions?: ModelOptions;
+  /**
+   * Schema for structured agent output.
+   *
+   * Forwarded to `streamText` as `output: Output.object({ schema })`.
+   * Programmatic callers may pass a Zod schema or another AI SDK
+   * `FlexibleSchema`. YAML/JSON agent and strategy definitions accept a JSON
+   * Schema object.
+   */
+  readonly outputSchema?: AgentOutputSchema;
   /**
    * Maximum number of LLM round-trips (steps) per call.
    * Each tool-call + response counts as one step.
@@ -389,6 +402,8 @@ export interface CallOptions {
    * Per-call provider options forwarded verbatim to `streamText`.
    */
   readonly providerOptions?: unknown;
+  /** Structured output specification forwarded to `streamText`. */
+  readonly output?: Parameters<typeof streamText>[0]["output"];
   /**
    * Model-level generation parameters forwarded to `streamText`.
    */

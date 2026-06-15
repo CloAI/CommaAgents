@@ -24,7 +24,7 @@ export function QuestionPrompt({
   // biome-ignore lint/correctness/useExhaustiveDependencies: focus on request change
   useEffect(() => {
     focus(QUESTION_INPUT_ID);
-  }, [focus, request.questionRequestId]);
+  }, [focus, request.requestId]);
 
   return (
     <QuestionPromptRender

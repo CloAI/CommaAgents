@@ -25,6 +25,7 @@ import { UserMessage } from "./UserMessage";
  */
 export function MessageList({
   messages,
+  onOpenSubStrategy,
 }: MessageListProps): React.ReactElement {
   const debug = useDebugRender("MessageList", {
     props: { messages },
@@ -42,6 +43,7 @@ export function MessageList({
       containerProps={theme.container}
       emptyStateProps={theme.emptyState}
       emptyStateTextProps={theme.emptyState.text}
+      onOpenSubStrategy={onOpenSubStrategy}
     />
   );
 }
@@ -52,6 +54,7 @@ export function MessageListRender({
   containerProps,
   emptyStateProps,
   emptyStateTextProps,
+  onOpenSubStrategy,
 }: MessageListRenderProps): React.ReactElement {
   if (messages.length === 0) {
     return (
@@ -66,7 +69,12 @@ export function MessageListRender({
       <ScrollableView<GroupedChatMessage>
         items={messages}
         getKey={(message) => message.id}
-        renderItem={(message) => <MessageRow message={message} />}
+        renderItem={(message) => (
+          <MessageRow
+            message={message}
+            {...(onOpenSubStrategy ? { onOpenSubStrategy } : {})}
+          />
+        )}
         stickToBottom
       />
     </Box>
@@ -75,10 +83,14 @@ export function MessageListRender({
 
 interface MessageRowProps {
   readonly message: GroupedChatMessage;
+  readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }
 
 /** Routes a single ChatMessage to the role-specific renderer. */
-function MessageRow({ message }: MessageRowProps): React.ReactElement | null {
+function MessageRow({
+  message,
+  onOpenSubStrategy,
+}: MessageRowProps): React.ReactElement | null {
   if (message.role === "user") {
     return <UserMessage text={message.text} label={message.sender} />;
   }
@@ -89,7 +101,13 @@ function MessageRow({ message }: MessageRowProps): React.ReactElement | null {
         segments={message.segments}
         fallbackText={message.text}
         streaming={message.streaming}
+        model={message.model}
+        contextWindow={message.contextWindow}
+        contextTokens={message.contextTokens}
+        startedAt={message.timestamp}
+        completedAt={message.completedAt}
         subMessages={message.subMessages}
+        onOpenSubStrategy={onOpenSubStrategy}
       />
     );
   }
@@ -144,4 +162,64 @@ export function groupSubStrategyMessages(
   }
 
   return rootMessages;
+}
+
+/** Return only messages emitted by a launch call and its nested launches. */
+export function selectSubStrategyMessages(
+  messages: readonly ChatMessage[],
+  toolCallId: string,
+): readonly ChatMessage[] {
+  const includedToolCallIds = new Set([toolCallId]);
+  const selected: ChatMessage[] = [];
+
+  for (const message of messages) {
+    if (
+      !message.parentToolCallId ||
+      !includedToolCallIds.has(message.parentToolCallId)
+    ) {
+      continue;
+    }
+
+    selected.push(message);
+    for (const segment of message.segments ?? []) {
+      if (
+        segment.type === "tool-call" &&
+        segment.toolName === "launch_strategy"
+      ) {
+        includedToolCallIds.add(segment.toolCallId);
+      }
+    }
+  }
+
+  return selected;
+}
+
+/** Resolve the strategy name advertised by a launch tool call. */
+export function findSubStrategyName(
+  messages: readonly ChatMessage[],
+  toolCallId: string,
+): string {
+  for (const message of messages) {
+    for (const segment of message.segments ?? []) {
+      if (
+        segment.type !== "tool-call" ||
+        segment.toolName !== "launch_strategy" ||
+        segment.toolCallId !== toolCallId
+      ) {
+        continue;
+      }
+
+      try {
+        const args = JSON.parse(segment.args) as unknown;
+        if (typeof args === "object" && args !== null) {
+          const name = (args as Record<string, unknown>).name;
+          if (typeof name === "string" && name.length > 0) return name;
+        }
+      } catch {
+        return "strategy";
+      }
+    }
+  }
+
+  return "strategy";
 }

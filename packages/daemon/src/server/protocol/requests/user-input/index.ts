@@ -8,7 +8,7 @@ import type { UserInputMessage } from "./user-input.schema";
 export { UserInputMessage } from "./user-input.schema";
 
 /**
- * Handle a `user_input` request by delivering text to the input bridge.
+ * Handle a `user_input` request by resolving the run's pending input.
  *
  * If no pending input request exists for the specified run/agent,
  * sends a `NO_PENDING_INPUT` error back to the client.
@@ -17,7 +17,8 @@ export function handleUserInput(
   message: UserInputMessage,
   context: HandlerContext<"user_input">,
 ): void {
-  const delivered = context.executor.handleUserInput(
+  const delivered = context.runSystem.actions.invoke(
+    "resolveInput",
     message.runId,
     message.agentName,
     message.text,

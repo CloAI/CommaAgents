@@ -7,7 +7,8 @@ import { THEME_REGISTRY, type ThemeName } from "../../../../Theme/themes";
 import { useTheme } from "../../../../Theme/useTheme";
 import { ScrollableList } from "../../../ScrollableList";
 
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
+export const RAW_MODE_SUPPORTED =
+  typeof process.stdin.setRawMode === "function";
 
 interface ThemeOption {
   readonly name: ThemeName;
@@ -23,19 +24,14 @@ const THEME_OPTIONS: readonly ThemeOption[] = Array.from(
   description: entry.description,
 }));
 
-/**
- * Settings sub-page for the command palette.
- *
- * Currently exposes a single setting — the active theme — selected from the
- * theme registry. Selection is committed on Enter so users can preview
- * (highlight) entries with the arrow keys without changing their saved
- * theme until they confirm.
- */
+export interface SettingsPageProps {
+  /** Unique identifier for the focusable area. */
+  readonly focusId: string;
+}
+
 export function SettingsPage({
   focusId,
-}: {
-  readonly focusId: string;
-}): React.ReactElement {
+}: SettingsPageProps): React.ReactElement {
   const tokens = useTheme();
   const { config, updateConfig } = useUserConfig();
 
@@ -50,11 +46,14 @@ export function SettingsPage({
     isActive: RAW_MODE_SUPPORTED,
   });
 
-  function applySelection(index: number): void {
-    const option = THEME_OPTIONS[index];
-    if (option === undefined) return;
-    updateConfig({ themeName: option.name });
-  }
+  const applySelection = React.useCallback(
+    (index: number): void => {
+      const option = THEME_OPTIONS[index];
+      if (option === undefined) return;
+      updateConfig({ themeName: option.name });
+    },
+    [updateConfig],
+  );
 
   useInput(
     (_input, key) => {
@@ -65,6 +64,41 @@ export function SettingsPage({
     { isActive: isFocused },
   );
 
+  return (
+    <SettingsPageRender
+      tokens={tokens}
+      config={config}
+      selectedIndex={selectedIndex}
+      onSelectedIndexChange={setSelectedIndex}
+      onSelected={applySelection}
+      isFocused={isFocused}
+    />
+  );
+}
+
+export interface SettingsPageRenderProps {
+  /** Theme tokens for styling. */
+  readonly tokens: ReturnType<typeof useTheme>;
+  /** Current user configuration. */
+  readonly config: ReturnType<typeof useUserConfig>["config"];
+  /** Currently highlighted index in the theme list. */
+  readonly selectedIndex: number;
+  /** Callback when a new index is highlighted. */
+  readonly onSelectedIndexChange: (index: number) => void;
+  /** Callback when a theme is selected. */
+  readonly onSelected: (index: number) => void;
+  /** Whether the page is currently focused. */
+  readonly isFocused: boolean;
+}
+
+export function SettingsPageRender({
+  tokens,
+  config,
+  selectedIndex,
+  onSelectedIndexChange,
+  onSelected,
+  isFocused,
+}: SettingsPageRenderProps): React.ReactElement {
   return (
     <Box flexDirection="column" width="100%" height="100%" gap={1}>
       <Box marginBottom={1}>
@@ -77,8 +111,8 @@ export function SettingsPage({
           items={THEME_OPTIONS}
           getKey={(option) => option.name}
           selectedIndex={selectedIndex}
-          onSelectedIndexChange={setSelectedIndex}
-          onSelected={(_option, index) => applySelection(index)}
+          onSelectedIndexChange={onSelectedIndexChange}
+          onSelected={(_option, index) => onSelected(index)}
           isFocused={isFocused}
           emptyText="No themes available"
           renderItem={(option, isSelected) => {

@@ -7,6 +7,5 @@ export type {
   CommandAction,
   CommandActionContext,
   CommandId,
-  CommandPaletteProps,
   PaletteSubPageComponent,
 } from "./CommandPalette.types";

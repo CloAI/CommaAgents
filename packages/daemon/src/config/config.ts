@@ -1,137 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { resolveDataDir } from "@comma-agents/core";
-import { z } from "zod";
-import type { LogLevel } from "../logger/logger.types";
+import type { DaemonConfig } from "./config.types";
+import { buildDefaults, readConfigFile, readEnvOverrides } from "./config.utils";
 
 // Re-export resolveDataDir so existing daemon consumers keep working.
 export { resolveDataDir } from "@comma-agents/core";
-
-const LogLevelSchema = z.enum(["debug", "info", "warn", "error"]);
-
-/**
- * Zod schema for the daemon config file.
- * All fields are optional — missing fields use defaults.
- */
-export const DaemonConfigFileSchema = z
-  .object({
-    port: z.number().int().min(1).max(65535).optional(),
-    host: z.string().optional(),
-    logLevel: LogLevelSchema.optional(),
-    logFile: z.string().optional(),
-    providerCacheDir: z.string().optional(),
-    pidFile: z.string().optional(),
-    configFile: z.string().optional(),
-    runsDir: z.string().optional(),
-  })
-  .strict();
-
-export type DaemonConfigFile = z.infer<typeof DaemonConfigFileSchema>;
-
-/** Fully resolved daemon configuration. Every field has a value. */
-export interface DaemonConfig {
-  /** WebSocket server port. Default: 7422. Env: COMMA_DAEMON_PORT. */
-  readonly port: number;
-  /** WebSocket server bind address. Default: "127.0.0.1". Env: COMMA_DAEMON_HOST. */
-  readonly host: string;
-  /** Minimum log level. Default: "info". Env: COMMA_DAEMON_LOG_LEVEL. */
-  readonly logLevel: LogLevel;
-  /** Optional log file path. Env: COMMA_DAEMON_LOG_FILE. */
-  readonly logFile: string | undefined;
-  /** Directory for dynamically installed provider packages. Env: COMMA_DAEMON_PROVIDER_CACHE_DIR. */
-  readonly providerCacheDir: string;
-  /** Path to the PID file. Env: COMMA_DAEMON_PID_FILE. */
-  readonly pidFile: string;
-  /** Path to the config file that was loaded (or the default path if none found). */
-  readonly configFile: string;
-  /** Directory where run files are persisted. Env: COMMA_DAEMON_RUNS_DIR. */
-  readonly runsDir: string;
-}
-
-function buildDefaults(): DaemonConfig {
-  const dataDir = resolveDataDir();
-  return {
-    port: 7422,
-    host: "127.0.0.1",
-    logLevel: "info",
-    logFile: undefined,
-    providerCacheDir: join(dataDir, "providers"),
-    pidFile: join(dataDir, "daemon.pid"),
-    configFile: join(dataDir, "daemon.json"),
-    runsDir: join(dataDir, "runs"),
-  };
-}
-
-/** Map of env var names → config keys + parsers. */
-const ENV_MAP: Array<{
-  env: string;
-  key: keyof DaemonConfig;
-  parse: (val: string) => unknown;
-}> = [
-  {
-    env: "COMMA_DAEMON_PORT",
-    key: "port",
-    parse: (rawValue) => parseInt(rawValue, 10),
-  },
-  { env: "COMMA_DAEMON_HOST", key: "host", parse: (rawValue) => rawValue },
-  {
-    env: "COMMA_DAEMON_LOG_LEVEL",
-    key: "logLevel",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_LOG_FILE",
-    key: "logFile",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_PROVIDER_CACHE_DIR",
-    key: "providerCacheDir",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_PID_FILE",
-    key: "pidFile",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_RUNS_DIR",
-    key: "runsDir",
-    parse: (rawValue) => rawValue,
-  },
-];
-
-function readEnvOverrides(
-  env: Record<string, string | undefined>,
-): Partial<DaemonConfig> {
-  const overrides: Record<string, unknown> = {};
-  for (const { env: envKey, key, parse } of ENV_MAP) {
-    const raw = env[envKey];
-    if (raw !== undefined && raw !== "") {
-      overrides[key] = parse(raw);
-    }
-  }
-  return overrides as Partial<DaemonConfig>;
-}
-
-function readConfigFile(filePath: string): Partial<DaemonConfig> {
-  if (!existsSync(filePath)) {
-    return {};
-  }
-
-  const raw = readFileSync(filePath, "utf-8");
-  const json = JSON.parse(raw);
-  const parsed = DaemonConfigFileSchema.parse(json);
-
-  // Convert to Partial<DaemonConfig> (only defined fields)
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(parsed)) {
-    if (value !== undefined) {
-      result[key] = value;
-    }
-  }
-  return result as Partial<DaemonConfig>;
-}
 
 /** Options for loadDaemonConfig. Mostly for testing. */
 export interface LoadConfigOptions {
@@ -152,7 +23,7 @@ export interface LoadConfigOptions {
  * @throws If the config file exists but contains invalid JSON or fails schema validation.
  */
 export function loadDaemonConfig(options?: LoadConfigOptions): DaemonConfig {
-  const defaults = buildDefaults();
+  const defaults: DaemonConfig = buildDefaults();
   const env = options?.env ?? process.env;
 
   // Determine config file path: explicit option > env var > default

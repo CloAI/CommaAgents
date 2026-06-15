@@ -32,7 +32,7 @@ The executor uses a **systems-based architecture** where each system is responsi
 Systems communicate through:
 - **SystemDataStore**: Shared state across systems (bridges, collectors, etc.)
 - **RunActionRegistry**: Message routing between daemon and systems
-- **Lifecycle Hooks**: `onRunStart`, `onStrategyLoaded`, `onBeforeExecute`, `onRunComplete`, `onRunError`, `onRunCleanup`
+- **Lifecycle Hooks**: `onRunPrepare`, `onStrategyLoaded`, `onBeforeExecute`, `onRunComplete`, `onRunError`, `onRunCleanup`
 
 ## StrategyExecutor
 
@@ -50,42 +50,36 @@ Options for creating a strategy executor.
 
 ### InputSystem
 
-Manages user input collection through the InputBridge.
+Manages user input collection and client responses.
 
 <AutoTypeTable path="../packages/daemon/src/executor/systems/input/input.ts" name="InputSystem" />
 
-<AutoTypeTable path="../packages/daemon/src/executor/systems/input/input.ts" name="InputSystemOptions" />
-
 **Responsibilities:**
-- Creates and manages InputBridge lifecycle
 - Stores `inputCollector` in systemData for strategy loading
 - Registers `resolveInput` action for handling user responses
+- Rejects pending input during run cleanup
 
 ### PermissionSystem
 
-Manages permission requests through the PermissionBridge.
+Manages permission requests and client decisions.
 
 <AutoTypeTable path="../packages/daemon/src/executor/systems/permission/permission.ts" name="PermissionSystem" />
 
-<AutoTypeTable path="../packages/daemon/src/executor/systems/permission/permission.ts" name="PermissionSystemOptions" />
-
 **Responsibilities:**
-- Creates and manages PermissionBridge lifecycle
-- Stores `permissionBridge` in systemData for sandbox callbacks
+- Stores `permissionRequester` in systemData for sandbox callbacks
 - Registers `resolvePermission` action for handling user decisions
+- Rejects pending permission requests during run cleanup
 
 ### QuestionSystem
 
-Manages question requests through the QuestionBridge.
+Manages question requests and client responses.
 
 <AutoTypeTable path="../packages/daemon/src/executor/systems/question/question.ts" name="QuestionSystem" />
 
-<AutoTypeTable path="../packages/daemon/src/executor/systems/question/question.ts" name="QuestionSystemOptions" />
-
 **Responsibilities:**
-- Creates and manages QuestionBridge lifecycle
-- Stores `questionBridge` in systemData for sandbox callbacks
+- Stores `questionRequester` in systemData for sandbox callbacks
 - Registers `resolveQuestion` action for handling user responses
+- Rejects pending question requests during run cleanup
 
 ### StreamingSystem
 
@@ -178,7 +172,7 @@ Systems can hook into the execution lifecycle through these hooks:
 
 ### Hook Execution Order
 
-1. **onRunStart**: Called when execution begins (InputSystem, PermissionSystem, QuestionSystem, SteeringSystem, SandboxSystem, SubLaunchSystem)
+1. **onRunPrepare**: Called while preparing the run (InputSystem, PermissionSystem, QuestionSystem, SteeringSystem, SandboxSystem, SubLaunchSystem)
 2. **onStrategyLoaded**: Called after strategy is loaded (StreamingSystem, PersistenceSystem, SandboxSystem)
 3. **onBeforeExecute**: Called before flow execution (reserved for future use)
 4. **onRunComplete**: Called on successful completion (PersistenceSystem)
@@ -190,29 +184,3 @@ Systems can hook into the execution lifecycle through these hooks:
 Interface for publishing execution events to connected clients.
 
 <AutoTypeTable path="../packages/daemon/src/executor/event-sink.ts" name="EventSink" />
-
-## Bridges
-
-### InputBridge
-
-Bridges user input requests between agents and connected clients.
-
-<AutoTypeTable path="../packages/daemon/src/executor/input-bridge.ts" name="InputBridge" />
-
-<AutoTypeTable path="../packages/daemon/src/executor/input-bridge.ts" name="CreateInputBridgeOptions" />
-
-### PermissionBridge
-
-Bridges permission requests between sandbox and connected clients.
-
-<AutoTypeTable path="../packages/daemon/src/executor/permission-bridge.ts" name="PermissionBridge" />
-
-<AutoTypeTable path="../packages/daemon/src/executor/permission-bridge.ts" name="CreatePermissionBridgeOptions" />
-
-### QuestionBridge
-
-Bridges question requests between agents and connected clients.
-
-<AutoTypeTable path="../packages/daemon/src/executor/question-bridge.ts" name="QuestionBridge" />
-
-<AutoTypeTable path="../packages/daemon/src/executor/question-bridge.ts" name="CreateQuestionBridgeOptions" />

@@ -51,8 +51,9 @@ Returns a typed send function for a specific command type that auto-injects `typ
 ```tsx
 import { useDaemonCommand } from "@comma-agents/tui";
 
-const startStrategy = useDaemonCommand("start_strategy");
-const stopStrategy = useDaemonCommand("stop_strategy");
+const prepareRun = useDaemonCommand("prepare_run");
+const startRun = useDaemonCommand("start_run");
+const stopRun = useDaemonCommand("stop_run");
 const sendInput = useDaemonCommand("user_input");
 
 // Returns the generated requestId, or null if the socket is not open
@@ -96,5 +97,5 @@ import type {
 ```
 
 - `DaemonMessageOf<"agent_streaming">` -- Narrows to the streaming variant
-- `ClientMessageOf<"start_strategy">` -- Narrows to the start command variant
+- `ClientMessageOf<"prepare_run">` -- Narrows to the prepare command variant
 - `DaemonMessageListener<"strategy_completed">` -- Typed listener callback

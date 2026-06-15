@@ -4,7 +4,7 @@ import { AgentMessage } from "./AgentMessage";
 /**
  * `AgentMessage` renders a single agent's message inside a bordered panel
  * headed by the agent's name. The body is composed of typed segments
- * (text, tool-call, tool-result, thinking, mcp-call). When `streaming` is
+ * (text, tool-call, tool-result, thinking). When `streaming` is
  * true, an in-flight cursor is appended to the latest streaming segment.
  */
 const meta: Meta<typeof AgentMessage> = {
@@ -123,22 +123,6 @@ export const Streaming: Story = {
         args: '{"path":"/repo/packages/tui/src/components/MessageList/AgentMessage/AgentMessage.tsx"}',
       },
       { type: "text", text: "Applying the patch now", streaming: true },
-    ],
-  },
-};
-
-export const McpCall: Story = {
-  args: {
-    sender: "researcher",
-    fallbackText: "Querying remote MCP server.",
-    segments: [
-      {
-        type: "mcp-call",
-        serverName: "github",
-        toolName: "search_repositories",
-        args: '{"query":"ink react terminal","per_page":3}',
-        output: "Found 3 results: ink, ink-table, ink-select-input.",
-      },
     ],
   },
 };

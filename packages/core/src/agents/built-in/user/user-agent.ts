@@ -42,7 +42,7 @@ export type {
  * });
  *
  * // Both satisfy the Agent interface — usable in any flow
- * const result = await interactive.call("What should we do next?");
+ * const result = await interactive.call("");
  * ```
  */
 export function createUserAgent(config: UserAgentConfig): Agent {

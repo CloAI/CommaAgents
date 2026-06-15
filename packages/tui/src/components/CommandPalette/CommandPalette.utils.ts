@@ -1,7 +1,11 @@
 import { filterByQuery } from "../SearchInput/SearchInput.utils";
 import type { Command } from "./CommandPalette.types";
 
-/** Build the searchable haystack for a command: label + description + keywords. */
+/**
+ * Build the searchable haystack for a command: label + description + keywords.
+ *
+ * @param command - The command entry to index.
+ */
 function commandHaystack(command: Command): string {
   return [command.label, command.description, ...(command.keywords ?? [])].join(
     " ",

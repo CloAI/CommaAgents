@@ -1,1 +1,5 @@
-export { SettingsPage } from "./SettingsPage";
+export type {
+  SettingsPageProps,
+  SettingsPageRenderProps,
+} from "./SettingsPage";
+export { SettingsPage, SettingsPageRender } from "./SettingsPage";

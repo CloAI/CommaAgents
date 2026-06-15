@@ -1,77 +1,50 @@
-import type { DiscoveredStrategy } from "@comma-agents/core";
-import type { RunOverview, RunStatus, RunSummary } from "@comma-agents/daemon";
+import type {
+  AgentStreamEventWire,
+  RequestPermissionMessage,
+  RequestQuestionMessage,
+  RunOverview,
+  RunStatus,
+  RunSummary,
+  Usage,
+} from "@comma-agents/daemon";
+import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
 import type { WebSocketStatus } from "../useWebSocket/useWebSocket.types";
 
-/** Local identifier for a chat run (UUID, stable for the run's life). */
+/** Stable identifier shared by the TUI and daemon for the run's life. */
 export type ChatRunId = string;
 
 /** Sender role for display purposes. */
 export type MessageRole = "user" | "agent" | "system";
 
+/** Narrow the daemon's stream event union to a specific event kind. */
+type StreamEventOf<EventKind extends AgentStreamEventWire["type"]> = Extract<
+  AgentStreamEventWire,
+  { type: EventKind }
+>;
+
 /**
  * A single segment within an agent's message body.
  *
- * Agents stream a series of typed events (text, tool calls, tool results,
- * reasoning/thinking, MCP calls). Rather than collapsing all of them into a
- * single text blob, we keep an ordered list of segments so the UI can render
- * each kind with the right affordance (collapsed tool call panel, dimmed
- * thinking block, code-formatted result, etc.).
+ * Segments accumulate the daemon's `agent_streaming` wire events
+ * (`AgentStreamEventWire`) into render state: ordered, typed body parts the
+ * UI can render with the right affordance (collapsed tool call panel, dimmed
+ * thinking block, code-formatted result, etc.). `tool-call` and `tool-result`
+ * segments are the wire events verbatim; `text` and `thinking` segments add a
+ * `streaming` flag because consecutive deltas are folded into one segment
+ * that closes when the stream ends.
  */
 export type MessageSegment =
-  | {
-      readonly type: "text";
-      readonly text: string;
+  | (StreamEventOf<"text"> & {
       /** Whether this text segment is still receiving streaming tokens. */
       readonly streaming: boolean;
-    }
-  | {
-      readonly type: "tool-call";
-      /**
-       * Correlation id from the daemon's `tool-call` wire event. Pairs
-       * this call with its eventual `tool-result` segment so the renderer
-       * can collapse them into a single row even when calls run
-       * concurrently or are interleaved with text/thinking.
-       */
-      readonly toolCallId: string;
-      readonly toolName: string;
-      /** Raw JSON-encoded arguments string from the wire protocol. */
-      readonly args: string;
-    }
-  | {
-      readonly type: "tool-result";
-      /** Correlates with the `tool-call` segment that started this invocation. */
-      readonly toolCallId: string;
-      readonly toolName: string;
-      readonly output: string;
-      /**
-       * Outcome of the tool invocation. `running` is implicit (no
-       * `tool-result` segment for this `toolCallId` yet); once a result
-       * arrives it is either `completed` or `error`.
-       */
-      readonly status: "completed" | "error";
-      /** Failure message when `status === "error"`. */
-      readonly error?: string;
-    }
-  | {
-      readonly type: "thinking";
-      /**
-       * Stable identifier from the model's reasoning stream. Used to route
-       * `thinking` deltas and `thinking-end` events back to the segment
-       * opened by the matching `thinking-start`.
-       */
-      readonly id: string;
-      readonly text: string;
+    })
+  | StreamEventOf<"tool-call">
+  | StreamEventOf<"tool-result">
+  | (StreamEventOf<"thinking"> & {
       /** Whether the reasoning stream is still receiving tokens. */
       readonly streaming: boolean;
-    }
-  | {
-      readonly type: "mcp-call";
-      readonly serverName: string;
-      readonly toolName: string;
-      readonly args: string;
-      readonly output?: string;
-    };
+    });
 
 /** A single message in the chat log. */
 export interface ChatMessage {
@@ -97,43 +70,17 @@ export interface ChatMessage {
   readonly streaming: boolean;
   /** Tool call id of the `launch_strategy` invocation that spawned this message. */
   readonly parentToolCallId?: string;
+  /** Provider/model identifier used for this agent call. */
+  readonly model?: string;
+  /** Maximum model context tokens, when known. */
+  readonly contextWindow?: number;
+  /** Final token usage reported by the model. */
+  readonly usage?: Usage;
+  /** Tokens occupying the final model step's context window. */
+  readonly contextTokens?: number;
+  /** Completion timestamp for finished agent calls. */
+  readonly completedAt?: number;
   readonly timestamp: number;
-}
-
-/**
- * A pending permission request from the daemon — mirrors the wire fields
- * the TUI needs to render the `PermissionPrompt`.
- */
-export interface PendingPermissionRequest {
-  /** Correlates with the `request_permission` message. */
-  readonly permissionRequestId: string;
-  /** Run the request belongs to. */
-  readonly runId: string;
-  /** Agent that triggered the operation. */
-  readonly agentName: string;
-  /** Tool that triggered the operation, if known. */
-  readonly toolName?: string;
-  /** Category of operation. */
-  readonly operation: "fs.read" | "fs.write" | "fs.exec";
-  /** Absolute resource path or identifier. */
-  readonly resource: string;
-}
-
-/**
- * A pending question/feedback request from the daemon — mirrors the wire fields
- * the TUI needs to render the `QuestionPrompt`.
- */
-export interface PendingQuestionRequest {
-  /** Correlates with the `request_question` message. */
-  readonly questionRequestId: string;
-  /** Run the request belongs to. */
-  readonly runId: string;
-  /** Agent that triggered the operation. */
-  readonly agentName: string;
-  /** Tool that triggered the operation. */
-  readonly toolName: string;
-  /** The question asked. */
-  readonly question: string;
 }
 
 /**
@@ -153,9 +100,17 @@ export type ChatStatus =
   | "waiting_permission"
   | "waiting_question";
 
+/** User-initiated execution waiting for daemon preparation or execution. */
+export interface PendingChatExecution {
+  readonly mode: "start" | "continue";
+  readonly input: string | null;
+  /** Request id for the currently pending prepare/start/continue command. */
+  readonly requestId: string;
+}
+
 /** A single chat run's state — 1:1 with a strategy run. */
 export interface ChatRun {
-  /** Stable TUI-local id, generated at create-time. */
+  /** Stable run identifier and map key. */
   readonly id: ChatRunId;
   /** Run id assigned by the daemon after `strategy_started`. */
   readonly daemonRunId: string | null;
@@ -164,10 +119,9 @@ export interface ChatRun {
   /** Path to the strategy file being run. */
   readonly strategyPath: string | null;
   /**
-   * Name of the strategy used for this run, when known. Populated for
-   * persisted runs hydrated via `loadPersistedRun`. Live runs started
-   * via `startStrategy` learn this from `strategy_started` (where it lives
-   * on `label` instead). May be null until the daemon reports it.
+   * Name of the strategy used for this run, when known. Runs started via
+   * `startStrategy` learn this from `strategy_started`. May be null until the
+   * daemon reports it.
    */
   readonly strategyName: string | null;
   /** UI lifecycle status (see `ChatStatus`). */
@@ -176,16 +130,21 @@ export interface ChatRun {
   readonly runStatus: RunStatus | null;
   /** Latest error message, or null. */
   readonly error: string | null;
+  /** Execution waiting for daemon preparation or execution. */
+  readonly pendingExecution: PendingChatExecution | null;
   /** Agent currently waiting for user input, or null. */
   readonly pendingInputAgent: string | null;
   /**
-   * Queue of permission requests awaiting user decisions.
-   * The head (index 0) is the currently-displayed prompt.
-   * When the user resolves it, the next item (if any) is shown immediately.
+   * Queue of `request_permission` messages awaiting user decisions, stored
+   * as received. The head (index 0) is the currently-displayed prompt; its
+   * `requestId` is echoed back in the `permission_decision` reply.
    */
-  readonly pendingPermissionRequests: readonly PendingPermissionRequest[];
-  /** Queue of question/feedback requests awaiting user answers. */
-  readonly pendingQuestionRequests: readonly PendingQuestionRequest[];
+  readonly pendingPermissionRequests: readonly RequestPermissionMessage[];
+  /**
+   * Queue of `request_question` messages awaiting user answers, stored as
+   * received. The head's `requestId` is echoed back in `question_response`.
+   */
+  readonly pendingQuestionRequests: readonly RequestQuestionMessage[];
   /** Accumulated messages for this run. */
   readonly messages: readonly ChatMessage[];
   /** Stack of active `launch_strategy` tool-call ids for nested strategy output. */
@@ -196,6 +155,18 @@ export interface ChatRun {
   readonly updatedAt: number;
 }
 
+/** Pending daemon permission request rendered by the chat UI. */
+export type PendingPermissionRequest = RequestPermissionMessage;
+/** Pending daemon question request rendered by the chat UI. */
+export type PendingQuestionRequest = RequestQuestionMessage;
+
+/** @internal Shared state contracts used by the chat run operation hooks. */
+export type ChatRunsState = ReadonlyMap<ChatRunId, ChatRun>;
+/** @internal Setter for the provider-owned chat run collection. */
+export type SetChatRuns = Dispatch<SetStateAction<ChatRunsState>>;
+/** @internal Mutable message counters shared by run projection hooks. */
+export type MessageCountersRef = MutableRefObject<Map<ChatRunId, number>>;
+
 /** Initial overrides accepted by `createChatRun`. */
 export interface CreateRunInit {
   /** Human-readable label. Defaults to "New run". */
@@ -204,68 +175,19 @@ export interface CreateRunInit {
   readonly strategyPath?: string;
 }
 
-/** Lightweight metadata for a daemon-persisted run (from `run_list`). */
+/** Lightweight metadata for a daemon-persisted run. */
 export type PersistedRunMeta = RunOverview;
 
 /** Value exposed by `ChatRunsContext`. */
 export interface ChatRunsContextType {
-  /** All runs keyed by `ChatRunId`. */
+  /** All runs keyed by their stable run id. */
   readonly chatRuns: ReadonlyMap<ChatRunId, ChatRun>;
-  /** Id of the run currently in view, or null. */
-  readonly activeChatRunId: ChatRunId | null;
-  /** Change the active run. */
-  readonly setActiveChatRunId: (id: ChatRunId | null) => void;
-  /** Create a run, start a strategy on it, and make it active. Returns its id. */
-  readonly startStrategy: (
-    strategyPath: string,
-    input?: string,
-    cwd?: string,
-    manifestPath?: string,
-  ) => ChatRunId;
-  /** Restart a completed run's strategy with its conversation context restored. */
-  readonly continueRun: (
-    chatRunId: ChatRunId,
-    strategy: DiscoveredStrategy,
-    input: string,
-  ) => ChatRunId | null;
-  /** Send user input for a specific run. No-op if no daemon run or no pending input. */
-  readonly sendInput: (chatRunId: ChatRunId, text: string) => void;
-  /**
-   * Queue a steering message for a running run. No-op unless the run is
-   * live and running/pending. The daemon merges the text into the next
-   * agent turn.
-   */
-  readonly sendSteer: (chatRunId: ChatRunId, text: string) => void;
-  /** Resolve the head permission request for a specific run. */
-  readonly sendPermissionDecision: (
-    chatRunId: ChatRunId,
-    decision: "allow" | "deny" | "allow-session" | "deny-session",
-  ) => void;
-  /** Resolve the head question request for a specific run. */
-  readonly sendQuestionResponse: (
-    chatRunId: ChatRunId,
-    response: string,
-  ) => void;
-  /** Send `stop_strategy` for a specific run. No-op without a bound daemon run. */
-  readonly stopChatRun: (chatRunId: ChatRunId) => void;
-  /** Reset a run to `idle`, clearing messages and pending state. */
-  readonly resetChatRun: (chatRunId: ChatRunId) => void;
-  /** Remove a run from the map entirely. */
-  readonly removeChatRun: (chatRunId: ChatRunId) => void;
-  /**
-   * Remove every run and clear the active selection. Used by the "New Run"
-   * command to return the TUI to a clean slate (intro screen with no
-   * residual chat state).
-   */
-  readonly clearAllChatRuns: () => void;
-  /** Persisted run summaries fetched from the daemon via `list_runs`. */
-  readonly persistedRuns: readonly RunOverview[];
-  /** Trigger a fresh `list_runs` request. */
-  readonly fetchPersistedRuns: (cwd?: string) => void;
-  /** Load a persisted run from the daemon by its run id. */
-  readonly loadPersistedRun: (runId: string) => void;
-  /** Whether a run is currently being loaded from the daemon. */
-  readonly isLoadingRun: boolean;
+}
+
+/** Internal writable store shared by chat run domain hooks. */
+export interface ChatRunsStore extends ChatRunsContextType {
+  readonly setChatRuns: SetChatRuns;
+  readonly messageCountersRef: MessageCountersRef;
 }
 
 /** Props for the `ChatRunsContextProvider` component. */
@@ -277,8 +199,7 @@ export interface ChatRunsContextProviderProps {
 /**
  * Value returned by `useChat()` — a view of a single run with bound action methods.
  *
- * When the resolved run id is `null` (no run exists yet, or the
- * provided `chatRunId` doesn't match any run), all fields return
+ * When the provided `chatRunId` doesn't match any run, all fields return
  * empty/null values and action methods other than `startStrategy` are no-ops.
  */
 export interface UseChatState {
@@ -293,14 +214,14 @@ export interface UseChatState {
   /** Strategy file path, if known. */
   readonly strategyPath: string | null;
   /** Current pending permission request (head of queue), or null. */
-  readonly pendingPermissionRequest: PendingPermissionRequest | null;
+  readonly pendingPermissionRequest: RequestPermissionMessage | null;
   /** Current pending question request (head of queue), or null. */
-  readonly pendingQuestionRequest: PendingQuestionRequest | null;
+  readonly pendingQuestionRequest: RequestQuestionMessage | null;
   /** Alias for `daemonRunId` — preserved for back-compatibility. */
   readonly runId: string | null;
   /** Current daemon WebSocket connection status. */
   readonly connectionStatus: WebSocketStatus;
-  /** Create a new run and start a strategy on it. Returns the new run id. */
+  /** Create a new run and start a strategy on it. Returns the stable run id. */
   readonly startStrategy: (
     strategyPath: string,
     input?: string,
@@ -314,8 +235,6 @@ export interface UseChatState {
    * live and running/pending.
    */
   readonly sendSteer: (text: string) => void;
-  /** Restart the bound run's strategy with its conversation context restored. */
-  readonly sendContinue: (strategy: DiscoveredStrategy, text: string) => void;
   /** Resolve the pending permission request for the bound run. */
   readonly sendPermissionDecision: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
@@ -324,9 +243,8 @@ export interface UseChatState {
   readonly sendQuestionResponse: (response: string) => void;
   /** Clear the bound run's UI projection. No-op if no run. */
   readonly reset: () => void;
-  /** Send `stop_strategy` for the bound run. No-op if no run or no daemon run. */
+  /** Send `stop_run` for the bound run. No-op if no run is active. */
   readonly stop: () => void;
 }
 
-/** Re-export of the daemon's `RunSummary` for future `list_strategies` hydration. */
 export type { RunOverview, RunStatus, RunSummary };

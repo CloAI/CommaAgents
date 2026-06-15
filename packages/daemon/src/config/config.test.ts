@@ -4,12 +4,9 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-
-import {
-  DaemonConfigFileSchema,
-  loadDaemonConfig,
-  resolveDataDir,
-} from "./config";
+import { resolveDataDir } from "@comma-agents/core";
+import { DaemonConfigFileSchema } from ".";
+import { loadDaemonConfig } from "./config";
 
 // Helpers
 

@@ -1,7 +1,7 @@
+import type { RequestPermissionMessage } from "@comma-agents/daemon";
 import { Box, Text, useFocusManager } from "ink";
 import type React from "react";
 import { useEffect } from "react";
-import type { PendingPermissionRequest } from "../../hooks/useChat";
 import { useTheme } from "../../Theme";
 import { Button } from "../Button";
 
@@ -13,8 +13,8 @@ export type PermissionDecision =
   | "deny-session";
 
 export interface PermissionPromptProps {
-  /** The permission request to display. */
-  readonly request: PendingPermissionRequest;
+  /** The daemon's `request_permission` message to display. */
+  readonly request: RequestPermissionMessage;
   /** Called when the user makes a decision. */
   readonly onDecide: (decision: PermissionDecision) => void;
 }
@@ -44,7 +44,7 @@ const FOCUS_IDS = {
 
 /** Human-readable label for an operation category. */
 function operationLabel(
-  operation: PendingPermissionRequest["operation"],
+  operation: RequestPermissionMessage["operation"],
 ): string {
   switch (operation) {
     case "fs.read":

@@ -27,7 +27,7 @@ Sent when a flow step begins execution.
 | `runId` | `string` | The run this step belongs to |
 | `stepName` | `string` | Name of the step (agent or nested flow) |
 | `message` | `string` | The input message being passed to this step |
-| `requestId` | `string?` | Echoed from the originating `start_strategy` |
+| `requestId` | `string?` | Echoed from the originating `start_run` |
 | `ts` | `string` | ISO-8601 timestamp |
 
 ### Event: `step_completed`
@@ -54,7 +54,7 @@ Sent when a flow step finishes execution.
 | `runId` | `string` | The run this step belongs to |
 | `stepName` | `string` | Name of the step that completed |
 | `result` | [`AgentCallResultWire`](/docs/daemon/protocol/shared-types#agentcallresultwire) | The step's result (text, usage, finish reason) |
-| `requestId` | `string?` | Echoed from the originating `start_strategy` |
+| `requestId` | `string?` | Echoed from the originating `start_run` |
 | `ts` | `string` | ISO-8601 timestamp |
 
 ## Agent Output
@@ -81,7 +81,7 @@ Sent when an agent produces its final output. This is the non-streaming counterp
 | `agentName` | `string` | Name of the agent that produced the output |
 | `text` | `string` | The agent's final text response |
 | `usage` | [`Usage`](/docs/daemon/protocol/shared-types#usage) | Token usage for this agent call |
-| `requestId` | `string?` | Echoed from the originating `start_strategy` |
+| `requestId` | `string?` | Echoed from the originating `start_run` |
 | `ts` | `string` | ISO-8601 timestamp |
 
 ## Agent Streaming
@@ -106,7 +106,7 @@ Sent for each streaming event as an agent generates output. The `event` field is
 | `runId` | `string` | The run this stream belongs to |
 | `agentName` | `string` | Name of the streaming agent |
 | `event` | [`AgentStreamEventWire`](/docs/daemon/protocol/shared-types#agentstreameventwire) | The stream event |
-| `requestId` | `string?` | Echoed from the originating `start_strategy` |
+| `requestId` | `string?` | Echoed from the originating `start_run` |
 | `ts` | `string` | ISO-8601 timestamp |
 
 ### Stream Event Types

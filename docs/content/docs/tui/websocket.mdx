@@ -29,9 +29,10 @@ import type { ClientMessage, DaemonMessage } from "@comma-agents/daemon";
 
 | Type | Purpose |
 |---|---|
-| `start_strategy` | Start a new strategy run with optional initial input |
+| `prepare_run` | Load a strategy and initialize a pending run |
+| `start_run` | Start a prepared run with optional initial input |
 | `user_input` | Send user input to a waiting agent |
-| `stop_strategy` | Cancel a running strategy |
+| `stop_run` | Cancel a prepared or running run |
 | `permission_decision` | Resolve a sandbox permission request |
 | `list_runs` | Request a list of persisted runs |
 | `load_session` | Hydrate a persisted session from the daemon |
@@ -68,7 +69,7 @@ import type {
 ```
 
 - `DaemonMessageOf<"agent_streaming">` -- Narrows to the streaming variant
-- `ClientMessageOf<"start_strategy">` -- Narrows to the start command payload
+- `ClientMessageOf<"prepare_run">` -- Narrows to the prepare command payload
 - `DaemonMessageListener<"strategy_completed">` -- Typed listener callback
 
 ## Sending Commands
@@ -78,7 +79,7 @@ Use `useDaemonCommand` for a typed send function that auto-injects `type` and `r
 ```tsx
 import { useDaemonCommand } from "@comma-agents/tui";
 
-const startStrategy = useDaemonCommand("start_strategy");
+const prepareRun = useDaemonCommand("prepare_run");
 
 // Returns the requestId, or null if the WebSocket is not open
 const requestId = startStrategy({

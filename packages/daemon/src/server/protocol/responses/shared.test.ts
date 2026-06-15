@@ -34,6 +34,7 @@ describe("AgentCallResultSchema", () => {
   const valid = {
     text: "hello",
     usage: { promptTokens: 5, completionTokens: 3 },
+    contextTokens: 7,
     finishReason: "stop",
   };
 

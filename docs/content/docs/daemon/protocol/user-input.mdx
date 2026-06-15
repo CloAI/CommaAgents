@@ -25,7 +25,7 @@ Sent by the daemon when a user agent is waiting for human input. Broadcast to al
 | `runId` | `string` | The run that needs input |
 | `agentName` | `string` | The agent waiting for input |
 | `prompt` | `string?` | Optional prompt to display to the user |
-| `requestId` | `string?` | Echoed from the originating `start_strategy` |
+| `requestId` | `string?` | Echoed from the originating `start_run` |
 | `ts` | `string` | ISO-8601 timestamp |
 
 ## Request: `user_input`
@@ -68,7 +68,7 @@ If no agent is waiting for input on the specified run, the daemon replies with a
 ```
 Client                          Daemon
   |                               |
-  |  start_strategy (strategy with |
+  |  prepare_run -> start_run       |
   |  user agent)                  |
   |------------------------------>|
   |                               |

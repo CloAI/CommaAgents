@@ -4,9 +4,11 @@ export type {
 } from "./AgentMessage";
 export { AgentMessage, AgentMessageRender } from "./AgentMessage";
 export {
+  findSubStrategyName,
   groupSubStrategyMessages,
   MessageList,
   MessageListRender,
+  selectSubStrategyMessages,
 } from "./MessageList";
 export type {
   GroupedChatMessage,

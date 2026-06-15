@@ -1,17 +1,6 @@
-import { useCallback, useContext } from "react";
-
-import { ChatRunsContext } from "./useChat.context";
-import type { ChatRunId, ChatRunsContextType } from "./useChat.types";
-
-function useChatRunsContext(): ChatRunsContextType {
-  const contextValue = useContext(ChatRunsContext);
-  if (!contextValue) {
-    throw new Error(
-      "useChatLifecycle must be used within a <ChatRunsContextProvider>",
-    );
-  }
-  return contextValue;
-}
+import { useCallback } from "react";
+import type { ChatRunId } from "./useChat.types";
+import { useChatRunLifecycle } from "./useChatRunLifecycle";
 
 export interface UseChatLifecycleResult {
   readonly startStrategy: (
@@ -22,10 +11,8 @@ export interface UseChatLifecycleResult {
   ) => ChatRunId;
 }
 
-export function useChatLifecycle(
-  _chatRunId?: ChatRunId,
-): UseChatLifecycleResult {
-  const context = useChatRunsContext();
+export function useChatLifecycle(): UseChatLifecycleResult {
+  const { startStrategy: startRunStrategy } = useChatRunLifecycle();
 
   const startStrategy = useCallback(
     (
@@ -34,9 +21,9 @@ export function useChatLifecycle(
       cwd?: string,
       manifestPath?: string,
     ): ChatRunId => {
-      return context.startStrategy(strategyPath, input, cwd, manifestPath);
+      return startRunStrategy(strategyPath, input, cwd, manifestPath);
     },
-    [context],
+    [startRunStrategy],
   );
 
   return {

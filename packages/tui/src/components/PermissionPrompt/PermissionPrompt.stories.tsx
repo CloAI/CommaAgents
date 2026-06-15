@@ -1,5 +1,5 @@
+import type { RequestPermissionMessage } from "@comma-agents/daemon";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { PendingPermissionRequest } from "../../hooks/useChat/useChat.types";
 import { PermissionPrompt } from "./PermissionPrompt";
 
 /**
@@ -7,13 +7,16 @@ import { PermissionPrompt } from "./PermissionPrompt";
  * collects the user's decision. Tab/Shift+Tab cycle through the four
  * decision buttons; Enter (or click) confirms the focused choice.
  */
-const writeRequest: PendingPermissionRequest = {
-  permissionRequestId: "perm_01HZX9F8Q3K6V5",
+const writeRequest: RequestPermissionMessage = {
+  type: "request_permission",
+  ts: "2026-06-09T12:00:00.000Z",
+  requestId: "perm_01HZX9F8Q3K6V5",
   runId: "run_01HZX9F8AB1234",
   agentName: "coder",
   toolName: "edit_file",
   operation: "fs.write",
   resource: "/Users/sam/projects/comma/src/index.ts",
+  reason: "policy-ask",
 };
 
 const meta: Meta<typeof PermissionPrompt> = {
@@ -37,12 +40,15 @@ export const FsWrite: Story = {};
 export const FsRead: Story = {
   args: {
     request: {
-      permissionRequestId: "perm_03READ",
+      type: "request_permission",
+      ts: "2026-06-09T12:00:00.000Z",
+      requestId: "perm_03READ",
       runId: "run_03READ",
       agentName: "researcher",
       toolName: "read_file",
       operation: "fs.read",
       resource: "/Users/sam/.aws/credentials",
+      reason: "policy-ask",
     },
   },
 };
@@ -50,11 +56,14 @@ export const FsRead: Story = {
 export const FsExecNoTool: Story = {
   args: {
     request: {
-      permissionRequestId: "perm_02EXEC",
+      type: "request_permission",
+      ts: "2026-06-09T12:00:00.000Z",
+      requestId: "perm_02EXEC",
       runId: "run_02EXEC",
       agentName: "shell-runner",
       operation: "fs.exec",
       resource: "git push origin main --force",
+      reason: "policy-deny-override",
     },
   },
 };

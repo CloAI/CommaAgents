@@ -61,6 +61,8 @@ describe("run_command", () => {
     expect(result.ok).toBe(true);
     expect(result.data?.stdout.trim()).toBe("on-stdout");
     expect(result.data?.stderr.trim()).toBe("on-stderr");
+    expect(result.output).toContain("STDOUT:\non-stdout");
+    expect(result.output).toContain("STDERR:\non-stderr");
   });
 
   it("reports non-zero exit codes via data.exitCode but ok stays true", async () => {
@@ -84,10 +86,14 @@ describe("run_command", () => {
     const toolContext = makeToolContext({
       sandbox: createSandbox({ cwd: workspace, jail: true }),
     });
-    const result = await tool.execute({ command: "exit 7" }, toolContext);
+    const result = await tool.execute(
+      { command: "echo verifier-diagnostic 1>&2; exit 7" },
+      toolContext,
+    );
     expect(result.output).toContain("STATUS: FAILED");
     expect(result.output).toContain("exit code 7");
     expect(result.output).toContain("did NOT succeed");
+    expect(result.output).toContain("STDERR:\nverifier-diagnostic");
   });
 
   it("uses STATUS: SUCCESS for exit 0 (no scary banner for the happy path)", async () => {
@@ -268,12 +274,18 @@ describe("run_command", () => {
       sandbox: createSandbox({ cwd: workspace, jail: true }),
     });
     const result = await tool.execute(
-      { command: "echo partial; sleep 5", timeoutMs: 300 },
+      {
+        command: "echo partial-stdout; echo partial-stderr 1>&2; sleep 5",
+        timeoutMs: 300,
+      },
       toolContext,
     );
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("timeout");
-    expect(result.data?.stdout).toContain("partial");
+    expect(result.data?.stdout).toContain("partial-stdout");
+    expect(result.data?.stderr).toContain("partial-stderr");
+    expect(result.output).toContain("STDOUT:\npartial-stdout");
+    expect(result.output).toContain("STDERR:\npartial-stderr");
   });
 
   it("merges supplied env onto the parent environment", async () => {

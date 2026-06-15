@@ -148,10 +148,9 @@ async function main() {
 
     ws.send(
       JSON.stringify({
-        type: "start_strategy",
+        type: "prepare_run",
         strategyPath,
-        input: "What is the capital of France?",
-        requestId: "interactive-1",
+        requestId: "prepare-interactive-1",
         ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
       }),
     );
@@ -162,6 +161,17 @@ async function main() {
 
     switch (msg.type) {
       case "pong":
+        break;
+
+      case "run_prepared":
+        ws.send(
+          JSON.stringify({
+            type: "start_run",
+            runId: msg.runId,
+            input: "What is the capital of France?",
+            requestId: "interactive-1",
+          }),
+        );
         break;
 
       case "strategy_started":
@@ -200,7 +210,7 @@ async function main() {
           if (currentRunId) {
             ws.send(
               JSON.stringify({
-                type: "stop_strategy",
+                type: "stop_run",
                 runId: currentRunId,
               }),
             );

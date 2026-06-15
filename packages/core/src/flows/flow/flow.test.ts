@@ -1,6 +1,7 @@
 // Tests for buildFlowAgent / createFlow — the core flow API.
 
 import { describe, expect, it } from "bun:test";
+import { createAbortablePromise } from "@comma-agents/utils";
 import type { Agent, AgentCallResult } from "../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../errors/index";
 import { hookIntoFlow } from "../hook-into-flow/hook-into-flow";
@@ -99,6 +100,49 @@ describe("buildFlowAgent", () => {
     expect(result.stepResults[1]?.text).toBe("world");
     expect(result.usage.promptTokens).toBe(2); // 1 + 1
     expect(result.usage.completionTokens).toBe(4); // 2 + 2
+  });
+
+  it("aborts the currently running step when the flow is aborted", async () => {
+    let stepAborted = false;
+    const blockingStep: Agent = {
+      name: "blocking",
+      call: () =>
+        createAbortablePromise<AgentCallResult>(
+          (signal) =>
+            new Promise((_resolve, reject) => {
+              signal.addEventListener(
+                "abort",
+                () => {
+                  stepAborted = true;
+                  reject(
+                    new DOMException(
+                      "The operation was aborted.",
+                      "AbortError",
+                    ),
+                  );
+                },
+                { once: true },
+              );
+            }),
+        ),
+    };
+    const flow = buildFlowAgent(
+      { name: "abortable", steps: [blockingStep] },
+      "pipeline",
+      {},
+      async (steps, message, ctx) => {
+        const result = await ctx.runStep(steps[0]!, message);
+        return result.text;
+      },
+    );
+
+    const pending = flow.call("start");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    pending.abort();
+
+    await expect(pending).rejects.toThrow(FlowExecutionError);
+    expect(stepAborted).toBe(true);
   });
 
   it("throws FlowExecutionError for empty steps", () => {

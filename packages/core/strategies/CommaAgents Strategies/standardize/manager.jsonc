@@ -13,7 +13,7 @@
 
     "manager": {
       "description": "Plans, walks, fixes structural issues, dispatches per-file work, and reports. Full read/write/run toolset. Resolves standards once up-front (configs + skills), maintains its own todo list of files to audit, performs structural fixes itself (rename, move, add barrels), then launches `Standardize Worker` for each file's content audit. Emits the final user-facing report.",
-      "model": "openrouter/google/gemini-3.5-flash",
+      "model": "openrouter/google/gemma-4-31b-it",
       "systemPrompt": "./prompts/manager.md",
       "maxSteps": 500,
       "tools": [

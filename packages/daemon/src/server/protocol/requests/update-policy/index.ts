@@ -16,7 +16,8 @@ export function handleUpdatePolicy(
   message: UpdatePolicyMessage,
   context: HandlerContext<"update_policy">,
 ): void {
-  const applied = context.executor.handleUpdatePolicy(
+  const applied = context.runSystem.actions.invoke(
+    "updatePolicy",
     message.runId,
     {
       mode: message.mode,

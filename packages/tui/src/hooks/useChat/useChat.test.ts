@@ -15,23 +15,30 @@ import { render } from "ink-testing-library";
 import React, { act } from "react";
 
 import type { ChatRunsContextType, UseChatState } from "./useChat.types";
+import type { ChatRunLifecycle } from "./useChatRunLifecycle";
 
 /** Captured subscription callbacks keyed by event type. */
 let subscriptionHandlers: Record<string, (message: unknown) => void> = {};
 
 /** Mock for useDaemonCommand — returns a mock sender per command type. */
-const mockStartStrategyCommand = mock<
+const mockPrepareRunCommand = mock<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-1");
+const mockStartRunCommand = mock<
+  (payload: Record<string, unknown>) => string | null
+>(() => "req-start");
 const mockContinueRunCommand = mock<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-continue");
 const mockSendUserInputCommand = mock<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-2");
-const mockStopStrategyCommand = mock<
+const mockStopRunCommand = mock<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-3");
+const mockListRunsCommand = mock<
+  (payload: Record<string, unknown>) => string | null
+>(() => "req-list");
 
 mock.module("../useDaemon/useDaemon", () => ({
   useDaemon: () => ({
@@ -44,10 +51,12 @@ mock.module("../useDaemon/useDaemon", () => ({
 
 mock.module("../useDaemon/useDaemonCommand/useDaemonCommand", () => ({
   useDaemonCommand: (type: string) => {
-    if (type === "start_strategy") return mockStartStrategyCommand;
+    if (type === "prepare_run") return mockPrepareRunCommand;
+    if (type === "start_run") return mockStartRunCommand;
     if (type === "continue_run") return mockContinueRunCommand;
     if (type === "user_input") return mockSendUserInputCommand;
-    if (type === "stop_strategy") return mockStopStrategyCommand;
+    if (type === "stop_run") return mockStopRunCommand;
+    if (type === "list_runs") return mockListRunsCommand;
     return mock(() => null);
   },
 }));
@@ -64,25 +73,42 @@ mock.module("../useDaemon/useDaemonSubscription/useDaemonSubscription", () => ({
 // Import after mocks are set up
 const { useChat } = await import("./useChat");
 const { useChatRuns } = await import("./useChatRuns");
+const { useChatRunLifecycle } = await import("./useChatRunLifecycle");
 const { ChatRunsContextProvider } = await import("./useChat.context");
 
 /**
- * Render a component that observes `useChat` (bound to the active run).
+ * Render a component that observes `useChat` bound to an explicit run id.
  * Returns a mutable ref exposing the latest hook state plus a cleanup fn.
  */
 function renderChatHook(): {
   result: { current: UseChatState };
   chatRuns: { current: ChatRunsContextType };
+  runLifecycle: { current: ChatRunLifecycle };
   cleanup: () => void;
 } {
   const resultRef: { current: UseChatState } = {} as { current: UseChatState };
   const sessionsRef: { current: ChatRunsContextType } = {} as {
     current: ChatRunsContextType;
   };
-
+  const runLifecycleRef: { current: ChatRunLifecycle } = {} as {
+    current: ChatRunLifecycle;
+  };
   function TestComponent(): React.ReactElement {
-    resultRef.current = useChat();
+    const [chatRunId, setChatRunId] = React.useState<string | null>(null);
+    const chat = useChat(chatRunId);
+    const runLifecycle = useChatRunLifecycle();
+    const startStrategy = React.useCallback<UseChatState["startStrategy"]>(
+      (...args) => {
+        const nextChatRunId = runLifecycle.startStrategy(...args);
+        setChatRunId(nextChatRunId);
+        return nextChatRunId;
+      },
+      [runLifecycle.startStrategy],
+    );
+
+    resultRef.current = { ...chat, startStrategy };
     sessionsRef.current = useChatRuns();
+    runLifecycleRef.current = runLifecycle;
     return React.createElement(Text, null, "test");
   }
 
@@ -97,22 +123,27 @@ function renderChatHook(): {
   return {
     result: resultRef,
     chatRuns: sessionsRef,
+    runLifecycle: runLifecycleRef,
     cleanup: () => instance.unmount(),
   };
 }
 
 beforeEach(() => {
   subscriptionHandlers = {};
-  mockStartStrategyCommand.mockClear();
+  mockPrepareRunCommand.mockClear();
+  mockStartRunCommand.mockClear();
   mockContinueRunCommand.mockClear();
   mockSendUserInputCommand.mockClear();
-  mockStopStrategyCommand.mockClear();
-  mockStartStrategyCommand.mockReturnValue("req-1");
+  mockStopRunCommand.mockClear();
+  mockListRunsCommand.mockClear();
+  mockPrepareRunCommand.mockReturnValue("req-1");
+  mockStartRunCommand.mockReturnValue("req-start");
   mockContinueRunCommand.mockReturnValue("req-continue");
+  mockListRunsCommand.mockReturnValue("req-list");
 });
 
 describe("useChat", () => {
-  it("should start with no active run and empty state", () => {
+  it("should start with no bound run and empty state", () => {
     const { result, cleanup } = renderChatHook();
 
     expect(result.current.chatRunId).toBeNull();
@@ -127,7 +158,7 @@ describe("useChat", () => {
   });
 
   describe("startStrategy", () => {
-    it("should create a run, make it active, and call the daemon command", () => {
+    it("should create and bind a run, then call the daemon command", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
@@ -135,11 +166,14 @@ describe("useChat", () => {
       });
 
       expect(result.current.chatRunId).not.toBeNull();
-      expect(result.current.status).toBe("running");
+      expect(result.current.status).toBe("pending");
       expect(result.current.error).toBeNull();
-      expect(mockStartStrategyCommand).toHaveBeenCalledWith({
+      expect(result.current.messages).toHaveLength(1);
+      expect(result.current.messages[0]?.role).toBe("user");
+      expect(result.current.messages[0]?.text).toBe("hello");
+      expect(mockPrepareRunCommand).toHaveBeenCalledWith({
+        runId: result.current.chatRunId,
         strategyPath: "/path/to/strategy.json",
-        input: "hello",
       });
 
       cleanup();
@@ -152,15 +186,36 @@ describe("useChat", () => {
         result.current.startStrategy("/path/to/strategy.json");
       });
 
-      expect(mockStartStrategyCommand).toHaveBeenCalledWith({
+      expect(mockPrepareRunCommand).toHaveBeenCalledWith({
+        runId: result.current.chatRunId,
         strategyPath: "/path/to/strategy.json",
       });
 
       cleanup();
     });
 
+    it("should pass a selected persisted run's cwd into the normal start command", () => {
+      const { result, cleanup } = renderChatHook();
+
+      act(() => {
+        result.current.startStrategy(
+          "/path/to/strategy.json",
+          undefined,
+          "/repo",
+        );
+      });
+
+      expect(mockPrepareRunCommand).toHaveBeenCalledWith({
+        runId: result.current.chatRunId,
+        strategyPath: "/path/to/strategy.json",
+        cwd: "/repo",
+      });
+
+      cleanup();
+    });
+
     it("should set error status when daemon command returns null", () => {
-      mockStartStrategyCommand.mockReturnValue(null);
+      mockPrepareRunCommand.mockReturnValue(null);
       const { result, cleanup } = renderChatHook();
 
       act(() => {
@@ -175,118 +230,78 @@ describe("useChat", () => {
   });
 
   describe("strategy_started subscription", () => {
-    it("should bind daemonRunId to the pending run and add a system message", () => {
+    it("should start a prepared run and bind metadata before strategy_started", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
-        result.current.startStrategy("/path/to/strategy.json");
+        result.current.startStrategy("/path/to/strategy.json", "hello");
       });
+      const runId = result.current.chatRunId!;
+
+      act(() => {
+        subscriptionHandlers.run_prepared?.({
+          runId,
+          strategyName: "test-strategy",
+          agents: ["agent-a", "agent-b"],
+          flowTree: {},
+          requestId: "req-1",
+        });
+      });
+
+      expect(mockStartRunCommand).toHaveBeenCalledWith({
+        runId,
+        input: "hello",
+      });
+      expect(result.current.strategyName).toBe("test-strategy");
 
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-123",
+          runId,
           strategyName: "test-strategy",
           agents: ["agent-a", "agent-b"],
         });
       });
 
-      expect(result.current.runId).toBe("run-123");
+      expect(result.current.runId).toBe(runId);
       expect(result.current.status).toBe("running");
-      expect(result.current.messages).toHaveLength(1);
-      expect(result.current.messages[0]?.role).toBe("system");
-      expect(result.current.messages[0]?.text).toContain("test-strategy");
-      expect(result.current.messages[0]?.text).toContain("agent-a");
+      expect(result.current.messages).toHaveLength(2);
+      expect(result.current.messages[1]?.role).toBe("system");
+      expect(result.current.messages[1]?.text).toContain("test-strategy");
+      expect(result.current.messages[1]?.text).toContain("agent-a");
 
       cleanup();
     });
   });
 
-  describe("sendContinue", () => {
-    it("starts a new local run through continue_run", () => {
+  describe("run preparation errors", () => {
+    it("routes a correlated prepare error to the matching run", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
-        result.current.startStrategy("/path/to/strategy.json", "first");
+        result.current.startStrategy("/bad.json", "hello");
       });
+
       act(() => {
-        subscriptionHandlers.strategy_started?.({
-          runId: "run-123",
-          strategyName: "test-strategy",
-          agents: ["assistant"],
-        });
-      });
-      act(() => {
-        subscriptionHandlers.strategy_completed?.({
-          runId: "run-123",
-          result: "done",
-          usage: { promptTokens: 1, completionTokens: 1 },
+        subscriptionHandlers.error?.({
+          type: "error",
+          code: "PREPARE_FAILED",
+          message: "Strategy file not found",
+          requestId: "req-1",
         });
       });
 
-      const originalChatRunId = result.current.chatRunId;
-      const originalMessages = result.current.messages;
-      act(() => {
-        result.current.sendContinue(
-          {
-            name: "build",
-            version: "1.0",
-            path: "/path/to/build.json",
-            manifestPath: "/path/to/comma-project.json",
-            origin: "cwd-project",
-            label: "Project > build",
-          },
-          "keep going",
-        );
-      });
-
-      expect(result.current.chatRunId).not.toBe(originalChatRunId);
-      expect(result.current.status).toBe("running");
-      expect(mockContinueRunCommand).toHaveBeenCalledWith({
-        runId: "run-123",
-        input: "keep going",
-        strategyPath: "/path/to/build.json",
-        manifestPath: "/path/to/comma-project.json",
-      });
-      expect(result.current.strategyPath).toBe("/path/to/build.json");
-      expect(result.current.strategyName).toBe("build");
-      expect(result.current.messages.slice(0, originalMessages.length)).toEqual(
-        originalMessages,
-      );
-      expect(result.current.messages.at(-1)).toMatchObject({
-        role: "user",
-        sender: "you",
-        text: "keep going",
-      });
-
-      act(() => {
-        subscriptionHandlers.strategy_started?.({
-          runId: "run-456",
-          strategyName: "build",
-          agents: ["builder"],
-        });
-      });
-
-      expect(result.current.runId).toBe("run-456");
-      expect(result.current.messages.slice(0, originalMessages.length)).toEqual(
-        originalMessages,
-      );
-      expect(result.current.messages.at(-2)).toMatchObject({
-        role: "user",
-        text: "keep going",
-      });
-
+      expect(result.current.status).toBe("error");
+      expect(result.current.error).toBe("Strategy file not found");
       cleanup();
     });
   });
 
   describe("agent_streaming subscription", () => {
     /** Helper: start a strategy and bind it to a runId. */
-    function bootstrapRun(
-      result: { current: UseChatState },
-      runId = "run-1",
-    ): void {
+    function bootstrapRun(result: { current: UseChatState }): string {
+      let runId = "";
       act(() => {
-        result.current.startStrategy("/strategy.json");
+        runId = result.current.startStrategy("/strategy.json");
       });
       act(() => {
         subscriptionHandlers.strategy_started?.({
@@ -295,16 +310,19 @@ describe("useChat", () => {
           agents: ["assistant"],
         });
       });
+      return runId;
     }
 
     it("should append a new agent message on first text token", () => {
       const { result, cleanup } = renderChatHook();
-      bootstrapRun(result);
+      const runId = bootstrapRun(result);
 
       act(() => {
         subscriptionHandlers.agent_streaming?.({
-          runId: "run-1",
+          runId,
           agentName: "assistant",
+          model: "openai/gpt-5",
+          contextWindow: 128_000,
           event: { type: "text", text: "Hello" },
         });
       });
@@ -316,17 +334,19 @@ describe("useChat", () => {
       expect(agentMessages[0]?.sender).toBe("assistant");
       expect(agentMessages[0]?.text).toBe("Hello");
       expect(agentMessages[0]?.streaming).toBe(true);
+      expect(agentMessages[0]?.model).toBe("openai/gpt-5");
+      expect(agentMessages[0]?.contextWindow).toBe(128_000);
 
       cleanup();
     });
 
     it("should accumulate tokens into the same streaming message", () => {
       const { result, cleanup } = renderChatHook();
-      bootstrapRun(result);
+      const runId = bootstrapRun(result);
 
       act(() => {
         subscriptionHandlers.agent_streaming?.({
-          runId: "run-1",
+          runId,
           agentName: "assistant",
           event: { type: "text", text: "Hello" },
         });
@@ -334,7 +354,7 @@ describe("useChat", () => {
 
       act(() => {
         subscriptionHandlers.agent_streaming?.({
-          runId: "run-1",
+          runId,
           agentName: "assistant",
           event: { type: "text", text: " world" },
         });
@@ -352,11 +372,11 @@ describe("useChat", () => {
 
     it("should mark message as not streaming on done event", () => {
       const { result, cleanup } = renderChatHook();
-      bootstrapRun(result);
+      const runId = bootstrapRun(result);
 
       act(() => {
         subscriptionHandlers.agent_streaming?.({
-          runId: "run-1",
+          runId,
           agentName: "assistant",
           event: { type: "text", text: "Done" },
         });
@@ -364,9 +384,17 @@ describe("useChat", () => {
 
       act(() => {
         subscriptionHandlers.agent_streaming?.({
-          runId: "run-1",
+          runId,
           agentName: "assistant",
-          event: { type: "done" },
+          event: {
+            type: "done",
+            result: {
+              text: "Done",
+              usage: { promptTokens: 1_200, completionTokens: 50 },
+              contextTokens: 800,
+              finishReason: "stop",
+            },
+          },
         });
       });
 
@@ -375,17 +403,23 @@ describe("useChat", () => {
       );
       expect(agentMessages).toHaveLength(1);
       expect(agentMessages[0]?.streaming).toBe(false);
+      expect(agentMessages[0]?.usage).toEqual({
+        promptTokens: 1_200,
+        completionTokens: 50,
+      });
+      expect(agentMessages[0]?.contextTokens).toBe(800);
+      expect(agentMessages[0]?.completedAt).toBeNumber();
 
       cleanup();
     });
 
     it("should attach spawned strategy output to its launch tool call", () => {
       const { result, cleanup } = renderChatHook();
-      bootstrapRun(result);
+      const runId = bootstrapRun(result);
 
       act(() => {
         subscriptionHandlers.agent_streaming?.({
-          runId: "run-1",
+          runId,
           agentName: "manager",
           event: {
             type: "tool-call",
@@ -397,7 +431,7 @@ describe("useChat", () => {
       });
       act(() => {
         subscriptionHandlers.agent_output?.({
-          runId: "run-1",
+          runId,
           agentName: "planner",
           text: "Nested plan output",
         });
@@ -410,7 +444,7 @@ describe("useChat", () => {
 
       act(() => {
         subscriptionHandlers.agent_streaming?.({
-          runId: "run-1",
+          runId,
           agentName: "manager",
           event: {
             type: "tool-result",
@@ -423,7 +457,7 @@ describe("useChat", () => {
       });
       act(() => {
         subscriptionHandlers.agent_output?.({
-          runId: "run-1",
+          runId,
           agentName: "manager",
           text: "Manager complete",
         });
@@ -445,9 +479,10 @@ describe("useChat", () => {
       act(() => {
         result.current.startStrategy("/s.json");
       });
+      const runId = result.current.chatRunId!;
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-1",
+          runId,
           strategyName: "s",
           agents: ["assistant"],
         });
@@ -455,7 +490,7 @@ describe("useChat", () => {
 
       act(() => {
         subscriptionHandlers.agent_output?.({
-          runId: "run-1",
+          runId,
           agentName: "assistant",
           text: "Final output",
         });
@@ -479,9 +514,10 @@ describe("useChat", () => {
       act(() => {
         result.current.startStrategy("/s.json");
       });
+      const runId = result.current.chatRunId!;
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-1",
+          runId,
           strategyName: "s",
           agents: ["user-agent"],
         });
@@ -489,7 +525,7 @@ describe("useChat", () => {
 
       act(() => {
         subscriptionHandlers.request_input?.({
-          runId: "run-1",
+          runId,
           agentName: "user-agent",
           prompt: "Please provide input:",
         });
@@ -511,9 +547,10 @@ describe("useChat", () => {
       act(() => {
         result.current.startStrategy("/s.json");
       });
+      const runId = result.current.chatRunId!;
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-1",
+          runId,
           strategyName: "s",
           agents: ["user-agent"],
         });
@@ -523,7 +560,7 @@ describe("useChat", () => {
 
       act(() => {
         subscriptionHandlers.request_input?.({
-          runId: "run-1",
+          runId,
           agentName: "user-agent",
         });
       });
@@ -542,16 +579,17 @@ describe("useChat", () => {
       act(() => {
         result.current.startStrategy("/s.json");
       });
+      const runId = result.current.chatRunId!;
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-123",
+          runId,
           strategyName: "test",
           agents: ["user-agent"],
         });
       });
       act(() => {
         subscriptionHandlers.request_input?.({
-          runId: "run-123",
+          runId,
           agentName: "user-agent",
           prompt: "Enter input:",
         });
@@ -569,7 +607,7 @@ describe("useChat", () => {
       expect(userMessage?.sender).toBe("you");
 
       expect(mockSendUserInputCommand).toHaveBeenCalledWith({
-        runId: "run-123",
+        runId,
         agentName: "user-agent",
         text: "my answer",
       });
@@ -595,15 +633,16 @@ describe("useChat", () => {
   });
 
   describe("stop", () => {
-    it("should call stop_strategy command for the bound run's runId", () => {
+    it("should call stop_run command for the bound run's runId", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
         result.current.startStrategy("/s.json");
       });
+      const runId = result.current.chatRunId!;
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-123",
+          runId,
           strategyName: "s",
           agents: ["a"],
         });
@@ -613,21 +652,21 @@ describe("useChat", () => {
         result.current.stop();
       });
 
-      expect(mockStopStrategyCommand).toHaveBeenCalledWith({
-        runId: "run-123",
+      expect(mockStopRunCommand).toHaveBeenCalledWith({
+        runId,
       });
 
       cleanup();
     });
 
-    it("should be a no-op when no run is active", () => {
+    it("should be a no-op when no run is bound", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
         result.current.stop();
       });
 
-      expect(mockStopStrategyCommand).not.toHaveBeenCalled();
+      expect(mockStopRunCommand).not.toHaveBeenCalled();
 
       cleanup();
     });
@@ -640,16 +679,17 @@ describe("useChat", () => {
       act(() => {
         result.current.startStrategy("/s.json");
       });
+      const runId = result.current.chatRunId!;
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-1",
+          runId,
           strategyName: "s",
           agents: ["a"],
         });
       });
 
       act(() => {
-        subscriptionHandlers.strategy_completed?.({ runId: "run-1" });
+        subscriptionHandlers.strategy_completed?.({ runId });
       });
 
       expect(result.current.status).toBe("completed");
@@ -662,6 +702,160 @@ describe("useChat", () => {
     });
   });
 
+  describe("continueRun", () => {
+    const pivotStrategy = {
+      name: "plan",
+      version: "1.0",
+      path: "/plan.json",
+      manifestPath: "/project/comma-project.json",
+      origin: "cwd-project" as const,
+      label: "Project > Plan",
+    };
+
+    function completeRun(result: { current: UseChatState }): string {
+      let runId = "";
+      act(() => {
+        runId = result.current.startStrategy("/build.json", "build it");
+      });
+      act(() => {
+        subscriptionHandlers.strategy_started?.({
+          runId,
+          strategyName: "build",
+          agents: ["assistant"],
+        });
+        subscriptionHandlers.strategy_completed?.({ runId });
+      });
+      expect(result.current.status).toBe("completed");
+      return runId;
+    }
+
+    it("prepares and continues the same run with a pivoted strategy", () => {
+      const { result, runLifecycle, cleanup } = renderChatHook();
+      const runId = completeRun(result);
+      const existingMessages = result.current.messages.length;
+      const existingTranscript = result.current.messages;
+
+      act(() => {
+        runLifecycle.current.continueRun(runId, pivotStrategy, "refine it");
+      });
+
+      expect(result.current.chatRunId).toBe(runId);
+      expect(result.current.status).toBe("pending");
+      expect(result.current.strategyPath).toBe("/plan.json");
+      expect(result.current.messages).toHaveLength(existingMessages + 1);
+      expect(result.current.messages.at(-1)?.text).toBe("refine it");
+      expect(mockPrepareRunCommand).toHaveBeenLastCalledWith({
+        runId,
+        strategyPath: "/plan.json",
+        manifestPath: "/project/comma-project.json",
+      });
+
+      act(() => {
+        subscriptionHandlers.run_prepared?.({
+          runId,
+          strategyName: "plan",
+          agents: ["assistant"],
+          flowTree: {},
+          requestId: "req-1",
+        });
+      });
+
+      expect(mockContinueRunCommand).toHaveBeenCalledWith({
+        runId,
+        input: "refine it",
+      });
+      expect(mockStartRunCommand).toHaveBeenCalledTimes(0);
+
+      act(() => {
+        subscriptionHandlers.strategy_started?.({
+          runId,
+          strategyName: "plan",
+          agents: ["assistant"],
+        });
+      });
+
+      expect(result.current.chatRunId).toBe(runId);
+      expect(result.current.status).toBe("running");
+      expect(result.current.strategyName).toBe("plan");
+      expect(result.current.messages.slice(0, existingMessages)).toEqual([
+        ...existingTranscript,
+      ]);
+
+      act(() => {
+        subscriptionHandlers.strategy_completed?.({ runId });
+      });
+      act(() => {
+        runLifecycle.current.continueRun(runId, pivotStrategy, "refine again");
+      });
+
+      expect(result.current.chatRunId).toBe(runId);
+      expect(mockPrepareRunCommand).toHaveBeenLastCalledWith({
+        runId,
+        strategyPath: "/plan.json",
+        manifestPath: "/project/comma-project.json",
+      });
+      cleanup();
+    });
+
+    it("restores completed state when continuation preparation fails", () => {
+      const { result, runLifecycle, cleanup } = renderChatHook();
+      const runId = completeRun(result);
+
+      act(() => {
+        runLifecycle.current.continueRun(runId, pivotStrategy, "try again");
+      });
+      act(() => {
+        subscriptionHandlers.error?.({
+          type: "error",
+          code: "PREPARE_FAILED",
+          message: "Could not prepare continuation",
+          requestId: "req-1",
+        });
+      });
+
+      expect(result.current.status).toBe("completed");
+      expect(
+        result.current.messages.some((message) => message.text === "try again"),
+      ).toBe(true);
+      expect(result.current.messages.at(-1)?.text).toBe(
+        "Error: Could not prepare continuation",
+      );
+      cleanup();
+    });
+
+    it("restores completed state when continue_run fails", () => {
+      const { result, runLifecycle, cleanup } = renderChatHook();
+      const runId = completeRun(result);
+
+      act(() => {
+        runLifecycle.current.continueRun(runId, pivotStrategy, "retry");
+      });
+      act(() => {
+        subscriptionHandlers.run_prepared?.({
+          runId,
+          strategyName: "plan",
+          agents: ["assistant"],
+          flowTree: {},
+          requestId: "req-1",
+        });
+      });
+      act(() => {
+        subscriptionHandlers.error?.({
+          type: "error",
+          code: "CONTINUE_FAILED",
+          message: "Cannot continue run",
+          requestId: "req-continue",
+        });
+      });
+
+      expect(result.current.status).toBe("completed");
+      expect(result.current.messages.at(-1)?.text).toContain(
+        "Cannot continue run",
+      );
+      cleanup();
+    });
+  });
+
   describe("strategy_error subscription", () => {
     it("should set error status and display error message", () => {
       const { result, cleanup } = renderChatHook();
@@ -669,9 +863,10 @@ describe("useChat", () => {
       act(() => {
         result.current.startStrategy("/s.json");
       });
+      const runId = result.current.chatRunId!;
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-1",
+          runId,
           strategyName: "s",
           agents: ["a"],
         });
@@ -679,7 +874,7 @@ describe("useChat", () => {
 
       act(() => {
         subscriptionHandlers.strategy_error?.({
-          runId: "run-1",
+          runId,
           error: { message: "Something went wrong" },
         });
       });
@@ -696,7 +891,7 @@ describe("useChat", () => {
   });
 
   describe("error subscription (unrouted)", () => {
-    it("should route generic daemon error to the active run", () => {
+    it("should not guess a run for a generic daemon error", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
@@ -709,13 +904,13 @@ describe("useChat", () => {
         });
       });
 
-      expect(result.current.status).toBe("error");
-      expect(result.current.error).toBe("Connection lost");
+      expect(result.current.status).toBe("pending");
+      expect(result.current.error).toBeNull();
 
       cleanup();
     });
 
-    it("should be a no-op when no run is active", () => {
+    it("should be a no-op when no run is bound", () => {
       const { result, cleanup } = renderChatHook();
 
       act(() => {
@@ -735,9 +930,10 @@ describe("useChat", () => {
       act(() => {
         result.current.startStrategy("/s.json");
       });
+      const runId = result.current.chatRunId!;
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-1",
+          runId,
           strategyName: "s",
           agents: ["a"],
         });
@@ -745,13 +941,13 @@ describe("useChat", () => {
 
       act(() => {
         subscriptionHandlers.step_started?.({
-          runId: "run-1",
+          runId,
           stepName: "planning",
         });
       });
       act(() => {
         subscriptionHandlers.step_completed?.({
-          runId: "run-1",
+          runId,
           stepName: "planning",
         });
       });
@@ -776,16 +972,17 @@ describe("useChat", () => {
       act(() => {
         result.current.startStrategy("/s.json");
       });
+      const runId = result.current.chatRunId!;
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-1",
+          runId,
           strategyName: "s",
           agents: ["a"],
         });
       });
       act(() => {
         subscriptionHandlers.strategy_error?.({
-          runId: "run-1",
+          runId,
           error: { message: "fail" },
         });
       });
@@ -799,7 +996,7 @@ describe("useChat", () => {
       expect(result.current.error).toBeNull();
       expect(result.current.pendingInputAgent).toBeNull();
       // daemonRunId intentionally preserved — subscription stays alive.
-      expect(result.current.runId).toBe("run-1");
+      expect(result.current.runId).toBe(runId);
 
       cleanup();
     });
@@ -807,28 +1004,27 @@ describe("useChat", () => {
 
   describe("multi-run routing", () => {
     it("should route run events to the correct run by runId", () => {
-      const { chatRuns, cleanup } = renderChatHook();
+      const { chatRuns, runLifecycle, cleanup } = renderChatHook();
 
-      // Create two runs via the raw context API.
-      let sessionA: string = "";
-      let sessionB: string = "";
+      let sessionA = "";
       act(() => {
-        sessionA = chatRuns.current.startStrategy("/a.json");
+        sessionA = runLifecycle.current.startStrategy("/a.json");
       });
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-A",
+          runId: sessionA,
           strategyName: "A",
           agents: ["agent-a"],
         });
       });
 
+      let sessionB = "";
       act(() => {
-        sessionB = chatRuns.current.startStrategy("/b.json");
+        sessionB = runLifecycle.current.startStrategy("/b.json");
       });
       act(() => {
         subscriptionHandlers.strategy_started?.({
-          runId: "run-B",
+          runId: sessionB,
           strategyName: "B",
           agents: ["agent-b"],
         });
@@ -837,7 +1033,7 @@ describe("useChat", () => {
       // Send an agent_output for run-A only.
       act(() => {
         subscriptionHandlers.agent_output?.({
-          runId: "run-A",
+          runId: sessionA,
           agentName: "agent-a",
           text: "from A",
         });

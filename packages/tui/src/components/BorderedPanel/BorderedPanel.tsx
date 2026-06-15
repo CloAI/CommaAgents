@@ -10,7 +10,7 @@ export interface BorderedPanelProps {
    * Rendered inline in the top border row by overlaying the label text on
    * top of Ink's built-in border via an absolutely-positioned child.
    */
-  readonly header: string;
+  readonly header: React.ReactNode;
   /**
    * Color applied to every border glyph (top, left, right, bottom).
    * Defaults to the theme's neutral border color when omitted.
@@ -81,7 +81,7 @@ export interface BorderedPanelRenderProps {
   /** Resolved BorderedPanel theme. */
   readonly theme: BorderedPanelTheme;
   /** Header label embedded into the top border. */
-  readonly header: string;
+  readonly header: React.ReactNode;
   /** Resolved border color (no fallback handling here). */
   readonly borderColor: string;
   /** Resolved header label color (no fallback handling here). */
@@ -112,7 +112,8 @@ export function BorderedPanelRender({
           backgroundColor={backgroundColor}
           color={headerColor}
         >
-          {` ${header} `}
+          {" "}
+          {header}{" "}
         </Text>
       </Box>
       {children}

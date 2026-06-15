@@ -1,56 +1,33 @@
-import { useMemo } from "react";
+import {
+  type BoxProps,
+  defineTheme,
+  type TextProps,
+  type ThemeOf,
+} from "../../Theme";
 
-import { useTheme } from "../../Theme";
-
-/** Spread-ready style objects for the CodeView component. */
-export interface CodeViewTheme {
+/** Memoized themed style objects for the `CodeView` component. */
+export const useCodeViewTheme = defineTheme((tokens) => ({
   /** Root container wrapping the entire code block. */
-  readonly root: {
-    readonly flexDirection: "column";
-    readonly paddingX: number;
-  };
+  root: {
+    flexDirection: "column",
+    paddingX: tokens.spacing.sm,
+  } satisfies BoxProps,
   /** Row container for a single line (gutter + code). */
-  readonly lineRow: {
-    readonly flexDirection: "row";
-  };
+  lineRow: {
+    flexDirection: "row",
+  } satisfies BoxProps,
   /** Line number gutter text style. */
-  readonly lineNumber: {
-    readonly dimColor: boolean;
-    readonly color: string;
-  };
+  lineNumber: {
+    dimColor: tokens.typography.secondaryDim,
+    color: tokens.colors.muted,
+  } satisfies TextProps,
   /** Gutter separator gap between line number and code. */
-  readonly gutterGap: number;
+  gutterGap: tokens.spacing.sm,
   /** Fallback text style used while the highlighter is loading. */
-  readonly fallback: {
-    readonly dimColor: boolean;
-  };
-}
+  fallback: {
+    dimColor: tokens.typography.secondaryDim,
+  } satisfies TextProps,
+}));
 
-/**
- * Returns themed style objects for the CodeView component.
- * Consumes global tokens via `useTheme()`.
- */
-export function useCodeViewTheme(): CodeViewTheme {
-  const tokens = useTheme();
-
-  return useMemo<CodeViewTheme>(
-    () => ({
-      root: {
-        flexDirection: "column",
-        paddingX: tokens.spacing.sm,
-      },
-      lineRow: {
-        flexDirection: "row",
-      },
-      lineNumber: {
-        dimColor: tokens.typography.secondaryDim,
-        color: tokens.colors.muted,
-      },
-      gutterGap: tokens.spacing.sm,
-      fallback: {
-        dimColor: tokens.typography.secondaryDim,
-      },
-    }),
-    [tokens],
-  );
-}
+/** Resolved style object shape returned by {@link useCodeViewTheme}. */
+export type CodeViewTheme = ThemeOf<typeof useCodeViewTheme>;

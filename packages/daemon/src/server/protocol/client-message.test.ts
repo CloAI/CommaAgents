@@ -5,72 +5,82 @@ import { ClientMessage, parseClientMessage } from "./messages";
 import { ContinueRunMessage } from "./requests/continue-run/continue-run.schema";
 import { ListStrategiesMessage } from "./requests/list-strategies/list-strategies.schema";
 import { PingMessage } from "./requests/ping/ping.schema";
-import { StartStrategyMessage } from "./requests/start-strategy/start-strategy.schema";
-import { StopStrategyMessage } from "./requests/stop-strategy/stop-strategy.schema";
+import { PrepareRunMessage } from "./requests/prepare-run/prepare-run.schema";
+import { StartRunMessage } from "./requests/start-run/start-run.schema";
+import { StopRunMessage } from "./requests/stop-run/stop-run.schema";
 import { SubscribeMessage } from "./requests/subscribe/subscribe.schema";
 import { UnsubscribeMessage } from "./requests/unsubscribe/unsubscribe.schema";
 import { UserInputMessage } from "./requests/user-input/user-input.schema";
 
 // Individual message schemas
 
-describe("StartStrategyMessage", () => {
+describe("PrepareRunMessage", () => {
   test("parses valid message", () => {
     const msg = {
-      type: "start_strategy",
+      type: "prepare_run",
       strategyPath: "/path/to/strategy.json",
     };
-    expect(StartStrategyMessage.parse(msg)).toEqual(msg);
+    expect(PrepareRunMessage.parse(msg)).toEqual(msg);
   });
 
-  test("accepts optional input", () => {
+  test("rejects input", () => {
     const msg = {
-      type: "start_strategy",
+      type: "prepare_run",
       strategyPath: "/path.json",
       input: "hello",
     };
-    expect(StartStrategyMessage.parse(msg).input).toBe("hello");
+    expect(PrepareRunMessage.parse(msg)).not.toHaveProperty("input");
+  });
+
+  test("accepts a caller-selected runId", () => {
+    const msg = {
+      type: "prepare_run",
+      runId: "run-stable",
+      strategyPath: "/path.json",
+    };
+    expect(PrepareRunMessage.parse(msg).runId).toBe("run-stable");
   });
 
   test("accepts optional requestId", () => {
     const msg = {
-      type: "start_strategy",
+      type: "prepare_run",
       strategyPath: "/path.json",
       requestId: "req-1",
     };
-    expect(StartStrategyMessage.parse(msg).requestId).toBe("req-1");
+    expect(PrepareRunMessage.parse(msg).requestId).toBe("req-1");
   });
 
   test("accepts optional modelOverride", () => {
     const msg = {
-      type: "start_strategy",
+      type: "prepare_run",
       strategyPath: "/path.json",
       modelOverride: "anthropic/claude-sonnet-4-20250514",
     };
-    expect(StartStrategyMessage.parse(msg).modelOverride).toBe(
+    expect(PrepareRunMessage.parse(msg).modelOverride).toBe(
       "anthropic/claude-sonnet-4-20250514",
     );
   });
 
   test("rejects empty modelOverride", () => {
     expect(
-      StartStrategyMessage.safeParse({
-        type: "start_strategy",
+      PrepareRunMessage.safeParse({
+        type: "prepare_run",
         strategyPath: "/p.json",
         modelOverride: "",
       }).success,
     ).toBe(false);
   });
 
-  test("rejects missing strategyPath", () => {
+  test("accepts an existing runId without a strategyPath", () => {
     expect(
-      StartStrategyMessage.safeParse({ type: "start_strategy" }).success,
-    ).toBe(false);
+      PrepareRunMessage.parse({ type: "prepare_run", runId: "existing-run" }),
+    ).toEqual({ type: "prepare_run", runId: "existing-run" });
   });
 
   test("rejects empty strategyPath", () => {
     expect(
-      StartStrategyMessage.safeParse({
-        type: "start_strategy",
+      PrepareRunMessage.safeParse({
+        type: "prepare_run",
         strategyPath: "",
       }).success,
     ).toBe(false);
@@ -78,72 +88,45 @@ describe("StartStrategyMessage", () => {
 
   test("rejects wrong type literal", () => {
     expect(
-      StartStrategyMessage.safeParse({
-        type: "stop_strategy",
+      PrepareRunMessage.safeParse({
+        type: "stop_run",
         strategyPath: "/p",
       }).success,
     ).toBe(false);
   });
 });
 
+describe("StartRunMessage", () => {
+  test("accepts optional input", () => {
+    const msg = { type: "start_run", runId: "run-1", input: "hello" };
+    expect(StartRunMessage.parse(msg)).toEqual(msg);
+  });
+});
+
 describe("ContinueRunMessage", () => {
-  test("parses a run id and new input", () => {
-    const msg = {
-      type: "continue_run",
-      runId: "run-1",
-      input: "Continue with the failing tests",
-    };
+  test("requires a run id and input", () => {
+    const msg = { type: "continue_run", runId: "run-1", input: "continue" };
     expect(ContinueRunMessage.parse(msg)).toEqual(msg);
-  });
-
-  test("accepts empty input", () => {
     expect(
-      ContinueRunMessage.parse({
-        type: "continue_run",
-        runId: "run-1",
-        input: "",
-      }).input,
-    ).toBe("");
-  });
-
-  test("accepts a strategy override", () => {
-    const result = ContinueRunMessage.parse({
-      type: "continue_run",
-      runId: "run-1",
-      input: "Implement the approved plan",
-      strategyPath: "/strategies/build.json",
-      manifestPath: "/strategies/comma-project.json",
-    });
-    expect(result.strategyPath).toBe("/strategies/build.json");
-    expect(result.manifestPath).toBe("/strategies/comma-project.json");
-  });
-
-  test("rejects a missing run id", () => {
-    expect(
-      ContinueRunMessage.safeParse({
-        type: "continue_run",
-        input: "continue",
-      }).success,
+      ContinueRunMessage.safeParse({ type: "continue_run", runId: "run-1" })
+        .success,
     ).toBe(false);
   });
 });
 
-describe("StopStrategyMessage", () => {
+describe("StopRunMessage", () => {
   test("parses valid message", () => {
-    const msg = { type: "stop_strategy", runId: "run-1" };
-    expect(StopStrategyMessage.parse(msg)).toEqual(msg);
+    const msg = { type: "stop_run", runId: "run-1" };
+    expect(StopRunMessage.parse(msg)).toEqual(msg);
   });
 
   test("rejects missing runId", () => {
-    expect(
-      StopStrategyMessage.safeParse({ type: "stop_strategy" }).success,
-    ).toBe(false);
+    expect(StopRunMessage.safeParse({ type: "stop_run" }).success).toBe(false);
   });
 
   test("rejects empty runId", () => {
     expect(
-      StopStrategyMessage.safeParse({ type: "stop_strategy", runId: "" })
-        .success,
+      StopRunMessage.safeParse({ type: "stop_run", runId: "" }).success,
     ).toBe(false);
   });
 });
@@ -249,26 +232,54 @@ describe("PingMessage", () => {
 // ClientMessage discriminated union
 
 describe("ClientMessage union", () => {
-  test("routes start_strategy correctly", () => {
+  test("routes prepare_run and start_run correctly", () => {
     const result = ClientMessage.parse({
-      type: "start_strategy",
+      type: "prepare_run",
       strategyPath: "/p.json",
     });
-    expect(result.type).toBe("start_strategy");
+    expect(result.type).toBe("prepare_run");
+    expect(ClientMessage.parse({ type: "start_run", runId: "r" }).type).toBe(
+      "start_run",
+    );
   });
 
-  test("routes continue_run correctly", () => {
-    const result = ClientMessage.parse({
-      type: "continue_run",
-      runId: "r",
-      input: "continue",
-    });
-    expect(result.type).toBe("continue_run");
+  test("routes continue_run and rejects empty prepare_run messages", () => {
+    expect(
+      ClientMessage.parse({
+        type: "continue_run",
+        runId: "r",
+        input: "continue",
+      }).type,
+    ).toBe("continue_run");
+    expect(ClientMessage.safeParse({ type: "prepare_run" }).success).toBe(
+      false,
+    );
   });
 
-  test("routes stop_strategy correctly", () => {
-    const result = ClientMessage.parse({ type: "stop_strategy", runId: "r" });
-    expect(result.type).toBe("stop_strategy");
+  test("rejects removed get_run messages", () => {
+    expect(
+      ClientMessage.safeParse({
+        type: "get_run",
+        runId: "r",
+      }).success,
+    ).toBe(false);
+  });
+
+  test("routes stop_run correctly", () => {
+    const result = ClientMessage.parse({ type: "stop_run", runId: "r" });
+    expect(result.type).toBe("stop_run");
+  });
+
+  test("rejects removed strategy lifecycle requests", () => {
+    expect(
+      ClientMessage.safeParse({
+        type: "start_strategy",
+        strategyPath: "/p.json",
+      }).success,
+    ).toBe(false);
+    expect(
+      ClientMessage.safeParse({ type: "stop_strategy", runId: "r" }).success,
+    ).toBe(false);
   });
 
   test("routes user_input correctly", () => {

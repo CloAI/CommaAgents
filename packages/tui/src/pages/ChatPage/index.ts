@@ -1,7 +1,4 @@
-export type {
-  ChatPageRenderProps,
-  ChatPageRouteState,
-} from "./ChatPage";
+export type { ChatPageRenderProps } from "./ChatPage";
 export { ChatPage, ChatPageRender } from "./ChatPage";
 
 export type { ChatPageTheme } from "./ChatPage.theme";

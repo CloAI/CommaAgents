@@ -5,6 +5,8 @@ import type { ChatMessage } from "../../hooks/useChat/useChat.types";
 export interface MessageListProps {
   /** Messages to render in chronological order. */
   readonly messages: readonly ChatMessage[];
+  /** Opens a spawned strategy transcript in its dedicated page. */
+  readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }
 
 export interface MessageListRenderProps {
@@ -18,6 +20,8 @@ export interface MessageListRenderProps {
   readonly emptyStateProps: InkBoxProps;
   /** Props for the empty state Text. */
   readonly emptyStateTextProps: Omit<InkBoxProps, "children">;
+  /** Opens a spawned strategy transcript in its dedicated page. */
+  readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }
 
 export interface GroupedChatMessage extends ChatMessage {

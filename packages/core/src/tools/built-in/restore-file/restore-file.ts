@@ -1,7 +1,9 @@
 import { stat } from "node:fs/promises";
 import { z } from "zod";
+import { SandboxViolationError } from "../../../errors";
 import { defineTool } from "../../define/define-tool";
-import { restoreFromTrash } from "../../io";
+import { restoreFromTrash, sandboxErrorToToolError } from "../../io";
+import { readTrashMetadata } from "../../io/trash";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
@@ -102,12 +104,60 @@ export function createRestoreFileTool(): ToolDefinition<
         );
       }
 
+      const metadata = await readTrashMetadata(validatedArguments.trashedPath);
+      if (!metadata) {
+        return errorResult<RestoreFileData>(
+          toolError(
+            "not_found",
+            `Trash archive metadata is missing or corrupted: ${validatedArguments.trashedPath}`,
+            { path: validatedArguments.trashedPath, recoverable: false },
+          ),
+        );
+      }
+
+      const targetPath = validatedArguments.targetPath ?? metadata.originalPath;
+      let targetAbsolute: string;
+      try {
+        targetAbsolute = await guard.authorize(
+          { type: "fs.write", resource: targetPath },
+          {
+            agentName: toolContext.agentName,
+            toolName: "restore_file",
+            signal: abort,
+          },
+        );
+      } catch (caught) {
+        if (caught instanceof SandboxViolationError) {
+          return errorResult<RestoreFileData>(sandboxErrorToToolError(caught));
+        }
+        throw caught;
+      }
+
+      try {
+        await stat(targetAbsolute);
+        return errorResult<RestoreFileData>(
+          toolError(
+            "already_exists",
+            `Restore target already exists: ${targetPath}`,
+            {
+              path: targetPath,
+              recoverable: true,
+              suggestedNextAction:
+                "Delete or move the existing file before restoring.",
+            },
+          ),
+        );
+      } catch (caughtError) {
+        const code = (caughtError as NodeJS.ErrnoException).code;
+        if (code !== "ENOENT" && code !== "ENOTDIR") throw caughtError;
+      }
+
       let restoredAbsolute: string;
       try {
         restoredAbsolute = await restoreFromTrash(
           guard.cwd,
           validatedArguments.trashedPath,
-          validatedArguments.targetPath,
+          targetPath,
         );
 
         const contentStat = await stat(restoredAbsolute);
@@ -118,9 +168,7 @@ export function createRestoreFileTool(): ToolDefinition<
           {
             data: {
               restored: true,
-              path:
-                validatedArguments.targetPath ??
-                restoredAbsolute.slice(guard.cwd.length + 1),
+              path: targetPath,
               from: validatedArguments.trashedPath,
               sizeBytes,
             },

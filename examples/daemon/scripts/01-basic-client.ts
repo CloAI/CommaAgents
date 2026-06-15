@@ -15,7 +15,7 @@
  *
  * Concepts:
  *   - WebSocket connection to the daemon
- *   - start_strategy message to execute a strategy
+ *   - prepare_run and start_run messages to execute a strategy
  *   - Handling request_input (auto-replying with the initial prompt)
  *   - Handling strategy_started, strategy_completed, and strategy_error events
  *   - ping/pong keepalive
@@ -81,7 +81,7 @@ async function main() {
 
   const ws = new WebSocket(DAEMON_URL);
 
-  // The initial prompt we send in start_strategy — re-used as a reply if
+  // The initial prompt we send in start_run — re-used as a reply if
   // the strategy includes a UserAgent step that requests input.
   const initialInput = "Hello! What can you help me with?";
 
@@ -94,13 +94,12 @@ async function main() {
     // Send a ping to verify connectivity
     ws.send(JSON.stringify({ type: "ping", requestId: "hello" }));
 
-    // Start the strategy
+    // Prepare the strategy. Execution starts after run_prepared.
     ws.send(
       JSON.stringify({
-        type: "start_strategy",
+        type: "prepare_run",
         strategyPath,
-        input: initialInput,
-        requestId: "flow-1",
+        requestId: "prepare-1",
         ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
       }),
     );
@@ -110,6 +109,17 @@ async function main() {
     const msg = JSON.parse(event.data as string);
 
     switch (msg.type) {
+      case "run_prepared":
+        ws.send(
+          JSON.stringify({
+            type: "start_run",
+            runId: msg.runId,
+            input: initialInput,
+            requestId: "flow-1",
+          }),
+        );
+        break;
+
       case "pong":
         console.log(`[pong] Daemon is alive (ts: ${msg.ts})`);
         break;

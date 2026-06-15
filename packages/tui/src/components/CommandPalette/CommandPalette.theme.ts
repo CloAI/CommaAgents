@@ -1,106 +1,53 @@
-import { useMemo } from "react";
-import { useTheme } from "../../Theme";
-
-/** Spread-ready style objects for the CommandPalette component. */
-export interface CommandPaletteTheme {
-  /** Full flex column for the palette content area. */
-  readonly container: {
-    readonly flexDirection: "column";
-    readonly width: string;
-    readonly height: string;
-  };
-  /** Spacing wrapper around the search input. */
-  readonly searchWrapper: {
-    readonly flexShrink: 0;
-    readonly marginBottom: number;
-  };
-  /** Flex row for a single command item. */
-  readonly item: {
-    readonly flexDirection: "row";
-    readonly paddingX: number;
-    readonly paddingY: number;
-  };
-  /** Selected item highlight override. */
-  readonly itemSelected: {
-    readonly flexDirection: "row";
-    readonly paddingX: number;
-    readonly paddingY: number;
-    readonly backgroundColor: string;
-  };
-  /** Command label text. */
-  readonly label: {
-    readonly bold: boolean;
-    readonly color: string;
-  };
-  /** Selected command label text. */
-  readonly labelSelected: {
-    readonly bold: boolean;
-    readonly color: string;
-  };
-  /** Description separator between label and description. */
-  readonly separator: {
-    readonly color: string;
-  };
-  /** Command description text. */
-  readonly description: {
-    readonly color: string;
-  };
-  /** "No results" placeholder text. */
-  readonly empty: {
-    readonly color: string;
-    readonly dimColor: boolean;
-  };
-}
+import { defineTheme } from "../../Theme/DefineTheme";
 
 /**
  * Returns themed style objects for the CommandPalette component.
- * Consumes global tokens via `useTheme()`.
+ * Consumes global tokens via `defineTheme`.
  */
-export function useCommandPaletteTheme(): CommandPaletteTheme {
-  const tokens = useTheme();
+export const useCommandPaletteTheme = defineTheme((tokens) => ({
+  container: {
+    flexGrow: 1,
+    flexDirection: "column",
+    width: "100%",
+    height: "100%",
+  },
+  searchWrapper: {
+    flexShrink: 0,
+    marginBottom: tokens.spacing.sm,
+  },
+  item: {
+    flexDirection: "row",
+    paddingX: tokens.spacing.sm,
+    paddingY: 0,
+  },
+  itemSelected: {
+    flexDirection: "row",
+    paddingX: tokens.spacing.sm,
+    paddingY: 0,
+    backgroundColor: tokens.colors.surface,
+  },
+  label: {
+    bold: false,
+    color: tokens.colors.primary,
+  },
+  labelSelected: {
+    bold: true,
+    color: tokens.colors.primary,
+  },
+  separator: {
+    color: tokens.colors.muted,
+  },
+  description: {
+    color: tokens.colors.muted,
+  },
+  empty: {
+    color: tokens.colors.muted,
+    dimColor: true,
+  },
+}));
 
-  return useMemo<CommandPaletteTheme>(
-    () => ({
-      container: {
-        flexGrow: 1,
-        flexDirection: "column",
-        width: "100%",
-        height: "100%",
-      },
-      searchWrapper: {
-        flexShrink: 0,
-        marginBottom: tokens.spacing.sm,
-      },
-      item: {
-        flexDirection: "row",
-        paddingX: tokens.spacing.sm,
-        paddingY: 0,
-      },
-      itemSelected: {
-        flexDirection: "row",
-        paddingX: tokens.spacing.sm,
-        paddingY: 0,
-        backgroundColor: tokens.colors.surface,
-      },
-      label: {
-        bold: false,
-        color: tokens.colors.primary,
-      },
-      labelSelected: {
-        bold: true,
-        color: tokens.colors.primary,
-      },
-      separator: {
-        color: tokens.colors.muted,
-      },
-      description: {
-        color: tokens.colors.muted,
-      },
-      empty: {
-        color: tokens.colors.muted,
-        dimColor: true,
-      },
-    }),
-    [tokens],
-  );
-}
+/**
+ * Extract the resolved theme shape from `useCommandPaletteTheme`.
+ * Use this to type the `theme` prop in the component.
+ */
+export type CommandPaletteTheme = ReturnType<typeof useCommandPaletteTheme>;

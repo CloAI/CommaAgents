@@ -12,6 +12,7 @@ export type {
   Agent,
   AgentCallResult,
   AgentConfig,
+  AgentOutputSchema,
   AgentStreamEvent,
   ModelOptions,
 } from "./agents/agent/agent.types";

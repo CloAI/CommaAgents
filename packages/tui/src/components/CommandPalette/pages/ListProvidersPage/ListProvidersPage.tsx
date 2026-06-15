@@ -20,6 +20,11 @@ function providerHaystack(p: ProviderInfo): string {
   return [p.id, p.name, ...p.models.map((m: { id: string }) => m.id)].join(" ");
 }
 
+export interface ListProvidersPageProps {
+  /** The unique focus identifier for this page. */
+  readonly focusId: string;
+}
+
 /**
  * Command palette sub-page that lists all configured AI providers.
  *
@@ -30,9 +35,7 @@ function providerHaystack(p: ProviderInfo): string {
  */
 export function ListProvidersPage({
   focusId,
-}: {
-  readonly focusId: string;
-}): React.ReactElement {
+}: ListProvidersPageProps): React.ReactElement {
   const debug = useDebugRender("ListProvidersPage", {});
   const { send, on } = useDaemon();
   const tokens = useTheme();
@@ -42,9 +45,10 @@ export function ListProvidersPage({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // Single focus zone — no SearchInput competing for the same id.
+  // 3. Custom hooks
   const { isFocused } = useFocus({ id: focusId, isActive: RAW_MODE_SUPPORTED });
 
+  // 2. Memos
   const filtered = filterByQuery(providers, query, providerHaystack);
 
   useInput(
@@ -88,6 +92,53 @@ export function ListProvidersPage({
   }, [send, on]);
 
   return (
+    <ListProvidersPageRender
+      debug={debug}
+      tokens={tokens}
+      searchTheme={searchTheme}
+      providers={providers}
+      query={query}
+      selectedIndex={selectedIndex}
+      filtered={filtered}
+      onQueryChange={setQuery}
+      onSelectedIndexChange={setSelectedIndex}
+    />
+  );
+}
+
+export interface ListProvidersPageRenderProps {
+  /** Debug render context. */
+  readonly debug: ReturnType<typeof useDebugRender>;
+  /** Theme tokens. */
+  readonly tokens: ReturnType<typeof useTheme>;
+  /** Search input theme. */
+  readonly searchTheme: ReturnType<typeof useSearchInputTheme>;
+  /** List of all available providers. */
+  readonly providers: readonly ProviderInfo[];
+  /** Current search query. */
+  readonly query: string;
+  /** Currently selected index in the filtered list. */
+  readonly selectedIndex: number;
+  /** Providers filtered by the current query. */
+  readonly filtered: readonly ProviderInfo[];
+  /** Callback to update the search query. */
+  readonly onQueryChange: (query: string) => void;
+  /** Callback to update the selected index. */
+  readonly onSelectedIndexChange: (index: number) => void;
+}
+
+export function ListProvidersPageRender({
+  debug,
+  tokens,
+  searchTheme,
+  providers,
+  query,
+  selectedIndex,
+  filtered,
+  _onQueryChange,
+  onSelectedIndexChange,
+}: ListProvidersPageRenderProps): React.ReactElement {
+  return (
     <Box ref={debug.ref} flexDirection="column" width="100%" flexGrow={1}>
       <Box flexShrink={0} marginBottom={1}>
         <SearchInputRender
@@ -101,7 +152,7 @@ export function ListProvidersPage({
         items={filtered}
         getKey={(p) => p.id}
         selectedIndex={selectedIndex}
-        onSelectedIndexChange={setSelectedIndex}
+        onSelectedIndexChange={onSelectedIndexChange}
         isFocused={false}
         emptyText={
           providers.length === 0 ? "Loading providers..." : "No providers match"

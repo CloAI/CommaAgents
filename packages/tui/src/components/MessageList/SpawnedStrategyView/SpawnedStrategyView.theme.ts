@@ -42,6 +42,13 @@ export const useSpawnedStrategyViewTheme = defineTheme((tokens) => ({
   detailLabel: {
     bold: tokens.typography.labelBold,
   } satisfies TextProps,
+  openTarget: {
+    flexDirection: "row",
+  } satisfies BoxProps,
+  openHint: {
+    color: tokens.colors.primary,
+    underline: true,
+  } satisfies TextProps,
   muted: {
     dimColor: tokens.typography.secondaryDim,
   } satisfies TextProps,

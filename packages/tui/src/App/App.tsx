@@ -8,11 +8,12 @@ import { Frame } from "../components/Frame";
 import type { TabDefinition } from "../components/Frame/Frame";
 import { OutputModal } from "../components/MessageList";
 import { Modal } from "../components/Modal";
-import { useChatRuns } from "../hooks/useChat";
+import { useChatRunLifecycle } from "../hooks/useChat/useChatRunLifecycle";
 import { useModal } from "../hooks/useModal";
 import { ChatPage } from "../pages/ChatPage";
 import { IntroPage } from "../pages/IntroPage";
 import { LogsPage } from "../pages/LogsPage";
+import { SpawnedStrategyPage } from "../pages/SpawnedStrategyPage";
 
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
 
@@ -39,7 +40,7 @@ export function App({ devMode = false }: AppProps): React.ReactElement {
   const { enableFocus } = useFocusManager();
   const navigate = useNavigate();
   const location = useLocation();
-  const chatRunsContext = useChatRuns();
+  const { clearAllChatRuns } = useChatRunLifecycle();
   const commandPalette = useModal(COMMAND_PALETTE_MODAL_ID);
 
   useEffect(() => {
@@ -52,8 +53,8 @@ export function App({ devMode = false }: AppProps): React.ReactElement {
   );
 
   const handleResetChat = useCallback((): void => {
-    chatRunsContext.clearAllChatRuns();
-  }, [chatRunsContext]);
+    clearAllChatRuns();
+  }, [clearAllChatRuns]);
 
   const handleExitApp = useCallback((): void => {
     exit();
@@ -129,7 +130,11 @@ export function AppRender({
       >
         <Routes>
           <Route index element={<IntroPage />} />
-          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/chat/:chatRunId" element={<ChatPage />} />
+          <Route
+            path="/chat/:chatRunId/spawned/:toolCallId"
+            element={<SpawnedStrategyPage />}
+          />
           <Route path="/logs" element={<LogsPage />} />
         </Routes>
       </Frame>

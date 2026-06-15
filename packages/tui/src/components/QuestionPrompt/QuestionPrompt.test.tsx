@@ -35,7 +35,9 @@ describe("QuestionPrompt integration", () => {
   it("should render integrated QuestionPrompt container", () => {
     const onSubmit = mock(() => {});
     const request = {
-      questionRequestId: "request-123",
+      type: "request_question" as const,
+      ts: "2026-06-09T12:00:00.000Z",
+      requestId: "request-123",
       runId: "run-456",
       agentName: "AgentPower",
       toolName: "SearchTool",
@@ -56,7 +58,9 @@ describe("QuestionPrompt integration", () => {
   it("should render without tool name correctly", () => {
     const onSubmit = mock(() => {});
     const request = {
-      questionRequestId: "request-123",
+      type: "request_question" as const,
+      ts: "2026-06-09T12:00:00.000Z",
+      requestId: "request-123",
       runId: "run-456",
       agentName: "StandaloneAgent",
       toolName: "",

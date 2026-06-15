@@ -17,18 +17,11 @@ export {
   parseClientMessage,
   parseDaemonMessage,
 } from "./messages";
-export {
-  ContinueRunMessage,
-  handleContinueRun,
-} from "./requests/continue-run";
+export { ContinueRunMessage, handleContinueRun } from "./requests/continue-run";
 export {
   GetAvailableModelsMessage,
   handleGetAvailableModels,
 } from "./requests/get-available-models";
-export {
-  GetRunMessage,
-  handleGetRun,
-} from "./requests/get-run";
 export {
   handleListRuns,
   ListRunsMessage,
@@ -43,18 +36,13 @@ export {
   PermissionDecisionMessage,
 } from "./requests/permission-decision";
 export { handlePing, PingMessage } from "./requests/ping";
-export {
-  handleStartStrategy,
-  StartStrategyMessage,
-} from "./requests/start-strategy";
+export { handlePrepareRun, PrepareRunMessage } from "./requests/prepare-run";
+export { handleStartRun, StartRunMessage } from "./requests/start-run";
 export {
   handleSteerRun,
   SteerRunMessage,
 } from "./requests/steer-run";
-export {
-  handleStopStrategy,
-  StopStrategyMessage,
-} from "./requests/stop-strategy";
+export { handleStopRun, StopRunMessage } from "./requests/stop-run";
 export { handleSubscribe, SubscribeMessage } from "./requests/subscribe";
 export {
   handleTrashClear,
@@ -86,13 +74,13 @@ export { PolicyUpdatedMessage } from "./responses/policy-updated";
 export { PongMessage } from "./responses/pong";
 export { RequestInputMessage } from "./responses/request-input";
 export { RequestPermissionMessage } from "./responses/request-permission";
+export { RequestQuestionMessage } from "./responses/request-question";
 export type { RunOverviewWire } from "./responses/run-list";
 export {
   RunListMessage,
   RunOverviewSchema,
 } from "./responses/run-list";
-export type { RunLoadedMessage } from "./responses/run-loaded";
-export { RunLoadedMessage as RunLoadedMessageSchema } from "./responses/run-loaded/run-loaded.schema";
+export { RunPreparedMessage } from "./responses/run-prepared";
 // Colocated schemas re-exported for public API
 export type { AgentCallResultWire, Usage } from "./responses/shared";
 export { AgentCallResultSchema, UsageSchema } from "./responses/shared";

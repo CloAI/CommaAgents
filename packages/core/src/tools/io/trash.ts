@@ -7,7 +7,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import extract from "tar-stream/extract";
 import pack from "tar-stream/pack";
@@ -168,7 +168,7 @@ export async function listTrash(
 /**
  * Read the metadata.json from a trash archive without extracting files.
  */
-async function readTrashMetadata(
+export async function readTrashMetadata(
   archivePath: string,
 ): Promise<TrashMetadata | undefined> {
   try {
@@ -229,7 +229,16 @@ export async function restoreFromTrash(
   }
 
   const restoreRelative = targetPath ?? metadata.originalPath;
-  const restoreAbsolute = join(workspaceRoot, restoreRelative);
+  const restoreAbsolute = resolve(workspaceRoot, restoreRelative);
+  const relativeToWorkspace = relative(workspaceRoot, restoreAbsolute);
+  if (
+    relativeToWorkspace === ".." ||
+    relativeToWorkspace.startsWith(
+      `..${process.platform === "win32" ? "\\" : "/"}`,
+    )
+  ) {
+    throw new Error(`Restore target escapes workspace: ${restoreRelative}`);
+  }
 
   await mkdir(dirname(restoreAbsolute), { recursive: true });
 

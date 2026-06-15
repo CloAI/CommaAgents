@@ -186,7 +186,7 @@ The daemon's executor simplifies from:
 ```ts
 // before
 const strategy = await loadStrategyFromString(content, format, {
-  inputCollector: ctx.inputBridge.collector,
+  inputCollector: ctx.inputCollector,
   flowHooks: buildFlowHooks(run.id),
 });
 
@@ -202,7 +202,7 @@ to:
 ```ts
 // after
 const strategy = await loadStrategyFromString(content, format, {
-  inputCollector: ctx.inputBridge.collector,
+  inputCollector: ctx.inputCollector,
   flowHooks: buildFlowHooks(run.id),
   agentHooks: buildAgentHooks(run.id),
 });

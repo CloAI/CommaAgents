@@ -1,23 +1,15 @@
-import type { DiscoveredStrategy } from "@comma-agents/core";
-import { useCallback, useContext } from "react";
+import { useCallback } from "react";
 
-import { ChatRunsContext } from "./useChat.context";
-import type { ChatRunId, ChatRunsContextType } from "./useChat.types";
-
-function useChatRunsContext(): ChatRunsContextType {
-  const contextValue = useContext(ChatRunsContext);
-  if (!contextValue) {
-    throw new Error(
-      "useChatActions must be used within a <ChatRunsContextProvider>",
-    );
-  }
-  return contextValue;
-}
+import type { ChatRunId } from "./useChat.types";
+import { useChatInputRequests } from "./useChatInputRequests";
+import { useChatPermissionRequests } from "./useChatPermissionRequests";
+import { useChatQuestionRequests } from "./useChatQuestionRequests";
+import { useChatRunLifecycle } from "./useChatRunLifecycle";
+import { useChatSteering } from "./useChatSteering";
 
 export interface UseChatActionsResult {
   readonly sendInput: (text: string) => void;
   readonly sendSteer: (text: string) => void;
-  readonly sendContinue: (strategy: DiscoveredStrategy, text: string) => void;
   readonly sendPermissionDecision: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
@@ -26,66 +18,62 @@ export interface UseChatActionsResult {
   readonly stop: () => void;
 }
 
-export function useChatActions(chatRunId?: ChatRunId): UseChatActionsResult {
-  const context = useChatRunsContext();
-
-  const resolvedChatRunId: ChatRunId | null =
-    chatRunId ?? context.activeChatRunId;
+export function useChatActions(
+  chatRunId: ChatRunId | null,
+): UseChatActionsResult {
+  const { sendInput: sendInputForRun } = useChatInputRequests();
+  const { sendSteer: sendSteerForRun } = useChatSteering();
+  const { sendPermissionDecision: sendPermissionDecisionForRun } =
+    useChatPermissionRequests();
+  const { sendQuestionResponse: sendQuestionResponseForRun } =
+    useChatQuestionRequests();
+  const { resetChatRun, stopChatRun } = useChatRunLifecycle();
 
   const sendInput = useCallback(
     (text: string): void => {
-      if (!resolvedChatRunId) return;
-      context.sendInput(resolvedChatRunId, text);
+      if (!chatRunId) return;
+      sendInputForRun(chatRunId, text);
     },
-    [context, resolvedChatRunId],
+    [chatRunId, sendInputForRun],
   );
 
   const sendSteer = useCallback(
     (text: string): void => {
-      if (!resolvedChatRunId) return;
-      context.sendSteer(resolvedChatRunId, text);
+      if (!chatRunId) return;
+      sendSteerForRun(chatRunId, text);
     },
-    [context, resolvedChatRunId],
-  );
-
-  const sendContinue = useCallback(
-    (strategy: DiscoveredStrategy, text: string): void => {
-      if (!resolvedChatRunId) return;
-      context.continueRun(resolvedChatRunId, strategy, text);
-    },
-    [context, resolvedChatRunId],
+    [chatRunId, sendSteerForRun],
   );
 
   const sendPermissionDecision = useCallback(
     (decision: "allow" | "deny" | "allow-session" | "deny-session"): void => {
-      if (!resolvedChatRunId) return;
-      context.sendPermissionDecision(resolvedChatRunId, decision);
+      if (!chatRunId) return;
+      sendPermissionDecisionForRun(chatRunId, decision);
     },
-    [context, resolvedChatRunId],
+    [chatRunId, sendPermissionDecisionForRun],
   );
 
   const sendQuestionResponse = useCallback(
     (response: string): void => {
-      if (!resolvedChatRunId) return;
-      context.sendQuestionResponse(resolvedChatRunId, response);
+      if (!chatRunId) return;
+      sendQuestionResponseForRun(chatRunId, response);
     },
-    [context, resolvedChatRunId],
+    [chatRunId, sendQuestionResponseForRun],
   );
 
   const reset = useCallback((): void => {
-    if (!resolvedChatRunId) return;
-    context.resetChatRun(resolvedChatRunId);
-  }, [context, resolvedChatRunId]);
+    if (!chatRunId) return;
+    resetChatRun(chatRunId);
+  }, [chatRunId, resetChatRun]);
 
   const stop = useCallback((): void => {
-    if (!resolvedChatRunId) return;
-    context.stopChatRun(resolvedChatRunId);
-  }, [context, resolvedChatRunId]);
+    if (!chatRunId) return;
+    stopChatRun(chatRunId);
+  }, [chatRunId, stopChatRun]);
 
   return {
     sendInput,
     sendSteer,
-    sendContinue,
     sendPermissionDecision,
     sendQuestionResponse,
     reset,

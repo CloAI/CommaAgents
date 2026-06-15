@@ -91,10 +91,9 @@ async function main() {
 
     ws.send(
       JSON.stringify({
-        type: "start_strategy",
+        type: "prepare_run",
         strategyPath,
-        input: initialInput,
-        requestId: "stream-1",
+        requestId: "prepare-stream-1",
         ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
       }),
     );
@@ -104,6 +103,17 @@ async function main() {
     const msg = JSON.parse(event.data as string);
 
     switch (msg.type) {
+      case "run_prepared":
+        ws.send(
+          JSON.stringify({
+            type: "start_run",
+            runId: msg.runId,
+            input: initialInput,
+            requestId: "stream-1",
+          }),
+        );
+        break;
+
       case "pong":
         // Ignore keepalive responses
         break;

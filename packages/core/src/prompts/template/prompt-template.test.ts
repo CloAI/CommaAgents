@@ -4,6 +4,9 @@
 // filters, conditionals, loops, and error handling.
 
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createPromptTemplate } from "./prompt-template";
 
 // Basic variable interpolation
@@ -156,6 +159,40 @@ describe("createPromptTemplate", () => {
 
       expect(await tpl.render()).toBe("Agent uses key test-env-value");
     });
+
+    it("throws when no env variable name is provided", async () => {
+      const tpl = createPromptTemplate({ template: '{{ "" | env }}' });
+
+      await expect(tpl.render()).rejects.toThrow("requires a variable name");
+    });
+  });
+
+  describe("file filter", () => {
+    it("reads and trims the first line of a file", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "prompt-template-"));
+      const path = join(dir, "value.txt");
+      await writeFile(path, "  first line  \nsecond line");
+
+      try {
+        const tpl = createPromptTemplate({
+          template: `{{ "${path}" | file }}`,
+        });
+        expect(await tpl.render()).toBe("first line");
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("reports missing and empty file paths", async () => {
+      await expect(
+        createPromptTemplate({ template: '{{ "" | file }}' }).render(),
+      ).rejects.toThrow("requires a file path");
+      await expect(
+        createPromptTemplate({
+          template: '{{ "/definitely/missing/prompt-template-file" | file }}',
+        }).render(),
+      ).rejects.toThrow("could not read");
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -186,6 +223,15 @@ describe("createPromptTemplate", () => {
       });
 
       expect(await tpl.render()).toBe("Today: 2025-01-01");
+    });
+
+    it("reports empty commands and failed command output", async () => {
+      await expect(
+        createPromptTemplate({ template: '{{ "" | exec }}' }).render(),
+      ).rejects.toThrow("requires a command");
+      await expect(
+        createPromptTemplate({ template: '{{ "true" | exec }}' }).render(),
+      ).rejects.toThrow("empty output");
     });
   });
 

@@ -7,8 +7,7 @@ import type { QuestionResponseMessage } from "./question-response.schema";
 export { QuestionResponseMessage } from "./question-response.schema";
 
 /**
- * Handle a `question_response` request by delivering the response to the
- * question bridge.
+ * Handle a `question_response` request by resolving the pending question.
  *
  * If no pending question request exists for the specified `questionRequestId`,
  * sends a `NO_PENDING_QUESTION` error back to the client.
@@ -17,7 +16,8 @@ export function handleQuestionResponse(
   message: QuestionResponseMessage,
   context: HandlerContext<"question_response">,
 ): void {
-  const delivered = context.executor.handleQuestionResponse(
+  const delivered = context.runSystem.actions.invoke(
+    "resolveQuestion",
     message.runId,
     message.questionRequestId,
     message.response,

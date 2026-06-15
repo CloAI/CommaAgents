@@ -148,7 +148,7 @@ If the run is not found, the daemon replies with an error:
 ```
 Client                          Daemon
   |                               |
-  |  start_strategy               |
+  |  prepare_run -> start_run     |
   |------------------------------>|
   |                               |
   |     strategy_started          |

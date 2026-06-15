@@ -1,6 +1,5 @@
-import type { StrategyExecutor } from "../../executor/executor";
 import type { Logger } from "../../logger/logger.types";
-import type { RunStore } from "../../runs";
+import type { RunSystem } from "../../run-system";
 import type { DaemonState } from "../../state/state.types";
 import type { DaemonMessage } from "./messages";
 import type { AvailableModelsMessage } from "./responses/available-models";
@@ -11,7 +10,7 @@ import type { ProviderListMessage } from "./responses/provider-list";
 import type { ProviderRegisteredMessage } from "./responses/provider-registered";
 import type { ProviderUnregisteredMessage } from "./responses/provider-unregistered";
 import type { RunListMessage } from "./responses/run-list";
-import type { RunLoadedMessage } from "./responses/run-loaded";
+import type { RunPreparedMessage } from "./responses/run-prepared";
 import type { StrategyListMessage } from "./responses/strategy-list";
 import type { TrashClearResultMessage } from "./responses/trash-clear-result";
 import type { TrashListResultMessage } from "./responses/trash-list-result";
@@ -28,15 +27,16 @@ import type { TrashRestoreResultMessage } from "./responses/trash-restore-result
  * ```ts
  * // Ping may reply with PongMessage (or ErrorMessage, always implicit)
  * type PingResponse = RequestResponseMap["ping"]; // PongMessage
- * // Start-strategy never sends a direct success response
- * type StartStrategyResponse = RequestResponseMap["start_strategy"]; // never
+ * // Start-run never sends a direct success response
+ * type StartRunResponse = RequestResponseMap["start_run"]; // never
  * ```
  */
 export interface RequestResponseMap {
   readonly ping: PongMessage;
-  readonly start_strategy: never;
+  readonly prepare_run: RunPreparedMessage;
+  readonly start_run: never;
   readonly continue_run: never;
-  readonly stop_strategy: never;
+  readonly stop_run: never;
   readonly user_input: never;
   readonly permission_decision: never;
   readonly question_response: never;
@@ -50,7 +50,6 @@ export interface RequestResponseMap {
   readonly subscribe: never;
   readonly unsubscribe: never;
   readonly list_runs: RunListMessage;
-  readonly get_run: RunLoadedMessage;
   readonly trash_list: TrashListResultMessage;
   readonly trash_restore: TrashRestoreResultMessage;
   readonly trash_clear: TrashClearResultMessage;
@@ -75,8 +74,8 @@ export interface RequestResponseMap {
  *   context.reply({ type: "pong", ts: new Date().toISOString() });
  * }
  *
- * // Start-strategy handler — may only reply with ErrorMessage (never = error-only)
- * function handleStartStrategy(message: StartStrategyMessage, context: HandlerContext<"start_strategy">): void {
+ * // Start-run handler — may only reply with ErrorMessage (never = error-only)
+ * function handleStartRun(message: StartRunMessage, context: HandlerContext<"start_run">): void {
  *   // context.reply({ type: "pong", ... }); // Type error!
  * }
  * ```
@@ -86,12 +85,10 @@ export interface HandlerContext<
 > {
   /** The client ID that sent this request. */
   readonly clientId: string;
-  /** The strategy executor for starting/stopping runs and routing input/auth. */
-  readonly executor: StrategyExecutor;
+  /** Run lifecycle, actions, and persisted run storage. */
+  readonly runSystem: RunSystem;
   /** Centralized daemon state for run/client/subscription tracking. */
   readonly state: DaemonState;
-  /** Persistent run store. */
-  readonly runStore: RunStore;
   /** Logger for handler-level diagnostics. */
   readonly logger: Logger;
   /** Send a response to the requesting client. Constrained by `RequestResponseMap`. */

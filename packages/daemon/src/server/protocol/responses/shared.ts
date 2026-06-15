@@ -18,6 +18,8 @@ export type Usage = z.infer<typeof UsageSchema>;
 export const AgentCallResultSchema = z.object({
   text: z.string(),
   usage: UsageSchema,
+  /** Tokens occupying the final model step's context window. */
+  contextTokens: z.number().optional(),
   finishReason: z.string(),
 });
 export type AgentCallResultWire = z.infer<typeof AgentCallResultSchema>;

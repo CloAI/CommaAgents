@@ -159,9 +159,9 @@ async function main() {
       createTracker(id, label, input);
       ws.send(
         JSON.stringify({
-          type: "start_strategy",
+          type: "prepare_run",
+          runId: id,
           strategyPath,
-          input,
           requestId: id,
           ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
         }),
@@ -179,21 +179,28 @@ async function main() {
     const msg = JSON.parse(event.data as string);
 
     switch (msg.type) {
+      case "run_prepared": {
+        const tracker = flows.get(msg.runId);
+        if (tracker) tracker.runId = msg.runId;
+        ws.send(
+          JSON.stringify({
+            type: "start_run",
+            runId: msg.runId,
+            input: tracker?.input ?? "",
+            requestId: msg.requestId,
+          }),
+        );
+        break;
+      }
+
       case "pong":
         break;
 
       case "strategy_started": {
-        // Correlate by scanning trackers — the daemon broadcasts strategy_started
-        // to the starting client, and the requestId is NOT echoed on flow_started.
-        // Instead, use step events keyed by runId.
-        // However, the starting client is auto-subscribed, so we match by order.
-        const pending = [...pendingByRequestId.values()].find(
-          (t) => t.status === "starting" && !t.runId,
-        );
-        if (pending) {
-          pending.runId = msg.runId;
-          pending.status = "running";
-          pendingByRequestId.delete(pending.requestId);
+        const tracker = findTracker(msg.runId);
+        if (tracker) {
+          tracker.status = "running";
+          pendingByRequestId.delete(tracker.requestId);
         }
         console.log(
           `[strategy_started] ${msg.strategyName} → run ${msg.runId.slice(0, 8)}`,

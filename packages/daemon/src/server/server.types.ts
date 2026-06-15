@@ -18,8 +18,6 @@ export interface CreateDaemonOptions {
   readonly config: DaemonConfig;
   /** Logger for server-level diagnostics. */
   readonly logger: Logger;
-  /** Timeout in ms for input/auth bridges. 0 = no timeout. Default: 0. */
-  readonly bridgeTimeout?: number;
   /**
    * Override the model for ALL agents in every strategy execution.
    * Format: "providerID/modelID" (e.g., "github-copilot/gpt-4o").

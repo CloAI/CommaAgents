@@ -2,31 +2,29 @@ import { Box, Text } from "ink";
 import type React from "react";
 import { useTheme } from "../../../../Theme";
 
-/** A single shortcut entry for the help page. */
-interface ShortcutEntry {
-  readonly keys: string;
-  readonly description: string;
+import { SHORTCUTS } from "./HelpPage.constants";
+
+export interface HelpPageProps {
+  /** ID of the currently focused element for API consistency. */
+  readonly focusId: string;
 }
 
-const SHORTCUTS: readonly ShortcutEntry[] = [
-  { keys: "Ctrl+P", description: "Toggle command palette" },
-  { keys: "↑ / ↓", description: "Navigate list items" },
-  { keys: "Enter", description: "Select item / confirm" },
-  { keys: "Esc", description: "Go back / dismiss" },
-  { keys: "Backspace", description: "Delete last character in search" },
-  { keys: "Ctrl+C", description: "Quit the application" },
-];
-
-/**
- * Help sub-page for the command palette.
- * Lists keyboard shortcuts and brief usage tips.
- * `focusId` is accepted for API consistency but not used (static page).
- */
-export function HelpPage(_props: {
-  readonly focusId: string;
-}): React.ReactElement {
+export function HelpPage({
+  focusId: _focusId,
+}: HelpPageProps): React.ReactElement {
   const tokens = useTheme();
 
+  return <HelpPageRender tokens={tokens} />;
+}
+
+export interface HelpPageRenderProps {
+  /** The active theme tokens. */
+  readonly tokens: ReturnType<typeof useTheme>;
+}
+
+export function HelpPageRender({
+  tokens,
+}: HelpPageRenderProps): React.ReactElement {
   return (
     <Box flexDirection="column" width="100%" gap={1}>
       <Box marginBottom={1}>

@@ -152,6 +152,7 @@ export function TextAreaInput({
   useInput(
     (input, key) => {
       if (isMouseEscape(input)) return;
+      if (key.escape) return;
 
       if (key.return && (key.ctrl || key.shift || key.meta)) {
         insertAtCursor("\n");

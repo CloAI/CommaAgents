@@ -67,6 +67,24 @@ export interface MessageListTheme {
       readonly flexDirection: "row";
     };
     readonly label: BadgeStyle;
+    readonly headerDetail: {
+      readonly model: {
+        readonly color: string;
+        readonly dimColor: boolean;
+      };
+      readonly context: {
+        readonly color: string;
+        readonly bold: boolean;
+      };
+      readonly time: {
+        readonly color: string;
+        readonly dimColor: boolean;
+      };
+      readonly separator: {
+        readonly color: string;
+        readonly dimColor: boolean;
+      };
+    };
     readonly body: {
       readonly flexDirection: "column";
       readonly paddingLeft: number;
@@ -114,21 +132,6 @@ export interface MessageListTheme {
       readonly header: BadgeStyle;
       readonly text: {
         readonly italic: true;
-        readonly dimColor: boolean;
-        readonly wrap: "wrap";
-      };
-    };
-    /** MCP call block. */
-    readonly mcpCall: {
-      readonly container: {
-        readonly flexDirection: "column";
-        readonly marginTop: number;
-      };
-      readonly header: BadgeStyle;
-      readonly args: {
-        readonly dimColor: boolean;
-      };
-      readonly output: {
         readonly dimColor: boolean;
         readonly wrap: "wrap";
       };
@@ -219,6 +222,24 @@ export function useMessageListTheme(): MessageListTheme {
           bold: tokens.typography.labelBold,
           color: tokens.colors.agentMessage,
         },
+        headerDetail: {
+          model: {
+            color: tokens.colors.secondary,
+            dimColor: tokens.typography.secondaryDim,
+          },
+          context: {
+            color: tokens.colors.warning,
+            bold: tokens.typography.labelBold,
+          },
+          time: {
+            color: tokens.colors.muted,
+            dimColor: tokens.typography.secondaryDim,
+          },
+          separator: {
+            color: tokens.colors.muted,
+            dimColor: tokens.typography.secondaryDim,
+          },
+        },
         body: {
           flexDirection: "column",
           paddingLeft: tokens.spacing.md,
@@ -270,23 +291,6 @@ export function useMessageListTheme(): MessageListTheme {
           },
           text: {
             italic: true,
-            dimColor: tokens.typography.secondaryDim,
-            wrap: "wrap",
-          },
-        },
-        mcpCall: {
-          container: {
-            flexDirection: "column",
-            marginTop: tokens.spacing.xs,
-          },
-          header: {
-            bold: tokens.typography.labelBold,
-            color: tokens.colors.warning,
-          },
-          args: {
-            dimColor: tokens.typography.secondaryDim,
-          },
-          output: {
             dimColor: tokens.typography.secondaryDim,
             wrap: "wrap",
           },

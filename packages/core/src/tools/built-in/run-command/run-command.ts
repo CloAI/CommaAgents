@@ -61,6 +61,22 @@ const runCommandParams = z.object({
     ),
 });
 
+function formatOutputWithCapturedStreams(
+  summaryParts: readonly string[],
+  data: Pick<RunCommandData, "stdout" | "stderr">,
+): string {
+  const outputParts = [...summaryParts];
+
+  if (data.stdout.length > 0) {
+    outputParts.push(`STDOUT:\n${data.stdout}`);
+  }
+  if (data.stderr.length > 0) {
+    outputParts.push(`STDERR:\n${data.stderr}`);
+  }
+
+  return outputParts.join("\n\n");
+}
+
 export function createRunCommandTool(
   config?: RunCommandToolConfigWithRequester,
 ): ToolDefinition<typeof runCommandParams, RunCommandData> {
@@ -316,43 +332,50 @@ export function createRunCommandTool(
       };
 
       if (spawnError) {
-        return errorResult<RunCommandData>(
-          toolError(
-            "command_failed",
-            `Shell process error: ${spawnError.message}`,
-            {
-              recoverable: false,
-              details: { command: validatedArguments.command },
-            },
-          ),
-          { data },
+        const error = toolError(
+          "command_failed",
+          `Shell process error: ${spawnError.message}`,
+          {
+            recoverable: false,
+            details: { command: validatedArguments.command },
+          },
         );
+        return errorResult<RunCommandData>(error, {
+          data,
+          output: formatOutputWithCapturedStreams([error.message], data),
+        });
       }
 
       if (timedOut) {
-        return errorResult<RunCommandData>(
-          toolError(
-            "timeout",
-            `Command exceeded ${timeoutMs}ms timeout and was terminated.`,
-            {
-              recoverable: true,
-              suggestedNextAction:
-                "Increase `timeoutMs`, narrow the command, or split it into smaller steps.",
-              details: { command: validatedArguments.command, timeoutMs },
-            },
-          ),
-          { data },
+        const error = toolError(
+          "timeout",
+          `Command exceeded ${timeoutMs}ms timeout and was terminated.`,
+          {
+            recoverable: true,
+            suggestedNextAction:
+              "Increase `timeoutMs`, narrow the command, or split it into smaller steps.",
+            details: { command: validatedArguments.command, timeoutMs },
+          },
         );
+        return errorResult<RunCommandData>(error, {
+          data,
+          output: formatOutputWithCapturedStreams([error.message], data),
+        });
       }
 
       if (abort.aborted) {
-        return errorResult<RunCommandData>(
-          toolError("command_failed", "Operation aborted before completion.", {
+        const error = toolError(
+          "command_failed",
+          "Operation aborted before completion.",
+          {
             recoverable: false,
             details: { command: validatedArguments.command },
-          }),
-          { data },
+          },
         );
+        return errorResult<RunCommandData>(error, {
+          data,
+          output: formatOutputWithCapturedStreams([error.message], data),
+        });
       }
 
       // Format the exit-status banner so the LLM cannot miss it. The
@@ -399,7 +422,10 @@ export function createRunCommandTool(
         );
       }
 
-      return okResult<RunCommandData>(summaryParts.join("\n"), { data });
+      return okResult<RunCommandData>(
+        formatOutputWithCapturedStreams(summaryParts, data),
+        { data },
+      );
     },
   });
 }

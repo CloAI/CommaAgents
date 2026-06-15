@@ -161,6 +161,8 @@ describe("AgentStreamingMessage", () => {
       ts,
       runId: "run-1",
       agentName: "writer",
+      model: "openai/gpt-4o",
+      contextWindow: 128_000,
       event: { type: "text", text: "hello" },
     };
     expect(AgentStreamingMessage.parse(msg)).toEqual(msg);
@@ -216,7 +218,7 @@ describe("AgentStreamingMessage", () => {
       ts,
       runId: "run-1",
       agentName: "coder",
-      event: { type: "done", result: agentResult },
+      event: { type: "done", result: { ...agentResult, contextTokens: 42 } },
     };
     expect(AgentStreamingMessage.parse(msg)).toEqual(msg);
   });
@@ -433,6 +435,18 @@ describe("ErrorMessage", () => {
 // DaemonMessage discriminated union
 
 describe("DaemonMessage union", () => {
+  test("routes run_prepared correctly", () => {
+    const result = DaemonMessage.parse({
+      type: "run_prepared",
+      ts,
+      runId: "r",
+      strategyName: "s",
+      agents: ["a"],
+      flowTree: {},
+    });
+    expect(result.type).toBe("run_prepared");
+  });
+
   test("routes strategy_started correctly", () => {
     const result = DaemonMessage.parse({
       type: "strategy_started",
@@ -549,6 +563,16 @@ describe("DaemonMessage union", () => {
     expect(DaemonMessage.safeParse({ type: "unknown_msg", ts }).success).toBe(
       false,
     );
+  });
+
+  test("rejects removed run_loaded messages", () => {
+    expect(
+      DaemonMessage.safeParse({
+        type: "run_loaded",
+        ts,
+        runId: "r",
+      }).success,
+    ).toBe(false);
   });
 
   test("rejects missing type", () => {

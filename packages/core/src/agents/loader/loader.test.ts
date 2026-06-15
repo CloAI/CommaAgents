@@ -256,6 +256,19 @@ describe("AgentDescriptionSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("should accept an outputSchema JSON Schema object", () => {
+    const result = AgentDescriptionSchema.safeParse({
+      name: "test",
+      model: "openai/gpt-4o",
+      outputSchema: {
+        type: "object",
+        properties: { answer: { type: "string" } },
+        required: ["answer"],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("should accept both providerOptions and modelOptions", () => {
     const result = AgentDescriptionSchema.safeParse({
       name: "test",
@@ -460,6 +473,27 @@ describe("loadAgentFromString", () => {
       setupMockModels();
       const agent = await loadAgentFromString(MINIMAL_JSON, "json");
       expect(agent.config?.modelOptions).toBeUndefined();
+    });
+
+    it("should convert outputSchema to an AI SDK schema", async () => {
+      setupMockModels();
+      const outputSchema = {
+        type: "object",
+        properties: { answer: { type: "string" } },
+        required: ["answer"],
+      };
+      const agent = await loadAgentFromString(
+        JSON.stringify({
+          name: "test",
+          model: "openai/gpt-4o",
+          outputSchema,
+        }),
+        "json",
+      );
+
+      expect(await agent.config?.outputSchema?.jsonSchema).toEqual(
+        outputSchema,
+      );
     });
   });
 

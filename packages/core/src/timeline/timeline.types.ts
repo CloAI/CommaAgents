@@ -15,7 +15,6 @@ export type TimelineEvent =
       readonly initialInput?: string;
       readonly manifestPath?: string;
       readonly modelOverride?: string;
-      readonly previousRunId?: string;
     }
   | {
       readonly type: "run_completed";

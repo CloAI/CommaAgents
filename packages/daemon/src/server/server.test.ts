@@ -2,7 +2,7 @@
 //
 // These tests use real Bun WebSocket connections, real strategy files with
 // mock AI models registered via global registries, and exercise the full
-// pipeline: WS message → routing → executor → loadStrategy → mock model
+// pipeline: WS message → routing → run system → loadStrategy → mock model
 // → events back over WebSocket.
 
 import {
@@ -55,9 +55,7 @@ async function writeTrackedTempStrategy(
 // Helpers — daemon + WebSocket lifecycle
 
 /** Create and start a daemon on a random port. */
-async function startDaemon(overrides?: {
-  bridgeTimeout?: number;
-}): Promise<Daemon> {
+async function startDaemon(): Promise<Daemon> {
   const daemon = createDaemon({
     config: {
       port: 0, // Random available port
@@ -70,7 +68,6 @@ async function startDaemon(overrides?: {
       runsDir: join(tmpdir(), `runs-${crypto.randomUUID()}`),
     },
     logger: mockLogger(),
-    bridgeTimeout: overrides?.bridgeTimeout ?? 0,
   });
 
   await daemon.start();
@@ -166,6 +163,37 @@ function connectClient(daemon: Daemon): Promise<{
 /** Wait a short period for async side effects to settle. */
 function settle(ms = 50): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+async function prepareAndStartClient(
+  client: Awaited<ReturnType<typeof connectClient>>,
+  strategyPath: string,
+  options: {
+    runId?: string;
+    input?: string;
+    requestId?: string;
+  } = {},
+): Promise<any> {
+  const prepareRequestId = `prepare-${crypto.randomUUID()}`;
+  client.send({
+    type: "prepare_run",
+    strategyPath,
+    requestId: prepareRequestId,
+    ...(options.runId !== undefined ? { runId: options.runId } : {}),
+  });
+  const prepared: any = await client.waitForMessage(
+    (message: any) =>
+      message.type === "run_prepared" && message.requestId === prepareRequestId,
+  );
+  client.send({
+    type: "start_run",
+    runId: prepared.runId,
+    ...(options.input !== undefined ? { input: options.input } : {}),
+    ...(options.requestId !== undefined
+      ? { requestId: options.requestId }
+      : {}),
+  });
+  return prepared;
 }
 
 // Test lifecycle
@@ -334,7 +362,7 @@ describe("Invalid messages", () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
-    client.send({ type: "start_strategy" }); // Missing required strategyPath
+    client.send({ type: "prepare_run" }); // Missing required strategyPath
     const err: any = await client.waitForType("error");
 
     expect(err.type).toBe("error");
@@ -376,7 +404,7 @@ describe("list_strategies", () => {
     const client = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
-    client.send({ type: "start_strategy", strategyPath: stratPath });
+    await prepareAndStartClient(client, stratPath);
 
     // Wait for strategy to actually start
     await client.waitForType("strategy_started");
@@ -400,7 +428,7 @@ describe("subscribe / unsubscribe", () => {
 
     // Start a strategy so a run exists
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
-    client.send({ type: "start_strategy", strategyPath: stratPath });
+    await prepareAndStartClient(client, stratPath);
     const started: any = await client.waitForType("strategy_started");
 
     // Subscribe another client to the same run
@@ -458,23 +486,32 @@ describe("subscribe / unsubscribe", () => {
   });
 });
 
-// start_strategy end-to-end
+// prepare_run / start_run end-to-end
 
-describe("start_strategy end-to-end", () => {
-  it("start strategy with valid single-agent strategy → strategy_started + strategy_completed", async () => {
+describe("prepare_run / start_run end-to-end", () => {
+  it("prepare then start a valid single-agent strategy", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
     client.send({
-      type: "start_strategy",
+      type: "prepare_run",
+      runId: "stable-run",
       strategyPath: stratPath,
+      requestId: "prepare-1",
+    });
+    const prepared: any = await client.waitForType("run_prepared");
+    expect(prepared.runId).toBe("stable-run");
+    expect(prepared.requestId).toBe("prepare-1");
+    client.send({
+      type: "start_run",
+      runId: prepared.runId,
       requestId: "flow-1",
     });
 
     const started: any = await client.waitForType("strategy_started");
     expect(started.type).toBe("strategy_started");
-    expect(started.runId).toBeTruthy();
+    expect(started.runId).toBe("stable-run");
     expect(started.requestId).toBe("flow-1");
 
     const completed: any = await client.waitForType("strategy_completed");
@@ -484,20 +521,20 @@ describe("start_strategy end-to-end", () => {
     client.close();
   });
 
-  it("start strategy with invalid path → strategy_error", async () => {
+  it("prepare strategy with invalid path → correlated error", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     client.send({
-      type: "start_strategy",
+      type: "prepare_run",
       strategyPath: "/nonexistent/path/strategy.json",
       requestId: "flow-bad",
     });
 
-    const err: any = await client.waitForType("strategy_error");
-    expect(err.type).toBe("strategy_error");
-    expect(err.error.code).toBe("EXECUTION_ERROR");
-    expect(err.error.message).toContain("not found");
+    const err: any = await client.waitForType("error");
+    expect(err.code).toBe("PREPARE_FAILED");
+    expect(err.message).toContain("not found");
+    expect(err.requestId).toBe("flow-bad");
     client.close();
   });
 
@@ -506,7 +543,10 @@ describe("start_strategy end-to-end", () => {
     const client = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MULTI_AGENT_STRATEGY);
-    client.send({ type: "start_strategy", strategyPath: stratPath });
+    const prepared = await prepareAndStartClient(client, stratPath);
+    expect(prepared.strategyName).toBe("MultiAgent");
+    expect(prepared.agents).toContain("writer");
+    expect(prepared.flowTree.type).toBe("sequential");
 
     const started: any = await client.waitForType("strategy_started");
     expect(started.strategyName).toBe("MultiAgent");
@@ -525,7 +565,7 @@ describe("start_strategy end-to-end", () => {
     const client = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
-    client.send({ type: "start_strategy", strategyPath: stratPath });
+    await prepareAndStartClient(client, stratPath);
 
     const completed: any = await client.waitForType("strategy_completed");
     expect(typeof completed.result).toBe("string");
@@ -534,100 +574,111 @@ describe("start_strategy end-to-end", () => {
     expect(typeof completed.usage.completionTokens).toBe("number");
     client.close();
   });
-});
 
-describe("continue_run end-to-end", () => {
-  it("can restart with a different strategy and a new run id", async () => {
+  it("prepares and continues an existing run with correlated responses", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
+    const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
 
-    const strategyPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
-    const buildStrategyPath = await writeTrackedTempStrategy(
-      JSON.stringify({
-        name: "Build",
-        version: "1.0",
-        agents: {
-          assistant: { model: "openai/gpt-4o" },
-        },
-        flow: {
-          name: "Build",
-          type: "sequential",
-          steps: [{ agent: "assistant" }],
-        },
-      }),
-    );
-    client.send({
-      type: "start_strategy",
-      strategyPath,
-      input: "first message",
-      requestId: "initial",
+    const prepared = await prepareAndStartClient(client, stratPath, {
+      runId: "continued-run",
+      input: "initial input",
+      requestId: "initial-start",
     });
-
-    const firstCompleted: any = await client.waitForMessage(
+    await client.waitForMessage(
       (message: any) =>
-        message?.type === "strategy_completed" &&
-        message.requestId === "initial",
+        message.type === "strategy_completed" &&
+        message.requestId === "initial-start",
     );
+
+    client.send({
+      type: "prepare_run",
+      runId: prepared.runId,
+      requestId: "prepare-continuation",
+    });
+    const continuedPrepared: any = await client.waitForMessage(
+      (message: any) =>
+        message.type === "run_prepared" &&
+        message.requestId === "prepare-continuation",
+    );
+    expect(continuedPrepared.runId).toBe("continued-run");
 
     client.send({
       type: "continue_run",
-      runId: firstCompleted.runId,
-      input: "continue message",
-      strategyPath: buildStrategyPath,
-      requestId: "continued",
+      runId: continuedPrepared.runId,
+      input: "refine the result",
+      requestId: "continue-1",
     });
-
-    const continuedStarted: any = await client.waitForMessage(
+    const continued: any = await client.waitForMessage(
       (message: any) =>
-        message?.type === "strategy_started" &&
-        message.requestId === "continued",
+        message.type === "strategy_completed" &&
+        message.requestId === "continue-1",
     );
-    const continuedCompleted: any = await client.waitForMessage(
-      (message: any) =>
-        message?.type === "strategy_completed" &&
-        message.requestId === "continued",
-    );
-
-    expect(continuedStarted.runId).not.toBe(firstCompleted.runId);
-    expect(continuedStarted.strategyName).toBe("Build");
-    expect(continuedCompleted.runId).toBe(continuedStarted.runId);
+    expect(continued.runId).toBe("continued-run");
     client.close();
   });
 
-  it("rejects an unknown previous run", async () => {
+  it("continue_run rejects a freshly prepared run with a correlated error", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
+    const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
 
     client.send({
+      type: "prepare_run",
+      strategyPath: stratPath,
+      requestId: "prepare-fresh",
+    });
+    const prepared: any = await client.waitForMessage(
+      (message: any) =>
+        message.type === "run_prepared" &&
+        message.requestId === "prepare-fresh",
+    );
+    client.send({
       type: "continue_run",
-      runId: "missing-run",
-      input: "continue",
-      requestId: "continued-missing",
+      runId: prepared.runId,
+      input: "wrong lifecycle command",
+      requestId: "continue-fresh",
     });
 
     const error: any = await client.waitForMessage(
       (message: any) =>
-        message?.type === "error" && message.requestId === "continued-missing",
+        message.type === "error" && message.requestId === "continue-fresh",
     );
-    expect(error.code).toBe("RUN_NOT_CONTINUABLE");
+    expect(error.code).toBe("CONTINUE_FAILED");
+    client.close();
+  });
+
+  it("start unknown run returns a correlated error", async () => {
+    const daemon = await startDaemon();
+    const client = await connectClient(daemon);
+
+    client.send({
+      type: "start_run",
+      runId: "missing",
+      requestId: "start-missing",
+    });
+
+    const error: any = await client.waitForType("error");
+    expect(error.code).toBe("START_FAILED");
+    expect(error.requestId).toBe("start-missing");
     client.close();
   });
 });
 
-// stop_strategy
+// stop_run
 
-describe("stop_strategy", () => {
+describe("stop_run", () => {
   it("start strategy → immediately stop → receive strategy_error with CANCELLED", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     // Use the user-agent strategy which blocks for input, giving us time to cancel
     const stratPath = await writeTrackedTempStrategy(USER_AGENT_STRATEGY);
-    client.send({ type: "start_strategy", strategyPath: stratPath });
+    await prepareAndStartClient(client, stratPath);
 
     // Wait for strategy to start before cancelling
     const started: any = await client.waitForType("strategy_started");
-    client.send({ type: "stop_strategy", runId: started.runId });
+    client.send({ type: "stop_run", runId: started.runId });
 
     const err: any = await client.waitForType("strategy_error");
     expect(err.error.code).toBe("CANCELLED");
@@ -638,7 +689,7 @@ describe("stop_strategy", () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
-    client.send({ type: "stop_strategy", runId: "nonexistent-run" });
+    client.send({ type: "stop_run", runId: "nonexistent-run" });
 
     // Should not crash. Give time, then verify daemon is still responsive.
     await settle(200);
@@ -683,7 +734,7 @@ describe("EventSink broadcast routing", () => {
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
 
     // c1 starts the strategy (auto-subscribed)
-    c1.send({ type: "start_strategy", strategyPath: stratPath });
+    await prepareAndStartClient(c1, stratPath);
     const started: any = await c1.waitForType("strategy_started");
 
     // c2 subscribes to the same run
@@ -719,7 +770,7 @@ describe("EventSink broadcast routing", () => {
     const stratPath = await writeTrackedTempStrategy(USER_AGENT_STRATEGY);
 
     // c1 starts the strategy (auto-subscribed)
-    c1.send({ type: "start_strategy", strategyPath: stratPath });
+    await prepareAndStartClient(c1, stratPath);
     const started: any = await c1.waitForType("strategy_started");
 
     // c2 subscribes
@@ -734,7 +785,7 @@ describe("EventSink broadcast routing", () => {
     const c2MsgCountBefore = c2.messages.length;
 
     // Now stop the strategy (which generates strategy_error with CANCELLED)
-    c1.send({ type: "stop_strategy", runId: started.runId });
+    c1.send({ type: "stop_run", runId: started.runId });
     await c1.waitForType("strategy_error");
     await settle(200);
 
@@ -758,7 +809,7 @@ describe("EventSink broadcast routing", () => {
     const stratPath = await writeTrackedTempStrategy(USER_AGENT_STRATEGY);
 
     // c1 starts the strategy (auto-subscribed)
-    c1.send({ type: "start_strategy", strategyPath: stratPath });
+    await prepareAndStartClient(c1, stratPath);
     const started: any = await c1.waitForType("strategy_started");
 
     // c2 subscribes
@@ -770,9 +821,9 @@ describe("EventSink broadcast routing", () => {
     await settle(100);
 
     // Stop the strategy — c2 should still get the event
-    // We need to use the executor to stop the run, but the client that
-    // started it is gone. Send stop_strategy from c2.
-    c2.send({ type: "stop_strategy", runId: started.runId });
+    // We need to use the run system to stop the run, but the client that
+    // started it is gone. Send stop_run from c2.
+    c2.send({ type: "stop_run", runId: started.runId });
     const err: any = await c2.waitForType("strategy_error");
     expect(err.error.code).toBe("CANCELLED");
     expect(err.runId).toBe(started.runId);
@@ -784,38 +835,38 @@ describe("EventSink broadcast routing", () => {
 // Edge cases
 
 describe("Edge cases", () => {
-  it("rapid fire multiple start_strategy requests → each gets its own run", async () => {
+  it("rapid fire multiple prepare_run requests → each gets its own run", async () => {
     const daemon = await startDaemon();
     const client = await connectClient(daemon);
 
     const stratPath = await writeTrackedTempStrategy(MINIMAL_STRATEGY);
 
-    // Fire 3 start_strategy requests in rapid succession
+    // Fire 3 prepare_run requests in rapid succession
     client.send({
-      type: "start_strategy",
+      type: "prepare_run",
       strategyPath: stratPath,
       requestId: "r1",
     });
     client.send({
-      type: "start_strategy",
+      type: "prepare_run",
       strategyPath: stratPath,
       requestId: "r2",
     });
     client.send({
-      type: "start_strategy",
+      type: "prepare_run",
       strategyPath: stratPath,
       requestId: "r3",
     });
 
-    // Collect strategy_started messages
-    const s1: any = await client.waitForType("strategy_started");
+    // Collect prepared messages
+    const s1: any = await client.waitForType("run_prepared");
     const s2: any = await client.waitForMessage(
       (message: any) =>
-        message.type === "strategy_started" && message.runId !== s1.runId,
+        message.type === "run_prepared" && message.runId !== s1.runId,
     );
     const s3: any = await client.waitForMessage(
       (m: any) =>
-        m.type === "strategy_started" &&
+        m.type === "run_prepared" &&
         m.runId !== s1.runId &&
         m.runId !== (s2 as any).runId,
     );
@@ -824,8 +875,6 @@ describe("Edge cases", () => {
     const runIds = new Set([s1.runId, (s2 as any).runId, (s3 as any).runId]);
     expect(runIds.size).toBe(3);
 
-    // Wait for all to complete
-    await settle(2000);
     client.close();
   });
 

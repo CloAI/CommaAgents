@@ -7,17 +7,14 @@ import { SearchInput } from "../SearchInput";
 
 import { BUILT_IN_COMMANDS } from "./CommandPalette.constants";
 import { useCommandPaletteTheme } from "./CommandPalette.theme";
-import type {
-  Command,
-  CommandPaletteProps,
-  PaletteSubPageComponent,
-} from "./CommandPalette.types";
 import { filterCommands } from "./CommandPalette.utils";
+
 import { HelpPage } from "./pages/HelpPage";
 import { ListProvidersPage } from "./pages/ListProvidersPage";
 import { RegisteredProvidersPage } from "./pages/RegisteredProvidersPage";
 import { RunPickerPage } from "./pages/RunPickerPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import type { Command, PaletteSubPageComponent } from "./CommandPalette.types";
 
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
 
@@ -61,6 +58,30 @@ type PaletteView =
  * </Modal>
  * ```
  */
+export interface CommandPaletteProps {
+  /**
+   * Whether the palette is currently visible. When false the component
+   * renders nothing and handles no input.
+   */
+  readonly isVisible: boolean;
+  /**
+   * Stable Ink focus ID. Required for `useFocusManager().focus(id)` and
+   * mouse click-to-focus. The palette registers exactly one focus zone
+   * under this ID — no child component registers a competing zone.
+   */
+  readonly id?: string;
+  /** Called when the user dismisses the palette from the home view. */
+  readonly onClose: () => void;
+  /** Called by the built-in `exit` command to quit the application. */
+  readonly onExitApp: () => void;
+  /** Called by the built-in `new-run` command to reset chat and return to intro. */
+  readonly onResetChat: () => void;
+  /**
+   * Override the built-in command registry. Defaults to `BUILT_IN_COMMANDS`.
+   */
+  readonly commands?: readonly Command[];
+}
+
 export function CommandPalette({
   isVisible,
   id = "command-palette",
@@ -153,10 +174,15 @@ export function CommandPalette({
 }
 
 export interface CommandPaletteRenderProps {
+  /** Unique identifier for the palette, used for focus management. */
   readonly id: string;
+  /** Current search query string. */
   readonly query: string;
+  /** Callback invoked when the search input changes. */
   readonly onSearchInputChange: (value: string) => void;
+  /** List of filtered commands to display. */
   readonly filtered: readonly Command[];
+  /** Callback invoked when a command is selected. */
   readonly onCommandSelected: (cmd: Command) => void;
 }
 
@@ -205,8 +231,11 @@ export function CommandPaletteRender({
 }
 
 interface CommandPalettePageRenderProps {
+  /** The title of the sub-page to display. */
   readonly title: string;
+  /** Unique identifier for the sub-page focus zone. */
   readonly focusId: string;
+  /** The page component to render, or undefined if not found. */
   readonly Page: PaletteSubPageComponent | undefined;
 }
 

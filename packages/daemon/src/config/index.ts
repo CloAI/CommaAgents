@@ -1,12 +1,12 @@
 // Config barrel — re-exports all public APIs.
 
-export type {
-  DaemonConfig,
-  DaemonConfigFile,
-  LoadConfigOptions,
-} from "./config";
 export {
-  DaemonConfigFileSchema,
+  type LoadConfigOptions,
   loadDaemonConfig,
   resolveDataDir,
 } from "./config";
+export { DaemonConfigFileSchema } from "./config.constants";
+export type {
+  DaemonConfig,
+  DaemonConfigFile,
+} from "./config.types";

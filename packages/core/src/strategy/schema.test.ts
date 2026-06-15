@@ -203,6 +203,18 @@ describe("AgentDefSchema", () => {
       }
     });
 
+    it("accepts an outputSchema JSON Schema object", () => {
+      const result = AgentDefSchema.safeParse({
+        model: "openai/gpt-4o",
+        outputSchema: {
+          type: "object",
+          properties: { answer: { type: "string" } },
+          required: ["answer"],
+        },
+      });
+      expect(result.success).toBe(true);
+    });
+
     it("rejects unknown fields (strict mode)", () => {
       const result = AgentDefSchema.safeParse({
         model: "openai/gpt-4o",

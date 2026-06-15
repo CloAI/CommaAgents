@@ -1,5 +1,6 @@
 import { isAbsolute, resolve } from "node:path";
 
+import { jsonSchema } from "ai";
 import { createAgent } from "../../agents/agent/agent";
 import type { Agent } from "../../agents/agent/agent.types";
 import { createUserAgent } from "../../agents/built-in/user/user-agent";
@@ -55,19 +56,6 @@ export async function buildAgentRegistry(
       registry[name] = buildUserAgent(name, agentDefinition, options);
     } else if (isLLMAgentDef(agentDefinition)) {
       registry[name] = await buildLLMAgent(name, agentDefinition, options);
-    }
-
-    // Restore agent-specific turns, or shared lineage when changing strategies.
-    const turns =
-      options.previousTurns?.get(name) ?? options.previousTurns?.get("*");
-    if (turns) {
-      const agent = registry[name];
-      if (agent && turns.length > 0) {
-        const context = agent.getConversationContext?.();
-        if (context) {
-          context.restore(turns);
-        }
-      }
     }
   }
 
@@ -254,6 +242,9 @@ async function buildLLMAgent(
       : {}),
     ...(agentDefinition.modelOptions
       ? { modelOptions: agentDefinition.modelOptions }
+      : {}),
+    ...(agentDefinition.outputSchema
+      ? { outputSchema: jsonSchema(agentDefinition.outputSchema) }
       : {}),
     ...(options.skillRegistry ? { skillRegistry: options.skillRegistry } : {}),
     ...(options.inputCollector

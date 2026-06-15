@@ -6,7 +6,10 @@
 
 import { z } from "zod";
 
-import { ModelOptionsSchema } from "../agents/loader/loader.schema";
+import {
+  ModelOptionsSchema,
+  OutputSchemaSchema,
+} from "../agents/loader/loader.schema";
 import type { BUILT_IN_TOOL_NAMES } from "../tools/tool.constants";
 
 export type BuiltInToolName = (typeof BUILT_IN_TOOL_NAMES)[number];
@@ -71,6 +74,8 @@ export const LLMAgentDefSchema = z
      * features should use `providerOptions` instead.
      */
     modelOptions: ModelOptionsSchema.optional(),
+    /** JSON Schema describing the agent's structured output. */
+    outputSchema: OutputSchemaSchema.optional(),
     /**
      * Maximum number of LLM round-trips (steps) per call.
      * Each tool-call + response counts as one step.

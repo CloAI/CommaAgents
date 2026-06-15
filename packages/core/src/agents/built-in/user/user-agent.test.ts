@@ -42,7 +42,7 @@ describe("createUserAgent", () => {
         inputCollector: createMockCollector(["user response"]),
       });
 
-      const result = await agent.call("Please provide input:");
+      const result = await agent.call("");
       expect(result.text).toBe("user response");
     });
 
@@ -52,7 +52,7 @@ describe("createUserAgent", () => {
         inputCollector: createMockCollector(["from user"]),
       });
 
-      const result = await agent.call("prompt");
+      const result = await agent.call("");
       expect(result.text).toBe("from user");
     });
 
@@ -69,11 +69,11 @@ describe("createUserAgent", () => {
         inputCollector: collector,
       });
 
-      await agent.call("What should we do?");
+      await agent.call("");
 
       expect(receivedRequests).toHaveLength(1);
       expect(receivedRequests[0]?.agentName).toBe("my-agent");
-      expect(receivedRequests[0]?.prompt).toBe("What should we do?");
+      expect(receivedRequests[0]?.prompt).toBe("");
     });
 
     it("should call collector multiple times for multiple calls", async () => {
@@ -83,13 +83,30 @@ describe("createUserAgent", () => {
         inputCollector: createMockCollector(["first", "second", "third"]),
       });
 
-      const r1 = await agent.call("prompt1");
-      const r2 = await agent.call("prompt2");
-      const r3 = await agent.call("prompt3");
+      const r1 = await agent.call("");
+      const r2 = await agent.call("");
+      const r3 = await agent.call("");
 
       expect(r1.text).toBe("first");
       expect(r2.text).toBe("second");
       expect(r3.text).toBe("third");
+    });
+
+    it("should use a non-empty incoming message without collecting again", async () => {
+      let collectorCalled = false;
+      const agent = createUserAgent({
+        name: "user",
+        requireInput: true,
+        inputCollector: async () => {
+          collectorCalled = true;
+          return "collected response";
+        },
+      });
+
+      const result = await agent.call("initial strategy input");
+
+      expect(result.text).toBe("initial strategy input");
+      expect(collectorCalled).toBe(false);
     });
   });
 
@@ -339,10 +356,10 @@ describe("createUserAgent", () => {
       expect(r2.text).toBe("[regular] preset");
     });
 
-    it("should pass altered message to inputCollector", async () => {
-      const receivedPrompts: string[] = [];
-      const collector: InputCollector = async (request: InputRequest) => {
-        receivedPrompts.push(request.prompt);
+    it("should use an altered non-empty message without collecting again", async () => {
+      let collectorCalled = false;
+      const collector: InputCollector = async () => {
+        collectorCalled = true;
         return "response";
       };
 
@@ -356,8 +373,9 @@ describe("createUserAgent", () => {
         alterCallMessage: [(message) => `[prefix] ${message}`],
       });
 
-      await agent.call("original");
-      expect(receivedPrompts).toEqual(["[prefix] original"]);
+      const result = await agent.call("original");
+      expect(result.text).toBe("[prefix] original");
+      expect(collectorCalled).toBe(false);
     });
   });
 

@@ -38,9 +38,15 @@ agents:
     modelOptions:
       temperature: 0.3
       maxOutputTokens: 2048
+    outputSchema:
+      type: object
+      properties:
+        summary:
+          type: string
+      required: [summary]
 ```
 
-`providerOptions` passes provider-specific features to the AI SDK (e.g. Anthropic extended thinking, OpenAI reasoning effort). `modelOptions` passes provider-agnostic generation parameters (`temperature`, `maxOutputTokens`, `topP`, `seed`, etc.). See [createAgent](/docs/core/agents/create-agent) for details.
+`providerOptions` passes provider-specific features to the AI SDK (e.g. Anthropic extended thinking, OpenAI reasoning effort). `modelOptions` passes provider-agnostic generation parameters (`temperature`, `maxOutputTokens`, `topP`, `seed`, etc.). `outputSchema` accepts a JSON Schema object for structured output. See [createAgent](/docs/core/agents/create-agent) for details.
 
 ### UserAgentDef
 

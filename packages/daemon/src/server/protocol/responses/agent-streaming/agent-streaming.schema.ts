@@ -53,6 +53,10 @@ export const AgentStreamingMessage = DaemonBase.extend({
   runId: z.string(),
   /** Name of the agent that is streaming. */
   agentName: z.string(),
+  /** Provider/model identifier used by this agent call. */
+  model: z.string().optional(),
+  /** Maximum context tokens supported by the model, when known. */
+  contextWindow: z.number().optional(),
   /** The stream event, mirroring core AgentStreamEvent. */
   event: AgentStreamEventSchema,
 });

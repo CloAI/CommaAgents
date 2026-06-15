@@ -1,6 +1,8 @@
-import { Box, Text } from "ink";
+import { Box, type DOMElement, Text } from "ink";
 import type React from "react";
+import { useRef } from "react";
 
+import { useMouseClick } from "../../../hooks/useMouseClick";
 import {
   TOOL_SPINNER_FRAMES,
   useToolSpinner,
@@ -27,6 +29,8 @@ export interface SpawnedStrategyViewProps {
   readonly output?: string;
   /** Error message when the spawned strategy failed. */
   readonly error?: string;
+  /** Opens the spawned strategy transcript in its dedicated page. */
+  readonly onOpen?: () => void;
   /** Nested messages emitted while the spawned strategy was running. */
   readonly children: React.ReactNode;
 }
@@ -36,6 +40,7 @@ export function SpawnedStrategyView({
   status,
   output,
   error,
+  onOpen,
   children,
 }: SpawnedStrategyViewProps): React.ReactElement {
   const theme = useSpawnedStrategyViewTheme();
@@ -56,6 +61,7 @@ export function SpawnedStrategyView({
       resultDetails={parseLaunchStrategyResult(output)}
       status={status}
       error={error}
+      onOpen={onOpen}
     >
       {children}
     </SpawnedStrategyViewRender>
@@ -79,6 +85,8 @@ export interface SpawnedStrategyViewRenderProps {
   readonly status: ToolCallViewStatus;
   /** Error message when the spawned strategy failed. */
   readonly error?: string;
+  /** Opens the spawned strategy transcript in its dedicated page. */
+  readonly onOpen?: () => void;
   /** Nested message rows emitted by the spawned strategy. */
   readonly children: React.ReactNode;
 }
@@ -92,8 +100,12 @@ export function SpawnedStrategyViewRender({
   resultDetails,
   status,
   error,
+  onOpen,
   children,
 }: SpawnedStrategyViewRenderProps): React.ReactElement {
+  const openRef = useRef<DOMElement | null>(null);
+  useMouseClick({ ref: openRef, onClick: () => onOpen?.() });
+
   const glyphStyle =
     status === "running"
       ? theme.runningGlyph
@@ -111,17 +123,23 @@ export function SpawnedStrategyViewRender({
       >
         <Box {...theme.body}>
           <Box {...theme.metaRow}>
-            <Text>
-              <Text {...glyphStyle}>{leadingGlyph}</Text>
-              <Text> </Text>
-              <Text {...theme.title}>launch_strategy</Text>
-              {error ? (
-                <>
-                  <Text> </Text>
-                  <Text {...theme.error}>{error}</Text>
-                </>
-              ) : null}
-            </Text>
+            <Text {...glyphStyle}>{leadingGlyph}</Text>
+            <Text> </Text>
+            <Text {...theme.title}>launch_strategy</Text>
+            {onOpen ? (
+              <>
+                <Text> </Text>
+                <Box ref={openRef} {...theme.openTarget}>
+                  <Text {...theme.openHint}>open</Text>
+                </Box>
+              </>
+            ) : null}
+            {error ? (
+              <>
+                <Text> </Text>
+                <Text {...theme.error}>{error}</Text>
+              </>
+            ) : null}
           </Box>
           {inputPreview.length > 0 ? (
             <DetailRow theme={theme} label="input" value={inputPreview} />

@@ -81,12 +81,6 @@ export interface TestClient {
   clearMessages(): void;
 }
 
-/** Options for starting a test daemon. */
-export interface StartTestDaemonOptions {
-  /** Bridge timeout in ms. 0 = no timeout. Default: 0. */
-  bridgeTimeout?: number;
-}
-
 // Daemon lifecycle
 
 /** Active daemons for cleanup. */
@@ -99,9 +93,7 @@ const activeDaemons: Daemon[] = [];
  *
  * @returns The started Daemon instance (with `.port` and `.url` available)
  */
-export async function startTestDaemon(
-  options?: StartTestDaemonOptions,
-): Promise<Daemon> {
+export async function startTestDaemon(): Promise<Daemon> {
   // Register mock models in the global registry so the daemon can resolve them.
   setupMockModels();
 
@@ -116,7 +108,6 @@ export async function startTestDaemon(
       configFile: join(tmpdir(), `test-${crypto.randomUUID()}.json`),
     },
     logger: createMockLogger(),
-    bridgeTimeout: options?.bridgeTimeout ?? 0,
   });
 
   await daemon.start();

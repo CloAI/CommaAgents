@@ -43,7 +43,8 @@ export interface UserAgentConfig {
   /** Unique name for this agent. */
   readonly name: string;
   /**
-   * When true, the agent calls the inputCollector to get user input.
+   * When true, the agent calls the inputCollector when no incoming message is
+   * available. A non-empty incoming message satisfies the user step directly.
    * When false, returns `presetMessage` or passes the incoming message through.
    * @default true
    */

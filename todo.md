@@ -61,9 +61,9 @@ is never set (always `undefined`), meaning:
 - The `defaultInputCollector` (stdin-based) cannot be externally cancelled
 - Custom input collectors receive no signal for cooperative cancellation
 
-**Note**: The daemon's input bridge has its own abort mechanism
-(`CreateInputBridgeOptions.abort`) which is separate and unaffected. This gap
-primarily affects direct `createUserAgent` usage outside the daemon.
+**Note**: The daemon input system has its own run abort mechanism, which is
+separate and unaffected. This gap primarily affects direct `createUserAgent`
+usage outside the daemon.
 
 **Fix needed**: Either:
 

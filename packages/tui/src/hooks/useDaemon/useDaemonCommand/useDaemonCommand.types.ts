@@ -11,7 +11,7 @@ import type { Simplify } from "../useDaemon.types";
  *
  * @example
  * ```ts
- * DaemonCommandMap["start_strategy"]
+ * DaemonCommandMap["prepare_run"]
  * // → { strategyPath: string; input?: string | undefined }
  *
  * DaemonCommandMap["ping"]

@@ -5,23 +5,28 @@ import { useNavigate } from "react-router";
 import { ChatTextArea } from "../../components";
 import type { ChatTextAreaProps } from "../../components/ChatTextArea/ChatTextArea";
 import { TitleIcon } from "../../components/TitleIcon";
+import { useChatRunLifecycle } from "../../hooks/useChat";
 import { useDiscoveredStrategies } from "../../hooks/useStrategies/useStrategies";
-import type { ChatPageRouteState } from "../ChatPage";
 import type { IntroPageTheme } from "./IntroPage.theme";
 import { useIntroPageTheme } from "./IntroPage.theme";
 
 export function IntroPage(): React.ReactElement {
   const theme = useIntroPageTheme();
   const navigate = useNavigate();
+  const { startStrategy } = useChatRunLifecycle();
 
   const strategies = useDiscoveredStrategies();
   const handleStartChat = React.useCallback<ChatTextAreaProps["onSubmit"]>(
     (strategy: DiscoveredStrategy, inputText: string): void => {
-      navigate("/chat", {
-        state: { strategy, inputText } satisfies ChatPageRouteState,
-      });
+      const chatRunId = startStrategy(
+        strategy.path,
+        inputText,
+        process.cwd(),
+        strategy.manifestPath,
+      );
+      navigate(`/chat/${encodeURIComponent(chatRunId)}`);
     },
-    [navigate],
+    [navigate, startStrategy],
   );
 
   return (

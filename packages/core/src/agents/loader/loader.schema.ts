@@ -52,6 +52,9 @@ export const ModelOptionsSchema = z
   })
   .strict();
 
+/** JSON Schema object used for structured agent output in YAML/JSON files. */
+export const OutputSchemaSchema = z.record(z.unknown());
+
 /**
  * Agent description schema — validates a standalone agent description file.
  *
@@ -88,6 +91,8 @@ export const AgentDescriptionSchema = z
     providerOptions: z.record(z.record(z.unknown())).optional(),
     /** Model-level generation parameters (temperature, maxTokens, etc.). */
     modelOptions: ModelOptionsSchema.optional(),
+    /** JSON Schema describing the agent's structured output. */
+    outputSchema: OutputSchemaSchema.optional(),
     /**
      * Maximum number of LLM round-trips (steps) per call.
      * Each tool-call + response counts as one step.

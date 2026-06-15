@@ -2,7 +2,7 @@ import { codeToANSI } from "@shikijs/cli";
 import { Box, Text } from "ink";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import type { Highlighter } from "shiki";
+import type { BundledLanguage, Highlighter } from "shiki";
 import { createHighlighter } from "shiki";
 import { useDebugRender } from "../../hooks/useDebugRender";
 import {
@@ -10,8 +10,16 @@ import {
   MIN_LINE_NUMBER_WIDTH,
   PRELOADED_LANGUAGES,
 } from "./CodeView.constants";
-import { useCodeViewTheme } from "./CodeView.theme";
-import type { CodeViewProps, CodeViewRenderProps } from "./CodeView.types";
+import { type CodeViewTheme, useCodeViewTheme } from "./CodeView.theme";
+
+export interface CodeViewProps {
+  /** The source code string to syntax-highlight. */
+  readonly code: string;
+  /** Language identifier for highlighting (e.g. "typescript", "python"). */
+  readonly language: BundledLanguage;
+  /** Whether to display line numbers in the gutter. @default false */
+  readonly showLineNumbers?: boolean;
+}
 
 export function CodeView({
   code,
@@ -76,6 +84,17 @@ export function CodeView({
   );
 }
 
+export interface CodeViewRenderProps {
+  /** ANSI-highlighted code string, or `null` while the highlighter is loading. */
+  readonly highlightedCode: string | null;
+  /** Whether to display line numbers in the gutter. */
+  readonly showLineNumbers: boolean;
+  /** Original code string, used to derive line numbers and as fallback before highlighting loads. */
+  readonly code: string;
+  /** Resolved theme style objects for the component. */
+  readonly theme: CodeViewTheme;
+}
+
 export function CodeViewRender({
   highlightedCode,
   showLineNumbers,
@@ -101,7 +120,7 @@ export function CodeViewRender({
               <Box width={theme.gutterGap} />
             </>
           ) : null}
-          <Text>{line}</Text>
+          <Text {...(highlightedCode ? {} : theme.fallback)}>{line}</Text>
         </Box>
       ))}
     </Box>

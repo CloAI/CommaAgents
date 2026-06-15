@@ -9,15 +9,10 @@ export type {
   ChatStatus,
   CreateRunInit,
   MessageRole,
-  PendingPermissionRequest,
-  PendingQuestionRequest,
-  RunStatus,
-  RunSummary,
   UseChatState,
 } from "./useChat";
 export {
   ChatRunsContextProvider,
-  useActiveStrategy,
   useChat,
   useChatActions,
   useChatLifecycle,

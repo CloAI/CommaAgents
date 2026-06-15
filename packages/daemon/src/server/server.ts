@@ -1,9 +1,7 @@
 import type { Server, ServerWebSocket } from "bun";
 
-import type { EventSink } from "../executor/event-sink";
-import { createStrategyExecutor } from "../executor/executor";
-import { createRunStore } from "../runs";
-import { markStaleRunsAsInterrupted } from "../runs/runs.utils";
+import type { EventSink } from "../run-system/event-sink";
+import { createRunSystem } from "../run-system/run-system";
 import { createDaemonState } from "../state/state";
 import { createDispatcher } from "./protocol/dispatcher";
 import type { DaemonMessage } from "./protocol/messages";
@@ -12,7 +10,7 @@ import type { CreateDaemonOptions, Daemon, WsData } from "./server.types";
 /**
  * Create a daemon instance.
  *
- * The daemon owns the DaemonState, EventSink, and StrategyExecutor.
+ * The daemon owns the DaemonState, EventSink, and RunSystem.
  * Call `start()` to begin listening and `stop()` to shut down.
  *
  * @param options - Configuration for the daemon instance.
@@ -26,13 +24,15 @@ import type { CreateDaemonOptions, Daemon, WsData } from "./server.types";
  * await daemon.start();
  * ```
  */
-export function createDaemon(options: CreateDaemonOptions): Daemon {
-  const { config, logger, bridgeTimeout = 0, modelOverride } = options;
-
+export function createDaemon({
+  config,
+  logger,
+  modelOverride,
+}: CreateDaemonOptions): Daemon {
   const state = createDaemonState();
   const wsMap = new Map<string, ServerWebSocket<WsData>>();
   const startTime = Date.now();
-  let server: Server | null = null;
+  let server: Server<WsData> | null = null;
   let boundPort = 0;
 
   const sink: EventSink = {
@@ -69,31 +69,30 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
     },
   };
 
-  const runStore = createRunStore({ runsDir: config.runsDir });
-
-  const executor = createStrategyExecutor({
+  const runSystem = createRunSystem({
     state,
     sink,
-    logger: logger.child("executor"),
-    runStore,
-    bridgeTimeout,
+    logger: logger.child("run-system"),
+    runsDir: config.runsDir,
     modelOverride,
   });
 
   const dispatch = createDispatcher({
-    executor,
+    runSystem,
     state,
-    runStore,
     logger: logger.child("dispatcher"),
   });
 
-  function handleFetch(request: Request, server: Server): Response | undefined {
+  function handleFetch(
+    request: Request,
+    server: Server<WsData>,
+  ): Response | undefined {
     const url = new URL(request.url);
 
     // WebSocket upgrade at /ws
     if (url.pathname === "/ws") {
       const clientId = crypto.randomUUID();
-      const upgraded = server.upgrade<WsData>(request, { data: { clientId } });
+      const upgraded = server.upgrade(request, { data: { clientId } });
       if (!upgraded) {
         return new Response("WebSocket upgrade failed", { status: 400 });
       }
@@ -127,23 +126,6 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
     async start(): Promise<void> {
       if (server) {
         throw new Error("Daemon is already running");
-      }
-
-      // Reconcile stale persisted runs before accepting any clients. Any
-      // run on disk still claiming `pending`/`running` is necessarily
-      // dead (its in-memory state died with the previous daemon), so we
-      // mark it `cancelled` with an `INTERRUPTED` error. This prevents
-      // the TUI from subscribing to a run that will never emit events.
-      try {
-        await markStaleRunsAsInterrupted(runStore, logger);
-      } catch (recoveryError) {
-        logger.error(
-          `Stale-run recovery failed: ${
-            recoveryError instanceof Error
-              ? recoveryError.message
-              : String(recoveryError)
-          }`,
-        );
       }
 
       server = Bun.serve<WsData>({
@@ -194,12 +176,15 @@ export function createDaemon(options: CreateDaemonOptions): Daemon {
         },
       });
 
+      //TODO: Handle Unix Socket connections maybe...
       boundPort = server.port;
       logger.info(`Daemon listening on ${config.host}:${boundPort}`);
     },
 
     async stop(): Promise<void> {
       if (!server) return;
+
+      await runSystem.shutdown();
 
       // Close all WebSocket connections
       for (const [clientId, websocket] of wsMap) {

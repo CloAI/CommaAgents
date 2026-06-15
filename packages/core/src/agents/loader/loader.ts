@@ -9,6 +9,7 @@
 // 4. Builds a system prompt template if defined.
 // 5. Returns a live Agent via createAgent().
 
+import { jsonSchema } from "ai";
 import YAML from "yaml";
 import { StrategyValidationError } from "../../errors/index";
 import { createPromptTemplate } from "../../prompts/template/prompt-template";
@@ -153,6 +154,9 @@ export async function loadAgentFromString(
       : {}),
     ...(description.modelOptions
       ? { modelOptions: description.modelOptions }
+      : {}),
+    ...(description.outputSchema
+      ? { outputSchema: jsonSchema(description.outputSchema) }
       : {}),
   });
 }

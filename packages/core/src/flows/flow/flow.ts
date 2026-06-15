@@ -1,3 +1,4 @@
+import { createAbortablePromise } from "@comma-agents/utils";
 import type { Agent } from "../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../errors/index";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
@@ -87,31 +88,38 @@ export function buildFlowAgent<HookType extends FlowHooks = FlowHooks>(
   const agent = {
     name: config.name,
 
-    async call(message: string): Promise<FlowResult> {
-      // 1. Alter message before flow
-      const alteredMessage = await runTransformHooks(
-        hooks.alterMessageBeforeFlow,
-        message,
-      );
+    call(message: string) {
+      return createAbortablePromise(async (signal): Promise<FlowResult> => {
+        // 1. Alter message before flow
+        const alteredMessage = await runTransformHooks(
+          hooks.alterMessageBeforeFlow,
+          message,
+        );
+        signal.throwIfAborted();
 
-      // 2. Before flow (side-effect)
-      await runSideEffectHooks(hooks.beforeFlow, alteredMessage);
+        // 2. Before flow (side-effect)
+        await runSideEffectHooks(hooks.beforeFlow, alteredMessage);
+        signal.throwIfAborted();
 
-      // 3. Execute the flow
-      const flowContext = createFlowContext(config.name, hooks);
-      const text = await executor(config.steps, alteredMessage, flowContext);
-      const result = buildFlowResult(text, flowContext.results);
+        // 3. Execute the flow
+        const flowContext = createFlowContext(config.name, hooks, signal);
+        const text = await executor(config.steps, alteredMessage, flowContext);
+        signal.throwIfAborted();
+        const result = buildFlowResult(text, flowContext.results);
 
-      // 4. After flow (side-effect)
-      await runSideEffectHooks(hooks.afterFlow, result.text);
+        // 4. After flow (side-effect)
+        await runSideEffectHooks(hooks.afterFlow, result.text);
+        signal.throwIfAborted();
 
-      // 5. Alter message after flow
-      const alteredText = await runTransformHooks(
-        hooks.alterMessageAfterFlow,
-        result.text,
-      );
+        // 5. Alter message after flow
+        const alteredText = await runTransformHooks(
+          hooks.alterMessageAfterFlow,
+          result.text,
+        );
+        signal.throwIfAborted();
 
-      return { ...result, text: alteredText };
+        return { ...result, text: alteredText };
+      });
     },
 
     reset(): void {

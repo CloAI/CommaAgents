@@ -46,8 +46,10 @@ All daemon-to-client messages include a `ts` field (ISO-8601 timestamp) and an o
 | Client Request | Daemon Response | Pattern |
 |---|---|---|
 | [`ping`](/docs/daemon/protocol/ping) | `pong` | Request/Reply |
-| [`start_strategy`](/docs/daemon/protocol/strategy-execution) | `strategy_started`, `strategy_completed`, `strategy_error` | Fire-and-forget + async events |
-| [`stop_strategy`](/docs/daemon/protocol/strategy-execution) | `strategy_error` (code: `CANCELLED`) | Fire-and-forget |
+| [`prepare_run`](/docs/daemon/protocol/strategy-execution) | `run_prepared` | Request/Reply |
+| [`start_run`](/docs/daemon/protocol/strategy-execution) | `strategy_started`, `strategy_completed`, `strategy_error` | Fire-and-forget + async events |
+| [`continue_run`](/docs/daemon/protocol/strategy-execution) | `strategy_started`, `strategy_completed`, `strategy_error` | Fire-and-forget + async events |
+| [`stop_run`](/docs/daemon/protocol/strategy-execution) | `strategy_error` (code: `CANCELLED`) | Fire-and-forget |
 | [`list_strategies`](/docs/daemon/protocol/list-and-subscribe) | `strategy_list` | Request/Reply |
 | [`list_providers`](/docs/daemon/protocol/list-providers) | `provider_list` | Request/Reply |
 | [`get_available_models`](/docs/daemon/protocol/get-available-models) | `available_models` | Request/Reply |
@@ -55,7 +57,6 @@ All daemon-to-client messages include a `ts` field (ISO-8601 timestamp) and an o
 | [`unsubscribe`](/docs/daemon/protocol/list-and-subscribe) | _(none)_ | Silent |
 | [`user_input`](/docs/daemon/protocol/user-input) | `error` (only if no pending request) | Silent success |
 | [`steer_run`](/docs/daemon/protocol/steering) | `steer_queued` (or `error` if not steerable) | Fire-and-forget + async event |
-| [`continue_run`](/docs/daemon/protocol/steering) | `strategy_started`, `strategy_completed`, `strategy_error` | Fire-and-forget + async events |
 
 During strategy execution, subscribers receive [observation events](/docs/daemon/protocol/strategy-observation): `step_started`, `step_completed`, `agent_output`, `agent_streaming`, and `request_input`.
 
@@ -82,5 +83,7 @@ The daemon sends an `error` message for protocol-level failures. Every error inc
 | `NO_PENDING_INPUT` | `user_input` sent but no agent is waiting for input |
 | `SUBSCRIBE_ERROR` | `subscribe` failed (run not found or client not registered) |
 | `EXECUTION_ERROR` | Strategy file not found, parse error, or model resolution failure |
-| `CANCELLED` | Run was explicitly stopped via `stop_strategy` |
+| `PREPARE_FAILED` | Strategy or run systems could not be prepared |
+| `START_FAILED` | The requested run is unknown or was already started |
+| `CANCELLED` | Run was explicitly stopped via `stop_run` |
 | `RUN_NOT_STEERABLE` | `steer_run` sent for a run that is not found or has already finished |

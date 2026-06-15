@@ -10,9 +10,9 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerModel, type TimelineEvent } from "@comma-agents/core";
-import type { EventSink } from "./executor/event-sink";
 import type { Logger } from "./logger/logger.types";
-import type { RunStore } from "./runs";
+import type { EventSink } from "./run-system/event-sink";
+import type { RunStore } from "./run-system/run-store";
 import type { DaemonMessage } from "./server/protocol/messages";
 
 // Mock model registration
@@ -100,7 +100,7 @@ export function mockLogger(): Logger {
 // Strategy fixtures
 
 /**
- * Minimal in-memory RunStore for executor/dispatcher tests.
+ * Minimal in-memory RunStore for run-system/dispatcher tests.
  *
  * Stores runs by runId. All operations succeed synchronously and are
  * observable via the returned `runs` map.

@@ -54,27 +54,3 @@ export interface Command {
   readonly action?: CommandAction;
 }
 
-/** Props for the `CommandPalette` component. */
-export interface CommandPaletteProps {
-  /**
-   * Whether the palette is currently visible. When false the component
-   * renders nothing and handles no input.
-   */
-  readonly isVisible: boolean;
-  /**
-   * Stable Ink focus ID. Required for `useFocusManager().focus(id)` and
-   * mouse click-to-focus. The palette registers exactly one focus zone
-   * under this ID — no child component registers a competing zone.
-   */
-  readonly id?: string;
-  /** Called when the user dismisses the palette from the home view. */
-  readonly onClose: () => void;
-  /** Called by the built-in `exit` command to quit the application. */
-  readonly onExitApp: () => void;
-  /** Called by the built-in `new-run` command to reset chat and return to intro. */
-  readonly onResetChat: () => void;
-  /**
-   * Override the built-in command registry. Defaults to `BUILT_IN_COMMANDS`.
-   */
-  readonly commands?: readonly Command[];
-}

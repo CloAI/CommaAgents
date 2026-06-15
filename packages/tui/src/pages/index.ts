@@ -16,3 +16,8 @@ export type {
   LogsPageTheme,
 } from "./LogsPage";
 export { LogsPage, LogsPageRender, useLogsPageTheme } from "./LogsPage";
+export type { SpawnedStrategyPageRenderProps } from "./SpawnedStrategyPage";
+export {
+  SpawnedStrategyPage,
+  SpawnedStrategyPageRender,
+} from "./SpawnedStrategyPage";

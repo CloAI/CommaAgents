@@ -33,6 +33,12 @@ providerOptions:
 modelOptions:
   temperature: 0.7
   maxOutputTokens: 4096
+outputSchema:
+  type: object
+  properties:
+    answer:
+      type: string
+  required: [answer]
 ```
 
 ### JSON
@@ -49,6 +55,11 @@ modelOptions:
   "modelOptions": {
     "temperature": 0.7,
     "maxOutputTokens": 4096
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": { "answer": { "type": "string" } },
+    "required": ["answer"]
   }
 }
 ```
@@ -79,6 +90,11 @@ Provider-agnostic generation parameters forwarded to every call. These map direc
 | `frequencyPenalty` | `number?` | Frequency penalty (−2 to 2). Reduces repetition. |
 | `presencePenalty` | `number?` | Presence penalty (−2 to 2). Encourages new topics. |
 | `seed` | `number?` | Deterministic seed for reproducible outputs. |
+
+### outputSchema
+
+`outputSchema` is a JSON Schema object. It constrains the model response and is
+passed to `streamText` as structured object output.
 
 ## AgentDescriptionSchema
 

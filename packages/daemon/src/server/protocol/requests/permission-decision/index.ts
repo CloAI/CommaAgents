@@ -7,8 +7,7 @@ import type { PermissionDecisionMessage } from "./permission-decision.schema";
 export { PermissionDecisionMessage } from "./permission-decision.schema";
 
 /**
- * Handle a `permission_decision` request by delivering the decision to the
- * permission bridge.
+ * Handle a `permission_decision` request by resolving the pending permission.
  *
  * If no pending permission request exists for the specified `permissionRequestId`,
  * sends a `NO_PENDING_PERMISSION` error back to the client.
@@ -17,7 +16,8 @@ export function handlePermissionDecision(
   message: PermissionDecisionMessage,
   context: HandlerContext<"permission_decision">,
 ): void {
-  const delivered = context.executor.handlePermissionDecision(
+  const delivered = context.runSystem.actions.invoke(
+    "resolvePermission",
     message.runId,
     message.permissionRequestId,
     message.decision,

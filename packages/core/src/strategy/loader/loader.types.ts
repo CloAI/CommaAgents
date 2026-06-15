@@ -2,7 +2,6 @@
 
 import type { Agent } from "../../agents/agent/agent.types";
 import type { InputCollector } from "../../agents/built-in/user/user-agent.types";
-import type { ConversationTurn } from "../../context/conversation-context.types";
 import type { FlowHooks } from "../../flows/flow/flow.types";
 import type { LanguageService } from "../../language";
 import type { SkillRegistry } from "../../skills/skills.types";
@@ -95,22 +94,6 @@ export interface LoadStrategyOptions {
    * callers that don't care about cross-launch isolation.
    */
   readonly runId?: string;
-
-  /**
-   * Optional map of agent name → previous conversation turns to restore
-   * into each agent's conversation context before the strategy runs.
-   * The special `"*"` key restores the same shared lineage into every agent,
-   * which is used when continuing into a different strategy.
-   *
-   * When provided, each agent whose name appears in this map has its
-   * conversation context restored with the given turns, so the agent
-   * "remembers" its prior exchanges from a previous run when a new flow
-   * execution starts.
-   *
-   * Agents whose names do not appear in the map start with an empty
-   * conversation context as usual.
-   */
-  readonly previousTurns?: ReadonlyMap<string, readonly ConversationTurn[]>;
 }
 
 /**
