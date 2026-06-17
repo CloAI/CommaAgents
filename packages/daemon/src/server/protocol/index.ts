@@ -82,8 +82,18 @@ export {
 } from "./responses/run-list";
 export { RunPreparedMessage } from "./responses/run-prepared";
 // Colocated schemas re-exported for public API
-export type { AgentCallResultWire, Usage } from "./responses/shared";
-export { AgentCallResultSchema, UsageSchema } from "./responses/shared";
+export type {
+  AgentCallResultWire,
+  ConversationHistoryWire,
+  ConversationRecordWire,
+  Usage,
+} from "./responses/shared";
+export {
+  AgentCallResultSchema,
+  ConversationHistorySchema,
+  ConversationRecordSchema,
+  UsageSchema,
+} from "./responses/shared";
 export { SteerQueuedMessage } from "./responses/steer-queued";
 export { StepCompletedMessage } from "./responses/step-completed";
 export { StepStartedMessage } from "./responses/step-started";

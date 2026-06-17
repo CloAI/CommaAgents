@@ -158,5 +158,6 @@ export async function loadAgentFromString(
     ...(description.outputSchema
       ? { outputSchema: jsonSchema(description.outputSchema) }
       : {}),
+    ...(description.context ? { context: description.context } : {}),
   });
 }

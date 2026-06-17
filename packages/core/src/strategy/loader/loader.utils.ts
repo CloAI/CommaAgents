@@ -246,6 +246,7 @@ async function buildLLMAgent(
     ...(agentDefinition.outputSchema
       ? { outputSchema: jsonSchema(agentDefinition.outputSchema) }
       : {}),
+    ...(agentDefinition.context ? { context: agentDefinition.context } : {}),
     ...(options.skillRegistry ? { skillRegistry: options.skillRegistry } : {}),
     ...(options.inputCollector
       ? { inputCollector: options.inputCollector }

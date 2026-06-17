@@ -1,9 +1,8 @@
 import type {
+  Agent,
   AgentHooks,
   FlowHooks,
-  ResponseMessage,
   TimelineEvent,
-  UserModelMessage,
 } from "@comma-agents/core";
 import type { Logger } from "../../../logger";
 import type { RunState } from "../../../state";
@@ -55,11 +54,10 @@ export function createPersistenceSystem(
       strategy.flow.appendHook("beforeStep", flowHooks.beforeStep);
       strategy.flow.appendHook("afterStep", flowHooks.afterStep);
 
-      for (const [agentName, agent] of Object.entries(strategy.agents)) {
+      for (const agent of Object.values(strategy.agents)) {
         if (!agent.appendHook) continue;
 
-        const agentHooks = buildAgentHooks(agentName, run, runStore, logger);
-        agent.appendHook("beforeCall", agentHooks.beforeCall);
+        const agentHooks = buildAgentHooks(agent, run, runStore, logger);
         agent.appendHook("afterCallResult", agentHooks.afterCallResult);
       }
     },
@@ -127,31 +125,25 @@ function buildFlowHooks(
 }
 
 function buildAgentHooks(
-  agentName: string,
+  agent: Agent,
   run: RunState,
   runStore: RunStore,
   logger: Logger,
 ): AgentHooks {
-  let pendingUserMessage: string | null = null;
-
   return {
-    beforeCall(message: string): void {
-      pendingUserMessage = message;
-    },
-
-    afterCallResult(result): void {
-      const userMessage: UserModelMessage = {
-        role: "user",
-        content: pendingUserMessage ?? "",
-      };
-      pendingUserMessage = null;
+    afterCallResult(): void {
+      const record = agent.getConversationContext?.().records().at(-1);
+      if (!record) {
+        logger.warn(
+          `No conversation record available to persist for agent ${agent.name} in run ${run.id}`,
+        );
+        return;
+      }
 
       appendEvent(runStore, logger, run.id, {
         type: "agent_call",
-        ts: new Date().toISOString(),
-        agentName,
-        userMessage,
-        responseMessages: result.responseMessages as ResponseMessage[],
+        ts: record.createdAt,
+        record,
       });
     },
   };

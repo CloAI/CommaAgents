@@ -95,6 +95,28 @@
         "@comma-agents/utils": "workspace:*",
       },
     },
+    "packages/rlprompter": {
+      "name": "@comma-agents/rlprompter",
+      "version": "1.0.0",
+      "bin": {
+        "rlprompter": "src/main.tsx",
+      },
+      "dependencies": {
+        "@comma-agents/core": "workspace:*",
+        "chalk": "5.6.2",
+        "ink": "7.0.1",
+        "ink-text-input": "6.0.0",
+        "react": "19.2.5",
+        "react-router": "^7.14.2",
+        "yargs": "17.7.2",
+      },
+      "devDependencies": {
+        "@types/react": "19.2.14",
+        "@types/yargs": "17.0.33",
+        "ink-testing-library": "4.0.0",
+        "typescript": "6.0.2",
+      },
+    },
     "packages/tui": {
       "name": "@comma-agents/tui",
       "version": "2.0.0",
@@ -247,6 +269,8 @@
     "@comma-agents/e2e": ["@comma-agents/e2e@workspace:examples/e2e"],
 
     "@comma-agents/examples": ["@comma-agents/examples@workspace:examples"],
+
+    "@comma-agents/rlprompter": ["@comma-agents/rlprompter@workspace:packages/rlprompter"],
 
     "@comma-agents/tui": ["@comma-agents/tui@workspace:packages/tui"],
 

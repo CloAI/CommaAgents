@@ -174,6 +174,34 @@ describe("loadStrategyFromString", () => {
       ).toEqual(outputSchema);
     });
 
+    it("passes agent context retention options through", async () => {
+      setupMockModels();
+      const context = {
+        rollingWindow: 12,
+        compaction: { keepRecent: 4 },
+      };
+      const result = await loadStrategyFromString(
+        JSON.stringify({
+          name: "Context Strategy",
+          version: "1.0",
+          agents: {
+            assistant: {
+              model: "openai/gpt-4o",
+              context,
+            },
+          },
+          flow: {
+            name: "Main",
+            type: "sequential",
+            steps: [{ agent: "assistant" }],
+          },
+        }),
+        "json",
+      );
+
+      expect(result.agents.assistant?.config?.context).toEqual(context);
+    });
+
     it("throws StrategyValidationError for invalid JSON syntax", async () => {
       await expect(
         loadStrategyFromString("not { json", "json"),

@@ -864,17 +864,17 @@ describe("E2E: Flow Composition", () => {
       // First call builds up context
       await flow.call("First run");
       expect(
-        agentA.getConversationContext?.().allMessages().length,
+        agentA.getConversationContext?.().messages().length,
       ).toBeGreaterThan(0);
       expect(
-        agentB.getConversationContext?.().allMessages().length,
+        agentB.getConversationContext?.().messages().length,
       ).toBeGreaterThan(0);
 
       // Reset flow — should reset all child agents
       flow.reset();
 
-      expect(agentA.getConversationContext?.().allMessages().length).toBe(0);
-      expect(agentB.getConversationContext?.().allMessages().length).toBe(0);
+      expect(agentA.getConversationContext?.().messages().length).toBe(0);
+      expect(agentB.getConversationContext?.().messages().length).toBe(0);
     });
 
     it("should reset nested flows recursively", async () => {
@@ -913,20 +913,16 @@ describe("E2E: Flow Composition", () => {
       await outerFlow.call("Run");
 
       expect(
-        innerAgent.getConversationContext?.().allMessages().length,
+        innerAgent.getConversationContext?.().messages().length,
       ).toBeGreaterThan(0);
       expect(
-        outerAgent.getConversationContext?.().allMessages().length,
+        outerAgent.getConversationContext?.().messages().length,
       ).toBeGreaterThan(0);
 
       outerFlow.reset();
 
-      expect(innerAgent.getConversationContext?.().allMessages().length).toBe(
-        0,
-      );
-      expect(outerAgent.getConversationContext?.().allMessages().length).toBe(
-        0,
-      );
+      expect(innerAgent.getConversationContext?.().messages().length).toBe(0);
+      expect(outerAgent.getConversationContext?.().messages().length).toBe(0);
     });
 
     it("should reset cycle flow including observer", async () => {
@@ -961,13 +957,13 @@ describe("E2E: Flow Composition", () => {
 
       // Both should have context
       expect(
-        worker.getConversationContext?.().allMessages().length,
+        worker.getConversationContext?.().messages().length,
       ).toBeGreaterThan(0);
 
       flow.reset();
 
-      expect(worker.getConversationContext?.().allMessages().length).toBe(0);
-      expect(observer.getConversationContext?.().allMessages().length).toBe(0);
+      expect(worker.getConversationContext?.().messages().length).toBe(0);
+      expect(observer.getConversationContext?.().messages().length).toBe(0);
     });
   });
 });

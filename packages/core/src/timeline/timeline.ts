@@ -24,6 +24,7 @@ export function filterEvents(
 function eventHasAgent(event: TimelineEvent, agentName: string): boolean {
   switch (event.type) {
     case "agent_call":
+      return event.record.agentName === agentName;
     case "user_input":
     case "tool_mutation":
     case "step_started":

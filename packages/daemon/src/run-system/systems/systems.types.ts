@@ -1,5 +1,6 @@
 import type {
   AgentCallResult,
+  ConversationHistory,
   InputCollector,
   LaunchStrategyHandle,
   LoadedStrategy,
@@ -64,6 +65,7 @@ export interface PreparedRunMetadata {
   readonly strategyName: string;
   readonly agents: string[];
   readonly flowTree: Record<string, unknown>;
+  readonly conversation: ConversationHistory;
 }
 
 export interface SystemDataMap {

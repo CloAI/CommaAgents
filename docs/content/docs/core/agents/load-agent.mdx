@@ -39,6 +39,10 @@ outputSchema:
     answer:
       type: string
   required: [answer]
+context:
+  rollingWindow: 40
+  compaction:
+    keepRecent: 8
 ```
 
 ### JSON
@@ -60,6 +64,10 @@ outputSchema:
     "type": "object",
     "properties": { "answer": { "type": "string" } },
     "required": ["answer"]
+  },
+  "context": {
+    "rollingWindow": 40,
+    "compaction": { "keepRecent": 8 }
   }
 }
 ```
@@ -95,6 +103,13 @@ Provider-agnostic generation parameters forwarded to every call. These map direc
 
 `outputSchema` is a JSON Schema object. It constrains the model response and is
 passed to `streamText` as structured object output.
+
+### context
+
+`context` controls conversation retention before each model call. Use
+`rollingWindow` to keep only the most recent active records visible to the
+model, and `compaction` to summarize older active records while keeping the
+full record history available for export.
 
 ## AgentDescriptionSchema
 

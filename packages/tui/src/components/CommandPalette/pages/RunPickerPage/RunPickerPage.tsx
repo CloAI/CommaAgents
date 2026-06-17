@@ -34,7 +34,7 @@ export function RunPickerPage({
   const location = useLocation();
 
   const { chatRuns } = useChatRuns();
-  const { startStrategy } = useChatRunLifecycle();
+  const { loadPersistedRun } = useChatRunLifecycle();
   const { persistedRuns, fetchPersistedRuns } = usePersistedRunList();
   const { close } = useModal(COMMAND_PALETTE_MODAL_ID);
 
@@ -73,13 +73,11 @@ export function RunPickerPage({
   const selectRun = useCallback(
     (item: RunItem): void => {
       const chatRunId =
-        item.kind === "local"
-          ? item.chatRun.id
-          : startStrategy(item.meta.strategyPath, undefined, item.meta.cwd);
+        item.kind === "local" ? item.chatRun.id : loadPersistedRun(item.meta);
       navigate(`/chat/${encodeURIComponent(chatRunId)}`);
       close();
     },
-    [close, navigate, startStrategy],
+    [close, loadPersistedRun, navigate],
   );
 
   // 5. Effects

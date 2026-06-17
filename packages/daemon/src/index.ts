@@ -43,6 +43,8 @@ export type {
   AgentCallResultWire,
   AgentStreamEventWire,
   ClientMessage,
+  ConversationHistoryWire,
+  ConversationRecordWire,
   DaemonMessage,
   ErrorInfo,
   HandlerContext,

@@ -269,6 +269,19 @@ describe("AgentDescriptionSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("should accept serializable context retention options", () => {
+    const result = AgentDescriptionSchema.safeParse({
+      name: "test",
+      model: "openai/gpt-4o",
+      context: {
+        rollingWindow: 40,
+        compaction: { keepRecent: 8, threshold: 20 },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("should accept both providerOptions and modelOptions", () => {
     const result = AgentDescriptionSchema.safeParse({
       name: "test",
@@ -494,6 +507,24 @@ describe("loadAgentFromString", () => {
       expect(await agent.config?.outputSchema?.jsonSchema).toEqual(
         outputSchema,
       );
+    });
+
+    it("should pass context retention options to agent config", async () => {
+      setupMockModels();
+      const context = {
+        rollingWindow: { maxRecords: 20 },
+        compaction: true,
+      };
+      const agent = await loadAgentFromString(
+        JSON.stringify({
+          name: "test",
+          model: "openai/gpt-4o",
+          context,
+        }),
+        "json",
+      );
+
+      expect(agent.config?.context).toEqual(context);
     });
   });
 

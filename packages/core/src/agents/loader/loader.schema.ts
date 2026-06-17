@@ -55,6 +55,29 @@ export const ModelOptionsSchema = z
 /** JSON Schema object used for structured agent output in YAML/JSON files. */
 export const OutputSchemaSchema = z.record(z.unknown());
 
+/** Serializable conversation context controls for JSON/YAML definitions. */
+export const ConversationContextSchema = z
+  .object({
+    rollingWindow: z
+      .union([
+        z.number().int().nonnegative(),
+        z.object({ maxRecords: z.number().int().nonnegative() }).strict(),
+      ])
+      .optional(),
+    compaction: z
+      .union([
+        z.boolean(),
+        z
+          .object({
+            keepRecent: z.number().int().nonnegative().optional(),
+            threshold: z.number().int().positive().optional(),
+          })
+          .strict(),
+      ])
+      .optional(),
+  })
+  .strict();
+
 /**
  * Agent description schema — validates a standalone agent description file.
  *
@@ -93,6 +116,8 @@ export const AgentDescriptionSchema = z
     modelOptions: ModelOptionsSchema.optional(),
     /** JSON Schema describing the agent's structured output. */
     outputSchema: OutputSchemaSchema.optional(),
+    /** Conversation context retention and compaction controls. */
+    context: ConversationContextSchema.optional(),
     /**
      * Maximum number of LLM round-trips (steps) per call.
      * Each tool-call + response counts as one step.

@@ -1,5 +1,6 @@
 import type {
   AgentStreamEventWire,
+  ConversationRecordWire,
   RequestPermissionMessage,
   RequestQuestionMessage,
   RunOverview,
@@ -177,6 +178,8 @@ export interface CreateRunInit {
 
 /** Lightweight metadata for a daemon-persisted run. */
 export type PersistedRunMeta = RunOverview;
+
+export type PersistedConversationRecord = ConversationRecordWire;
 
 /** Value exposed by `ChatRunsContext`. */
 export interface ChatRunsContextType {

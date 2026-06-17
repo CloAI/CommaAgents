@@ -34,18 +34,39 @@ export {
 // Re-export AI SDK message types and our ResponseMessage alias for consumer convenience
 export type {
   AssistantModelMessage,
+  CompactionOptions,
+  ContextPrepareInput,
+  ContextRecordTransform,
+  ContextRetentionOptions,
+  ContextTransformInput,
+  ConversationHistory,
+  ConversationRecord,
+  ConversationRecordStatus,
+  ConversationUsage,
+  CreateConversationRecordInput,
   ModelMessage,
   ResponseMessage,
+  RollingWindowOptions,
+  SummarizeRecords,
   ToolModelMessage,
   UserModelMessage,
-} from "./context/conversation-context.types";
+} from "./conversation-context";
 export type {
-  ContextStrategy,
   ConversationContext,
-  ConversationContextConfig,
-  ConversationTurn,
-} from "./context/index";
-export { createConversationContext } from "./context/index";
+  ConversationContextOptions,
+} from "./conversation-context/index";
+export {
+  applyCompaction,
+  applyRollingWindow,
+  contextTokensFromSteps,
+  createConversationContext,
+  createConversationRecord,
+  parseConversationJsonl,
+  prepareContextRecords,
+  recordsToMessages,
+  recordToJsonlLine,
+  serializeConversationRecords,
+} from "./conversation-context/index";
 export type {
   ApiCredential,
   AuthStatus,

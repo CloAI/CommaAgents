@@ -7,7 +7,11 @@ import {
   createAbortablePromise,
 } from "@comma-agents/utils";
 import { streamText } from "ai";
-import { createConversationContext } from "../../context/conversation-context";
+import {
+  type ConversationContextOptions,
+  createConversationContext,
+  createConversationRecord,
+} from "../../conversation-context";
 import { AgentCallError } from "../../errors/index";
 import { runSideEffectHooks } from "../../hooks";
 import type { TemplateVariables } from "../../prompts/prompts.types";
@@ -21,6 +25,7 @@ import {
   type AgentHookStore,
   buildCallOptions,
   buildStreamCallResult,
+  createModelSummarizer,
   getToolHooks,
   mapStreamPart,
   runPostCallHooks,
@@ -50,7 +55,7 @@ import {
  * ```
  */
 export function createAgent(config: AgentConfig): Agent {
-  const context = createConversationContext();
+  const context = createConversationContext(resolveContextOptions(config));
   let firstCall = true;
 
   // Mutable hooks store — starts empty, populated via appendHook (hookIntoAgent).
@@ -168,8 +173,18 @@ export function createAgent(config: AgentConfig): Agent {
             );
           }
 
-          // Append to conversation context
-          context.append(alteredMessage, result.responseMessages, config.name);
+          const conversationRecord = createConversationRecord({
+            agentName: config.name,
+            userMessage: alteredMessage,
+            responseMessages: result.responseMessages,
+            text: result.text,
+            usage: result.usage,
+            ...(result.contextTokens !== undefined
+              ? { contextTokens: result.contextTokens }
+              : {}),
+            finishReason: result.finishReason,
+          });
+          context.appendRecord(conversationRecord);
 
           // 4-5. Post-call hooks
           const finalResult = await runPostCallHooks(hooks, result, isFirst);
@@ -228,4 +243,23 @@ export function createAgent(config: AgentConfig): Agent {
   };
 
   return agent;
+}
+
+function resolveContextOptions(
+  config: AgentConfig,
+): ConversationContextOptions {
+  const options = config.context ?? {};
+  if (!options.compaction || !config.model) return options;
+
+  const compaction =
+    options.compaction === true ? {} : { ...options.compaction };
+  if (compaction.summarize !== undefined) return options;
+
+  return {
+    ...options,
+    compaction: {
+      ...compaction,
+      summarize: createModelSummarizer(config.model),
+    },
+  };
 }

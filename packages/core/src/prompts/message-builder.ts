@@ -4,7 +4,7 @@
 // the format expected by `generateText()` / `streamText()`.
 
 import type { ModelMessage } from "ai";
-import type { ConversationContext } from "../context/conversation-context";
+import type { ConversationContext } from "../conversation-context";
 import type { PromptTemplate } from "./prompts.types";
 
 // Types
@@ -90,7 +90,7 @@ export function buildMessages(
 
   // 2. Conversation context
   if (options.context && !options.context.isEmpty) {
-    const contextMessages = options.context.allMessages();
+    const contextMessages = options.context.messages();
     for (const contextMessage of contextMessages) {
       messages.push(contextMessage);
     }

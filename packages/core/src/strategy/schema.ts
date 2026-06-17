@@ -7,6 +7,7 @@
 import { z } from "zod";
 
 import {
+  ConversationContextSchema,
   ModelOptionsSchema,
   OutputSchemaSchema,
 } from "../agents/loader/loader.schema";
@@ -76,6 +77,8 @@ export const LLMAgentDefSchema = z
     modelOptions: ModelOptionsSchema.optional(),
     /** JSON Schema describing the agent's structured output. */
     outputSchema: OutputSchemaSchema.optional(),
+    /** Conversation context retention and compaction controls. */
+    context: ConversationContextSchema.optional(),
     /**
      * Maximum number of LLM round-trips (steps) per call.
      * Each tool-call + response counts as one step.

@@ -11,7 +11,6 @@ import {
   parseModel,
   toModelInfo,
 } from "@comma-agents/core";
-import { contextDetails } from "../context-usage/context-usage";
 import type { DaemonSystem, SystemRunContext } from "../systems.types";
 
 export function createSubLaunchSystem(): DaemonSystem {
@@ -123,6 +122,7 @@ export function createSubLaunchSystem(): DaemonSystem {
 
           agent.appendHook("afterCallResult", (result: unknown): void => {
             const ts = new Date().toISOString();
+            const agentResult = result as AgentCallResult;
 
             if (!isUserAgent) {
               sink.broadcast(run.id, {
@@ -130,9 +130,11 @@ export function createSubLaunchSystem(): DaemonSystem {
                 runId: run.id,
                 agentName,
                 ...modelDetails,
-                text: (result as { text: string }).text,
-                usage: (result as { usage: unknown }).usage,
-                ...contextDetails(result),
+                text: agentResult.text,
+                usage: agentResult.usage,
+                ...(agentResult.contextTokens !== undefined
+                  ? { contextTokens: agentResult.contextTokens }
+                  : {}),
                 ts,
               });
             }

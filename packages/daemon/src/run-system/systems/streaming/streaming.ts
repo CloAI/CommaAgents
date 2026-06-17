@@ -13,7 +13,6 @@ import {
 import type { Logger } from "../../../logger";
 import type { RunState } from "../../../state";
 import type { EventSink } from "../../event-sink";
-import { contextDetails } from "../context-usage/context-usage";
 import type { DaemonSystem, StrategyLoadedContext } from "../systems.types";
 
 export interface StreamingSystemOptions {
@@ -134,7 +133,9 @@ function buildAgentHooks(
             promptTokens: result.usage.promptTokens,
             completionTokens: result.usage.completionTokens,
           },
-          ...contextDetails(result),
+          ...(result.contextTokens !== undefined
+            ? { contextTokens: result.contextTokens }
+            : {}),
           ts,
         });
       }
@@ -205,7 +206,9 @@ function toWireResult(result: AgentCallResult): {
       promptTokens: result.usage.promptTokens,
       completionTokens: result.usage.completionTokens,
     },
-    ...contextDetails(result),
+    ...(result.contextTokens !== undefined
+      ? { contextTokens: result.contextTokens }
+      : {}),
     finishReason: result.finishReason,
   };
 }

@@ -215,6 +215,18 @@ describe("AgentDefSchema", () => {
       expect(result.success).toBe(true);
     });
 
+    it("accepts context retention options", () => {
+      const result = AgentDefSchema.safeParse({
+        model: "openai/gpt-4o",
+        context: {
+          rollingWindow: 30,
+          compaction: { keepRecent: 6 },
+        },
+      });
+
+      expect(result.success).toBe(true);
+    });
+
     it("rejects unknown fields (strict mode)", () => {
       const result = AgentDefSchema.safeParse({
         model: "openai/gpt-4o",

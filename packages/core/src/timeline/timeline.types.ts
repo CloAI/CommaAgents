@@ -1,5 +1,4 @@
-import type { UserModelMessage } from "ai";
-import type { ResponseMessage } from "../context/conversation-context.types";
+import type { ConversationRecord } from "../conversation-context";
 
 /**
  * Union type representing any event recorded on a strategy run's timeline.
@@ -25,9 +24,7 @@ export type TimelineEvent =
   | {
       readonly type: "agent_call";
       readonly ts: string;
-      readonly agentName: string;
-      readonly userMessage: UserModelMessage;
-      readonly responseMessages: readonly ResponseMessage[];
+      readonly record: ConversationRecord;
     }
   | {
       readonly type: "user_input";

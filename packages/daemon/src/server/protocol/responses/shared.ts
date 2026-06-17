@@ -10,6 +10,38 @@ export const UsageSchema = z.object({
 });
 export type Usage = z.infer<typeof UsageSchema>;
 
+export const UserModelMessageSchema = z
+  .object({
+    role: z.literal("user"),
+    content: z.unknown(),
+  })
+  .passthrough();
+
+export const ResponseMessageSchema = z
+  .object({
+    role: z.enum(["assistant", "tool"]),
+    content: z.unknown(),
+  })
+  .passthrough();
+
+export const ConversationRecordSchema = z.object({
+  id: z.string(),
+  agentName: z.string(),
+  createdAt: z.string(),
+  userMessage: UserModelMessageSchema,
+  responseMessages: z.array(ResponseMessageSchema),
+  text: z.string(),
+  usage: UsageSchema,
+  contextTokens: z.number().optional(),
+  finishReason: z.string(),
+});
+export type ConversationRecordWire = z.infer<typeof ConversationRecordSchema>;
+
+export const ConversationHistorySchema = z.object({
+  records: z.array(ConversationRecordSchema),
+});
+export type ConversationHistoryWire = z.infer<typeof ConversationHistorySchema>;
+
 /**
  * Serialized AgentCallResult — the subset we send over the wire.
  * Omits `steps` (internal detail) and sends only the fields

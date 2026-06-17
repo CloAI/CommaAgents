@@ -1,6 +1,7 @@
 import { useDaemonCommand } from "../../useDaemon/useDaemonCommand/useDaemonCommand";
 import { useDaemonSubscription } from "../../useDaemon/useDaemonSubscription/useDaemonSubscription";
 import type { ChatMessage } from "../useChat.types";
+import { conversationRecordsToChatMessages } from "../useChat.utils";
 import { useChatRunStore } from "../useChatRunStore";
 
 /** Project daemon run lifecycle events into local chat runs. */
@@ -53,7 +54,31 @@ export function useChatRunLifecycleSubscriptions(): void {
   };
 
   useDaemonSubscription("run_prepared", (message) => {
-    const pendingExecution = chatRuns.get(message.runId)?.pendingExecution;
+    const chatRun = chatRuns.get(message.runId);
+    const pendingExecution = chatRun?.pendingExecution;
+    if (!pendingExecution && chatRun) {
+      const hydratedMessages = conversationRecordsToChatMessages(
+        message.runId,
+        message.conversation.records,
+      );
+      messageCountersRef.current.set(message.runId, hydratedMessages.length);
+      setChatRuns((previousChatRuns) => {
+        const existingChatRun = previousChatRuns.get(message.runId);
+        if (!existingChatRun) return previousChatRuns;
+        const nextChatRuns = new Map(previousChatRuns);
+        nextChatRuns.set(message.runId, {
+          ...existingChatRun,
+          daemonRunId: message.runId,
+          label: message.strategyName,
+          strategyName: message.strategyName,
+          messages: hydratedMessages,
+          updatedAt: Date.now(),
+        });
+        return nextChatRuns;
+      });
+      return;
+    }
+
     if (
       !pendingExecution ||
       (message.requestId !== undefined &&
@@ -86,6 +111,13 @@ export function useChatRunLifecycleSubscriptions(): void {
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(message.runId);
       if (!chatRun) return previousChatRuns;
+      const hydratedMessages = conversationRecordsToChatMessages(
+        message.runId,
+        message.conversation.records,
+      );
+      if (hydratedMessages.length > 0) {
+        messageCountersRef.current.set(message.runId, hydratedMessages.length);
+      }
 
       const nextChatRuns = new Map(previousChatRuns);
       nextChatRuns.set(message.runId, {
@@ -93,6 +125,8 @@ export function useChatRunLifecycleSubscriptions(): void {
         daemonRunId: message.runId,
         label: message.strategyName,
         strategyName: message.strategyName,
+        messages:
+          hydratedMessages.length > 0 ? hydratedMessages : chatRun.messages,
         pendingExecution: {
           ...pendingExecution,
           requestId: executionRequestId,

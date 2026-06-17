@@ -1,5 +1,5 @@
 import type { DiscoveredStrategy } from "@comma-agents/core";
-import type { ChatRunId } from "../useChat.types";
+import type { ChatRunId, PersistedRunMeta } from "../useChat.types";
 
 export interface ChatRunLifecycle {
   readonly startStrategy: (
@@ -13,6 +13,7 @@ export interface ChatRunLifecycle {
     strategy: DiscoveredStrategy,
     input: string,
   ) => void;
+  readonly loadPersistedRun: (meta: PersistedRunMeta) => ChatRunId;
   readonly stopChatRun: (chatRunId: ChatRunId) => void;
   readonly resetChatRun: (chatRunId: ChatRunId) => void;
   readonly removeChatRun: (chatRunId: ChatRunId) => void;

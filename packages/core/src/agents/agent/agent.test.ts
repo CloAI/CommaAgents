@@ -131,10 +131,6 @@ describe("createAgent with config.execute", () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // History recording with custom execute
-  // ---------------------------------------------------------------------------
-
   describe("context recording", () => {
     it("should record calls in conversation context", async () => {
       const agent = createAgent({
@@ -145,7 +141,7 @@ describe("createAgent with config.execute", () => {
       await agent.call("first");
       await agent.call("second");
 
-      const allMessages = agent.getConversationContext?.().allMessages();
+      const allMessages = agent.getConversationContext?.().messages();
 
       // Context should contain user + assistant pairs for both calls
       expect(allMessages.length).toBeGreaterThanOrEqual(4);
@@ -161,17 +157,23 @@ describe("createAgent with config.execute", () => {
       expect(assistantMessages).toHaveLength(2);
     });
 
-    it("should record turns accessible via getConversationContext().allTurns()", async () => {
+    it("should record canonical records in conversation context", async () => {
       const agent = createAgent({
-        name: "turns-test",
+        name: "records-test",
         execute: async (msg) => `Re: ${msg}`,
       });
 
       await agent.call("hello");
       await agent.call("world");
 
-      const turns = agent.getConversationContext?.().allTurns();
-      expect(turns).toHaveLength(2);
+      const records = agent.getConversationContext?.().records();
+      expect(records).toHaveLength(2);
+      expect(records?.[0]).toMatchObject({
+        agentName: "records-test",
+        text: "Re: hello",
+        usage: { promptTokens: 0, completionTokens: 0 },
+        finishReason: "stop",
+      });
     });
 
     it("should clear context on reset", async () => {
@@ -182,12 +184,12 @@ describe("createAgent with config.execute", () => {
 
       await agent.call("before reset");
       expect(
-        agent.getConversationContext?.().allMessages().length,
+        agent.getConversationContext?.().messages().length,
       ).toBeGreaterThan(0);
 
       agent.reset();
-      expect(agent.getConversationContext?.().allMessages()).toHaveLength(0);
-      expect(agent.getConversationContext?.().allTurns()).toHaveLength(0);
+      expect(agent.getConversationContext?.().messages()).toHaveLength(0);
+      expect(agent.getConversationContext?.().records()).toHaveLength(0);
     });
   });
 

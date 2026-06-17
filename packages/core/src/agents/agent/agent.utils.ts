@@ -3,12 +3,17 @@
 // Standalone helpers for building AI SDK call options, tool sets,
 // messages, and stream event mapping.
 
-import { tool as aiTool, Output, stepCountIs } from "ai";
-import type { ConversationContext } from "../../context/conversation-context";
+import { tool as aiTool, generateText, Output, stepCountIs } from "ai";
 import type {
+  ConversationContext,
   ModelMessage,
   ResponseMessage,
-} from "../../context/conversation-context.types";
+  SummarizeRecords,
+} from "../../conversation-context";
+import {
+  contextTokensFromSteps,
+  recordsToMessages,
+} from "../../conversation-context";
 import { SandboxViolationError } from "../../errors/index";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
 import type { SideEffectHook, TransformHook } from "../../hooks/hooks.types";
@@ -359,6 +364,8 @@ export async function buildCallOptions(
     );
   }
 
+  await context.prepareForCall({ agentName: config.name });
+
   // Resolve model string → LanguageModel
   const languageModel = await resolveModel(config.model);
 
@@ -400,6 +407,35 @@ export async function buildCallOptions(
       ? { output: Output.object({ schema: config.outputSchema }) }
       : {}),
     ...(config.modelOptions ?? {}),
+  };
+}
+
+const SUMMARIZER_SYSTEM_PROMPT =
+  "You compress conversation history. Produce a concise summary that preserves " +
+  "key facts, decisions, open questions, and any state later turns depend on. " +
+  "Write in plain prose; do not add commentary or address the user.";
+
+const SUMMARIZER_INSTRUCTION =
+  "Summarize the conversation above for use as compacted context.";
+
+/**
+ * Build the default summarizer used by context compaction. Resolves the model
+ * lazily so unused summarizers cost nothing.
+ *
+ * @param model - Model identifier in "providerID/modelID" format.
+ */
+export function createModelSummarizer(model: string): SummarizeRecords {
+  return async (records) => {
+    const languageModel = await resolveModel(model);
+    const result = await generateText({
+      model: languageModel,
+      system: SUMMARIZER_SYSTEM_PROMPT,
+      messages: [
+        ...recordsToMessages(records),
+        { role: "user", content: SUMMARIZER_INSTRUCTION },
+      ],
+    });
+    return result.text;
   };
 }
 
@@ -487,6 +523,7 @@ export function buildStreamCallResult(
   },
   finishReason: string | null | undefined,
 ): AgentCallResult {
+  const contextTokens = contextTokensFromSteps(steps);
   return {
     text,
     responseMessages,
@@ -495,6 +532,7 @@ export function buildStreamCallResult(
       promptTokens: totalUsage.inputTokens ?? 0,
       completionTokens: totalUsage.outputTokens ?? 0,
     },
+    ...(contextTokens !== undefined ? { contextTokens } : {}),
     finishReason: finishReason ?? "stop",
   };
 }

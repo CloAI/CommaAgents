@@ -12,9 +12,13 @@ import type {
   streamText,
   ToolChoice,
 } from "ai";
-import type { ConversationContext } from "../../context/conversation-context";
+import type {
+  ConversationContext,
+  ConversationContextOptions,
+  ResponseMessage,
+} from "../../conversation-context";
 import type { LanguageService } from "../../language";
-import type { PromptTemplate, TemplateVariables } from "../../prompts/types";
+import type { PromptTemplate, TemplateVariables } from "../../prompts";
 import type { Sandbox } from "../../sandbox/sandbox.types";
 import type { SkillRegistry } from "../../skills/skills.types";
 import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
@@ -202,6 +206,25 @@ export interface AgentConfig {
    * ```
    */
   readonly execute?: (message: string) => Promise<string | AgentCallResult>;
+  /**
+   * Conversation context retention and compaction options. Transformations are
+   * non-destructive: superseded records are kept for export but excluded from
+   * the LLM-visible projection.
+   *
+   * YAML/JSON definitions can use serializable `rollingWindow` and
+   * `compaction` values. Programmatic callers may also pass `transformRecords`
+   * for custom behavior.
+   *
+   * @example
+   * ```ts
+   * createAgent({
+   *   name: "writer",
+   *   model: "anthropic/claude-opus-4-8",
+   *   context: { rollingWindow: 40, compaction: { keepRecent: 8 } },
+   * });
+   * ```
+   */
+  readonly context?: ConversationContextOptions;
 }
 
 /**
@@ -227,8 +250,8 @@ export interface AgentConfig {
  * // LLM-specific features are optional
  * const agent = createAgent({ name: "writer", model: "openai/gpt-4o" });
  * const context = agent.getConversationContext();   // always present on createAgent results
- * const messages = context.allMessages();            // flat ModelMessage[]
- * const turns = context.allTurns();                  // structured turns
+ * const messages = context.messages();               // flat ModelMessage[]
+ * const records = context.records();                 // structured records
  * for await (const event of agent.stream("Hi")) { ... }
  * ```
  */
@@ -255,9 +278,8 @@ export interface Agent {
   stream?(message: string): AbortableAsyncGenerator<AgentStreamEvent>;
 
   /**
-   * The conversation context — all turns, messages, and context management.
-   * Provides `allMessages()`, `allTurns()`, `lastTurn()`, `estimateTokens()`,
-   * snapshot/restore, and iteration over turns.
+   * The agent's internal conversation context.
+   * Provides canonical conversation records, message projection, and import/export helpers.
    */
   getConversationContext?(): ConversationContext;
 
@@ -321,6 +343,8 @@ export interface AgentCallResult {
     readonly promptTokens: number;
     readonly completionTokens: number;
   };
+  /** Tokens occupying the final model step's context window. */
+  readonly contextTokens?: number;
   /** Why the agent stopped (e.g., "stop", "tool-calls", "length"). */
   readonly finishReason: string;
   /**

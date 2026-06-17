@@ -443,6 +443,7 @@ describe("DaemonMessage union", () => {
       strategyName: "s",
       agents: ["a"],
       flowTree: {},
+      conversation: { records: [] },
     });
     expect(result.type).toBe("run_prepared");
   });

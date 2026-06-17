@@ -44,9 +44,13 @@ agents:
         summary:
           type: string
       required: [summary]
+    context:
+      rollingWindow: 40
+      compaction:
+        keepRecent: 8
 ```
 
-`providerOptions` passes provider-specific features to the AI SDK (e.g. Anthropic extended thinking, OpenAI reasoning effort). `modelOptions` passes provider-agnostic generation parameters (`temperature`, `maxOutputTokens`, `topP`, `seed`, etc.). `outputSchema` accepts a JSON Schema object for structured output. See [createAgent](/docs/core/agents/create-agent) for details.
+`providerOptions` passes provider-specific features to the AI SDK (e.g. Anthropic extended thinking, OpenAI reasoning effort). `modelOptions` passes provider-agnostic generation parameters (`temperature`, `maxOutputTokens`, `topP`, `seed`, etc.). `outputSchema` accepts a JSON Schema object for structured output. `context` controls rolling-window and compaction behavior for conversation history. See [createAgent](/docs/core/agents/create-agent) for details.
 
 ### UserAgentDef
 

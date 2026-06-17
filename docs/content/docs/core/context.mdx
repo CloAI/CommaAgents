@@ -1,83 +1,66 @@
 ---
 title: Conversation Context
-description: Conversation history, context window management, and token estimation.
+description: Per-agent conversation records and JSONL import/export.
 ---
 
 # Conversation Context
 
-Conversation context tracks the history between a user and an agent. Each turn pairs a user message with the model's full response, including any tool calls and tool results. You can limit context with a sliding window by turn count, estimated token budget, or both.
+Conversation context is per-agent state. Each agent created with `createAgent` owns an internal context that stores canonical conversation records and projects those records into AI SDK messages for the next model call.
 
 ## createConversationContext
 
-Creates a `ConversationContext` instance. By default, context is unbounded (every turn is kept forever). Set `maxTurns` or `maxTokens` to enable automatic eviction of the oldest turns.
+Creates an empty `ConversationContext`.
 
 ```ts
-import { createConversationContext } from "@comma-agents/core";
+import {
+  createConversationContext,
+  createConversationRecord,
+} from "@comma-agents/core";
 
-// Unbounded — all turns are kept
 const context = createConversationContext();
 
-// Sliding window by turn count
-const bounded = createConversationContext({ maxTurns: 20 });
+const record = createConversationRecord({
+  agentName: "assistant",
+  userMessage: "What is TypeScript?",
+  responseMessages: [{ role: "assistant", content: "A typed JavaScript superset." }],
+  text: "A typed JavaScript superset.",
+  usage: { promptTokens: 42, completionTokens: 12 },
+  finishReason: "stop",
+});
 
-// Sliding window by token budget
-const tokened = createConversationContext({ maxTokens: 8000 });
+context.appendRecord(record);
 
-// Both limits combined (whichever is stricter wins)
-const combined = createConversationContext({ maxTurns: 20, maxTokens: 8000 });
-
-// Explcit "none" strategy (same as the default with no limits)
-const none = createConversationContext({ strategy: "none" });
+console.log(context.records());
+console.log(context.messages());
 ```
 
-## Using with an Agent
+## Retention
 
-Append each completed turn to the context after the agent finishes responding. The context preserves native AI SDK message types so tool calls, reasoning, and multi-modal content survive across turns.
+Context retention is non-destructive. Superseded records remain available from
+`records()` and JSONL export, but `messages()` excludes them from the next model
+call.
 
 ```ts
-import { createConversationContext, createAgent } from "@comma-agents/core";
+const context = createConversationContext({
+  rollingWindow: 40,
+  compaction: { keepRecent: 8, summarize: async (records) => summarize(records) },
+});
 
-const context = createConversationContext({ maxTurns: 10 });
-const agent = createAgent({ name: "assistant", model: "openai/gpt-4o" });
-
-// Turn 1
-const result1 = await agent.generate("What is TypeScript?");
-context.append("What is TypeScript?", result1.response.messages);
-
-// Turn 2
-const result2 = await agent.generate(
-  `Here is our conversation so far:\nRemember: the user asked about TypeScript.`,
-  context.allMessages(),
-);
-context.append("Tell me about generics.", result2.response.messages);
-
-// Inspect state
-console.log(context.length);       // 2
-console.log(context.isEmpty);      // false
-console.log(context.estimateTokens()); // rough token count
-
-// Serialize and restore
-const snapshot = context.snapshot();
-context.clear();
-console.log(context.isEmpty);      // true
-context.restore(snapshot);
-console.log(context.length);       // 2
+await context.prepareForCall({ agentName: "assistant" });
 ```
 
-## Context Strategies
+## Import And Export
 
-The default strategy depends on your configuration:
-
-- If you set `maxTurns` or `maxTokens`, the strategy defaults to `"sliding-window"`.
-- If you set neither, the strategy defaults to `"none"` (unbounded).
-
-You can force an explicit strategy:
+Contexts can import and export records directly or as newline-delimited JSON. Run stores and other persistence layers decide where the JSONL lives; the context owns only the conversation record contract.
 
 ```ts
-const ctx = createConversationContext({ strategy: "sliding-window" });
-```
+const jsonl = context.exportJsonl();
 
-When `maxTurns` and `maxTokens` are both set, turns are evicted from the oldest until both constraints are satisfied. Token estimation uses a character-based heuristic (default: 0.25 tokens per character, roughly 4 characters per English token). Override `tokensPerChar` if your model tokenizes differently.
+const restored = createConversationContext();
+restored.importJsonl(jsonl);
+
+console.log(restored.exportRecords());
+```
 
 ## Types
 
@@ -85,22 +68,16 @@ When `maxTurns` and `maxTokens` are both set, turns are evicted from the oldest 
 
 The context instance returned by `createConversationContext`.
 
-<AutoTypeTable path="../packages/core/src/context/conversation-context.ts" name="ConversationContext" />
+<AutoTypeTable path="../packages/core/src/conversation-context/conversation-context.types.ts" name="ConversationContext" />
 
-### ConversationContextConfig
+### ConversationRecord
 
-Configuration passed to `createConversationContext`.
+A single agent call record with replay messages, exact usage, and finish metadata.
 
-<AutoTypeTable path="../packages/core/src/context/conversation-context.types.ts" name="ConversationContextConfig" />
+<AutoTypeTable path="../packages/core/src/conversation-context/conversation-context.types.ts" name="ConversationRecord" />
 
-### ContextStrategy
+### ConversationHistory
 
-The strategy for managing context overflow.
+An ordered collection of conversation records.
 
-<AutoTypeTable path="../packages/core/src/context/conversation-context.types.ts" name="ContextStrategy" />
-
-### ConversationTurn
-
-A single turn: one user message paired with all response messages.
-
-<AutoTypeTable path="../packages/core/src/context/conversation-context.types.ts" name="ConversationTurn" />
+<AutoTypeTable path="../packages/core/src/conversation-context/conversation-context.types.ts" name="ConversationHistory" />

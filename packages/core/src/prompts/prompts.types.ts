@@ -1,8 +1,7 @@
 // Prompt system types — template formats and configuration.
 //
 // These types define the prompt template system backed by LiquidJS.
-// Conversation context types (turns, messages, strategies) live in
-// the context module at ../context/conversation-context.types.ts.
+// Conversation context record contracts live in ../conversation-context.
 
 // Prompt Template Types (LiquidJS-backed)
 

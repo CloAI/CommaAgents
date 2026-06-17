@@ -1,8 +1,11 @@
 // Tests for message builder — buildMessages and resolveSystemPrompt.
 
 import { describe, expect, it } from "bun:test";
-import { createConversationContext } from "../context/conversation-context";
-import type { ResponseMessage } from "../context/conversation-context.types";
+import {
+  createConversationContext,
+  createConversationRecord,
+  type ResponseMessage,
+} from "../conversation-context";
 import { buildMessages, resolveSystemPrompt } from "./message-builder";
 import { createPromptTemplate } from "./template/prompt-template";
 
@@ -11,6 +14,25 @@ import { createPromptTemplate } from "./template/prompt-template";
 /** Create a ResponseMessage[] containing a single assistant text message. */
 function assistantResponse(text: string): ResponseMessage[] {
   return [{ role: "assistant", content: [{ type: "text", text }] }];
+}
+
+function appendRecord(
+  context: ReturnType<typeof createConversationContext>,
+  userText: string,
+  responseText: string,
+): void {
+  context.appendRecord(
+    createConversationRecord({
+      id: `${userText}-${responseText}`,
+      agentName: "assistant",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      userMessage: userText,
+      responseMessages: assistantResponse(responseText),
+      text: responseText,
+      usage: { promptTokens: 1, completionTokens: 1 },
+      finishReason: "stop",
+    }),
+  );
 }
 
 // buildMessages
@@ -25,7 +47,7 @@ describe("buildMessages", () => {
 
     it("should prepend context before the current message", () => {
       const context = createConversationContext();
-      context.append("Q1", assistantResponse("A1"));
+      appendRecord(context, "Q1", "A1");
 
       const messages = buildMessages({ message: "Q2", context });
 
@@ -38,8 +60,8 @@ describe("buildMessages", () => {
 
     it("should handle multi-turn context", () => {
       const context = createConversationContext();
-      context.append("Q1", assistantResponse("A1"));
-      context.append("Q2", assistantResponse("A2"));
+      appendRecord(context, "Q1", "A1");
+      appendRecord(context, "Q2", "A2");
 
       const messages = buildMessages({ message: "Q3", context });
 
@@ -63,7 +85,7 @@ describe("buildMessages", () => {
   describe("prefix messages", () => {
     it("should prepend prefix before context", () => {
       const context = createConversationContext();
-      context.append("Q1", assistantResponse("A1"));
+      appendRecord(context, "Q1", "A1");
 
       const messages = buildMessages({
         message: "Q2",
@@ -99,7 +121,7 @@ describe("buildMessages", () => {
   describe("full composition", () => {
     it("should compose all parts in correct order", () => {
       const context = createConversationContext();
-      context.append("H1", assistantResponse("R1"));
+      appendRecord(context, "H1", "R1");
 
       const messages = buildMessages({
         message: "Current question",

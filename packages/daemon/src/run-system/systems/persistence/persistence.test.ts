@@ -1,5 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import type { AgentCallResult, LoadedStrategy } from "@comma-agents/core";
+import {
+  type AgentCallResult,
+  createConversationContext,
+  createConversationRecord,
+  type LoadedStrategy,
+} from "@comma-agents/core";
 import { mockRunStore } from "../../../test.utils";
 import { createSystemRunContext } from "../systems.test.utils";
 import type { ExecutionContext } from "../systems.types";
@@ -19,6 +24,18 @@ describe("createPersistenceSystem", () => {
     const runStore = mockRunStore();
     const flowHooks = new Map<string, unknown>();
     const agentHooks = new Map<string, unknown>();
+    const conversationContext = createConversationContext();
+    const record = createConversationRecord({
+      id: "record-1",
+      agentName: "assistant",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      userMessage: "request",
+      responseMessages: result.responseMessages,
+      text: result.text,
+      usage: result.usage,
+      finishReason: result.finishReason,
+    });
+    conversationContext.appendRecord(record);
     const strategy = {
       name: "Test",
       version: "1.0",
@@ -32,6 +49,10 @@ describe("createPersistenceSystem", () => {
           appendHook(name: string, callback: unknown): void {
             agentHooks.set(name, callback);
           },
+          getConversationContext(): typeof conversationContext {
+            return conversationContext;
+          },
+          name: "assistant",
         },
       },
       raw: {},
@@ -58,16 +79,12 @@ describe("createPersistenceSystem", () => {
       message: string;
       result: AgentCallResult;
     }) => void;
-    const beforeCall = agentHooks.get("beforeCall") as (
-      message: string,
-    ) => void;
     const afterCallResult = agentHooks.get("afterCallResult") as (
       value: AgentCallResult,
     ) => void;
 
     beforeStep({ stepName: "assistant", message: "request" });
     afterStep({ stepName: "assistant", message: "request", result });
-    beforeCall("request");
     afterCallResult(result);
 
     const events = await runStore.getEvents(context.run.id);
@@ -83,8 +100,10 @@ describe("createPersistenceSystem", () => {
     });
     expect(events[3]).toMatchObject({
       type: "agent_call",
-      agentName: "assistant",
-      userMessage: { role: "user", content: "request" },
+      record: {
+        agentName: "assistant",
+        userMessage: { role: "user", content: "request" },
+      },
     });
   });
 });

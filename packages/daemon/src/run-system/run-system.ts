@@ -1,6 +1,7 @@
 import type {
   AgentCallResult,
-  ConversationTurn,
+  ConversationHistory,
+  ConversationRecord,
   LoadedStrategy,
   TimelineEvent,
 } from "@comma-agents/core";
@@ -159,9 +160,8 @@ export function createRunSystem({
         logger,
       });
 
-      if (mode === "continuation") {
-        restoreAgentContexts(strategy, persistedEvents);
-      }
+      const conversation = conversationHistoryFromEvents(persistedEvents);
+      if (mode === "continuation") restoreAgentContexts(strategy, conversation);
 
       await invokeOnStrategyLoaded(systems, { ...context, strategy }, logger);
       preparedRuns.set(run.id, { context, strategy, mode });
@@ -171,6 +171,7 @@ export function createRunSystem({
         strategyName: strategy.name,
         agents: Object.keys(strategy.agents),
         flowTree: strategy.raw.flow as Record<string, unknown>,
+        conversation,
       };
     } catch (error) {
       await invokeOnRunCleanup(systems, context, logger);
@@ -427,24 +428,29 @@ function findLatestRunStart(
 
 function restoreAgentContexts(
   strategy: LoadedStrategy,
-  events: readonly TimelineEvent[],
+  conversation: ConversationHistory,
 ): void {
-  const turnsByAgent = new Map<string, ConversationTurn[]>();
-  for (const event of events) {
-    if (event.type !== "agent_call") continue;
-    const turns = turnsByAgent.get(event.agentName) ?? [];
-    turns.push({
-      agentName: event.agentName,
-      userMessage: event.userMessage,
-      responseMessages: event.responseMessages,
-    });
-    turnsByAgent.set(event.agentName, turns);
+  const recordsByAgent = new Map<string, ConversationRecord[]>();
+  for (const record of conversation.records) {
+    const records = recordsByAgent.get(record.agentName) ?? [];
+    records.push(record);
+    recordsByAgent.set(record.agentName, records);
   }
 
   for (const [agentName, agent] of Object.entries(strategy.agents)) {
-    const turns = turnsByAgent.get(agentName);
-    if (turns && turns.length > 0) {
-      agent.getConversationContext?.().restore(turns);
+    const records = recordsByAgent.get(agentName);
+    if (records && records.length > 0) {
+      agent.getConversationContext?.().importRecords(records);
     }
   }
+}
+
+function conversationHistoryFromEvents(
+  events: readonly TimelineEvent[],
+): ConversationHistory {
+  const records: ConversationRecord[] = [];
+  for (const event of events) {
+    if (event.type === "agent_call") records.push(event.record);
+  }
+  return { records };
 }

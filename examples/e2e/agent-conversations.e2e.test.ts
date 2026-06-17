@@ -285,7 +285,7 @@ describe("E2E: Agent Conversations", () => {
       // Reset was called before third call, so context should only have the post-reset call
       const context = agent.getConversationContext?.();
       // Should have 2 entries (1 user + 1 assistant from the post-reset call)
-      expect(context.allMessages().length).toBe(2);
+      expect(context.messages().length).toBe(2);
     });
   });
 });

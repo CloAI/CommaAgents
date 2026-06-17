@@ -229,6 +229,72 @@ describe("useChat", () => {
     });
   });
 
+  describe("loadPersistedRun", () => {
+    it("should prepare the existing run id and hydrate from run_prepared", () => {
+      const { chatRuns, runLifecycle, cleanup } = renderChatHook();
+
+      act(() => {
+        runLifecycle.current.loadPersistedRun({
+          runId: "persisted-run",
+          cwd: "/repo",
+          strategyName: "plan",
+          strategyPath: "/plan.json",
+          startedAt: "2026-01-01T00:00:00.000Z",
+          completedAt: "2026-01-01T00:01:00.000Z",
+          status: "completed",
+        });
+      });
+
+      expect(mockPrepareRunCommand).toHaveBeenCalledWith({
+        runId: "persisted-run",
+      });
+      expect(mockStartRunCommand).toHaveBeenCalledTimes(0);
+      expect(mockContinueRunCommand).toHaveBeenCalledTimes(0);
+
+      act(() => {
+        subscriptionHandlers.run_prepared?.({
+          runId: "persisted-run",
+          strategyName: "plan",
+          agents: ["assistant"],
+          flowTree: {},
+          conversation: {
+            records: [
+              {
+                id: "record-1",
+                agentName: "assistant",
+                createdAt: "2026-01-01T00:00:30.000Z",
+                userMessage: { role: "user", content: "draft it" },
+                responseMessages: [{ role: "assistant", content: "drafted" }],
+                text: "drafted",
+                usage: { promptTokens: 100, completionTokens: 25 },
+                contextTokens: 125,
+                finishReason: "stop",
+              },
+            ],
+          },
+        });
+      });
+
+      const hydratedRun = chatRuns.current.chatRuns.get("persisted-run");
+      expect(hydratedRun?.messages).toHaveLength(2);
+      expect(hydratedRun?.messages[0]).toMatchObject({
+        role: "user",
+        text: "draft it",
+      });
+      expect(hydratedRun?.messages[1]).toMatchObject({
+        role: "agent",
+        sender: "assistant",
+        text: "drafted",
+        usage: { promptTokens: 100, completionTokens: 25 },
+        contextTokens: 125,
+      });
+      expect(mockStartRunCommand).toHaveBeenCalledTimes(0);
+      expect(mockContinueRunCommand).toHaveBeenCalledTimes(0);
+
+      cleanup();
+    });
+  });
+
   describe("strategy_started subscription", () => {
     it("should start a prepared run and bind metadata before strategy_started", () => {
       const { result, cleanup } = renderChatHook();
@@ -244,6 +310,7 @@ describe("useChat", () => {
           strategyName: "test-strategy",
           agents: ["agent-a", "agent-b"],
           flowTree: {},
+          conversation: { records: [] },
           requestId: "req-1",
         });
       });
@@ -756,6 +823,7 @@ describe("useChat", () => {
           strategyName: "plan",
           agents: ["assistant"],
           flowTree: {},
+          conversation: { records: [] },
           requestId: "req-1",
         });
       });
@@ -836,6 +904,7 @@ describe("useChat", () => {
           strategyName: "plan",
           agents: ["assistant"],
           flowTree: {},
+          conversation: { records: [] },
           requestId: "req-1",
         });
       });

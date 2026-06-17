@@ -2,7 +2,12 @@ import type { DiscoveredStrategy } from "@comma-agents/core";
 import { useCallback } from "react";
 
 import { useDaemonCommand } from "../../useDaemon/useDaemonCommand/useDaemonCommand";
-import type { ChatMessage, ChatRun, ChatRunId } from "../useChat.types";
+import type {
+  ChatMessage,
+  ChatRun,
+  ChatRunId,
+  PersistedRunMeta,
+} from "../useChat.types";
 import { createInitialChatRun } from "../useChat.utils";
 import { useChatRunStore } from "../useChatRunStore";
 import type { ChatRunLifecycle } from "./useChatRunLifecycle.types";
@@ -181,6 +186,44 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
     [chatRuns, messageCountersRef, prepareRunCommand, updateChatRun],
   );
 
+  const loadPersistedRun = useCallback(
+    (meta: PersistedRunMeta): ChatRunId => {
+      const now = Date.now();
+      const startedAt = Date.parse(meta.startedAt);
+      const chatRun: ChatRun = {
+        ...createInitialChatRun(meta.runId, {
+          label: meta.strategyName,
+          strategyPath: meta.strategyPath,
+        }),
+        daemonRunId: meta.runId,
+        status: meta.status,
+        runStatus: meta.status,
+        createdAt: Number.isNaN(startedAt) ? now : startedAt,
+        updatedAt: now,
+      };
+      messageCountersRef.current.set(meta.runId, 0);
+
+      setChatRuns((previousChatRuns) => {
+        const nextChatRuns = new Map(previousChatRuns);
+        nextChatRuns.set(meta.runId, chatRun);
+        return nextChatRuns;
+      });
+
+      const requestId = prepareRunCommand({ runId: meta.runId });
+      if (!requestId) {
+        updateChatRun(meta.runId, (existingChatRun) => ({
+          ...existingChatRun,
+          status: "error",
+          runStatus: "error",
+          error: DAEMON_UNREACHABLE_ERROR,
+        }));
+      }
+
+      return meta.runId;
+    },
+    [messageCountersRef, prepareRunCommand, setChatRuns, updateChatRun],
+  );
+
   const stopChatRun = useCallback<ChatRunLifecycle["stopChatRun"]>(
     (chatRunId) => {
       const chatRun = chatRuns.get(chatRunId);
@@ -232,6 +275,7 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
   return {
     startStrategy,
     continueRun,
+    loadPersistedRun,
     stopChatRun,
     resetChatRun,
     removeChatRun,

@@ -72,6 +72,26 @@ const classifier = createAgent({
 });
 ```
 
+## Conversation Context
+
+Use `context` to keep exported history intact while limiting what the next model
+call sees:
+
+```ts
+const writer = createAgent({
+  name: "writer",
+  model: "openai/gpt-4o",
+  context: {
+    rollingWindow: 40,
+    compaction: { keepRecent: 8 },
+  },
+});
+```
+
+`rollingWindow` may be a number or `{ maxRecords }`. `compaction` may be
+`true` or an object with `keepRecent` and `threshold`. Programmatic callers can
+also pass `transformRecords` for custom record preparation.
+
 ## AgentConfig
 
 The configuration object passed to `createAgent`.

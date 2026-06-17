@@ -10,6 +10,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  createConversationRecord,
   extractProviderIds,
   registerModel,
   resetGlobalDefaults,
@@ -93,6 +94,28 @@ function registerCapturingModel(modelString: string, prompts: unknown[]): void {
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- focused mock
   } as any);
+}
+
+function makeAgentCallEvent(
+  agentName: string,
+  userText: string,
+  responseText: string,
+  ts: string,
+) {
+  return {
+    type: "agent_call" as const,
+    ts,
+    record: createConversationRecord({
+      id: `${agentName}-${ts}`,
+      agentName,
+      createdAt: ts,
+      userMessage: userText,
+      responseMessages: [{ role: "assistant", content: responseText }],
+      text: responseText,
+      usage: { promptTokens: 1, completionTokens: 1 },
+      finishReason: "stop",
+    }),
+  };
 }
 
 afterEach(async () => {
@@ -214,6 +237,7 @@ describe("createRunSystem", () => {
 
     expect(prepared.strategyName).toBe("Test");
     expect(prepared.agents).toContain("assistant");
+    expect(prepared.conversation.records).toEqual([]);
     expect(state.getRun(runId)?.status).toBe("pending");
     expect(await runSystem.runStore.listRuns()).toHaveLength(0);
 
@@ -308,20 +332,24 @@ describe("createRunSystem", () => {
       strategyName: "Test",
       cwd: "/persisted/cwd",
     });
-    await runSystem.runStore.appendEvent("continued-run", {
-      type: "agent_call",
-      ts: new Date(1).toISOString(),
-      agentName: "assistant",
-      userMessage: { role: "user", content: "prior request" },
-      responseMessages: [{ role: "assistant", content: "prior response" }],
-    });
-    await runSystem.runStore.appendEvent("continued-run", {
-      type: "agent_call",
-      ts: new Date(2).toISOString(),
-      agentName: "removed-agent",
-      userMessage: { role: "user", content: "unmatched request" },
-      responseMessages: [{ role: "assistant", content: "unmatched response" }],
-    });
+    await runSystem.runStore.appendEvent(
+      "continued-run",
+      makeAgentCallEvent(
+        "assistant",
+        "prior request",
+        "prior response",
+        new Date(1).toISOString(),
+      ),
+    );
+    await runSystem.runStore.appendEvent(
+      "continued-run",
+      makeAgentCallEvent(
+        "removed-agent",
+        "unmatched request",
+        "unmatched response",
+        new Date(2).toISOString(),
+      ),
+    );
     await runSystem.runStore.appendEvent("continued-run", {
       type: "run_completed",
       ts: new Date(3).toISOString(),
@@ -332,6 +360,11 @@ describe("createRunSystem", () => {
       runId: "continued-run",
     });
     expect(prepared.runId).toBe("continued-run");
+    expect(prepared.conversation.records).toHaveLength(2);
+    expect(prepared.conversation.records[0]).toMatchObject({
+      agentName: "assistant",
+      text: "prior response",
+    });
     expect(await runSystem.runStore.getEvents("continued-run")).toHaveLength(4);
     expect(() =>
       runSystem.startRun("client-1", "continued-run", "wrong command"),
@@ -401,13 +434,15 @@ describe("createRunSystem", () => {
       strategyName: "Test",
       cwd: "/persisted/cwd",
     });
-    await runSystem.runStore.appendEvent("override-run", {
-      type: "agent_call",
-      ts: new Date(1).toISOString(),
-      agentName: "assistant",
-      userMessage: { role: "user", content: "assistant history" },
-      responseMessages: [{ role: "assistant", content: "assistant result" }],
-    });
+    await runSystem.runStore.appendEvent(
+      "override-run",
+      makeAgentCallEvent(
+        "assistant",
+        "assistant history",
+        "assistant result",
+        new Date(1).toISOString(),
+      ),
+    );
     await runSystem.runStore.appendEvent("override-run", {
       type: "run_completed",
       ts: new Date(2).toISOString(),
