@@ -70,7 +70,7 @@ mv "$INSTALL_DIR/.comma.new" "$INSTALL_DIR/comma"
 
 add_path_line() {
   local shell_file="$1"
-  local line='export PATH="$HOME/.local/bin:$PATH"'
+  local line="export PATH=\"\$HOME/.local/bin:\$PATH\""
   touch "$shell_file"
   if ! grep -Fqx "$line" "$shell_file"; then
     printf '\n# CommaAgents CLI\n%s\n' "$line" >>"$shell_file"
