@@ -1,6 +1,18 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ChatTextArea } from "./ChatTextArea";
-import { strategies } from "./ChatTextArea.theme";
+
+const strategies = [
+  {
+    label: "Plan",
+    value: "/strategies/plan.ts",
+    description: "Plan implementation work",
+  },
+  {
+    label: "Build",
+    value: "/strategies/build.ts",
+    description: "Implement a requested change",
+  },
+];
 
 const meta: Meta<typeof ChatTextArea> = {
   title: "Components/ChatTextArea",

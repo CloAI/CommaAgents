@@ -1,6 +1,5 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
-import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -8,31 +7,21 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  * Vite config consumed by Storybook (`@storybook/react-vite` merges this in).
  *
  * Ink and many of its transitive deps reach into Node built-ins
- * (`stream`, `events`, `process`, `buffer`, `util`, `tty`). The polyfill
- * plugin shims most of them; we add local shims for `node:process` and
- * `node:child_process` because the plugin's defaults don't re-export the
- * named bindings (cwd, env, execFileSync, ...) that Ink imports.
+ * (`stream`, `events`, `process`, and `fs`). Alias only the built-ins Ink
+ * actually imports so the browser preview does not pull in a broad Node
+ * polyfill dependency tree.
  */
 export default defineConfig({
-  plugins: [
-    nodePolyfills({
-      protocolImports: true,
-      // Don't auto-inject Buffer/process imports into every source file —
-      // that breaks resolution from packages outside this dir's node_modules
-      // under bun's hoisted workspace layout. We expose them via `define`
-      // and explicit imports instead.
-      globals: { Buffer: false, global: true, process: false },
-      // We provide our own richer process / child_process shims via aliases.
-      exclude: ["process", "child_process"],
-    }),
-  ],
   resolve: {
     alias: [
-      // Only alias the `node:` protocol form. Bare `process` and
-      // `child_process` continue to resolve to the npm polyfill packages
-      // — that's important so our shim itself can `import nodeProcess
-      // from "process"` without creating a self-referential alias loop.
+      { find: /^node:stream$/, replacement: "readable-stream" },
+      { find: /^node:events$/, replacement: "events" },
       { find: /^node:process$/, replacement: r("./src/shims/process.ts") },
+      { find: /^node:fs$/, replacement: r("./src/shims/fs.ts") },
+      { find: /^node:tty$/, replacement: r("./src/shims/tty.ts") },
+      { find: /^(?:node:)?os$/, replacement: r("./src/shims/os.ts") },
+      { find: /^node:path$/, replacement: r("./src/shims/path.ts") },
+      { find: /^module$/, replacement: r("./src/shims/module.ts") },
       {
         find: /^node:child_process$/,
         replacement: r("./src/shims/child_process.ts"),

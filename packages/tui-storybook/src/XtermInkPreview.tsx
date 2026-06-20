@@ -3,24 +3,24 @@ import { Terminal } from "@xterm/xterm";
 import { render as inkRender } from "ink";
 import { type ReactNode, useEffect, useRef } from "react";
 import { MouseProvider } from "../../tui/src/components/MouseProvider";
-import { ModalProvider } from "../../tui/src/hooks/useModal";
-import { ThemeProvider } from "../../tui/src/theme";
+import { ModalContextProvider } from "../../tui/src/hooks/useModal";
+import { ThemeContextProvider } from "../../tui/src/Theme";
 import { createStdinShim } from "./shims/stdin";
 import { createStdoutShim } from "./shims/stdout";
 
 /**
  * Wraps story content in the canonical provider tree expected by every
- * `@comma-agents/tui` component: `ThemeProvider > MouseProvider > ModalProvider`.
+ * `@comma-agents/tui` component: `ThemeContextProvider > MouseProvider > ModalContextProvider`.
  * Mirrors the order used in `bootstrap.tsx` so stories behave identically
  * to a live TUI session.
  */
 function StoryProviders({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider>
+    <ThemeContextProvider>
       <MouseProvider>
-        <ModalProvider>{children}</ModalProvider>
+        <ModalContextProvider>{children}</ModalContextProvider>
       </MouseProvider>
-    </ThemeProvider>
+    </ThemeContextProvider>
   );
 }
 

@@ -14,22 +14,22 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "buffer": "^6.0.3",
+    "events": "^3.3.0",
     "ink": "7.0.1",
     "process": "^0.11.10",
     "react": "19.2.5",
     "react-dom": "19.2.5",
-    "readable-stream": "^4.5.2"
+    "readable-stream": "^4.7.0"
   },
   "devDependencies": {
-    "@storybook/react": "^10.3.6",
-    "@storybook/react-vite": "^10.3.6",
+    "@storybook/react": "^10.4.6",
+    "@storybook/react-vite": "^10.4.6",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.0",
-    "@types/readable-stream": "^4.0.18",
-    "storybook": "^10.3.6",
+    "@types/readable-stream": "^4.0.23",
+    "storybook": "^10.4.6",
     "typescript": "6.0.2",
-    "vite": "^5.4.11",
-    "vite-plugin-node-polyfills": "^0.22.0",
-    "@storybook/addon-docs": "^10.3.6"
+    "vite": "^6.4.3",
+    "@storybook/addon-docs": "^10.4.6"
   }
 }

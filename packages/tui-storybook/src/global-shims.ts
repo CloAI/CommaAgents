@@ -2,11 +2,8 @@
  * Establishes Node-like globals (`Buffer`, `process`, `global`) on
  * `globalThis` so Ink and its transitive deps can access them at runtime.
  *
- * We do this manually (instead of letting `vite-plugin-node-polyfills`
- * auto-inject imports into every source file) because that auto-injection
- * adds `import "vite-plugin-node-polyfills/shims/buffer"` to files in the
- * `@comma-agents/tui` package, whose `node_modules` lookup under bun's
- * hoisted workspace layout cannot resolve the plugin's deep path.
+ * These globals are installed explicitly because the Storybook Vite config
+ * aliases only the Node built-ins that the preview actually uses.
  *
  * The local binding is `nodeProcess` — NOT `process` — because Vite's
  * `define` rewrites the token `process.env.NODE_ENV` inside this file too,
