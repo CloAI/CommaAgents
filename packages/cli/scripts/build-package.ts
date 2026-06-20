@@ -8,6 +8,7 @@ const workspaceAliases = {
   "@comma-agents/core": resolve("../core/src/index.ts"),
   "@comma-agents/daemon": resolve("../daemon/src/index.ts"),
   "@comma-agents/tui": resolve("../tui/src/index.ts"),
+  "@comma-agents/utils": resolve("../utils/src/index.ts"),
 };
 
 rmSync("dist", { recursive: true, force: true });

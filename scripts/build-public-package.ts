@@ -35,6 +35,15 @@ const packageManifest = (await Bun.file(
   readonly dependencies?: Readonly<Record<string, string>>;
 };
 const externalDependencies = Object.keys(packageManifest.dependencies ?? {});
+const workspaceAliases = {
+  "@comma-agents/utils": join(
+    repositoryRoot,
+    "packages",
+    "utils",
+    "src",
+    "index.ts",
+  ),
+};
 
 rmSync(join(packageDirectory, "dist"), { recursive: true, force: true });
 
@@ -46,6 +55,7 @@ const buildResult = await Bun.build({
   naming: "[name].js",
   target: "bun",
   external: externalDependencies,
+  alias: workspaceAliases,
   define: {
     "process.env.COMMA_BUILD_VERSION": JSON.stringify(packageManifest.version),
   },
