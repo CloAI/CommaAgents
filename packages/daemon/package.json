@@ -38,7 +38,7 @@
   "publishConfig": { "access": "public", "tag": "next" },
   "repository": {
     "type": "git",
-    "url": "https://github.com/NateAGeek/commaagent2.git",
+    "url": "https://github.com/CloAI/CommaAgents.git",
     "directory": "packages/daemon"
   },
   "author": "CloAI",

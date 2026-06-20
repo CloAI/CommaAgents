@@ -46,7 +46,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/NateAGeek/commaagent2.git",
+    "url": "https://github.com/CloAI/CommaAgents.git",
     "directory": "packages/cli"
   },
   "author": "CloAI",

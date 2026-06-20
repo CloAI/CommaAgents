@@ -8,16 +8,22 @@ on:
 permissions:
   contents: write
   id-token: write
+  attestations: write
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: npm-release
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.10
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
       - run: npm install --global npm@11.5.1
@@ -33,18 +39,6 @@ jobs:
       - run: bun run packages:build
       - run: bun run packages:validate
       - run: bun test packages/cli/src packages/daemon/src/daemon-control packages/core/src/abortable
-      - name: Publish npm packages with trusted publishing
-        shell: bash
-        run: |
-          for package in core daemon tui cli; do
-            name="$(node -p "require('./packages/$package/package.json').name")"
-            version="$(node -p "require('./packages/$package/package.json').version")"
-            if npm view "$name@$version" version >/dev/null 2>&1; then
-              echo "$name@$version is already published; skipping"
-            else
-              npm publish "./packages/$package" --access public --tag next
-            fi
-          done
       - run: bun run --cwd packages/cli build:standalone all
       - name: Package standalone executables
         shell: bash
@@ -57,7 +51,12 @@ jobs:
             zip -j "artifacts/comma-$target.zip" "packages/cli/dist/standalone/$target/comma.exe"
           done
           (cd artifacts && sha256sum comma-* > SHA256SUMS)
-      - name: Publish GitHub release
+      - name: Attest standalone artifacts
+        if: github.event.repository.visibility == 'public'
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-path: artifacts/*
+      - name: Prepare draft GitHub release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,7 +66,32 @@ jobs:
           prerelease=()
           [[ "$version" == *-* ]] && prerelease=(--prerelease)
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" artifacts/* --clobber
+            is_draft="$(gh release view "$tag" --json isDraft --jq .isDraft)"
+            if [[ "$is_draft" != "true" ]]; then
+              echo "Release $tag is already published and will not be modified" >&2
+              exit 1
+            fi
           else
-            gh release create "$tag" artifacts/* --generate-notes "${prerelease[@]}"
+            gh release create "$tag" --draft --generate-notes "${prerelease[@]}"
           fi
+          gh release upload "$tag" artifacts/* --clobber
+      - name: Publish npm packages with trusted publishing
+        shell: bash
+        run: |
+          for package in core daemon tui cli; do
+            name="$(node -p "require('./packages/$package/package.json').name")"
+            version="$(node -p "require('./packages/$package/package.json').version")"
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version is already published; skipping"
+            else
+              npm publish "./packages/$package" --access public --tag next
+            fi
+          done
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v$version"
+          gh release edit "$tag" --draft=false

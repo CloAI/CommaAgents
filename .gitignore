@@ -28,6 +28,7 @@ coverage/
 
 # Logs
 *.log
+.rlprompter/
 
 # Docs (Next.js)
 docs/.next/
