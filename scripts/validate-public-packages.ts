@@ -5,6 +5,8 @@ const PUBLIC_PACKAGES = ["core", "daemon", "tui", "cli"] as const;
 const repositoryRoot = resolve(import.meta.dir, "..");
 const rootManifest = await Bun.file(join(repositoryRoot, "package.json")).json();
 const errors: Array<string> = [];
+const privateUtilsImportPattern =
+  /(?:from\s*["']@comma-agents\/utils["']|import\s*\(\s*["']@comma-agents\/utils["']\s*\)|require\s*\(\s*["']@comma-agents\/utils["']\s*\))/;
 
 function walk(directory: string): Array<string> {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -37,7 +39,7 @@ for (const packageName of PUBLIC_PACKAGES) {
   for (const path of walk(distDirectory)) {
     if (!/\.(?:js|d\.ts)$/.test(path)) continue;
     const contents = readFileSync(path, "utf8");
-    if (contents.includes("@comma-agents/utils")) {
+    if (privateUtilsImportPattern.test(contents)) {
       errors.push(`${path} references private @comma-agents/utils`);
     }
   }

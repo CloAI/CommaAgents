@@ -54,9 +54,10 @@
         "comma": "dist/comma.js",
       },
       "devDependencies": {
-        "@comma-agents/core": "workspace:*",
-        "@comma-agents/daemon": "workspace:*",
-        "@comma-agents/tui": "workspace:*",
+        "@comma-agents/core": "2.0.0-rc.0",
+        "@comma-agents/daemon": "2.0.0-rc.0",
+        "@comma-agents/tui": "2.0.0-rc.0",
+        "@comma-agents/utils": "file:../utils",
         "@types/react": "19.2.14",
         "@types/yargs": "17.0.33",
         "ink": "7.0.1",
@@ -84,6 +85,7 @@
         "zod": "3.25.76",
       },
       "devDependencies": {
+        "@comma-agents/utils": "file:../utils",
         "@types/tar-stream": "^3.1.4",
         "@types/turndown": "5.0.6",
       },
@@ -103,6 +105,7 @@
         "zod": "3.25.76",
       },
       "devDependencies": {
+        "@comma-agents/utils": "file:../utils",
         "@types/yargs": "17.0.33",
         "ai": "6.0.91",
       },
@@ -141,12 +144,12 @@
       "name": "@comma-agents/tui",
       "version": "2.0.0-rc.0",
       "bin": {
-        "comma-agents-tui": "src/main.tsx",
+        "comma-agents-tui": "dist/main.js",
       },
       "dependencies": {
         "@amandaghassaei/stl-parser": "1.7.0",
-        "@comma-agents/core": "workspace:*",
-        "@comma-agents/daemon": "workspace:*",
+        "@comma-agents/core": "2.0.0-rc.0",
+        "@comma-agents/daemon": "2.0.0-rc.0",
         "@shikijs/cli": "^4.0.2",
         "chalk": "5.6.2",
         "cli-table3": "0.6.5",
@@ -1346,6 +1349,12 @@
     "@babel/core/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
 
     "@babel/helper-compilation-targets/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
+
+    "@comma-agents/cli/@comma-agents/utils": ["@comma-agents/utils@file:packages/utils", {}],
+
+    "@comma-agents/core/@comma-agents/utils": ["@comma-agents/utils@file:packages/utils", {}],
+
+    "@comma-agents/daemon/@comma-agents/utils": ["@comma-agents/utils@file:packages/utils", {}],
 
     "@comma-agents/examples/@ai-sdk/openai-compatible": ["@ai-sdk/openai-compatible@2.0.33", "", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@ai-sdk/provider-utils": "4.0.17" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-HwptqeUS4vtDyjSSjmKCQExjoQMwPVq0C4pHH18i7c+3CQ0QN81HLvz3BdpULo0n/UtdQwTNISRqx3G5miPZhw=="],
 

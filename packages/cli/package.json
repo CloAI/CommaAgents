@@ -26,6 +26,7 @@
     "@comma-agents/core": "2.0.0-rc.0",
     "@comma-agents/daemon": "2.0.0-rc.0",
     "@comma-agents/tui": "2.0.0-rc.0",
+    "@comma-agents/utils": "file:../utils",
     "@types/react": "19.2.14",
     "@types/yargs": "17.0.33",
     "ink": "7.0.1",

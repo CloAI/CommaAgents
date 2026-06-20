@@ -30,6 +30,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@comma-agents/utils": "file:../utils",
     "@types/yargs": "17.0.33",
     "ai": "6.0.91"
   },
