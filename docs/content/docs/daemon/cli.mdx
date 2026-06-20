@@ -1,11 +1,22 @@
 ---
 title: CLI
-description: Command-line interface for starting, stopping, and checking daemon status.
+description: Command-line interface for managing the daemon process.
 ---
 
 # CLI
 
-The `comma-agents-daemon` binary provides three subcommands for managing the daemon process: `start`, `stop`, and `status`.
+The primary daemon management interface is `comma daemon`. The legacy `comma-agents-daemon` binary remains available for direct daemon process control.
+
+```bash
+comma daemon start
+comma daemon status
+comma daemon stop
+comma daemon restart
+```
+
+Use `comma daemon enable` or `comma daemon disable` to manage user-level daemon autostart.
+
+The compatibility binary supports `start`, `stop`, `restart`, and `status`.
 
 ## start
 
@@ -38,6 +49,15 @@ comma-agents-daemon start --foreground --model-override github-copilot/gpt-4o --
 
 If the daemon is already running, `start` exits with an error message and exit code 1.
 
+## restart
+
+Stops the daemon, then starts it again with the same flags as `start`.
+
+```bash
+comma daemon restart
+comma-agents-daemon restart --verbose
+```
+
 ## stop
 
 Stops a running daemon by sending SIGTERM to the process recorded in the PID file. It polls for up to 5 seconds for the process to exit.
@@ -56,13 +76,14 @@ Reports whether the daemon is running, and if so, prints configuration details.
 ```bash
 # Check daemon status
 comma-agents-daemon status
+comma daemon status --json
 ```
 
 **Sample output (running)**
 
 ```
 Daemon is running (PID: 12345)
-  Config: /home/user/.config/comma-agents/daemon.toml
+  Config: /home/user/.local/share/comma-agents/daemon.json
   PID file: /home/user/.local/share/comma-agents/daemon.pid
   Port: 7422
   Host: 127.0.0.1
@@ -73,3 +94,13 @@ Daemon is running (PID: 12345)
 ```
 Daemon is not running
 ```
+
+## autostart
+
+Autostart is managed through `comma daemon enable` and `comma daemon disable`.
+
+| Platform | Mechanism |
+|---|---|
+| macOS | launchd user agent |
+| Linux | systemd user service |
+| Windows | user logon scheduled task |

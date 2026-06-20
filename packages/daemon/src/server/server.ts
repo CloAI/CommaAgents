@@ -1,3 +1,4 @@
+import { loadCatalog } from "@comma-agents/core";
 import type { Server, ServerWebSocket } from "bun";
 
 import type { EventSink } from "../run-system/event-sink";
@@ -179,6 +180,20 @@ export function createDaemon({
       //TODO: Handle Unix Socket connections maybe...
       boundPort = server.port;
       logger.info(`Daemon listening on ${config.host}:${boundPort}`);
+
+      // Refresh the models.dev catalog in the background so newer models
+      // resolve their context window. Best-effort: loadCatalog falls back to
+      // the disk cache or bundled snapshot on failure, and populates the
+      // in-memory snapshot the sync resolver reads. Never blocks listening.
+      void loadCatalog()
+        .then((catalog) => {
+          logger.debug(
+            `Model catalog loaded (${Object.keys(catalog).length} providers)`,
+          );
+        })
+        .catch((catalogError) => {
+          logger.debug(`Model catalog refresh failed: ${String(catalogError)}`);
+        });
     },
 
     async stop(): Promise<void> {

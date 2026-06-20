@@ -3,7 +3,7 @@
 
 import { z } from "zod";
 import { DaemonBase } from "../../shared";
-import { UsageSchema } from "../shared";
+import { ContextUsageSchema, UsageSchema } from "../shared";
 
 export const AgentOutputMessage = DaemonBase.extend({
   type: z.literal("agent_output"),
@@ -19,8 +19,8 @@ export const AgentOutputMessage = DaemonBase.extend({
   text: z.string(),
   /** Token usage for this agent call. */
   usage: UsageSchema,
-  /** Tokens occupying the final model step's context window. */
-  contextTokens: z.number().optional(),
+  /** Final model-step context usage. */
+  contextUsage: ContextUsageSchema.optional(),
 });
 
 export type AgentOutputMessage = z.infer<typeof AgentOutputMessage>;

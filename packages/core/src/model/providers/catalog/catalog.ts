@@ -183,6 +183,7 @@ export function getProvidersForModel(modelId: string): string[] {
   return getReverseModelIndex().get(modelId) ?? [];
 }
 
+/** Read and validate the on-disk catalog cache, returning undefined on any failure. */
 function readCache(cachePath: string): CachedCatalog | undefined {
   try {
     const raw = readFileSync(cachePath, "utf8");
@@ -198,6 +199,7 @@ function readCache(cachePath: string): CachedCatalog | undefined {
   }
 }
 
+/** Persist the catalog cache to disk; best-effort, swallows write errors. */
 function writeCache(cachePath: string, payload: CachedCatalog): void {
   try {
     mkdirSync(dirname(cachePath), { recursive: true });
@@ -207,6 +209,7 @@ function writeCache(cachePath: string, payload: CachedCatalog): void {
   }
 }
 
+/** Fetch the live catalog from models.dev, returning undefined on timeout or HTTP error. */
 async function fetchCatalog(): Promise<CatalogData | undefined> {
   try {
     const response = await fetch(CATALOG_SOURCE_URL, {

@@ -132,8 +132,8 @@ export function createSubLaunchSystem(): DaemonSystem {
                 ...modelDetails,
                 text: agentResult.text,
                 usage: agentResult.usage,
-                ...(agentResult.contextTokens !== undefined
-                  ? { contextTokens: agentResult.contextTokens }
+                ...(agentResult.contextUsage !== undefined
+                  ? { contextUsage: agentResult.contextUsage }
                   : {}),
                 ts,
               });

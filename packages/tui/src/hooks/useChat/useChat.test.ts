@@ -128,6 +128,12 @@ function renderChatHook(): {
   };
 }
 
+function expectUniqueMessageIds(messages: UseChatState["messages"]): void {
+  expect(new Set(messages.map((message) => message.id)).size).toBe(
+    messages.length,
+  );
+}
+
 beforeEach(() => {
   subscriptionHandlers = {};
   mockPrepareRunCommand.mockClear();
@@ -267,10 +273,12 @@ describe("useChat", () => {
                 responseMessages: [{ role: "assistant", content: "drafted" }],
                 text: "drafted",
                 usage: { promptTokens: 100, completionTokens: 25 },
-                contextTokens: 125,
+                contextUsage: { totalTokens: 125 },
                 finishReason: "stop",
               },
             ],
+            retentionEvents: [],
+            inputs: [{ text: "draft it", beforeRecordId: "record-1" }],
           },
         });
       });
@@ -286,10 +294,94 @@ describe("useChat", () => {
         sender: "assistant",
         text: "drafted",
         usage: { promptTokens: 100, completionTokens: 25 },
-        contextTokens: 125,
+        contextUsage: { totalTokens: 125 },
       });
       expect(mockStartRunCommand).toHaveBeenCalledTimes(0);
       expect(mockContinueRunCommand).toHaveBeenCalledTimes(0);
+
+      cleanup();
+    });
+
+    it("rehydrates a sequential multi-agent run without duplicate or mislabeled bubbles", () => {
+      const { chatRuns, runLifecycle, cleanup } = renderChatHook();
+
+      act(() => {
+        runLifecycle.current.loadPersistedRun({
+          runId: "pipeline-run",
+          cwd: "/repo",
+          strategyName: "pipeline",
+          strategyPath: "/pipeline.json",
+          startedAt: "2026-01-01T00:00:00.000Z",
+          completedAt: "2026-01-01T00:01:00.000Z",
+          status: "completed",
+        });
+      });
+
+      act(() => {
+        subscriptionHandlers.run_prepared?.({
+          runId: "pipeline-run",
+          strategyName: "pipeline",
+          agents: ["writer", "reviewer"],
+          flowTree: {},
+          conversation: {
+            // In a sequential flow, the reviewer's userMessage is the writer's
+            // output. The renderer must not project that as a "you" bubble.
+            records: [
+              {
+                id: "record-writer",
+                agentName: "writer",
+                createdAt: "2026-01-01T00:00:30.000Z",
+                userMessage: { role: "user", content: "human prompt" },
+                responseMessages: [{ role: "assistant", content: "writer out" }],
+                text: "writer out",
+                usage: { promptTokens: 10, completionTokens: 5 },
+                finishReason: "stop",
+              },
+              {
+                id: "record-reviewer",
+                agentName: "reviewer",
+                createdAt: "2026-01-01T00:00:45.000Z",
+                userMessage: { role: "user", content: "writer out" },
+                responseMessages: [
+                  { role: "assistant", content: "reviewer out" },
+                ],
+                text: "reviewer out",
+                usage: { promptTokens: 12, completionTokens: 6 },
+                finishReason: "stop",
+              },
+            ],
+            retentionEvents: [],
+            inputs: [{ text: "human prompt", beforeRecordId: "record-writer" }],
+          },
+        });
+      });
+
+      const hydratedRun = chatRuns.current.chatRuns.get("pipeline-run");
+      // Exactly: one human bubble, then one bubble per agent — no echoed input.
+      expect(hydratedRun?.messages).toHaveLength(3);
+      expect(hydratedRun?.messages[0]).toMatchObject({
+        role: "user",
+        sender: "you",
+        text: "human prompt",
+      });
+      expect(hydratedRun?.messages[1]).toMatchObject({
+        role: "agent",
+        sender: "writer",
+        text: "writer out",
+      });
+      expect(hydratedRun?.messages[2]).toMatchObject({
+        role: "agent",
+        sender: "reviewer",
+        text: "reviewer out",
+      });
+      // The writer's output must never appear as a user-labeled bubble.
+      const userBubbles = (hydratedRun?.messages ?? []).filter(
+        (chatMessage) => chatMessage.role === "user",
+      );
+      expect(userBubbles).toHaveLength(1);
+      expect(
+        userBubbles.some((chatMessage) => chatMessage.text === "writer out"),
+      ).toBe(false);
 
       cleanup();
     });
@@ -310,7 +402,7 @@ describe("useChat", () => {
           strategyName: "test-strategy",
           agents: ["agent-a", "agent-b"],
           flowTree: {},
-          conversation: { records: [] },
+          conversation: { records: [], retentionEvents: [] },
           requestId: "req-1",
         });
       });
@@ -407,6 +499,58 @@ describe("useChat", () => {
       cleanup();
     });
 
+    it("should render retention events as inline agent segments", () => {
+      const { result, cleanup } = renderChatHook();
+      const runId = bootstrapRun(result);
+
+      act(() => {
+        subscriptionHandlers.agent_streaming?.({
+          runId,
+          agentName: "assistant",
+          event: {
+            type: "retention",
+            event: {
+              id: "retention-1",
+              agentName: "assistant",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              kind: "compaction",
+              reason: "context-window",
+              trigger: {
+                contextUsage: { totalTokens: 850 },
+                tokenLimit: 1_000,
+                ratio: 0.85,
+                thresholdRatio: 0.85,
+              },
+              recordsCompacted: 3,
+              recordsRetained: 2,
+              summaryRecord: {
+                id: "summary-1",
+                agentName: "assistant",
+                createdAt: "2026-01-01T00:00:00.000Z",
+                userMessage: { role: "user", content: "summary request" },
+                responseMessages: [{ role: "assistant", content: "summary" }],
+                text: "summary",
+                usage: { promptTokens: 0, completionTokens: 0 },
+                finishReason: "stop",
+                status: "active",
+              },
+              supersededRecordIds: ["1", "2", "3"],
+            },
+          },
+        });
+      });
+
+      const agentMessage = result.current.messages.find(
+        (message) => message.role === "agent",
+      );
+      expect(agentMessage?.segments?.[0]).toMatchObject({
+        type: "retention",
+        event: { id: "retention-1" },
+      });
+
+      cleanup();
+    });
+
     it("should accumulate tokens into the same streaming message", () => {
       const { result, cleanup } = renderChatHook();
       const runId = bootstrapRun(result);
@@ -458,7 +602,11 @@ describe("useChat", () => {
             result: {
               text: "Done",
               usage: { promptTokens: 1_200, completionTokens: 50 },
-              contextTokens: 800,
+              contextUsage: {
+                totalTokens: 800,
+                inputTokens: 750,
+                outputTokens: 50,
+              },
               finishReason: "stop",
             },
           },
@@ -474,7 +622,11 @@ describe("useChat", () => {
         promptTokens: 1_200,
         completionTokens: 50,
       });
-      expect(agentMessages[0]?.contextTokens).toBe(800);
+      expect(agentMessages[0]?.contextUsage).toEqual({
+        totalTokens: 800,
+        inputTokens: 750,
+        outputTokens: 50,
+      });
       expect(agentMessages[0]?.completedAt).toBeNumber();
 
       cleanup();
@@ -823,7 +975,7 @@ describe("useChat", () => {
           strategyName: "plan",
           agents: ["assistant"],
           flowTree: {},
-          conversation: { records: [] },
+          conversation: { records: [], retentionEvents: [] },
           requestId: "req-1",
         });
       });
@@ -848,6 +1000,7 @@ describe("useChat", () => {
       expect(result.current.messages.slice(0, existingMessages)).toEqual([
         ...existingTranscript,
       ]);
+      expectUniqueMessageIds(result.current.messages);
 
       act(() => {
         subscriptionHandlers.strategy_completed?.({ runId });
@@ -862,6 +1015,106 @@ describe("useChat", () => {
         strategyPath: "/plan.json",
         manifestPath: "/project/comma-project.json",
       });
+      cleanup();
+    });
+
+    it("preserves the queued continuation prompt when preparation hydrates prior records", () => {
+      const { result, runLifecycle, cleanup } = renderChatHook();
+      let runId = "";
+
+      act(() => {
+        runId = result.current.startStrategy("/build.json", "build it");
+      });
+      act(() => {
+        subscriptionHandlers.strategy_started?.({
+          runId,
+          strategyName: "build",
+          agents: ["assistant"],
+        });
+      });
+      act(() => {
+        subscriptionHandlers.agent_output?.({
+          runId,
+          agentName: "assistant",
+          text: "initial result",
+        });
+      });
+      act(() => {
+        subscriptionHandlers.strategy_completed?.({ runId });
+      });
+
+      act(() => {
+        runLifecycle.current.continueRun(runId, pivotStrategy, "refine it");
+      });
+      act(() => {
+        subscriptionHandlers.run_prepared?.({
+          runId,
+          strategyName: "plan",
+          agents: ["assistant"],
+          flowTree: {},
+          conversation: {
+            records: [
+              {
+                id: "record-1",
+                agentName: "assistant",
+                createdAt: "2026-01-01T00:00:30.000Z",
+                userMessage: { role: "user", content: "build it" },
+                responseMessages: [
+                  { role: "assistant", content: "initial result" },
+                ],
+                text: "initial result",
+                usage: { promptTokens: 100, completionTokens: 25 },
+                finishReason: "stop",
+              },
+            ],
+            retentionEvents: [],
+          },
+          requestId: "req-1",
+        });
+      });
+
+      expect(mockContinueRunCommand).toHaveBeenCalledWith({
+        runId,
+        input: "refine it",
+      });
+
+      const continuationMessage = result.current.messages.find(
+        (message) => message.text === "refine it",
+      );
+      expect(continuationMessage).toMatchObject({
+        role: "user",
+        sender: "you",
+      });
+      const initialResultMessages = result.current.messages.filter(
+        (message) => message.text === "initial result",
+      );
+      expect(initialResultMessages.length).toBeGreaterThan(0);
+      expect(
+        initialResultMessages.every((message) => message.role === "agent"),
+      ).toBe(true);
+      expectUniqueMessageIds(result.current.messages);
+
+      act(() => {
+        subscriptionHandlers.strategy_started?.({
+          runId,
+          strategyName: "plan",
+          agents: ["assistant"],
+        });
+      });
+      act(() => {
+        subscriptionHandlers.agent_output?.({
+          runId,
+          agentName: "assistant",
+          text: "refined result",
+        });
+      });
+
+      expect(result.current.messages.at(-1)).toMatchObject({
+        role: "agent",
+        sender: "assistant",
+        text: "refined result",
+      });
+      expectUniqueMessageIds(result.current.messages);
       cleanup();
     });
 
@@ -904,7 +1157,7 @@ describe("useChat", () => {
           strategyName: "plan",
           agents: ["assistant"],
           flowTree: {},
-          conversation: { records: [] },
+          conversation: { records: [], retentionEvents: [] },
           requestId: "req-1",
         });
       });

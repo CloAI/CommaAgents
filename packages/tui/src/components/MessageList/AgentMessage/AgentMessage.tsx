@@ -2,10 +2,17 @@ import { Box, type DOMElement, Text } from "ink";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
-import type { MessageSegment } from "../../../hooks/useChat/useChat.types";
+import type {
+  ChatMessage,
+  MessageSegment,
+} from "../../../hooks/useChat/useChat.types";
 import { useModal } from "../../../hooks/useModal";
 import { useMouseClick } from "../../../hooks/useMouseClick";
 import { BorderedPanel } from "../../BorderedPanel";
+import {
+  CONTEXT_USAGE_MODAL_ID,
+  type ContextUsageModalPayload,
+} from "../ContextUsageModal";
 import { MarkdownView, truncateThinking } from "../MarkdownView";
 import { useMessageListTheme } from "../MessageList.theme";
 import type { GroupedChatMessage } from "../MessageList.types";
@@ -45,8 +52,8 @@ export interface AgentMessageProps {
   readonly model?: string;
   /** Maximum model context tokens, when known. */
   readonly contextWindow?: number;
-  /** Tokens occupying the final model step's context window. */
-  readonly contextTokens?: number;
+  /** Final model-step context usage. */
+  readonly contextUsage?: ChatMessage["contextUsage"];
   /** Call start timestamp in milliseconds. */
   readonly startedAt: number;
   /** Call completion timestamp in milliseconds. */
@@ -71,7 +78,7 @@ export function AgentMessage({
   streaming,
   model,
   contextWindow,
-  contextTokens,
+  contextUsage,
   startedAt,
   completedAt,
   subMessages = [],
@@ -92,7 +99,7 @@ export function AgentMessage({
       streaming={streaming}
       model={model}
       contextWindow={contextWindow}
-      contextTokens={contextTokens}
+      contextUsage={contextUsage}
       startedAt={startedAt}
       completedAt={completedAt}
       subMessages={subMessages}
@@ -112,7 +119,7 @@ export interface AgentMessageRenderProps {
   readonly streaming: boolean;
   readonly model?: string;
   readonly contextWindow?: number;
-  readonly contextTokens?: number;
+  readonly contextUsage?: ChatMessage["contextUsage"];
   readonly startedAt: number;
   readonly completedAt?: number;
   /** Messages emitted by `launch_strategy` calls inside this agent message. */
@@ -128,7 +135,7 @@ export function AgentMessageRender({
   streaming,
   model,
   contextWindow,
-  contextTokens,
+  contextUsage,
   startedAt,
   completedAt,
   subMessages,
@@ -136,6 +143,8 @@ export function AgentMessageRender({
 }: AgentMessageRenderProps): React.ReactElement {
   const styles = theme.agentMessage;
   const elapsed = useElapsed(startedAt, completedAt, streaming);
+  const contextUsageRef = useRef<DOMElement | null>(null);
+  const { open } = useModal(CONTEXT_USAGE_MODAL_ID);
 
   // Build a `toolCallId → tool-result` index so each tool-call row can
   // render with its paired result inline (single collapsed row),
@@ -154,15 +163,30 @@ export function AgentMessageRender({
     }
   }
 
+  useMouseClick({
+    ref: contextUsageRef,
+    onClick: () => {
+      if (contextUsage === undefined) return;
+      const payload: ContextUsageModalPayload = {
+        agentName: sender,
+        contextUsage,
+        ...(model !== undefined ? { model } : {}),
+        ...(contextWindow !== undefined ? { contextWindow } : {}),
+      };
+      open(payload);
+    },
+  });
+
   return (
     <Box {...styles.container}>
       <BorderedPanel
+        headerRef={contextUsageRef}
         header={
           <AgentMessageHeader
             sender={sender}
             model={model}
             contextWindow={contextWindow}
-            contextTokens={contextTokens}
+            contextUsage={contextUsage}
             elapsed={elapsed}
             theme={theme}
           />
@@ -278,6 +302,26 @@ function SegmentView({
       open(payload);
     },
   });
+
+  if (segment.type === "retention") {
+    const event = segment.event;
+    return (
+      <Box {...styles.thinking.container}>
+        <Text {...styles.thinking.header}>retention</Text>
+        <Box flexDirection="column">
+          <Text>
+            {formatRetentionSummary(
+              event.recordsCompacted,
+              event.recordsRetained,
+              event.trigger.contextUsage?.totalTokens,
+              event.trigger.tokenLimit,
+            )}
+          </Text>
+          <MarkdownView markdown={event.summaryRecord.text} />
+        </Box>
+      </Box>
+    );
+  }
 
   if (segment.type === "text") {
     // Markdown segments are re-lexed on every delta — `marked.lexer`
@@ -400,7 +444,7 @@ function NestedMessageView({
         streaming={message.streaming}
         model={message.model}
         contextWindow={message.contextWindow}
-        contextTokens={message.contextTokens}
+        contextUsage={message.contextUsage}
         startedAt={message.timestamp}
         completedAt={message.completedAt}
         subMessages={message.subMessages}
@@ -416,7 +460,7 @@ interface AgentMessageHeaderProps {
   readonly sender: string;
   readonly model?: string;
   readonly contextWindow?: number;
-  readonly contextTokens?: number;
+  readonly contextUsage?: ChatMessage["contextUsage"];
   readonly elapsed?: string;
   readonly theme: ReturnType<typeof useMessageListTheme>;
 }
@@ -425,25 +469,43 @@ function AgentMessageHeader({
   sender,
   model,
   contextWindow,
-  contextTokens,
+  contextUsage,
   elapsed,
   theme,
 }: AgentMessageHeaderProps): React.ReactElement {
   const styles = theme.agentMessage;
+  const totalTokens = contextUsage?.totalTokens;
+
+  // Color the bar + count together by fraction of the window used. When the
+  // window is unknown (model absent from the catalog) we still show the raw
+  // token count so usage never silently disappears.
+  const usageColor =
+    contextWindow !== undefined && totalTokens !== undefined
+      ? contextBarColor(
+          totalTokens / contextWindow,
+          styles.headerDetail.contextBar,
+        )
+      : styles.headerDetail.context.color;
+
   return (
     <Text>
       <Text {...styles.label}>{sender}</Text>
       {model ? (
         <>
           <Text {...styles.headerDetail.separator}> {"\u00B7"} </Text>
-          <Text {...styles.headerDetail.model}>{model}</Text>
+          <Text {...styles.headerDetail.model}>{truncateModel(model)}</Text>
         </>
       ) : null}
-      {contextWindow !== undefined ? (
+      {totalTokens !== undefined ? (
         <>
           <Text {...styles.headerDetail.separator}> {"\u00B7"} </Text>
-          <Text {...styles.headerDetail.context}>
-            {formatContextUsage(contextTokens, contextWindow)}
+          {contextWindow !== undefined ? (
+            <Text color={usageColor} bold>
+              {renderContextBar(totalTokens / contextWindow)}{" "}
+            </Text>
+          ) : null}
+          <Text color={usageColor} bold>
+            {formatContextCount(totalTokens, contextWindow)}
           </Text>
         </>
       ) : null}
@@ -475,17 +537,47 @@ function useElapsed(
     : undefined;
 }
 
-function formatContextUsage(
-  contextTokens: number | undefined,
-  contextWindow: number,
+/** Eighth-width block glyphs (1/8 through 7/8) for sub-cell bar fill. */
+const PARTIAL_BLOCKS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"] as const;
+
+/** Render a fractional fill bar using full + partial block glyphs. */
+function renderContextBar(fraction: number, units = 6): string {
+  const clamped = Math.max(0, Math.min(1, fraction));
+  const totalEighths = Math.round(clamped * units * 8);
+  const fullCells = Math.min(units, Math.floor(totalEighths / 8));
+  const remainder = totalEighths % 8;
+  let bar = "█".repeat(fullCells);
+  if (remainder > 0 && fullCells < units) bar += PARTIAL_BLOCKS[remainder];
+  return bar.padEnd(units, " ");
+}
+
+/** Pick the bar color for how full the context window is. */
+function contextBarColor(
+  fraction: number,
+  barColors: {
+    readonly low: string;
+    readonly medium: string;
+    readonly high: string;
+  },
 ): string {
-  const units = 6;
-  const filled =
-    contextTokens === undefined
-      ? 0
-      : Math.min(units, Math.ceil((contextTokens / contextWindow) * units));
-  const bar = `${"█".repeat(filled)}${" ".repeat(units - filled)}`;
-  return `${bar} ${formatTokens(contextTokens)}/${formatTokens(contextWindow)}`;
+  if (fraction >= 0.85) return barColors.high;
+  if (fraction >= 0.6) return barColors.medium;
+  return barColors.low;
+}
+
+/** Format the token count, including the window when it is known. */
+function formatContextCount(
+  totalTokens: number,
+  contextWindow: number | undefined,
+): string {
+  return contextWindow !== undefined
+    ? `${formatTokens(totalTokens)}/${formatTokens(contextWindow)}`
+    : formatTokens(totalTokens);
+}
+
+/** Truncate an over-long model id so it can't push the bar off the header line. */
+function truncateModel(model: string, max = 40): string {
+  return model.length > max ? `${model.slice(0, max - 1)}…` : model;
 }
 
 function formatTokens(tokens: number | undefined): string {
@@ -493,6 +585,19 @@ function formatTokens(tokens: number | undefined): string {
   if (tokens < 1_000) return String(tokens);
   if (tokens < 1_000_000) return `${Math.round(tokens / 1_000)}k`;
   return `${Math.round(tokens / 100_000) / 10}m`;
+}
+
+function formatRetentionSummary(
+  recordsCompacted: number,
+  recordsRetained: number,
+  totalTokens: number | undefined,
+  tokenLimit: number | undefined,
+): string {
+  const tokenSummary =
+    totalTokens !== undefined && tokenLimit !== undefined
+      ? ` at ${formatTokens(totalTokens)}/${formatTokens(tokenLimit)}`
+      : "";
+  return `Compacted ${recordsCompacted} records into summary${tokenSummary}; retained ${recordsRetained} recent records.`;
 }
 
 function formatElapsed(elapsedMs: number): string {

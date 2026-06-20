@@ -84,14 +84,20 @@ export { RunPreparedMessage } from "./responses/run-prepared";
 // Colocated schemas re-exported for public API
 export type {
   AgentCallResultWire,
+  ContextUsageWire,
   ConversationHistoryWire,
+  ConversationInputWire,
   ConversationRecordWire,
+  ConversationRetentionEventWire,
   Usage,
 } from "./responses/shared";
 export {
   AgentCallResultSchema,
+  ContextUsageSchema,
   ConversationHistorySchema,
+  ConversationInputSchema,
   ConversationRecordSchema,
+  ConversationRetentionEventSchema,
   UsageSchema,
 } from "./responses/shared";
 export { SteerQueuedMessage } from "./responses/steer-queued";

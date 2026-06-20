@@ -8,6 +8,22 @@ export {
   loadDaemonConfig,
   resolveDataDir,
 } from "./config";
+export type {
+  DaemonRunState,
+  DaemonStartOptions,
+  DaemonStartResult,
+  DaemonStatus,
+  DaemonStopResult,
+  DaemonWaitOptions,
+} from "./daemon-control";
+export {
+  getDaemonStatus,
+  restartDaemon,
+  runDaemonForeground,
+  startDaemon,
+  stopDaemon,
+  waitForDaemonReady,
+} from "./daemon-control";
 export {
   createTypeScriptLanguageService,
   type TypeScriptLanguageServiceOptions,
@@ -43,8 +59,10 @@ export type {
   AgentCallResultWire,
   AgentStreamEventWire,
   ClientMessage,
+  ContextUsageWire,
   ConversationHistoryWire,
   ConversationRecordWire,
+  ConversationRetentionEventWire,
   DaemonMessage,
   ErrorInfo,
   HandlerContext,

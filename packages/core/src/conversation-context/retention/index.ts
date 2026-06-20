@@ -5,7 +5,10 @@ export type {
   ContextPrepareInput,
   ContextRecordTransform,
   ContextRetentionOptions,
+  ContextRetentionResult,
   ContextTransformInput,
+  ConversationRetentionEvent,
+  ConversationRetentionTrigger,
   RollingWindowOptions,
   SummarizeRecords,
 } from "./retention.types";

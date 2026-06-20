@@ -17,6 +17,7 @@ export {
   getModelMetadata,
   getProviderInfo,
   getProviderPackage,
+  getQualifiedModelMetadata,
   isKnownProvider,
   listProviders,
   parseModel,

@@ -1,11 +1,14 @@
 import { useDaemonSubscription } from "../../useDaemon/useDaemonSubscription/useDaemonSubscription";
 import type { ChatMessage, MessageSegment } from "../useChat.types";
-import { getActiveLaunchStrategyId } from "../useChat.utils";
+import {
+  createLocalChatMessageId,
+  getActiveLaunchStrategyId,
+} from "../useChat.utils";
 import { useChatRunStore } from "../useChatRunStore";
 
 /** Project streamed and completed agent output into local chat messages. */
 export function useChatAgentMessages(): void {
-  const { setChatRuns, messageCountersRef } = useChatRunStore();
+  const { setChatRuns } = useChatRunStore();
 
   useDaemonSubscription("agent_streaming", (message) => {
     setChatRuns((previousChatRuns) => {
@@ -29,11 +32,9 @@ export function useChatAgentMessages(): void {
         if (lastAgentIndex >= 0) {
           return { messages: mutable, index: lastAgentIndex };
         }
-        const counter = (messageCountersRef.current.get(chatRun.id) ?? 0) + 1;
-        messageCountersRef.current.set(chatRun.id, counter);
         const parentToolCallId = getActiveLaunchStrategyId(chatRun);
         const fresh: ChatMessage = {
-          id: `${chatRun.id}-msg-${counter}`,
+          id: createLocalChatMessageId(chatRun.id),
           role: "agent",
           sender: message.agentName,
           text: "",
@@ -60,6 +61,23 @@ export function useChatAgentMessages(): void {
           segments: [...segments, segment],
         };
       };
+
+      if (message.event.type === "retention") {
+        const { messages: nextMessages, index } = ensureAgentMessage(
+          chatRun.messages,
+        );
+        nextMessages[index] = appendSegment(nextMessages[index]!, {
+          type: "retention",
+          event: message.event.event,
+        });
+        const next = new Map(previousChatRuns);
+        next.set(chatRun.id, {
+          ...chatRun,
+          messages: nextMessages,
+          updatedAt: Date.now(),
+        });
+        return next;
+      }
 
       if (message.event.type === "text") {
         const { messages: nextMessages, index } = ensureAgentMessage(
@@ -285,8 +303,8 @@ export function useChatAgentMessages(): void {
           streaming: false,
           segments: finalSegments,
           usage: message.event.result.usage,
-          ...(message.event.result.contextTokens !== undefined
-            ? { contextTokens: message.event.result.contextTokens }
+          ...(message.event.result.contextUsage !== undefined
+            ? { contextUsage: message.event.result.contextUsage }
             : {}),
           completedAt: Date.now(),
         };
@@ -326,21 +344,26 @@ export function useChatAgentMessages(): void {
       // daemon emits `agent_output` BEFORE the streaming `done` event, so the
       // streamed message is typically still `streaming: true` at this point —
       // we must NOT gate on `!streaming` here.
-      const lastAgentIndex = chatRun.messages.findLastIndex(
-        (existing) =>
-          existing.role === "agent" && existing.sender === message.agentName,
-      );
-      const lastAgentMessage =
-        lastAgentIndex >= 0 ? chatRun.messages[lastAgentIndex]! : null;
-      if (lastAgentMessage && lastAgentMessage.text.length > 0) {
+      const lastAgentMessage = chatRun.messages.at(-1);
+      const hasProjectedOutput =
+        lastAgentMessage?.role === "agent" &&
+        lastAgentMessage.text.length !== undefined &&
+        (lastAgentMessage.text.length > 0 ||
+          (lastAgentMessage.segments ?? []).some(
+            (segment) =>
+              segment.type === "text" || segment.type === "retention",
+          ));
+      if (
+        lastAgentMessage &&
+        lastAgentMessage.sender === message.agentName &&
+        hasProjectedOutput
+      ) {
         return previousChatRuns;
       }
 
-      const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
-      messageCountersRef.current.set(chatRunId, counter);
       const parentToolCallId = getActiveLaunchStrategyId(chatRun);
       const agentMessage: ChatMessage = {
-        id: `${chatRunId}-msg-${counter}`,
+        id: createLocalChatMessageId(chatRunId),
         role: "agent",
         sender: message.agentName,
         text: message.text,
@@ -351,8 +374,8 @@ export function useChatAgentMessages(): void {
           ? { contextWindow: message.contextWindow }
           : {}),
         ...(message.usage !== undefined ? { usage: message.usage } : {}),
-        ...(message.contextTokens !== undefined
-          ? { contextTokens: message.contextTokens }
+        ...(message.contextUsage !== undefined
+          ? { contextUsage: message.contextUsage }
           : {}),
         completedAt: Date.now(),
         ...(parentToolCallId !== undefined ? { parentToolCallId } : {}),

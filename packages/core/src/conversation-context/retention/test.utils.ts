@@ -9,7 +9,7 @@ export function makeRecord(
   options?: {
     readonly agentName?: string;
     readonly status?: ConversationRecordStatus;
-    readonly contextTokens?: number;
+    readonly contextUsage?: ConversationRecord["contextUsage"];
   },
 ): ConversationRecord {
   return {
@@ -24,8 +24,8 @@ export function makeRecord(
     usage: { promptTokens: 1, completionTokens: 1 },
     finishReason: "stop",
     ...(options?.status ? { status: options.status } : {}),
-    ...(options?.contextTokens !== undefined
-      ? { contextTokens: options.contextTokens }
+    ...(options?.contextUsage !== undefined
+      ? { contextUsage: options.contextUsage }
       : {}),
   };
 }

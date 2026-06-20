@@ -1,4 +1,7 @@
-import type { ConversationRecord } from "../conversation-context";
+import type {
+  ConversationRecord,
+  ConversationRetentionEvent,
+} from "../conversation-context";
 
 /**
  * Union type representing any event recorded on a strategy run's timeline.
@@ -25,6 +28,11 @@ export type TimelineEvent =
       readonly type: "agent_call";
       readonly ts: string;
       readonly record: ConversationRecord;
+    }
+  | {
+      readonly type: "conversation_retention";
+      readonly ts: string;
+      readonly event: ConversationRetentionEvent;
     }
   | {
       readonly type: "user_input";

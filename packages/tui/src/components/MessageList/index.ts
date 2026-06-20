@@ -3,6 +3,15 @@ export type {
   AgentMessageRenderProps,
 } from "./AgentMessage";
 export { AgentMessage, AgentMessageRender } from "./AgentMessage";
+export type {
+  ContextUsageModalPayload,
+  ContextUsageModalRenderProps,
+} from "./ContextUsageModal";
+export {
+  CONTEXT_USAGE_MODAL_ID,
+  ContextUsageModal,
+  ContextUsageModalRender,
+} from "./ContextUsageModal";
 export {
   findSubStrategyName,
   groupSubStrategyMessages,

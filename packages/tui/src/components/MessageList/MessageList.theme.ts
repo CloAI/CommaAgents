@@ -76,6 +76,12 @@ export interface MessageListTheme {
         readonly color: string;
         readonly bold: boolean;
       };
+      /** Threshold colors for the context-usage fill bar, by fraction used. */
+      readonly contextBar: {
+        readonly low: string;
+        readonly medium: string;
+        readonly high: string;
+      };
       readonly time: {
         readonly color: string;
         readonly dimColor: boolean;
@@ -230,6 +236,11 @@ export function useMessageListTheme(): MessageListTheme {
           context: {
             color: tokens.colors.warning,
             bold: tokens.typography.labelBold,
+          },
+          contextBar: {
+            low: tokens.colors.success,
+            medium: tokens.colors.warning,
+            high: tokens.colors.error,
           },
           time: {
             color: tokens.colors.muted,

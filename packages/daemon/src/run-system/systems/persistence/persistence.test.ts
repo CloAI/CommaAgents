@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   type AgentCallResult,
+  type AgentStreamEvent,
   createConversationContext,
   createConversationRecord,
   type LoadedStrategy,
@@ -82,9 +83,38 @@ describe("createPersistenceSystem", () => {
     const afterCallResult = agentHooks.get("afterCallResult") as (
       value: AgentCallResult,
     ) => void;
+    const onStreamEvent = agentHooks.get("onStreamEvent") as (
+      value: AgentStreamEvent,
+    ) => void;
 
     beforeStep({ stepName: "assistant", message: "request" });
     afterStep({ stepName: "assistant", message: "request", result });
+    onStreamEvent({
+      type: "retention",
+      event: {
+        id: "retention-1",
+        agentName: "assistant",
+        createdAt: "2026-01-01T00:00:01.000Z",
+        kind: "compaction",
+        reason: "context-window",
+        trigger: {
+          contextUsage: { totalTokens: 850 },
+          tokenLimit: 1_000,
+          ratio: 0.85,
+          thresholdRatio: 0.85,
+        },
+        recordsCompacted: 1,
+        recordsRetained: 1,
+        summaryRecord: {
+          ...record,
+          id: "summary-1",
+          text: "summary",
+          usage: { promptTokens: 0, completionTokens: 0 },
+          status: "active",
+        },
+        supersededRecordIds: ["record-1"],
+      },
+    });
     afterCallResult(result);
 
     const events = await runStore.getEvents(context.run.id);
@@ -92,6 +122,7 @@ describe("createPersistenceSystem", () => {
       "run_started",
       "step_started",
       "step_completed",
+      "conversation_retention",
       "agent_call",
     ]);
     expect(events[0]).toMatchObject({
@@ -99,6 +130,10 @@ describe("createPersistenceSystem", () => {
       initialInput: "initial input",
     });
     expect(events[3]).toMatchObject({
+      type: "conversation_retention",
+      event: { id: "retention-1" },
+    });
+    expect(events[4]).toMatchObject({
       type: "agent_call",
       record: {
         agentName: "assistant",

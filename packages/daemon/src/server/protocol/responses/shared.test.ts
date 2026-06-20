@@ -34,7 +34,12 @@ describe("AgentCallResultSchema", () => {
   const valid = {
     text: "hello",
     usage: { promptTokens: 5, completionTokens: 3 },
-    contextTokens: 7,
+    contextUsage: {
+      totalTokens: 8,
+      inputTokens: 5,
+      outputTokens: 3,
+      outputTokenDetails: { reasoningTokens: 1 },
+    },
     finishReason: "stop",
   };
 

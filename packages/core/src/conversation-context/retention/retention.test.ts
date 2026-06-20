@@ -23,7 +23,7 @@ describe("prepareContextRecords", () => {
     const { summarize } = countingSummarizer();
     const records = [1, 2, 3, 4, 5].map((index) => makeRecord(String(index)));
 
-    const prepared = await prepareContextRecords(
+    const result = await prepareContextRecords(
       {
         compaction: { keepRecent: 2, threshold: 4, summarize },
         rollingWindow: 2,
@@ -35,7 +35,10 @@ describe("prepareContextRecords", () => {
       { records, agentName: "writer" },
     );
 
-    expect(activeRecords(prepared).map((record) => record.id)).toHaveLength(3);
-    expect(activeRecords(prepared).at(-1)?.id).toBe("custom");
+    expect(
+      activeRecords(result.records).map((record) => record.id),
+    ).toHaveLength(3);
+    expect(activeRecords(result.records).at(-1)?.id).toBe("custom");
+    expect(result.events).toHaveLength(1);
   });
 });

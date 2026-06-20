@@ -2,6 +2,7 @@ import type {
   AgentCallResult,
   ConversationHistory,
   ConversationRecord,
+  ConversationRetentionEvent,
   LoadedStrategy,
   TimelineEvent,
 } from "@comma-agents/core";
@@ -30,6 +31,8 @@ import type {
   ExecutionContext,
   PreparedRunMetadata,
   PrepareRunOptions,
+  RehydratedConversation,
+  RehydratedConversationInput,
   RunSystem,
   SystemRunContext,
 } from "./systems/systems.types";
@@ -447,10 +450,66 @@ function restoreAgentContexts(
 
 function conversationHistoryFromEvents(
   events: readonly TimelineEvent[],
-): ConversationHistory {
-  const records: ConversationRecord[] = [];
+): RehydratedConversation {
+  let records: ConversationRecord[] = [];
+  const retentionEvents: ConversationRetentionEvent[] = [];
+  const inputs: RehydratedConversationInput[] = [];
+  // A run_started carries the genuine human input. Anchor it to the first
+  // agent_call record that follows so the renderer can place it correctly.
+  let pendingInput: string | undefined;
   for (const event of events) {
-    if (event.type === "agent_call") records.push(event.record);
+    if (event.type === "run_started") {
+      const text = event.initialInput;
+      if (text !== undefined && text.length > 0) {
+        // A new human input supersedes a prior one that produced no records.
+        if (pendingInput !== undefined) inputs.push({ text: pendingInput });
+        pendingInput = text;
+      }
+    } else if (event.type === "agent_call") {
+      if (pendingInput !== undefined) {
+        inputs.push({ text: pendingInput, beforeRecordId: event.record.id });
+        pendingInput = undefined;
+      }
+      records.push(event.record);
+    } else if (event.type === "conversation_retention") {
+      records = [...applyRetentionEvent(records, event.event)];
+      retentionEvents.push(event.event);
+    }
   }
-  return { records };
+  if (pendingInput !== undefined) inputs.push({ text: pendingInput });
+  return { records, retentionEvents, inputs };
+}
+
+function applyRetentionEvent(
+  records: readonly ConversationRecord[],
+  event: ConversationRetentionEvent,
+): readonly ConversationRecord[] {
+  const supersededIds = new Set(event.supersededRecordIds);
+  const nextRecords: ConversationRecord[] = [];
+  let insertedSummary = false;
+
+  for (const record of records) {
+    if (record.id === event.summaryRecord.id) continue;
+    if (
+      event.insertBeforeRecordId !== undefined &&
+      record.id === event.insertBeforeRecordId &&
+      !insertedSummary
+    ) {
+      nextRecords.push(event.summaryRecord);
+      insertedSummary = true;
+    }
+
+    nextRecords.push(
+      supersededIds.has(record.id)
+        ? {
+            ...record,
+            status: "superseded",
+            supersededBy: event.summaryRecord.id,
+          }
+        : record,
+    );
+  }
+
+  if (!insertedSummary) nextRecords.push(event.summaryRecord);
+  return nextRecords;
 }

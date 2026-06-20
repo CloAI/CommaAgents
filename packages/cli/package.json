@@ -1,0 +1,53 @@
+{
+  "name": "@comma-agents/cli",
+  "version": "2.0.0-rc.0",
+  "description": "Unified command-line installer and launcher for CommaAgents",
+  "type": "module",
+  "bin": {
+    "comma": "dist/comma.js"
+  },
+  "files": [
+    "dist/comma.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "bun run scripts/build-package.ts",
+    "build:standalone": "bun run scripts/build-standalone.ts",
+    "link:global": "bun run build && bun link",
+    "unlink:global": "bun unlink",
+    "prepack": "bun run build",
+    "test": "bun test --coverage",
+    "lint": "bunx @biomejs/biome check src",
+    "lint:fix": "bunx @biomejs/biome check --write src",
+    "format": "bunx @biomejs/biome format --write src"
+  },
+  "devDependencies": {
+    "@comma-agents/core": "2.0.0-rc.0",
+    "@comma-agents/daemon": "2.0.0-rc.0",
+    "@comma-agents/tui": "2.0.0-rc.0",
+    "@types/react": "19.2.14",
+    "@types/yargs": "17.0.33",
+    "ink": "7.0.1",
+    "ink-select-input": "6.2.0",
+    "ink-testing-library": "4.0.0",
+    "react": "19.2.5",
+    "react-devtools-core": "7.0.1",
+    "typescript": "6.0.2",
+    "yargs": "17.7.2"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "next"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NateAGeek/commaagent2.git",
+    "directory": "packages/cli"
+  },
+  "author": "CloAI",
+  "license": "MIT"
+}

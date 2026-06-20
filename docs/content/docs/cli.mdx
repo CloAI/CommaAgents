@@ -1,0 +1,104 @@
+---
+title: comma CLI
+description: Install, launch, and manage CommaAgents with the unified comma command.
+---
+
+# comma CLI
+
+The `comma` command is the primary entrypoint for CommaAgents. It launches the TUI, starts the daemon when needed, manages daemon autostart, and validates the local installation.
+
+## Install
+
+Install from npm:
+
+```bash
+npm install -g @comma-agents/cli@next
+comma install
+```
+
+The npm package requires Bun 1.3 or newer. It contains a bundled launcher, so it does not install the TUI, daemon, and core as separate global packages.
+
+For a one-line installer, run the platform bootstrap script for your operating system and it will install the CLI package before opening `comma install`.
+
+```bash
+curl -fsSL https://commaagents.com/install | bash
+```
+
+On Windows, run the PowerShell installer:
+
+```powershell
+iwr https://commaagents.com/install.ps1 -useb | iex
+```
+
+The bootstrap scripts install a platform-native standalone executable to a user-local directory. That executable includes the Bun runtime and the CLI, TUI, daemon, and core packages.
+
+## Register A Development Checkout
+
+From the repository root, build and register the workspace CLI in Bun's global bin directory:
+
+```bash
+bun run cli:link
+comma --help
+```
+
+Remove the development link with `bun run cli:unlink`. To run without registering it, use `bun run cli --help`.
+
+## Build Distribution Artifacts
+
+Build the Bun-based npm launcher:
+
+```bash
+bun run cli:build
+```
+
+Build a standalone executable for the current platform, or all release targets:
+
+```bash
+bun run cli:build:standalone
+bun run --cwd packages/cli build:standalone all
+```
+
+Version tags matching `v*` publish all four public packages with npm trusted publishing, build macOS, Linux, and Windows archives, and publish a GitHub Release.
+
+## Launch The TUI
+
+```bash
+comma
+```
+
+`comma` checks the daemon first. If the daemon is not running, it starts it in the background, waits for readiness, and then opens the terminal UI.
+
+You can pass the same launch options as the TUI:
+
+```bash
+comma --strategy Plan --input "Review this repo"
+comma tui --daemon-url ws://127.0.0.1:7422/ws
+```
+
+## Manage The Daemon
+
+```bash
+comma daemon start
+comma daemon status
+comma daemon status --json
+comma daemon stop
+comma daemon restart
+```
+
+Autostart is explicit. Run the installer or use these commands:
+
+```bash
+comma daemon enable
+comma daemon disable
+```
+
+The autostart mechanism is user-level: launchd on macOS, systemd user services on Linux, and a Windows logon scheduled task on Windows.
+
+## Check The Installation
+
+```bash
+comma doctor
+comma doctor --json
+```
+
+Doctor checks runtime availability, daemon config, daemon state, writable data directory, autostart support, PATH visibility, and provider configuration files.

@@ -8,7 +8,10 @@ import type {
   ChatRunId,
   PersistedRunMeta,
 } from "../useChat.types";
-import { createInitialChatRun } from "../useChat.utils";
+import {
+  createInitialChatRun,
+  createLocalChatMessageId,
+} from "../useChat.utils";
 import { useChatRunStore } from "../useChatRunStore";
 import type { ChatRunLifecycle } from "./useChatRunLifecycle.types";
 
@@ -17,7 +20,7 @@ const DAEMON_UNREACHABLE_ERROR =
 
 /** Own commands initiated by the user and local run collection management. */
 export function useChatRunLifecycle(): ChatRunLifecycle {
-  const { chatRuns, setChatRuns, messageCountersRef } = useChatRunStore();
+  const { chatRuns, setChatRuns } = useChatRunStore();
   const prepareRunCommand = useDaemonCommand("prepare_run");
   const stopRunCommand = useDaemonCommand("stop_run");
 
@@ -52,7 +55,7 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
         input !== undefined && input.length > 0
           ? [
               {
-                id: `${chatRunId}-msg-1`,
+                id: createLocalChatMessageId(chatRunId),
                 role: "user",
                 sender: "you",
                 text: input,
@@ -70,7 +73,6 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
         createdAt: now,
         updatedAt: now,
       };
-      messageCountersRef.current.set(chatRunId, initialMessages.length);
 
       setChatRuns((previousChatRuns) => {
         const nextChatRuns = new Map(previousChatRuns);
@@ -103,7 +105,7 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
 
       return chatRunId;
     },
-    [messageCountersRef, setChatRuns, prepareRunCommand, updateChatRun],
+    [setChatRuns, prepareRunCommand, updateChatRun],
   );
 
   const continueRun = useCallback(
@@ -121,10 +123,9 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
         return;
       }
 
-      const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
-      messageCountersRef.current.set(chatRunId, counter);
+      const queuedMessageId = createLocalChatMessageId(chatRunId);
       const userMessage: ChatMessage = {
-        id: `${chatRunId}-msg-${counter}`,
+        id: queuedMessageId,
         role: "user",
         sender: "you",
         text: input,
@@ -151,9 +152,6 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
       });
 
       if (!requestId) {
-        const errorCounter =
-          (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
-        messageCountersRef.current.set(chatRunId, errorCounter);
         updateChatRun(chatRunId, (existingChatRun) => ({
           ...existingChatRun,
           status: "completed",
@@ -162,7 +160,7 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
           messages: [
             ...existingChatRun.messages,
             {
-              id: `${chatRunId}-msg-${errorCounter}`,
+              id: createLocalChatMessageId(chatRunId),
               role: "system",
               sender: "system",
               text: `Error: ${DAEMON_UNREACHABLE_ERROR}`,
@@ -180,10 +178,11 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
           mode: "continue",
           input,
           requestId,
+          queuedMessageId,
         },
       }));
     },
-    [chatRuns, messageCountersRef, prepareRunCommand, updateChatRun],
+    [chatRuns, prepareRunCommand, updateChatRun],
   );
 
   const loadPersistedRun = useCallback(
@@ -201,7 +200,6 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
         createdAt: Number.isNaN(startedAt) ? now : startedAt,
         updatedAt: now,
       };
-      messageCountersRef.current.set(meta.runId, 0);
 
       setChatRuns((previousChatRuns) => {
         const nextChatRuns = new Map(previousChatRuns);
@@ -221,7 +219,7 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
 
       return meta.runId;
     },
-    [messageCountersRef, prepareRunCommand, setChatRuns, updateChatRun],
+    [prepareRunCommand, setChatRuns, updateChatRun],
   );
 
   const stopChatRun = useCallback<ChatRunLifecycle["stopChatRun"]>(
@@ -249,9 +247,8 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
         strategyName: null,
         strategyPath: null,
       }));
-      messageCountersRef.current.set(chatRunId, 0);
     },
-    [messageCountersRef, updateChatRun],
+    [updateChatRun],
   );
 
   const removeChatRun = useCallback<ChatRunLifecycle["removeChatRun"]>(
@@ -262,15 +259,13 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
         nextChatRuns.delete(chatRunId);
         return nextChatRuns;
       });
-      messageCountersRef.current.delete(chatRunId);
     },
-    [messageCountersRef, setChatRuns],
+    [setChatRuns],
   );
 
   const clearAllChatRuns = useCallback((): void => {
     setChatRuns(new Map());
-    messageCountersRef.current.clear();
-  }, [messageCountersRef, setChatRuns]);
+  }, [setChatRuns]);
 
   return {
     startStrategy,

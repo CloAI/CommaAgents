@@ -20,11 +20,22 @@ export { RunPreparedMessage } from "./run-prepared";
 // Shared response schemas
 export type {
   AgentCallResultWire,
+  ContextUsageWire,
   ConversationHistoryWire,
+  ConversationInputWire,
   ConversationRecordWire,
+  ConversationRetentionEventWire,
   Usage,
 } from "./shared";
-export { AgentCallResultSchema, UsageSchema } from "./shared";
+export {
+  AgentCallResultSchema,
+  ContextUsageSchema,
+  ConversationHistorySchema,
+  ConversationInputSchema,
+  ConversationRecordSchema,
+  ConversationRetentionEventSchema,
+  UsageSchema,
+} from "./shared";
 export { SteerQueuedMessage } from "./steer-queued";
 export { StepCompletedMessage } from "./step-completed";
 export { StepStartedMessage } from "./step-started";

@@ -117,7 +117,7 @@ describe("loadDaemonConfig defaults", () => {
       expect(config.port).toBe(7422);
       expect(config.host).toBe("127.0.0.1");
       expect(config.logLevel).toBe("info");
-      expect(config.logFile).toBeUndefined();
+      expect(config.logFile).toContain("daemon.log");
       expect(config.providerCacheDir).toContain("providers");
       expect(config.pidFile).toContain("daemon.pid");
       expect(config.configFile).toBe(configFile);

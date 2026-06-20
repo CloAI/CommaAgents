@@ -10,7 +10,7 @@ export function buildDefaults(): DaemonConfig {
     port: 7422,
     host: "127.0.0.1",
     logLevel: "info",
-    logFile: undefined,
+    logFile: join(dataDir, "daemon.log"),
     providerCacheDir: join(dataDir, "providers"),
     pidFile: join(dataDir, "daemon.pid"),
     configFile: join(dataDir, "daemon.json"),

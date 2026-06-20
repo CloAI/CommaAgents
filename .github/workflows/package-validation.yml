@@ -1,0 +1,36 @@
+name: Validate public packages
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bun run packages:build
+      - run: bun run packages:validate
+      - run: bun test packages/cli/src packages/daemon/src/daemon-control packages/core/src/abortable
+      - name: Inspect npm tarballs
+        shell: bash
+        run: |
+          for package in core daemon tui cli; do
+            npm pack --dry-run --json "./packages/$package" > "/tmp/$package-pack.json"
+            node -e 'const p=require(process.argv[1])[0]; console.log(`${p.name}: ${p.entryCount} files, ${p.unpackedSize} bytes unpacked`)' "/tmp/$package-pack.json"
+          done
+      - run: bash -n packages/cli/install/install.sh
+      - run: shellcheck packages/cli/install/install.sh
+

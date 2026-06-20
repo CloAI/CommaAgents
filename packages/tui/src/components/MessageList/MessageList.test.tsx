@@ -100,7 +100,7 @@ describe("MessageList", () => {
           model: "openai/gpt-5",
           contextWindow: 128_000,
           usage: { promptTokens: 32_000, completionTokens: 1_000 },
-          contextTokens: 33_000,
+          contextUsage: { totalTokens: 33_000 },
           timestamp: 1_000,
           completedAt: 6_000,
         }),
@@ -110,7 +110,7 @@ describe("MessageList", () => {
       await flushFrames();
 
       expect(result.lastFrame()).toContain(
-        "planner · openai/gpt-5 · ▰▰▱▱▱▱ 33k/128k · 5s",
+        "planner · openai/gpt-5 · █▌     33k/128k · 5s",
       );
     });
 

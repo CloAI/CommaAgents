@@ -1,4 +1,4 @@
-import { createContext, useMemo, useRef, useState } from "react";
+import { createContext, useMemo, useState } from "react";
 
 import type {
   ChatRun,
@@ -37,13 +37,11 @@ export function ChatRunsContextProvider({
   const [chatRuns, setChatRuns] = useState<ReadonlyMap<ChatRunId, ChatRun>>(
     () => new Map(),
   );
-  const messageCountersRef = useRef<Map<ChatRunId, number>>(new Map());
 
   const contextValue = useMemo<ChatRunsStore>(
     () => ({
       chatRuns,
       setChatRuns,
-      messageCountersRef,
     }),
     [chatRuns],
   );

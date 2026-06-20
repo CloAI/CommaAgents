@@ -1,4 +1,4 @@
-import { createAbortablePromise } from "@comma-agents/utils";
+import { createAbortablePromise } from "../../abortable";
 import type { Agent } from "../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../errors/index";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";

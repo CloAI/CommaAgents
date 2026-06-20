@@ -3,13 +3,16 @@ import { useCallback } from "react";
 import { useDaemonCommand } from "../../useDaemon/useDaemonCommand/useDaemonCommand";
 import { useDaemonSubscription } from "../../useDaemon/useDaemonSubscription/useDaemonSubscription";
 import type { ChatMessage } from "../useChat.types";
-import { getActiveLaunchStrategyId } from "../useChat.utils";
+import {
+  createLocalChatMessageId,
+  getActiveLaunchStrategyId,
+} from "../useChat.utils";
 import { useChatRunStore } from "../useChatRunStore";
 import type { ChatSteeringResult } from "./useChatSteering.types";
 
 /** Send steering messages to live chat runs. */
 export function useChatSteering(subscribeToDaemon = false): ChatSteeringResult {
-  const { chatRuns, setChatRuns, messageCountersRef } = useChatRunStore();
+  const { chatRuns, setChatRuns } = useChatRunStore();
   const steerRunCommand = useDaemonCommand("steer_run");
 
   const sendSteer = useCallback<ChatSteeringResult["sendSteer"]>(
@@ -29,11 +32,9 @@ export function useChatSteering(subscribeToDaemon = false): ChatSteeringResult {
         const chatRun = previousChatRuns.get(message.runId);
         if (!chatRun) return previousChatRuns;
         const chatRunId = chatRun.id;
-        const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
-        messageCountersRef.current.set(chatRunId, counter);
         const parentToolCallId = getActiveLaunchStrategyId(chatRun);
         const steerMessage: ChatMessage = {
-          id: `${chatRunId}-msg-${counter}`,
+          id: createLocalChatMessageId(chatRunId),
           role: "user",
           sender: "you",
           text: message.text,

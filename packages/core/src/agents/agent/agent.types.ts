@@ -1,8 +1,9 @@
 import type {
   AbortableAsyncGenerator,
   AbortablePromise,
-} from "@comma-agents/utils";
+} from "../../abortable";
 import type {
+  tool as aiTool,
   CallSettings,
   FlexibleSchema,
   LanguageModel,
@@ -13,8 +14,10 @@ import type {
   ToolChoice,
 } from "ai";
 import type {
+  ContextUsage,
   ConversationContext,
   ConversationContextOptions,
+  ConversationRetentionEvent,
   ResponseMessage,
 } from "../../conversation-context";
 import type { LanguageService } from "../../language";
@@ -343,8 +346,8 @@ export interface AgentCallResult {
     readonly promptTokens: number;
     readonly completionTokens: number;
   };
-  /** Tokens occupying the final model step's context window. */
-  readonly contextTokens?: number;
+  /** Final model-step context usage. */
+  readonly contextUsage?: ContextUsage;
   /** Why the agent stopped (e.g., "stop", "tool-calls", "length"). */
   readonly finishReason: string;
   /**
@@ -375,6 +378,7 @@ export interface AgentCallResult {
 export type ToolCallStatus = "completed" | "error";
 
 export type AgentStreamEvent =
+  | { readonly type: "retention"; readonly event: ConversationRetentionEvent }
   | { readonly type: "text"; readonly text: string }
   | {
       readonly type: "tool-call";
@@ -418,7 +422,7 @@ export interface CallOptions {
   readonly tools?:
     | Record<string, ReturnType<typeof aiTool<any, any>>>
     | undefined;
-  readonly toolChoice?: ToolChoice<string> | undefined;
+  readonly toolChoice?: ToolChoice<Record<string, unknown>> | undefined;
   readonly abortSignal?: AbortSignal | undefined;
   readonly timeout?: number | undefined;
   readonly stopWhen?: ReturnType<typeof stepCountIs>;
@@ -432,4 +436,12 @@ export interface CallOptions {
    * Model-level generation parameters forwarded to `streamText`.
    */
   readonly modelOptions?: ModelOptions;
+}
+
+/** Prepared model-call options plus retention events emitted before the call. */
+export interface BuildCallOptionsResult {
+  /** AI SDK call options passed to `streamText`. */
+  readonly callOptions: CallOptions;
+  /** Retention events emitted while preparing conversation context. */
+  readonly retentionEvents: readonly ConversationRetentionEvent[];
 }

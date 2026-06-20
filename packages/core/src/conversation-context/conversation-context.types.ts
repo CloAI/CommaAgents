@@ -7,6 +7,7 @@ import type {
 import type {
   ContextPrepareInput,
   ContextRetentionOptions,
+  ConversationRetentionEvent,
 } from "./retention/retention.types";
 
 export type {
@@ -21,6 +22,7 @@ export type {
   ContextRecordTransform,
   ContextRetentionOptions,
   ContextTransformInput,
+  ConversationRetentionEvent,
   RollingWindowOptions,
   SummarizeRecords,
 } from "./retention/retention.types";
@@ -41,6 +43,26 @@ export interface ConversationUsage {
   readonly completionTokens: number;
 }
 
+export interface ContextUsage {
+  /** Tokens occupying the final model step's context window. */
+  readonly totalTokens: number;
+  /** Input tokens in the final model step, when reported. */
+  readonly inputTokens?: number;
+  /** Output tokens in the final model step, when reported. */
+  readonly outputTokens?: number;
+  /** Detailed input-token categories reported by the model provider. */
+  readonly inputTokenDetails?: {
+    readonly noCacheTokens?: number;
+    readonly cacheReadTokens?: number;
+    readonly cacheWriteTokens?: number;
+  };
+  /** Detailed output-token categories reported by the model provider. */
+  readonly outputTokenDetails?: {
+    readonly textTokens?: number;
+    readonly reasoningTokens?: number;
+  };
+}
+
 export interface ConversationRecord {
   /** Stable identifier for this single agent call record. */
   readonly id: string;
@@ -56,8 +78,8 @@ export interface ConversationRecord {
   readonly text: string;
   /** Exact token usage reported by the provider for this call. */
   readonly usage: ConversationUsage;
-  /** Tokens occupying the final model step's context window. */
-  readonly contextTokens?: number;
+  /** Final model-step context usage. */
+  readonly contextUsage?: ContextUsage;
   /** Provider finish reason for this call. */
   readonly finishReason: string;
   /**
@@ -84,8 +106,8 @@ export interface CreateConversationRecordInput {
   readonly text: string;
   /** Exact token usage reported by the provider for this call. */
   readonly usage: ConversationUsage;
-  /** Tokens occupying the final model step's context window. */
-  readonly contextTokens?: number;
+  /** Final model-step context usage. */
+  readonly contextUsage?: ContextUsage;
   /** Provider finish reason for this call. */
   readonly finishReason: string;
 }
@@ -93,6 +115,8 @@ export interface CreateConversationRecordInput {
 export interface ConversationHistory {
   /** Ordered conversation records across the run. */
   readonly records: readonly ConversationRecord[];
+  /** Retention events that changed the effective model context. */
+  readonly retentionEvents: readonly ConversationRetentionEvent[];
 }
 
 /** Options for {@link createConversationContext}. */
@@ -105,11 +129,17 @@ export interface ConversationContext {
   records(agentName?: string): readonly ConversationRecord[];
   messages(agentName?: string): readonly ModelMessage[];
   /** Prepare records before a model call by applying configured retention. */
-  prepareForCall(input: ContextPrepareInput): Promise<void>;
+  prepareForCall(
+    input: ContextPrepareInput,
+  ): Promise<readonly ConversationRetentionEvent[]>;
   importRecords(records: readonly ConversationRecord[]): void;
   exportRecords(): readonly ConversationRecord[];
   importJsonl(jsonl: string): void;
   exportJsonl(): string;
+  importJson(json: string): void;
+  exportJson(): string;
+  importYaml(yaml: string): void;
+  exportYaml(): string;
   clear(): void;
   [Symbol.iterator](): Iterator<ConversationRecord>;
 }

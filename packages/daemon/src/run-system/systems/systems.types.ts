@@ -60,12 +60,33 @@ export interface PrepareRunOptions {
   readonly manifestPath?: string;
 }
 
+/** A genuine human input (a run start or continuation prompt) for rehydration. */
+export interface RehydratedConversationInput {
+  /** The human-entered text that kicked off this run segment. */
+  readonly text: string;
+  /**
+   * Id of the first agent_call record produced after this input. The renderer
+   * places the human bubble immediately before that record. Undefined when the
+   * segment produced no agent calls (e.g. prepared-but-not-executed), in which
+   * case the input renders at the end.
+   */
+  readonly beforeRecordId?: string;
+}
+
+/**
+ * Conversation history extended with the genuine human inputs, so rehydration
+ * can distinguish a human prompt from an inter-agent handoff.
+ */
+export interface RehydratedConversation extends ConversationHistory {
+  readonly inputs: readonly RehydratedConversationInput[];
+}
+
 export interface PreparedRunMetadata {
   readonly runId: string;
   readonly strategyName: string;
   readonly agents: string[];
   readonly flowTree: Record<string, unknown>;
-  readonly conversation: ConversationHistory;
+  readonly conversation: RehydratedConversation;
 }
 
 export interface SystemDataMap {

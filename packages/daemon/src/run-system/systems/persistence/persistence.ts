@@ -58,6 +58,7 @@ export function createPersistenceSystem(
         if (!agent.appendHook) continue;
 
         const agentHooks = buildAgentHooks(agent, run, runStore, logger);
+        agent.appendHook("onStreamEvent", agentHooks.onStreamEvent);
         agent.appendHook("afterCallResult", agentHooks.afterCallResult);
       }
     },
@@ -131,6 +132,16 @@ function buildAgentHooks(
   logger: Logger,
 ): AgentHooks {
   return {
+    onStreamEvent(event): void {
+      if (event.type !== "retention") return;
+
+      appendEvent(runStore, logger, run.id, {
+        type: "conversation_retention",
+        ts: event.event.createdAt,
+        event: event.event,
+      });
+    },
+
     afterCallResult(): void {
       const record = agent.getConversationContext?.().records().at(-1);
       if (!record) {

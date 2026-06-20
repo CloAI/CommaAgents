@@ -1,30 +1,59 @@
 import type { ConversationRecord } from "../../conversation-context.types";
+import type { ConversationRetentionEvent } from "../retention.types";
 import { activeRecords } from "../retention.utils";
 import {
   COMPACTION_SUMMARY_REQUEST,
   DEFAULT_COMPACTION_KEEP_RECENT,
+  DEFAULT_COMPACTION_THRESHOLD_RATIO,
 } from "./compaction.constants";
-import type { CompactionOptions } from "./compaction.types";
+import type { ApplyCompactionInput } from "./compaction.types";
 
 /**
  * Compact older active records into one summary record.
  *
- * @param records - Full retained record history.
- * @param options - Compaction configuration and summarizer.
- * @param agentName - Agent that owns the synthetic summary record.
+ * @param input - Full retained record history, options, agent name, and trigger metadata.
  * @example
  * ```ts
- * const prepared = await applyCompaction(records, {
- *   keepRecent: 8,
- *   summarize,
- * }, "assistant");
+ * const result = await applyCompaction({
+ *   records,
+ *   options: { keepRecent: 8, summarize },
+ *   agentName: "assistant",
+ *   trigger: { contextUsage: { totalTokens: 90_000 }, tokenLimit: 100_000 },
+ * });
  * ```
  */
-export async function applyCompaction(
-  records: readonly ConversationRecord[],
-  options: CompactionOptions,
-  agentName: string,
-): Promise<readonly ConversationRecord[]> {
+export async function applyCompaction(input: ApplyCompactionInput): Promise<{
+  readonly records: readonly ConversationRecord[];
+  readonly event?: ConversationRetentionEvent;
+}> {
+  const { records, options, agentName, trigger } = input;
+
+  const keepRecent = Math.max(
+    0,
+    options.keepRecent ?? DEFAULT_COMPACTION_KEEP_RECENT,
+  );
+  const active = activeRecords(records);
+  const thresholdRatio =
+    options.thresholdRatio ?? DEFAULT_COMPACTION_THRESHOLD_RATIO;
+  const tokenLimit = trigger.tokenLimit;
+  const totalTokens = trigger.contextUsage?.totalTokens;
+  const tokenRatio =
+    tokenLimit !== undefined && totalTokens !== undefined
+      ? totalTokens / tokenLimit
+      : undefined;
+  const recordThreshold =
+    options.threshold !== undefined
+      ? Math.max(options.threshold, keepRecent + 1)
+      : undefined;
+
+  let reason: "context-window" | "record-count" | undefined;
+  if (tokenRatio !== undefined && tokenRatio >= thresholdRatio) {
+    reason = "context-window";
+  } else if (recordThreshold !== undefined && active.length > recordThreshold) {
+    reason = "record-count";
+  }
+
+  if (reason === undefined) return { records };
   if (options.summarize === undefined) {
     throw new Error(
       "Conversation context compaction requires a summarize function. " +
@@ -32,24 +61,16 @@ export async function applyCompaction(
     );
   }
 
-  const keepRecent = Math.max(
-    0,
-    options.keepRecent ?? DEFAULT_COMPACTION_KEEP_RECENT,
-  );
-  const threshold = Math.max(
-    options.threshold ?? keepRecent * 2,
-    keepRecent + 1,
-  );
-  const active = activeRecords(records);
-  if (active.length <= threshold) return records;
-
   const olderRecords = active.slice(0, active.length - keepRecent);
   const recentRecords = active.slice(active.length - keepRecent);
+  if (olderRecords.length === 0) return { records };
+
+  const createdAt = new Date().toISOString();
   const summaryText = await options.summarize(olderRecords);
   const summaryRecord: ConversationRecord = {
     id: crypto.randomUUID(),
     agentName,
-    createdAt: new Date().toISOString(),
+    createdAt,
     userMessage: { role: "user", content: COMPACTION_SUMMARY_REQUEST },
     responseMessages: [
       { role: "assistant", content: [{ type: "text", text: summaryText }] },
@@ -82,5 +103,26 @@ export async function applyCompaction(
     compactedRecords.push(summaryRecord);
   }
 
-  return compactedRecords;
+  return {
+    records: compactedRecords,
+    event: {
+      id: crypto.randomUUID(),
+      agentName,
+      createdAt,
+      kind: "compaction",
+      reason,
+      trigger: {
+        ...trigger,
+        ...(tokenRatio !== undefined ? { ratio: tokenRatio } : {}),
+        thresholdRatio,
+        activeRecordCount: active.length,
+        ...(recordThreshold !== undefined ? { recordThreshold } : {}),
+      },
+      recordsCompacted: olderRecords.length,
+      recordsRetained: recentRecords.length,
+      summaryRecord,
+      supersededRecordIds: [...supersededIds],
+      ...(anchorId !== undefined ? { insertBeforeRecordId: anchorId } : {}),
+    },
+  };
 }

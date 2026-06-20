@@ -260,6 +260,29 @@ export function getModelMetadata(modelId: string): ModelInfo | undefined {
 }
 
 /**
+ * Look up normalized metadata for a provider-qualified model string.
+ *
+ * @param model - Model identifier in "providerID/modelID" format.
+ * @example
+ * ```ts
+ * const info = getQualifiedModelMetadata("openai/gpt-4o");
+ * console.log(info?.contextWindow);
+ * ```
+ */
+export function getQualifiedModelMetadata(
+  model: string,
+): ModelInfo | undefined {
+  try {
+    const { providerId, modelId } = parseModel(model);
+    const provider = getCatalogProviderSync(providerId);
+    const catalogModel = provider?.models[modelId];
+    return catalogModel ? toModelInfo(catalogModel) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Look up capability flags for a bare model ID.
  *
  * Returns the model's `ModelCapabilities` (tools, reasoning, vision,

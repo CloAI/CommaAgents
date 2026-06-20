@@ -3,7 +3,10 @@ import { useCallback } from "react";
 import { useDaemonCommand } from "../../useDaemon/useDaemonCommand/useDaemonCommand";
 import { useDaemonSubscription } from "../../useDaemon/useDaemonSubscription/useDaemonSubscription";
 import type { ChatMessage } from "../useChat.types";
-import { getActiveLaunchStrategyId } from "../useChat.utils";
+import {
+  createLocalChatMessageId,
+  getActiveLaunchStrategyId,
+} from "../useChat.utils";
 import { useChatRunStore } from "../useChatRunStore";
 import type { ChatInputRequestResult } from "./useChatInputRequests.types";
 
@@ -11,7 +14,7 @@ import type { ChatInputRequestResult } from "./useChatInputRequests.types";
 export function useChatInputRequests(
   subscribeToDaemon = false,
 ): ChatInputRequestResult {
-  const { setChatRuns, messageCountersRef } = useChatRunStore();
+  const { setChatRuns } = useChatRunStore();
   const sendUserInputCommand = useDaemonCommand("user_input");
 
   const sendInput = useCallback<ChatInputRequestResult["sendInput"]>(
@@ -21,11 +24,9 @@ export function useChatInputRequests(
         if (!chatRun?.daemonRunId || !chatRun.pendingInputAgent) {
           return previousChatRuns;
         }
-        const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
-        messageCountersRef.current.set(chatRunId, counter);
         const parentToolCallId = getActiveLaunchStrategyId(chatRun);
         const userMessage: ChatMessage = {
-          id: `${chatRunId}-msg-${counter}`,
+          id: createLocalChatMessageId(chatRunId),
           role: "user",
           sender: "you",
           text,
@@ -49,7 +50,7 @@ export function useChatInputRequests(
         return nextChatRuns;
       });
     },
-    [messageCountersRef, sendUserInputCommand, setChatRuns],
+    [sendUserInputCommand, setChatRuns],
   );
 
   useDaemonSubscription(
@@ -61,13 +62,11 @@ export function useChatInputRequests(
         const chatRunId = chatRun.id;
         let updatedMessages = chatRun.messages;
         if (message.prompt) {
-          const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
-          messageCountersRef.current.set(chatRunId, counter);
           const parentToolCallId = getActiveLaunchStrategyId(chatRun);
           updatedMessages = [
             ...chatRun.messages,
             {
-              id: `${chatRunId}-msg-${counter}`,
+              id: createLocalChatMessageId(chatRunId),
               role: "system",
               sender: "system",
               text: message.prompt,

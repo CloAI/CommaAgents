@@ -1,8 +1,11 @@
 import type { ModelMessage } from "ai";
+import YAML from "yaml";
 import type {
+  ContextUsage,
   ConversationContext,
   ConversationContextOptions,
   ConversationRecord,
+  ConversationRetentionEvent,
   CreateConversationRecordInput,
 } from "./conversation-context.types";
 import {
@@ -60,13 +63,15 @@ export function createConversationContext(
       return recordsToMessages(activeRecords(records(agentName)));
     },
 
-    async prepareForCall(input: { agentName: string }): Promise<void> {
-      conversationRecords = [
-        ...(await prepareContextRecords(contextOptions, {
-          records: conversationRecords,
-          agentName: input.agentName,
-        })),
-      ];
+    async prepareForCall(
+      input: Parameters<ConversationContext["prepareForCall"]>[0],
+    ): Promise<readonly ConversationRetentionEvent[]> {
+      const result = await prepareContextRecords(contextOptions, {
+        records: conversationRecords,
+        ...input,
+      });
+      conversationRecords = [...result.records];
+      return result.events;
     },
 
     importRecords(records: readonly ConversationRecord[]): void {
@@ -83,6 +88,22 @@ export function createConversationContext(
 
     exportJsonl(): string {
       return serializeConversationRecords(conversationRecords);
+    },
+
+    importJson(json: string): void {
+      conversationRecords = [...parseConversationJson(json)];
+    },
+
+    exportJson(): string {
+      return serializeConversationRecordsJson(conversationRecords);
+    },
+
+    importYaml(yaml: string): void {
+      conversationRecords = [...parseConversationYaml(yaml)];
+    },
+
+    exportYaml(): string {
+      return serializeConversationRecordsYaml(conversationRecords);
     },
 
     clear(): void {
@@ -122,8 +143,8 @@ export function createConversationRecord(
     responseMessages: input.responseMessages,
     text: input.text,
     usage: input.usage,
-    ...(input.contextTokens !== undefined
-      ? { contextTokens: input.contextTokens }
+    ...(input.contextUsage !== undefined
+      ? { contextUsage: input.contextUsage }
       : {}),
     finishReason: input.finishReason,
   };
@@ -152,6 +173,34 @@ export function parseConversationJsonl(
     records.push(parsedRecord);
   }
   return records;
+}
+
+/** Parse a JSON array of canonical conversation records. */
+export function parseConversationJson(
+  json: string,
+): readonly ConversationRecord[] {
+  return parseConversationRecordArray(JSON.parse(json));
+}
+
+/** Serialize conversation records as pretty JSON. */
+export function serializeConversationRecordsJson(
+  records: readonly ConversationRecord[],
+): string {
+  return `${JSON.stringify(records, null, 2)}\n`;
+}
+
+/** Parse YAML containing an array of canonical conversation records. */
+export function parseConversationYaml(
+  yaml: string,
+): readonly ConversationRecord[] {
+  return parseConversationRecordArray(YAML.parse(yaml));
+}
+
+/** Serialize conversation records as YAML. */
+export function serializeConversationRecordsYaml(
+  records: readonly ConversationRecord[],
+): string {
+  return YAML.stringify(records);
 }
 
 /**
@@ -183,6 +232,21 @@ export function recordToJsonlLine(record: ConversationRecord): string {
   return JSON.stringify(record);
 }
 
+function parseConversationRecordArray(
+  value: unknown,
+): readonly ConversationRecord[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Conversation data must be an array of records");
+  }
+
+  return value.map((parsedRecord, recordIndex) => {
+    if (!isConversationRecord(parsedRecord)) {
+      throw new Error(`Invalid conversation record at index ${recordIndex}`);
+    }
+    return parsedRecord;
+  });
+}
+
 /** Flatten conversation records into the AI SDK message array shape. */
 export function recordsToMessages(
   records: readonly ConversationRecord[],
@@ -197,25 +261,104 @@ export function recordsToMessages(
   return messages;
 }
 
-/** Return the combined input/output tokens from the final model step. */
-export function contextTokensFromSteps(
+/** Return normalized context usage from the final model step. */
+export function contextUsageFromSteps(
   steps: readonly unknown[] | undefined,
-): number | undefined {
+): ContextUsage | undefined {
   const lastStep = steps?.at(-1);
   if (typeof lastStep !== "object" || lastStep === null) return undefined;
 
   const usage = (lastStep as { readonly usage?: unknown }).usage;
   if (typeof usage !== "object" || usage === null) return undefined;
 
-  const inputTokens = (usage as { readonly inputTokens?: unknown }).inputTokens;
-  const outputTokens = (usage as { readonly outputTokens?: unknown })
-    .outputTokens;
-  if (typeof inputTokens !== "number" && typeof outputTokens !== "number") {
+  const usageRecord = usage as Readonly<Record<string, unknown>>;
+  const inputTokens = readTokenTotal(usageRecord.inputTokens);
+  const outputTokens = readTokenTotal(usageRecord.outputTokens);
+  const totalTokens =
+    readNumber(usageRecord.totalTokens) ??
+    (inputTokens !== undefined || outputTokens !== undefined
+      ? (inputTokens ?? 0) + (outputTokens ?? 0)
+      : undefined);
+  if (totalTokens === undefined) {
     return undefined;
   }
 
-  return (
-    (typeof inputTokens === "number" ? inputTokens : 0) +
-    (typeof outputTokens === "number" ? outputTokens : 0)
-  );
+  const contextUsage: ContextUsage = {
+    totalTokens,
+    ...(inputTokens !== undefined ? { inputTokens } : {}),
+    ...(outputTokens !== undefined ? { outputTokens } : {}),
+    ...inputTokenDetailsFromUsage(usageRecord),
+    ...outputTokenDetailsFromUsage(usageRecord),
+  };
+  return contextUsage;
+}
+
+function inputTokenDetailsFromUsage(
+  usageRecord: Readonly<Record<string, unknown>>,
+): Pick<ContextUsage, "inputTokenDetails"> {
+  const flatDetails = objectRecord(usageRecord.inputTokenDetails);
+  const nestedDetails = objectRecord(usageRecord.inputTokens);
+  const noCacheTokens =
+    readNumber(flatDetails?.noCacheTokens) ??
+    readNumber(nestedDetails?.noCache);
+  const cacheReadTokens =
+    readNumber(flatDetails?.cacheReadTokens) ??
+    readNumber(nestedDetails?.cacheRead);
+  const cacheWriteTokens =
+    readNumber(flatDetails?.cacheWriteTokens) ??
+    readNumber(nestedDetails?.cacheWrite);
+  if (
+    noCacheTokens === undefined &&
+    cacheReadTokens === undefined &&
+    cacheWriteTokens === undefined
+  ) {
+    return {};
+  }
+
+  return {
+    inputTokenDetails: {
+      ...(noCacheTokens !== undefined ? { noCacheTokens } : {}),
+      ...(cacheReadTokens !== undefined ? { cacheReadTokens } : {}),
+      ...(cacheWriteTokens !== undefined ? { cacheWriteTokens } : {}),
+    },
+  };
+}
+
+function outputTokenDetailsFromUsage(
+  usageRecord: Readonly<Record<string, unknown>>,
+): Pick<ContextUsage, "outputTokenDetails"> {
+  const flatDetails = objectRecord(usageRecord.outputTokenDetails);
+  const nestedDetails = objectRecord(usageRecord.outputTokens);
+  const textTokens =
+    readNumber(flatDetails?.textTokens) ?? readNumber(nestedDetails?.text);
+  const reasoningTokens =
+    readNumber(flatDetails?.reasoningTokens) ??
+    readNumber(usageRecord.reasoningTokens) ??
+    readNumber(nestedDetails?.reasoning);
+  if (textTokens === undefined && reasoningTokens === undefined) {
+    return {};
+  }
+
+  return {
+    outputTokenDetails: {
+      ...(textTokens !== undefined ? { textTokens } : {}),
+      ...(reasoningTokens !== undefined ? { reasoningTokens } : {}),
+    },
+  };
+}
+
+function readTokenTotal(value: unknown): number | undefined {
+  if (typeof value === "number") return value;
+  return readNumber(objectRecord(value)?.total);
+}
+
+function readNumber(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined;
+}
+
+function objectRecord(
+  value: unknown,
+): Readonly<Record<string, unknown>> | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  return value as Readonly<Record<string, unknown>>;
 }

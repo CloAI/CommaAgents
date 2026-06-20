@@ -1,11 +1,11 @@
 import type {
   AbortableAsyncGenerator,
   AbortablePromise,
-} from "@comma-agents/utils";
+} from "../../abortable";
 import {
   createAbortableGenerator,
   createAbortablePromise,
-} from "@comma-agents/utils";
+} from "../../abortable";
 import { streamText } from "ai";
 import {
   type ConversationContextOptions,
@@ -143,15 +143,25 @@ export function createAgent(config: AgentConfig): Agent {
                 : rawExecuteResult;
           } else {
             // LLM path: stream via streamText, yield events as they arrive.
-            const options = await buildCallOptions(
+            const { callOptions, retentionEvents } = await buildCallOptions(
               config,
               alteredMessage,
               context,
               getToolHooks(hooks),
               signal,
             );
+            for (const retentionEvent of retentionEvents) {
+              const event: AgentStreamEvent = {
+                type: "retention",
+                event: retentionEvent,
+              };
+              if (streamEventHooks && streamEventHooks.length > 0) {
+                await runSideEffectHooks(streamEventHooks, event);
+              }
+              yield event;
+            }
             const streamResult = streamText(
-              options as Parameters<typeof streamText>[0],
+              callOptions as Parameters<typeof streamText>[0],
             );
 
             for await (const part of streamResult.fullStream) {
@@ -179,8 +189,8 @@ export function createAgent(config: AgentConfig): Agent {
             responseMessages: result.responseMessages,
             text: result.text,
             usage: result.usage,
-            ...(result.contextTokens !== undefined
-              ? { contextTokens: result.contextTokens }
+            ...(result.contextUsage !== undefined
+              ? { contextUsage: result.contextUsage }
               : {}),
             finishReason: result.finishReason,
           });
@@ -249,10 +259,12 @@ function resolveContextOptions(
   config: AgentConfig,
 ): ConversationContextOptions {
   const options = config.context ?? {};
-  if (!options.compaction || !config.model) return options;
+  if (!config.model || options.compaction === false) return options;
 
   const compaction =
-    options.compaction === true ? {} : { ...options.compaction };
+    options.compaction === undefined || options.compaction === true
+      ? {}
+      : { ...options.compaction };
   if (compaction.summarize !== undefined) return options;
 
   return {

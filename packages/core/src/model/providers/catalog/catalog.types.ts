@@ -1,9 +1,4 @@
-import type {
-  ModelCapabilities,
-  ModelCost,
-  ModelModalities,
-  ModelStatus,
-} from "../providers.types";
+import type { ModelStatus } from "../providers.types";
 
 /** Raw model entry shape used by `https://models.dev/api.json`. */
 export interface CatalogModel {
@@ -54,10 +49,3 @@ export interface CatalogProvider {
 
 /** Top-level shape: provider-id → provider entry. */
 export type CatalogData = Readonly<Record<string, CatalogProvider>>;
-
-/** Internal normalized intermediates used by the mapper. */
-export interface NormalizedCapabilities {
-  readonly capabilities?: ModelCapabilities;
-  readonly modalities?: ModelModalities;
-  readonly cost?: ModelCost;
-}

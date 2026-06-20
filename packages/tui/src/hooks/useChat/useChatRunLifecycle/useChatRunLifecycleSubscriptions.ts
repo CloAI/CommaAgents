@@ -1,12 +1,15 @@
 import { useDaemonCommand } from "../../useDaemon/useDaemonCommand/useDaemonCommand";
 import { useDaemonSubscription } from "../../useDaemon/useDaemonSubscription/useDaemonSubscription";
-import type { ChatMessage } from "../useChat.types";
-import { conversationRecordsToChatMessages } from "../useChat.utils";
+import type { ChatMessage, ChatRun } from "../useChat.types";
+import {
+  conversationRecordsToChatMessages,
+  createLocalChatMessageId,
+} from "../useChat.utils";
 import { useChatRunStore } from "../useChatRunStore";
 
 /** Project daemon run lifecycle events into local chat runs. */
 export function useChatRunLifecycleSubscriptions(): void {
-  const { chatRuns, setChatRuns, messageCountersRef } = useChatRunStore();
+  const { chatRuns, setChatRuns } = useChatRunStore();
   const subscribeCommand = useDaemonCommand("subscribe");
   const startRunCommand = useDaemonCommand("start_run");
   const continueRunCommand = useDaemonCommand("continue_run");
@@ -30,10 +33,8 @@ export function useChatRunLifecycleSubscriptions(): void {
         return nextChatRuns;
       }
 
-      const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
-      messageCountersRef.current.set(chatRunId, counter);
       const systemMessage: ChatMessage = {
-        id: `${chatRunId}-msg-${counter}`,
+        id: createLocalChatMessageId(chatRunId),
         role: "system",
         sender: "system",
         text: `Error: ${message}`,
@@ -60,8 +61,9 @@ export function useChatRunLifecycleSubscriptions(): void {
       const hydratedMessages = conversationRecordsToChatMessages(
         message.runId,
         message.conversation.records,
+        message.conversation.retentionEvents,
+        message.conversation.inputs,
       );
-      messageCountersRef.current.set(message.runId, hydratedMessages.length);
       setChatRuns((previousChatRuns) => {
         const existingChatRun = previousChatRuns.get(message.runId);
         if (!existingChatRun) return previousChatRuns;
@@ -114,10 +116,15 @@ export function useChatRunLifecycleSubscriptions(): void {
       const hydratedMessages = conversationRecordsToChatMessages(
         message.runId,
         message.conversation.records,
+        message.conversation.retentionEvents,
+        message.conversation.inputs,
       );
-      if (hydratedMessages.length > 0) {
-        messageCountersRef.current.set(message.runId, hydratedMessages.length);
-      }
+      const nextMessages =
+        pendingExecution.mode === "continue"
+          ? mergeContinuationMessages(chatRun, hydratedMessages)
+          : hydratedMessages.length > 0
+            ? hydratedMessages
+            : chatRun.messages;
 
       const nextChatRuns = new Map(previousChatRuns);
       nextChatRuns.set(message.runId, {
@@ -125,8 +132,7 @@ export function useChatRunLifecycleSubscriptions(): void {
         daemonRunId: message.runId,
         label: message.strategyName,
         strategyName: message.strategyName,
-        messages:
-          hydratedMessages.length > 0 ? hydratedMessages : chatRun.messages,
+        messages: nextMessages,
         pendingExecution: {
           ...pendingExecution,
           requestId: executionRequestId,
@@ -143,10 +149,8 @@ export function useChatRunLifecycleSubscriptions(): void {
       const chatRun = previousChatRuns.get(message.runId);
       if (!chatRun) return previousChatRuns;
 
-      const counter = (messageCountersRef.current.get(message.runId) ?? 0) + 1;
-      messageCountersRef.current.set(message.runId, counter);
       const systemMessage: ChatMessage = {
-        id: `${message.runId}-msg-${counter}`,
+        id: createLocalChatMessageId(message.runId),
         role: "system",
         sender: "system",
         text: `Strategy "${message.strategyName}" started (agents: ${message.agents.join(", ")})`,
@@ -175,10 +179,8 @@ export function useChatRunLifecycleSubscriptions(): void {
       const chatRun = previousChatRuns.get(message.runId);
       if (!chatRun) return previousChatRuns;
       const chatRunId = chatRun.id;
-      const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
-      messageCountersRef.current.set(chatRunId, counter);
       const systemMessage: ChatMessage = {
-        id: `${chatRunId}-msg-${counter}`,
+        id: createLocalChatMessageId(chatRunId),
         role: "system",
         sender: "system",
         text: "Strategy completed.",
@@ -205,10 +207,8 @@ export function useChatRunLifecycleSubscriptions(): void {
       const chatRun = previousChatRuns.get(message.runId);
       if (!chatRun) return previousChatRuns;
       const chatRunId = chatRun.id;
-      const counter = (messageCountersRef.current.get(chatRunId) ?? 0) + 1;
-      messageCountersRef.current.set(chatRunId, counter);
       const systemMessage: ChatMessage = {
-        id: `${chatRunId}-msg-${counter}`,
+        id: createLocalChatMessageId(chatRunId),
         role: "system",
         sender: "system",
         text: `Error: ${message.error.message}`,
@@ -239,4 +239,28 @@ export function useChatRunLifecycleSubscriptions(): void {
     if (!correlatedRun) return;
     failPendingExecution(correlatedRun[0], message.message);
   });
+}
+
+/** Preserve the queued continuation prompt when daemon hydration replays prior records. */
+function mergeContinuationMessages(
+  chatRun: ChatRun,
+  hydratedMessages: readonly ChatMessage[],
+): readonly ChatMessage[] {
+  const queuedMessageId = chatRun.pendingExecution?.queuedMessageId;
+  if (queuedMessageId === undefined) {
+    return hydratedMessages.length > 0 ? hydratedMessages : chatRun.messages;
+  }
+
+  const queuedMessageIndex = chatRun.messages.findIndex(
+    (chatMessage) => chatMessage.id === queuedMessageId,
+  );
+  if (queuedMessageIndex < 0) {
+    return hydratedMessages.length > 0 ? hydratedMessages : chatRun.messages;
+  }
+
+  const queuedMessage = chatRun.messages[queuedMessageIndex]!;
+  if (queuedMessageIndex > 0) return chatRun.messages;
+  return hydratedMessages.length > 0
+    ? [...hydratedMessages, queuedMessage]
+    : chatRun.messages;
 }

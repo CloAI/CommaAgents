@@ -1,6 +1,9 @@
 import type {
   AgentStreamEventWire,
+  ContextUsageWire,
+  ConversationInputWire,
   ConversationRecordWire,
+  ConversationRetentionEventWire,
   RequestPermissionMessage,
   RequestQuestionMessage,
   RunOverview,
@@ -8,7 +11,7 @@ import type {
   RunSummary,
   Usage,
 } from "@comma-agents/daemon";
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
 
 import type { WebSocketStatus } from "../useWebSocket/useWebSocket.types";
 
@@ -42,6 +45,7 @@ export type MessageSegment =
     })
   | StreamEventOf<"tool-call">
   | StreamEventOf<"tool-result">
+  | StreamEventOf<"retention">
   | (StreamEventOf<"thinking"> & {
       /** Whether the reasoning stream is still receiving tokens. */
       readonly streaming: boolean;
@@ -77,8 +81,8 @@ export interface ChatMessage {
   readonly contextWindow?: number;
   /** Final token usage reported by the model. */
   readonly usage?: Usage;
-  /** Tokens occupying the final model step's context window. */
-  readonly contextTokens?: number;
+  /** Final model-step context usage. */
+  readonly contextUsage?: ContextUsageWire;
   /** Completion timestamp for finished agent calls. */
   readonly completedAt?: number;
   readonly timestamp: number;
@@ -107,6 +111,8 @@ export interface PendingChatExecution {
   readonly input: string | null;
   /** Request id for the currently pending prepare/start/continue command. */
   readonly requestId: string;
+  /** Locally queued user message for a continuation, if one was rendered. */
+  readonly queuedMessageId?: string;
 }
 
 /** A single chat run's state — 1:1 with a strategy run. */
@@ -165,8 +171,6 @@ export type PendingQuestionRequest = RequestQuestionMessage;
 export type ChatRunsState = ReadonlyMap<ChatRunId, ChatRun>;
 /** @internal Setter for the provider-owned chat run collection. */
 export type SetChatRuns = Dispatch<SetStateAction<ChatRunsState>>;
-/** @internal Mutable message counters shared by run projection hooks. */
-export type MessageCountersRef = MutableRefObject<Map<ChatRunId, number>>;
 
 /** Initial overrides accepted by `createChatRun`. */
 export interface CreateRunInit {
@@ -180,6 +184,9 @@ export interface CreateRunInit {
 export type PersistedRunMeta = RunOverview;
 
 export type PersistedConversationRecord = ConversationRecordWire;
+export type PersistedConversationRetentionEvent =
+  ConversationRetentionEventWire;
+export type PersistedConversationInput = ConversationInputWire;
 
 /** Value exposed by `ChatRunsContext`. */
 export interface ChatRunsContextType {
@@ -190,7 +197,6 @@ export interface ChatRunsContextType {
 /** Internal writable store shared by chat run domain hooks. */
 export interface ChatRunsStore extends ChatRunsContextType {
   readonly setChatRuns: SetChatRuns;
-  readonly messageCountersRef: MessageCountersRef;
 }
 
 /** Props for the `ChatRunsContextProvider` component. */

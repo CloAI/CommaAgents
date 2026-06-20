@@ -1,272 +1,136 @@
 #!/usr/bin/env bun
 
-import { join } from "node:path";
-import {
-  createCredentialStore,
-  createJsonFileBackend,
-  getProviderDefinition,
-  registerProvider,
-  registerProviderDefinition,
-  setGlobalCredentialStore,
-  setProviderCacheDir,
-} from "@comma-agents/core";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { loadDaemonConfig, resolveDataDir } from "./config";
-import { createLogger } from "./logger/logger";
-import type { LogSink } from "./logger/logger.types";
-import { createFileSink } from "./logger/sinks/file";
-import { createStderrSink } from "./logger/sinks/stderr";
-import { isRunning, readPid, removePid, writePid } from "./pid";
-import { loadRegisteredProviders } from "./server/protocol/provider-registry";
-import { createDaemon } from "./server/server";
+import {
+  getDaemonStatus,
+  restartDaemon,
+  startDaemon,
+  stopDaemon,
+} from "./daemon-control";
 
-// Argument parsing via yargs
-
-interface StartArgs {
-  foreground: boolean;
-  port?: number;
-  modelOverride?: string;
-  verbose: boolean;
+interface StartCommandArguments {
+  readonly foreground: boolean;
+  readonly port?: number;
+  readonly modelOverride?: string;
+  readonly verbose: boolean;
 }
 
-// Command: start
-
-async function commandStart(args: StartArgs): Promise<void> {
-  // Load config with optional port override
-  const envOverrides: Record<string, string | undefined> = { ...process.env };
-  if (args.port !== undefined) {
-    envOverrides.COMMA_DAEMON_PORT = String(args.port);
-  }
-  if (args.verbose) {
-    envOverrides.COMMA_DAEMON_LOG_LEVEL = "debug";
-  }
-  const config = loadDaemonConfig({ env: envOverrides });
-
-  // Check if daemon is already running
-  const existingPid = readPid(config.pidFile);
-  if (existingPid !== undefined && isRunning(existingPid)) {
-    console.error(`Daemon is already running (PID: ${existingPid})`);
-    process.exit(1);
+function printDaemonStatus(json: boolean): void {
+  const status = getDaemonStatus();
+  if (json) {
+    console.log(JSON.stringify(status, null, 2));
+    return;
   }
 
-  // Clean up stale PID file if present
-  if (existingPid !== undefined) {
-    removePid(config.pidFile);
+  if (!status.running) {
+    console.log("Daemon is not running");
+    return;
   }
 
-  // Background mode: spawn a detached child and exit
-  if (!args.foreground) {
-    const spawnArgs = [
-      "bun",
-      "-i",
-      "run",
-      import.meta.path,
-      "start",
-      "--foreground",
-    ];
-    if (args.port !== undefined) {
-      spawnArgs.push("--port", String(args.port));
-    }
-    if (args.modelOverride !== undefined) {
-      spawnArgs.push("--model-override", args.modelOverride);
-    }
-    if (args.verbose) {
-      spawnArgs.push("--verbose");
-    }
-
-    const child = Bun.spawn(spawnArgs, {
-      stdio: ["ignore", "ignore", "ignore"],
-      detached: true,
-    });
-    child.unref();
-
-    // Brief poll to verify PID file appears
-    const deadline = Date.now() + 3000;
-    let started = false;
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 200));
-      const pid = readPid(config.pidFile);
-      if (pid !== undefined && isRunning(pid)) {
-        console.log(`Daemon started in background (PID: ${pid})`);
-        started = true;
-        break;
-      }
-    }
-
-    if (!started) {
-      console.log(
-        "Daemon may still be starting. Check status with: comma-agents-daemon status",
-      );
-    }
-
-    process.exit(0);
+  console.log(`Daemon is running (PID: ${status.pid})`);
+  console.log(`  Config: ${status.configFile}`);
+  console.log(`  PID file: ${status.pidFile}`);
+  console.log(`  Port: ${status.port}`);
+  console.log(`  Host: ${status.host}`);
+  if (status.logFile !== undefined) {
+    console.log(`  Log file: ${status.logFile}`);
   }
+}
 
-  // Foreground mode: run the daemon in this process
-  // 1. Set up logger
-  const sinks: LogSink[] = [createStderrSink()];
-  if (config.logFile) {
-    sinks.push(createFileSink(config.logFile));
-  }
-  const logger = createLogger({ level: config.logLevel, sinks });
-
-  // 2. Set up credential store (global registry)
-  const dataDir = resolveDataDir();
-  const credentialBackend = createJsonFileBackend({
-    filePath: join(dataDir, "credentials.json"),
-  });
-  const credentialStore = createCredentialStore({ backend: credentialBackend });
-  setGlobalCredentialStore(credentialStore);
-
-  // 2b. Set provider cache directory for dynamic package installs
-  setProviderCacheDir(config.providerCacheDir);
-
-  // 2c. Restore previously registered providers from disk
-  for (const providerId of loadRegisteredProviders()) {
-    try {
-      const definition = await getProviderDefinition(providerId);
-      if (definition) {
-        registerProviderDefinition(definition);
-        registerProvider(providerId, {
-          packageName: definition.packageName ?? `@ai-sdk/${providerId}`,
-        });
-      }
-    } catch {
-      // Provider may no longer be available — skip silently
-    }
-  }
-
-  // 3. Register global exception handlers so all uncaught errors reach the log
-  process.on("uncaughtException", (caughtError: Error) => {
-    logger.error("Uncaught exception", {
-      name: caughtError.name,
-      message: caughtError.message,
-      stack: caughtError.stack,
-    });
-  });
-
-  process.on("unhandledRejection", (reason: unknown) => {
-    const err = reason instanceof Error ? reason : new Error(String(reason));
-    logger.error("Unhandled promise rejection", {
-      name: err.name,
-      message: err.message,
-      stack: err.stack,
-    });
-  });
-
-  // 4. Create and start daemon
-  const daemon = createDaemon({
-    config,
-    logger,
-    modelOverride: args.modelOverride,
-  });
-
+async function commandStart({
+  foreground,
+  port,
+  modelOverride,
+  verbose,
+}: StartCommandArguments): Promise<void> {
   try {
-    await daemon.start();
+    const result = await startDaemon({
+      foreground,
+      port,
+      modelOverride,
+      verbose,
+      foregroundEntrypoint: import.meta.path,
+    });
+    if (!foreground) {
+      console.log(result.message);
+    }
   } catch (caughtError) {
-    logger.error(`Failed to start daemon: ${caughtError}`);
     console.error(
-      `Failed to start daemon: ${caughtError instanceof Error ? caughtError.message : caughtError}`,
+      caughtError instanceof Error ? caughtError.message : String(caughtError),
     );
     process.exit(1);
   }
-
-  // 5. Write PID file
-  writePid(config.pidFile);
-
-  console.log(
-    `Daemon listening on ${config.host}:${daemon.port} (PID: ${process.pid})`,
-  );
-  if (args.modelOverride) {
-    console.log(`  Model override: ${args.modelOverride}`);
-  }
-  // 6. Signal handlers for graceful shutdown
-  const shutdown = async () => {
-    console.log("\nShutting down...");
-    await daemon.stop();
-    removePid(config.pidFile);
-    logger.close();
-    process.exit(0);
-  };
-
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
 }
-
-// Command: stop
 
 async function commandStop(): Promise<void> {
-  const config = loadDaemonConfig();
-
-  const pid = readPid(config.pidFile);
-  if (pid === undefined) {
-    console.log("Daemon is not running (no PID file found)");
-    process.exit(0);
-  }
-
-  if (!isRunning(pid)) {
-    console.log("Daemon is not running (stale PID file cleaned up)");
-    removePid(config.pidFile);
-    process.exit(0);
-  }
-
-  // Send SIGTERM
-  console.log(`Stopping daemon (PID: ${pid})...`);
   try {
-    process.kill(pid, "SIGTERM");
+    const result = await stopDaemon();
+    console.log(result.message);
   } catch (caughtError) {
     console.error(
-      `Failed to send SIGTERM: ${caughtError instanceof Error ? caughtError.message : caughtError}`,
+      caughtError instanceof Error ? caughtError.message : String(caughtError),
     );
     process.exit(1);
   }
-
-  // Poll until the process dies (5 second timeout)
-  const deadline = Date.now() + 5000;
-  while (Date.now() < deadline) {
-    if (!isRunning(pid)) {
-      removePid(config.pidFile);
-      console.log("Daemon stopped");
-      process.exit(0);
-    }
-    await new Promise((r) => setTimeout(r, 200));
-  }
-
-  console.error(
-    "Daemon did not stop within 5 seconds. You may need to kill it manually.",
-  );
-  console.error(`  kill -9 ${pid}`);
-  process.exit(1);
 }
 
-// Command: status
-
-function commandStatus(): void {
-  const config = loadDaemonConfig();
-
-  const pid = readPid(config.pidFile);
-  if (pid === undefined) {
-    console.log("Daemon is not running");
-    process.exit(0);
+async function commandRestart(
+  commandArguments: StartCommandArguments,
+): Promise<void> {
+  try {
+    const result = await restartDaemon({
+      ...commandArguments,
+      foregroundEntrypoint: import.meta.path,
+    });
+    console.log(result.message);
+  } catch (caughtError) {
+    console.error(
+      caughtError instanceof Error ? caughtError.message : String(caughtError),
+    );
+    process.exit(1);
   }
-
-  if (!isRunning(pid)) {
-    console.log("Daemon is not running (stale PID file cleaned up)");
-    removePid(config.pidFile);
-    process.exit(0);
-  }
-
-  console.log(`Daemon is running (PID: ${pid})`);
-  console.log(`  Config: ${config.configFile}`);
-  console.log(`  PID file: ${config.pidFile}`);
-  console.log(`  Port: ${config.port}`);
-  console.log(`  Host: ${config.host}`);
 }
 
-// Command: help — now handled by yargs --help
-
-// Main — yargs command routing
+const startOptions = (commandArguments: yargs.Argv) =>
+  commandArguments
+    .option("foreground", {
+      alias: "f",
+      type: "boolean",
+      default: false,
+      describe: "Run in foreground (don't daemonize)",
+    })
+    .option("port", {
+      alias: "p",
+      type: "number",
+      describe: "Override the listening port",
+      coerce: (value: number) => {
+        if (value < 1 || value > 65535) {
+          throw new Error(
+            `Invalid port: ${value}. Must be between 1 and 65535.`,
+          );
+        }
+        return value;
+      },
+    })
+    .option("model-override", {
+      type: "string",
+      describe: "Override model for all agents (e.g., github-copilot/gpt-4o)",
+      coerce: (value: string) => {
+        if (!value.includes("/")) {
+          throw new Error(
+            `Invalid model override: "${value}". Expected format: providerID/modelID`,
+          );
+        }
+        return value;
+      },
+    })
+    .option("verbose", {
+      alias: "v",
+      type: "boolean",
+      default: false,
+      describe: "Enable verbose (debug-level) logging",
+    });
 
 yargs(hideBin(process.argv))
   .scriptName("comma-agents-daemon")
@@ -274,78 +138,55 @@ yargs(hideBin(process.argv))
   .command(
     "start",
     "Start the daemon",
-    (commandArguments) =>
-      commandArguments
-        .option("foreground", {
-          alias: "f",
-          type: "boolean",
-          default: false,
-          describe: "Run in foreground (don't daemonize)",
-        })
-        .option("port", {
-          alias: "p",
-          type: "number",
-          describe: "Override the listening port",
-          coerce: (val: number) => {
-            if (val < 1 || val > 65535) {
-              throw new Error(
-                `Invalid port: ${val}. Must be between 1 and 65535.`,
-              );
-            }
-            return val;
-          },
-        })
-        .option("model-override", {
-          type: "string",
-          describe:
-            "Override model for all agents (e.g., github-copilot/gpt-4o)",
-          coerce: (val: string) => {
-            if (!val.includes("/")) {
-              throw new Error(
-                `Invalid model override: "${val}". Expected format: providerID/modelID`,
-              );
-            }
-            return val;
-          },
-        })
-        .option("verbose", {
-          alias: "v",
-          type: "boolean",
-          default: false,
-          describe: "Enable verbose (debug-level) logging",
-        })
-        .example("$0 start", "Start in background")
-        .example("$0 start --foreground", "Start in foreground")
-        .example("$0 start --port 8080", "Start on port 8080")
-        .example(
-          "$0 start --foreground --model-override github-copilot/gpt-4o",
-          "Start with model override",
-        ),
-    async (argv) => {
+    startOptions,
+    async (commandArguments) => {
       await commandStart({
-        foreground: argv.foreground,
-        port: argv.port,
-        modelOverride: argv.modelOverride as string | undefined,
-        verbose: argv.verbose,
+        foreground: commandArguments.foreground,
+        port: commandArguments.port,
+        modelOverride: commandArguments.modelOverride as string | undefined,
+        verbose: commandArguments.verbose,
+      });
+    },
+  )
+  .command(
+    "restart",
+    "Restart the daemon",
+    startOptions,
+    async (commandArguments) => {
+      await commandRestart({
+        foreground: commandArguments.foreground,
+        port: commandArguments.port,
+        modelOverride: commandArguments.modelOverride as string | undefined,
+        verbose: commandArguments.verbose,
       });
     },
   )
   .command("stop", "Stop the daemon", {}, async () => {
     await commandStop();
   })
-  .command("status", "Show daemon status", {}, () => {
-    commandStatus();
-  })
-  .demandCommand(1, "Please specify a command: start, stop, or status")
+  .command(
+    "status",
+    "Show daemon status",
+    (commandArguments) =>
+      commandArguments.option("json", {
+        type: "boolean",
+        default: false,
+        describe: "Print the status contract as JSON",
+      }),
+    (commandArguments) => {
+      printDaemonStatus(commandArguments.json);
+    },
+  )
+  .demandCommand(1, "Please specify a command: start, stop, restart, or status")
   .strict()
   .help()
   .alias("h", "help")
-  .version(false)
-  .fail((msg, err) => {
-    if (err) {
-      console.error(`Fatal error: ${err.message}`);
-    } else if (msg) {
-      console.error(msg);
+  .version(process.env.COMMA_BUILD_VERSION ?? "development")
+  .fail((message, error) => {
+    if (error) {
+      console.error(`Fatal error: ${error.message}`);
+    } else if (message) {
+      console.error(message);
     }
     process.exit(1);
   })

@@ -1,11 +1,15 @@
 import { describe, expect, it } from "bun:test";
 import type { ResponseMessage } from "./conversation-context.types";
 import {
-  contextTokensFromSteps,
+  contextUsageFromSteps,
   createConversationContext,
   createConversationRecord,
+  parseConversationJson,
   parseConversationJsonl,
+  parseConversationYaml,
   serializeConversationRecords,
+  serializeConversationRecordsJson,
+  serializeConversationRecordsYaml,
 } from "./index";
 
 function assistantResponse(text: string): ResponseMessage[] {
@@ -26,7 +30,7 @@ function makeRecord(
     responseMessages: assistantResponse(responseText),
     text: responseText,
     usage: { promptTokens: 10, completionTokens: 5 },
-    contextTokens: 15,
+    contextUsage: { totalTokens: 15, inputTokens: 10, outputTokens: 5 },
     finishReason: "stop",
   });
 }
@@ -97,6 +101,18 @@ describe("createConversationContext", () => {
     expect(parseConversationJsonl(context.exportJsonl())).toEqual(records);
   });
 
+  it("should import and export conversation json and yaml", () => {
+    const records = [
+      makeRecord("1", "assistant", "first", "one"),
+      makeRecord("2", "assistant", "second", "two"),
+    ];
+    const json = serializeConversationRecordsJson(records);
+    const yaml = serializeConversationRecordsYaml(records);
+
+    expect(parseConversationJson(json)).toEqual(records);
+    expect(parseConversationYaml(yaml)).toEqual(records);
+  });
+
   it("should reject invalid conversation jsonl records", () => {
     expect(() => parseConversationJsonl('{"id":"missing-fields"}\n')).toThrow(
       "Invalid conversation record on line 1",
@@ -152,21 +168,135 @@ describe("createConversationContext", () => {
         status: "superseded",
       });
     });
+
+    it("should return retention events from compaction", async () => {
+      const context = createConversationContext({
+        compaction: {
+          keepRecent: 1,
+          summarize: async (records) =>
+            `summary: ${records.map((record) => record.id).join(",")}`,
+        },
+      });
+      context.importRecords([
+        makeRecord("1", "assistant", "first", "one"),
+        makeRecord("2", "assistant", "second", "two"),
+      ]);
+
+      const events = await context.prepareForCall({
+        agentName: "assistant",
+        model: "mock/windowed",
+        contextUsage: { totalTokens: 850 },
+        contextWindow: 1_000,
+      });
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        agentName: "assistant",
+        kind: "compaction",
+        reason: "context-window",
+        recordsCompacted: 1,
+        recordsRetained: 1,
+        supersededRecordIds: ["1"],
+      });
+      expect(context.messages()).toEqual([
+        {
+          role: "user",
+          content: "[Earlier conversation compacted - summary follows.]",
+        },
+        {
+          role: "assistant",
+          content: [{ type: "text", text: "summary: 1" }],
+        },
+        { role: "user", content: "second" },
+        { role: "assistant", content: [{ type: "text", text: "two" }] },
+      ]);
+    });
   });
 });
 
-describe("contextTokensFromSteps", () => {
-  it("should return final step context usage", () => {
+describe("contextUsageFromSteps", () => {
+  it("should return final step context usage from flat AI SDK usage", () => {
     const steps = [
       { usage: { inputTokens: 10, outputTokens: 5 } },
       { usage: { inputTokens: 12, outputTokens: 6 } },
     ];
 
-    expect(contextTokensFromSteps(steps)).toBe(18);
+    expect(contextUsageFromSteps(steps)).toEqual({
+      totalTokens: 18,
+      inputTokens: 12,
+      outputTokens: 6,
+    });
+  });
+
+  it("should preserve final step token details", () => {
+    const steps = [
+      {
+        usage: {
+          inputTokens: 12,
+          inputTokenDetails: {
+            noCacheTokens: 7,
+            cacheReadTokens: 3,
+            cacheWriteTokens: 2,
+          },
+          outputTokens: 6,
+          outputTokenDetails: {
+            textTokens: 4,
+            reasoningTokens: 2,
+          },
+          totalTokens: 18,
+        },
+      },
+    ];
+
+    expect(contextUsageFromSteps(steps)).toEqual({
+      totalTokens: 18,
+      inputTokens: 12,
+      outputTokens: 6,
+      inputTokenDetails: {
+        noCacheTokens: 7,
+        cacheReadTokens: 3,
+        cacheWriteTokens: 2,
+      },
+      outputTokenDetails: {
+        textTokens: 4,
+        reasoningTokens: 2,
+      },
+    });
+  });
+
+  it("should normalize nested provider usage", () => {
+    const steps = [
+      {
+        usage: {
+          inputTokens: {
+            total: 10,
+            noCache: 5,
+            cacheRead: 3,
+            cacheWrite: 2,
+          },
+          outputTokens: { total: 20, text: 15, reasoning: 5 },
+        },
+      },
+    ];
+
+    expect(contextUsageFromSteps(steps)).toEqual({
+      totalTokens: 30,
+      inputTokens: 10,
+      outputTokens: 20,
+      inputTokenDetails: {
+        noCacheTokens: 5,
+        cacheReadTokens: 3,
+        cacheWriteTokens: 2,
+      },
+      outputTokenDetails: {
+        textTokens: 15,
+        reasoningTokens: 5,
+      },
+    });
   });
 
   it("should return undefined when step usage is unavailable", () => {
-    expect(contextTokensFromSteps([])).toBeUndefined();
-    expect(contextTokensFromSteps([{ usage: {} }])).toBeUndefined();
+    expect(contextUsageFromSteps([])).toBeUndefined();
+    expect(contextUsageFromSteps([{ usage: {} }])).toBeUndefined();
   });
 });

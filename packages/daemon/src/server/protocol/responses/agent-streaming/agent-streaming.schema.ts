@@ -3,11 +3,18 @@
 
 import { z } from "zod";
 import { DaemonBase } from "../../shared";
-import { AgentCallResultSchema } from "../shared";
+import {
+  AgentCallResultSchema,
+  ConversationRetentionEventSchema,
+} from "../shared";
 
 // AgentStreamEvent — mirrors core AgentStreamEvent discriminated union
 
 export const AgentStreamEventSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("retention"),
+    event: ConversationRetentionEventSchema,
+  }),
   z.object({ type: z.literal("text"), text: z.string() }),
   z.object({
     type: z.literal("tool-call"),

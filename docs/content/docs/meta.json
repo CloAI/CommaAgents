@@ -1,6 +1,7 @@
 {
   "title": "API Reference",
   "pages": [
+    "cli",
     "---Core---",
     "core",
     "---Daemon---",

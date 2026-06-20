@@ -11,7 +11,7 @@ import type {
   SummarizeRecords,
 } from "../../conversation-context";
 import {
-  contextTokensFromSteps,
+  contextUsageFromSteps,
   recordsToMessages,
 } from "../../conversation-context";
 import { SandboxViolationError } from "../../errors/index";
@@ -19,6 +19,7 @@ import { runSideEffectHooks, runTransformHooks } from "../../hooks";
 import type { SideEffectHook, TransformHook } from "../../hooks/hooks.types";
 import type { LanguageService } from "../../language";
 import { resolveModel } from "../../model/model";
+import { getQualifiedModelMetadata } from "../../model/model.utils";
 import {
   buildMessages,
   resolveSystemPrompt,
@@ -46,7 +47,7 @@ import type {
   AgentCallResult,
   AgentConfig,
   AgentStreamEvent,
-  CallOptions,
+  BuildCallOptionsResult,
 } from "./agent.types";
 
 export type AgentHookStore = {
@@ -356,7 +357,7 @@ export async function buildCallOptions(
   context: ConversationContext,
   toolHooks?: ToolHooks,
   abortSignal?: AbortSignal,
-): Promise<CallOptions> {
+): Promise<BuildCallOptionsResult> {
   if (!config.model) {
     throw new Error(
       `Agent "${config.name}" has no model configured. ` +
@@ -364,7 +365,24 @@ export async function buildCallOptions(
     );
   }
 
-  await context.prepareForCall({ agentName: config.name });
+  const modelMetadata = getQualifiedModelMetadata(config.model);
+  const lastActiveRecord = context
+    .records(config.name)
+    .filter((record) => record.status !== "superseded")
+    .at(-1);
+  const retentionEvents = await context.prepareForCall({
+    agentName: config.name,
+    model: config.model,
+    ...(lastActiveRecord?.contextUsage !== undefined
+      ? { contextUsage: lastActiveRecord.contextUsage }
+      : {}),
+    ...(modelMetadata?.contextWindow !== undefined
+      ? { contextWindow: modelMetadata.contextWindow }
+      : {}),
+    ...(modelMetadata?.maxInputTokens !== undefined
+      ? { maxInputTokens: modelMetadata.maxInputTokens }
+      : {}),
+  });
 
   // Resolve model string → LanguageModel
   const languageModel = await resolveModel(config.model);
@@ -394,19 +412,22 @@ export async function buildCallOptions(
   ]);
 
   return {
-    model: languageModel,
-    system: resolvedSystemPrompt,
-    messages: buildMessages({ message, context }) as ModelMessage[],
-    tools,
-    abortSignal,
-    stopWhen: stepCountIs(config.maxSteps ?? DEFAULT_MAX_STEPS),
-    ...(config.providerOptions
-      ? { providerOptions: config.providerOptions as Record<string, unknown> }
-      : {}),
-    ...(config.outputSchema
-      ? { output: Output.object({ schema: config.outputSchema }) }
-      : {}),
-    ...(config.modelOptions ?? {}),
+    retentionEvents,
+    callOptions: {
+      model: languageModel,
+      system: resolvedSystemPrompt,
+      messages: buildMessages({ message, context }) as ModelMessage[],
+      tools,
+      abortSignal,
+      stopWhen: stepCountIs(config.maxSteps ?? DEFAULT_MAX_STEPS),
+      ...(config.providerOptions
+        ? { providerOptions: config.providerOptions as Record<string, unknown> }
+        : {}),
+      ...(config.outputSchema
+        ? { output: Output.object({ schema: config.outputSchema }) }
+        : {}),
+      ...(config.modelOptions ?? {}),
+    },
   };
 }
 
@@ -523,7 +544,7 @@ export function buildStreamCallResult(
   },
   finishReason: string | null | undefined,
 ): AgentCallResult {
-  const contextTokens = contextTokensFromSteps(steps);
+  const contextUsage = contextUsageFromSteps(steps);
   return {
     text,
     responseMessages,
@@ -532,7 +553,7 @@ export function buildStreamCallResult(
       promptTokens: totalUsage.inputTokens ?? 0,
       completionTokens: totalUsage.outputTokens ?? 0,
     },
-    ...(contextTokens !== undefined ? { contextTokens } : {}),
+    ...(contextUsage !== undefined ? { contextUsage } : {}),
     finishReason: finishReason ?? "stop",
   };
 }

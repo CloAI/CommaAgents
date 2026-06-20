@@ -218,7 +218,10 @@ describe("AgentStreamingMessage", () => {
       ts,
       runId: "run-1",
       agentName: "coder",
-      event: { type: "done", result: { ...agentResult, contextTokens: 42 } },
+      event: {
+        type: "done",
+        result: { ...agentResult, contextUsage: { totalTokens: 42 } },
+      },
     };
     expect(AgentStreamingMessage.parse(msg)).toEqual(msg);
   });
@@ -435,7 +438,7 @@ describe("ErrorMessage", () => {
 // DaemonMessage discriminated union
 
 describe("DaemonMessage union", () => {
-  test("routes run_prepared correctly", () => {
+  test("routes run_prepared correctly and defaults conversation inputs", () => {
     const result = DaemonMessage.parse({
       type: "run_prepared",
       ts,
@@ -443,9 +446,99 @@ describe("DaemonMessage union", () => {
       strategyName: "s",
       agents: ["a"],
       flowTree: {},
-      conversation: { records: [] },
+      // Older payloads omit `inputs`; it must default to [] for back-compat.
+      conversation: { records: [], retentionEvents: [] },
     });
     expect(result.type).toBe("run_prepared");
+    if (result.type !== "run_prepared") throw new Error("unexpected type");
+    expect(result.conversation.inputs).toEqual([]);
+  });
+
+  test("parses run_prepared conversation inputs", () => {
+    const result = DaemonMessage.parse({
+      type: "run_prepared",
+      ts,
+      runId: "r",
+      strategyName: "s",
+      agents: ["a"],
+      flowTree: {},
+      conversation: {
+        records: [],
+        retentionEvents: [],
+        inputs: [
+          { text: "human prompt", beforeRecordId: "record-1" },
+          { text: "trailing prompt" },
+        ],
+      },
+    });
+    expect(result.type).toBe("run_prepared");
+    if (result.type !== "run_prepared") throw new Error("unexpected type");
+    expect(result.conversation.inputs).toEqual([
+      { text: "human prompt", beforeRecordId: "record-1" },
+      { text: "trailing prompt" },
+    ]);
+  });
+
+  test("preserves compacted conversation record tombstones", () => {
+    const result = DaemonMessage.parse({
+      type: "run_prepared",
+      ts,
+      runId: "r",
+      strategyName: "s",
+      agents: ["a"],
+      flowTree: {},
+      conversation: {
+        records: [
+          {
+            id: "record-1",
+            agentName: "a",
+            createdAt: ts,
+            userMessage: { role: "user", content: "old" },
+            responseMessages: [{ role: "assistant", content: "stale" }],
+            text: "stale",
+            usage,
+            finishReason: "stop",
+            status: "superseded",
+            supersededBy: "summary-1",
+          },
+        ],
+        retentionEvents: [
+          {
+            id: "retention-1",
+            agentName: "a",
+            createdAt: ts,
+            kind: "compaction",
+            reason: "context-window",
+            trigger: {
+              contextUsage: { totalTokens: 850 },
+              tokenLimit: 1_000,
+              ratio: 0.85,
+              thresholdRatio: 0.85,
+            },
+            recordsCompacted: 1,
+            recordsRetained: 1,
+            summaryRecord: {
+              id: "summary-1",
+              agentName: "a",
+              createdAt: ts,
+              userMessage: { role: "user", content: "summary request" },
+              responseMessages: [{ role: "assistant", content: "summary" }],
+              text: "summary",
+              usage,
+              finishReason: "stop",
+              status: "active",
+            },
+            supersededRecordIds: ["record-1"],
+          },
+        ],
+      },
+    });
+
+    expect(result.conversation.records[0]).toMatchObject({
+      status: "superseded",
+      supersededBy: "summary-1",
+    });
+    expect(result.conversation.retentionEvents).toHaveLength(1);
   });
 
   test("routes strategy_started correctly", () => {

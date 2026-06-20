@@ -1,4 +1,4 @@
-import { Box, Text } from "ink";
+import { Box, type DOMElement, Text } from "ink";
 import type React from "react";
 import type { BorderedPanelTheme } from "./BorderedPanel.theme";
 import { useBorderedPanelTheme } from "./BorderedPanel.theme";
@@ -11,6 +11,8 @@ export interface BorderedPanelProps {
    * top of Ink's built-in border via an absolutely-positioned child.
    */
   readonly header: React.ReactNode;
+  /** Optional ref attached to the header overlay for mouse hit testing. */
+  readonly headerRef?: React.RefObject<DOMElement | null>;
   /**
    * Color applied to every border glyph (top, left, right, bottom).
    * Defaults to the theme's neutral border color when omitted.
@@ -53,6 +55,7 @@ export interface BorderedPanelProps {
  */
 export function BorderedPanel({
   header,
+  headerRef,
   borderColor,
   headerColor,
   backgroundColor,
@@ -68,6 +71,7 @@ export function BorderedPanel({
     <BorderedPanelRender
       theme={theme}
       header={header}
+      headerRef={headerRef}
       borderColor={resolvedBorderColor}
       headerColor={resolvedHeaderColor}
       backgroundColor={resolvedBackgroundColor}
@@ -82,6 +86,8 @@ export interface BorderedPanelRenderProps {
   readonly theme: BorderedPanelTheme;
   /** Header label embedded into the top border. */
   readonly header: React.ReactNode;
+  /** Optional ref attached to the header overlay for mouse hit testing. */
+  readonly headerRef?: React.RefObject<DOMElement | null>;
   /** Resolved border color (no fallback handling here). */
   readonly borderColor: string;
   /** Resolved header label color (no fallback handling here). */
@@ -95,6 +101,7 @@ export interface BorderedPanelRenderProps {
 export function BorderedPanelRender({
   theme,
   header,
+  headerRef,
   borderColor,
   headerColor,
   backgroundColor,
@@ -106,7 +113,7 @@ export function BorderedPanelRender({
       borderColor={borderColor}
       backgroundColor={backgroundColor}
     >
-      <Box {...theme.header}>
+      <Box ref={headerRef} {...theme.header}>
         <Text
           {...theme.header.text}
           backgroundColor={backgroundColor}

@@ -103,7 +103,7 @@ function MessageRow({
         streaming={message.streaming}
         model={message.model}
         contextWindow={message.contextWindow}
-        contextTokens={message.contextTokens}
+        contextUsage={message.contextUsage}
         startedAt={message.timestamp}
         completedAt={message.completedAt}
         subMessages={message.subMessages}

@@ -20,7 +20,7 @@ describe("buildCallOptions output schema", () => {
       specificationVersion: "v3",
     } as LanguageModel);
 
-    const options = await buildCallOptions(
+    const result = await buildCallOptions(
       {
         name: "structured",
         model: "mock/structured",
@@ -30,7 +30,7 @@ describe("buildCallOptions output schema", () => {
       createConversationContext(),
     );
 
-    expect(await options.output?.responseFormat).toMatchObject({
+    expect(await result.callOptions.output?.responseFormat).toMatchObject({
       type: "json",
       schema: {
         type: "object",
@@ -77,14 +77,14 @@ describe("buildCallOptions context retention", () => {
       }),
     ]);
 
-    const options = await buildCallOptions(
+    const result = await buildCallOptions(
       { name: "writer", model: "mock/windowed" },
       "third",
       context,
     );
 
     // Only the windowed record (record 2) plus the new user message survive.
-    expect(options.messages).toEqual([
+    expect(result.callOptions.messages).toEqual([
       { role: "user", content: "second" },
       { role: "assistant", content: "two" },
       { role: "user", content: "third" },

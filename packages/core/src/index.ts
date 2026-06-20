@@ -1,11 +1,11 @@
 export type {
   AbortableAsyncGenerator,
   AbortablePromise,
-} from "@comma-agents/utils";
+} from "./abortable";
 export {
   createAbortableGenerator,
   createAbortablePromise,
-} from "@comma-agents/utils";
+} from "./abortable";
 
 export { createAgent } from "./agents/agent/agent";
 export type {
@@ -36,12 +36,14 @@ export type {
   AssistantModelMessage,
   CompactionOptions,
   ContextPrepareInput,
+  ContextUsage,
   ContextRecordTransform,
   ContextRetentionOptions,
   ContextTransformInput,
   ConversationHistory,
   ConversationRecord,
   ConversationRecordStatus,
+  ConversationRetentionEvent,
   ConversationUsage,
   CreateConversationRecordInput,
   ModelMessage,
@@ -58,14 +60,18 @@ export type {
 export {
   applyCompaction,
   applyRollingWindow,
-  contextTokensFromSteps,
+  contextUsageFromSteps,
   createConversationContext,
   createConversationRecord,
+  parseConversationJson,
   parseConversationJsonl,
+  parseConversationYaml,
   prepareContextRecords,
   recordsToMessages,
   recordToJsonlLine,
+  serializeConversationRecordsJson,
   serializeConversationRecords,
+  serializeConversationRecordsYaml,
 } from "./conversation-context/index";
 export type {
   ApiCredential,
@@ -210,6 +216,7 @@ export {
   getCatalogSnapshot,
   getModelCapabilities,
   getModelMetadata,
+  getQualifiedModelMetadata,
   getProviderDefinition,
   getProviderInfo,
   getProviderPackage,

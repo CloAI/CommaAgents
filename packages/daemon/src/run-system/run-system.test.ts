@@ -395,6 +395,205 @@ describe("createRunSystem", () => {
     ).toHaveLength(3);
   });
 
+  it("extracts genuine human inputs anchored to the first agent_call of each run segment", async () => {
+    const state = createDaemonState();
+    const sink = mockSink();
+    state.addClient("client-1");
+    const runSystem = createRunSystem({
+      state,
+      sink,
+      logger: mockLogger(),
+      runsDir: await createTempRunsDir(),
+    });
+    const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
+    tempFiles.push(filePath);
+
+    // Segment one: a human prompt followed by two sequential agent calls,
+    // where the second agent's userMessage echoes the first agent's output.
+    await runSystem.runStore.appendEvent("inputs-run", {
+      type: "run_started",
+      ts: new Date(0).toISOString(),
+      strategyPath: filePath,
+      strategyName: "Test",
+      cwd: "/persisted/cwd",
+      initialInput: "human prompt one",
+    });
+    await runSystem.runStore.appendEvent(
+      "inputs-run",
+      makeAgentCallEvent(
+        "assistant",
+        "human prompt one",
+        "first response",
+        new Date(1).toISOString(),
+      ),
+    );
+    await runSystem.runStore.appendEvent(
+      "inputs-run",
+      makeAgentCallEvent(
+        "assistant",
+        "first response",
+        "second response",
+        new Date(2).toISOString(),
+      ),
+    );
+    await runSystem.runStore.appendEvent("inputs-run", {
+      type: "run_completed",
+      ts: new Date(3).toISOString(),
+      status: "completed",
+    });
+    // Segment two: a continuation prompt and its single agent call.
+    await runSystem.runStore.appendEvent("inputs-run", {
+      type: "run_started",
+      ts: new Date(4).toISOString(),
+      strategyPath: filePath,
+      strategyName: "Test",
+      cwd: "/persisted/cwd",
+      initialInput: "human prompt two",
+    });
+    await runSystem.runStore.appendEvent(
+      "inputs-run",
+      makeAgentCallEvent(
+        "assistant",
+        "human prompt two",
+        "third response",
+        new Date(5).toISOString(),
+      ),
+    );
+
+    const prepared = await runSystem.prepareRun("client-1", {
+      runId: "inputs-run",
+    });
+
+    // One human input per run segment, each anchored to the first record of
+    // that segment — never to the inter-agent handoff record.
+    expect(prepared.conversation.inputs).toEqual([
+      {
+        text: "human prompt one",
+        beforeRecordId: `assistant-${new Date(1).toISOString()}`,
+      },
+      {
+        text: "human prompt two",
+        beforeRecordId: `assistant-${new Date(5).toISOString()}`,
+      },
+    ]);
+  });
+
+  it("anchors a human input with no following agent_call as a trailing input", async () => {
+    const state = createDaemonState();
+    const sink = mockSink();
+    state.addClient("client-1");
+    const runSystem = createRunSystem({
+      state,
+      sink,
+      logger: mockLogger(),
+      runsDir: await createTempRunsDir(),
+    });
+    const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
+    tempFiles.push(filePath);
+
+    await runSystem.runStore.appendEvent("trailing-input-run", {
+      type: "run_started",
+      ts: new Date(0).toISOString(),
+      strategyPath: filePath,
+      strategyName: "Test",
+      cwd: "/persisted/cwd",
+      initialInput: "prompt with no calls yet",
+    });
+
+    const prepared = await runSystem.prepareRun("client-1", {
+      runId: "trailing-input-run",
+    });
+
+    expect(prepared.conversation.records).toHaveLength(0);
+    expect(prepared.conversation.inputs).toEqual([
+      { text: "prompt with no calls yet" },
+    ]);
+  });
+
+  it("reconstructs compacted conversation history from retention events", async () => {
+    const state = createDaemonState();
+    const sink = mockSink();
+    state.addClient("client-1");
+    const runSystem = createRunSystem({
+      state,
+      sink,
+      logger: mockLogger(),
+      runsDir: await createTempRunsDir(),
+    });
+    const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
+    tempFiles.push(filePath);
+    const oldEvent = makeAgentCallEvent(
+      "assistant",
+      "old request",
+      "old response",
+      new Date(1).toISOString(),
+    );
+    const recentEvent = makeAgentCallEvent(
+      "assistant",
+      "recent request",
+      "recent response",
+      new Date(2).toISOString(),
+    );
+    const summaryRecord = createConversationRecord({
+      id: "summary-1",
+      agentName: "assistant",
+      createdAt: new Date(3).toISOString(),
+      userMessage: "[Earlier conversation compacted - summary follows.]",
+      responseMessages: [{ role: "assistant", content: "summary" }],
+      text: "summary",
+      usage: { promptTokens: 0, completionTokens: 0 },
+      finishReason: "stop",
+      status: "active",
+    });
+
+    await runSystem.runStore.appendEvent("compacted-run", {
+      type: "run_started",
+      ts: new Date(0).toISOString(),
+      strategyPath: filePath,
+      strategyName: "Test",
+      cwd: "/persisted/cwd",
+    });
+    await runSystem.runStore.appendEvent("compacted-run", oldEvent);
+    await runSystem.runStore.appendEvent("compacted-run", recentEvent);
+    await runSystem.runStore.appendEvent("compacted-run", {
+      type: "conversation_retention",
+      ts: new Date(3).toISOString(),
+      event: {
+        id: "retention-1",
+        agentName: "assistant",
+        createdAt: new Date(3).toISOString(),
+        kind: "compaction",
+        reason: "context-window",
+        trigger: {
+          contextUsage: { totalTokens: 850 },
+          tokenLimit: 1_000,
+          ratio: 0.85,
+          thresholdRatio: 0.85,
+        },
+        recordsCompacted: 1,
+        recordsRetained: 1,
+        summaryRecord,
+        supersededRecordIds: [oldEvent.record.id],
+        insertBeforeRecordId: recentEvent.record.id,
+      },
+    });
+
+    const prepared = await runSystem.prepareRun("client-1", {
+      runId: "compacted-run",
+    });
+
+    expect(prepared.conversation.records.map((record) => record.id)).toEqual([
+      oldEvent.record.id,
+      "summary-1",
+      recentEvent.record.id,
+    ]);
+    expect(prepared.conversation.records[0]).toMatchObject({
+      status: "superseded",
+      supersededBy: "summary-1",
+    });
+    expect(prepared.conversation.retentionEvents).toHaveLength(1);
+  });
+
   it("allows strategy overrides while new agents start without prior history", async () => {
     const assistantPrompts: unknown[] = [];
     const newcomerPrompts: unknown[] = [];

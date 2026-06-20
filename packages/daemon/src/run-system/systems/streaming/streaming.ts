@@ -4,12 +4,7 @@ import type {
   AgentStreamEvent,
   FlowHooks,
 } from "@comma-agents/core";
-import {
-  getCatalogProviderSync,
-  isUserAgentDef,
-  parseModel,
-  toModelInfo,
-} from "@comma-agents/core";
+import { getQualifiedModelMetadata, isUserAgentDef } from "@comma-agents/core";
 import type { Logger } from "../../../logger";
 import type { RunState } from "../../../state";
 import type { EventSink } from "../../event-sink";
@@ -133,8 +128,8 @@ function buildAgentHooks(
             promptTokens: result.usage.promptTokens,
             completionTokens: result.usage.completionTokens,
           },
-          ...(result.contextTokens !== undefined
-            ? { contextTokens: result.contextTokens }
+          ...(result.contextUsage !== undefined
+            ? { contextUsage: result.contextUsage }
             : {}),
           ts,
         });
@@ -153,19 +148,13 @@ interface AgentModelDetails {
 function resolveModelDetails(model: string | undefined): AgentModelDetails {
   if (!model) return {};
 
-  try {
-    const { providerId, modelId } = parseModel(model);
-    const catalogModel = getCatalogProviderSync(providerId)?.models[modelId];
-    const contextWindow = catalogModel
-      ? toModelInfo(catalogModel).contextWindow
-      : undefined;
-    return {
-      model,
-      ...(contextWindow !== undefined ? { contextWindow } : {}),
-    };
-  } catch {
-    return { model };
-  }
+  const metadata = getQualifiedModelMetadata(model);
+  return {
+    model,
+    ...(metadata?.contextWindow !== undefined
+      ? { contextWindow: metadata.contextWindow }
+      : {}),
+  };
 }
 
 function logToolEvent(
@@ -197,7 +186,7 @@ function previewForLog(value: string): string {
 function toWireResult(result: AgentCallResult): {
   text: string;
   usage: { promptTokens: number; completionTokens: number };
-  contextTokens?: number;
+  contextUsage?: AgentCallResult["contextUsage"];
   finishReason: string;
 } {
   return {
@@ -206,8 +195,8 @@ function toWireResult(result: AgentCallResult): {
       promptTokens: result.usage.promptTokens,
       completionTokens: result.usage.completionTokens,
     },
-    ...(result.contextTokens !== undefined
-      ? { contextTokens: result.contextTokens }
+    ...(result.contextUsage !== undefined
+      ? { contextUsage: result.contextUsage }
       : {}),
     finishReason: result.finishReason,
   };

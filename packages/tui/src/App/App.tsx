@@ -6,7 +6,7 @@ import { Route, Routes, useLocation, useNavigate } from "react-router";
 import { CommandPalette } from "../components/CommandPalette";
 import { Frame } from "../components/Frame";
 import type { TabDefinition } from "../components/Frame/Frame";
-import { OutputModal } from "../components/MessageList";
+import { ContextUsageModal, OutputModal } from "../components/MessageList";
 import { Modal } from "../components/Modal";
 import { useChatRunLifecycle } from "../hooks/useChat/useChatRunLifecycle";
 import { useModal } from "../hooks/useModal";
@@ -152,6 +152,7 @@ export function AppRender({
           onResetChat={onResetChat}
         />
       </Modal>
+      <ContextUsageModal />
       <OutputModal />
     </>
   );

@@ -1,10 +1,11 @@
-import type { ConversationRecord } from "../conversation-context.types";
 import { applyCompaction } from "./compaction";
 import type {
   CompactionOptions,
   ContextRecordTransform,
   ContextRetentionOptions,
+  ContextRetentionResult,
   ContextTransformInput,
+  ConversationRetentionEvent,
   RollingWindowOptions,
 } from "./retention.types";
 import { applyRollingWindow } from "./rolling-window";
@@ -19,15 +20,34 @@ import { applyRollingWindow } from "./rolling-window";
 export async function prepareContextRecords(
   options: ContextRetentionOptions,
   input: ContextTransformInput,
-): Promise<readonly ConversationRecord[]> {
+): Promise<ContextRetentionResult> {
   let records = input.records;
+  const events: ConversationRetentionEvent[] = [];
 
   if (options.compaction) {
-    records = await applyCompaction(
+    const result = await applyCompaction({
       records,
-      resolveCompactionOptions(options.compaction),
-      input.agentName,
-    );
+      options: resolveCompactionOptions(options.compaction),
+      agentName: input.agentName,
+      trigger: {
+        ...(input.model !== undefined ? { model: input.model } : {}),
+        ...(input.contextUsage !== undefined
+          ? { contextUsage: input.contextUsage }
+          : {}),
+        ...(input.contextWindow !== undefined
+          ? { contextWindow: input.contextWindow }
+          : {}),
+        ...(input.maxInputTokens !== undefined
+          ? { maxInputTokens: input.maxInputTokens }
+          : {}),
+        ...(input.maxInputTokens !== undefined ||
+        input.contextWindow !== undefined
+          ? { tokenLimit: input.maxInputTokens ?? input.contextWindow }
+          : {}),
+      },
+    });
+    records = result.records;
+    if (result.event !== undefined) events.push(result.event);
   }
 
   if (options.rollingWindow !== undefined) {
@@ -41,7 +61,7 @@ export async function prepareContextRecords(
     records = await transformRecords({ ...input, records });
   }
 
-  return records;
+  return { records, events };
 }
 
 function resolveRollingWindowOptions(

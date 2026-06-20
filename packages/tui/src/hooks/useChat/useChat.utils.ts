@@ -3,7 +3,9 @@ import type {
   ChatRun,
   ChatRunId,
   CreateRunInit,
+  PersistedConversationInput,
   PersistedConversationRecord,
+  PersistedConversationRetentionEvent,
 } from "./useChat.types";
 
 function deriveLabelFromPath(strategyPath: string): string {
@@ -49,38 +51,111 @@ export function getActiveLaunchStrategyId(
   ];
 }
 
-/** Project daemon conversation records into chat messages for display. */
+/** Create an opaque id for a TUI-local chat message. */
+export function createLocalChatMessageId(chatRunId: ChatRunId): string {
+  return `${chatRunId}-local-${crypto.randomUUID()}`;
+}
+
+/**
+ * Project daemon conversation records into chat messages for display.
+ *
+ * Human inputs come from `inputs` (the genuine run-start / continuation
+ * prompts), each anchored before the first agent record of its segment. A
+ * record's own `userMessage` is the input fed *into* that agent — which for a
+ * downstream agent is the upstream agent's output — so it is intentionally not
+ * rendered, to mirror the live (non-rehydrated) transcript and avoid duplicate,
+ * mislabeled bubbles.
+ */
 export function conversationRecordsToChatMessages(
   chatRunId: ChatRunId,
   records: readonly PersistedConversationRecord[],
+  retentionEvents: readonly PersistedConversationRetentionEvent[] = [],
+  inputs: readonly PersistedConversationInput[] = [],
 ): readonly ChatMessage[] {
   const messages: ChatMessage[] = [];
-  let messageIndex = 0;
+  const retentionEventsBySummaryId = new Map(
+    retentionEvents.map((event) => [event.summaryRecord.id, event]),
+  );
+  const renderedRetentionEventIds = new Set<string>();
 
-  for (const record of records) {
-    const timestamp = parseRecordTimestamp(record.createdAt);
-    messageIndex += 1;
+  const inputsByRecordId = new Map<string, string[]>();
+  const trailingInputs: string[] = [];
+  inputs.forEach((input) => {
+    if (input.beforeRecordId === undefined) {
+      trailingInputs.push(input.text);
+      return;
+    }
+    const existing = inputsByRecordId.get(input.beforeRecordId) ?? [];
+    existing.push(input.text);
+    inputsByRecordId.set(input.beforeRecordId, existing);
+  });
+
+  let humanInputCounter = 0;
+  const pushHumanInput = (text: string, timestamp: number): void => {
     messages.push({
-      id: `${chatRunId}-msg-${messageIndex}`,
+      id: `${chatRunId}-input-${humanInputCounter}`,
       role: "user",
       sender: "you",
-      text: contentToText(record.userMessage.content),
+      text,
       streaming: false,
       timestamp,
     });
+    humanInputCounter += 1;
+  };
 
-    messageIndex += 1;
+  for (const record of records) {
+    const timestamp = parseRecordTimestamp(record.createdAt);
+
+    for (const text of inputsByRecordId.get(record.id) ?? []) {
+      pushHumanInput(text, timestamp);
+    }
+
+    const retentionEvent = retentionEventsBySummaryId.get(record.id);
+    if (retentionEvent !== undefined) {
+      messages.push({
+        id: `${chatRunId}-retention-${retentionEvent.id}`,
+        role: "agent",
+        sender: retentionEvent.agentName,
+        text: "",
+        segments: [{ type: "retention", event: retentionEvent }],
+        streaming: false,
+        completedAt: timestamp,
+        timestamp,
+      });
+      renderedRetentionEventIds.add(retentionEvent.id);
+      continue;
+    }
+
     messages.push({
-      id: `${chatRunId}-msg-${messageIndex}`,
+      id: `${chatRunId}-record-${record.id}-agent`,
       role: "agent",
       sender: record.agentName,
       text: record.text,
       segments: [{ type: "text", text: record.text, streaming: false }],
       streaming: false,
       usage: record.usage,
-      ...(record.contextTokens !== undefined
-        ? { contextTokens: record.contextTokens }
+      ...(record.contextUsage !== undefined
+        ? { contextUsage: record.contextUsage }
         : {}),
+      completedAt: timestamp,
+      timestamp,
+    });
+  }
+
+  for (const text of trailingInputs) {
+    pushHumanInput(text, Date.now());
+  }
+
+  for (const retentionEvent of retentionEvents) {
+    if (renderedRetentionEventIds.has(retentionEvent.id)) continue;
+    const timestamp = parseRecordTimestamp(retentionEvent.createdAt);
+    messages.push({
+      id: `${chatRunId}-retention-${retentionEvent.id}`,
+      role: "agent",
+      sender: retentionEvent.agentName,
+      text: "",
+      segments: [{ type: "retention", event: retentionEvent }],
+      streaming: false,
       completedAt: timestamp,
       timestamp,
     });
@@ -93,23 +168,4 @@ export function conversationRecordsToChatMessages(
 function parseRecordTimestamp(createdAt: string): number {
   const timestamp = Date.parse(createdAt);
   return Number.isNaN(timestamp) ? Date.now() : timestamp;
-}
-
-/** Convert AI SDK message content into display text. */
-function contentToText(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-
-  const textParts: string[] = [];
-  for (const contentPart of content) {
-    if (
-      typeof contentPart === "object" &&
-      contentPart !== null &&
-      "text" in contentPart &&
-      typeof contentPart.text === "string"
-    ) {
-      textParts.push(contentPart.text);
-    }
-  }
-  return textParts.join("");
 }

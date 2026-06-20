@@ -8,20 +8,17 @@ The `@comma-agents/tui` package provides a terminal-based user interface built w
 ## Quick Start
 
 ```bash
-# Start the daemon
-bun run daemon
-
-# Start the TUI (in another terminal)
-bun run tui
+# Start the daemon if needed and open the TUI
+comma
 
 # Auto-start with a strategy and initial input
-bun run tui -- --input "Build a calculator" --strategy build
+comma --input "Build a calculator" --strategy build
 
 # Custom daemon URL
-bun run tui -- --daemon-url ws://my-host:7422/ws
+comma --daemon-url ws://my-host:7422/ws
 
 # Enable development tab
-bun run tui -- --dev
+comma --dev
 ```
 
 ## How It Works

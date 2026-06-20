@@ -1,3 +1,5 @@
+#!/usr/bin/env bun
+
 // Bootstrap — this file must stay minimal.
 //
 // ES module `import` declarations are hoisted and executed as a static graph
