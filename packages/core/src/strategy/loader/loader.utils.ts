@@ -4,11 +4,12 @@ import { jsonSchema } from "ai";
 import { createAgent } from "../../agents/agent/agent";
 import type { Agent } from "../../agents/agent/agent.types";
 import { createUserAgent } from "../../agents/built-in/user/user-agent";
+import {
+  getRegisteredAgentNames,
+  resolveRegisteredAgent,
+} from "../../agents/registry/agent-registry";
+import { BUILT_IN_AGENT_NAMES } from "../../agents/registry/agent-registry.constants";
 import { StrategyValidationError } from "../../errors/index";
-import { createBroadcastFlow } from "../../flows/built-in/broadcast/broadcast-flow";
-import { createCycleFlow } from "../../flows/built-in/cycle/cycle-flow";
-import { createSequentialFlow } from "../../flows/built-in/sequential/sequential-flow";
-import { hookIntoFlow } from "../../flows/hook-into-flow/hook-into-flow";
 import type { Guard } from "../../guard/guard.types";
 import {
   createPromptTemplate,
@@ -22,22 +23,25 @@ import {
 } from "../../tools/build-tool-system-prompt";
 import { resolveTools } from "../../tools/tool.registry";
 import type { ToolContext } from "../../tools/tool.types";
-import type {
-  CycleFlowDef,
-  FlowDef,
-  LLMAgentDef,
-  Strategy,
-  UserAgentDef,
-} from "../schema";
-import {
-  isAgentStep,
-  isFlowDef,
-  isLLMAgentDef,
-  isUserAgentDef,
-} from "../schema";
+import type { AgentDef, LLMAgentDef, Strategy, UserAgentDef } from "../schema";
 import type { LoadStrategyOptions } from "./loader.types";
 
 // Agent instantiation
+
+type BuiltInAgentFactory = (
+  name: string,
+  agentDefinition: AgentDef,
+  options: LoadStrategyOptions,
+) => Agent | Promise<Agent>;
+
+const builtInAgentFactories: Readonly<Record<string, BuiltInAgentFactory>> = {
+  user(name, agentDefinition, options) {
+    return buildUserAgent(name, agentDefinition as UserAgentDef, options);
+  },
+  llm(name, agentDefinition, options) {
+    return buildLLMAgent(name, agentDefinition as LLMAgentDef, options);
+  },
+};
 
 /**
  * Build all agents defined in the strategy into live Agent instances.
@@ -52,11 +56,27 @@ export async function buildAgentRegistry(
   const registry: Record<string, Agent> = {};
 
   for (const [name, agentDefinition] of Object.entries(strategy.agents)) {
-    if (isUserAgentDef(agentDefinition)) {
-      registry[name] = buildUserAgent(name, agentDefinition, options);
-    } else if (isLLMAgentDef(agentDefinition)) {
-      registry[name] = await buildLLMAgent(name, agentDefinition, options);
+    const agentType = agentDefinition.type ?? "llm";
+    const builtInFactory = builtInAgentFactories[agentType];
+    if (builtInFactory) {
+      registry[name] = await builtInFactory(name, agentDefinition, options);
+      continue;
     }
+
+    const registeredAgent = resolveRegisteredAgent(agentType);
+    if (!registeredAgent) {
+      throw new StrategyValidationError(
+        `Agent "${name}" references unknown agent type "${agentType}". ` +
+          `Built-in agents: [${BUILT_IN_AGENT_NAMES.join(", ")}]. ` +
+          `Registered agents: [${getRegisteredAgentNames().join(", ") || "(none)"}].`,
+      );
+    }
+
+    registry[name] = await registeredAgent.create({
+      name,
+      config: "config" in agentDefinition ? (agentDefinition.config ?? {}) : {},
+      runtime: options,
+    });
   }
 
   return registry;
@@ -333,115 +353,4 @@ function prependSkillsHeader(
 /** @internal Used by tests to assert the header gets attached. */
 export function previewSkillsHeader(registry: SkillRegistry): string {
   return buildSkillsPromptHeader(registry);
-}
-
-// Flow tree building
-
-/**
- * Recursively build a flow definition into a runnable Agent.
- *
- * If `options.flowHooks` is provided, hooks are injected into the
- * created flow via `hookIntoFlow()` after construction.
- */
-export function buildFlow(
-  flowDef: FlowDef,
-  agents: Readonly<Record<string, Agent>>,
-  options: LoadStrategyOptions,
-): Agent {
-  const steps = resolveSteps(flowDef.steps, flowDef.name, agents, options);
-
-  let flow: Agent;
-
-  switch (flowDef.type) {
-    case "sequential":
-      flow = createSequentialFlow({
-        name: flowDef.name,
-        steps,
-      });
-      break;
-
-    case "cycle": {
-      const cycleDef = flowDef as CycleFlowDef;
-      const cycles =
-        cycleDef.cycles === "Infinity" ? Infinity : (cycleDef.cycles ?? 1);
-
-      // Resolve observer agent if specified
-      const observer = cycleDef.observer
-        ? resolveAgentRef(cycleDef.observer, flowDef.name, agents)
-        : undefined;
-
-      flow = createCycleFlow({
-        name: flowDef.name,
-        steps,
-        cycles,
-        ...(observer ? { observer } : {}),
-        ...(cycleDef.breakCycleSignals
-          ? { breakCycleSignals: cycleDef.breakCycleSignals }
-          : {}),
-        ...(cycleDef.breakCycleSignalMatch
-          ? { breakCycleSignalMatch: cycleDef.breakCycleSignalMatch }
-          : {}),
-      });
-      break;
-    }
-
-    case "broadcast":
-      flow = createBroadcastFlow({
-        name: flowDef.name,
-        steps,
-        separator: (flowDef as { separator?: string }).separator,
-      });
-      break;
-  }
-
-  // Inject flow hooks post-creation via hookIntoFlow
-  if (options.flowHooks) {
-    hookIntoFlow(flow, options.flowHooks);
-  }
-
-  return flow;
-}
-
-/**
- * Resolve an array of flow step definitions into live Agent instances.
- * Steps are either agent references or nested flow definitions.
- */
-function resolveSteps(
-  steps: readonly unknown[],
-  flowName: string,
-  agents: Readonly<Record<string, Agent>>,
-  options: LoadStrategyOptions,
-): Agent[] {
-  return steps.map((step, index) => {
-    if (isAgentStep(step)) {
-      return resolveAgentRef(step.agent, flowName, agents);
-    }
-
-    if (isFlowDef(step)) {
-      return buildFlow(step as FlowDef, agents, options);
-    }
-
-    throw new StrategyValidationError(
-      `Flow "${flowName}" step ${index} is neither an agent reference nor a flow definition.`,
-    );
-  });
-}
-
-/**
- * Look up a named agent in the registry.
- */
-function resolveAgentRef(
-  agentName: string,
-  flowName: string,
-  agents: Readonly<Record<string, Agent>>,
-): Agent {
-  const agent = agents[agentName];
-  if (!agent) {
-    const available = Object.keys(agents).join(", ");
-    throw new StrategyValidationError(
-      `Flow "${flowName}" references agent "${agentName}" which is not defined. ` +
-        `Available agents: [${available}].`,
-    );
-  }
-  return agent;
 }

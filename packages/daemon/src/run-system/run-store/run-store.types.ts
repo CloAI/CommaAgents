@@ -6,12 +6,19 @@ import type { RunStatus } from "../../state/state.types";
  * Returned by `listRuns()` for efficient listing.
  */
 export interface RunOverview {
+  /** Stable identifier for the run. */
   readonly runId: string;
+  /** Working directory used by the run. */
   readonly cwd: string;
+  /** Human-readable strategy name. */
   readonly strategyName: string;
+  /** Strategy file used by the run. */
   readonly strategyPath: string;
+  /** ISO timestamp for when execution started. */
   readonly startedAt: string;
+  /** ISO timestamp for completion, or `null` while unfinished. */
   readonly completedAt: string | null;
+  /** Current or final run status. */
   readonly status: RunStatus;
 }
 

@@ -5,7 +5,7 @@ description: Per-agent conversation records and JSONL import/export.
 
 # Conversation Context
 
-Conversation context is per-agent state. Each agent created with `createAgent` owns an internal context that stores canonical conversation records and projects those records into AI SDK messages for the next model call.
+Conversation context is per-agent state. Each agent created with `createAgent` stores canonical conversation records and derives the structured message history used for its next model call.
 
 ## createConversationContext
 

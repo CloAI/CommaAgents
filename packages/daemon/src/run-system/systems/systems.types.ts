@@ -17,23 +17,34 @@ import type { EventSink } from "../event-sink";
 import type { RunStore } from "../run-store";
 import type { QuestionRequester } from "./question/question.types";
 
+/** Dependencies and defaults used to create a run system. */
 export interface CreateRunSystemOptions {
+  /** In-memory daemon state for active runs and client subscriptions. */
   readonly state: DaemonState;
+  /** Destination for run events and client-specific requests. */
   readonly sink: EventSink;
+  /** Logger used for run diagnostics. */
   readonly logger: Logger;
+  /** Directory containing persisted run timelines. */
   readonly runsDir: string;
+  /** Model applied to every loaded LLM agent unless preparation overrides it. */
   readonly modelOverride?: string;
 }
 
+/** Prepares, executes, continues, stops, and persists strategy runs. */
 export interface RunSystem {
+  /** Persistent history store for completed and in-progress runs. */
   readonly runStore: RunStore;
+  /** Registry for routing client replies and live-run actions. */
   readonly actions: RunActionRegistry;
 
+  /** Load a new or completed run and return the metadata needed to execute it. */
   prepareRun(
     clientId: string,
     options: PrepareRunOptions,
   ): Promise<PreparedRunMetadata>;
 
+  /** Start a newly prepared run. */
   startRun(
     clientId: string,
     runId: string,
@@ -41,6 +52,7 @@ export interface RunSystem {
     requestId?: string,
   ): void;
 
+  /** Execute a new prompt against a prepared completed run. */
   continueRun(
     clientId: string,
     runId: string,
@@ -48,15 +60,23 @@ export interface RunSystem {
     requestId?: string,
   ): void;
 
+  /** Abort an active run. */
   stopRun(runId: string): void;
+  /** Abort active runs and wait for their cleanup to finish. */
   shutdown(): Promise<void>;
 }
 
+/** Identifies and configures a run before execution begins. */
 export interface PrepareRunOptions {
+  /** Existing run ID to continue, or a caller-selected ID for a new run. */
   readonly runId?: string;
+  /** Strategy file to load. Required when preparing a new run. */
   readonly strategyPath?: string;
+  /** Model applied to every LLM agent in this execution. */
   readonly modelOverride?: string;
+  /** Working directory used by the strategy and its tools. */
   readonly cwd?: string;
+  /** Project manifest to load before the strategy. */
   readonly manifestPath?: string;
 }
 

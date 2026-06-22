@@ -1,11 +1,22 @@
 // Tests for flow loader — parse, validate, and instantiate flows.
 
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
+import { z } from "zod";
 import { StrategyValidationError } from "../../errors/index";
+import { createFlow } from "../flow/flow";
+import {
+  defineFlowType,
+  registerFlow,
+  resetFlowRegistry,
+} from "../registry/flow-registry";
 import { makeAgent, makeCountingAgent } from "../test.utils";
 import { loadFlow, loadFlowFromString } from "./loader";
 import { FlowDescriptionSchema } from "./loader.schema";
 import type { LoadFlowOptions } from "./loader.types";
+
+afterEach(() => {
+  resetFlowRegistry();
+});
 
 // Mock agents used across tests
 
@@ -220,13 +231,14 @@ describe("FlowDescriptionSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("should reject unknown type", () => {
+  it("should accept a structurally valid custom flow type", () => {
     const result = FlowDescriptionSchema.safeParse({
       name: "test",
       type: "parallel",
       steps: [{ agent: "writer" }],
+      config: { separator: "---" },
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("should reject unknown fields (strict mode)", () => {
@@ -283,6 +295,83 @@ describe("FlowDescriptionSchema", () => {
 // -- loadFlowFromString tests --
 
 describe("loadFlowFromString", () => {
+  describe("custom flow types", () => {
+    it("should validate configuration and construct a registered flow", async () => {
+      registerFlow(
+        "prefix",
+        defineFlowType({
+          configSchema: z.object({ prefix: z.string() }).strict(),
+          create: ({ name, steps, config }) =>
+            createFlow({
+              name,
+              steps,
+              execute: async (availableSteps, message, flowContext) => {
+                const result = await flowContext.runStep(
+                  availableSteps[0]!,
+                  `${config.prefix}${message}`,
+                );
+                return result.text;
+              },
+            }),
+        }),
+      );
+      const flow = loadFlowFromString(
+        JSON.stringify({
+          name: "prefixed",
+          type: "prefix",
+          steps: [{ agent: "writer" }],
+          config: { prefix: "custom: " },
+        }),
+        "json",
+        createTestAgentRegistry(),
+      );
+
+      expect((await flow.call("hello")).text).toBe("written: custom: hello");
+    });
+
+    it("should reject invalid registered flow configuration", () => {
+      registerFlow(
+        "prefix",
+        defineFlowType({
+          configSchema: z.object({ prefix: z.string() }).strict(),
+          create: ({ name, steps }) =>
+            createFlow({
+              name,
+              steps,
+              execute: async (_steps, message) => message,
+            }),
+        }),
+      );
+
+      expect(() =>
+        loadFlowFromString(
+          JSON.stringify({
+            name: "prefixed",
+            type: "prefix",
+            steps: [{ agent: "writer" }],
+            config: { prefix: 42 },
+          }),
+          "json",
+          createTestAgentRegistry(),
+        ),
+      ).toThrow(/config\.prefix/);
+    });
+
+    it("should reject an unregistered custom flow type", () => {
+      expect(() =>
+        loadFlowFromString(
+          JSON.stringify({
+            name: "unknown",
+            type: "unknown-flow",
+            steps: [{ agent: "writer" }],
+          }),
+          "json",
+          createTestAgentRegistry(),
+        ),
+      ).toThrow(/unknown flow type/);
+    });
+  });
+
   describe("parsing", () => {
     it("should parse a minimal sequential JSON description", () => {
       const options = createTestAgentRegistry();

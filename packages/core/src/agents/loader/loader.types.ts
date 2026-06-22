@@ -1,17 +1,18 @@
 // Agent loader types — configuration contracts for loadAgent.
 
+import type { AgentTypeRuntime } from "../registry/agent-registry.types";
+
 /**
- * Options for loading an agent from a description file.
+ * Options for loading a built-in or registered custom agent.
  *
- * All fields are optional. Model and tool resolution are handled
- * internally by `createAgent()` using the global provider registry
- * (`registerProvider()`), model registry (`registerModel()`), and
- * tool registry (`registerTool()`).
+ * Runtime fields are forwarded to registered factories. Applicable fields are
+ * also passed to built-in LLM agents.
  *
  * @example
  * ```ts
- * // Zero-config — uses global credential store and provider resolver
- * const agent = await loadAgent("./agents/researcher.yaml");
+ * const agent = await loadAgent("./agents/researcher.yaml", {
+ *   modelOverride: "openai/gpt-4o",
+ * });
  * ```
  */
-export type LoadAgentOptions = Record<never, never>;
+export interface LoadAgentOptions extends AgentTypeRuntime {}

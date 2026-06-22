@@ -132,10 +132,18 @@ The `raw` field contains the validated strategy data, used by `exportStrategy` f
 
 ## Model and Tool Resolution
 
-Models and tools are resolved via global registries. Before loading a strategy, ensure the necessary providers and custom tools are registered:
+Models, tools, flows, and custom agent types are resolved via global registries. Before loading a strategy, ensure the required implementations are registered:
 
 ```ts
-import { registerProvider, registerTool, loadStrategy } from "@comma-agents/core";
+import {
+  createAgent,
+  defineAgentType,
+  loadStrategy,
+  registerAgent,
+  registerProvider,
+  registerTool,
+} from "@comma-agents/core";
+import { z } from "zod";
 
 // Register a provider so "openai/gpt-4o" resolves
 registerProvider("openai", (modelId) => openai(modelId));
@@ -143,7 +151,20 @@ registerProvider("openai", (modelId) => openai(modelId));
 // Register a custom tool so "weather" resolves in strategy files
 registerTool("weather", weatherTool);
 
+// Register a custom agent so "prefixed-echo" resolves in strategy files
+registerAgent(
+  "prefixed-echo",
+  defineAgentType({
+    configSchema: z.object({ prefix: z.string() }).strict(),
+    create: ({ name, config }) =>
+      createAgent({
+        name,
+        execute: async (message) => `${config.prefix}${message}`,
+      }),
+  }),
+);
+
 const strategy = await loadStrategy("./strategy.json");
 ```
 
-Built-in tools (`bash`, `read`, `write`, `edit`, `glob`, `grep`) are available automatically and do not need registration.
+Built-in agent types (`llm` and `user`) and built-in tools are available automatically and do not need registration.

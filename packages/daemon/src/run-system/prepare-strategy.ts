@@ -4,6 +4,7 @@ import type { AgentHooks, FlowHooks, LoadedStrategy } from "@comma-agents/core";
 import {
   hookIntoAgent,
   isUserAgentDef,
+  loadProject,
   loadStrategyFromString,
 } from "@comma-agents/core";
 import type { Logger } from "../logger/logger.types";
@@ -11,6 +12,7 @@ import type { SystemDataStore } from "./systems/systems.types";
 
 export interface PrepareStrategyOptions {
   readonly strategyPath: string;
+  readonly manifestPath?: string;
   readonly modelOverride?: string;
   readonly runId: string;
   readonly systemData: SystemDataStore;
@@ -24,6 +26,7 @@ export async function prepareStrategy(
 ): Promise<LoadedStrategy> {
   const {
     strategyPath,
+    manifestPath,
     modelOverride,
     runId,
     systemData,
@@ -33,6 +36,10 @@ export async function prepareStrategy(
   } = options;
 
   logger.debug(`Loading strategy from ${strategyPath}`);
+
+  if (manifestPath) {
+    await loadProject(manifestPath);
+  }
 
   let content: string;
   try {

@@ -15,6 +15,8 @@ afterEach(async () => {
   await rm(projectDir, { recursive: true, force: true });
   delete (globalThis as Record<string, unknown>).__commaProjectEntry;
   delete (globalThis as Record<string, unknown>).__commaProjectTool;
+  delete (globalThis as Record<string, unknown>).__commaProjectAgent;
+  delete (globalThis as Record<string, unknown>).__commaProjectFlow;
 });
 
 async function writeManifest(
@@ -101,7 +103,7 @@ describe("loadProject", () => {
     );
   });
 
-  it("imports explicit entry and tool files", async () => {
+  it("imports explicit entry, tool, agent, and flow files", async () => {
     await writeFile(
       join(projectDir, "entry.ts"),
       '(globalThis as Record<string, unknown>).__commaProjectEntry = "explicit";',
@@ -110,11 +112,21 @@ describe("loadProject", () => {
       join(projectDir, "tool.ts"),
       '(globalThis as Record<string, unknown>).__commaProjectTool = "loaded";',
     );
+    await writeFile(
+      join(projectDir, "agent.ts"),
+      '(globalThis as Record<string, unknown>).__commaProjectAgent = "loaded";',
+    );
+    await writeFile(
+      join(projectDir, "flow.ts"),
+      '(globalThis as Record<string, unknown>).__commaProjectFlow = "loaded";',
+    );
     const path = await writeManifest({
       name: "Imports",
       strategies: ["strategy.json"],
       entry: "entry.ts",
       tools: ["tool.ts"],
+      agents: ["agent.ts"],
+      flows: ["flow.ts"],
     });
 
     await loadProject(path);
@@ -125,9 +137,15 @@ describe("loadProject", () => {
     expect((globalThis as Record<string, unknown>).__commaProjectTool).toBe(
       "loaded",
     );
+    expect((globalThis as Record<string, unknown>).__commaProjectAgent).toBe(
+      "loaded",
+    );
+    expect((globalThis as Record<string, unknown>).__commaProjectFlow).toBe(
+      "loaded",
+    );
   });
 
-  it("throws when an explicit entry or tool file is missing", async () => {
+  it("throws when an explicit entry, tool, agent, or flow file is missing", async () => {
     const missingEntry = await writeManifest({
       name: "Missing Entry",
       strategies: ["strategy.json"],
@@ -145,9 +163,27 @@ describe("loadProject", () => {
     await expect(loadProject(missingTool)).rejects.toThrow(
       "Tool file not found",
     );
+
+    const missingAgent = await writeManifest({
+      name: "Missing Agent",
+      strategies: ["strategy.json"],
+      agents: ["missing.ts"],
+    });
+    await expect(loadProject(missingAgent)).rejects.toThrow(
+      "Agent file not found",
+    );
+
+    const missingFlow = await writeManifest({
+      name: "Missing Flow",
+      strategies: ["strategy.json"],
+      flows: ["missing.ts"],
+    });
+    await expect(loadProject(missingFlow)).rejects.toThrow(
+      "Flow file not found",
+    );
   });
 
-  it("wraps entry and tool import failures", async () => {
+  it("wraps entry, tool, agent, and flow import failures", async () => {
     await writeFile(
       join(projectDir, "broken-entry.ts"),
       "throw new Error('entry boom')",
@@ -172,6 +208,32 @@ describe("loadProject", () => {
     });
     await expect(loadProject(brokenTool)).rejects.toThrow(
       "Failed to import Tool file",
+    );
+
+    await writeFile(
+      join(projectDir, "broken-agent.ts"),
+      "throw new Error('agent boom')",
+    );
+    const brokenAgent = await writeManifest({
+      name: "Broken Agent",
+      strategies: ["strategy.json"],
+      agents: ["broken-agent.ts"],
+    });
+    await expect(loadProject(brokenAgent)).rejects.toThrow(
+      "Failed to import Agent file",
+    );
+
+    await writeFile(
+      join(projectDir, "broken-flow.ts"),
+      "throw new Error('flow boom')",
+    );
+    const brokenFlow = await writeManifest({
+      name: "Broken Flow",
+      strategies: ["strategy.json"],
+      flows: ["broken-flow.ts"],
+    });
+    await expect(loadProject(brokenFlow)).rejects.toThrow(
+      "Failed to import Flow file",
     );
   });
 });

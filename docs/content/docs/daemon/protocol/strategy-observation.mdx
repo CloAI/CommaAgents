@@ -131,7 +131,7 @@ A chunk of generated text.
 The agent is invoking a tool.
 
 ```json
-{ "type": "tool-call", "toolName": "read", "args": "{\"path\":\"/src/index.ts\"}" }
+{ "type": "tool-call", "toolName": "read_file", "args": "{\"path\":\"/src/index.ts\"}" }
 ```
 
 | Field | Type | Description |
@@ -145,7 +145,7 @@ The agent is invoking a tool.
 A tool returned its result.
 
 ```json
-{ "type": "tool-result", "toolName": "read", "output": "import { createAgent } from ..." }
+{ "type": "tool-result", "toolName": "read_file", "output": "import { createAgent } from ..." }
 ```
 
 | Field | Type | Description |

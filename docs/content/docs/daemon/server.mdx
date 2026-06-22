@@ -5,7 +5,22 @@ description: Daemon server creation and configuration.
 
 # Server
 
-The daemon is a WebSocket server that hosts strategy execution, manages state, and communicates with clients via a typed protocol.
+The daemon is a WebSocket server that hosts strategy runs and communicates with clients through the typed protocol. Use `createDaemon` when embedding the server, or the [CLI](/docs/daemon/cli) to run it as a managed process.
+
+```ts
+import {
+  createDaemon,
+  createLogger,
+  loadDaemonConfig,
+} from "@comma-agents/daemon";
+
+const config = loadDaemonConfig();
+const logger = createLogger({ level: config.logLevel });
+const daemon = createDaemon({ config, logger });
+
+await daemon.start();
+console.log(daemon.url);
+```
 
 ## Daemon
 
@@ -23,13 +38,13 @@ Options for `createDaemon`.
 
 Resolved daemon configuration.
 
-<AutoTypeTable path="../packages/daemon/src/config/config.ts" name="DaemonConfig" />
+<AutoTypeTable path="../packages/daemon/src/config/config.types.ts" name="DaemonConfig" />
 
 ## DaemonConfigFile
 
 The on-disk config file shape (Zod-inferred).
 
-<AutoTypeTable path="../packages/daemon/src/config/config.ts" name="DaemonConfigFile" />
+<AutoTypeTable path="../packages/daemon/src/config/config.types.ts" name="DaemonConfigFile" />
 
 ## LoadConfigOptions
 
@@ -37,16 +52,16 @@ Options for `loadDaemonConfig`.
 
 <AutoTypeTable path="../packages/daemon/src/config/config.ts" name="LoadConfigOptions" />
 
-## State
+## Configuration precedence
 
-### DaemonState
+`loadDaemonConfig` resolves each setting from the following sources, from highest to lowest priority:
 
-<AutoTypeTable path="../packages/daemon/src/state/state.types.ts" name="DaemonState" />
+1. `COMMA_DAEMON_*` environment variables
+2. The JSON daemon configuration file
+3. Built-in defaults
 
-### RunState
+Use `COMMA_DAEMON_CONFIG_FILE` to select a different configuration file. By default, the daemon stores its config, PID, logs, provider cache, and persisted runs under the platform application-data directory.
 
-<AutoTypeTable path="../packages/daemon/src/state/state.types.ts" name="RunState" />
+## Connecting clients
 
-### RunUpdate
-
-<AutoTypeTable path="../packages/daemon/src/state/state.types.ts" name="RunUpdate" />
+After `start()` resolves, use `daemon.url` as the WebSocket endpoint. The server also exposes `GET /health` on the same host and port. See the [protocol overview](/docs/daemon/protocol) for connection and message details.

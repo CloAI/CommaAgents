@@ -25,21 +25,40 @@ export type {
 export { hookIntoAgent } from "./agents/hook-into-agent/hook-into-agent";
 // Agent-specific hook types (co-located with agent code)
 export type { AgentHooks, ToolHooks } from "./agents/hooks/hooks.types";
-export type { AgentDescription, LoadAgentOptions } from "./agents/loader/index";
+export type {
+  AgentDescription,
+  CustomAgentDescription,
+  LLMAgentDescription,
+  LoadAgentOptions,
+} from "./agents/loader/index";
 export {
   AgentDescriptionSchema,
+  CustomAgentDescriptionSchema,
+  LLMAgentDescriptionSchema,
   loadAgent,
   loadAgentFromString,
 } from "./agents/loader/index";
+export type {
+  AgentTypeContext,
+  AgentTypeDefinition,
+  AgentTypeRuntime,
+} from "./agents/registry";
+export {
+  defineAgentType,
+  getRegisteredAgentNames,
+  registerAgent,
+  resetAgentRegistry,
+  unregisterAgent,
+} from "./agents/registry";
 // Re-export AI SDK message types and our ResponseMessage alias for consumer convenience
 export type {
   AssistantModelMessage,
   CompactionOptions,
   ContextPrepareInput,
-  ContextUsage,
   ContextRecordTransform,
   ContextRetentionOptions,
   ContextTransformInput,
+  ContextUsage,
   ConversationHistory,
   ConversationRecord,
   ConversationRecordStatus,
@@ -69,8 +88,8 @@ export {
   prepareContextRecords,
   recordsToMessages,
   recordToJsonlLine,
-  serializeConversationRecordsJson,
   serializeConversationRecords,
+  serializeConversationRecordsJson,
   serializeConversationRecordsYaml,
 } from "./conversation-context/index";
 export type {
@@ -126,6 +145,8 @@ export type {
   FlowExecutor,
   FlowHooks,
   FlowResult,
+  FlowTypeContext,
+  FlowTypeDefinition,
 } from "./flows/index";
 export {
   buildFlowAgent,
@@ -133,7 +154,12 @@ export {
   createCycleFlow,
   createFlow,
   createSequentialFlow,
+  defineFlowType,
+  getRegisteredFlowNames,
   hookIntoFlow,
+  registerFlow,
+  resetFlowRegistry,
+  unregisterFlow,
 } from "./flows/index";
 export type { FlowDescription, LoadFlowOptions } from "./flows/loader/index";
 export {
@@ -216,11 +242,11 @@ export {
   getCatalogSnapshot,
   getModelCapabilities,
   getModelMetadata,
-  getQualifiedModelMetadata,
   getProviderDefinition,
   getProviderInfo,
   getProviderPackage,
   getProvidersForModel,
+  getQualifiedModelMetadata,
   getReverseModelIndex,
   isKnownProvider,
   listAllProviderModels,
@@ -294,6 +320,8 @@ export type {
   BroadcastFlowDef,
   BuiltInToolName,
   CommaProjectManifest,
+  CustomAgentDef,
+  CustomFlowDef,
   CycleFlowDef,
   DiscoveredStrategy,
   DiscoveredStrategyOrigin,
@@ -312,9 +340,12 @@ export type {
 } from "./strategy/index";
 export {
   CommaProjectManifestSchema,
+  CustomAgentDefSchema,
+  CustomFlowDefSchema,
   discoverStrategies,
   exportStrategy,
   isAgentStep,
+  isCustomAgentDef,
   isFlowDef,
   isLLMAgentDef,
   isUserAgentDef,

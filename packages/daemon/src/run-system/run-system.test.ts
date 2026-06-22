@@ -8,11 +8,13 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   createConversationRecord,
   extractProviderIds,
   registerModel,
+  resetFlowRegistry,
   resetGlobalDefaults,
   resetModelRegistry,
 } from "@comma-agents/core";
@@ -121,6 +123,7 @@ function makeAgentCallEvent(
 afterEach(async () => {
   // Clean up global registries
   resetModelRegistry();
+  resetFlowRegistry();
   resetGlobalDefaults();
 
   // Clean up temp files
@@ -137,6 +140,7 @@ afterEach(async () => {
     await rm(dir, { recursive: true, force: true });
   }
   tempDirs.length = 0;
+  delete (globalThis as Record<string, unknown>).__runSystemProjectLoaded;
 });
 
 // extractProviderIds tests
@@ -249,6 +253,110 @@ describe("createRunSystem", () => {
     // Client should be subscribed
     const subs = state.getSubscriptions("client-1");
     expect(subs).toContain(runId);
+  });
+
+  it("prepareRun loads the project manifest before the strategy", async () => {
+    setupMockModels();
+    const state = createDaemonState();
+    state.addClient("client-1");
+    const runSystem = createRunSystem({
+      state,
+      sink: mockSink(),
+      logger: mockLogger(),
+      runsDir: await createTempRunsDir(),
+    });
+    const projectDir = await mkdtemp(join(tmpdir(), "comma-run-project-"));
+    tempDirs.push(projectDir);
+    const strategyPath = join(projectDir, "strategy.json");
+    const manifestPath = join(projectDir, "comma-project.json");
+    await writeFile(strategyPath, MINIMAL_STRATEGY);
+    await writeFile(
+      join(projectDir, "entry.ts"),
+      "(globalThis as Record<string, unknown>).__runSystemProjectLoaded = true;",
+    );
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        name: "Run Project",
+        strategies: ["strategy.json"],
+        entry: "entry.ts",
+      }),
+    );
+
+    await runSystem.prepareRun("client-1", {
+      strategyPath,
+      manifestPath,
+    });
+
+    expect(
+      (globalThis as Record<string, unknown>).__runSystemProjectLoaded,
+    ).toBe(true);
+  });
+
+  it("prepareRun loads registered custom flows from the project", async () => {
+    const state = createDaemonState();
+    state.addClient("client-1");
+    const runSystem = createRunSystem({
+      state,
+      sink: mockSink(),
+      logger: mockLogger(),
+      runsDir: await createTempRunsDir(),
+    });
+    const projectDir = await mkdtemp(join(tmpdir(), "comma-custom-flow-"));
+    tempDirs.push(projectDir);
+    const strategyPath = join(projectDir, "strategy.json");
+    const manifestPath = join(projectDir, "comma-project.json");
+    await writeFile(
+      strategyPath,
+      JSON.stringify({
+        name: "Custom Flow Strategy",
+        version: "1.0",
+        agents: {
+          user: { type: "user", config: { requireInput: false } },
+        },
+        flow: {
+          name: "Custom",
+          type: "daemon-test-prefix",
+          steps: [{ agent: "user" }],
+          config: { prefix: "test: " },
+        },
+      }),
+    );
+    await writeFile(
+      join(projectDir, "custom-flow.ts"),
+      `
+import { createFlow, defineFlowType, registerFlow } from "${pathToFileURL(resolve(import.meta.dir, "../../../core/dist/index.js")).href}";
+import { z } from "${pathToFileURL(resolve(import.meta.dir, "../../../core/node_modules/zod/index.js")).href}";
+
+registerFlow(
+  "daemon-test-prefix",
+  defineFlowType({
+    configSchema: z.object({ prefix: z.string() }).strict(),
+    create: ({ name, steps, config }) => createFlow({
+      name,
+      steps,
+      execute: async (_steps, message) => \`\${config.prefix}\${message}\`,
+    }),
+  }),
+);
+`,
+    );
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        name: "Custom Flow Project",
+        strategies: ["strategy.json"],
+        flows: ["custom-flow.ts"],
+      }),
+    );
+
+    const prepared = await runSystem.prepareRun("client-1", {
+      strategyPath,
+      manifestPath,
+    });
+
+    expect(prepared.strategyName).toBe("Custom Flow Strategy");
+    expect(prepared.flowTree.type).toBe("daemon-test-prefix");
   });
 
   it("prepareRun uses a caller-selected stable runId", async () => {

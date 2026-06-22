@@ -23,7 +23,7 @@ Two complementary fields control generation behavior:
 
 ### providerOptions
 
-Provider-specific features forwarded verbatim to the AI SDK. Use this for capabilities like Anthropic extended thinking or OpenAI reasoning effort:
+Use `providerOptions` for provider-specific capabilities such as extended thinking or reasoning effort:
 
 ```ts
 const thinker = createAgent({
@@ -37,7 +37,7 @@ const thinker = createAgent({
 
 ### modelOptions
 
-Provider-agnostic generation parameters forwarded to `streamText`. Use this for temperature, token limits, and sampling:
+Use `modelOptions` for provider-independent generation controls such as temperature, token limits, and sampling:
 
 ```ts
 const creative = createAgent({
@@ -55,8 +55,7 @@ For supported fields, see the [modelOptions table](/docs/core/agents/load-agent#
 
 ## Structured Output
 
-Set `outputSchema` to a Zod schema or another AI SDK-compatible schema. The
-agent passes it to `streamText` as structured object output:
+Set `outputSchema` to a supported schema such as a Zod object. The agent requests a structured object response that conforms to the schema:
 
 ```ts
 import { createAgent } from "@comma-agents/core";
@@ -97,6 +96,59 @@ also pass `transformRecords` for custom record preparation.
 The configuration object passed to `createAgent`.
 
 <AutoTypeTable path="../packages/core/src/agents/agent/agent.types.ts" name="AgentConfig" />
+
+## Declarative Custom Agent Types
+
+Use `defineAgentType` and `registerAgent` when JSON or YAML files need to create a reusable custom agent implementation by name. The configuration schema validates the agent's `config` object before the factory runs.
+
+```ts
+import {
+  createAgent,
+  defineAgentType,
+  registerAgent,
+} from "@comma-agents/core";
+import { z } from "zod";
+
+registerAgent(
+  "prefixed-echo",
+  defineAgentType({
+    configSchema: z.object({ prefix: z.string() }).strict(),
+    create: ({ name, config }) =>
+      createAgent({
+        name,
+        execute: async (message) => `${config.prefix}${message}`,
+      }),
+  }),
+);
+```
+
+After registration, strategy and standalone agent files can reference the type:
+
+```yaml
+type: prefixed-echo
+config:
+  prefix: "Echo: "
+```
+
+Custom type names cannot be `llm` or `user`. Keep implementation-specific fields inside `config`; unknown types and invalid configuration fail when the agent is loaded.
+
+### AgentTypeDefinition
+
+The schema and factory used to register a declarative custom agent type.
+
+<AutoTypeTable path="../packages/core/src/agents/registry/agent-registry.types.ts" name="AgentTypeDefinition" />
+
+### AgentTypeContext
+
+The validated configuration and runtime services passed to the custom factory.
+
+<AutoTypeTable path="../packages/core/src/agents/registry/agent-registry.types.ts" name="AgentTypeContext" />
+
+### AgentTypeRuntime
+
+Loader-provided services available to registered agent factories.
+
+<AutoTypeTable path="../packages/core/src/agents/registry/agent-registry.types.ts" name="AgentTypeRuntime" />
 
 ## Agent Object
 

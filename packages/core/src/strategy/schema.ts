@@ -11,6 +11,8 @@ import {
   ModelOptionsSchema,
   OutputSchemaSchema,
 } from "../agents/loader/loader.schema";
+import { BUILT_IN_AGENT_NAMES } from "../agents/registry/agent-registry.constants";
+import { BUILT_IN_FLOW_NAMES } from "../flows/registry/flow-registry.constants";
 import type { BUILT_IN_TOOL_NAMES } from "../tools/tool.constants";
 
 export type BuiltInToolName = (typeof BUILT_IN_TOOL_NAMES)[number];
@@ -63,16 +65,15 @@ export const LLMAgentDefSchema = z
      */
     skills: z.array(z.string().min(1)).optional(),
     /**
-     * Per-call provider options forwarded verbatim to the AI SDK. Used to
-     * enable provider-specific features such as Anthropic extended thinking
-     * or OpenAI reasoning effort. Shape:
+     * Per-call options for provider-specific features such as extended
+     * thinking or reasoning effort. Shape:
      * `{ <providerId>: { <option>: <value>, ... }, ... }`.
      */
     providerOptions: z.record(z.record(z.unknown())).optional(),
     /**
-     * Model-level generation parameters (temperature, maxOutputTokens, topP, seed,
-     * etc.). Forwarded to `streamText` as top-level options. Provider-specific
-     * features should use `providerOptions` instead.
+     * Provider-independent generation parameters such as temperature,
+     * maxOutputTokens, topP, and seed. Provider-specific features belong in
+     * `providerOptions` instead.
      */
     modelOptions: ModelOptionsSchema.optional(),
     /** JSON Schema describing the agent's structured output. */
@@ -87,12 +88,33 @@ export const LLMAgentDefSchema = z
   })
   .strict();
 
-/**
- * An agent definition is either a user agent or an LLM agent.
- * Discriminated by the `type` field (user agents must have `type: "user"`,
- * LLM agents may omit `type` or set `type: "llm"`).
- */
-export const AgentDefSchema = z.union([UserAgentDefSchema, LLMAgentDefSchema]);
+/** A custom registered agent with implementation-specific configuration. */
+export const CustomAgentDefSchema = z
+  .object({
+    /** Name registered with `registerAgent`. */
+    type: z
+      .string()
+      .min(1)
+      .refine(
+        (type) =>
+          !BUILT_IN_AGENT_NAMES.includes(
+            type as (typeof BUILT_IN_AGENT_NAMES)[number],
+          ),
+        "Built-in agent types must use their built-in schema.",
+      ),
+    /** Optional human-readable description. */
+    description: z.string().optional(),
+    /** Configuration validated by the registered agent type. */
+    config: z.record(z.unknown()).optional(),
+  })
+  .strict();
+
+/** A built-in user, built-in LLM, or registered custom agent definition. */
+export const AgentDefSchema = z.union([
+  UserAgentDefSchema,
+  LLMAgentDefSchema,
+  CustomAgentDefSchema,
+]);
 
 // Flow steps (recursive)
 
@@ -115,7 +137,7 @@ export const FlowStepSchema: z.ZodType = z.lazy(() =>
 // Flow definitions (recursive via FlowStepSchema)
 
 const BaseFlowFields = {
-  name: z.string(),
+  name: z.string().min(1),
   description: z.string().optional(),
   steps: z.array(FlowStepSchema).min(1),
 };
@@ -165,11 +187,34 @@ export const BroadcastFlowDefSchema = z
   })
   .strict();
 
-/** A flow definition — discriminated union by `type`. */
-export const FlowDefSchema = z.discriminatedUnion("type", [
+/** A custom registered flow with implementation-specific configuration. */
+export const CustomFlowDefSchema = z
+  .object({
+    ...BaseFlowFields,
+    type: z
+      .string()
+      .min(1)
+      .refine(
+        (type) =>
+          !BUILT_IN_FLOW_NAMES.includes(
+            type as (typeof BUILT_IN_FLOW_NAMES)[number],
+          ),
+        "Built-in flow types must use their built-in schema.",
+      ),
+    config: z.record(z.unknown()).optional(),
+  })
+  .strict();
+
+const BuiltInFlowDefSchema = z.discriminatedUnion("type", [
   SequentialFlowDefSchema,
   CycleFlowDefSchema,
   BroadcastFlowDefSchema,
+]);
+
+/** A built-in or registered custom flow definition. */
+export const FlowDefSchema = z.union([
+  BuiltInFlowDefSchema,
+  CustomFlowDefSchema,
 ]);
 
 // Top-level strategy
@@ -193,6 +238,9 @@ export const CommaProjectManifestSchema = z
     description: z.string().optional(),
     strategies: z.array(z.string()).min(1),
     tools: z.array(z.string()).optional(),
+    /** Relative paths to modules that register custom agent types. */
+    agents: z.array(z.string()).optional(),
+    flows: z.array(z.string()).optional(),
     entry: z.string().optional(),
     dependencies: z.array(z.string()).optional(),
   })
@@ -202,11 +250,13 @@ export const CommaProjectManifestSchema = z
 
 export type UserAgentDef = z.infer<typeof UserAgentDefSchema>;
 export type LLMAgentDef = z.infer<typeof LLMAgentDefSchema>;
+export type CustomAgentDef = z.infer<typeof CustomAgentDefSchema>;
 export type AgentDef = z.infer<typeof AgentDefSchema>;
 export type AgentStep = z.infer<typeof AgentStepSchema>;
 export type SequentialFlowDef = z.infer<typeof SequentialFlowDefSchema>;
 export type CycleFlowDef = z.infer<typeof CycleFlowDefSchema>;
 export type BroadcastFlowDef = z.infer<typeof BroadcastFlowDefSchema>;
+export type CustomFlowDef = z.infer<typeof CustomFlowDefSchema>;
 export type FlowDef = z.infer<typeof FlowDefSchema>;
 export type Strategy = z.infer<typeof StrategySchema>;
 
@@ -230,6 +280,13 @@ export function isLLMAgentDef(
     agentDefinition.type === undefined ||
     agentDefinition.type === "llm"
   );
+}
+
+/** Check if an agent definition references a registered custom agent type. */
+export function isCustomAgentDef(
+  agentDefinition: AgentDef,
+): agentDefinition is CustomAgentDef {
+  return !isUserAgentDef(agentDefinition) && !isLLMAgentDef(agentDefinition);
 }
 
 /** Check if a flow step is an agent reference (vs a nested flow). */

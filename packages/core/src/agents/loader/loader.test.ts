@@ -1,11 +1,19 @@
 // Tests for agent loader — parse, validate, and instantiate agents.
 
 import { afterEach, describe, expect, it } from "bun:test";
+import { z } from "zod";
 import { StrategyValidationError } from "../../errors/index";
 import { registerModel, resetModelRegistry } from "../../model/model";
 import { okResult } from "../../tools/result";
 import { registerTool, resetToolRegistry } from "../../tools/tool.registry";
 import type { ToolDefinition } from "../../tools/tool.types";
+import { createAgent } from "../agent/agent";
+import {
+  defineAgentType,
+  registerAgent,
+  resetAgentRegistry,
+} from "../registry/agent-registry";
+import type { AgentTypeRuntime } from "../registry/agent-registry.types";
 import { loadAgent, loadAgentFromString } from "./loader";
 import { AgentDescriptionSchema } from "./loader.schema";
 
@@ -81,6 +89,7 @@ function setupMockModels(): void {
 afterEach(() => {
   resetModelRegistry();
   resetToolRegistry();
+  resetAgentRegistry();
 });
 
 // Minimal description strings
@@ -302,6 +311,26 @@ describe("AgentDescriptionSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("should accept a registered custom agent description shape", () => {
+    const result = AgentDescriptionSchema.safeParse({
+      name: "echoer",
+      type: "echo",
+      config: { prefix: "custom: " },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject custom fields outside the config object", () => {
+    const result = AgentDescriptionSchema.safeParse({
+      name: "echoer",
+      type: "echo",
+      prefix: "custom: ",
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
 
 // -- loadAgentFromString tests --
@@ -377,6 +406,80 @@ describe("loadAgentFromString", () => {
         );
         expect((error as StrategyValidationError).message).toContain("name");
       }
+    });
+  });
+
+  describe("custom agent types", () => {
+    it("should construct a registered custom agent with runtime services", async () => {
+      let receivedRuntime: AgentTypeRuntime | undefined;
+      const inputCollector = async (): Promise<string> => "input";
+      registerAgent(
+        "echo",
+        defineAgentType({
+          configSchema: z.object({ prefix: z.string() }).strict(),
+          create: async ({ name, config, runtime }) => {
+            receivedRuntime = runtime;
+            return createAgent({
+              name,
+              execute: async (message) => `${config.prefix}${message}`,
+            });
+          },
+        }),
+      );
+
+      const agent = await loadAgentFromString(
+        JSON.stringify({
+          name: "echoer",
+          type: "echo",
+          config: { prefix: "custom: " },
+        }),
+        "json",
+        {
+          inputCollector,
+          modelOverride: "openai/gpt-4o",
+          strategyDir: "/tmp/strategy",
+          runId: "run-1",
+        },
+      );
+
+      expect((await agent.call("hello")).text).toBe("custom: hello");
+      expect(receivedRuntime?.inputCollector).toBe(inputCollector);
+      expect(receivedRuntime?.modelOverride).toBe("openai/gpt-4o");
+      expect(receivedRuntime?.strategyDir).toBe("/tmp/strategy");
+      expect(receivedRuntime?.runId).toBe("run-1");
+    });
+
+    it("should reject invalid registered configuration", async () => {
+      registerAgent(
+        "echo",
+        defineAgentType({
+          configSchema: z.object({ prefix: z.string() }).strict(),
+          create: ({ name }) =>
+            createAgent({ name, execute: async (message) => message }),
+        }),
+      );
+
+      await expect(
+        loadAgentFromString(
+          JSON.stringify({
+            name: "echoer",
+            type: "echo",
+            config: { prefix: 42 },
+          }),
+          "json",
+        ),
+      ).rejects.toThrow("config.prefix");
+    });
+
+    it("should report unknown agent types", async () => {
+      await expect(
+        loadAgentFromString(
+          JSON.stringify({ name: "missing", type: "unknown" }),
+          "json",
+        ),
+      ).rejects.toThrow(
+        'Agent "missing" references unknown agent type "unknown"',
+      );
     });
   });
 

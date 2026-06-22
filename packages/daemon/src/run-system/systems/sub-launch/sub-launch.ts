@@ -7,6 +7,7 @@ import type {
 import {
   getCatalogProviderSync,
   inSandbox,
+  loadProject,
   loadStrategyFromString,
   parseModel,
   toModelInfo,
@@ -23,7 +24,7 @@ export function createSubLaunchSystem(): DaemonSystem {
       const launchStrategy: LaunchStrategyHandle = async (
         request: LaunchStrategyRequest,
       ) => {
-        const { strategyPath, input, modelOverride } = request;
+        const { strategyPath, manifestPath, input, modelOverride } = request;
 
         logger.info(
           `Launching sub-strategy from ${strategyPath} with input length ${input?.length ?? 0}`,
@@ -39,6 +40,10 @@ export function createSubLaunchSystem(): DaemonSystem {
           throw new Error(
             "SubLaunchSystem requires input, permission, and question systems to run first",
           );
+        }
+
+        if (manifestPath) {
+          await loadProject(manifestPath);
         }
 
         const content = readFileSync(strategyPath, "utf-8");

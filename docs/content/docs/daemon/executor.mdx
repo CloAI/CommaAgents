@@ -1,186 +1,54 @@
 ---
-title: Executor
-description: Strategy executor and systems architecture for managing agent execution lifecycle.
+title: Run system
+description: How the daemon prepares, starts, continues, and stops strategy runs.
 ---
 
-# Executor
+# Run system
 
-The executor module orchestrates strategy execution through a modular systems architecture. Each system handles a specific concern (input collection, permissions, streaming, persistence, etc.) and communicates through shared data stores and action registries.
+The run system owns each strategy run from preparation through cleanup. The daemon uses it to keep run identity, persisted conversation history, client subscriptions, and cancellation consistent across the full lifecycle.
 
-## Architecture Overview
+Most applications interact with this lifecycle through the [WebSocket protocol](/docs/daemon/protocol). Use the exported `createRunSystem` API only when embedding the run lifecycle in a custom daemon host.
 
-The executor uses a **systems-based architecture** where each system is responsible for a single concern:
+## Run lifecycle
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    StrategyExecutor                          │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │ InputSystem  │  │PermissionSys │  │QuestionSystem│     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │SteeringSystem│  │StreamingSys  │  │PersistenceSys│     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐                        │
-│  │ SandboxSystem│  │SubLaunchSys  │                        │
-│  └──────────────┘  └──────────────┘                        │
-└─────────────────────────────────────────────────────────────┘
-```
+A run uses one stable run ID across preparation, execution, persistence, and continuation:
 
-Systems communicate through:
-- **SystemDataStore**: Shared state across systems (bridges, collectors, etc.)
-- **RunActionRegistry**: Message routing between daemon and systems
-- **Lifecycle Hooks**: `onRunPrepare`, `onStrategyLoaded`, `onBeforeExecute`, `onRunComplete`, `onRunError`, `onRunCleanup`
+1. **Prepare** loads the strategy, creates or restores the run, and returns its metadata and conversation.
+2. **Start** executes a newly prepared run with an optional initial prompt.
+3. **Continue** restores a completed run and executes another prompt against its retained conversation.
+4. **Stop** aborts active work for the run.
+5. **Shutdown** aborts remaining work and waits for cleanup to finish.
 
-## StrategyExecutor
+Preparation is separate from execution. Wait for `run_prepared` before sending `start_run` or `continue_run`; this guarantees that the strategy and any restored conversation are ready before execution begins.
 
-The main executor interface for running strategies.
+## RunSystem
 
-<AutoTypeTable path="../packages/daemon/src/executor/executor.ts" name="StrategyExecutor" />
+The interface for preparing and controlling daemon runs.
 
-## CreateStrategyExecutorOptions
+<AutoTypeTable path="../packages/daemon/src/run-system/systems/systems.types.ts" name="RunSystem" />
 
-Options for creating a strategy executor.
+## CreateRunSystemOptions
 
-<AutoTypeTable path="../packages/daemon/src/executor/executor.ts" name="CreateStrategyExecutorOptions" />
+Dependencies and defaults used by `createRunSystem`.
 
-## Systems
+<AutoTypeTable path="../packages/daemon/src/run-system/systems/systems.types.ts" name="CreateRunSystemOptions" />
 
-### InputSystem
+## PrepareRunOptions
 
-Manages user input collection and client responses.
+Options for preparing either a new run or a continuation.
 
-<AutoTypeTable path="../packages/daemon/src/executor/systems/input/input.ts" name="InputSystem" />
+<AutoTypeTable path="../packages/daemon/src/run-system/systems/systems.types.ts" name="PrepareRunOptions" />
 
-**Responsibilities:**
-- Stores `inputCollector` in systemData for strategy loading
-- Registers `resolveInput` action for handling user responses
-- Rejects pending input during run cleanup
-
-### PermissionSystem
-
-Manages permission requests and client decisions.
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/permission/permission.ts" name="PermissionSystem" />
-
-**Responsibilities:**
-- Stores `permissionRequester` in systemData for sandbox callbacks
-- Registers `resolvePermission` action for handling user decisions
-- Rejects pending permission requests during run cleanup
-
-### QuestionSystem
-
-Manages question requests and client responses.
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/question/question.ts" name="QuestionSystem" />
-
-**Responsibilities:**
-- Stores `questionRequester` in systemData for sandbox callbacks
-- Registers `resolveQuestion` action for handling user responses
-- Rejects pending question requests during run cleanup
-
-### StreamingSystem
-
-Manages agent and flow hooks for event broadcasting.
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/streaming/streaming.ts" name="StreamingSystem" />
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/streaming/streaming.ts" name="StreamingSystemOptions" />
-
-**Responsibilities:**
-- Builds and attaches agent hooks (beforeCall, onStreamEvent, afterCallResult)
-- Builds and attaches flow hooks (beforeStep, afterStep)
-- Broadcasts events to connected clients via EventSink
-- Logs tool events for debugging
-
-### PersistenceSystem
-
-Manages run event persistence to disk.
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/persistence/persistence.ts" name="PersistenceSystem" />
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/persistence/persistence.ts" name="PersistenceSystemOptions" />
-
-**Responsibilities:**
-- Appends `run_started` event on strategy load
-- Appends `run_completed` event on success or error
-- Handles error classification and storage
-
-### SandboxSystem
-
-Manages sandbox creation and policy enforcement.
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/sandbox/sandbox.ts" name="SandboxSystem" />
-
-**Responsibilities:**
-- Creates sandbox with permission and question callbacks
-- Registers `updatePolicy` action for runtime policy changes
-- Enforces file system access policies
-
-### SteeringSystem
-
-Manages steering message injection.
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/steering/steering.ts" name="SteeringSystem" />
-
-**Responsibilities:**
-- Maintains steering mailbox for pending messages
-- Registers `steer` action for adding steering messages
-- Injects steering messages into agent prompts via alterCallMessage hook
-
-### SubLaunchSystem
-
-Handles nested strategy launching.
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/sub-launch/sub-launch.ts" name="SubLaunchSystem" />
-
-**Responsibilities:**
-- Creates launch strategy function for nested execution
-- Stores `launchStrategy` in systemData for strategy loading
-- Manages sub-strategy lifecycle and event routing
-
-## System Communication
-
-### SystemDataStore
-
-Shared state store for cross-system communication.
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/systems.types.ts" name="SystemDataStore" />
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/systems.types.ts" name="SystemDataMap" />
-
-### RunActionRegistry
-
-Message routing registry for daemon-to-system communication.
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/systems.types.ts" name="RunActionRegistry" />
-
-**Registered Actions:**
-- `resolveInput`: Routes user input to InputSystem
-- `resolvePermission`: Routes permission decisions to PermissionSystem
-- `resolveQuestion`: Routes question responses to QuestionSystem
-- `updatePolicy`: Routes policy updates to SandboxSystem
-- `steer`: Routes steering messages to SteeringSystem
-
-## Lifecycle Hooks
-
-Systems can hook into the execution lifecycle through these hooks:
-
-<AutoTypeTable path="../packages/daemon/src/executor/systems/systems.types.ts" name="DaemonSystem" />
-
-### Hook Execution Order
-
-1. **onRunPrepare**: Called while preparing the run (InputSystem, PermissionSystem, QuestionSystem, SteeringSystem, SandboxSystem, SubLaunchSystem)
-2. **onStrategyLoaded**: Called after strategy is loaded (StreamingSystem, PersistenceSystem, SandboxSystem)
-3. **onBeforeExecute**: Called before flow execution (reserved for future use)
-4. **onRunComplete**: Called on successful completion (PersistenceSystem)
-5. **onRunError**: Called on error (PersistenceSystem)
-6. **onRunCleanup**: Called when execution ends (InputSystem, PermissionSystem, QuestionSystem)
+For a new run, provide `strategyPath`; the run system generates a run ID unless you supply one. For a continuation, provide the completed run's `runId`. The saved run supplies the strategy path, working directory, model override, and project manifest unless you explicitly override them.
 
 ## EventSink
 
-Interface for publishing execution events to connected clients.
+The destination for run events sent to individual clients or all subscribers of a run.
 
-<AutoTypeTable path="../packages/daemon/src/executor/event-sink.ts" name="EventSink" />
+<AutoTypeTable path="../packages/daemon/src/run-system/event-sink.ts" name="EventSink" />
+
+## Persistence and continuation
+
+Run events are stored under the configured runs directory. Preparing a completed run reconstructs its conversation from those events and restores agent context before the next prompt starts. A run that is still pending or running cannot be prepared as a continuation.
+
+See [Run persistence](/docs/daemon/sessions) for the stored event format and [Protocol](/docs/daemon/protocol) for the client messages that control this lifecycle.

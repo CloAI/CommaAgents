@@ -51,7 +51,7 @@ steps:
 
 ## FlowDescription
 
-Zod-validated schema for flow description files. Discriminated union on `type` supporting `sequential`, `cycle`, and `broadcast`.
+Zod-validated schema for flow description files. Supports the built-in `sequential`, `cycle`, and `broadcast` types plus registered custom flow types.
 
 <AutoTypeTable path="../packages/core/src/flows/loader/loader.schema.ts" name="FlowDescription" />
 
@@ -98,6 +98,22 @@ steps:
   - agent: realist
 separator: "\n---\n"
 ```
+
+### Registered Custom Flows
+
+After registering a custom flow type, use its name in the `type` field and place its options inside `config`:
+
+```yaml
+name: first-approved-review
+type: first-match
+steps:
+  - agent: reviewer-a
+  - agent: reviewer-b
+config:
+  marker: APPROVED
+```
+
+`loadFlow` validates `config` with the schema provided by the registration. Unknown types and invalid configuration fail during loading. See [Custom Flows](/docs/core/flows/custom-flow) for registration examples.
 
 ## Nested Flows
 

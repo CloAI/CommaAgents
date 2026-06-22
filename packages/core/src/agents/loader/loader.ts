@@ -1,22 +1,30 @@
-// Agent loader — parse, validate, and instantiate a single agent
-// from a standalone description file.
-//
-// The loader:
-// 1. Reads JSON or YAML from a file path or raw string.
-// 2. Validates the structure with the AgentDescriptionSchema.
-// 3. Passes model string and tool names directly to createAgent()
-//    (which resolves them internally).
-// 4. Builds a system prompt template if defined.
-// 5. Returns a live Agent via createAgent().
+import { dirname } from "node:path";
 
 import { jsonSchema } from "ai";
 import YAML from "yaml";
+import type { ZodIssue } from "zod";
 import { StrategyValidationError } from "../../errors/index";
 import { createPromptTemplate } from "../../prompts/template/prompt-template";
 import { createAgent } from "../agent/agent";
 import type { Agent } from "../agent/agent.types";
+import {
+  getRegisteredAgentNames,
+  resolveRegisteredAgent,
+} from "../registry/agent-registry";
+import { BUILT_IN_AGENT_NAMES } from "../registry/agent-registry.constants";
 import { AgentDescriptionSchema } from "./loader.schema";
 import type { LoadAgentOptions } from "./loader.types";
+
+/** Format nested union validation failures with their concrete field paths. */
+function formatValidationIssue(issue: ZodIssue): readonly string[] {
+  if (issue.code === "invalid_union") {
+    return issue.unionErrors.flatMap((unionError) =>
+      unionError.issues.flatMap(formatValidationIssue),
+    );
+  }
+
+  return [`  - ${issue.path.join(".")}: ${issue.message}`];
+}
 
 // loadAgent — from file path
 
@@ -28,8 +36,7 @@ import type { LoadAgentOptions } from "./loader.types";
  * live `Agent` ready to call.
  *
  * @param filePath - Absolute or relative path to the agent description file.
- * @param options  - Hooks, abort signal.
- *                   Optional — when omitted, global defaults are used for model resolution.
+ * @param options - Runtime services and optional model override.
  * @returns A live Agent instance.
  * @throws {StrategyValidationError} If the file is invalid or missing required fields.
  *
@@ -70,7 +77,10 @@ export async function loadAgent(
 
   const content = await file.text();
 
-  return await loadAgentFromString(content, format, options);
+  return await loadAgentFromString(content, format, {
+    ...options,
+    strategyDir: options.strategyDir ?? dirname(filePath),
+  });
 }
 
 // loadAgentFromString — from raw content
@@ -83,8 +93,7 @@ export async function loadAgent(
  *
  * @param content - The raw agent description string.
  * @param format  - "json" or "yaml".
- * @param options - Hooks, abort signal.
- *                  Optional — when omitted, global defaults are used for model resolution.
+ * @param options - Runtime services and optional model override.
  * @returns A live Agent instance.
  * @throws {StrategyValidationError} If parsing or validation fails.
  *
@@ -101,7 +110,7 @@ export async function loadAgent(
 export async function loadAgentFromString(
   content: string,
   format: "json" | "yaml",
-  _options: LoadAgentOptions = {},
+  options: LoadAgentOptions = {},
 ): Promise<Agent> {
   // 1. Parse raw content
   let raw: unknown;
@@ -122,7 +131,7 @@ export async function loadAgentFromString(
   const result = AgentDescriptionSchema.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues
-      .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
+      .flatMap(formatValidationIssue)
       .join("\n");
     throw new StrategyValidationError(
       `Agent description validation failed:\n${issues}`,
@@ -133,6 +142,23 @@ export async function loadAgentFromString(
   }
 
   const description = result.data;
+
+  if (description.type && description.type !== "llm") {
+    const registeredAgent = resolveRegisteredAgent(description.type);
+    if (!registeredAgent) {
+      throw new StrategyValidationError(
+        `Agent "${description.name}" references unknown agent type "${description.type}". ` +
+          `Built-in agents: [${BUILT_IN_AGENT_NAMES.join(", ")}]. ` +
+          `Registered agents: [${getRegisteredAgentNames().join(", ") || "(none)"}].`,
+      );
+    }
+
+    return await registeredAgent.create({
+      name: description.name,
+      config: description.config ?? {},
+      runtime: options,
+    });
+  }
 
   // 3. Build system prompt — template takes precedence over static string
   const systemPrompt = description.systemPromptTemplate
@@ -145,7 +171,7 @@ export async function loadAgentFromString(
   // 4. Create and return the agent — model and tools are resolved internally by createAgent
   return createAgent({
     name: description.name,
-    model: description.model,
+    model: options.modelOverride ?? description.model,
     systemPrompt,
     tools: description.tools,
     maxSteps: description.maxSteps,
@@ -159,5 +185,16 @@ export async function loadAgentFromString(
       ? { outputSchema: jsonSchema(description.outputSchema) }
       : {}),
     ...(description.context ? { context: description.context } : {}),
+    ...(options.skillRegistry ? { skillRegistry: options.skillRegistry } : {}),
+    ...(options.inputCollector
+      ? { inputCollector: options.inputCollector }
+      : {}),
+    ...(options.launchStrategy
+      ? { launchStrategy: options.launchStrategy }
+      : {}),
+    ...(options.languageService
+      ? { languageService: options.languageService }
+      : {}),
+    ...(options.runId ? { runId: options.runId } : {}),
   });
 }

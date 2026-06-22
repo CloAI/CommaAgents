@@ -3,10 +3,24 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { mkdir, rm, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { z } from "zod";
+import { createAgent } from "../../agents/agent/agent";
 import { hookIntoAgent } from "../../agents/hook-into-agent/hook-into-agent";
 import type { AgentHooks } from "../../agents/hooks/hooks.types";
+import {
+  defineAgentType,
+  registerAgent,
+  resetAgentRegistry,
+} from "../../agents/registry/agent-registry";
+import type { AgentTypeRuntime } from "../../agents/registry/agent-registry.types";
 import { StrategyValidationError } from "../../errors/index";
+import { createFlow } from "../../flows/flow/flow";
 import type { FlowHooks } from "../../flows/flow/flow.types";
+import {
+  defineFlowType,
+  registerFlow,
+  resetFlowRegistry,
+} from "../../flows/registry/flow-registry";
 import { registerModel, resetModelRegistry } from "../../model/model";
 import { extractProviderIds } from "../../model/model.utils";
 import { createSkillRegistry } from "../../skills/skills.registry";
@@ -64,6 +78,8 @@ function setupMockModels(): void {
 afterEach(() => {
   resetModelRegistry();
   resetToolRegistry();
+  resetFlowRegistry();
+  resetAgentRegistry();
 });
 
 // Minimal strategy JSON strings
@@ -414,6 +430,90 @@ describe("agent instantiation", () => {
   });
 });
 
+describe("custom agent resolution", () => {
+  it("resolves a registered custom agent and forwards runtime services", async () => {
+    let receivedRuntime: AgentTypeRuntime | undefined;
+    registerAgent(
+      "echo",
+      defineAgentType({
+        configSchema: z.object({ prefix: z.string() }).strict(),
+        create: async ({ name, config, runtime }) => {
+          receivedRuntime = runtime;
+          return createAgent({
+            name,
+            execute: async (message) => `${config.prefix}${message}`,
+          });
+        },
+      }),
+    );
+    const json = JSON.stringify({
+      name: "Custom Agent",
+      version: "1.0",
+      agents: {
+        echoer: { type: "echo", config: { prefix: "custom: " } },
+      },
+      flow: {
+        name: "Main",
+        type: "sequential",
+        steps: [{ agent: "echoer" }],
+      },
+    });
+
+    const result = await loadStrategyFromString(json, "json", {
+      modelOverride: "openai/gpt-4o",
+      strategyDir: "/tmp/strategy",
+      runId: "run-1",
+    });
+
+    expect((await result.flow.call("hello")).text).toBe("custom: hello");
+    expect(receivedRuntime?.modelOverride).toBe("openai/gpt-4o");
+    expect(receivedRuntime?.strategyDir).toBe("/tmp/strategy");
+    expect(receivedRuntime?.runId).toBe("run-1");
+  });
+
+  it("rejects invalid registered agent configuration", async () => {
+    registerAgent(
+      "echo",
+      defineAgentType({
+        configSchema: z.object({ prefix: z.string() }).strict(),
+        create: ({ name }) =>
+          createAgent({ name, execute: async (message) => message }),
+      }),
+    );
+    const json = JSON.stringify({
+      name: "Custom Agent",
+      version: "1.0",
+      agents: { echoer: { type: "echo", config: { prefix: 42 } } },
+      flow: {
+        name: "Main",
+        type: "sequential",
+        steps: [{ agent: "echoer" }],
+      },
+    });
+
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+      "config.prefix",
+    );
+  });
+
+  it("reports unknown agent types", async () => {
+    const json = JSON.stringify({
+      name: "Custom Agent",
+      version: "1.0",
+      agents: { missing: { type: "unknown" } },
+      flow: {
+        name: "Main",
+        type: "sequential",
+        steps: [{ agent: "missing" }],
+      },
+    });
+
+    await expect(loadStrategyFromString(json, "json")).rejects.toThrow(
+      'Agent "missing" references unknown agent type "unknown"',
+    );
+  });
+});
+
 // Tool resolution
 
 describe("tool resolution", () => {
@@ -471,6 +571,47 @@ describe("tool resolution", () => {
 
     const result = await loadStrategyFromString(json, "json");
     expect(result.agents.agent).toBeDefined();
+  });
+
+  it("resolves registered custom flows in strategy definitions", async () => {
+    setupMockModels();
+    registerFlow(
+      "suffix",
+      defineFlowType({
+        configSchema: z.object({ suffix: z.string() }).strict(),
+        create: ({ name, steps, config }) =>
+          createFlow({
+            name,
+            steps,
+            execute: async (availableSteps, message, flowContext) => {
+              const result = await flowContext.runStep(
+                availableSteps[0]!,
+                message,
+              );
+              return `${result.text}${config.suffix}`;
+            },
+          }),
+      }),
+    );
+    const json = JSON.stringify({
+      name: "Test",
+      version: "1.0",
+      agents: {
+        user: {
+          type: "user",
+          config: { requireInput: false, presetMessage: "hello" },
+        },
+      },
+      flow: {
+        name: "Main",
+        type: "suffix",
+        steps: [{ agent: "user" }],
+        config: { suffix: "!" },
+      },
+    });
+
+    const result = await loadStrategyFromString(json, "json");
+    expect((await result.flow.call("ignored")).text).toBe("hello!");
   });
 
   it("throws for unknown tool names", async () => {
@@ -1293,6 +1434,66 @@ describe("JSONC support and systemPrompt file path loading", () => {
     } finally {
       await unlink(manifestPath).catch(() => {});
       await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    }
+  });
+
+  it("should load project-registered custom agents before the strategy", async () => {
+    const tempDir = resolve(
+      __dirname,
+      `test_temp_custom_agent_${crypto.randomUUID()}`,
+    );
+    await mkdir(tempDir, { recursive: true });
+
+    const manifestPath = join(tempDir, "comma-project.json");
+    const agentPath = join(tempDir, "custom-agent.ts");
+    const strategyPath = join(tempDir, "strategy.json");
+    await writeFile(
+      agentPath,
+      `import { createAgent, defineAgentType, registerAgent } from "../../../index.ts";
+import { z } from "zod";
+
+registerAgent("project-echo", defineAgentType({
+  configSchema: z.object({ prefix: z.string() }).strict(),
+  create: ({ name, config }) => createAgent({
+    name,
+    execute: async (message) => \`${"${config.prefix}"}${"${message}"}\`,
+  }),
+}));
+`,
+    );
+    await writeFile(
+      strategyPath,
+      JSON.stringify({
+        name: "Project Custom Agent",
+        version: "1.0",
+        agents: {
+          echoer: {
+            type: "project-echo",
+            config: { prefix: "project: " },
+          },
+        },
+        flow: {
+          name: "Main",
+          type: "sequential",
+          steps: [{ agent: "echoer" }],
+        },
+      }),
+    );
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        name: "Project",
+        strategies: ["./strategy.json"],
+        agents: ["./custom-agent.ts"],
+      }),
+    );
+
+    try {
+      await loadProject(manifestPath);
+      const strategy = await loadStrategy(strategyPath);
+      expect((await strategy.flow.call("hello")).text).toBe("project: hello");
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
     }
   });
 });

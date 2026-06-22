@@ -1,55 +1,38 @@
 ---
-title: Sessions
-description: Persistent session storage for run history and conversation transcripts.
+title: Run persistence
+description: Persisted run event history, summaries, and conversation restoration.
 ---
 
-# Sessions
+# Run persistence
 
-Sessions provide persistent storage for conversation history and run metadata. Each session is keyed by the working directory (`cwd`) — multiple runs in the same directory append turns to the same session.
+The daemon persists each run as an event timeline under its configured runs directory. This replaces the previous working-directory-based session store: persistence is now keyed by run ID, so a run keeps the same identity when it is loaded or continued.
 
-## SessionStore
+## RunOverview
 
-The session store interface for reading, writing, and managing persisted sessions.
+Summary information returned when listing saved runs.
 
-<AutoTypeTable path="../packages/daemon/src/sessions/store.types.ts" name="SessionStore" />
+<AutoTypeTable path="../packages/daemon/src/run-system/run-store/run-store.types.ts" name="RunOverview" />
 
-## CreateSessionStoreOptions
+## RunStore
 
-Options for creating a file-backed session store.
+The interface used to append events and retrieve saved run history.
 
-<AutoTypeTable path="../packages/daemon/src/sessions/store.types.ts" name="CreateSessionStoreOptions" />
+<AutoTypeTable path="../packages/daemon/src/run-system/run-store/run-store.types.ts" name="RunStore" />
 
-## PersistedSession
+## Persisted event history
 
-The full persisted session payload, containing metadata, turns, and run summaries.
+Each run is stored as newline-delimited timeline events. Events record the run's configuration, human inputs, agent calls, conversation retention changes, and final status. `getEvents(runId)` returns the parsed timeline in append order.
 
-<AutoTypeTable path="../packages/daemon/src/sessions/sessions.types.ts" name="PersistedSession" />
+Use `listRuns()` to retrieve run summaries without loading every timeline. Use `getEvents(runId)` when you need the full event history for a specific run.
 
-## SessionMetadata
+## Conversation restoration
 
-Lightweight metadata describing a saved session. Returned by `list()` so clients can render a picker without loading every full transcript.
+When you prepare a completed run for continuation, the run system rebuilds its conversation from the saved timeline. Human prompts remain distinct from inter-agent messages, and retained agent context is restored before the continuation begins.
 
-<AutoTypeTable path="../packages/daemon/src/sessions/sessions.types.ts" name="SessionMetadata" />
+Saved configuration provides the strategy path, working directory, project manifest, and model override for a continuation. Values supplied during preparation override their saved equivalents.
 
-## SessionTurn
+## Deleting a run
 
-A single completed agent call within a session — captured after each strategy step completes.
+Calling `deleteRun(runId)` removes the persisted timeline for that run. Active execution state is separate; stop an active run before deleting its saved history.
 
-<AutoTypeTable path="../packages/daemon/src/sessions/sessions.types.ts" name="SessionTurn" />
-
-## SessionRunSummary
-
-Audit summary of a single strategy run that contributed to a session.
-
-<AutoTypeTable path="../packages/daemon/src/sessions/sessions.types.ts" name="SessionRunSummary" />
-
-## Session Lifecycle
-
-Sessions follow this lifecycle:
-
-1. **Create** — `getOrCreateForCwd(cwd)` creates or retrieves a session keyed by the working directory. There's at most one active session per `cwd`.
-2. **Record runs** — When a strategy run starts, `recordRun()` inserts a `SessionRunSummary` with status `"running"`. When the run completes or errors, `recordRun()` is called again to update the summary.
-3. **Append turns** — After each agent call completes, `appendTurn()` records the user message, agent response, token usage, and finish reason.
-4. **List and load** — Use `list()` to browse session metadata, or `listRuns()` for a flat overview of all runs across sessions. Then `load(sessionId)` to retrieve the full transcript with all turns and runs.
-5. **Rename** — `rename()` sets a human-readable title.
-6. **Delete** — `delete()` removes a session and its on-disk storage.
+See [Run system](/docs/daemon/executor) for the continuation lifecycle and [List and subscribe](/docs/daemon/protocol/list-and-subscribe) for client-facing run discovery.

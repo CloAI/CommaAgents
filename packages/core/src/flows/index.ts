@@ -14,3 +14,11 @@ export type {
   FlowResult,
 } from "./flow/flow.types";
 export { hookIntoFlow } from "./hook-into-flow/hook-into-flow";
+export type { FlowTypeContext, FlowTypeDefinition } from "./registry";
+export {
+  defineFlowType,
+  getRegisteredFlowNames,
+  registerFlow,
+  resetFlowRegistry,
+  unregisterFlow,
+} from "./registry";

@@ -157,6 +157,9 @@ export function createRunSystem({
 
       const strategy = await prepareStrategy({
         strategyPath,
+        ...(effectiveManifestPath
+          ? { manifestPath: effectiveManifestPath }
+          : {}),
         modelOverride: context.modelOverride,
         runId: run.id,
         systemData,

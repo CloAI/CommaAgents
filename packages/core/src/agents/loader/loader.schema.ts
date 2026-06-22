@@ -9,6 +9,8 @@
 
 import { z } from "zod";
 
+import { BUILT_IN_AGENT_NAMES } from "../registry/agent-registry.constants";
+
 /**
  * System prompt template — a Liquid template with optional default variables.
  *
@@ -33,11 +35,9 @@ export const SystemPromptTemplateSchema = z
   .strict();
 
 /**
- * Model-level generation parameters forwarded to `streamText`.
- *
- * These are provider-agnostic options supported by virtually every LLM
- * provider. Provider-specific features (extended thinking, reasoning
- * effort) should use `providerOptions` instead.
+ * Provider-independent generation parameters applied to every model call.
+ * Provider-specific features such as extended thinking or reasoning effort
+ * belong in `providerOptions` instead.
  */
 export const ModelOptionsSchema = z
   .object({
@@ -79,7 +79,7 @@ export const ConversationContextSchema = z
   .strict();
 
 /**
- * Agent description schema — validates a standalone agent description file.
+ * Standalone LLM-backed agent description.
  *
  * @example
  * ```yaml
@@ -87,14 +87,16 @@ export const ConversationContextSchema = z
  * model: openai/gpt-4o
  * systemPrompt: You are a research assistant.
  * tools:
- *   - read
- *   - grep
+ *   - read_file
+ *   - search_files
  * ```
  */
-export const AgentDescriptionSchema = z
+export const LLMAgentDescriptionSchema = z
   .object({
     /** Unique name for this agent. */
     name: z.string().min(1),
+    /** Built-in LLM agent type. May be omitted. */
+    type: z.literal("llm").optional(),
     /** Optional human-readable description. */
     description: z.string().optional(),
     /** Model string in "providerID/modelID" format (e.g., "openai/gpt-4o"). */
@@ -106,9 +108,8 @@ export const AgentDescriptionSchema = z
     /** Tool names to make available to the agent. */
     tools: z.array(z.string()).optional(),
     /**
-     * Per-call provider options forwarded verbatim to the AI SDK. Used to
-     * enable provider-specific features such as Anthropic extended thinking
-     * or OpenAI reasoning effort. Shape:
+     * Per-call options for provider-specific features such as extended
+     * thinking or reasoning effort. Shape:
      * `{ <providerId>: { <option>: <value>, ... }, ... }`.
      */
     providerOptions: z.record(z.record(z.unknown())).optional(),
@@ -126,6 +127,37 @@ export const AgentDescriptionSchema = z
   })
   .strict();
 
-// Inferred TypeScript type
+/** Standalone registered agent description with implementation-specific configuration. */
+export const CustomAgentDescriptionSchema = z
+  .object({
+    /** Unique name for this agent. */
+    name: z.string().min(1),
+    /** Optional human-readable description. */
+    description: z.string().optional(),
+    /** Name registered with `registerAgent`. */
+    type: z
+      .string()
+      .min(1)
+      .refine(
+        (type) =>
+          !BUILT_IN_AGENT_NAMES.includes(
+            type as (typeof BUILT_IN_AGENT_NAMES)[number],
+          ),
+        "Built-in agent types must use their built-in schema.",
+      ),
+    /** Configuration validated by the registered agent type. */
+    config: z.record(z.unknown()).optional(),
+  })
+  .strict();
 
+/** A standalone built-in LLM or registered custom agent description. */
+export const AgentDescriptionSchema = z.union([
+  LLMAgentDescriptionSchema,
+  CustomAgentDescriptionSchema,
+]);
+
+export type LLMAgentDescription = z.infer<typeof LLMAgentDescriptionSchema>;
+export type CustomAgentDescription = z.infer<
+  typeof CustomAgentDescriptionSchema
+>;
 export type AgentDescription = z.infer<typeof AgentDescriptionSchema>;

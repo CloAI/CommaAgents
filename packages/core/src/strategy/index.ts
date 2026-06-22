@@ -28,6 +28,8 @@ export type {
   BroadcastFlowDef,
   BuiltInToolName,
   CommaProjectManifest,
+  CustomAgentDef,
+  CustomFlowDef,
   CycleFlowDef,
   FlowDef,
   LLMAgentDef,
@@ -37,7 +39,10 @@ export type {
 } from "./schema";
 export {
   CommaProjectManifestSchema,
+  CustomAgentDefSchema,
+  CustomFlowDefSchema,
   isAgentStep,
+  isCustomAgentDef,
   isFlowDef,
   isLLMAgentDef,
   isUserAgentDef,

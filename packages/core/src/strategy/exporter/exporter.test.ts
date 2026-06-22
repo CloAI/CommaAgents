@@ -2,6 +2,13 @@
 
 import { afterEach, describe, expect, it } from "bun:test";
 import YAML from "yaml";
+import { z } from "zod";
+import { createFlow } from "../../flows/flow/flow";
+import {
+  defineFlowType,
+  registerFlow,
+  resetFlowRegistry,
+} from "../../flows/registry/flow-registry";
 import { registerModel, resetModelRegistry } from "../../model/model";
 import { loadStrategyFromString } from "../loader/loader";
 import { StrategySchema } from "../schema";
@@ -53,6 +60,7 @@ function setupMockModels(): void {
 
 afterEach(() => {
   resetModelRegistry();
+  resetFlowRegistry();
 });
 
 // Test strategies
@@ -145,6 +153,41 @@ describe("exportStrategy", () => {
         "write_file",
         "edit_file",
       ]);
+    });
+
+    it("preserves custom flow configuration", async () => {
+      registerFlow(
+        "custom",
+        defineFlowType({
+          configSchema: z.object({ label: z.string() }).strict(),
+          create: ({ name, steps }) =>
+            createFlow({
+              name,
+              steps,
+              execute: async (_steps, message) => message,
+            }),
+        }),
+      );
+      const loaded = await loadStrategyFromString(
+        JSON.stringify({
+          name: "Custom",
+          version: "1.0",
+          agents: {
+            user: { type: "user", config: { requireInput: false } },
+          },
+          flow: {
+            name: "Custom Flow",
+            type: "custom",
+            steps: [{ agent: "user" }],
+            config: { label: "preserved" },
+          },
+        }),
+        "json",
+      );
+
+      expect(JSON.parse(exportStrategy(loaded)).flow.config).toEqual({
+        label: "preserved",
+      });
     });
 
     it("uses default format (JSON) when no format specified", async () => {

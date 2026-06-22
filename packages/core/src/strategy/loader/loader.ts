@@ -18,9 +18,10 @@ import stripJsonComments from "strip-json-comments";
 import YAML from "yaml";
 
 import { StrategyValidationError } from "../../errors/index";
+import { buildFlowFromDescription } from "../../flows/loader/loader.utils";
 import { StrategySchema } from "../schema";
 import type { LoadedStrategy, LoadStrategyOptions } from "./loader.types";
-import { buildAgentRegistry, buildFlow } from "./loader.utils";
+import { buildAgentRegistry } from "./loader.utils";
 
 // loadStrategy — from file path
 
@@ -136,7 +137,10 @@ export async function loadStrategyFromString(
   const agents = await buildAgentRegistry(strategy, options);
 
   // 4. Build the flow tree
-  const flow = buildFlow(strategy.flow, agents, options);
+  const flow = buildFlowFromDescription(strategy.flow, {
+    agents,
+    flowHooks: options.flowHooks,
+  });
 
   return {
     name: strategy.name,

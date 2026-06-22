@@ -6,11 +6,17 @@ import { StrategyValidationError } from "../../errors/index";
 import type { CommaProjectManifest } from "../schema";
 import { CommaProjectManifestSchema } from "../schema";
 
+/** A validated project manifest and its location on disk. */
 export interface LoadedProject {
+  /** Project name displayed with its discovered strategies. */
   readonly name: string;
+  /** Optional project version from the manifest. */
   readonly version?: string;
+  /** Optional project description from the manifest. */
   readonly description?: string;
+  /** Validated project manifest. */
   readonly manifest: CommaProjectManifest;
+  /** Absolute directory containing the manifest. */
   readonly manifestDir: string;
 }
 
@@ -89,6 +95,20 @@ export async function loadProject(
     for (const toolPath of manifest.tools) {
       const resolvedToolPath = resolve(manifestDir, toolPath);
       await importIfExists(resolvedToolPath, "Tool file");
+    }
+  }
+
+  if (manifest.agents) {
+    for (const agentPath of manifest.agents) {
+      const resolvedAgentPath = resolve(manifestDir, agentPath);
+      await importIfExists(resolvedAgentPath, "Agent file");
+    }
+  }
+
+  if (manifest.flows) {
+    for (const flowPath of manifest.flows) {
+      const resolvedFlowPath = resolve(manifestDir, flowPath);
+      await importIfExists(resolvedFlowPath, "Flow file");
     }
   }
 

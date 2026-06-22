@@ -61,6 +61,42 @@ function withCwdContaining(strategy: object): {
   };
 }
 
+function withCwdContainingProject(strategy: object): {
+  cwd: string;
+  cleanup: () => void;
+} {
+  const cwd = createScratchDir("project-host");
+  const projectDir = join(cwd, ".comma", "strategies", "demo-project");
+  mkdirSync(projectDir, { recursive: true });
+  writeFileSync(
+    join(projectDir, "strategy.json"),
+    JSON.stringify(strategy),
+    "utf8",
+  );
+  writeFileSync(
+    join(projectDir, "entry.ts"),
+    "(globalThis as Record<string, unknown>).__launchStrategyProjectLoaded = true;",
+    "utf8",
+  );
+  writeFileSync(
+    join(projectDir, "comma-project.json"),
+    JSON.stringify({
+      name: "Demo Project",
+      strategies: ["strategy.json"],
+      entry: "entry.ts",
+    }),
+    "utf8",
+  );
+  return {
+    cwd,
+    cleanup: (): void => {
+      delete (globalThis as Record<string, unknown>)
+        .__launchStrategyProjectLoaded;
+      rmSync(cwd, { recursive: true, force: true });
+    },
+  };
+}
+
 describe("createLaunchStrategyTool", () => {
   it("returns a tool definition with non-empty description", () => {
     const tool = createLaunchStrategyTool();
@@ -136,6 +172,27 @@ describe("createLaunchStrategyTool", () => {
       // the incoming message through.
       expect(result.data?.strategyName).toBe("echo-strategy");
       expect(result.data?.result).toBe("hello-fallback");
+    } finally {
+      process.chdir(originalCwd);
+      cleanup();
+    }
+  });
+
+  it("loads a discovered project before the fallback strategy", async () => {
+    const { cwd, cleanup } = withCwdContainingProject(ECHO_STRATEGY);
+    const originalCwd = process.cwd();
+    process.chdir(cwd);
+    try {
+      const tool = createLaunchStrategyTool();
+      const result = await tool.execute(
+        { name: "echo-strategy", input: "project input" },
+        makeToolContext(),
+      );
+
+      expect(result.ok).toBe(true);
+      expect(
+        (globalThis as Record<string, unknown>).__launchStrategyProjectLoaded,
+      ).toBe(true);
     } finally {
       process.chdir(originalCwd);
       cleanup();

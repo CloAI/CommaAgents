@@ -4,6 +4,7 @@ import { discoverStrategies } from "../../../strategy/discover/discover";
 import { readStrategyFile } from "../../../strategy/discover/discover.utils";
 import { loadStrategyFromString } from "../../../strategy/loader/loader";
 import type { LoadStrategyOptions } from "../../../strategy/loader/loader.types";
+import { loadProject } from "../../../strategy/loader/project-loader";
 import { defineTool } from "../../define/define-tool";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
@@ -161,6 +162,9 @@ export function createLaunchStrategyTool(): ToolDefinition<
       // Fallback path: no runtime handle. Run in-process so the tool is
       // still usable in tests and embedded callers without a daemon.
       try {
+        if (match.manifestPath) {
+          await loadProject(match.manifestPath);
+        }
         const { content, format } = await readStrategyFile(match.path);
 
         // Seed-aware wrapper around the inherited inputCollector. The

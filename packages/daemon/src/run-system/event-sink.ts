@@ -1,26 +1,10 @@
 import type { DaemonMessage } from "../server/protocol/messages";
 
-/**
- * Abstraction for delivering daemon messages to connected clients.
- *
- * The run system uses this to broadcast run events (step_started,
- * agent_streaming, flow_completed, etc.) without knowing how the
- * messages are actually serialized or delivered.
- */
+/** Delivers daemon messages to individual clients or run subscribers. */
 export interface EventSink {
-  /**
-   * Send a message to all clients subscribed to a run.
-   *
-   * The server resolves `runId` → subscriber list via `DaemonState`
-   * and sends to each.
-   */
+  /** Send a message to every client subscribed to a run. */
   broadcast(runId: string, message: DaemonMessage): void;
 
-  /**
-   * Send a message to a specific client.
-   *
-   * Used for targeted messages like `request_input` which go
-   * only to the client that initiated the run.
-   */
+  /** Send a message to one client. */
   send(clientId: string, message: DaemonMessage): void;
 }

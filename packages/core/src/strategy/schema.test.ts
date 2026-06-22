@@ -7,6 +7,7 @@ import {
   FlowDefSchema,
   FlowStepSchema,
   isAgentStep,
+  isCustomAgentDef,
   isFlowDef,
   isLLMAgentDef,
   isUserAgentDef,
@@ -235,6 +236,27 @@ describe("AgentDefSchema", () => {
       expect(result.success).toBe(false);
     });
   });
+
+  describe("custom agents", () => {
+    it("accepts a custom agent with namespaced configuration", () => {
+      const result = AgentDefSchema.safeParse({
+        type: "echo",
+        description: "Deterministic echo agent",
+        config: { prefix: "custom: " },
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects custom configuration outside the config object", () => {
+      const result = AgentDefSchema.safeParse({
+        type: "echo",
+        prefix: "custom: ",
+      });
+
+      expect(result.success).toBe(false);
+    });
+  });
 });
 
 // FlowDefSchema — sequential, cycle, broadcast
@@ -400,12 +422,23 @@ describe("FlowDefSchema", () => {
     });
   });
 
-  describe("unknown type", () => {
-    it("rejects unknown flow type", () => {
+  describe("custom flow type", () => {
+    it("accepts a custom flow with namespaced configuration", () => {
       const result = FlowDefSchema.safeParse({
-        name: "Bad",
+        name: "Pipeline",
         type: "pipeline",
         steps: [{ agent: "a" }],
+        config: { stopAfter: 2 },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects custom configuration outside the config object", () => {
+      const result = FlowDefSchema.safeParse({
+        name: "Pipeline",
+        type: "pipeline",
+        steps: [{ agent: "a" }],
+        stopAfter: 2,
       });
       expect(result.success).toBe(false);
     });
@@ -586,6 +619,17 @@ describe("type guards", () => {
 
     it("returns false for user agents", () => {
       expect(isLLMAgentDef({ type: "user" })).toBe(false);
+    });
+  });
+
+  describe("isCustomAgentDef", () => {
+    it("returns true for custom agents", () => {
+      expect(isCustomAgentDef({ type: "echo", config: {} })).toBe(true);
+    });
+
+    it("returns false for built-in agents", () => {
+      expect(isCustomAgentDef({ type: "user" })).toBe(false);
+      expect(isCustomAgentDef({ model: "openai/gpt-4o" })).toBe(false);
     });
   });
 

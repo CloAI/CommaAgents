@@ -13,7 +13,7 @@ The top-level strategy type.
 
 ## Agent Definitions
 
-The `agents` field is a map of named agent definitions. Each agent is either a **user agent** (collects human input) or an **LLM agent** (backed by a language model). The `type` field discriminates between them — user agents must set `type: "user"`, while LLM agents can omit `type` entirely.
+The `agents` field is a map of named agent definitions. Each agent is a **user agent**, an **LLM agent**, or a registered **custom agent**. The `type` field discriminates between them — user agents set `type: "user"`, LLM agents may omit `type`, and custom agents use their registered type name.
 
 ### LLMAgentDef
 
@@ -29,9 +29,9 @@ agents:
     model: openai/gpt-4o
     systemPrompt: You are a coding assistant.
     tools:
-      - read
+      - read_file
       - glob
-      - grep
+      - search_files
     providerOptions:
       openai:
         reasoningEffort: high
@@ -50,7 +50,7 @@ agents:
         keepRecent: 8
 ```
 
-`providerOptions` passes provider-specific features to the AI SDK (e.g. Anthropic extended thinking, OpenAI reasoning effort). `modelOptions` passes provider-agnostic generation parameters (`temperature`, `maxOutputTokens`, `topP`, `seed`, etc.). `outputSchema` accepts a JSON Schema object for structured output. `context` controls rolling-window and compaction behavior for conversation history. See [createAgent](/docs/core/agents/create-agent) for details.
+`providerOptions` configures provider-specific features such as extended thinking or reasoning effort. `modelOptions` configures provider-independent generation parameters such as `temperature`, `maxOutputTokens`, `topP`, and `seed`. `outputSchema` accepts a JSON Schema object for structured output. `context` controls rolling-window and compaction behavior for conversation history. See [createAgent](/docs/core/agents/create-agent) for details.
 
 ### UserAgentDef
 
@@ -75,6 +75,23 @@ The union of all agent definition types.
 
 <AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="AgentDef" />
 
+### CustomAgentDef
+
+A custom agent references a type registered by a project entry or a file in `comma-project.json`'s `agents` array. Put implementation-specific fields inside `config`:
+
+```yaml
+agents:
+  echoer:
+    type: prefixed-echo
+    description: Adds a prefix without calling a model.
+    config:
+      prefix: "Echo: "
+```
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="CustomAgentDef" />
+
+The project must register `prefixed-echo` before the strategy loads. See [createAgent](/docs/core/agents/create-agent#declarative-custom-agent-types) for the TypeScript registration API.
+
 ## Flow Definitions
 
 The `flow` field defines the entry flow — a tree of steps that can reference agents or nest sub-flows. Flow type is discriminated by the `type` field.
@@ -93,15 +110,48 @@ Runs steps one after another. Each step receives the previous step's output as i
 
 ### CycleFlowDef
 
-Repeats steps for a fixed number of cycles (or indefinitely with `"Infinity"`). Useful for iterative refinement patterns.
+Repeats steps for a fixed number of cycles or until stopped when `cycles` is `"Infinity"`. An observer can approve the current step output or return feedback for the next cycle.
 
 <AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="CycleFlowDef" />
+
+For observer-driven loops, use a unique first-line break token so ordinary prose cannot end the cycle accidentally:
+
+```yaml
+name: refine-until-approved
+type: cycle
+cycles: "Infinity"
+observer: reviewer
+breakCycleSignals: ["==APPROVED=="]
+breakCycleSignalMatch: first-line
+steps:
+  - agent: writer
+```
+
+When the observer emits `==APPROVED==` on its first non-empty line, the cycle returns the last step output. Otherwise, the observer's response becomes the input to the next cycle.
 
 ### BroadcastFlowDef
 
 Runs all steps in parallel with the same input. Results are joined into a single output.
 
 <AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="BroadcastFlowDef" />
+
+### CustomFlowDef
+
+References a flow type registered by a project entry or a file in `comma-project.json`'s `flows` array. Put implementation-specific fields inside `config`:
+
+```yaml
+name: First Approved Review
+type: first-match
+steps:
+  - agent: reviewer-a
+  - agent: reviewer-b
+config:
+  marker: APPROVED
+```
+
+<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="CustomFlowDef" />
+
+The project must register `first-match` before the strategy loads. See [Custom Flows](/docs/core/flows/custom-flow) for the TypeScript registration API.
 
 ## Steps
 
@@ -245,9 +295,9 @@ agents:
       You are a coding assistant. Use the available tools to explore
       the codebase and answer questions.
     tools:
-      - read
+      - read_file
       - glob
-      - grep
+      - search_files
 flow:
   name: Explore
   type: sequential
@@ -255,4 +305,4 @@ flow:
     - agent: explorer
 ```
 
-Tools are referenced by their registered name. Built-in tools (`bash`, `read`, `write`, `edit`, `glob`, `grep`) are available automatically. Custom tools must be registered via `registerTool` before loading the strategy.
+Tools are referenced by their registered name. Common built-ins include `read_file`, `list_directory`, `search_files`, `glob`, `write_file`, `edit_file`, and `run_command`. Custom tools must be registered via `registerTool` before loading the strategy.

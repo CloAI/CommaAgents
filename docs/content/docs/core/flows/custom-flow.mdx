@@ -83,3 +83,60 @@ function createMyCustomFlow(config) {
 }
 ```
 
+## Declarative Custom Flow Types
+
+Use `defineFlowType` and `registerFlow` when JSON or YAML strategies need to reference a reusable custom implementation by name. The configuration schema validates the flow's `config` object before the factory runs.
+
+```ts
+import {
+  createFlow,
+  defineFlowType,
+  registerFlow,
+} from "@comma-agents/core";
+import { z } from "zod";
+
+registerFlow(
+  "first-match",
+  defineFlowType({
+    configSchema: z.object({ marker: z.string() }).strict(),
+    create: ({ name, steps, config }) =>
+      createFlow({
+        name,
+        steps,
+        execute: async (availableSteps, message, flowContext) => {
+          for (const step of availableSteps) {
+            const result = await flowContext.runStep(step, message);
+            if (result.text.includes(config.marker)) return result.text;
+          }
+          return message;
+        },
+      }),
+  }),
+);
+```
+
+After registration, strategy and standalone flow files can use the registered name as `type`:
+
+```yaml
+name: Routed Review
+type: first-match
+steps:
+  - agent: reviewer-a
+  - agent: reviewer-b
+config:
+  marker: APPROVED
+```
+
+Keep implementation-specific fields inside `config`. Common fields remain `name`, `type`, `description`, and `steps`. An unknown flow type or invalid configuration fails when the flow is loaded.
+
+## FlowTypeDefinition
+
+The schema and factory used to register a declarative custom flow type.
+
+<AutoTypeTable path="../packages/core/src/flows/registry/flow-registry.types.ts" name="FlowTypeDefinition" />
+
+## FlowTypeContext
+
+The resolved steps, validated configuration, and agent resolver passed to the custom factory.
+
+<AutoTypeTable path="../packages/core/src/flows/registry/flow-registry.types.ts" name="FlowTypeContext" />

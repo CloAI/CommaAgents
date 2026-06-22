@@ -2,7 +2,7 @@
 title: loadAgent
 description: Load an agent from a JSON or YAML description file with schema validation and template support.
 ---
-`loadAgent` reads a standalone agent description file (JSON or YAML), validates it against a strict schema, and returns a live `Agent` ready to call. For content already in memory, `loadAgentFromString` accepts a raw string directly.
+`loadAgent` reads a standalone built-in or registered custom agent description file (JSON or YAML), validates it against a strict schema, and returns a live `Agent` ready to call. For content already in memory, `loadAgentFromString` accepts a raw string directly.
 
 ```ts
 import { loadAgent } from "@comma-agents/core";
@@ -25,8 +25,8 @@ name: researcher
 model: openai/gpt-4o
 systemPrompt: You are a research assistant.
 tools:
-  - read
-  - grep
+  - read_file
+  - search_files
 providerOptions:
   openai:
     reasoningEffort: high
@@ -74,7 +74,7 @@ context:
 
 ### providerOptions
 
-Provider-specific options forwarded verbatim to the AI SDK. The outer key is the provider ID (e.g. `"openai"`, `"anthropic"`) and the inner record contains the provider's specific options.
+Provider-specific options applied to each model call. The outer key is the provider ID (for example, `"openai"` or `"anthropic"`) and the inner record contains that provider's options.
 
 ```yaml
 providerOptions:
@@ -86,23 +86,11 @@ providerOptions:
 
 ### modelOptions
 
-Provider-agnostic generation parameters forwarded to every call. These map directly to the AI SDK's `streamText` options.
-
-| Field | Type | Description |
-|---|---|---|
-| `temperature` | `number?` | Sampling temperature (0–2). Higher = more creative. |
-| `topP` | `number?` | Nucleus sampling cumulative probability cutoff (0–1). |
-| `topK` | `number?` | Top-K sampling — limits the pool to K tokens. |
-| `maxOutputTokens` | `number?` | Maximum output tokens per completion. |
-| `maxRetries` | `number?` | Maximum retry attempts on transient failures. |
-| `frequencyPenalty` | `number?` | Frequency penalty (−2 to 2). Reduces repetition. |
-| `presencePenalty` | `number?` | Presence penalty (−2 to 2). Encourages new topics. |
-| `seed` | `number?` | Deterministic seed for reproducible outputs. |
+Provider-independent generation parameters applied to every call. Supported fields include `temperature`, `topP`, `topK`, `maxOutputTokens`, `maxRetries`, `frequencyPenalty`, `presencePenalty`, and `seed`. See `AgentDescription` below for the generated field types.
 
 ### outputSchema
 
-`outputSchema` is a JSON Schema object. It constrains the model response and is
-passed to `streamText` as structured object output.
+`outputSchema` is a JSON Schema object. It requests a structured object response that conforms to that schema.
 
 ### context
 
@@ -142,6 +130,55 @@ const result = await agent.call("Write a haiku about TypeScript.");
 
 The `format` parameter must be `"json"` or `"yaml"`. `loadAgent` auto-detects format from the file extension (`.json`, `.yaml`, `.yml`).
 
+## Registered Custom Agents
+
+Register the custom type before loading its description:
+
+```ts
+import {
+  createAgent,
+  defineAgentType,
+  loadAgent,
+  registerAgent,
+} from "@comma-agents/core";
+import { z } from "zod";
+
+registerAgent(
+  "prefixed-echo",
+  defineAgentType({
+    configSchema: z.object({ prefix: z.string() }).strict(),
+    create: ({ name, config }) =>
+      createAgent({
+        name,
+        execute: async (message) => `${config.prefix}${message}`,
+      }),
+  }),
+);
+
+const agent = await loadAgent("./agents/echo.yaml");
+```
+
+```yaml
+name: echo
+type: prefixed-echo
+config:
+  prefix: "Echo: "
+```
+
+The registered schema validates `config`. See [createAgent](/docs/core/agents/create-agent#declarative-custom-agent-types) for the registration API.
+
+## LLMAgentDescription
+
+The standalone description for the built-in LLM agent type.
+
+<AutoTypeTable path="../packages/core/src/agents/loader/loader.schema.ts" name="LLMAgentDescription" />
+
+## CustomAgentDescription
+
+The standalone description for a registered custom agent type.
+
+<AutoTypeTable path="../packages/core/src/agents/loader/loader.schema.ts" name="CustomAgentDescription" />
+
 ## System Prompt Templates
 
 Instead of a static `systemPrompt`, you can define a `systemPromptTemplate` using [Liquid](https://liquidjs.com/) syntax with default variables. The loader converts it to a `PromptTemplate` automatically. When both `systemPromptTemplate` and `systemPrompt` are present, the template takes precedence.
@@ -150,7 +187,7 @@ See the [Prompts & Templates](/docs/core/prompts) documentation for the full tem
 
 ## Model and Tool Resolution
 
-Model and tool names in the description file are plain strings (e.g., `"openai/gpt-4o"`, `"read"`). They are resolved at call time through the global registries — `registerProvider()`, `registerModel()`, and `registerTool()`. Make sure the required providers and tools are registered before calling the agent.
+Model and tool names in the description file are plain strings, such as `"openai/gpt-4o"` and `"read_file"`. They resolve through the model, provider, and tool registries. Register custom providers, models, and tools before loading the agent.
 
 ## Error Handling
 
@@ -159,7 +196,8 @@ Both `loadAgent` and `loadAgentFromString` throw `StrategyValidationError` for:
 - Unsupported file extensions (only `.json`, `.yaml`, `.yml`)
 - Missing files
 - Malformed JSON or YAML
-- Schema validation failures (missing `name` or `model`, unknown fields, wrong types)
+- Schema validation failures (missing required built-in fields, unknown fields, or wrong types)
+- Unknown registered agent types or invalid custom `config`
 
 ```ts
 import { loadAgent, StrategyValidationError } from "@comma-agents/core";
