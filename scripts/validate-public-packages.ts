@@ -4,6 +4,9 @@ import { join, resolve } from "node:path";
 const PUBLIC_PACKAGES = ["core", "daemon", "tui", "cli"] as const;
 const repositoryRoot = resolve(import.meta.dir, "..");
 const rootManifest = await Bun.file(join(repositoryRoot, "package.json")).json();
+const publicPackageNames = new Set(
+  PUBLIC_PACKAGES.map((name) => `@comma-agents/${name}`),
+);
 const errors: Array<string> = [];
 const privateUtilsImportPattern =
   /(?:from\s*["']@comma-agents\/utils["']|import\s*\(\s*["']@comma-agents\/utils["']\s*\)|require\s*\(\s*["']@comma-agents\/utils["']\s*\))/;
@@ -26,6 +29,13 @@ for (const packageName of PUBLIC_PACKAGES) {
     for (const [dependency, version] of Object.entries(manifest[group] ?? {})) {
       if (String(version).startsWith("workspace:")) {
         errors.push(`${manifest.name} ${group}.${dependency} uses ${version}`);
+      } else if (
+        publicPackageNames.has(dependency) &&
+        String(version) !== rootManifest.version
+      ) {
+        errors.push(
+          `${manifest.name} ${group}.${dependency} pins ${version}; expected ${rootManifest.version}`,
+        );
       }
     }
   }
