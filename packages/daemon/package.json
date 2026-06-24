@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.30",
-    "@comma-agents/core": "2.0.0-rc.0",
+    "@comma-agents/core": "workspace:*",
     "typescript": "6.0.2",
     "yaml": "2.8.3",
     "yargs": "17.7.2",

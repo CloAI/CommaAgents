@@ -23,9 +23,9 @@
     "format": "bunx @biomejs/biome format --write src"
   },
   "devDependencies": {
-    "@comma-agents/core": "2.0.0-rc.0",
-    "@comma-agents/daemon": "2.0.0-rc.0",
-    "@comma-agents/tui": "2.0.0-rc.0",
+    "@comma-agents/core": "workspace:*",
+    "@comma-agents/daemon": "workspace:*",
+    "@comma-agents/tui": "workspace:*",
     "@comma-agents/utils": "file:../utils",
     "@types/react": "19.2.14",
     "@types/yargs": "17.0.33",

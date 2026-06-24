@@ -54,9 +54,9 @@
         "comma": "dist/comma.js",
       },
       "devDependencies": {
-        "@comma-agents/core": "2.0.0-rc.0",
-        "@comma-agents/daemon": "2.0.0-rc.0",
-        "@comma-agents/tui": "2.0.0-rc.0",
+        "@comma-agents/core": "workspace:*",
+        "@comma-agents/daemon": "workspace:*",
+        "@comma-agents/tui": "workspace:*",
         "@comma-agents/utils": "file:../utils",
         "@types/react": "19.2.14",
         "@types/yargs": "17.0.33",
@@ -99,7 +99,7 @@
       },
       "dependencies": {
         "@ai-sdk/openai-compatible": "2.0.30",
-        "@comma-agents/core": "2.0.0-rc.0",
+        "@comma-agents/core": "workspace:*",
         "typescript": "6.0.2",
         "yaml": "2.8.3",
         "yargs": "17.7.2",
@@ -149,8 +149,8 @@
       },
       "dependencies": {
         "@amandaghassaei/stl-parser": "1.7.0",
-        "@comma-agents/core": "2.0.0-rc.0",
-        "@comma-agents/daemon": "2.0.0-rc.0",
+        "@comma-agents/core": "workspace:*",
+        "@comma-agents/daemon": "workspace:*",
         "@shikijs/cli": "^4.0.2",
         "chalk": "5.6.2",
         "cli-table3": "0.6.5",
@@ -1143,25 +1143,13 @@
 
     "@babel/helper-compilation-targets/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
 
-    "@comma-agents/cli/@comma-agents/core": ["@comma-agents/core@2.0.0-rc.0", "", { "dependencies": { "@ai-sdk/openai-compatible": "2.0.30", "@types/diff": "8.0.0", "ai": "6.0.91", "diff": "9.0.0", "liquidjs": "10.27.0", "strip-json-comments": "5.0.3", "tar-stream": "3.2.0", "turndown": "7.2.4", "yaml": "2.8.3", "zod": "3.25.76" } }, "sha512-ASIzRMOkGpoUksffZ0QqIDK8Es2dey1uLHF+hH8pRHFBIWrVFR9i99k+X7Rv53bMNHJC05Wms6GaR2ofk0cI9Q=="],
-
-    "@comma-agents/cli/@comma-agents/daemon": ["@comma-agents/daemon@2.0.0-rc.0", "", { "dependencies": { "@ai-sdk/openai-compatible": "2.0.30", "@comma-agents/core": "2.0.0-rc.0", "typescript": "6.0.2", "yaml": "2.8.3", "yargs": "17.7.2", "zod": "3.25.76" }, "bin": { "comma-agents-daemon": "dist/cli.js" } }, "sha512-kZbzo8vcciXKtDa16Ns0tKjxbC9nFuftCjnC71ZQcZziUQhboD1qWmwzsZnCAIxV5U6hgwTrFddNm6Hz2d+FQg=="],
-
-    "@comma-agents/cli/@comma-agents/tui": ["@comma-agents/tui@2.0.0-rc.0", "", { "dependencies": { "@amandaghassaei/stl-parser": "1.7.0", "@comma-agents/core": "2.0.0-rc.0", "@comma-agents/daemon": "2.0.0-rc.0", "@shikijs/cli": "^4.0.2", "chalk": "5.6.2", "cli-table3": "0.6.5", "gl-matrix": "3.4.4", "ink": "7.0.1", "ink-select-input": "6.2.0", "ink-spinner": "5.0.0", "ink-text-input": "6.0.0", "marked": "18.0.3", "react": "19.2.5", "react-devtools-core": "7.0.1", "react-router": "^7.15.0", "shiki": "4.0.2", "string-width": "8.2.0", "word-wrap": "1.2.5", "yargs": "17.7.2" }, "bin": { "comma-agents-tui": "dist/main.js" } }, "sha512-C/oJXM4GrNS97+jyw2JtzAyRT56PUFt+IL7KPiF/kqUJDia3LWzHFU5bgfiq5G/MqfsKP+Xn7/ALxOGB71RYJA=="],
-
     "@comma-agents/cli/@comma-agents/utils": ["@comma-agents/utils@file:packages/utils", {}],
 
     "@comma-agents/core/@comma-agents/utils": ["@comma-agents/utils@file:packages/utils", {}],
 
-    "@comma-agents/daemon/@comma-agents/core": ["@comma-agents/core@2.0.0-rc.0", "", { "dependencies": { "@ai-sdk/openai-compatible": "2.0.30", "@types/diff": "8.0.0", "ai": "6.0.91", "diff": "9.0.0", "liquidjs": "10.27.0", "strip-json-comments": "5.0.3", "tar-stream": "3.2.0", "turndown": "7.2.4", "yaml": "2.8.3", "zod": "3.25.76" } }, "sha512-ASIzRMOkGpoUksffZ0QqIDK8Es2dey1uLHF+hH8pRHFBIWrVFR9i99k+X7Rv53bMNHJC05Wms6GaR2ofk0cI9Q=="],
-
     "@comma-agents/daemon/@comma-agents/utils": ["@comma-agents/utils@file:packages/utils", {}],
 
     "@comma-agents/examples/@ai-sdk/openai-compatible": ["@ai-sdk/openai-compatible@2.0.33", "", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@ai-sdk/provider-utils": "4.0.17" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-HwptqeUS4vtDyjSSjmKCQExjoQMwPVq0C4pHH18i7c+3CQ0QN81HLvz3BdpULo0n/UtdQwTNISRqx3G5miPZhw=="],
-
-    "@comma-agents/tui/@comma-agents/core": ["@comma-agents/core@2.0.0-rc.0", "", { "dependencies": { "@ai-sdk/openai-compatible": "2.0.30", "@types/diff": "8.0.0", "ai": "6.0.91", "diff": "9.0.0", "liquidjs": "10.27.0", "strip-json-comments": "5.0.3", "tar-stream": "3.2.0", "turndown": "7.2.4", "yaml": "2.8.3", "zod": "3.25.76" } }, "sha512-ASIzRMOkGpoUksffZ0QqIDK8Es2dey1uLHF+hH8pRHFBIWrVFR9i99k+X7Rv53bMNHJC05Wms6GaR2ofk0cI9Q=="],
-
-    "@comma-agents/tui/@comma-agents/daemon": ["@comma-agents/daemon@2.0.0-rc.0", "", { "dependencies": { "@ai-sdk/openai-compatible": "2.0.30", "@comma-agents/core": "2.0.0-rc.0", "typescript": "6.0.2", "yaml": "2.8.3", "yargs": "17.7.2", "zod": "3.25.76" }, "bin": { "comma-agents-daemon": "dist/cli.js" } }, "sha512-kZbzo8vcciXKtDa16Ns0tKjxbC9nFuftCjnC71ZQcZziUQhboD1qWmwzsZnCAIxV5U6hgwTrFddNm6Hz2d+FQg=="],
 
     "@napi-rs/wasm-runtime/@emnapi/core": ["@emnapi/core@1.10.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "2.8.1" } }, "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw=="],
 

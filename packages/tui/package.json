@@ -29,8 +29,8 @@
   },
   "dependencies": {
     "@amandaghassaei/stl-parser": "1.7.0",
-    "@comma-agents/core": "2.0.0-rc.0",
-    "@comma-agents/daemon": "2.0.0-rc.0",
+    "@comma-agents/core": "workspace:*",
+    "@comma-agents/daemon": "workspace:*",
     "@shikijs/cli": "^4.0.2",
     "chalk": "5.6.2",
     "cli-table3": "0.6.5",
