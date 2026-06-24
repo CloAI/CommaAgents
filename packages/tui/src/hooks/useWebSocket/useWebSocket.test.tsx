@@ -24,6 +24,7 @@ import type { WebSocketState } from "./useWebSocket.types";
  */
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
+  static constructionError: Error | null = null;
   static CONNECTING = 0;
   static OPEN = 1;
   static CLOSING = 2;
@@ -35,6 +36,9 @@ class FakeWebSocket {
   private listeners: Record<string, Array<(event: unknown) => void>> = {};
 
   constructor(url: string) {
+    if (FakeWebSocket.constructionError) {
+      throw FakeWebSocket.constructionError;
+    }
     this.url = url;
     FakeWebSocket.instances.push(this);
   }
@@ -79,6 +83,7 @@ const realWebSocket = (globalThis as { WebSocket?: unknown }).WebSocket;
 
 beforeEach(() => {
   FakeWebSocket.instances = [];
+  FakeWebSocket.constructionError = null;
   (globalThis as { WebSocket: unknown }).WebSocket = FakeWebSocket;
 });
 
@@ -94,12 +99,22 @@ function HookHarness({
   url,
   capture,
   reconnectDelayMs,
+  connectionTimeoutMs,
+  onError,
 }: {
   url: string;
   capture: { current: WebSocketState | null };
   reconnectDelayMs?: number;
+  connectionTimeoutMs?: number;
+  onError?: (error: string) => void;
 }) {
-  const state = useWebSocket({ url, reconnectDelayMs, onMessage: () => {} });
+  const state = useWebSocket({
+    url,
+    reconnectDelayMs,
+    connectionTimeoutMs,
+    onMessage: () => {},
+    onError,
+  });
   capture.current = state;
   return <Text>ws</Text>;
 }
@@ -197,5 +212,48 @@ describe("useWebSocket", () => {
 
     expect(capture.current?.status).toBe("disconnected");
     expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
+  it("reports a connection timeout when the socket never opens", async () => {
+    const capture: { current: WebSocketState | null } = { current: null };
+    const errors: string[] = [];
+
+    await act(async () => {
+      render(
+        <HookHarness
+          url="ws://test/ws"
+          capture={capture}
+          connectionTimeoutMs={5}
+          reconnectDelayMs={100}
+          onError={(error) => errors.push(error)}
+        />,
+      );
+      await Bun.sleep(10);
+    });
+
+    expect(errors).toEqual(["WebSocket connection timed out after 5ms"]);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(capture.current?.status).toBe("disconnected");
+  });
+
+  it("reports a synchronous connection failure", async () => {
+    const capture: { current: WebSocketState | null } = { current: null };
+    const errors: string[] = [];
+    FakeWebSocket.constructionError = new Error("invalid endpoint");
+
+    await act(async () => {
+      render(
+        <HookHarness
+          url="invalid"
+          capture={capture}
+          reconnectDelayMs={100}
+          onError={(error) => errors.push(error)}
+        />,
+      );
+    });
+
+    expect(errors).toEqual(["WebSocket connection failed: invalid endpoint"]);
+    expect(FakeWebSocket.instances).toHaveLength(0);
+    expect(capture.current?.status).toBe("error");
   });
 });

@@ -1,8 +1,9 @@
 import type { DaemonConfig } from "./config.types";
-import { buildDefaults, readConfigFile, readEnvOverrides } from "./config.utils";
-
-// Re-export resolveDataDir so existing daemon consumers keep working.
-export { resolveDataDir } from "@comma-agents/core";
+import {
+  buildDefaults,
+  readConfigFile,
+  readEnvOverrides,
+} from "./config.utils";
 
 /** Options for loadDaemonConfig. Mostly for testing. */
 export interface LoadConfigOptions {

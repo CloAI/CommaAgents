@@ -1,8 +1,4 @@
 import type {
-  AbortableAsyncGenerator,
-  AbortablePromise,
-} from "../../abortable";
-import type {
   tool as aiTool,
   CallSettings,
   FlexibleSchema,
@@ -13,6 +9,10 @@ import type {
   streamText,
   ToolChoice,
 } from "ai";
+import type {
+  AbortableAsyncGenerator,
+  AbortablePromise,
+} from "../../abortable";
 import type {
   ContextUsage,
   ConversationContext,
@@ -105,7 +105,7 @@ export interface AgentConfig {
    * Skill registry exposed to the `load_skill` tool when included in `tools`.
    * When omitted, `load_skill` returns `skill_unavailable` for every call.
    * Typically populated by the strategy loader from
-   * `<configRoot>/comma-agents/skills/` plus `./.comma/skills/`.
+   * `~/.comma/skills/` plus `./.comma/skills/`.
    */
   readonly skillRegistry?: SkillRegistry;
   /**

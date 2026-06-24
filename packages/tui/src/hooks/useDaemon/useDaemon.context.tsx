@@ -9,6 +9,7 @@ import type {
   DaemonMessageListener,
   DaemonMessageType,
 } from "./useDaemon.types";
+import { formatDaemonLogPayload } from "./useDaemon.utils";
 
 export const DaemonContext = createContext<DaemonContextValue | null>(null);
 
@@ -54,10 +55,25 @@ export function DaemonContextProvider({
         const raw: unknown = JSON.parse(data);
         const result = parseDaemonMessage(raw);
         if (result.success) {
+          const logMessage = `[daemon] Received ${formatDaemonLogPayload(result.data)}`;
+          if (
+            result.data.type === "error" ||
+            result.data.type === "strategy_error"
+          ) {
+            console.error(logMessage);
+          } else {
+            console.info(logMessage);
+          }
           dispatch(result.data);
+          return;
         }
-      } catch {
-        // Malformed JSON — ignore
+        console.error(
+          `[daemon] Received invalid message ${formatDaemonLogPayload(raw)}; ${result.error.issues.map((issue) => issue.message).join("; ")}`,
+        );
+      } catch (error) {
+        console.error(
+          `[daemon] Failed to parse received message: ${error instanceof Error ? error.message : String(error)}; data=${formatDaemonLogPayload(data)}`,
+        );
       }
     },
     [dispatch],
@@ -73,7 +89,22 @@ export function DaemonContextProvider({
 
   const send = useCallback(
     (message: Record<string, unknown>): boolean => {
-      return sendRaw(JSON.stringify(message));
+      const formattedMessage = formatDaemonLogPayload(message);
+      console.info(`[daemon] Sending ${formattedMessage}`);
+      try {
+        const sent = sendRaw(JSON.stringify(message));
+        if (!sent) {
+          console.error(
+            `[daemon] Failed to send ${formattedMessage}; WebSocket is not connected`,
+          );
+        }
+        return sent;
+      } catch (error) {
+        console.error(
+          `[daemon] Failed to serialize or send ${formattedMessage}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return false;
+      }
     },
     [sendRaw],
   );

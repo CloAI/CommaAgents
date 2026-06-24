@@ -7,6 +7,6 @@
     "noCheck": true,
     "noEmit": false
   },
-  "include": ["src/index.ts"],
+  "include": ["src/index.ts", "src/hub/index.ts"],
   "exclude": ["src/**/*.test.ts", "src/**/test.utils.ts"]
 }

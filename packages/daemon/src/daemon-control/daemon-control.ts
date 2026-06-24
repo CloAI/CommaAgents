@@ -5,10 +5,11 @@ import {
   getProviderDefinition,
   registerProvider,
   registerProviderDefinition,
+  resolveDataDir,
   setGlobalCredentialStore,
   setProviderCacheDir,
 } from "@comma-agents/core";
-import { loadDaemonConfig, resolveDataDir } from "../config";
+import { loadDaemonConfig } from "../config";
 import { createLogger } from "../logger/logger";
 import type { LogSink } from "../logger/logger.types";
 import { createFileSink } from "../logger/sinks/file";

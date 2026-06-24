@@ -1,5 +1,5 @@
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { resolveDataDir } from "../../../data-directory";
 import type {
   Modality,
   ModelCapabilities,
@@ -116,41 +116,7 @@ export function toModelInfo(catalogModel: CatalogModel): ModelInfo {
 /** Filename used for the on-disk catalog snapshot. */
 export const CATALOG_CACHE_FILENAME = "models-catalog.json";
 
-/**
- * Resolve the platform-aware cache directory for comma-agents.
- *
- * Mirrors the conventions used by `resolveDataDir` but targets cache storage:
- * - macOS:   ~/Library/Caches/comma-agents/
- * - Windows: %LOCALAPPDATA%/comma-agents/Cache/ (fallback ~/AppData/Local)
- * - Linux:   $XDG_CACHE_HOME/comma-agents/ (fallback ~/.cache)
- */
-export function resolveCatalogCachePath(
-  env: Readonly<Record<string, string | undefined>> = process.env,
-  platform: NodeJS.Platform = process.platform,
-): string {
-  if (platform === "win32") {
-    const base =
-      env.LOCALAPPDATA && env.LOCALAPPDATA.length > 0
-        ? env.LOCALAPPDATA
-        : join(homedir(), "AppData", "Local");
-    return join(base, "comma-agents", "Cache", CATALOG_CACHE_FILENAME);
-  }
-
-  if (platform === "darwin") {
-    return join(
-      homedir(),
-      "Library",
-      "Caches",
-      "comma-agents",
-      CATALOG_CACHE_FILENAME,
-    );
-  }
-
-  // Linux and other Unix — XDG Base Directory Specification
-  const xdgCacheHome = env.XDG_CACHE_HOME;
-  const base =
-    xdgCacheHome && xdgCacheHome.length > 0
-      ? xdgCacheHome
-      : join(homedir(), ".cache");
-  return join(base, "comma-agents", CATALOG_CACHE_FILENAME);
+/** Resolve the model catalog cache inside the shared user data directory. */
+export function resolveCatalogCachePath(): string {
+  return join(resolveDataDir(), "cache", CATALOG_CACHE_FILENAME);
 }

@@ -91,7 +91,7 @@ export function setGlobalCredentialStore(
  *
  * @example
  * ```ts
- * setProviderCacheDir("/Users/bot/.local/share/comma-agents/providers");
+ * setProviderCacheDir("/Users/bot/.comma/providers");
  * ```
  */
 export function setProviderCacheDir(dir: string | undefined): void {

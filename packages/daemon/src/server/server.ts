@@ -1,4 +1,5 @@
 import { loadCatalog } from "@comma-agents/core";
+import { createHubManager } from "@comma-agents/core/hub";
 import type { Server, ServerWebSocket } from "bun";
 
 import type { EventSink } from "../run-system/event-sink";
@@ -70,18 +71,21 @@ export function createDaemon({
     },
   };
 
+  const hubManager = createHubManager();
   const runSystem = createRunSystem({
     state,
     sink,
     logger: logger.child("run-system"),
     runsDir: config.runsDir,
     modelOverride,
+    hubManager,
   });
 
   const dispatch = createDispatcher({
     runSystem,
     state,
     logger: logger.child("dispatcher"),
+    hubManager,
   });
 
   function handleFetch(

@@ -1,3 +1,4 @@
+import type { HubManager } from "@comma-agents/core/hub";
 import type { Logger } from "../../logger/logger.types";
 import type { RunSystem } from "../../run-system";
 import type { DaemonState } from "../../state/state.types";
@@ -5,6 +6,7 @@ import type { DaemonMessage } from "./messages";
 import type { AvailableModelsMessage } from "./responses/available-models";
 import type { CredentialSetMessage } from "./responses/credential-set";
 import type { ErrorMessage } from "./responses/error";
+import type { HubPackagesMessage } from "./responses/hub-packages/hub-packages.schema";
 import type { PongMessage } from "./responses/pong";
 import type { ProviderListMessage } from "./responses/provider-list";
 import type { ProviderRegisteredMessage } from "./responses/provider-registered";
@@ -54,6 +56,10 @@ export interface RequestResponseMap {
   readonly trash_restore: TrashRestoreResultMessage;
   readonly trash_clear: TrashClearResultMessage;
   readonly set_credential: CredentialSetMessage;
+  readonly hub_list: HubPackagesMessage;
+  readonly hub_install: HubPackagesMessage;
+  readonly hub_update: HubPackagesMessage;
+  readonly hub_remove: HubPackagesMessage;
 }
 
 /**
@@ -91,6 +97,8 @@ export interface HandlerContext<
   readonly state: DaemonState;
   /** Logger for handler-level diagnostics. */
   readonly logger: Logger;
+  /** Daemon-owned Hub package service. */
+  readonly hubManager?: HubManager;
   /** Send a response to the requesting client. Constrained by `RequestResponseMap`. */
   reply(message: RequestResponseMap[RequestType] | ErrorMessage): void;
 }

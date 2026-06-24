@@ -6,7 +6,6 @@ export type {
 export {
   DaemonConfigFileSchema,
   loadDaemonConfig,
-  resolveDataDir,
 } from "./config";
 export type {
   DaemonRunState,

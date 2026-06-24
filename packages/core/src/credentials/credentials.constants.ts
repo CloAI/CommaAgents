@@ -1,5 +1,8 @@
 import type { EnvVarMap } from "./credentials.types";
 
+/** Default name for the credentials JSON file. */
+export const CREDENTIALS_FILENAME = "credentials.json";
+
 /**
  * Well-known environment variable names for common AI providers.
  *

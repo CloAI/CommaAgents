@@ -18,6 +18,7 @@ const packageManifest = (await Bun.file("package.json").json()) as {
   readonly version: string;
 };
 const workspaceAliases = {
+  "@comma-agents/core/hub": resolve("../core/src/hub/index.ts"),
   "@comma-agents/core": resolve("../core/src/index.ts"),
   "@comma-agents/daemon": resolve("../daemon/src/index.ts"),
   "@comma-agents/tui": resolve("../tui/src/index.ts"),

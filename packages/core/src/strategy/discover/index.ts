@@ -1,6 +1,9 @@
 // Strategy discovery — public barrel.
 
-export { discoverStrategies } from "./discover";
+export {
+  discoverStrategies,
+  resolveInstalledStrategyReference,
+} from "./discover";
 export type {
   DiscoveredStrategy,
   DiscoveredStrategyOrigin,

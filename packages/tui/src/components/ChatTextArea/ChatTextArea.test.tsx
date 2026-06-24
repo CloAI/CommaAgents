@@ -99,7 +99,7 @@ describe("ChatTextAreaRender", () => {
 });
 
 describe("ChatTextArea", () => {
-  it("should render Loading when strategies is empty", () => {
+  it("renders an empty strategy state when strategies is empty", () => {
     const { lastFrame } = render(
       <ChatTextArea
         strategies={[]}
@@ -110,8 +110,28 @@ describe("ChatTextArea", () => {
       />,
     );
 
-    expect(lastFrame()).toContain("Loading...");
+    expect(lastFrame()).toContain("No strategies");
+    expect(lastFrame()).toContain("found");
     expect(lastFrame()).toContain("Tab to change strategy");
+  });
+
+  it("renders a custom empty strategy state", () => {
+    const { lastFrame } = render(
+      <ChatTextArea
+        strategies={[]}
+        emptyStrategyLabel="No bundled strategies found"
+        emptyPlaceholder="Check the package install."
+        onSubmit={mock()}
+        id="chat"
+        width={60}
+        height={3}
+      />,
+    );
+
+    expect(lastFrame()).toContain("No bundled");
+    expect(lastFrame()).toContain("strategies");
+    expect(lastFrame()).toContain("found");
+    expect(lastFrame()).toContain("Check the package install.");
   });
 
   it("selects the active strategy before allowing strategy changes", () => {

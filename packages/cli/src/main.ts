@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { createHubManager } from "@comma-agents/core/hub";
 import {
   getDaemonStatus,
   restartDaemon,
@@ -14,6 +15,7 @@ import { runDoctor } from "./doctor";
 import { runInstaller } from "./install";
 import { launchTui } from "./tui";
 import { resolveSelfDaemonCommand } from "./tui/tui.utils";
+import { runUninstaller } from "./uninstall";
 
 interface TuiCommandArguments {
   readonly strategy?: string;
@@ -233,12 +235,122 @@ yargs(hideBin(process.argv))
   .command("install", "Open the terminal installer", {}, async () => {
     await runInstaller();
   })
+  .command(
+    "hub <action> [name]",
+    "Manage CommaAgents Hub packages",
+    (commandArguments) =>
+      commandArguments
+        .positional("action", {
+          type: "string",
+          choices: ["list", "install", "update", "remove"] as const,
+          describe: "Hub package action",
+        })
+        .positional("name", {
+          type: "string",
+          describe: "Scoped Hub package name",
+        })
+        .option("allow-code", {
+          type: "boolean",
+          default: false,
+          describe: "Approve installation of package executable code",
+        })
+        .option("json", {
+          type: "boolean",
+          default: false,
+          describe: "Print machine-readable output",
+        }),
+    async (commandArguments) => {
+      const manager = createHubManager();
+      const action = commandArguments.action;
+      if (action === "list") {
+        const [available, installed] = await Promise.all([
+          manager.listAvailable(),
+          manager.listInstalled(),
+        ]);
+        const installedByName = new Map(
+          installed.map((item) => [item.name, item]),
+        );
+        const packages = available.map((item) => ({
+          ...item,
+          installedVersion: installedByName.get(item.name)?.version,
+        }));
+        if (booleanValue(commandArguments.json)) {
+          console.log(JSON.stringify(packages, null, 2));
+        } else {
+          for (const item of packages) {
+            const state = item.installedVersion
+              ? item.installedVersion === item.version
+                ? "installed"
+                : `update available from ${item.installedVersion}`
+              : "available";
+            console.log(`${item.name}@${item.version} (${state})`);
+          }
+        }
+        return;
+      }
+
+      const name = optionalString(commandArguments.name);
+      if (!name) throw new Error(`comma hub ${action} requires a package name`);
+      if (action === "remove") {
+        const removed = await manager.remove(name);
+        console.log(removed ? `Removed ${name}` : `${name} is not installed`);
+        return;
+      }
+      const options = { allowCode: booleanValue(commandArguments.allowCode) };
+      const installed =
+        action === "install"
+          ? await manager.install(name, options)
+          : await manager.update(name, options);
+      console.log(
+        `${action === "install" ? "Installed" : "Updated"} ${installed.name}@${installed.version}`,
+      );
+    },
+  )
   .command("update", "Show update instructions", {}, () => {
     console.log("Update with: npm install -g @comma-agents/cli@latest");
   })
-  .command("uninstall", "Show uninstall instructions", {}, () => {
-    console.log("Uninstall with: npm uninstall -g @comma-agents/cli");
-  })
+  .command(
+    "uninstall",
+    "Remove CommaAgents and optionally delete user data",
+    (commandArguments) =>
+      commandArguments
+        .option("yes", {
+          alias: "y",
+          type: "boolean",
+          default: false,
+          describe: "Confirm uninstall without prompting",
+        })
+        .option("remove-history", {
+          type: "boolean",
+          describe: "Remove conversation history",
+        })
+        .option("remove-packages", {
+          type: "boolean",
+          describe: "Remove installed Hub and provider packages",
+        })
+        .option("remove-config", {
+          type: "boolean",
+          describe:
+            "Remove credentials, config, logs, trash, skills, and strategies",
+        }),
+    async (commandArguments) => {
+      await runUninstaller({
+        confirmed: booleanValue(commandArguments.yes),
+        removeHistory:
+          typeof commandArguments.removeHistory === "boolean"
+            ? commandArguments.removeHistory
+            : undefined,
+        removePackages:
+          typeof commandArguments.removePackages === "boolean"
+            ? commandArguments.removePackages
+            : undefined,
+        removeConfig:
+          typeof commandArguments.removeConfig === "boolean"
+            ? commandArguments.removeConfig
+            : undefined,
+      });
+    },
+  )
   .command(
     "doctor",
     "Validate the local CommaAgents installation",

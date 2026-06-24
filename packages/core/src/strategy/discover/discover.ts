@@ -4,13 +4,13 @@
 // `list_strategy` / `launch_strategy` tools and the TUI share a
 // single implementation. Sources scanned (in priority order):
 //
-//   1. Bundled — `<core-pkg-root>/strategies/*.{json,jsonc,yaml,yml}`
-//                and `<core-pkg-root>/strategies/<project>/comma-project.json`
-//   2. Cwd     — `<cwd>/.comma/strategies/*.{json,jsonc,yaml,yml}`
-//   3. Cwd projects — `<cwd>/.comma/strategies/<project>/comma-project.json`
-//   4. Cwd root project — `<cwd>/.comma/comma-project.json`
-//   5. Data    — `<dataDir>/strategies/*.{json,jsonc,yaml,yml}`
-//   6. Data projects — `<dataDir>/strategies/<project>/comma-project.json`
+//   1. Cwd     — `<cwd>/.comma/strategies/*.{json,jsonc,yaml,yml}`
+//   2. Cwd projects — `<cwd>/.comma/strategies/<project>/comma-project.json`
+//   3. Cwd root project — `<cwd>/.comma/comma-project.json`
+//   4. Data    — `<dataDir>/strategies/*.{json,jsonc,yaml,yml}`
+//   5. Data projects — `<dataDir>/strategies/<project>/comma-project.json`
+//   6. Hub packages — `<dataDir>/packages/@scope/project/comma-project.json`
+//   7. Bundled defaults — Core package `strategies/@comma/core-strategies`
 //
 // Each candidate is parsed and validated against `StrategySchema`
 // (or `CommaProjectManifestSchema` for project files). Invalid files
@@ -21,9 +21,11 @@
 // higher-priority source wins.
 
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
+import stripJsonComments from "strip-json-comments";
 
-import { resolveDataDir } from "../../credentials/credentials.utils";
+import { resolveDataDir } from "../../data-directory";
+import { CommaProjectManifestSchema } from "../../hub";
 import type {
   DiscoveredStrategy,
   DiscoveredStrategyOrigin,
@@ -33,7 +35,7 @@ import type {
 } from "./discover.types";
 import {
   buildDiscoveredStrategy,
-  findCorePackageRoot,
+  listInstalledProjectManifests,
   listProjectManifests,
   listStrategyFiles,
   parseProjectManifest,
@@ -47,7 +49,7 @@ import {
  * that failed to parse or validate. See the module header for the full
  * list of sources scanned.
  *
- * @param options - Optional cwd / dataDir / includeBundled overrides.
+ * @param options - Optional cwd and dataDir overrides.
  * @example
  * ```ts
  * const { strategies, warnings } = await discoverStrategies();
@@ -111,51 +113,44 @@ export async function discoverStrategies(
     }
   }
 
-  // 1. Bundled strategies (shipped with core).
-  if (includeBundled) {
-    const corePackageRoot = findCorePackageRoot();
-    if (corePackageRoot) {
-      const bundledRoot = join(corePackageRoot, "strategies");
-      // Single-file children at the bundled root.
-      await collectSingleFiles(bundledRoot, "bundled");
-      // Project-scoped bundled strategies.
-      for (const manifestPath of listProjectManifests(bundledRoot)) {
-        await collectProjectManifest(manifestPath, "bundled-project");
-      }
-      // Also support project subdirs that live one level under
-      // `<core>/strategies/<group>/<project>/comma-project.json`. This
-      // mirrors the existing "CommaAgents Strategies" layout where the
-      // bundled root itself is a project dir.
-      const bundledRootManifest = join(bundledRoot, "comma-project.json");
-      if (existsSync(bundledRootManifest)) {
-        await collectProjectManifest(bundledRootManifest, "bundled-project");
-      }
-    }
-  }
-
-  // 2. Cwd single-file strategies.
+  // 1. Cwd single-file strategies.
   const cwdStrategiesDir = join(cwd, ".comma", "strategies");
   await collectSingleFiles(cwdStrategiesDir, "cwd");
 
-  // 3. Cwd project strategies (subdirs of `.comma/strategies/`).
+  // 2. Cwd project strategies (subdirs of `.comma/strategies/`).
   for (const manifestPath of listProjectManifests(cwdStrategiesDir)) {
     await collectProjectManifest(manifestPath, "cwd-project");
   }
 
-  // 4. Cwd root project (`.comma/comma-project.json`).
+  // 3. Cwd root project (`.comma/comma-project.json`).
   const cwdRootManifest = join(cwd, ".comma", "comma-project.json");
   if (existsSync(cwdRootManifest)) {
     await collectProjectManifest(cwdRootManifest, "cwd-root-project");
   }
 
   if (dataDir) {
-    // 5. Data dir single-file strategies.
+    // 4. Data dir single-file strategies.
     const dataStrategiesDir = join(dataDir, "strategies");
     await collectSingleFiles(dataStrategiesDir, "data");
 
-    // 6. Data dir project strategies.
+    // 5. Data dir project strategies.
     for (const manifestPath of listProjectManifests(dataStrategiesDir)) {
       await collectProjectManifest(manifestPath, "data-project");
+    }
+
+    // 6. Exposed strategies from installed Hub packages.
+    for (const manifestPath of listInstalledProjectManifests(dataDir)) {
+      await collectProjectManifest(manifestPath, "hub-package");
+    }
+  }
+
+  // 7. Bundled official strategies. Kept last so user/workspace/installed
+  // strategies can intentionally shadow default strategy names.
+  if (includeBundled) {
+    for (const manifestPath of getBundledProjectManifestCandidates()) {
+      if (!existsSync(manifestPath)) continue;
+      await collectProjectManifest(manifestPath, "bundled");
+      break;
     }
   }
 
@@ -163,12 +158,125 @@ export async function discoverStrategies(
 }
 
 /**
- * Resolve the platform data dir without crashing when the host has no
+ * Resolve an installed package strategy reference, including internal artifacts.
+ *
+ * References use `@scope/package/strategies/artifact-id`. Internal artifacts
+ * are intentionally absent from global discovery and the Hub registry, but a
+ * strategy in the same installed package can launch one by this explicit ref.
+ */
+export async function resolveInstalledStrategyReference(
+  reference: string,
+  dataDir = safeResolveDataDir(),
+): Promise<DiscoveredStrategy | undefined> {
+  const match = /^(@[^/]+\/[^/]+)\/strategies\/([^/]+)$/.exec(reference);
+  if (!match) return undefined;
+  const [, packageName, artifactId] = match;
+  if (!packageName || !artifactId) return undefined;
+
+  if (dataDir) {
+    const installedManifestPath = join(
+      dataDir,
+      "packages",
+      packageName,
+      "comma-project.json",
+    );
+    const installed = await resolveProjectStrategyReference(
+      installedManifestPath,
+      packageName,
+      artifactId,
+      "hub-package",
+    );
+    if (installed) return installed;
+  }
+
+  for (const manifestPath of getBundledProjectManifestCandidates()) {
+    const bundled = await resolveProjectStrategyReference(
+      manifestPath,
+      packageName,
+      artifactId,
+      "bundled",
+    );
+    if (bundled) return bundled;
+  }
+
+  return undefined;
+}
+
+/**
+ * Resolve the shared data directory without crashing when the host has no
  * usable HOME directory (rare, but possible in containerized contexts).
  */
 function safeResolveDataDir(): string | undefined {
   try {
     return resolveDataDir();
+  } catch {
+    return undefined;
+  }
+}
+
+function getBundledProjectManifestCandidates(): readonly string[] {
+  return [
+    // Bundled layout: packages/core/dist/index.js -> dist.
+    resolve(
+      import.meta.dir,
+      "strategies",
+      "@comma",
+      "core-strategies",
+      "comma-project.json",
+    ),
+    // Source layout: packages/core/src/strategy/discover -> packages/core.
+    resolve(
+      import.meta.dir,
+      "..",
+      "..",
+      "..",
+      "strategies",
+      "@comma",
+      "core-strategies",
+      "comma-project.json",
+    ),
+    // Published layout: packages/core/dist/strategy/discover -> dist.
+    resolve(
+      import.meta.dir,
+      "..",
+      "..",
+      "strategies",
+      "@comma",
+      "core-strategies",
+      "comma-project.json",
+    ),
+  ];
+}
+
+async function resolveProjectStrategyReference(
+  manifestPath: string,
+  packageName: string,
+  artifactId: string,
+  origin: DiscoveredStrategyOrigin,
+): Promise<DiscoveredStrategy | undefined> {
+  if (!existsSync(manifestPath)) return undefined;
+
+  try {
+    const raw = JSON.parse(
+      stripJsonComments(await Bun.file(manifestPath).text()),
+    );
+    const manifest = CommaProjectManifestSchema.parse(raw);
+    if (manifest.name !== packageName) return undefined;
+    const artifact = manifest.strategies?.[artifactId];
+    if (!artifact || isAbsolute(artifact.path)) return undefined;
+    const manifestDir = resolve(manifestPath, "..");
+    const strategyPath = resolve(manifestDir, artifact.path);
+    const rel = relative(manifestDir, strategyPath);
+    if (rel.startsWith("..") || isAbsolute(rel)) return undefined;
+    const header = await parseStrategyHeader(strategyPath);
+    if (!header.ok) return undefined;
+    return buildDiscoveredStrategy({
+      header,
+      path: strategyPath,
+      origin,
+      projectName: manifest.name,
+      manifestPath,
+    });
   } catch {
     return undefined;
   }

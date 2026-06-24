@@ -9,16 +9,13 @@ description: Recoverable deletes are compressed into per-workspace tar.gz archiv
 
 ## Location
 
-The trash root lives in the comma-agents data directory, which follows platform conventions:
+The trash root lives in the shared CommaAgents data directory:
 
 ```
 <dataDir>/trash/<sha256(workspaceRoot)>/<timestamp>-<sessionId>-<runId>-<basename>.tar.gz
 ```
 
-`dataDir` is resolved by `resolveDataDir()`:
-- **macOS:** `~/Library/Application Support/comma-agents/`
-- **Linux:** `$XDG_DATA_HOME/comma-agents/` (fallback `~/.local/share/comma-agents/`)
-- **Windows:** `%LOCALAPPDATA%/comma-agents/`
+`dataDir` is resolved by `resolveDataDir()` to `~/.comma` on every platform.
 
 Each workspace has its own subdirectory keyed by `sha256(workspaceRoot)` so multiple workspaces on the same host do not collide. The leaf name includes the timestamp, truncated session ID, run ID, and original basename for identification.
 

@@ -229,23 +229,6 @@ export const StrategySchema = z
   })
   .strict();
 
-// Project manifest — defines a folder-based strategy project
-
-export const CommaProjectManifestSchema = z
-  .object({
-    name: z.string().min(1),
-    version: z.string().optional(),
-    description: z.string().optional(),
-    strategies: z.array(z.string()).min(1),
-    tools: z.array(z.string()).optional(),
-    /** Relative paths to modules that register custom agent types. */
-    agents: z.array(z.string()).optional(),
-    flows: z.array(z.string()).optional(),
-    entry: z.string().optional(),
-    dependencies: z.array(z.string()).optional(),
-  })
-  .strict();
-
 // Inferred TypeScript types
 
 export type UserAgentDef = z.infer<typeof UserAgentDefSchema>;
@@ -259,8 +242,6 @@ export type BroadcastFlowDef = z.infer<typeof BroadcastFlowDefSchema>;
 export type CustomFlowDef = z.infer<typeof CustomFlowDefSchema>;
 export type FlowDef = z.infer<typeof FlowDefSchema>;
 export type Strategy = z.infer<typeof StrategySchema>;
-
-export type CommaProjectManifest = z.infer<typeof CommaProjectManifestSchema>;
 
 // Type guards
 

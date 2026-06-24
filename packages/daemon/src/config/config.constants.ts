@@ -20,7 +20,6 @@ export const DaemonConfigFileSchema = z
   })
   .strict();
 
-
 /** Map of env var names → config keys + parsers. */
 export const ENV_MAP: Array<{
   env: string;

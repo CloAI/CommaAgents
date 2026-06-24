@@ -1,5 +1,5 @@
 // Provider registry persistence — reads/writes `provider-registry.json`
-// in the platform data directory (same directory as credentials.json).
+// in the shared data directory (same directory as credentials.json).
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

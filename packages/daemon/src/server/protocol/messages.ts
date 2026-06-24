@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { ContinueRunMessage } from "./requests/continue-run/continue-run.schema";
 import { GetAvailableModelsMessage } from "./requests/get-available-models/get-available-models.schema";
+import {
+  HubInstallMessage,
+  HubListMessage,
+  HubRemoveMessage,
+  HubUpdateMessage,
+} from "./requests/hub-packages/hub-packages.schema";
 import { ListProvidersMessage } from "./requests/list-providers/list-providers.schema";
 import { ListRunsMessage } from "./requests/list-runs/list-runs.schema";
 import { ListStrategiesMessage } from "./requests/list-strategies/list-strategies.schema";
@@ -28,6 +34,7 @@ import {
   AvailableModelsMessage,
   CredentialSetMessage,
   ErrorMessage,
+  HubPackagesMessage,
   PolicyUpdatedMessage,
   PongMessage,
   ProviderListMessage,
@@ -74,6 +81,10 @@ export const ClientMessage = z
     TrashRestoreMessage,
     TrashClearMessage,
     PingMessage,
+    HubListMessage,
+    HubInstallMessage,
+    HubUpdateMessage,
+    HubRemoveMessage,
   ])
   .superRefine((message, context) => {
     if (
@@ -117,6 +128,7 @@ export const DaemonMessage = z.discriminatedUnion("type", [
   TrashClearResultMessage,
   PongMessage,
   ErrorMessage,
+  HubPackagesMessage,
 ]);
 
 export type DaemonMessage = z.infer<typeof DaemonMessage>;

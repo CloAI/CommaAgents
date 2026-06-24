@@ -3,7 +3,6 @@
 /**
  * Where a discovered strategy was found.
  *
- * - `bundled` — shipped with `@comma-agents/core` under `packages/core/strategies/`.
  * - `cwd` — single strategy file under `<cwd>/.comma/strategies/`.
  * - `cwd-project` — strategy referenced by a `comma-project.json`
  *   inside `<cwd>/.comma/strategies/<project>/`.
@@ -11,15 +10,17 @@
  * - `data` — single strategy file under `<dataDir>/strategies/`.
  * - `data-project` — strategy referenced by a `comma-project.json`
  *   inside `<dataDir>/strategies/<project>/`.
+ * - `hub-package` — exposed strategy from an installed Hub package.
+ * - `bundled` — exposed strategy from the official strategies bundled with Core.
  */
 export type DiscoveredStrategyOrigin =
-  | "bundled"
-  | "bundled-project"
   | "cwd"
   | "cwd-project"
   | "cwd-root-project"
   | "data"
-  | "data-project";
+  | "data-project"
+  | "hub-package"
+  | "bundled";
 
 /** A successfully discovered and schema-validated strategy. */
 export interface DiscoveredStrategy {
@@ -64,8 +65,8 @@ export interface DiscoverStrategiesOptions {
    */
   readonly dataDir?: string;
   /**
-   * Whether to include the strategies bundled with `@comma-agents/core`
-   * (under `packages/core/strategies/`). Defaults to `true`.
+   * Include the official strategies bundled with Core.
+   * Defaults to `true`.
    */
   readonly includeBundled?: boolean;
 }
@@ -74,7 +75,7 @@ export interface DiscoverStrategiesOptions {
 export interface DiscoverStrategiesResult {
   /**
    * Schema-validated strategies, in source-priority order:
-   * bundled → cwd → cwd-project → cwd-root-project → data → data-project.
+   * cwd → cwd-project → cwd-root-project → data → data-project → hub-package → bundled.
    * Duplicates (by absolute path) are removed.
    */
   readonly strategies: readonly DiscoveredStrategy[];

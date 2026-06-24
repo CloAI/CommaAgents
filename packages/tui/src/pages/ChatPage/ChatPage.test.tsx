@@ -73,6 +73,8 @@ function renderChatPage(
       onQuestionSubmit={mock()}
       onAbort={onAbort}
       strategies={STRATEGIES}
+      emptyStrategyLabel="No strategies found"
+      emptyStrategyPlaceholder="Install a strategy package first..."
     />,
   );
 

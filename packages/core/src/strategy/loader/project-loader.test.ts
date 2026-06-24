@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
 import { StrategyValidationError } from "../../errors";
 import { loadProject } from "./project-loader";
 
@@ -30,83 +31,60 @@ async function writeManifest(
   return path;
 }
 
+function manifest(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return { name: "@test/project", version: "1.0.0", ...overrides };
+}
+
 describe("loadProject", () => {
-  it("throws when the manifest is missing", async () => {
+  it("reports missing, invalid JSON, and schema-invalid manifests", async () => {
     await expect(loadProject(join(projectDir, "missing.json"))).rejects.toThrow(
       "Project manifest not found",
     );
-  });
 
-  it("wraps invalid JSON in StrategyValidationError", async () => {
-    const path = await writeManifest("{ invalid");
-
-    await expect(loadProject(path)).rejects.toBeInstanceOf(
+    const invalidJson = await writeManifest("{ invalid");
+    await expect(loadProject(invalidJson)).rejects.toBeInstanceOf(
       StrategyValidationError,
     );
-    await expect(loadProject(path)).rejects.toThrow(
+    await expect(loadProject(invalidJson)).rejects.toThrow(
       "Failed to parse comma-project.json",
     );
-  });
 
-  it("reports manifest schema validation issues", async () => {
-    const path = await writeManifest({ name: "", strategies: [] });
-
-    await expect(loadProject(path)).rejects.toThrow(
+    const legacy = await writeManifest({
+      name: "@test/project",
+      version: "1.0.0",
+      strategies: ["strategy.json"],
+    });
+    await expect(loadProject(legacy)).rejects.toThrow(
       "Project manifest validation failed",
     );
   });
 
-  it("loads metadata and imports the default entry when present", async () => {
+  it("loads metadata without importing an implicit index.ts", async () => {
     await writeFile(
       join(projectDir, "index.ts"),
-      '(globalThis as Record<string, unknown>).__commaProjectEntry = "loaded";',
+      '(globalThis as Record<string, unknown>).__commaProjectEntry = "implicit";',
     );
-    const path = await writeManifest({
-      name: "Example",
-      version: "1.2.3",
-      description: "Project description",
-      strategies: ["strategy.json"],
-    });
+    const path = await writeManifest(
+      manifest({ description: "Project description" }),
+    );
 
     const project = await loadProject(path);
 
-    expect(project.name).toBe("Example");
-    expect(project.version).toBe("1.2.3");
+    expect(project.name).toBe("@test/project");
+    expect(project.version).toBe("1.0.0");
     expect(project.description).toBe("Project description");
     expect(project.manifestDir).toBe(projectDir);
-    expect((globalThis as Record<string, unknown>).__commaProjectEntry).toBe(
-      "loaded",
-    );
+    expect(
+      (globalThis as Record<string, unknown>).__commaProjectEntry,
+    ).toBeUndefined();
   });
 
-  it("does not require a default entry file", async () => {
-    const path = await writeManifest({
-      name: "No Entry",
-      strategies: ["strategy.json"],
-    });
-
-    expect((await loadProject(path)).name).toBe("No Entry");
-  });
-
-  it("wraps a failing default entry import", async () => {
-    await writeFile(
-      join(projectDir, "index.ts"),
-      "throw new Error('default boom')",
-    );
-    const path = await writeManifest({
-      name: "Broken Default Entry",
-      strategies: ["strategy.json"],
-    });
-
-    await expect(loadProject(path)).rejects.toThrow(
-      `Failed to import "${join(projectDir, "index.ts")}"`,
-    );
-  });
-
-  it("imports explicit entry, tool, agent, and flow files", async () => {
+  it("imports explicit entry, tool, and flow modules but never declarative agents", async () => {
     await writeFile(
       join(projectDir, "entry.ts"),
-      '(globalThis as Record<string, unknown>).__commaProjectEntry = "explicit";',
+      '(globalThis as Record<string, unknown>).__commaProjectEntry = "loaded";',
     );
     await writeFile(
       join(projectDir, "tool.ts"),
@@ -120,120 +98,115 @@ describe("loadProject", () => {
       join(projectDir, "flow.ts"),
       '(globalThis as Record<string, unknown>).__commaProjectFlow = "loaded";',
     );
-    const path = await writeManifest({
-      name: "Imports",
-      strategies: ["strategy.json"],
-      entry: "entry.ts",
-      tools: ["tool.ts"],
-      agents: ["agent.ts"],
-      flows: ["flow.ts"],
-    });
+    const path = await writeManifest(
+      manifest({
+        entry: "entry.ts",
+        tools: { tool: { path: "tool.ts" } },
+        agents: { agent: { path: "agent.ts" } },
+        flows: { flow: { path: "flow.ts" } },
+        permissions: { executesCode: true },
+      }),
+    );
 
     await loadProject(path);
 
     expect((globalThis as Record<string, unknown>).__commaProjectEntry).toBe(
-      "explicit",
-    );
-    expect((globalThis as Record<string, unknown>).__commaProjectTool).toBe(
       "loaded",
     );
-    expect((globalThis as Record<string, unknown>).__commaProjectAgent).toBe(
+    expect((globalThis as Record<string, unknown>).__commaProjectTool).toBe(
       "loaded",
     );
     expect((globalThis as Record<string, unknown>).__commaProjectFlow).toBe(
       "loaded",
     );
+    expect(
+      (globalThis as Record<string, unknown>).__commaProjectAgent,
+    ).toBeUndefined();
   });
 
-  it("throws when an explicit entry, tool, agent, or flow file is missing", async () => {
-    const missingEntry = await writeManifest({
-      name: "Missing Entry",
-      strategies: ["strategy.json"],
-      entry: "missing.ts",
-    });
-    await expect(loadProject(missingEntry)).rejects.toThrow(
-      "Entry file not found",
+  it("rejects missing executable modules and wraps import failures", async () => {
+    const missing = await writeManifest(
+      manifest({
+        tools: { missing: { path: "missing.ts" } },
+        permissions: { executesCode: true },
+      }),
     );
+    await expect(loadProject(missing)).rejects.toThrow("Tool file not found");
 
-    const missingTool = await writeManifest({
-      name: "Missing Tool",
-      strategies: ["strategy.json"],
-      tools: ["missing.ts"],
-    });
-    await expect(loadProject(missingTool)).rejects.toThrow(
-      "Tool file not found",
+    await writeFile(join(projectDir, "broken.ts"), "throw new Error('boom')");
+    const broken = await writeManifest(
+      manifest({ entry: "broken.ts", permissions: { executesCode: true } }),
     );
-
-    const missingAgent = await writeManifest({
-      name: "Missing Agent",
-      strategies: ["strategy.json"],
-      agents: ["missing.ts"],
-    });
-    await expect(loadProject(missingAgent)).rejects.toThrow(
-      "Agent file not found",
-    );
-
-    const missingFlow = await writeManifest({
-      name: "Missing Flow",
-      strategies: ["strategy.json"],
-      flows: ["missing.ts"],
-    });
-    await expect(loadProject(missingFlow)).rejects.toThrow(
-      "Flow file not found",
-    );
-  });
-
-  it("wraps entry, tool, agent, and flow import failures", async () => {
-    await writeFile(
-      join(projectDir, "broken-entry.ts"),
-      "throw new Error('entry boom')",
-    );
-    const brokenEntry = await writeManifest({
-      name: "Broken Entry",
-      strategies: ["strategy.json"],
-      entry: "broken-entry.ts",
-    });
-    await expect(loadProject(brokenEntry)).rejects.toThrow(
+    await expect(loadProject(broken)).rejects.toThrow(
       "Failed to import Entry file",
     );
+  });
 
-    await writeFile(
-      join(projectDir, "broken-tool.ts"),
-      "throw new Error('tool boom')",
-    );
-    const brokenTool = await writeManifest({
-      name: "Broken Tool",
-      strategies: ["strategy.json"],
-      tools: ["broken-tool.ts"],
-    });
-    await expect(loadProject(brokenTool)).rejects.toThrow(
-      "Failed to import Tool file",
-    );
+  it("rejects absolute, escaping, and symlink-escaping executable paths", async () => {
+    const outside = join(tmpdir(), `comma-outside-${crypto.randomUUID()}.ts`);
+    await writeFile(outside, "export {};");
+    try {
+      const absolute = await writeManifest(
+        manifest({ entry: outside, permissions: { executesCode: true } }),
+      );
+      await expect(loadProject(absolute)).rejects.toThrow(
+        "must use a relative path",
+      );
 
-    await writeFile(
-      join(projectDir, "broken-agent.ts"),
-      "throw new Error('agent boom')",
-    );
-    const brokenAgent = await writeManifest({
-      name: "Broken Agent",
-      strategies: ["strategy.json"],
-      agents: ["broken-agent.ts"],
-    });
-    await expect(loadProject(brokenAgent)).rejects.toThrow(
-      "Failed to import Agent file",
-    );
+      const escaping = await writeManifest(
+        manifest({
+          entry: `../${outside.split("/").at(-1)}`,
+          permissions: { executesCode: true },
+        }),
+      );
+      await expect(loadProject(escaping)).rejects.toThrow(
+        "escapes the project directory",
+      );
 
+      await symlink(outside, join(projectDir, "linked.ts"));
+      const linked = await writeManifest(
+        manifest({ entry: "linked.ts", permissions: { executesCode: true } }),
+      );
+      await expect(loadProject(linked)).rejects.toThrow(
+        "escapes the project directory",
+      );
+    } finally {
+      await rm(outside, { force: true });
+    }
+  });
+
+  it("requires declared permissions for privileged built-in tools", async () => {
     await writeFile(
-      join(projectDir, "broken-flow.ts"),
-      "throw new Error('flow boom')",
+      join(projectDir, "strategy.json"),
+      JSON.stringify({
+        name: "privileged",
+        version: "1.0.0",
+        agents: {
+          worker: {
+            model: "test/model",
+            tools: ["read_file", "run_command", "webfetch"],
+          },
+        },
+        flow: {
+          name: "main",
+          type: "sequential",
+          steps: [{ agent: "worker" }],
+        },
+      }),
     );
-    const brokenFlow = await writeManifest({
-      name: "Broken Flow",
-      strategies: ["strategy.json"],
-      flows: ["broken-flow.ts"],
-    });
-    await expect(loadProject(brokenFlow)).rejects.toThrow(
-      "Failed to import Flow file",
+    const path = await writeManifest(
+      manifest({
+        strategies: { main: { path: "strategy.json", expose: true } },
+      }),
     );
+    await expect(loadProject(path)).rejects.toThrow("permissions.filesystem");
+
+    await writeManifest(
+      manifest({
+        strategies: { main: { path: "strategy.json", expose: true } },
+        permissions: { filesystem: true, shell: true, network: true },
+      }),
+    );
+    expect((await loadProject(path)).name).toBe("@test/project");
   });
 });

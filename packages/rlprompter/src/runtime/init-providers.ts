@@ -3,7 +3,7 @@
 // runs strategies in-process, so it must populate the same global registries
 // the daemon would, otherwise LLM agents cannot resolve a model.
 //
-// Reads the shared platform data dir: `credentials.json` for keys and
+// Reads the shared data directory: `credentials.json` for keys and
 // `provider-registry.json` for the list of registered provider ids — the exact
 // files the daemon writes, so configuration is shared across both tools.
 

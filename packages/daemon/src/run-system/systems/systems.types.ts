@@ -10,6 +10,7 @@ import type {
   Sandbox,
   SkillRegistry,
 } from "@comma-agents/core";
+import type { HubManager } from "@comma-agents/core/hub";
 import type { LanguageService } from "../../language";
 import type { Logger } from "../../logger/logger.types";
 import type { DaemonState, RunState } from "../../state/state.types";
@@ -29,6 +30,8 @@ export interface CreateRunSystemOptions {
   readonly runsDir: string;
   /** Model applied to every loaded LLM agent unless preparation overrides it. */
   readonly modelOverride?: string;
+  /** Daemon-owned Hub service used to authorize installed executable projects. */
+  readonly hubManager?: HubManager;
 }
 
 /** Prepares, executes, continues, stops, and persists strategy runs. */

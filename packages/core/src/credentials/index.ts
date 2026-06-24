@@ -21,4 +21,4 @@ export type {
   CredentialStoreData,
   EnvVarMap,
 } from "./credentials.types";
-export { resolveCredentialsPath, resolveDataDir } from "./credentials.utils";
+export { resolveCredentialsPath } from "./credentials.utils";

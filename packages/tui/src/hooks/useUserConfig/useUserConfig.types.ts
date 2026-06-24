@@ -3,7 +3,7 @@ import type { ThemeName } from "../../Theme";
 /**
  * Persisted user configuration for the TUI.
  *
- * Stored as JSON at `{config_dir}/comma-agents/tui-config.json`. New optional
+ * Stored as JSON at `~/.comma/tui-config.json`. New optional
  * fields can be added without breaking older config files because
  * `loadUserConfig` merges any partial input over the defaults.
  */

@@ -1,6 +1,6 @@
-import { homedir, platform } from "node:os";
 import { join } from "node:path";
 
+import { resolveDataDir } from "../data-directory";
 import {
   GLOBAL_SKILLS_SUBDIR,
   PROJECT_SKILLS_SUBDIR,
@@ -8,29 +8,9 @@ import {
 } from "./skills.constants";
 import type { SkillMetadata } from "./skills.types";
 
-/**
- * Resolve the platform-appropriate user config root. Mirrors the logic
- * used by the TUI's `resolveConfigRoot` so that skills authored alongside
- * the TUI config are discovered without extra configuration.
- *
- * - macOS: `~/Library/Application Support`
- * - Windows: `%APPDATA%` (falls back to `~/AppData/Roaming`)
- * - Linux/other: `$XDG_CONFIG_HOME` or `~/.config`
- */
-export function resolveUserConfigRoot(): string {
-  const currentPlatform = platform();
-  if (currentPlatform === "darwin") {
-    return join(homedir(), "Library", "Application Support");
-  }
-  if (currentPlatform === "win32") {
-    return process.env.APPDATA ?? join(homedir(), "AppData", "Roaming");
-  }
-  return process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-}
-
 /** Absolute path to the default global skills directory for this user. */
 export function resolveDefaultGlobalSkillsDir(): string {
-  return join(resolveUserConfigRoot(), GLOBAL_SKILLS_SUBDIR);
+  return join(resolveDataDir(), GLOBAL_SKILLS_SUBDIR);
 }
 
 /** Absolute path to the default project-local skills directory for the given workspace. */

@@ -1,3 +1,4 @@
+import type { HubManager } from "@comma-agents/core/hub";
 import type { Logger } from "../../logger/logger.types";
 import type { RunSystem } from "../../run-system";
 import type { DaemonState } from "../../state/state.types";
@@ -6,6 +7,12 @@ import type { DaemonMessage } from "./messages";
 import { parseClientMessage } from "./messages";
 import { handleContinueRun } from "./requests/continue-run";
 import { handleGetAvailableModels } from "./requests/get-available-models";
+import {
+  handleHubInstall,
+  handleHubList,
+  handleHubRemove,
+  handleHubUpdate,
+} from "./requests/hub-packages";
 import { handleListProviders } from "./requests/list-providers";
 import { handleListRuns } from "./requests/list-runs";
 import { handleListStrategies } from "./requests/list-strategies";
@@ -35,6 +42,8 @@ export interface CreateDispatcherOptions {
   readonly state: DaemonState;
   /** Logger for dispatcher-level diagnostics. */
   readonly logger: Logger;
+  /** Daemon-owned Hub package service. */
+  readonly hubManager: HubManager;
 }
 
 /** Build a timestamped daemon error message. */
@@ -74,7 +83,7 @@ function buildErrorMessage(
 export function createDispatcher(
   options: CreateDispatcherOptions,
 ): MessageDispatcher {
-  const { runSystem, state, logger } = options;
+  const { runSystem, state, logger, hubManager } = options;
 
   return function dispatch(
     clientId: string,
@@ -125,6 +134,7 @@ export function createDispatcher(
       runSystem,
       state,
       logger,
+      hubManager,
       reply,
     };
 
@@ -196,6 +206,18 @@ export function createDispatcher(
           break;
         case "set_credential":
           void handleSetCredential(message, context);
+          break;
+        case "hub_list":
+          void handleHubList(message, context);
+          break;
+        case "hub_install":
+          void handleHubInstall(message, context);
+          break;
+        case "hub_update":
+          void handleHubUpdate(message, context);
+          break;
+        case "hub_remove":
+          void handleHubRemove(message, context);
           break;
       }
     } catch (caughtError) {

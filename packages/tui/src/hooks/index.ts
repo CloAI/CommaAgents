@@ -81,6 +81,13 @@ export type {
   RegionPosition,
 } from "./useRegion";
 export { useRegion } from "./useRegion";
+export type { StrategyDiscoveryStatus } from "./useStrategies";
+export {
+  StrategyDiscoveryContextProvider,
+  useDiscoveredStrategies,
+  useRefreshDiscoveredStrategies,
+  useStrategyDiscoveryStatus,
+} from "./useStrategies";
 export {
   TOOL_SPINNER_FRAMES,
   TOOL_SPINNER_INTERVAL_MS,

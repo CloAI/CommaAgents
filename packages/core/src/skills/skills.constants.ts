@@ -1,5 +1,5 @@
-/** Subdirectory under the OS config root holding global skills. */
-export const GLOBAL_SKILLS_SUBDIR = "comma-agents/skills";
+/** Subdirectory under the shared data directory holding global skills. */
+export const GLOBAL_SKILLS_SUBDIR = "skills";
 
 /** Subdirectory under the project workspace holding project-local skills. */
 export const PROJECT_SKILLS_SUBDIR = ".comma/skills";

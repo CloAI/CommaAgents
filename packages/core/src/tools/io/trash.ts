@@ -11,7 +11,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import extract from "tar-stream/extract";
 import pack from "tar-stream/pack";
-import { resolveDataDir } from "../../credentials/credentials.utils";
+import { resolveDataDir } from "../../data-directory";
 
 /** Metadata stored inside each trash archive. */
 export interface TrashMetadata {

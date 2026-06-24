@@ -19,7 +19,7 @@ export interface DoctorResult {
 }
 
 export interface DoctorOptions {
-  /** Data directory to validate. @default comma-agents platform data dir */
+  /** Data directory to validate. @default ~/.comma */
   readonly dataDir?: string;
   /** PATH value to inspect. @default process.env.PATH */
   readonly pathValue?: string;

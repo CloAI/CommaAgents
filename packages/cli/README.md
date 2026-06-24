@@ -12,3 +12,9 @@ Requires Bun 1.3 or newer. The standalone installer does not require Bun:
 ```bash
 curl -fsSL https://commaagents.com/install | bash
 ```
+
+Remove the CLI and choose which local data to retain:
+
+```bash
+comma uninstall
+```

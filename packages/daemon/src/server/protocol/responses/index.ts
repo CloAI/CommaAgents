@@ -7,6 +7,7 @@ export { AgentStreamingMessage } from "./agent-streaming";
 export { AvailableModelsMessage } from "./available-models";
 export { CredentialSetMessage } from "./credential-set";
 export { ErrorMessage } from "./error";
+export { HubPackagesMessage } from "./hub-packages";
 export { PolicyUpdatedMessage } from "./policy-updated";
 export { PongMessage } from "./pong";
 export { ProviderListMessage } from "./provider-list";

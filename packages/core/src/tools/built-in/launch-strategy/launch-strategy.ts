@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { discoverStrategies } from "../../../strategy/discover/discover";
+import {
+  discoverStrategies,
+  resolveInstalledStrategyReference,
+} from "../../../strategy/discover/discover";
 import { readStrategyFile } from "../../../strategy/discover/discover.utils";
 import { loadStrategyFromString } from "../../../strategy/loader/loader";
 import type { LoadStrategyOptions } from "../../../strategy/loader/loader.types";
@@ -88,7 +91,7 @@ export function createLaunchStrategyTool(): ToolDefinition<
         },
       ],
       notes: [
-        "When multiple discovered strategies share the same name (rare — possible when the same file is reachable via multiple sources), the highest-priority match (bundled > cwd > data) is launched.",
+        "When multiple discovered strategies share the same name, the highest-priority match (cwd > data > Hub packages > bundled defaults) is launched.",
         "Sub-strategies inherit the parent run's sandbox state; tools inside them are subject to the same policies as the caller.",
       ],
     }),
@@ -109,7 +112,9 @@ export function createLaunchStrategyTool(): ToolDefinition<
         );
       }
 
-      const match = discovered.strategies.find((s) => s.name === name);
+      const match =
+        discovered.strategies.find((strategy) => strategy.name === name) ??
+        (await resolveInstalledStrategyReference(name));
       if (!match) {
         const available = discovered.strategies.map((s) => s.name);
         return errorResult<LaunchStrategyData>(

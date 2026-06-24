@@ -3,7 +3,6 @@
 export {
   type LoadConfigOptions,
   loadDaemonConfig,
-  resolveDataDir,
 } from "./config";
 export { DaemonConfigFileSchema } from "./config.constants";
 export type {

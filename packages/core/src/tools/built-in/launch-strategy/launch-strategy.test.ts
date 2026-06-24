@@ -81,9 +81,11 @@ function withCwdContainingProject(strategy: object): {
   writeFileSync(
     join(projectDir, "comma-project.json"),
     JSON.stringify({
-      name: "Demo Project",
-      strategies: ["strategy.json"],
+      name: "@test/demo-project",
+      version: "1.0.0",
+      strategies: { demo: { path: "strategy.json", expose: true } },
       entry: "entry.ts",
+      permissions: { executesCode: true },
     }),
     "utf8",
   );

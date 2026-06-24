@@ -12,7 +12,7 @@ The framework ships no built-in skills. You author them; they are discovered aut
 Create a skill by adding a `SKILL.md` file in a named directory:
 
 ```
-~/.config/comma-agents/skills/ts-patterns/SKILL.md
+~/.comma/skills/ts-patterns/SKILL.md
 ```
 
 ```md
@@ -155,15 +155,10 @@ Skills are discovered from two roots at strategy load time:
 | Location | Path | Purpose |
 |---|---|---|
 | Project | `<workspace>/.comma/skills/` | Project-specific skills checked into the repo. |
-| Global | `<configRoot>/comma-agents/skills/` | Personal skills available across all projects. |
+| Global | `~/.comma/skills/` | Personal skills available across all projects. |
 
-The config root is platform-specific:
-
-| Platform | Config root |
-|---|---|
-| macOS | `~/Library/Application Support` |
-| Windows | `%APPDATA%` (falls back to `~/AppData/Roaming`) |
-| Linux / other | `$XDG_CONFIG_HOME` or `~/.config` |
+Global skills use the same `~/.comma` directory as credentials, daemon state,
+run history, TUI configuration, and Hub packages.
 
 Project skills always override global skills with the same `name`.
 

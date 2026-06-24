@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import type {
   AgentCallResult,
   LaunchStrategyHandle,
@@ -10,11 +9,14 @@ import {
   loadProject,
   loadStrategyFromString,
   parseModel,
+  readStrategyFile,
   toModelInfo,
 } from "@comma-agents/core";
+import type { HubManager } from "@comma-agents/core/hub";
+import { assertProjectCodeApproved } from "../../prepare-strategy";
 import type { DaemonSystem, SystemRunContext } from "../systems.types";
 
-export function createSubLaunchSystem(): DaemonSystem {
+export function createSubLaunchSystem(hubManager?: HubManager): DaemonSystem {
   return {
     name: "sub-launch",
 
@@ -43,11 +45,11 @@ export function createSubLaunchSystem(): DaemonSystem {
         }
 
         if (manifestPath) {
+          await assertProjectCodeApproved(manifestPath, hubManager);
           await loadProject(manifestPath);
         }
 
-        const content = readFileSync(strategyPath, "utf-8");
-        const format = strategyPath.endsWith(".json") ? "json" : "yaml";
+        const strategyFile = await readStrategyFile(strategyPath);
 
         let seed = input && input.length > 0 ? input : null;
         const wrappedCollector = seed
@@ -63,12 +65,16 @@ export function createSubLaunchSystem(): DaemonSystem {
             }
           : inputCollector;
 
-        const subStrategy = await loadStrategyFromString(content, format, {
-          inputCollector: wrappedCollector,
-          modelOverride,
-          cwd: run.cwd,
-          skillRegistry,
-        });
+        const subStrategy = await loadStrategyFromString(
+          strategyFile.content,
+          strategyFile.format,
+          {
+            inputCollector: wrappedCollector,
+            modelOverride,
+            cwd: run.cwd,
+            skillRegistry,
+          },
+        );
 
         const sandboxConfig = {
           cwd: run.cwd,

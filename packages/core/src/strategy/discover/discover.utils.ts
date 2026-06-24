@@ -4,13 +4,15 @@
 // `StrategySchema` / `CommaProjectManifestSchema`. All helpers are pure
 // over the filesystem (no caching, no side effects).
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { realpath, stat } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import stripJsonComments from "strip-json-comments";
 import YAML from "yaml";
 
-import { CommaProjectManifestSchema, StrategySchema } from "../schema";
+import { CommaProjectManifestSchema } from "../../hub";
+import { StrategySchema } from "../schema";
 import type {
   DiscoveredStrategy,
   DiscoveredStrategyOrigin,
@@ -161,9 +163,48 @@ export async function parseProjectManifest(
     return { ok: false, reason: `Manifest invalid (${detail})` };
   }
   const manifestDir = dirname(manifestPath);
-  const strategyPaths = result.data.strategies.map((relativePath) =>
-    resolve(manifestDir, relativePath),
-  );
+  const strategyPaths: string[] = [];
+  let realManifestDir: string;
+  try {
+    realManifestDir = await realpath(manifestDir);
+    for (const entry of Object.values(result.data.strategies ?? {})) {
+      if (entry.expose !== true) continue;
+      if (isAbsolute(entry.path)) {
+        return {
+          ok: false,
+          reason: `Strategy path must be relative: ${entry.path}`,
+        };
+      }
+      const candidate = resolve(manifestDir, entry.path);
+      const lexicalRelative = relative(manifestDir, candidate);
+      if (lexicalRelative.startsWith("..") || isAbsolute(lexicalRelative)) {
+        return {
+          ok: false,
+          reason: `Strategy path escapes project: ${entry.path}`,
+        };
+      }
+      const resolvedPath = await realpath(candidate);
+      const realRelative = relative(realManifestDir, resolvedPath);
+      if (realRelative.startsWith("..") || isAbsolute(realRelative)) {
+        return {
+          ok: false,
+          reason: `Strategy path escapes project: ${entry.path}`,
+        };
+      }
+      if (!(await stat(resolvedPath)).isFile()) {
+        return {
+          ok: false,
+          reason: `Strategy path is not a regular file: ${entry.path}`,
+        };
+      }
+      strategyPaths.push(candidate);
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      reason: `Strategy path is missing or unreadable: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
   return {
     ok: true,
     name: result.data.name,
@@ -203,6 +244,19 @@ export function listProjectManifests(dir: string): string[] {
   }
 }
 
+/** List installed Hub manifests under `<dataDir>/packages/@scope/project`. */
+export function listInstalledProjectManifests(dataDir: string): string[] {
+  const packagesDir = join(dataDir, "packages");
+  if (!existsSync(packagesDir)) return [];
+  try {
+    return readdirSync(packagesDir, { withFileTypes: true })
+      .filter((scope) => scope.isDirectory() && scope.name.startsWith("@"))
+      .flatMap((scope) => listProjectManifests(join(packagesDir, scope.name)));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Build a {@link DiscoveredStrategy} from a parsed strategy header.
  * Project-scoped entries get a `"<project> > <name>"` label.
@@ -227,46 +281,4 @@ export function buildDiscoveredStrategy(input: {
       : {}),
     ...(manifestPath !== undefined ? { manifestPath } : {}),
   };
-}
-
-/**
- * Locate the root directory of the `@comma-agents/core` package.
- *
- * Walks up from this source file looking for a `package.json` whose
- * `name === "@comma-agents/core"`. This works in both workspace
- * development (where the source lives under `packages/core/src/`) and
- * when the package is consumed from `node_modules`.
- *
- * Returns `null` if the package root cannot be located (e.g., when the
- * file has been bundled into a single artifact without a package
- * manifest nearby).
- */
-export function findCorePackageRoot(): string | null {
-  let dir: string;
-  try {
-    dir = import.meta.dir;
-  } catch {
-    return null;
-  }
-
-  // Walk up at most a dozen levels — typical depth is 3-4.
-  for (let i = 0; i < 12; i += 1) {
-    const manifestPath = join(dir, "package.json");
-    if (existsSync(manifestPath)) {
-      try {
-        const content = readFileSync(manifestPath, "utf8");
-        const parsed = JSON.parse(content);
-        if (parsed && parsed.name === "@comma-agents/core") {
-          return dir;
-        }
-      } catch {
-        // Ignore parse errors and keep walking — a sibling package.json
-        // may belong to a different workspace package.
-      }
-    }
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return null;
 }

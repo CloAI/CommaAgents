@@ -22,7 +22,10 @@ import {
   useChatSteering,
 } from "../../hooks/useChat";
 import { ModalContext } from "../../hooks/useModal/useModal.context";
-import { useDiscoveredStrategies } from "../../hooks/useStrategies/useStrategies";
+import {
+  useDiscoveredStrategies,
+  useStrategyDiscoveryStatus,
+} from "../../hooks/useStrategies/useStrategies";
 import { isMouseEscape } from "../../utils/mouseEscape";
 import { DOUBLE_ESCAPE_WINDOW_MS, REPLY_INPUT_ID } from "./ChatPage.constants";
 import type { ChatPageTheme } from "./ChatPage.theme";
@@ -32,6 +35,7 @@ export function ChatPage(): React.ReactElement {
   const { chatRunId = "" } = useParams<{ chatRunId: string }>();
   const navigate = useNavigate();
   const strategies = useDiscoveredStrategies();
+  const strategyDiscovery = useStrategyDiscoveryStatus();
   const chatState = useChatState(chatRunId);
 
   const { continueRun, stopChatRun } = useChatRunLifecycle();
@@ -103,6 +107,14 @@ export function ChatPage(): React.ReactElement {
       onAbort={handleAbort}
       onOpenSubStrategy={handleOpenSubStrategy}
       strategies={strategies}
+      emptyStrategyLabel={
+        strategyDiscovery.status === "loading"
+          ? "Loading strategies..."
+          : "No strategies found"
+      }
+      emptyStrategyPlaceholder={
+        strategyDiscovery.error ?? "No bundled or user strategies were found."
+      }
     />
   );
 }
@@ -118,6 +130,8 @@ export interface ChatPageRenderProps {
   readonly activeStrategyPath: string | null;
   readonly canContinue: boolean;
   readonly strategies: readonly DiscoveredStrategy[];
+  readonly emptyStrategyLabel: string;
+  readonly emptyStrategyPlaceholder: string;
   readonly onReplySubmit: (text: string) => void;
   readonly onSteerSubmit: (text: string) => void;
   readonly onContinueSubmit: (
@@ -149,6 +163,8 @@ export function ChatPageRender({
   onQuestionSubmit,
   onAbort,
   strategies,
+  emptyStrategyLabel,
+  emptyStrategyPlaceholder,
   onOpenSubStrategy,
 }: ChatPageRenderProps): React.ReactElement {
   const showPermission =
@@ -256,6 +272,8 @@ export function ChatPageRender({
           initialStrategyPath={activeStrategyPath ?? undefined}
           onSubmit={handleComposerSubmit}
           placeholder={composerPlaceholder}
+          emptyStrategyLabel={emptyStrategyLabel}
+          emptyPlaceholder={emptyStrategyPlaceholder}
           showStrategyRow={composerMode === "continue"}
           id={REPLY_INPUT_ID}
         />

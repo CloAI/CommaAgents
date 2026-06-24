@@ -1,0 +1,34 @@
+---
+title: Hub Packages
+description: Discover and install CommaAgentsHub packages through Core.
+---
+
+Import Hub APIs from the dedicated subpath:
+
+```ts
+import {
+  createHubManager,
+  CommaProjectManifestSchema,
+  HubRegistrySchema,
+} from "@comma-agents/core/hub";
+
+const hub = createHubManager();
+const available = await hub.listAvailable();
+await hub.install("@comma/core-strategies");
+```
+
+The TUI already includes the official `@comma/core-strategies` defaults through Core’s bundled discovery path. Installing the Hub package is only needed when you want the Hub-managed copy.
+
+Construction has no network or filesystem side effects. The manager fetches the official repository's main commit, then validates and installs registry/package data from that immutable commit. Tests and embedded applications can inject `dataDir`, repository coordinates, and `fetch`.
+
+Executable packages require `allowCode: true`:
+
+```ts
+await hub.install("@example/custom-tools", { allowCode: true });
+```
+
+Installed state is stored under `<dataDir>/hub/installed-packages.json`; package files live under `<dataDir>/packages/@scope/project`. By default, `dataDir` is `~/.comma`.
+
+<AutoTypeTable path="../packages/core/src/hub/hub.types.ts" name="HubManager" />
+
+<AutoTypeTable path="../packages/core/src/hub/hub.types.ts" name="CreateHubManagerOptions" />

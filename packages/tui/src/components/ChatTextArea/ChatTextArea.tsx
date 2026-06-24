@@ -22,6 +22,10 @@ export interface ChatTextAreaProps {
   readonly height?: number;
   /** Placeholder shown when the text area is empty. */
   readonly placeholder?: string;
+  /** Label shown in the strategy row when no strategies are available. */
+  readonly emptyStrategyLabel?: string;
+  /** Placeholder shown when no strategies are available. */
+  readonly emptyPlaceholder?: string;
   /**
    * Whether to show the strategy row (label + "Tab to change strategy" hint).
    * Hide it when the strategy is fixed (e.g. steering or replying mid-run).
@@ -51,6 +55,8 @@ export function ChatTextArea({
   width = "100%",
   height = 5,
   placeholder = "Enter your prompt...",
+  emptyStrategyLabel = "No strategies found",
+  emptyPlaceholder = "Install a strategy package first...",
   showStrategyRow = true,
   onSubmit,
 }: ChatTextAreaProps): React.ReactElement {
@@ -113,11 +119,11 @@ export function ChatTextArea({
         inputValue=""
         onInputChange={() => {}}
         onSubmit={() => {}}
-        strategyLabel="Loading..."
-        strategyDescription="Loading available strategies..."
+        strategyLabel={emptyStrategyLabel}
+        strategyDescription={undefined}
         width={width}
         height={height}
-        placeholder="Loading..."
+        placeholder={emptyPlaceholder}
         showStrategyRow={showStrategyRow}
         id={id}
       />

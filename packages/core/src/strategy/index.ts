@@ -9,7 +9,11 @@ export type {
   DiscoveryWarning,
 } from "./discover/index";
 // Discovery
-export { discoverStrategies, readStrategyFile } from "./discover/index";
+export {
+  discoverStrategies,
+  readStrategyFile,
+  resolveInstalledStrategyReference,
+} from "./discover/index";
 // Factories
 export { exportStrategy } from "./exporter/exporter";
 // Config types
@@ -27,7 +31,6 @@ export type {
   AgentStep,
   BroadcastFlowDef,
   BuiltInToolName,
-  CommaProjectManifest,
   CustomAgentDef,
   CustomFlowDef,
   CycleFlowDef,
@@ -38,7 +41,6 @@ export type {
   UserAgentDef,
 } from "./schema";
 export {
-  CommaProjectManifestSchema,
   CustomAgentDefSchema,
   CustomFlowDefSchema,
   isAgentStep,

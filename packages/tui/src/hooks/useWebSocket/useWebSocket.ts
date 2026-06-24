@@ -7,6 +7,7 @@ import type {
 } from "./useWebSocket.types";
 
 const DEFAULT_RECONNECT_DELAY_MS = 2_000;
+const DEFAULT_CONNECTION_TIMEOUT_MS = 10_000;
 
 /**
  * Generic WebSocket connection hook.
@@ -27,6 +28,7 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
   const {
     url,
     reconnectDelayMs = DEFAULT_RECONNECT_DELAY_MS,
+    connectionTimeoutMs = DEFAULT_CONNECTION_TIMEOUT_MS,
     onMessage,
     onStatus,
     onError,
@@ -34,6 +36,9 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
   const [status, setStatus] = useState<WebSocketStatus>("disconnected");
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const manuallyClosedRef = useRef(false);
@@ -64,13 +69,28 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
     const socket = socketRef.current;
     if (!socket || socket.readyState === WebSocket.CONNECTING) {
       pendingMessagesRef.current.push(data);
+      console.info(
+        `[websocket] Queued outbound message (${data.length} bytes) while connecting`,
+      );
       return true;
     }
     if (socket.readyState !== WebSocket.OPEN) {
+      console.error(
+        `[websocket] Failed to send outbound message (${data.length} bytes); socket is not open`,
+      );
       return false;
     }
-    socket.send(data);
-    return true;
+    try {
+      socket.send(data);
+      console.debug(`[websocket] Sent outbound message (${data.length} bytes)`);
+      return true;
+    } catch (error) {
+      console.error(
+        `[websocket] Failed to send outbound message (${data.length} bytes): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      onErrorRef.current?.("WebSocket send failed");
+      return false;
+    }
   }, []);
 
   const close = useCallback((): void => {
@@ -79,6 +99,10 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
+    }
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
     }
     socketRef.current?.close();
     socketRef.current = null;
@@ -95,11 +119,47 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
       updateStatus("connecting");
       console.log(`[websocket] Connecting to ${url}`);
 
-      const webSocket = new WebSocket(url);
+      let webSocket: WebSocket;
+      try {
+        webSocket = new WebSocket(url);
+      } catch (error) {
+        const message = `WebSocket connection failed: ${error instanceof Error ? error.message : String(error)}`;
+        console.error(`[websocket] ${message}: ${url}`);
+        updateStatus("error");
+        onErrorRef.current?.(message);
+        console.log(
+          `[websocket] Retrying ${url} in ${reconnectDelayMs}ms after connection failure`,
+        );
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectTimeoutRef.current = null;
+          connect();
+        }, reconnectDelayMs);
+        return;
+      }
       socketRef.current = webSocket;
+      connectionTimeoutRef.current = setTimeout(() => {
+        if (
+          disposed ||
+          socketRef.current !== webSocket ||
+          webSocket.readyState === WebSocket.OPEN
+        ) {
+          return;
+        }
+        connectionTimeoutRef.current = null;
+        const message = `WebSocket connection timed out after ${connectionTimeoutMs}ms`;
+        console.error(`[websocket] ${message}: ${url}`);
+        updateStatus("error");
+        onErrorRef.current?.(message);
+        webSocket.close();
+      }, connectionTimeoutMs);
 
       webSocket.addEventListener("open", () => {
         if (disposed || socketRef.current !== webSocket) return;
+
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
 
         updateStatus("connected");
         console.log(`[websocket] Connected to ${url}`);
@@ -110,23 +170,37 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
         for (const queuedMessage of queued) {
           try {
             webSocket.send(queuedMessage);
-          } catch {
+            console.debug(
+              `[websocket] Sent queued outbound message (${queuedMessage.length} bytes)`,
+            );
+          } catch (error) {
             // Preserve messages that fail during the flush so they can be
             // retried after reconnecting.
             pendingMessagesRef.current.push(queuedMessage);
+            console.error(
+              `[websocket] Failed to flush queued outbound message (${queuedMessage.length} bytes): ${error instanceof Error ? error.message : String(error)}`,
+            );
           }
         }
       });
 
       webSocket.addEventListener("message", (event) => {
         if (disposed || socketRef.current !== webSocket) return;
-        onMessageRef.current(String(event.data));
+        const data = String(event.data);
+        console.debug(
+          `[websocket] Received inbound message (${data.length} bytes)`,
+        );
+        onMessageRef.current(data);
       });
 
       webSocket.addEventListener("close", () => {
         if (disposed || socketRef.current !== webSocket) return;
 
         socketRef.current = null;
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
         updateStatus("disconnected");
         if (manuallyClosedRef.current) return;
 
@@ -141,6 +215,7 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
 
       webSocket.addEventListener("error", () => {
         if (disposed || socketRef.current !== webSocket) return;
+        console.error(`[websocket] Connection error: ${url}`);
         updateStatus("error");
         onErrorRef.current?.("WebSocket connection failed");
       });
@@ -154,10 +229,14 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [url, reconnectDelayMs, updateStatus]);
+  }, [url, reconnectDelayMs, connectionTimeoutMs, updateStatus]);
 
   return { status, send, close };
 }

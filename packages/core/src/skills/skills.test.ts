@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 import { buildSkillsPromptHeader, loadSkills } from "./skills.loader";
 import { createSkillRegistry } from "./skills.registry";
-import { parseSkillFile } from "./skills.utils";
+import { parseSkillFile, resolveDefaultGlobalSkillsDir } from "./skills.utils";
 import { createSkillsWorkspace, writeSkillFile } from "./test.utils";
 
 describe("parseSkillFile", () => {
@@ -71,6 +73,14 @@ describe("parseSkillFile", () => {
       "Body",
     ].join("\n");
     expect(() => parseSkillFile(raw)).toThrow(/does not support YAML lists/);
+  });
+});
+
+describe("resolveDefaultGlobalSkillsDir", () => {
+  it("should resolve global skills from the shared data directory", () => {
+    expect(resolveDefaultGlobalSkillsDir()).toBe(
+      join(homedir(), ".comma", "skills"),
+    );
   });
 });
 

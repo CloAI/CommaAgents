@@ -7,20 +7,21 @@ import { SearchInput } from "../SearchInput";
 
 import { BUILT_IN_COMMANDS } from "./CommandPalette.constants";
 import { useCommandPaletteTheme } from "./CommandPalette.theme";
+import type { Command, PaletteSubPageComponent } from "./CommandPalette.types";
 import { filterCommands } from "./CommandPalette.utils";
-
 import { HelpPage } from "./pages/HelpPage";
+import { HubPackagesPage } from "./pages/HubPackagesPage";
 import { ListProvidersPage } from "./pages/ListProvidersPage";
 import { RegisteredProvidersPage } from "./pages/RegisteredProvidersPage";
 import { RunPickerPage } from "./pages/RunPickerPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import type { Command, PaletteSubPageComponent } from "./CommandPalette.types";
 
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
 
 /** Map command id → page component for page-type commands. */
 const PAGE_REGISTRY: ReadonlyMap<string, PaletteSubPageComponent> = new Map([
   ["help", HelpPage],
+  ["hub-packages", HubPackagesPage],
   ["list-providers", ListProvidersPage],
   ["register-providers", RegisteredProvidersPage],
   ["run-picker", RunPickerPage],

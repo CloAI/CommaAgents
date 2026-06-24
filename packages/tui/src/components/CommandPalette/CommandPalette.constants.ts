@@ -46,6 +46,12 @@ export const BUILT_IN_COMMANDS: readonly Command[] = [
     ],
   },
   {
+    id: "hub-packages",
+    label: "Hub Packages",
+    description: "Browse, install, update, and remove strategy packages",
+    keywords: ["hub", "packages", "strategies", "install", "update", "remove"],
+  },
+  {
     id: "run-picker",
     label: "Switch Run",
     description: "Open a previous run",

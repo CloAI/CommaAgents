@@ -1,13 +1,16 @@
 import type React from "react";
 import { createContext, useCallback, useMemo, useState } from "react";
 
-import { resolveDefaultConfigFilePath } from "./useUserConfig.constants";
 import type {
   UserConfig,
   UserConfigContextProviderProps,
   UserConfigContextType,
 } from "./useUserConfig.types";
-import { loadUserConfig, saveUserConfig } from "./useUserConfig.utils";
+import {
+  loadUserConfig,
+  resolveDefaultConfigFilePath,
+  saveUserConfig,
+} from "./useUserConfig.utils";
 
 export const UserConfigContext = createContext<UserConfigContextType | null>(
   null,

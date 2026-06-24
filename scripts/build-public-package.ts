@@ -1,4 +1,4 @@
-import { chmodSync, rmSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 interface PublicPackageConfig {
@@ -7,7 +7,7 @@ interface PublicPackageConfig {
 }
 
 const PACKAGE_CONFIGS: ReadonlyArray<PublicPackageConfig> = [
-  { directory: "core", entrypoints: ["src/index.ts"] },
+  { directory: "core", entrypoints: ["src/index.ts", "src/hub/index.ts"] },
   { directory: "daemon", entrypoints: ["src/index.ts", "src/cli.ts"] },
   { directory: "tui", entrypoints: ["src/index.ts", "src/main.tsx"] },
 ];
@@ -52,7 +52,8 @@ const buildResult = await Bun.build({
     join(packageDirectory, entrypoint),
   ),
   outdir: join(packageDirectory, "dist"),
-  naming: "[name].js",
+  naming:
+    packageConfig.directory === "core" ? "[dir]/[name].js" : "[name].js",
   target: "bun",
   external: externalDependencies,
   alias: workspaceAliases,
@@ -73,6 +74,37 @@ if (packageConfig.directory === "daemon") {
 }
 if (packageConfig.directory === "tui") {
   chmodSync(join(packageDirectory, "dist", "main.js"), 0o755);
+}
+
+if (packageConfig.directory === "core") {
+  const bundledStrategiesPath = join(packageDirectory, "strategies");
+  if (existsSync(bundledStrategiesPath)) {
+    cpSync(bundledStrategiesPath, join(packageDirectory, "dist", "strategies"), {
+      recursive: true,
+    });
+  }
+
+  const { zodToJsonSchema } = await import(
+    join(
+      packageDirectory,
+      "node_modules",
+      "zod-to-json-schema",
+      "dist",
+      "esm",
+      "index.js",
+    )
+  );
+  const { CommaProjectManifestSchema } = await import(
+    "../packages/core/src/hub/hub.schema"
+  );
+  const schema = zodToJsonSchema(CommaProjectManifestSchema, {
+    name: "CommaProjectManifest",
+    $refStrategy: "root",
+  });
+  writeFileSync(
+    join(packageDirectory, "dist", "hub", "comma-project.schema.json"),
+    `${JSON.stringify(schema, null, 2)}\n`,
+  );
 }
 
 const declarationResult = Bun.spawnSync(

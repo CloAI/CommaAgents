@@ -4,6 +4,7 @@
     "agents",
     "flows",
     "strategy",
+    "hub",
     "prompts",
     "hooks",
     "tools",

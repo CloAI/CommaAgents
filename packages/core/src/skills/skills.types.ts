@@ -54,7 +54,7 @@ export interface LoadSkillsOptions {
   /**
    * Absolute path to the global skills directory. Each direct subdirectory
    * containing a `SKILL.md` becomes a skill. Defaults to
-   * `<configRoot>/comma-agents/skills/`.
+   * `~/.comma/skills/`.
    *
    * Set to `null` to skip global discovery.
    */

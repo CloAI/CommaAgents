@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import {
   getCatalogModels,
   getCatalogProvider,
@@ -118,35 +120,9 @@ describe("toModelInfo", () => {
 });
 
 describe("resolveCatalogCachePath", () => {
-  test("honors XDG_CACHE_HOME on Linux", () => {
-    const path = resolveCatalogCachePath(
-      { XDG_CACHE_HOME: "/tmp/xdg" },
-      "linux",
+  test("uses the shared data directory", () => {
+    expect(resolveCatalogCachePath()).toBe(
+      join(homedir(), ".comma", "cache", "models-catalog.json"),
     );
-    expect(path).toBe("/tmp/xdg/comma-agents/models-catalog.json");
-  });
-
-  test("falls back to ~/.cache on Linux when XDG_CACHE_HOME is unset", () => {
-    const path = resolveCatalogCachePath({}, "linux");
-    expect(path.endsWith("/.cache/comma-agents/models-catalog.json")).toBe(
-      true,
-    );
-  });
-
-  test("uses ~/Library/Caches on macOS", () => {
-    const path = resolveCatalogCachePath({}, "darwin");
-    expect(
-      path.endsWith("/Library/Caches/comma-agents/models-catalog.json"),
-    ).toBe(true);
-  });
-
-  test("honors LOCALAPPDATA on Windows", () => {
-    const path = resolveCatalogCachePath(
-      { LOCALAPPDATA: "C:\\Users\\a\\AppData\\Local" },
-      "win32",
-    );
-    expect(path).toContain("comma-agents");
-    expect(path).toContain("Cache");
-    expect(path.endsWith("models-catalog.json")).toBe(true);
   });
 });

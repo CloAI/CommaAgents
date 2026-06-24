@@ -1,208 +1,78 @@
 ---
-title: Project-Based Strategies
-description: Folder-based strategy projects with comma-project.json manifests and custom registrations.
+title: Project Packages
+description: Bundle declarative strategies and executable registrations with comma-project.json.
 ---
 
-Project-based strategies let you organize multiple strategies, custom tools, agents, flows, and setup logic into a single folder with a `comma-project.json` manifest.
+A CommaAgents project is a folder with a strict `comma-project.json` manifest. The same contract is used for local projects and packages published through CommaAgentsHub.
 
-## Project Manifest
+## Manifest
 
-A project is defined by a `comma-project.json` file in one of these locations:
+<AutoTypeTable path="../packages/core/src/hub/hub.types.ts" name="CommaProjectManifest" />
 
-- **Project-local**: `<cwd>/.comma/comma-project.json` or `<cwd>/.comma/strategies/<project-name>/comma-project.json`
-- **User global**: `<dataDir>/strategies/<project-name>/comma-project.json`, where `<dataDir>` is the platform application-data directory
-
-### Manifest Schema
-
-<AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="CommaProjectManifest" />
-
-All paths in `strategies`, `tools`, `agents`, `flows`, and `entry` are relative to the manifest directory. `strategies` must contain at least one entry. The optional `dependencies` field is reserved and is not installed or loaded automatically.
-
-### Example Manifest
+Package names use `@scope/project` and versions use semantic versioning. Artifact fields are maps keyed by stable kebab-case IDs:
 
 ```json
 {
-  "name": "My Project",
-  "version": "1.0",
-  "description": "Custom strategies for my workflow",
-  "strategies": [
-    "./strategies/plan.json",
-    "./strategies/build.json"
-  ],
-  "tools": ["./tools/custom-tools.ts"],
-  "agents": ["./agents/prefixed-echo.ts"],
-  "flows": ["./flows/first-match.ts"],
-  "entry": "index.ts"
+  "name": "@example/review-workflow",
+  "version": "1.0.0",
+  "strategies": {
+    "review": {
+      "path": "strategies/review.jsonc",
+      "expose": true,
+      "description": "Review a code change."
+    }
+  },
+  "agents": {
+    "reviewer": { "path": "agents/reviewer.yaml", "expose": false }
+  },
+  "tools": {
+    "issue-lookup": { "path": "tools/issue-lookup.ts", "expose": false }
+  },
+  "entry": "entry.ts",
+  "permissions": {
+    "network": true,
+    "filesystem": true,
+    "shell": false,
+    "executesCode": true
+  }
 }
 ```
 
-## Project Structure
+Legacy artifact arrays are rejected. Every declared path must be relative, remain inside the project after resolving symlinks, and refer to an existing file. There is no implicit `index.ts` entry.
 
-```
-my-project/
-├── comma-project.json        # Project manifest
-├── index.ts                 # Entry file (setup)
-├── tools/
-│   └── custom-tools.ts     # Custom tool registrations
-├── agents/
-│   └── prefixed-echo.ts    # Custom agent registrations
-├── flows/
-│   └── first-match.ts      # Custom flow registrations
-└── strategies/
-    ├── plan.json            # Strategy file
-    └── build.json          # Strategy file
-```
+## Artifact behavior
 
-## Entry File
+- `strategies` contains JSON, JSONC, YAML, or YML strategy files.
+- `agents` contains standalone declarative agent files. These files are parsed as data and are never imported.
+- `tools` and `flows` contain executable registration modules and are imported by `loadProject()`.
+- `entry` is an executable setup module. Register custom coded agent types from this module.
+- `expose: true` makes an artifact globally discoverable. Internal strategies can be addressed explicitly with `@scope/project/strategies/artifact-id`.
 
-The entry file (default: `index.ts`) runs when the project is loaded. Use it for setup logic:
-
-```ts
-// index.ts
-import { defineTool, okResult, registerTool } from "@comma-agents/core";
-import { z } from "zod";
-
-// Register custom tools
-const myTool = defineTool({
-  description: "My custom tool",
-  parameters: z.object({ input: z.string() }),
-  execute: async ({ input }) => okResult(`Processed: ${input}`),
-});
-
-registerTool("my_tool", myTool);
-
-```
-
-## Custom Tools
-
-Tool files listed in `manifest.tools` are imported when the project loads. Each file should call `registerTool()` to make tools available to your strategies:
-
-```ts
-// tools/custom-tools.ts
-import { defineTool, okResult, registerTool } from "@comma-agents/core";
-import { z } from "zod";
-
-registerTool(
-  "weather",
-  defineTool({
-    description: "Get weather for a city",
-    parameters: z.object({ city: z.string() }),
-    execute: async ({ city }) => okResult(`Sunny in ${city}`),
-  }),
-);
-```
-
-Registration must run at module top level because the loader activates tool files by importing them.
-
-## Custom Agents
-
-Agent files listed in `manifest.agents` are imported when the project loads. Each file should call `registerAgent()` at module top level:
-
-```ts
-import {
-  createAgent,
-  defineAgentType,
-  registerAgent,
-} from "@comma-agents/core";
-import { z } from "zod";
-
-registerAgent(
-  "prefixed-echo",
-  defineAgentType({
-    configSchema: z.object({ prefix: z.string() }).strict(),
-    create: ({ name, config }) =>
-      createAgent({
-        name,
-        execute: async (message) => `${config.prefix}${message}`,
-      }),
-  }),
-);
-```
-
-Strategies can then use `type: prefixed-echo` with implementation-specific values under `config`. See [createAgent](/docs/core/agents/create-agent#declarative-custom-agent-types) for the registration API.
-
-## Custom Flows
-
-Flow files listed in `manifest.flows` are imported when the project loads. Each file should call `registerFlow()` at module top level so its type is available before strategy validation:
-
-```ts
-import {
-  createFlow,
-  defineFlowType,
-  registerFlow,
-} from "@comma-agents/core";
-import { z } from "zod";
-
-registerFlow(
-  "first-match",
-  defineFlowType({
-    configSchema: z.object({ marker: z.string() }).strict(),
-    create: ({ name, steps, config }) =>
-      createFlow({
-        name,
-        steps,
-        execute: async (availableSteps, message, flowContext) => {
-          for (const step of availableSteps) {
-            const result = await flowContext.runStep(step, message);
-            if (result.text.includes(config.marker)) return result.text;
-          }
-          return message;
-        },
-      }),
-  }),
-);
-```
-
-See [Custom Flows](/docs/core/flows/custom-flow) for the registration API and declarative configuration shape.
+Packages with `entry`, `tools`, or `flows` must declare `permissions.executesCode`. Hub installation and updates require explicit code approval, and the daemon checks the stored approval before importing those modules.
 
 ## Discovery
 
-Projects are automatically discovered from these locations:
+Core discovers strategies from:
 
-1. **Bundled strategies and projects** — the `strategies` directory shipped with `@comma-agents/core`
-2. **Project-local (single-file)** — `<cwd>/.comma/strategies/*.json`
-3. **Project-local (projects)** — `<cwd>/.comma/strategies/<project>/comma-project.json`
-4. **Project-local (root)** — `<cwd>/.comma/comma-project.json`
-5. **User global (single-file)** — `<dataDir>/strategies/*.{json,jsonc,yaml,yml}`
-6. **User global (projects)** — `<dataDir>/strategies/<project>/comma-project.json`
+1. `<cwd>/.comma/strategies/*.{json,jsonc,yaml,yml}`
+2. `<cwd>/.comma/strategies/<project>/comma-project.json`
+3. `<cwd>/.comma/comma-project.json`
+4. `<dataDir>/strategies/*.{json,jsonc,yaml,yml}`
+5. `<dataDir>/strategies/<project>/comma-project.json`
+6. exposed artifacts under `<dataDir>/packages/@scope/project`
+7. bundled defaults under Core’s `strategies/@comma/core-strategies`
 
-The platform data directory defaults to `~/Library/Application Support/comma-agents` on macOS, `$XDG_DATA_HOME/comma-agents` (or `~/.local/share/comma-agents`) on Linux, and `%LOCALAPPDATA%/comma-agents` on Windows.
+Official strategies are bundled with Core for first-run availability and are also published as the `@comma/core-strategies` Hub package for explicit installation or updates.
 
-When a project is discovered, all its strategies appear in the strategy picker prefixed with the project name:
-```
-My Project > Plan Strategy
-My Project > Build Strategy
-```
-
-## Loading
-
-When you select a project-based strategy, the daemon:
-
-1. Loads the `comma-project.json` manifest
-2. Runs the entry file (`index.ts` or the file specified in `manifest.entry`)
-3. Imports all tool files listed in `manifest.tools`
-4. Imports all agent files listed in `manifest.agents`
-5. Imports all flow files listed in `manifest.flows`
-6. Loads the selected strategy from the project
-
-This ensures all custom implementations are registered before the strategy loads.
-
-## API
-
-### loadProject
-
-Load a project manifest, run its entry file, and import its registration modules.
+## Loading executable registrations
 
 ```ts
 import { loadProject } from "@comma-agents/core";
 
 const project = await loadProject("/path/to/comma-project.json");
-console.log(project.name);        // "My Project"
-console.log(project.manifestDir); // "/path/to"
+console.log(project.name);
 ```
 
-### LoadedProject
-
-The loaded manifest and its resolved manifest directory.
+`loadProject()` imports the explicit entry, tool modules, and flow modules before a strategy is loaded. Installation itself never imports package code.
 
 <AutoTypeTable path="../packages/core/src/strategy/loader/project-loader.ts" name="LoadedProject" />

@@ -1,5 +1,5 @@
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolveDataDir } from "@comma-agents/core";
 
 /**
  * Global debug flags for the TUI package.
@@ -15,4 +15,4 @@ export const DEBUG_RENDER = false;
 export const DEBUG_LOG = false;
 
 /** Absolute path to the debug log file written when {@link DEBUG_LOG} is enabled. */
-export const LOG_FILE_PATH = join(tmpdir(), "comma-agents-tui.log");
+export const LOG_FILE_PATH = join(resolveDataDir(), "tui.log");

@@ -53,6 +53,7 @@ export function createRunSystem({
   sink,
   logger,
   runsDir,
+  hubManager,
   modelOverride: defaultModelOverride,
 }: CreateRunSystemOptions): RunSystem {
   const runStore = createRunStore({ runsDir });
@@ -69,7 +70,7 @@ export function createRunSystem({
     createStreamingSystem({ logger, sink }),
     createPersistenceSystem({ logger: logger.child("persistence"), runStore }),
     createSandboxSystem(),
-    createSubLaunchSystem(),
+    createSubLaunchSystem(hubManager),
   ];
 
   async function prepareRun(
@@ -164,6 +165,7 @@ export function createRunSystem({
         runId: run.id,
         systemData,
         logger,
+        hubManager,
       });
 
       const conversation = conversationHistoryFromEvents(persistedEvents);

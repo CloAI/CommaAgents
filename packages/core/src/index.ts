@@ -112,8 +112,8 @@ export {
   createJsonFileBackend,
   OAuthCredentialSchema,
   resolveCredentialsPath,
-  resolveDataDir,
 } from "./credentials/index";
+export { resolveDataDir } from "./data-directory";
 export type { GlobalDefaults, ProviderRegistration } from "./defaults/index";
 export {
   getGlobalCredentialStore,
@@ -319,7 +319,6 @@ export type {
   AgentStep,
   BroadcastFlowDef,
   BuiltInToolName,
-  CommaProjectManifest,
   CustomAgentDef,
   CustomFlowDef,
   CycleFlowDef,
@@ -339,7 +338,6 @@ export type {
   UserAgentDef,
 } from "./strategy/index";
 export {
-  CommaProjectManifestSchema,
   CustomAgentDefSchema,
   CustomFlowDefSchema,
   discoverStrategies,

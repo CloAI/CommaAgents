@@ -42,15 +42,19 @@ describe("createListStrategyTool", () => {
     expect(typeof tool.execute).toBe("function");
   });
 
-  it("returns at least the bundled strategies when run from the workspace", async () => {
+  it("returns bundled default strategies", async () => {
     const tool = createListStrategyTool();
     const result = await tool.execute({}, makeToolContext());
 
     expect(result.ok).toBe(true);
     expect(result.data?.count).toBe(result.data?.strategies.length);
-    // The repo ships a "CommaAgents Strategies" project under
-    // packages/core/strategies/. Discovery should pick it up.
-    expect(result.data?.count ?? 0).toBeGreaterThan(0);
+    expect(result.data?.strategies).toBeArray();
+    expect(
+      result.data?.strategies.some(
+        (strategy) =>
+          strategy.origin === "bundled" && strategy.name === "Build",
+      ),
+    ).toBe(true);
   });
 
   it("formats a single discovered cwd strategy with origin + label", async () => {

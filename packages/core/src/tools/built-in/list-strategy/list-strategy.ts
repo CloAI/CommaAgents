@@ -16,8 +16,8 @@ export const listStrategyParams = z.object({});
  * Build the `list_strategy` tool.
  *
  * Enumerates every strategy that {@link discoverStrategies} can find on
- * disk (bundled, cwd `.comma/strategies/`, cwd projects, data dir, data
- * dir projects) and returns them in a structured payload plus a
+ * disk (cwd `.comma/strategies/`, cwd projects, data dir, data dir
+ * projects, installed Hub packages, and bundled defaults) and returns them in a structured payload plus a
  * human-readable summary. Strategies that fail schema validation are
  * not included; their paths are surfaced in `data.warnings`.
  */
@@ -29,7 +29,7 @@ export function createListStrategyTool(): ToolDefinition<
     description: describeTool({
       purpose: [
         "List every strategy currently available to launch with launch_strategy.",
-        "Strategies are agent-orchestration files (JSON, JSONC, or YAML) discovered from the bundled set shipped with @comma-agents/core, the workspace `.comma/strategies/` directory, and the platform data dir.",
+        "Strategies are agent-orchestration files (JSON, JSONC, or YAML) discovered from the workspace `.comma/strategies/` directory, the shared `~/.comma` data directory, installed Hub packages, and the bundled defaults shipped with @comma-agents/core.",
       ],
       inputs: [
         {
@@ -40,7 +40,7 @@ export function createListStrategyTool(): ToolDefinition<
         },
       ],
       outputs:
-        "`{ strategies, count, warnings }` where each strategy is `{ name, version, description?, path, origin, manifestPath?, label }`. Entries are ordered by discovery priority (bundled → cwd → data) with duplicate paths removed.",
+        "`{ strategies, count, warnings }` where each strategy is `{ name, version, description?, path, origin, manifestPath?, label }`. Entries are ordered by discovery priority (cwd → data → Hub packages → bundled defaults) with duplicate paths removed.",
       errors: [],
       notes: [
         "Pass the `name` of any returned entry to `launch_strategy` to run it.",

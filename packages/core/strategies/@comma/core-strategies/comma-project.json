@@ -1,0 +1,49 @@
+{
+  "name": "@comma/core-strategies",
+  "version": "1.0.0",
+  "description": "Official Build, Plan, QA, maintenance, and conversation strategies for CommaAgents.",
+  "license": "MIT",
+  "strategies": {
+    "build": {
+      "path": "build/build.json",
+      "expose": true,
+      "description": "Plan, implement, and verify a requested code change."
+    },
+    "plan": {
+      "path": "plan/plan.json",
+      "expose": true,
+      "description": "Investigate a task and produce a reviewed implementation plan."
+    },
+    "qa": {
+      "path": "qa.json",
+      "expose": true,
+      "description": "Review a change set and report evidence-backed findings."
+    },
+    "reduce-complexity": {
+      "path": "reduce-complexity/reduce-complexity.jsonc",
+      "expose": true,
+      "description": "Identify and reduce unnecessary implementation complexity."
+    },
+    "talk": {
+      "path": "talk.json",
+      "expose": true,
+      "description": "Answer questions with optional codebase and web investigation."
+    },
+    "standardize": {
+      "path": "standardize/manager.jsonc",
+      "expose": true,
+      "description": "Coordinate standards-driven updates across a project."
+    },
+    "standardize-worker": {
+      "path": "standardize/worker.jsonc",
+      "expose": false,
+      "description": "Internal worker used by the Standardize manager."
+    }
+  },
+  "permissions": {
+    "network": true,
+    "filesystem": true,
+    "shell": true,
+    "executesCode": false
+  }
+}

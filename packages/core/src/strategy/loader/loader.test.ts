@@ -1419,18 +1419,31 @@ describe("JSONC support and systemPrompt file path loading", () => {
     const manifestPath = join(tempDir, "comma-project.json");
     const manifestJson = `{
       // This is a JSONC project manifest
-      "name": "JSONC Project",
-      "version": "1.0",
-      "strategies": [
-        "./strategy.json"
-      ]
+      "name": "@test/jsonc-project",
+      "version": "1.0.0",
+      "strategies": {
+        "main": { "path": "./strategy.json", "expose": true }
+      }
     }`;
 
     await writeFile(manifestPath, manifestJson);
+    await writeFile(
+      join(tempDir, "strategy.json"),
+      JSON.stringify({
+        name: "project-strategy",
+        version: "1.0.0",
+        agents: { user: { type: "user" } },
+        flow: {
+          name: "main",
+          type: "sequential",
+          steps: [{ agent: "user" }],
+        },
+      }),
+    );
 
     try {
       const result = await loadProject(manifestPath);
-      expect(result.name).toBe("JSONC Project");
+      expect(result.name).toBe("@test/jsonc-project");
     } finally {
       await unlink(manifestPath).catch(() => {});
       await rm(tempDir, { recursive: true, force: true }).catch(() => {});
@@ -1482,9 +1495,11 @@ registerAgent("project-echo", defineAgentType({
     await writeFile(
       manifestPath,
       JSON.stringify({
-        name: "Project",
-        strategies: ["./strategy.json"],
-        agents: ["./custom-agent.ts"],
+        name: "@test/project",
+        version: "1.0.0",
+        strategies: { main: { path: "./strategy.json", expose: true } },
+        entry: "./custom-agent.ts",
+        permissions: { executesCode: true },
       }),
     );
 

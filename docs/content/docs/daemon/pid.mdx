@@ -14,7 +14,7 @@ Writes the current process PID to a file. Creates parent directories if they don
 ```ts
 import { writePid } from "@comma-agents/daemon";
 
-writePid("/home/user/.local/share/comma-agents/daemon.pid");
+writePid("/home/user/.comma/daemon.pid");
 ```
 
 ## readPid
@@ -24,7 +24,7 @@ Reads a PID from a file. Returns `undefined` if the file doesn't exist or contai
 ```ts
 import { readPid } from "@comma-agents/daemon";
 
-const pid = readPid("/home/user/.local/share/comma-agents/daemon.pid");
+const pid = readPid("/home/user/.comma/daemon.pid");
 // => 12345 | undefined
 ```
 
@@ -50,7 +50,7 @@ Removes the PID file. No-op if the file doesn't exist.
 ```ts
 import { removePid } from "@comma-agents/daemon";
 
-removePid("/home/user/.local/share/comma-agents/daemon.pid");
+removePid("/home/user/.comma/daemon.pid");
 ```
 
 ## Typical Daemon Usage

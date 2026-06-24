@@ -11,6 +11,8 @@ export interface UseWebSocketConfig {
   readonly url: string;
   /** Delay before reconnecting after a dropped connection. Default: 2000ms. */
   readonly reconnectDelayMs?: number;
+  /** Maximum time to wait for a connection to open. Default: 10000ms. */
+  readonly connectionTimeoutMs?: number;
   /** Called with every incoming message (raw string data). */
   readonly onMessage: (data: string) => void;
   /** Called when the connection status changes. */

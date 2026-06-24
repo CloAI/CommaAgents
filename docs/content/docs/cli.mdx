@@ -102,3 +102,21 @@ comma doctor --json
 ```
 
 Doctor checks runtime availability, daemon config, daemon state, writable data directory, autostart support, PATH visibility, and provider configuration files.
+
+## Uninstall
+
+Run the interactive uninstaller:
+
+```bash
+comma uninstall
+```
+
+The command stops the daemon, disables and removes daemon autostart, and removes the standalone executable or detected global package installation. It separately asks whether to remove conversation history, installed Hub and provider packages, and remaining configuration such as credentials, logs, trash, global skills, and strategies.
+
+For non-interactive removal, pass `--yes` and the data categories to delete:
+
+```bash
+comma uninstall --yes --remove-history --remove-packages --remove-config
+```
+
+Data-removal flags default to false when `--yes` is used.

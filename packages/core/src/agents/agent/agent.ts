@@ -1,3 +1,4 @@
+import { streamText } from "ai";
 import type {
   AbortableAsyncGenerator,
   AbortablePromise,
@@ -6,7 +7,6 @@ import {
   createAbortableGenerator,
   createAbortablePromise,
 } from "../../abortable";
-import { streamText } from "ai";
 import {
   type ConversationContextOptions,
   createConversationContext,

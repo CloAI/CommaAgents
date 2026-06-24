@@ -1,12 +1,16 @@
-import { readFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import type { AgentHooks, FlowHooks, LoadedStrategy } from "@comma-agents/core";
 import {
   hookIntoAgent,
   isUserAgentDef,
   loadProject,
   loadStrategyFromString,
+  readStrategyFile,
 } from "@comma-agents/core";
+import {
+  CommaProjectManifestSchema,
+  type HubManager,
+} from "@comma-agents/core/hub";
 import type { Logger } from "../logger/logger.types";
 import type { SystemDataStore } from "./systems/systems.types";
 
@@ -19,6 +23,32 @@ export interface PrepareStrategyOptions {
   readonly logger: Logger;
   readonly flowHooks?: FlowHooks;
   readonly agentHooks?: AgentHooks;
+  readonly hubManager?: HubManager;
+}
+
+/** Refuse executable code from installed packages without persisted approval. */
+export async function assertProjectCodeApproved(
+  manifestPath: string,
+  hubManager?: HubManager,
+): Promise<void> {
+  if (!hubManager) return;
+  const installed = await hubManager.listInstalled();
+  const managed = installed.find(
+    (item) =>
+      resolve(item.path, "comma-project.json") === resolve(manifestPath),
+  );
+  if (!managed) return;
+  const manifest = CommaProjectManifestSchema.parse(
+    JSON.parse(await Bun.file(manifestPath).text()),
+  );
+  if (
+    manifest.permissions?.executesCode &&
+    !(await hubManager.isExecutableCodeApproved(manifestPath))
+  ) {
+    throw new Error(
+      `Executable code is not approved for installed Hub package ${manifest.name}`,
+    );
+  }
 }
 
 export async function prepareStrategy(
@@ -33,36 +63,41 @@ export async function prepareStrategy(
     logger,
     flowHooks,
     agentHooks,
+    hubManager,
   } = options;
 
   logger.debug(`Loading strategy from ${strategyPath}`);
 
   if (manifestPath) {
+    await assertProjectCodeApproved(manifestPath, hubManager);
     await loadProject(manifestPath);
   }
 
-  let content: string;
+  let strategyFile: Awaited<ReturnType<typeof readStrategyFile>>;
   try {
-    content = readFileSync(strategyPath, "utf-8");
+    strategyFile = await readStrategyFile(strategyPath);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Strategy file not found: ${strategyPath} - ${message}`);
   }
-  const format = strategyPath.endsWith(".json") ? "json" : "yaml";
 
   const inputCollector = systemData.get("inputCollector");
   const launchStrategy = systemData.get("launchStrategy");
   const skillRegistry = systemData.get("skillRegistry");
 
-  const strategy = await loadStrategyFromString(content, format, {
-    inputCollector,
-    launchStrategy,
-    skillRegistry,
-    flowHooks,
-    modelOverride,
-    strategyDir: dirname(strategyPath),
-    runId,
-  });
+  const strategy = await loadStrategyFromString(
+    strategyFile.content,
+    strategyFile.format,
+    {
+      inputCollector,
+      launchStrategy,
+      skillRegistry,
+      flowHooks,
+      modelOverride,
+      strategyDir: dirname(strategyPath),
+      runId,
+    },
+  );
 
   logger.info(
     `Strategy loaded: ${strategy.name} with ${Object.keys(strategy.agents).length} agents`,

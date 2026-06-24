@@ -44,7 +44,7 @@ export interface JsonFileBackendOptions {
  *
  * @example
  * ```ts
- * const backend = createJsonFileBackend({ filePath: "/home/user/.config/credentials.json" });
+ * const backend = createJsonFileBackend({ filePath: "/home/user/.comma/credentials.json" });
  * const data = await backend.readAll();
  * ```
  */

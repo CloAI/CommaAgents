@@ -1,10 +1,7 @@
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import {
-  getDaemonStatus,
-  loadDaemonConfig,
-  resolveDataDir,
-} from "@comma-agents/daemon";
+import { resolveDataDir } from "@comma-agents/core";
+import { getDaemonStatus, loadDaemonConfig } from "@comma-agents/daemon";
 import { buildAutostartPlan } from "../autostart";
 import type {
   DoctorCheck,

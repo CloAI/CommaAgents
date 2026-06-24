@@ -1,9 +1,18 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 
+import { resolveDataDir } from "@comma-agents/core";
 import { THEME_REGISTRY, type ThemeName } from "../../Theme";
-import { DEFAULT_USER_CONFIG } from "./useUserConfig.constants";
+import {
+  CONFIG_FILE_NAME,
+  DEFAULT_USER_CONFIG,
+} from "./useUserConfig.constants";
 import type { UserConfig } from "./useUserConfig.types";
+
+/** Resolve the TUI configuration file inside the shared user data directory. */
+export function resolveDefaultConfigFilePath(): string {
+  return join(resolveDataDir(), CONFIG_FILE_NAME);
+}
 
 /** Type guard for a valid `ThemeName`. */
 function isThemeName(value: unknown): value is ThemeName {

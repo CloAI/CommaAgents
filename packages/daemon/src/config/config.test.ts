@@ -33,21 +33,15 @@ function cleanEnv(): Record<string, string | undefined> {
 // resolveDataDir
 
 describe("resolveDataDir", () => {
-  test("returns a path containing comma-agents", () => {
+  test("returns the shared .comma directory", () => {
     const dir = resolveDataDir();
-    expect(dir).toContain("comma-agents");
+    expect(dir).toBe(join(homedir(), ".comma"));
   });
 
   test("returns path under home directory", () => {
     const dir = resolveDataDir();
     const home = homedir();
     expect(dir.startsWith(home)).toBe(true);
-  });
-
-  test("on macOS returns Library/Application Support path", () => {
-    if (process.platform !== "darwin") return;
-    const dir = resolveDataDir();
-    expect(dir).toContain("Library/Application Support/comma-agents");
   });
 });
 
@@ -133,7 +127,7 @@ describe("loadDaemonConfig defaults", () => {
         configFile: join(tempDir, "none.json"),
         env: cleanEnv(),
       });
-      expect(config.providerCacheDir).toContain("comma-agents");
+      expect(config.providerCacheDir).toContain(".comma");
       expect(config.providerCacheDir.endsWith("providers")).toBe(true);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
@@ -147,7 +141,7 @@ describe("loadDaemonConfig defaults", () => {
         configFile: join(tempDir, "none.json"),
         env: cleanEnv(),
       });
-      expect(config.pidFile).toContain("comma-agents");
+      expect(config.pidFile).toContain(".comma");
       expect(config.pidFile.endsWith("daemon.pid")).toBe(true);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
