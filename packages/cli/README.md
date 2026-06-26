@@ -18,3 +18,12 @@ Remove the CLI and choose which local data to retain:
 ```bash
 comma uninstall
 ```
+
+Check for and install the newest compatible release:
+
+```bash
+comma update
+```
+
+Launching `comma` also checks periodically and offers to install an available
+release before opening the terminal interface.

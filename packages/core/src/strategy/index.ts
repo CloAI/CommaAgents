@@ -18,7 +18,11 @@ export {
 export { exportStrategy } from "./exporter/exporter";
 // Config types
 export type { ExportStrategyOptions } from "./exporter/exporter.types";
-export { loadStrategy, loadStrategyFromString } from "./loader/loader";
+export {
+  loadStrategy,
+  loadStrategyFromString,
+  parseStrategyFromString,
+} from "./loader/loader";
 export type {
   LoadedStrategy,
   LoadStrategyOptions,

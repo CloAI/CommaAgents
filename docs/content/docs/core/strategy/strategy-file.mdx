@@ -5,6 +5,25 @@ description: Schema reference for strategy files — agent definitions, flow def
 
 A strategy file is a JSON or YAML document with three top-level fields: `name`, `version`, and the orchestration graph (`agents` + `flow`). The schema is validated at load time with Zod.
 
+Strategies may also define private MCP servers in a top-level `mcpServers`
+map. LLM agents opt into shared or private servers with their own
+`mcpServers` array:
+
+```yaml
+mcpServers:
+  repository:
+    transport: stdio
+    command: bunx
+    args: ["@example/repository-mcp"]
+agents:
+  coder:
+    model: openai/gpt-4o
+    mcpServers: [repository, github]
+```
+
+Private definitions override workspace and global definitions with the same
+ID. See [MCP](/docs/core/mcp) for shared configuration and transports.
+
 ## Strategy
 
 The top-level strategy type.

@@ -18,4 +18,8 @@ export interface ChatRunLifecycle {
   readonly resetChatRun: (chatRunId: ChatRunId) => void;
   readonly removeChatRun: (chatRunId: ChatRunId) => void;
   readonly clearAllChatRuns: () => void;
+  readonly confirmMcpPreparation: (
+    chatRunId: ChatRunId,
+    proceed: boolean,
+  ) => void;
 }

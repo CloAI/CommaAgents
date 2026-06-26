@@ -1,5 +1,5 @@
-export { QuestionPrompt, QuestionPromptRender } from "./QuestionPrompt";
 export type {
   QuestionPromptProps,
   QuestionPromptRenderProps,
-} from "./QuestionPrompt.types";
+} from "./QuestionPrompt";
+export { QuestionPrompt, QuestionPromptRender } from "./QuestionPrompt";

@@ -4,6 +4,7 @@ import type {
   ConversationInputWire,
   ConversationRecordWire,
   ConversationRetentionEventWire,
+  McpServerStatusWire,
   RequestPermissionMessage,
   RequestQuestionMessage,
   RunOverview,
@@ -139,6 +140,10 @@ export interface ChatRun {
   readonly error: string | null;
   /** Execution waiting for daemon preparation or execution. */
   readonly pendingExecution: PendingChatExecution | null;
+  /** MCP connection outcomes returned by the latest preparation. */
+  readonly mcpServers: readonly McpServerStatusWire[];
+  /** Whether failed enabled servers require a Continue/Cancel decision. */
+  readonly pendingMcpConfirmation: boolean;
   /** Agent currently waiting for user input, or null. */
   readonly pendingInputAgent: string | null;
   /**
@@ -228,6 +233,8 @@ export interface UseChatState {
   readonly pendingQuestionRequest: RequestQuestionMessage | null;
   /** Alias for `daemonRunId` — preserved for back-compatibility. */
   readonly runId: string | null;
+  readonly mcpServers: readonly McpServerStatusWire[];
+  readonly pendingMcpConfirmation: boolean;
   /** Current daemon WebSocket connection status. */
   readonly connectionStatus: WebSocketStatus;
   /** Create a new run and start a strategy on it. Returns the stable run id. */

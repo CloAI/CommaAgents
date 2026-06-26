@@ -6,13 +6,17 @@ import {
   mkdirSync,
   openSync,
   readdirSync,
+  readFileSync,
+  renameSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import type { TimelineEvent } from "@comma-agents/core";
 import type { RunStatus } from "../../state/state.types";
 import type {
   CreateRunStoreOptions,
+  RunConfig,
   RunOverview,
   RunStore,
 } from "./run-store.types";
@@ -56,6 +60,10 @@ export function createRunStore(options: CreateRunStoreOptions): RunStore {
 
   function runFilePath(runId: string): string {
     return join(runsDir, `${runId}.jsonl`);
+  }
+
+  function runConfigFilePath(runId: string): string {
+    return join(runsDir, `${runId}.config.json`);
   }
 
   return {
@@ -146,13 +154,49 @@ export function createRunStore(options: CreateRunStoreOptions): RunStore {
     async deleteRun(runId): Promise<boolean> {
       const filePath = runFilePath(runId);
       return runSerialized(runId, async () => {
-        if (!existsSync(filePath)) return false;
+        const configPath = runConfigFilePath(runId);
+        if (!existsSync(filePath) && !existsSync(configPath)) return false;
         try {
-          rmSync(filePath);
+          rmSync(filePath, { force: true });
+          rmSync(configPath, { force: true });
           return true;
         } catch {
           return false;
         }
+      });
+    },
+
+    async getRunConfig(runId): Promise<RunConfig | undefined> {
+      const filePath = runConfigFilePath(runId);
+      if (!existsSync(filePath)) return undefined;
+      const parsed = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
+      if (
+        typeof parsed !== "object" ||
+        parsed === null ||
+        !("enabledMcpServerIds" in parsed) ||
+        !Array.isArray(parsed.enabledMcpServerIds) ||
+        !parsed.enabledMcpServerIds.every(
+          (serverId) => typeof serverId === "string",
+        )
+      ) {
+        throw new Error(`Invalid run configuration: ${filePath}`);
+      }
+      return {
+        enabledMcpServerIds: [...parsed.enabledMcpServerIds],
+      };
+    },
+
+    async saveRunConfig(runId, config): Promise<void> {
+      return runSerialized(runId, async () => {
+        mkdirSync(runsDir, { recursive: true });
+        const filePath = runConfigFilePath(runId);
+        const temporaryPath = `${filePath}.${crypto.randomUUID()}.tmp`;
+        writeFileSync(
+          temporaryPath,
+          `${JSON.stringify(config, null, 2)}\n`,
+          "utf8",
+        );
+        renameSync(temporaryPath, filePath);
       });
     },
   };

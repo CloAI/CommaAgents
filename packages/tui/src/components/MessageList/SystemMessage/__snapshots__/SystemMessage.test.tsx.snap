@@ -1,0 +1,7 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`SystemMessage renders a readable system panel snapshot 1`] = `
+"╭ system ───────────────────────────────────────────────────────────────────────────────────────────
+│ Strategy preparation completed.
+"
+`;

@@ -12,6 +12,10 @@ export {
   ContextUsageModal,
   ContextUsageModalRender,
 } from "./ContextUsageModal";
+export type {
+  MessageListProps,
+  MessageListRenderProps,
+} from "./MessageList";
 export {
   findSubStrategyName,
   groupSubStrategyMessages,
@@ -19,11 +23,7 @@ export {
   MessageListRender,
   selectSubStrategyMessages,
 } from "./MessageList";
-export type {
-  GroupedChatMessage,
-  MessageListProps,
-  MessageListRenderProps,
-} from "./MessageList.types";
+export type { GroupedChatMessage } from "./MessageList.types";
 export type {
   OutputModalKind,
   OutputModalPayload,

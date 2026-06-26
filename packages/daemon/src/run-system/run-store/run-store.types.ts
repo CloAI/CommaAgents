@@ -50,6 +50,18 @@ export interface RunStore {
    * Delete a run timeline by ID. Returns true if it existed.
    */
   deleteRun(runId: string): Promise<boolean>;
+
+  /** Read the persisted execution configuration for a run. */
+  getRunConfig(runId: string): Promise<RunConfig | undefined>;
+
+  /** Atomically replace the persisted execution configuration for a run. */
+  saveRunConfig(runId: string, config: RunConfig): Promise<void>;
+}
+
+/** Mutable choices that persist across executions of one logical run. */
+export interface RunConfig {
+  /** MCP server IDs enabled for the run's next preparation. */
+  readonly enabledMcpServerIds: readonly string[];
 }
 
 /** Options for creating a run store. */

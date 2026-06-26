@@ -48,6 +48,10 @@ The CLI starts the daemon when needed and opens the terminal interface. From
 there you can choose a strategy, provide a task, follow agent and tool activity,
 respond to runtime prompts, and inspect previous runs.
 
+Use `comma update` to check for and install a newer compatible release. The CLI
+also checks periodically when launching the terminal interface and offers to
+install an available update.
+
 ## Build an agent with TypeScript
 
 Install Core when you want to use CommaAgents inside an application:

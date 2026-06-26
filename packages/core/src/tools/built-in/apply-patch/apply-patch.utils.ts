@@ -17,6 +17,7 @@ import {
   unifiedDiff,
 } from "../../io";
 import type { AuditEntry, AuditSink } from "../../io/audit.types";
+import type { TrashMetadata } from "../../io/trash";
 import { okResult, toolError } from "../../result";
 import type { ToolResult } from "../../tool.types";
 import {
@@ -329,8 +330,14 @@ export async function dryRunPatch(
 export async function commitStagedFiles(
   stagedFiles: StagedFile[],
   workspaceRoot: string,
-  atomic: boolean,
+  options: {
+    readonly atomic: boolean;
+    readonly trashMetadata?: Partial<
+      Pick<TrashMetadata, "sessionId" | "runId" | "agentName">
+    >;
+  },
 ): Promise<void> {
+  const { atomic, trashMetadata } = options;
   const committedFiles: StagedFile[] = [];
   try {
     for (const staged of stagedFiles) {
@@ -344,7 +351,7 @@ export async function commitStagedFiles(
     }
 
     for (const staged of stagedFiles) {
-      await commitOne(staged, workspaceRoot);
+      await commitOne(staged, workspaceRoot, trashMetadata);
       staged.committed = true;
       committedFiles.push(staged);
     }
@@ -1043,9 +1050,16 @@ async function stageWrite(
 async function commitOne(
   staged: StagedFile,
   workspaceRoot: string,
+  trashMetadata?: Partial<
+    Pick<TrashMetadata, "sessionId" | "runId" | "agentName">
+  >,
 ): Promise<void> {
   if (staged.operation === "delete") {
-    staged.trashedTo = await moveToTrash(workspaceRoot, staged.absolutePath);
+    staged.trashedTo = await moveToTrash(
+      workspaceRoot,
+      staged.absolutePath,
+      trashMetadata,
+    );
     return;
   }
   if (staged.operation === "move") {

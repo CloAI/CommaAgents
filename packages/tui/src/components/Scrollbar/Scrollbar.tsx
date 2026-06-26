@@ -3,8 +3,23 @@ import type React from "react";
 
 import type { ScrollbarTheme } from "./Scrollbar.theme";
 import { useScrollbarTheme } from "./Scrollbar.theme";
-import type { ScrollbarProps, ScrollbarRenderProps } from "./Scrollbar.types";
+import type { ScrollbarGeometry } from "./Scrollbar.types";
 import { computeScrollbarGeometry } from "./Scrollbar.utils";
+
+/** Props for the `Scrollbar` presentational component. */
+export interface ScrollbarProps {
+  /** Total number of scrollable units (e.g. lines or list items). */
+  readonly total: number;
+  /** Number of units currently visible. */
+  readonly windowSize: number;
+  /** Zero-based offset of the first visible unit into `total`. */
+  readonly offset: number;
+  /**
+   * Height of the rendered scrollbar, in terminal rows. Defaults to
+   * `windowSize` (one scrollbar row per visible unit).
+   */
+  readonly height?: number;
+}
 
 /**
  * A single-column vertical scrollbar.
@@ -32,9 +47,14 @@ export function Scrollbar(props: ScrollbarProps): React.ReactElement {
   return <ScrollbarRender theme={theme} {...geometry} />;
 }
 
+/** Props for the `ScrollbarRender` render-only form. */
+export interface ScrollbarRenderProps extends ScrollbarGeometry {
+  readonly theme: ScrollbarTheme;
+}
+
 /** Presentational form of `Scrollbar`; takes resolved geometry and theme. */
 export function ScrollbarRender(
-  props: ScrollbarRenderProps & { readonly theme: ScrollbarTheme },
+  props: ScrollbarRenderProps,
 ): React.ReactElement {
   const { theme, height, thumbTop, thumbHeight } = props;
 

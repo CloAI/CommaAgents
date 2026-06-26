@@ -4,19 +4,22 @@ import type {
   LaunchStrategyRequest,
 } from "@comma-agents/core";
 import {
-  getCatalogProviderSync,
   inSandbox,
   loadProject,
   loadStrategyFromString,
-  parseModel,
   readStrategyFile,
-  toModelInfo,
 } from "@comma-agents/core";
 import type { HubManager } from "@comma-agents/core/hub";
+import { resolveAgentModelDetails } from "../../agent-model-details";
+import { createRunMcpRuntime, resolveRunMcpConfig } from "../../mcp";
 import { assertProjectCodeApproved } from "../../prepare-strategy";
+import type { RunStore } from "../../run-store";
 import type { DaemonSystem, SystemRunContext } from "../systems.types";
 
-export function createSubLaunchSystem(hubManager?: HubManager): DaemonSystem {
+export function createSubLaunchSystem(
+  hubManager?: HubManager,
+  runStore?: RunStore,
+): DaemonSystem {
   return {
     name: "sub-launch",
 
@@ -50,6 +53,16 @@ export function createSubLaunchSystem(hubManager?: HubManager): DaemonSystem {
         }
 
         const strategyFile = await readStrategyFile(strategyPath);
+        const mcpRuntime = runStore
+          ? await createRunMcpRuntime(
+              await resolveRunMcpConfig({
+                strategyPath,
+                cwd: run.cwd,
+                runId: run.id,
+                runStore,
+              }),
+            )
+          : undefined;
 
         let seed = input && input.length > 0 ? input : null;
         const wrappedCollector = seed
@@ -73,6 +86,8 @@ export function createSubLaunchSystem(hubManager?: HubManager): DaemonSystem {
             modelOverride,
             cwd: run.cwd,
             skillRegistry,
+            runId: `${run.id}:${crypto.randomUUID()}`,
+            ...(mcpRuntime ? { mcpToolsByAgent: mcpRuntime.toolsByAgent } : {}),
           },
         );
 
@@ -112,7 +127,7 @@ export function createSubLaunchSystem(hubManager?: HubManager): DaemonSystem {
           if (!agent.appendHook) continue;
 
           const isUserAgent = agent.config?.type === "user";
-          const modelDetails = resolveModelDetails(agent.config?.model);
+          const modelDetails = resolveAgentModelDetails(agent.config?.model);
 
           agent.appendHook("beforeCall", (_message: string): void => {
             logger.debug(`Sub-strategy agent ${agentName} beforeCall`);
@@ -162,6 +177,7 @@ export function createSubLaunchSystem(hubManager?: HubManager): DaemonSystem {
           result = await flowCall;
         } finally {
           abortSignal.removeEventListener("abort", abortFlow);
+          await mcpRuntime?.manager.close();
         }
 
         logger.info(
@@ -178,27 +194,4 @@ export function createSubLaunchSystem(hubManager?: HubManager): DaemonSystem {
       systemData.set("launchStrategy", launchStrategy);
     },
   };
-}
-
-interface AgentModelDetails {
-  readonly model?: string;
-  readonly contextWindow?: number;
-}
-
-function resolveModelDetails(model: string | undefined): AgentModelDetails {
-  if (!model) return {};
-
-  try {
-    const { providerId, modelId } = parseModel(model);
-    const catalogModel = getCatalogProviderSync(providerId)?.models[modelId];
-    const contextWindow = catalogModel
-      ? toModelInfo(catalogModel).contextWindow
-      : undefined;
-    return {
-      model,
-      ...(contextWindow !== undefined ? { contextWindow } : {}),
-    };
-  } catch {
-    return { model };
-  }
 }

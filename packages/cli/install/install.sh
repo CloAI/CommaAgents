@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPOSITORY="CloAI/CommaAgents"
-VERSION="${COMMA_VERSION:-2.0.0-rc.0}"
+VERSION="${COMMA_VERSION:-2.0.0-rc.1}"
 VERSION="${VERSION#v}"
 INSTALL_DIR="${COMMA_INSTALL_DIR:-$HOME/.local/bin}"
 

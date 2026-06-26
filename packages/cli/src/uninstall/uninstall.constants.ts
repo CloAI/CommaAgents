@@ -7,5 +7,3 @@ export const PACKAGE_DATA_ENTRIES = [
   "cache",
   "provider-registry.json",
 ] as const;
-
-export const CLI_PACKAGE_NAME = "@comma-agents/cli";

@@ -125,6 +125,7 @@ export function useChatAgentMessages(): void {
           toolCallId: message.event.toolCallId,
           toolName: message.event.toolName,
           args: message.event.args,
+          ...(message.event.mcp ? { mcp: message.event.mcp } : {}),
         });
         const next = new Map(previousChatRuns);
         next.set(chatRun.id, {
@@ -150,6 +151,7 @@ export function useChatAgentMessages(): void {
           toolName: event.toolName,
           output: event.output,
           status: event.status,
+          ...(event.mcp ? { mcp: event.mcp } : {}),
           ...(event.error !== undefined ? { error: event.error } : {}),
         });
         const next = new Map(previousChatRuns);

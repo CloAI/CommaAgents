@@ -6,9 +6,12 @@ import { Route, Routes, useLocation, useNavigate } from "react-router";
 import { CommandPalette } from "../components/CommandPalette";
 import { Frame } from "../components/Frame";
 import type { TabDefinition } from "../components/Frame/Frame";
+import { McpConnectionFailureModal } from "../components/McpConnectionFailureModal";
 import { ContextUsageModal, OutputModal } from "../components/MessageList";
 import { Modal } from "../components/Modal";
-import { useChatRunLifecycle } from "../hooks/useChat/useChatRunLifecycle";
+import { StatusBar } from "../components/StatusBar";
+import { useChatState } from "../hooks/useChat";
+import { useMcp } from "../hooks/useMcp";
 import { useModal } from "../hooks/useModal";
 import { ChatPage } from "../pages/ChatPage";
 import { IntroPage } from "../pages/IntroPage";
@@ -40,25 +43,33 @@ export function App({ devMode = false }: AppProps): React.ReactElement {
   const { enableFocus } = useFocusManager();
   const navigate = useNavigate();
   const location = useLocation();
-  const { clearAllChatRuns } = useChatRunLifecycle();
   const commandPalette = useModal(COMMAND_PALETTE_MODAL_ID);
+  const { servers: mcpServers, refresh: refreshMcpServers } = useMcp();
+  const chatRunId = chatRunIdFromPath(location.pathname);
+  const chatState = useChatState(chatRunId);
+  const displayedMcpServers =
+    chatRunId && chatState.mcpServers.length > 0
+      ? chatState.mcpServers
+      : mcpServers;
 
   useEffect(() => {
     enableFocus();
   }, [enableFocus]);
 
+  useEffect(() => {
+    refreshMcpServers({
+      cwd: process.cwd(),
+      ...(chatRunId ? { runId: chatRunId } : {}),
+      ...(chatState.strategyPath
+        ? { strategyPath: chatState.strategyPath }
+        : {}),
+    });
+  }, [chatRunId, chatState.strategyPath, refreshMcpServers]);
+
   const tabs = useMemo<readonly TabDefinition[]>(
     () => (devMode ? [...BASE_TABS, DEV_TAB] : BASE_TABS),
     [devMode],
   );
-
-  const handleResetChat = useCallback((): void => {
-    clearAllChatRuns();
-  }, [clearAllChatRuns]);
-
-  const handleExitApp = useCallback((): void => {
-    exit();
-  }, [exit]);
 
   const handleTabSelect = useCallback(
     (tabPath: string): void => {
@@ -70,7 +81,7 @@ export function App({ devMode = false }: AppProps): React.ReactElement {
   useInput(
     (inputText, keyPress) => {
       if (keyPress.ctrl && inputText === "c") {
-        handleExitApp();
+        exit();
       }
       if (keyPress.ctrl && inputText === "p") {
         commandPalette.toggle();
@@ -89,8 +100,17 @@ export function App({ devMode = false }: AppProps): React.ReactElement {
       onTabSelect={handleTabSelect}
       commandPaletteOpen={commandPalette.isOpen}
       onCommandPaletteClose={commandPalette.close}
-      onExitApp={handleExitApp}
-      onResetChat={handleResetChat}
+      initialCommandId={
+        isCommandPaletteData(commandPalette.data)
+          ? commandPalette.data.commandId
+          : undefined
+      }
+      chatStatus={chatState.status}
+      chatError={chatState.error}
+      strategyName={chatState.strategyName ?? undefined}
+      mcpServers={displayedMcpServers}
+      onOpenMcpServers={() => commandPalette.open({ commandId: "mcp-servers" })}
+      chatRunId={chatRunId}
     />
   );
 }
@@ -106,10 +126,13 @@ export interface AppRenderProps {
   readonly commandPaletteOpen: boolean;
   /** Callback invoked to close the command palette. */
   readonly onCommandPaletteClose: () => void;
-  /** Callback invoked to exit the application. */
-  readonly onExitApp: () => void;
-  /** Callback invoked to reset the chat history. */
-  readonly onResetChat: () => void;
+  readonly initialCommandId?: string;
+  readonly chatStatus: import("../hooks/useChat").ChatStatus;
+  readonly chatError: string | null;
+  readonly strategyName?: string;
+  readonly mcpServers: readonly import("@comma-agents/daemon").McpServerStatusWire[];
+  readonly onOpenMcpServers: () => void;
+  readonly chatRunId: string;
 }
 
 export function AppRender({
@@ -118,15 +141,33 @@ export function AppRender({
   onTabSelect,
   commandPaletteOpen,
   onCommandPaletteClose,
-  onExitApp,
-  onResetChat,
+  initialCommandId,
+  chatStatus,
+  chatError,
+  strategyName,
+  mcpServers,
+  onOpenMcpServers,
+  chatRunId,
 }: AppRenderProps): React.ReactElement {
+  const enabledMcpServers = mcpServers.filter(
+    (server) => server.enabled,
+  ).length;
   return (
     <>
       <Frame
         tabs={tabs}
         activeTabPath={activeTabPath}
         onTabSelect={onTabSelect}
+        footer={
+          <StatusBar
+            status={chatStatus}
+            error={chatError}
+            strategyName={strategyName}
+            mcpEnabled={enabledMcpServers}
+            mcpTotal={mcpServers.length}
+            onMcpPress={onOpenMcpServers}
+          />
+        }
       >
         <Routes>
           <Route index element={<IntroPage />} />
@@ -148,12 +189,28 @@ export function AppRender({
         <CommandPalette
           isVisible={commandPaletteOpen}
           onClose={onCommandPaletteClose}
-          onExitApp={onExitApp}
-          onResetChat={onResetChat}
+          initialCommandId={initialCommandId}
         />
       </Modal>
       <ContextUsageModal />
       <OutputModal />
+      {chatRunId ? <McpConnectionFailureModal chatRunId={chatRunId} /> : null}
     </>
+  );
+}
+
+function chatRunIdFromPath(pathname: string): string {
+  const match = /^\/chat\/([^/]+)/.exec(pathname);
+  return match ? decodeURIComponent(match[1]!) : "";
+}
+
+function isCommandPaletteData(
+  value: unknown,
+): value is { readonly commandId: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "commandId" in value &&
+    typeof value.commandId === "string"
   );
 }

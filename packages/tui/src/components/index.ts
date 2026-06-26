@@ -28,16 +28,18 @@ export type { CodeViewProps, CodeViewRenderProps } from "./CodeView";
 export { CodeView, CodeViewRender } from "./CodeView";
 export type { CodeViewTheme } from "./CodeView/CodeView.theme";
 export { useCodeViewTheme } from "./CodeView/CodeView.theme";
-
 export type {
   Command,
-  CommandAction,
-  CommandActionContext,
   CommandId,
+  CommandPaletteContextType,
   CommandPaletteProps,
   CommandPaletteRenderProps,
 } from "./CommandPalette";
-export { CommandPalette, CommandPaletteRender } from "./CommandPalette";
+export {
+  CommandPalette,
+  CommandPaletteRender,
+  useCommandPalette,
+} from "./CommandPalette";
 export type { CommandPaletteTheme } from "./CommandPalette/CommandPalette.theme";
 export { useCommandPaletteTheme } from "./CommandPalette/CommandPalette.theme";
 
@@ -48,7 +50,11 @@ export { useFrameTheme } from "./Frame/Frame.theme";
 
 export type { HideProps } from "./Hide";
 export { Hide } from "./Hide";
-
+export type { McpConnectionFailureModalProps } from "./McpConnectionFailureModal";
+export {
+  MCP_CONNECTION_FAILURE_MODAL_ID,
+  McpConnectionFailureModal,
+} from "./McpConnectionFailureModal";
 export type {
   AgentMessageProps,
   AgentMessageRenderProps,
@@ -74,11 +80,10 @@ export type {
   RoleStyle,
 } from "./MessageList/MessageList.theme";
 export { useMessageListTheme } from "./MessageList/MessageList.theme";
-
 export type { ModalProps, ModalRenderProps, ModalSize } from "./Modal";
 export { Modal, ModalRender } from "./Modal";
 export type { ModalTheme } from "./Modal/Modal.theme";
-export { useModalTheme } from "./Modal/Modal.theme";
+export { createModalTheme, useModalTheme } from "./Modal/Modal.theme";
 
 export type {
   MouseContextValue,
@@ -105,8 +110,6 @@ export type {
   ScrollableListRenderProps,
 } from "./ScrollableList";
 export { ScrollableList, ScrollableListRender } from "./ScrollableList";
-export type { ScrollableListTheme } from "./ScrollableList/ScrollableList.theme";
-export { useScrollableListTheme } from "./ScrollableList/ScrollableList.theme";
 
 export type {
   ScrollableViewProps,

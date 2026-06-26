@@ -28,7 +28,7 @@ export {
 export type { EventSink } from "./event-sink";
 export type { PrepareStrategyOptions } from "./prepare-strategy";
 export { prepareStrategy } from "./prepare-strategy";
-export type { RunOverview, RunStore } from "./run-store";
+export type { RunConfig, RunOverview, RunStore } from "./run-store";
 export { createRunSystem } from "./run-system";
 export * from "./systems";
 export type {

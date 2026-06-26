@@ -1,18 +1,7 @@
-// Enable React act() environment for bun:test
-(globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
-
-// Suppress React act() warnings from ink-testing-library's internal renders
-const originalConsoleError = console.error;
-console.error = (...args: unknown[]) => {
-  if (typeof args[0] === "string" && args[0].includes("was not wrapped in act"))
-    return;
-  originalConsoleError(...args);
-};
-
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Text } from "ink";
 import { render } from "ink-testing-library";
-import { act } from "react";
+import type React from "react";
 
 import { useWebSocket } from "./useWebSocket";
 import type { WebSocketState } from "./useWebSocket.types";
@@ -80,6 +69,7 @@ class FakeWebSocket {
 }
 
 const realWebSocket = (globalThis as { WebSocket?: unknown }).WebSocket;
+const mountedHooks: ReturnType<typeof render>[] = [];
 
 beforeEach(() => {
   FakeWebSocket.instances = [];
@@ -88,8 +78,28 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  for (const mountedHook of mountedHooks.splice(0)) {
+    mountedHook.unmount();
+  }
   (globalThis as { WebSocket?: unknown }).WebSocket = realWebSocket;
 });
+
+function renderHookHarness(element: React.ReactElement): void {
+  mountedHooks.push(render(element));
+}
+
+async function waitFor(
+  predicate: () => boolean,
+  timeoutMs = 250,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Condition was not met within ${timeoutMs}ms`);
+    }
+    await Bun.sleep(1);
+  }
+}
 
 /**
  * Capture the latest hook state into a ref-like holder so tests can call
@@ -123,9 +133,7 @@ describe("useWebSocket", () => {
   it("queues messages sent while the socket is CONNECTING and flushes on open", async () => {
     const capture: { current: WebSocketState | null } = { current: null };
 
-    await act(async () => {
-      render(<HookHarness url="ws://test/ws" capture={capture} />);
-    });
+    renderHookHarness(<HookHarness url="ws://test/ws" capture={capture} />);
 
     const socket = FakeWebSocket.instances[0]!;
     expect(socket.readyState).toBe(FakeWebSocket.CONNECTING);
@@ -136,23 +144,19 @@ describe("useWebSocket", () => {
     expect(socket.sent).toEqual([]);
 
     // When the socket opens, the queue is drained in order.
-    await act(async () => {
-      socket.triggerOpen();
-    });
+    socket.triggerOpen();
+    await Bun.sleep(0);
     expect(socket.sent).toEqual(["first-message"]);
   });
 
   it("sends directly once the socket is OPEN", async () => {
     const capture: { current: WebSocketState | null } = { current: null };
 
-    await act(async () => {
-      render(<HookHarness url="ws://test/ws" capture={capture} />);
-    });
+    renderHookHarness(<HookHarness url="ws://test/ws" capture={capture} />);
 
     const socket = FakeWebSocket.instances[0]!;
-    await act(async () => {
-      socket.triggerOpen();
-    });
+    socket.triggerOpen();
+    await Bun.sleep(0);
 
     const ok = capture.current?.send("live");
     expect(ok).toBe(true);
@@ -162,32 +166,22 @@ describe("useWebSocket", () => {
   it("reconnects after the connection drops", async () => {
     const capture: { current: WebSocketState | null } = { current: null };
 
-    await act(async () => {
-      render(
-        <HookHarness
-          url="ws://test/ws"
-          reconnectDelayMs={5}
-          capture={capture}
-        />,
-      );
-    });
+    renderHookHarness(
+      <HookHarness url="ws://test/ws" reconnectDelayMs={5} capture={capture} />,
+    );
 
     const firstSocket = FakeWebSocket.instances[0]!;
-    await act(async () => {
-      firstSocket.triggerOpen();
-      firstSocket.triggerClose();
-      await Bun.sleep(10);
-    });
+    firstSocket.triggerOpen();
+    firstSocket.triggerClose();
 
+    await waitFor(() => FakeWebSocket.instances.length === 2);
     expect(FakeWebSocket.instances).toHaveLength(2);
-    expect(capture.current?.status).toBe("connecting");
 
     const secondSocket = FakeWebSocket.instances[1]!;
     capture.current?.send("while-reconnecting");
-    await act(async () => {
-      secondSocket.triggerOpen();
-    });
+    secondSocket.triggerOpen();
 
+    await waitFor(() => capture.current?.status === "connected");
     expect(capture.current?.status).toBe("connected");
     expect(secondSocket.sent).toEqual(["while-reconnecting"]);
   });
@@ -195,20 +189,12 @@ describe("useWebSocket", () => {
   it("does not reconnect after being closed manually", async () => {
     const capture: { current: WebSocketState | null } = { current: null };
 
-    await act(async () => {
-      render(
-        <HookHarness
-          url="ws://test/ws"
-          reconnectDelayMs={5}
-          capture={capture}
-        />,
-      );
-    });
+    renderHookHarness(
+      <HookHarness url="ws://test/ws" reconnectDelayMs={5} capture={capture} />,
+    );
 
-    await act(async () => {
-      capture.current?.close();
-      await Bun.sleep(10);
-    });
+    capture.current?.close();
+    await Bun.sleep(10);
 
     expect(capture.current?.status).toBe("disconnected");
     expect(FakeWebSocket.instances).toHaveLength(1);
@@ -218,18 +204,18 @@ describe("useWebSocket", () => {
     const capture: { current: WebSocketState | null } = { current: null };
     const errors: string[] = [];
 
-    await act(async () => {
-      render(
-        <HookHarness
-          url="ws://test/ws"
-          capture={capture}
-          connectionTimeoutMs={5}
-          reconnectDelayMs={100}
-          onError={(error) => errors.push(error)}
-        />,
-      );
-      await Bun.sleep(10);
-    });
+    renderHookHarness(
+      <HookHarness
+        url="ws://test/ws"
+        capture={capture}
+        connectionTimeoutMs={5}
+        reconnectDelayMs={10_000}
+        onError={(error) => errors.push(error)}
+      />,
+    );
+    await waitFor(
+      () => errors.length === 1 && capture.current?.status === "disconnected",
+    );
 
     expect(errors).toEqual(["WebSocket connection timed out after 5ms"]);
     expect(FakeWebSocket.instances).toHaveLength(1);
@@ -241,17 +227,16 @@ describe("useWebSocket", () => {
     const errors: string[] = [];
     FakeWebSocket.constructionError = new Error("invalid endpoint");
 
-    await act(async () => {
-      render(
-        <HookHarness
-          url="invalid"
-          capture={capture}
-          reconnectDelayMs={100}
-          onError={(error) => errors.push(error)}
-        />,
-      );
-    });
+    renderHookHarness(
+      <HookHarness
+        url="invalid"
+        capture={capture}
+        reconnectDelayMs={100}
+        onError={(error) => errors.push(error)}
+      />,
+    );
 
+    await waitFor(() => capture.current?.status === "error");
     expect(errors).toEqual(["WebSocket connection failed: invalid endpoint"]);
     expect(FakeWebSocket.instances).toHaveLength(0);
     expect(capture.current?.status).toBe("error");

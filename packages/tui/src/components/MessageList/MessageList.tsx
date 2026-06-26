@@ -1,4 +1,4 @@
-import { Box, Text } from "ink";
+import { Box, type InkBoxProps, Text } from "ink";
 import type React from "react";
 import { useMemo } from "react";
 
@@ -7,12 +7,15 @@ import { useDebugRender } from "../../hooks/useDebugRender";
 import { ScrollableView } from "../ScrollableView";
 import { AgentMessage } from "./AgentMessage";
 import { useMessageListTheme } from "./MessageList.theme";
-import type {
-  GroupedChatMessage,
-  MessageListProps,
-  MessageListRenderProps,
-} from "./MessageList.types";
+import type { GroupedChatMessage } from "./MessageList.types";
 import { UserMessage } from "./UserMessage";
+
+export interface MessageListProps {
+  /** Messages to render in chronological order. */
+  readonly messages: readonly ChatMessage[];
+  /** Opens a spawned strategy transcript in its dedicated page. */
+  readonly onOpenSubStrategy?: (toolCallId: string) => void;
+}
 
 /**
  * Scrollable, role-dispatching message list.
@@ -46,6 +49,21 @@ export function MessageList({
       onOpenSubStrategy={onOpenSubStrategy}
     />
   );
+}
+
+export interface MessageListRenderProps {
+  /** Messages to render in chronological order. */
+  readonly messages: readonly GroupedChatMessage[];
+  /** Debug render ref from useDebugRender. */
+  readonly debugRef: React.RefObject<HTMLElement>;
+  /** Props for the outer container Box. */
+  readonly containerProps: InkBoxProps;
+  /** Props for the empty state container Box. */
+  readonly emptyStateProps: InkBoxProps;
+  /** Props for the empty state Text. */
+  readonly emptyStateTextProps: Omit<InkBoxProps, "children">;
+  /** Opens a spawned strategy transcript in its dedicated page. */
+  readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }
 
 export function MessageListRender({

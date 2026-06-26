@@ -13,6 +13,7 @@ import {
 } from "../agents/loader/loader.schema";
 import { BUILT_IN_AGENT_NAMES } from "../agents/registry/agent-registry.constants";
 import { BUILT_IN_FLOW_NAMES } from "../flows/registry/flow-registry.constants";
+import { McpServerDefinitionSchema } from "../mcp/mcp.schema";
 import type { BUILT_IN_TOOL_NAMES } from "../tools/tool.constants";
 
 export type BuiltInToolName = (typeof BUILT_IN_TOOL_NAMES)[number];
@@ -59,6 +60,8 @@ export const LLMAgentDefSchema = z
       .strict()
       .optional(),
     tools: z.array(z.string()).optional(),
+    /** MCP server IDs whose tools are available to this agent. */
+    mcpServers: z.array(z.string().min(1)).optional(),
     /**
      * Skills whose full instructions must be loaded into this agent's system
      * prompt. All discovered skills remain available through the skill tools.
@@ -224,6 +227,8 @@ export const StrategySchema = z
     name: z.string().min(1),
     version: z.string().min(1),
     description: z.string().optional(),
+    /** Strategy-private MCP servers, resolved before shared workspace/global definitions. */
+    mcpServers: z.record(McpServerDefinitionSchema).optional(),
     agents: z.record(AgentDefSchema),
     flow: FlowDefSchema,
   })

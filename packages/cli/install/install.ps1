@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $Repository = "CloAI/CommaAgents"
-$Version = if ($env:COMMA_VERSION) { $env:COMMA_VERSION.TrimStart("v") } else { "2.0.0-rc.0" }
+$Version = if ($env:COMMA_VERSION) { $env:COMMA_VERSION.TrimStart("v") } else { "2.0.0-rc.1" }
 $InstallDir = if ($env:COMMA_INSTALL_DIR) {
   $env:COMMA_INSTALL_DIR
 } else {

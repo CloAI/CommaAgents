@@ -16,6 +16,7 @@ import { runInstaller } from "./install";
 import { launchTui } from "./tui";
 import { resolveSelfDaemonCommand } from "./tui/tui.utils";
 import { runUninstaller } from "./uninstall";
+import { runUpdater } from "./update";
 
 interface TuiCommandArguments {
   readonly strategy?: string;
@@ -306,9 +307,29 @@ yargs(hideBin(process.argv))
       );
     },
   )
-  .command("update", "Show update instructions", {}, () => {
-    console.log("Update with: npm install -g @comma-agents/cli@latest");
-  })
+  .command(
+    "update",
+    "Check for and install CLI updates",
+    (commandArguments) =>
+      commandArguments
+        .option("yes", {
+          alias: "y",
+          type: "boolean",
+          default: false,
+          describe: "Install the update without prompting",
+        })
+        .option("check", {
+          type: "boolean",
+          default: false,
+          describe: "Only report whether an update is available",
+        }),
+    async (commandArguments) => {
+      await runUpdater({
+        confirmed: booleanValue(commandArguments.yes),
+        checkOnly: booleanValue(commandArguments.check),
+      });
+    },
+  )
   .command(
     "uninstall",
     "Remove CommaAgents and optionally delete user data",

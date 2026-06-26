@@ -4,8 +4,8 @@ export type { CommandPaletteTheme } from "./CommandPalette.theme";
 export { useCommandPaletteTheme } from "./CommandPalette.theme";
 export type {
   Command,
-  CommandAction,
-  CommandActionContext,
   CommandId,
   PaletteSubPageComponent,
 } from "./CommandPalette.types";
+export type { CommandPaletteContextType } from "./useCommandPalette";
+export { useCommandPalette } from "./useCommandPalette";

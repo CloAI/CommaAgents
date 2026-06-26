@@ -102,7 +102,29 @@ export async function loadStrategyFromString(
   format: "json" | "yaml",
   options: LoadStrategyOptions = {},
 ): Promise<LoadedStrategy> {
-  // 1. Parse raw content
+  const strategy = parseStrategyFromString(content, format);
+
+  const agents = await buildAgentRegistry(strategy, options);
+  const flow = buildFlowFromDescription(strategy.flow, {
+    agents,
+    flowHooks: options.flowHooks,
+  });
+
+  return {
+    name: strategy.name,
+    version: strategy.version,
+    description: strategy.description,
+    flow,
+    agents,
+    raw: strategy,
+  };
+}
+
+/** Parse and validate strategy source without instantiating runtime agents. */
+export function parseStrategyFromString(
+  content: string,
+  format: "json" | "yaml",
+): import("../schema").Strategy {
   let raw: unknown;
   try {
     if (format === "json") {
@@ -117,7 +139,6 @@ export async function loadStrategyFromString(
     );
   }
 
-  // 2. Validate with Zod
   const result = StrategySchema.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues
@@ -131,23 +152,5 @@ export async function loadStrategyFromString(
     );
   }
 
-  const strategy = result.data;
-
-  // 3. Instantiate agents
-  const agents = await buildAgentRegistry(strategy, options);
-
-  // 4. Build the flow tree
-  const flow = buildFlowFromDescription(strategy.flow, {
-    agents,
-    flowHooks: options.flowHooks,
-  });
-
-  return {
-    name: strategy.name,
-    version: strategy.version,
-    description: strategy.description,
-    flow,
-    agents,
-    raw: strategy,
-  };
+  return result.data;
 }

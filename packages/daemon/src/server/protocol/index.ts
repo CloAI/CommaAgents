@@ -23,10 +23,13 @@ export {
   handleGetAvailableModels,
 } from "./requests/get-available-models";
 export {
+  handleListMcpServers,
+  ListMcpServersMessage,
+} from "./requests/list-mcp-servers";
+export {
   handleListRuns,
   ListRunsMessage,
 } from "./requests/list-runs";
-// Request handlers + client message schemas
 export {
   handleListStrategies,
   ListStrategiesMessage,
@@ -57,6 +60,11 @@ export {
   TrashRestoreMessage,
 } from "./requests/trash-restore";
 export { handleUnsubscribe, UnsubscribeMessage } from "./requests/unsubscribe";
+// Request handlers + client message schemas
+export {
+  handleUpdateMcpServer,
+  UpdateMcpServerMessage,
+} from "./requests/update-mcp-server";
 export {
   handleUpdatePolicy,
   UpdatePolicyMessage,
@@ -70,6 +78,11 @@ export { AgentStreamEventSchema } from "./responses/agent-streaming/agent-stream
 export type { AvailableModelWire } from "./responses/available-models";
 export { AvailableModelsMessage } from "./responses/available-models";
 export { ErrorMessage } from "./responses/error";
+export type { McpServerStatusWire } from "./responses/mcp-server-list";
+export {
+  McpServerListMessage,
+  McpServerStatusSchema,
+} from "./responses/mcp-server-list";
 export { PolicyUpdatedMessage } from "./responses/policy-updated";
 export { PongMessage } from "./responses/pong";
 export { RequestInputMessage } from "./responses/request-input";

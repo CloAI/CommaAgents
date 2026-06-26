@@ -10,6 +10,11 @@ import {
 
 // AgentStreamEvent — mirrors core AgentStreamEvent discriminated union
 
+const McpToolOriginSchema = z.object({
+  serverId: z.string(),
+  toolName: z.string(),
+});
+
 export const AgentStreamEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("retention"),
@@ -26,6 +31,7 @@ export const AgentStreamEventSchema = z.discriminatedUnion("type", [
     toolCallId: z.string(),
     toolName: z.string(),
     args: z.string(),
+    mcp: McpToolOriginSchema.optional(),
   }),
   z.object({
     type: z.literal("tool-result"),
@@ -42,6 +48,7 @@ export const AgentStreamEventSchema = z.discriminatedUnion("type", [
     status: z.enum(["completed", "error"]),
     /** Failure message when `status === "error"`. */
     error: z.string().optional(),
+    mcp: McpToolOriginSchema.optional(),
   }),
   z.object({ type: z.literal("thinking-start"), id: z.string() }),
   z.object({ type: z.literal("thinking"), id: z.string(), text: z.string() }),

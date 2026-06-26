@@ -4,16 +4,16 @@ import type {
   AgentStreamEvent,
   FlowHooks,
 } from "@comma-agents/core";
-import { getQualifiedModelMetadata, isUserAgentDef } from "@comma-agents/core";
+import { isUserAgentDef } from "@comma-agents/core";
 import type { Logger } from "../../../logger";
 import type { RunState } from "../../../state";
+import {
+  type AgentModelDetails,
+  resolveAgentModelDetails,
+} from "../../agent-model-details";
 import type { EventSink } from "../../event-sink";
 import type { DaemonSystem, StrategyLoadedContext } from "../systems.types";
-
-export interface StreamingSystemOptions {
-  readonly logger: Logger;
-  readonly sink: EventSink;
-}
+import type { StreamingSystemOptions } from "./streaming.types";
 
 export function createStreamingSystem(
   options: StreamingSystemOptions,
@@ -38,7 +38,7 @@ export function createStreamingSystem(
         const agentDefinition = strategy.raw.agents[agentName];
         const isUserAgent =
           agentDefinition !== undefined && isUserAgentDef(agentDefinition);
-        const modelDetails = resolveModelDetails(agent.config?.model);
+        const modelDetails = resolveAgentModelDetails(agent.config?.model);
         const agentHooks = buildAgentHooks(
           agentName,
           run,
@@ -137,23 +137,6 @@ function buildAgentHooks(
 
       systemData.set("lastAgentOutputText", result.text);
     },
-  };
-}
-
-interface AgentModelDetails {
-  readonly model?: string;
-  readonly contextWindow?: number;
-}
-
-function resolveModelDetails(model: string | undefined): AgentModelDetails {
-  if (!model) return {};
-
-  const metadata = getQualifiedModelMetadata(model);
-  return {
-    model,
-    ...(metadata?.contextWindow !== undefined
-      ? { contextWindow: metadata.contextWindow }
-      : {}),
   };
 }
 

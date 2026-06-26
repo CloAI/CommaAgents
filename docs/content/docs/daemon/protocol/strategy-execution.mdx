@@ -36,6 +36,7 @@ Successful preparation replies directly:
   "strategyName": "Code Review Pipeline",
   "agents": ["analyzer", "reviewer"],
   "flowTree": { "name": "Review Pipeline", "type": "sequential" },
+  "mcpServers": [],
   "requestId": "prepare-1",
   "ts": "2026-06-14T10:30:00.000Z"
 }
@@ -43,6 +44,9 @@ Successful preparation replies directly:
 
 The run remains `pending` and is not persisted until it is started.
 Preparation failures return a correlated `error` with code `PREPARE_FAILED`.
+MCP connection failures are reported in `mcpServers` instead of failing the
+whole preparation, so clients can confirm whether to continue without those
+servers.
 
 ## Start A Run
 

@@ -15,8 +15,6 @@ import type { MarkdownViewTheme } from "./MarkdownView.theme";
 import { useMarkdownViewTheme } from "./MarkdownView.theme";
 import type {
   FencedLanguage,
-  MarkdownViewProps,
-  MarkdownViewRenderProps,
   MdBlock,
   MdInline,
   MdListItem,
@@ -26,6 +24,18 @@ import {
   renderTableToText,
   tokenizeMarkdown,
 } from "./MarkdownView.utils";
+
+/** Props for the {@link MarkdownView} container. */
+export interface MarkdownViewProps {
+  /** Raw Markdown source. */
+  readonly markdown: string;
+  /**
+   * Optional override for the column width used to size the horizontal
+   * rule and the table layout. Defaults to
+   * {@link HORIZONTAL_RULE_DEFAULT_WIDTH}.
+   */
+  readonly width?: number;
+}
 
 /**
  * Render a Markdown source string as themed Ink elements.
@@ -55,6 +65,16 @@ export function MarkdownView({
   return (
     <MarkdownViewRender blocks={blocks} theme={theme} width={effectiveWidth} />
   );
+}
+
+/** Props for the pure {@link MarkdownViewRender} function. */
+export interface MarkdownViewRenderProps {
+  /** Block tree to render. */
+  readonly blocks: readonly MdBlock[];
+  /** Resolved theme styles. */
+  readonly theme: MarkdownViewTheme;
+  /** Effective column width for layout-sensitive blocks (hr, table). */
+  readonly width: number;
 }
 
 /**

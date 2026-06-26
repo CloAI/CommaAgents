@@ -1,0 +1,8 @@
+[test]
+coverageSkipTestFiles = true
+coveragePathIgnorePatterns = [
+  "src/**/test.utils.ts",
+  "src/**/*.test.utils.ts",
+  "/private/var/**",
+]
+coverageThreshold = { line = 0.9, function = 0.9, statement = 0.9 }

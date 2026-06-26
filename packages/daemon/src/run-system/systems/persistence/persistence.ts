@@ -32,7 +32,11 @@ export function createPersistenceSystem(
       cwd,
       manifestPath,
       modelOverride,
+      systemData,
     }: ExecutionContext): Promise<void> {
+      const enabledMcpServerIds =
+        (await runStore.getRunConfig(run.id))?.enabledMcpServerIds ?? [];
+      const mcpServers = systemData.get("mcpServerStatuses") ?? [];
       try {
         await runStore.appendEvent(run.id, {
           type: "run_started",
@@ -43,6 +47,8 @@ export function createPersistenceSystem(
           initialInput: input,
           ...(manifestPath !== undefined ? { manifestPath } : {}),
           ...(modelOverride !== undefined ? { modelOverride } : {}),
+          enabledMcpServerIds,
+          mcpServers,
         });
       } catch (error) {
         logger.warn(

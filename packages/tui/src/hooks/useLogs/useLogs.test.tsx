@@ -1,6 +1,3 @@
-// Enable React act() environment for bun:test
-(globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
-
 import {
   afterAll,
   afterEach,
@@ -13,7 +10,6 @@ import {
 import { Text } from "ink";
 import { render } from "ink-testing-library";
 import type React from "react";
-import { act } from "react";
 
 import { logStore } from "./logStore";
 import { useLogs } from "./useLogs";
@@ -30,22 +26,10 @@ const hijackedConsole = {
   error: console.error,
   debug: console.debug,
 };
+const mountedProbes: ReturnType<typeof render>[] = [];
 
 beforeAll(() => {
   logStore.destroy();
-  // Now that the singleton's hijack is gone, install an act()-warning
-  // suppression wrapper on the real `console.error`. The assertions
-  // themselves are wrapped in act(), but mutations performed in
-  // beforeEach/afterEach intentionally are not, and those produce noise.
-  const realConsoleError = console.error;
-  console.error = (...args: unknown[]) => {
-    if (
-      typeof args[0] === "string" &&
-      args[0].includes("was not wrapped in act")
-    )
-      return;
-    realConsoleError(...args);
-  };
 });
 
 afterAll(() => {
@@ -57,6 +41,12 @@ afterAll(() => {
   console.error = hijackedConsole.error;
   console.debug = hijackedConsole.debug;
 });
+
+function renderProbe(element: React.ReactElement) {
+  const renderedProbe = render(element);
+  mountedProbes.push(renderedProbe);
+  return renderedProbe;
+}
 
 /**
  * Tiny Ink component that exposes the hook's state so the test can read it
@@ -86,23 +76,24 @@ describe("useLogs", () => {
   });
 
   afterEach(() => {
+    for (const mountedProbe of mountedProbes.splice(0)) {
+      mountedProbe.unmount();
+    }
     logStore.clear();
   });
 
   it("should render the current snapshot on mount", () => {
     logStore.push("info", "preexisting");
-    const { lastFrame } = render(<LogProbe />);
+    const { lastFrame } = renderProbe(<LogProbe />);
     expect(lastFrame()).toContain("count=1");
     expect(lastFrame()).toContain("info:preexisting");
   });
 
   it("should re-render when a new entry is pushed", () => {
-    const { lastFrame, rerender } = render(<LogProbe />);
+    const { lastFrame, rerender } = renderProbe(<LogProbe />);
     expect(lastFrame()).toContain("count=0");
 
-    act(() => {
-      logStore.push("log", "from-test");
-    });
+    logStore.push("log", "from-test");
     rerender(<LogProbe />);
 
     expect(lastFrame()).toContain("count=1");
@@ -110,13 +101,11 @@ describe("useLogs", () => {
   });
 
   it("should re-render with multiple captured entries in order", () => {
-    const { lastFrame, rerender } = render(<LogProbe />);
+    const { lastFrame, rerender } = renderProbe(<LogProbe />);
 
-    act(() => {
-      logStore.push("log", "one");
-      logStore.push("warn", "two");
-      logStore.push("error", "three");
-    });
+    logStore.push("log", "one");
+    logStore.push("warn", "two");
+    logStore.push("error", "three");
     rerender(<LogProbe />);
 
     const frame = lastFrame() ?? "";
@@ -127,7 +116,7 @@ describe("useLogs", () => {
 
   it("should expose a clearLogs callback that empties the store", () => {
     let capturedClear: (() => void) | undefined;
-    const { lastFrame, rerender } = render(
+    const { lastFrame, rerender } = renderProbe(
       <ClearProbe
         onReady={(clear) => {
           capturedClear = clear;
@@ -135,10 +124,8 @@ describe("useLogs", () => {
       />,
     );
 
-    act(() => {
-      logStore.push("log", "a");
-      logStore.push("log", "b");
-    });
+    logStore.push("log", "a");
+    logStore.push("log", "b");
     rerender(
       <ClearProbe
         onReady={(clear) => {
@@ -148,9 +135,7 @@ describe("useLogs", () => {
     );
     expect(lastFrame()).toContain("count=2");
 
-    act(() => {
-      capturedClear?.();
-    });
+    capturedClear?.();
     rerender(
       <ClearProbe
         onReady={(clear) => {
@@ -163,7 +148,7 @@ describe("useLogs", () => {
 
   it("should keep the same clearLogs reference across renders", () => {
     const seen: Array<() => void> = [];
-    const { rerender } = render(
+    const { rerender } = renderProbe(
       <ClearProbe
         onReady={(clear) => {
           seen.push(clear);
@@ -171,9 +156,7 @@ describe("useLogs", () => {
       />,
     );
 
-    act(() => {
-      logStore.push("log", "x");
-    });
+    logStore.push("log", "x");
     rerender(
       <ClearProbe
         onReady={(clear) => {
@@ -187,7 +170,7 @@ describe("useLogs", () => {
   });
 
   it("should unsubscribe when unmounted (no leak, no errors)", () => {
-    const { unmount } = render(<LogProbe />);
+    const { unmount } = renderProbe(<LogProbe />);
     unmount();
     // After unmount, pushing more entries must not throw or affect anything.
     expect(() => {
@@ -196,21 +179,15 @@ describe("useLogs", () => {
   });
 
   it("should support multiple mounted consumers receiving the same updates", () => {
-    const a = render(<LogProbe />);
-    const b = render(<LogProbe />);
+    const firstProbe = renderProbe(<LogProbe />);
+    const secondProbe = renderProbe(<LogProbe />);
 
-    act(() => {
-      logStore.push("log", "shared");
-    });
-    a.rerender(<LogProbe />);
-    b.rerender(<LogProbe />);
-
-    expect(a.lastFrame()).toContain("count=1");
-    expect(a.lastFrame()).toContain("log:shared");
-    expect(b.lastFrame()).toContain("count=1");
-    expect(b.lastFrame()).toContain("log:shared");
-
-    a.unmount();
-    b.unmount();
+    logStore.push("log", "shared");
+    firstProbe.rerender(<LogProbe />);
+    secondProbe.rerender(<LogProbe />);
+    expect(firstProbe.lastFrame()).toContain("count=1");
+    expect(firstProbe.lastFrame()).toContain("log:shared");
+    expect(secondProbe.lastFrame()).toContain("count=1");
+    expect(secondProbe.lastFrame()).toContain("log:shared");
   });
 });

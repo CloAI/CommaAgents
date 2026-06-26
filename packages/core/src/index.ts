@@ -214,6 +214,37 @@ export type {
   LspResponse,
 } from "./language/index";
 export type {
+  CreateMcpConnectionManagerOptions,
+  DiscoverMcpConfigOptions,
+  McpAgentToolSet,
+  McpConfigDiscovery,
+  McpConfigFile,
+  McpConnectionManager,
+  McpServerDefinition,
+  McpServerEntry,
+  McpServerSource,
+  McpServerStatus,
+  McpServerToolSet,
+  McpToolOrigin,
+  McpValue,
+  ResolvedMcpHttpServer,
+  ResolvedMcpServer,
+  ResolvedMcpStdioServer,
+} from "./mcp";
+export {
+  createMcpConnectionManager,
+  discoverMcpConfig,
+  McpConfigFileSchema,
+  McpHttpServerDefinitionSchema,
+  McpServerDefinitionSchema,
+  McpStdioServerDefinitionSchema,
+  McpValueSchema,
+  namespaceMcpToolName,
+  parseMcpToolName,
+  resolveMcpServer,
+  resolveMcpValue,
+} from "./mcp";
+export type {
   CatalogData,
   CatalogModel,
   CatalogProvider,
@@ -350,6 +381,7 @@ export {
   loadProject,
   loadStrategy,
   loadStrategyFromString,
+  parseStrategyFromString,
   readStrategyFile,
   StrategySchema,
 } from "./strategy/index";

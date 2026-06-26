@@ -6,9 +6,15 @@ import type {
   LoadedStrategy,
   TimelineEvent,
 } from "@comma-agents/core";
+import {
+  listRunMcpStatuses,
+  resolveRunMcpConfig,
+  updateMcpDefault,
+} from "./mcp";
 import { prepareStrategy } from "./prepare-strategy";
 import { createRunStore } from "./run-store";
 import { createInputSystem } from "./systems/input";
+import { createMcpSystem } from "./systems/mcp";
 import { createPermissionSystem } from "./systems/permission";
 import { createPersistenceSystem } from "./systems/persistence";
 import { createQuestionSystem } from "./systems/question";
@@ -65,12 +71,13 @@ export function createRunSystem({
     createInputSystem(),
     createPermissionSystem(),
     createQuestionSystem(),
+    createMcpSystem(runStore),
     createSkillsSystem(),
     createSteeringSystem(),
     createStreamingSystem({ logger, sink }),
     createPersistenceSystem({ logger: logger.child("persistence"), runStore }),
     createSandboxSystem(),
-    createSubLaunchSystem(hubManager),
+    createSubLaunchSystem(hubManager, runStore),
   ];
 
   async function prepareRun(
@@ -180,6 +187,7 @@ export function createRunSystem({
         agents: Object.keys(strategy.agents),
         flowTree: strategy.raw.flow as Record<string, unknown>,
         conversation,
+        mcpServers: systemData.get("mcpServerStatuses") ?? [],
       };
     } catch (error) {
       await invokeOnRunCleanup(systems, context, logger);
@@ -404,6 +412,72 @@ export function createRunSystem({
     }
   }
 
+  async function listMcpServers(
+    options: import("./systems/systems.types").ListMcpServersOptions,
+  ): Promise<readonly import("./mcp").RunMcpServerStatus[]> {
+    const persistedEvents = options.runId
+      ? await runStore.getEvents(options.runId)
+      : [];
+    const strategyPath =
+      options.strategyPath ?? findLatestRunStart(persistedEvents)?.strategyPath;
+    const config = await resolveRunMcpConfig({
+      strategyPath,
+      cwd:
+        options.cwd ??
+        findLatestRunStart(persistedEvents)?.cwd ??
+        process.cwd(),
+      runId: options.runId,
+      runStore,
+    });
+    const preparedStatuses = options.runId
+      ? preparedRuns
+          .get(options.runId)
+          ?.context.systemData.get("mcpServerStatuses")
+      : undefined;
+    return listRunMcpStatuses(config, preparedStatuses);
+  }
+
+  async function updateMcpServer(
+    options: import("./systems/systems.types").UpdateMcpServerOptions,
+  ): Promise<readonly import("./mcp").RunMcpServerStatus[]> {
+    const persistedEvents = options.runId
+      ? await runStore.getEvents(options.runId)
+      : [];
+    const strategyPath =
+      options.strategyPath ?? findLatestRunStart(persistedEvents)?.strategyPath;
+    const cwd =
+      options.cwd ?? findLatestRunStart(persistedEvents)?.cwd ?? process.cwd();
+    const config = await resolveRunMcpConfig({
+      strategyPath,
+      cwd,
+      runId: options.runId,
+      runStore,
+    });
+
+    if (options.scope === "default") {
+      updateMcpDefault(config, options.serverId, options.enabled);
+    } else {
+      if (!options.runId) {
+        throw new Error("runId is required for a run-scoped MCP update");
+      }
+      if (!config.servers.has(options.serverId)) {
+        throw new Error(`Unknown MCP server: ${options.serverId}`);
+      }
+      const enabledIds = new Set(config.enabledServerIds);
+      if (options.enabled) enabledIds.add(options.serverId);
+      else enabledIds.delete(options.serverId);
+      await runStore.saveRunConfig(options.runId, {
+        enabledMcpServerIds: [...enabledIds],
+      });
+    }
+
+    return listMcpServers({
+      cwd,
+      ...(options.runId ? { runId: options.runId } : {}),
+      ...(strategyPath ? { strategyPath } : {}),
+    });
+  }
+
   return {
     runStore,
     actions,
@@ -411,6 +485,8 @@ export function createRunSystem({
     startRun,
     continueRun,
     stopRun,
+    listMcpServers,
+    updateMcpServer,
 
     async shutdown(): Promise<void> {
       const executions: Promise<void>[] = [];

@@ -10,6 +10,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerModel, type TimelineEvent } from "@comma-agents/core";
+import type { LanguageModel } from "ai";
 import type { Logger } from "./logger/logger.types";
 import type { EventSink } from "./run-system/event-sink";
 import type { RunStore } from "./run-system/run-store";
@@ -52,8 +53,7 @@ export function registerMockModel(modelString: string): void {
         },
       }),
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock doesn't need full LanguageModel interface
-  } as any);
+  } as LanguageModel);
 }
 
 /** Register standard mock models used across daemon tests. */
@@ -109,6 +109,10 @@ export function mockRunStore(): RunStore & {
   runs: Map<string, TimelineEvent[]>;
 } {
   const runs = new Map<string, TimelineEvent[]>();
+  const runConfigs = new Map<
+    string,
+    { readonly enabledMcpServerIds: readonly string[] }
+  >();
 
   return {
     runs,
@@ -124,7 +128,15 @@ export function mockRunStore(): RunStore & {
       return [];
     },
     async deleteRun(runId) {
-      return runs.delete(runId);
+      const deletedRun = runs.delete(runId);
+      const deletedConfig = runConfigs.delete(runId);
+      return deletedRun || deletedConfig;
+    },
+    async getRunConfig(runId) {
+      return runConfigs.get(runId);
+    },
+    async saveRunConfig(runId, config) {
+      runConfigs.set(runId, config);
     },
   };
 }

@@ -3,15 +3,21 @@
 exports[`ModalRender — title variations should render without a title 1`] = `
 "┌──────────────────────────────────────┐
 │                                      │
-│  body content                        │
+│ body content                         │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
 └──────────────────────────────────────┘"
 `;
 
 exports[`ModalRender — title variations should render with a title 1`] = `
 "┌──────────────────────────────────────┐
 │                                      │
-│  ╭────────────────────────────────╮  │
-│  │ › Type a command...            │  │
+│ Command Palette                      │
+│ ╭──────────────────────────────────╮ │
+│ │ › Type a command...              │ │
+│ ╰──────────────────────────────────╯ │
 │                                      │
 └──────────────────────────────────────┘"
 `;
@@ -19,23 +25,32 @@ exports[`ModalRender — title variations should render with a title 1`] = `
 exports[`ModalRender — title variations should render with a long title 1`] = `
 "┌──────────────────────────────────────┐
 │                                      │
-│  body contentModal Title That Could  │
-└── Plausibly Wrap Across Lines In A ──┘"
+│ A Very Long Modal Title That Could … │
+│ body content                         │
+│                                      │
+│                                      │
+│                                      │
+└──────────────────────────────────────┘"
 `;
 
 exports[`ModalRender — content edge cases should render an empty content body within the border 1`] = `
 "┌──────────────────────────────────────┐
 │                                      │
-│  Empty                               │
+│ Empty                                │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
 └──────────────────────────────────────┘"
 `;
 
-exports[`ModalRender — sub-page (CommandPaletteRender) should render the active sub-page without the home command list 1`] = `
+exports[`ModalRender — CommandPaletteRender (home view) should render the command palette home view inside a modal 1`] = `
 "┌──────────────────────────────────────┐
 │                                      │
-│  ╭────────────────────────────────╮  │
-│  ╰─› Type a command...────────────╯  │
+│ Command Palette                      │
+│ ╭──────────────────────────────────╮ │
+│ │ › Type a command...              │ │
+│ ╰──────────────────────────────────╯ │
+│                                      │
 └──────────────────────────────────────┘"
 `;
-
-exports[`ModalRender — CommandPaletteRender (home view) should render the command palette home view inside a modal 1`] = `""`;

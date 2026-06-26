@@ -90,6 +90,19 @@ async function settleInput() {
   await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
+async function waitFor(
+  predicate: () => boolean,
+  timeoutMs = 1_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Condition was not met within ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 describe("ChatPageRender abort shortcut", () => {
   it("aborts an active chat after Escape is pressed twice", async () => {
     const { stdin, onAbort, cleanup } = renderChatPage();
@@ -143,15 +156,16 @@ describe("ChatPageRender continuation composer", () => {
   });
 
   it("submits continuation input with a pivoted strategy", async () => {
-    const { stdin, onContinueSubmit, cleanup } = renderChatPage("completed");
+    const { stdin, onContinueSubmit, lastFrame, cleanup } =
+      renderChatPage("completed");
     await settleInput();
 
     stdin.write("\t");
-    await settleInput();
+    await waitFor(() => lastFrame()?.includes("Plan") ?? false);
     stdin.write("refine this");
-    await settleInput();
+    await waitFor(() => lastFrame()?.includes("refine this") ?? false);
     stdin.write("\r");
-    await settleInput();
+    await waitFor(() => onContinueSubmit.mock.calls.length === 1);
 
     expect(onContinueSubmit).toHaveBeenCalledWith(STRATEGIES[1], "refine this");
     cleanup();

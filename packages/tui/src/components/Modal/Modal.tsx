@@ -1,14 +1,10 @@
-import { Box, Text, useInput } from "ink";
-import type React from "react";
+import { Box, type BoxProps, Text, useInput } from "ink";
+import React from "react";
 import { useModal } from "../../hooks/useModal";
 
+import { RAW_MODE_SUPPORTED } from "./Modal.constants";
 import { useModalTheme } from "./Modal.theme";
-
-/** Size as absolute columns/rows (number) or a percentage of the terminal. */
-export type ModalSize = number | `${number}%`;
-
-/** Raw mode check for safe `useInput` activation. */
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
+import type { ModalSize } from "./Modal.types";
 
 export interface ModalProps {
   /** Unique identifier that ties this modal to `useModal(id)` controls. */
@@ -22,6 +18,14 @@ export interface ModalProps {
    * topmost. @default true
    */
   readonly closeOnEsc?: boolean;
+  /** Override the theme's content width. */
+  readonly width?: ModalSize;
+  /** Override the theme's content height. */
+  readonly height?: ModalSize;
+  /** Override the theme's minimum content width. */
+  readonly minWidth?: ModalSize;
+  /** Override the theme's maximum content width. */
+  readonly maxWidth?: ModalSize;
   /** Override the theme's default minHeight on the content box. */
   readonly minHeight?: ModalSize;
   /** Override the theme's default maxHeight on the content box. */
@@ -31,9 +35,7 @@ export interface ModalProps {
 /**
  * Full-screen overlay modal for the TUI.
  *
- * Renders the modal content box when open. The backdrop dimming and overlay
- * centering are handled externally by {@link AlphaDim} — `Modal` is
- * responsible only for its content box and Esc-to-close behaviour.
+ * Renders a centered modal content box over the current TUI frame.
  *
  * Visibility is controlled via `useModal(modalId)`. When `closeOnEsc` is
  * true (the default), the modal listens for Esc — but only when it is the
@@ -44,17 +46,10 @@ export interface ModalProps {
  * ```tsx
  * const confirm = useModal("confirm");
  *
- * <AlphaDim
- *   isActive={confirm.isOpen}
- *   background={<AppContent />}
- *   overlay={
- *     <Modal modalId="confirm" title="Are you sure?" width="60%">
- *       <Text>This action cannot be undone.</Text>
- *     </Modal>
- *   }
- * />
+ * <Modal modalId="confirm" title="Are you sure?" width="60%">
+ *   <Text>This action cannot be undone.</Text>
+ * </Modal>
  *
- * // open from anywhere:
  * confirm.open();
  * ```
  */
@@ -63,34 +58,61 @@ export function Modal({
   title,
   children,
   closeOnEsc = true,
+  width,
+  height,
+  minWidth,
+  maxWidth,
   minHeight,
   maxHeight,
 }: ModalProps): React.ReactElement | null {
   const { isOpen, isTopmost, close } = useModal(modalId);
+  const theme = useModalTheme();
 
-  useInput(
-    (_input, key) => {
+  const handleInput = React.useCallback(
+    (_input: string, key: import("ink").Key): void => {
       if (key.escape) close();
     },
-    { isActive: isOpen && isTopmost && closeOnEsc && RAW_MODE_SUPPORTED },
+    [close],
   );
+  useInput(handleInput, {
+    isActive: isOpen && isTopmost && closeOnEsc && RAW_MODE_SUPPORTED,
+  });
 
   if (!isOpen) return null;
 
   return (
-    <ModalRender title={title} minHeight={minHeight} maxHeight={maxHeight}>
+    <ModalRender
+      theme={theme}
+      title={title}
+      width={width}
+      height={height}
+      minWidth={minWidth}
+      maxWidth={maxWidth}
+      minHeight={minHeight}
+      maxHeight={maxHeight}
+    >
       {children}
     </ModalRender>
   );
 }
 
 export interface ModalRenderProps {
+  /** Resolved modal theme styles. */
+  readonly theme: import("./Modal.theme").ModalTheme;
   /** Optional title displayed at the top of the modal. */
   readonly title?: string;
   /** Content rendered inside the modal body. */
   readonly children: React.ReactNode;
   /** Debug render ref to attach to the root Box. */
   readonly debugRef?: React.Ref<import("ink").DOMElement>;
+  /** Override the theme's content width. */
+  readonly width?: ModalSize;
+  /** Override the theme's content height. */
+  readonly height?: ModalSize;
+  /** Override the theme's minimum content width. */
+  readonly minWidth?: ModalSize;
+  /** Override the theme's maximum content width. */
+  readonly maxWidth?: ModalSize;
   /** Override the theme's default minHeight on the content box. */
   readonly minHeight?: ModalSize;
   /** Override the theme's default maxHeight on the content box. */
@@ -98,19 +120,30 @@ export interface ModalRenderProps {
 }
 
 export function ModalRender({
+  theme,
   title,
   children,
+  debugRef,
+  width,
+  height,
+  minWidth,
+  maxWidth,
   minHeight,
   maxHeight,
 }: ModalRenderProps): React.ReactElement {
-  const theme = useModalTheme();
   const contentStyle: BoxProps = {
     ...theme.content,
+    maxWidth:
+      maxWidth ?? (width !== undefined ? width : theme.content.maxWidth),
+    maxHeight:
+      maxHeight ?? (height !== undefined ? height : theme.content.maxHeight),
+    ...(width !== undefined ? { width } : {}),
+    ...(height !== undefined ? { height } : {}),
+    ...(minWidth !== undefined ? { minWidth } : {}),
     ...(minHeight !== undefined ? { minHeight } : {}),
-    ...(maxHeight !== undefined ? { maxHeight } : {}),
   };
   return (
-    <Box {...theme.overlay}>
+    <Box ref={debugRef} {...theme.overlay}>
       <Box {...contentStyle}>
         {title !== undefined ? <Text {...theme.title}>{title}</Text> : null}
         {children}

@@ -1,0 +1,30 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`command palette pages renders the complete shortcut help 1`] = `
+"Keyboard Shortcuts
+
+
+Ctrl+P          Toggle command palette
+
+↑ / ↓           Navigate list items
+
+Enter           Select item / confirm
+
+Esc             Go back / dismiss
+
+Backspace       Delete last character in search
+
+Ctrl+C          Quit the application"
+`;
+
+exports[`command palette pages renders theme settings with the active theme marked 1`] = `
+"Theme
+
+
+ ● Material Dark     Material Design 3 dark palette with elevation depth
+   Light             Bright background, dark text
+   Dracula           Dark with purple/cyan/pink accents
+   Solarized Dark    Low-contrast balanced terminal palette
+
+Enter to apply · Esc to go back"
+`;

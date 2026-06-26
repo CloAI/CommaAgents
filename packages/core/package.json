@@ -25,6 +25,7 @@
     "lint:fix": "biome check --write src"
   },
   "dependencies": {
+    "@ai-sdk/mcp": "1.0.52",
     "@ai-sdk/openai-compatible": "2.0.30",
     "@types/diff": "8.0.0",
     "ai": "6.0.91",

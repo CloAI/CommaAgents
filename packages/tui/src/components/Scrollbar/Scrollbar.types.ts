@@ -1,20 +1,5 @@
-/** Props for the `Scrollbar` presentational component. */
-export interface ScrollbarProps {
-  /** Total number of scrollable units (e.g. lines or list items). */
-  readonly total: number;
-  /** Number of units currently visible. */
-  readonly windowSize: number;
-  /** Zero-based offset of the first visible unit into `total`. */
-  readonly offset: number;
-  /**
-   * Height of the rendered scrollbar, in terminal rows. Defaults to
-   * `windowSize` (one scrollbar row per visible unit).
-   */
-  readonly height?: number;
-}
-
-/** Props for the `ScrollbarRender` render-only form. */
-export interface ScrollbarRenderProps {
+/** Calculated scrollbar geometry. */
+export interface ScrollbarGeometry {
   /** Scrollbar column height, in rows. */
   readonly height: number;
   /**

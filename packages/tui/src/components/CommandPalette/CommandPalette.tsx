@@ -2,40 +2,20 @@ import { Box, Text, useFocus, useFocusManager, useInput } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 
+import { isMouseEscape } from "../../utils/mouseEscape";
 import { ScrollableList } from "../ScrollableList";
-import { SearchInput } from "../SearchInput";
+import { SearchInputRender, useSearchInputTheme } from "../SearchInput";
 
 import { BUILT_IN_COMMANDS } from "./CommandPalette.constants";
 import { useCommandPaletteTheme } from "./CommandPalette.theme";
 import type { Command, PaletteSubPageComponent } from "./CommandPalette.types";
 import { filterCommands } from "./CommandPalette.utils";
-import { HelpPage } from "./pages/HelpPage";
-import { HubPackagesPage } from "./pages/HubPackagesPage";
-import { ListProvidersPage } from "./pages/ListProvidersPage";
-import { RegisteredProvidersPage } from "./pages/RegisteredProvidersPage";
-import { RunPickerPage } from "./pages/RunPickerPage";
-import { SettingsPage } from "./pages/SettingsPage";
+import {
+  CommandPaletteContextProvider,
+  useCommandPalette,
+} from "./useCommandPalette";
 
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
-/** Map command id → page component for page-type commands. */
-const PAGE_REGISTRY: ReadonlyMap<string, PaletteSubPageComponent> = new Map([
-  ["help", HelpPage],
-  ["hub-packages", HubPackagesPage],
-  ["list-providers", ListProvidersPage],
-  ["register-providers", RegisteredProvidersPage],
-  ["run-picker", RunPickerPage],
-  ["settings", SettingsPage],
-]);
-
-/** Identifier for the active palette view — home (command list) or a sub-page. */
-type PaletteView =
-  | { readonly kind: "home" }
-  | {
-      readonly kind: "page";
-      readonly commandId: string;
-      readonly title: string;
-    };
 
 /**
  * Command palette modal content.
@@ -54,7 +34,6 @@ type PaletteView =
  *   <CommandPalette
  *     isVisible={isOpen}
  *     onClose={close}
- *     onExitApp={() => process.exit(0)}
  *   />
  * </Modal>
  * ```
@@ -73,157 +52,199 @@ export interface CommandPaletteProps {
   readonly id?: string;
   /** Called when the user dismisses the palette from the home view. */
   readonly onClose: () => void;
-  /** Called by the built-in `exit` command to quit the application. */
-  readonly onExitApp: () => void;
-  /** Called by the built-in `new-run` command to reset chat and return to intro. */
-  readonly onResetChat: () => void;
   /**
    * Override the built-in command registry. Defaults to `BUILT_IN_COMMANDS`.
    */
   readonly commands?: readonly Command[];
+  /** Command page to open immediately when the palette becomes visible. */
+  readonly initialCommandId?: string;
 }
 
 export function CommandPalette({
-  isVisible,
   id = "command-palette",
+  isVisible,
   onClose,
-  onExitApp,
-  onResetChat,
   commands = BUILT_IN_COMMANDS,
+  initialCommandId,
 }: CommandPaletteProps): React.ReactElement | null {
+  return (
+    <CommandPaletteContextProvider closePalette={onClose}>
+      <CommandPaletteContent
+        id={id}
+        isVisible={isVisible}
+        commands={commands}
+        initialCommandId={initialCommandId}
+      />
+    </CommandPaletteContextProvider>
+  );
+}
+
+interface CommandPaletteContentProps {
+  /** Stable Ink focus ID for the palette home view. */
+  readonly id: string;
+  /** Whether the command palette is visible. */
+  readonly isVisible: boolean;
+  /** Commands available from the palette home view. */
+  readonly commands: readonly Command[];
+  /** Command page to activate when opened programmatically. */
+  readonly initialCommandId?: string;
+}
+
+function CommandPaletteContent({
+  id,
+  isVisible,
+  commands,
+  initialCommandId,
+}: CommandPaletteContentProps): React.ReactElement | null {
   const [commandListFilter, setCommandListFilter] = useState("");
-  const [view, setView] = useState<PaletteView>({ kind: "home" });
-  const filtered = filterCommands(commands, commandListFilter);
-
-  const subPageFocusId = `${id}:page`;
-  const homeFocusActive = isVisible && view.kind === "home";
-  const subPageFocusActive = isVisible && view.kind === "page";
-
-  // Two focus zones — one for the home view, one for sub-pages. Only the
-  // active view's zone is registered, so input never leaks between layers.
-  useFocus({ id, isActive: homeFocusActive });
-  useFocus({ id: subPageFocusId, isActive: subPageFocusActive });
+  const [activeCommand, setActiveCommand] = useState<Command | null>(null);
+  const { closePalette } = useCommandPalette();
   const { focus, activeId } = useFocusManager();
+  const subPageFocusId = `${id}:page`;
+  const isHomeView = activeCommand === null;
+  const filteredCommands = filterCommands(commands, commandListFilter);
 
-  // Re-claim focus when the palette opens or the active view changes.
+  const { isFocused } = useFocus({
+    id,
+    isActive: isVisible && isHomeView && RAW_MODE_SUPPORTED,
+  });
+
   useEffect(() => {
     if (!isVisible) return;
-    const targetId = view.kind === "home" ? id : subPageFocusId;
+    const targetId = isHomeView ? id : subPageFocusId;
     if (activeId !== targetId) {
       focus(targetId);
     }
-  }, [activeId, focus, id, isVisible, subPageFocusId, view.kind]);
+  }, [activeId, focus, id, isHomeView, isVisible, subPageFocusId]);
 
-  const popPage = useCallback((): void => {
-    setView({ kind: "home" });
-  }, []);
+  useEffect(() => {
+    if (!isVisible || !initialCommandId) return;
+    const initialCommand = commands.find(
+      (command) => command.id === initialCommandId,
+    );
+    if (initialCommand) {
+      setCommandListFilter("");
+      setActiveCommand(initialCommand);
+    }
+  }, [commands, initialCommandId, isVisible]);
 
-  // Esc handling: pop sub-page if one is active, otherwise close the palette.
+  useEffect(() => {
+    if (isVisible) return;
+    setCommandListFilter("");
+    setActiveCommand(null);
+  }, [isVisible]);
+
   useInput(
-    (_input, key) => {
-      if (!key.escape) return;
-      if (view.kind === "page") {
-        popPage();
+    (input, key) => {
+      if (key.escape) {
+        if (activeCommand === null) closePalette();
         return;
       }
-      onClose();
+
+      if (activeCommand !== null) return;
+      if (input && isMouseEscape(input)) return;
+
+      if (key.backspace || key.delete) {
+        setCommandListFilter((currentFilter) => currentFilter.slice(0, -1));
+        return;
+      }
+
+      if (
+        input &&
+        !key.ctrl &&
+        !key.meta &&
+        !key.tab &&
+        !key.return &&
+        !key.upArrow &&
+        !key.downArrow &&
+        !key.leftArrow &&
+        !key.rightArrow
+      ) {
+        setCommandListFilter((currentFilter) => currentFilter + input);
+      }
     },
     { isActive: isVisible && RAW_MODE_SUPPORTED },
   );
 
-  const activateCommand = useCallback(
-    (cmd: Command): void => {
-      if (cmd.action !== undefined) {
-        cmd.action({
-          closePalette: onClose,
-          exitApp: onExitApp,
-          resetChat: onResetChat,
-        });
-        return;
-      }
-      const pageComponent = PAGE_REGISTRY.get(cmd.id) ?? cmd.page;
-      if (pageComponent !== undefined) {
-        setCommandListFilter("");
-        setView({ kind: "page", commandId: cmd.id, title: cmd.label });
-      }
-    },
-    [onClose, onExitApp, onResetChat],
-  );
+  const activateCommand = useCallback((command: Command): void => {
+    setCommandListFilter("");
+    setActiveCommand(command);
+  }, []);
+
+  const returnToCommandList = useCallback((): void => {
+    setActiveCommand(null);
+  }, []);
 
   if (!isVisible) return null;
 
-  if (view.kind === "page") {
-    const PageComponent = PAGE_REGISTRY.get(view.commandId);
+  if (activeCommand !== null) {
     return (
       <CommandPalettePageRender
-        title={view.title}
+        title={activeCommand.label}
         focusId={subPageFocusId}
-        Page={PageComponent}
+        Page={activeCommand.page}
+        onBack={returnToCommandList}
       />
     );
   }
 
   return (
     <CommandPaletteRender
-      id={id}
       query={commandListFilter}
-      onSearchInputChange={setCommandListFilter}
-      filtered={filtered}
+      filtered={filteredCommands}
       onCommandSelected={activateCommand}
+      isFocused={isFocused}
     />
   );
 }
 
 export interface CommandPaletteRenderProps {
-  /** Unique identifier for the palette, used for focus management. */
-  readonly id: string;
   /** Current search query string. */
   readonly query: string;
-  /** Callback invoked when the search input changes. */
-  readonly onSearchInputChange: (value: string) => void;
   /** List of filtered commands to display. */
   readonly filtered: readonly Command[];
   /** Callback invoked when a command is selected. */
-  readonly onCommandSelected: (cmd: Command) => void;
+  readonly onCommandSelected: (command: Command) => void;
+  /** Whether the palette home view owns keyboard focus. */
+  readonly isFocused: boolean;
 }
 
 /** Presentational form of `CommandPalette` (home view). */
 export function CommandPaletteRender({
-  id,
   query,
-  onSearchInputChange,
   filtered,
   onCommandSelected,
+  isFocused,
 }: CommandPaletteRenderProps): React.ReactElement {
   const theme = useCommandPaletteTheme();
+  const searchTheme = useSearchInputTheme();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   return (
     <Box {...theme.container}>
       <Box {...theme.searchWrapper}>
-        <SearchInput
-          id={id}
+        <SearchInputRender
+          theme={searchTheme}
           value={query}
-          onChange={onSearchInputChange}
           placeholder="Type a command..."
           prompt="› "
         />
       </Box>
       <ScrollableList
-        id={id}
         items={filtered}
-        getKey={(cmd) => cmd.id}
+        getKey={(command) => command.id}
         selectedIndex={selectedIndex}
         onSelectedIndexChange={setSelectedIndex}
         onSelected={onCommandSelected}
+        isFocused={isFocused}
         emptyText="No commands match"
-        renderItem={(cmd, isSelected) => (
+        renderItem={(command, isSelected) => (
           <Box {...(isSelected ? theme.itemSelected : theme.item)}>
             <Text {...(isSelected ? theme.labelSelected : theme.label)}>
-              {cmd.label}
+              {command.label}
             </Text>
             <Text {...theme.separator}> — </Text>
-            <Text {...theme.description}>{cmd.description}</Text>
+            <Text {...theme.description}>{command.description}</Text>
           </Box>
         )}
       />
@@ -236,8 +257,10 @@ interface CommandPalettePageRenderProps {
   readonly title: string;
   /** Unique identifier for the sub-page focus zone. */
   readonly focusId: string;
-  /** The page component to render, or undefined if not found. */
-  readonly Page: PaletteSubPageComponent | undefined;
+  /** The page component to render. */
+  readonly Page: PaletteSubPageComponent;
+  /** Return to the command list. */
+  readonly onBack: () => void;
 }
 
 /** Presentational wrapper for a palette sub-page. */
@@ -245,6 +268,7 @@ function CommandPalettePageRender({
   title,
   focusId,
   Page,
+  onBack,
 }: CommandPalettePageRenderProps): React.ReactElement {
   const theme = useCommandPaletteTheme();
   return (
@@ -252,11 +276,7 @@ function CommandPalettePageRender({
       <Box flexShrink={0} marginBottom={1}>
         <Text {...theme.labelSelected}>{title}</Text>
       </Box>
-      {Page !== undefined ? (
-        <Page focusId={focusId} />
-      ) : (
-        <Text {...theme.empty}>Page not found</Text>
-      )}
+      <Page focusId={focusId} onBack={onBack} />
     </Box>
   );
 }

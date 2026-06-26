@@ -5,7 +5,8 @@ description: Full command palette modal with searchable command list and sub-pag
 
 # CommandPalette
 
-A modal command palette with a search input and scrollable command list. Supports two kinds of commands: **action commands** (fire a callback) and **page commands** (push a sub-page into the palette). Opens with Ctrl+P.
+A modal command palette with a search input and scrollable command list. Each
+command opens a focused sub-page. Open it with Ctrl+P.
 
 ```tsx
 import { CommandPalette } from "@comma-agents/tui";
@@ -13,7 +14,6 @@ import { CommandPalette } from "@comma-agents/tui";
 <CommandPalette
   isVisible={isOpen}
   onClose={close}
-  onExitApp={exit}
   commands={customCommands}
 />
 ```
@@ -25,8 +25,8 @@ import { CommandPalette } from "@comma-agents/tui";
 | `isVisible` | `boolean` | -- | Whether the palette is visible |
 | `id` | `string` | -- | Stable Ink focus ID |
 | `onClose` | `() => void` | -- | Dismiss callback |
-| `onExitApp` | `() => void` | -- | Exit app callback (passed to exit command) |
 | `commands` | `readonly Command[]` | Built-in commands | Custom command list |
+| `initialCommandId` | `string?` | -- | Page to open immediately |
 
 ## Command
 
@@ -37,9 +37,7 @@ import { CommandPalette } from "@comma-agents/tui";
 | `description` | `string` | One-line description |
 | `keywords` | `readonly string[]?` | Extra fuzzy-match keywords |
 | `page` | `React.ComponentType?` | Sub-page component (page command) |
-| `action` | `CommandAction?` | Direct callback (action command) |
-
-A command must have either `action` or `page`. Action commands fire immediately and close the palette. Page commands push a sub-component into the navigation stack.
+Selecting a command mounts its page inside the palette.
 
 ## Built-in Commands
 
@@ -47,7 +45,8 @@ A command must have either `action` or `page`. Action commands fire immediately 
 |---|---|---|
 | `help` | Page | Keyboard shortcut reference |
 | `list-providers` | Page | Available model providers |
-| `session-picker` | Page | Browse and load persisted runs |
+| `mcp-servers` | Page | Shared defaults and current-run MCP overrides |
+| `run-picker` | Page | Browse and load persisted runs |
 | `settings` | Page | User configuration |
 
 ## Navigation
@@ -56,5 +55,10 @@ A command must have either `action` or `page`. Action commands fire immediately 
 - **Up/Down arrows** -- move selection
 - **Enter** -- activate selected command
 - **Esc** -- pop sub-page back to home; close palette at home
+
+The MCP page uses Intro scope to edit shared defaults and Chat scope to edit
+the current run. Press `g` in Chat scope to copy the highlighted run choice
+back to its shared default. The status-bar MCP count is clickable and opens
+this page directly.
 
 The palette is typically rendered inside a `<Modal>` for backdrop dimming.

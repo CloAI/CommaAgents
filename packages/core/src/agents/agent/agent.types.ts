@@ -1,5 +1,4 @@
 import type {
-  tool as aiTool,
   CallSettings,
   FlexibleSchema,
   LanguageModel,
@@ -8,6 +7,7 @@ import type {
   stepCountIs,
   streamText,
   ToolChoice,
+  ToolSet,
 } from "ai";
 import type {
   AbortableAsyncGenerator,
@@ -21,6 +21,7 @@ import type {
   ResponseMessage,
 } from "../../conversation-context";
 import type { LanguageService } from "../../language";
+import type { McpToolOrigin } from "../../mcp";
 import type { PromptTemplate, TemplateVariables } from "../../prompts";
 import type { Sandbox } from "../../sandbox/sandbox.types";
 import type { SkillRegistry } from "../../skills/skills.types";
@@ -95,6 +96,10 @@ export interface AgentConfig {
    * Resolved internally by `createAgent()` via the tool registry.
    */
   readonly tools?: readonly string[];
+  /** Run-scoped MCP tools merged into this agent's model-facing tool set. */
+  readonly mcpTools?: Readonly<ToolSet>;
+  /** MCP origin metadata keyed by namespaced model-facing tool name. */
+  readonly mcpToolOrigins?: Readonly<Record<string, McpToolOrigin>>;
   /**
    * Sandbox governing file-system access for all tools invoked by this agent.
    * When omitted, a permissive sandbox (no restrictions, cwd = process.cwd())
@@ -357,8 +362,7 @@ export interface AgentCallResult {
    */
   readonly responseMessages: readonly ResponseMessage[];
   /** All steps taken during this call (LLM calls + tool executions). Empty array for non-LLM agents. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK step generics are complex
-  readonly steps: ReadonlyArray<StepResult<any>>;
+  readonly steps: ReadonlyArray<StepResult<ToolSet>>;
 }
 
 /**
@@ -390,6 +394,8 @@ export type AgentStreamEvent =
       readonly toolCallId: string;
       readonly toolName: string;
       readonly args: string;
+      /** MCP origin when this is a namespaced MCP tool. */
+      readonly mcp?: McpToolOrigin;
     }
   | {
       readonly type: "tool-result";
@@ -406,6 +412,8 @@ export type AgentStreamEvent =
       readonly status: ToolCallStatus;
       /** Failure message when `status === "error"`. */
       readonly error?: string;
+      /** MCP origin when this is a namespaced MCP tool. */
+      readonly mcp?: McpToolOrigin;
     }
   | { readonly type: "thinking-start"; readonly id: string }
   | { readonly type: "thinking"; readonly id: string; readonly text: string }
@@ -418,11 +426,8 @@ export interface CallOptions {
   readonly model: LanguageModel;
   readonly system?: string | ModelMessage | ModelMessage[];
   readonly messages: ModelMessage[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
-  readonly tools?:
-    | Record<string, ReturnType<typeof aiTool<any, any>>>
-    | undefined;
-  readonly toolChoice?: ToolChoice<Record<string, unknown>> | undefined;
+  readonly tools?: ToolSet | undefined;
+  readonly toolChoice?: ToolChoice<ToolSet> | undefined;
   readonly abortSignal?: AbortSignal | undefined;
   readonly timeout?: number | undefined;
   readonly stopWhen?: ReturnType<typeof stepCountIs>;

@@ -13,6 +13,7 @@ import {
   handleHubRemove,
   handleHubUpdate,
 } from "./requests/hub-packages";
+import { handleListMcpServers } from "./requests/list-mcp-servers";
 import { handleListProviders } from "./requests/list-providers";
 import { handleListRuns } from "./requests/list-runs";
 import { handleListStrategies } from "./requests/list-strategies";
@@ -31,6 +32,7 @@ import { handleTrashList } from "./requests/trash-list";
 import { handleTrashRestore } from "./requests/trash-restore";
 import { handleUnregisterProvider } from "./requests/unregister-provider";
 import { handleUnsubscribe } from "./requests/unsubscribe";
+import { handleUpdateMcpServer } from "./requests/update-mcp-server";
 import { handleUpdatePolicy } from "./requests/update-policy";
 import { handleUserInput } from "./requests/user-input";
 
@@ -179,6 +181,12 @@ export function createDispatcher(
           break;
         case "list_providers":
           void handleListProviders(message, context);
+          break;
+        case "list_mcp_servers":
+          void handleListMcpServers(message, context);
+          break;
+        case "update_mcp_server":
+          void handleUpdateMcpServer(message, context);
           break;
         case "register_provider":
           void handleRegisterProvider(message, context);

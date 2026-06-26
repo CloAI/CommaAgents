@@ -1,3 +1,4 @@
+import type { PermissionDecision } from "@comma-agents/core";
 import type { RequestPermissionMessage } from "@comma-agents/daemon";
 import { Box, Text, useFocusManager } from "ink";
 import type React from "react";
@@ -5,12 +6,7 @@ import { useEffect } from "react";
 import { useTheme } from "../../Theme";
 import { Button } from "../Button";
 
-/** Decision option presented to the user. */
-export type PermissionDecision =
-  | "allow"
-  | "deny"
-  | "allow-session"
-  | "deny-session";
+export type { PermissionDecision } from "@comma-agents/core";
 
 export interface PermissionPromptProps {
   /** The daemon's `request_permission` message to display. */

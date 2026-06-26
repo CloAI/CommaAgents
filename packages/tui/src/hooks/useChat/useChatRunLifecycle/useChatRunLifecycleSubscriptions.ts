@@ -55,6 +55,7 @@ export function useChatRunLifecycleSubscriptions(): void {
   };
 
   useDaemonSubscription("run_prepared", (message) => {
+    const mcpServers = message.mcpServers ?? [];
     const chatRun = chatRuns.get(message.runId);
     const pendingExecution = chatRun?.pendingExecution;
     if (!pendingExecution && chatRun) {
@@ -74,6 +75,7 @@ export function useChatRunLifecycleSubscriptions(): void {
           label: message.strategyName,
           strategyName: message.strategyName,
           messages: hydratedMessages,
+          mcpServers,
           updatedAt: Date.now(),
         });
         return nextChatRuns;
@@ -86,6 +88,28 @@ export function useChatRunLifecycleSubscriptions(): void {
       (message.requestId !== undefined &&
         pendingExecution.requestId !== message.requestId)
     ) {
+      return;
+    }
+
+    const failedMcpServers = mcpServers.filter(
+      (server) => server.enabled && server.connected === false,
+    );
+    if (failedMcpServers.length > 0) {
+      setChatRuns((previousChatRuns) => {
+        const existingChatRun = previousChatRuns.get(message.runId);
+        if (!existingChatRun) return previousChatRuns;
+        const nextChatRuns = new Map(previousChatRuns);
+        nextChatRuns.set(message.runId, {
+          ...existingChatRun,
+          daemonRunId: message.runId,
+          label: message.strategyName,
+          strategyName: message.strategyName,
+          mcpServers,
+          pendingMcpConfirmation: true,
+          updatedAt: Date.now(),
+        });
+        return nextChatRuns;
+      });
       return;
     }
 
@@ -132,6 +156,8 @@ export function useChatRunLifecycleSubscriptions(): void {
         daemonRunId: message.runId,
         label: message.strategyName,
         strategyName: message.strategyName,
+        mcpServers,
+        pendingMcpConfirmation: false,
         messages: nextMessages,
         pendingExecution: {
           ...pendingExecution,
@@ -167,6 +193,7 @@ export function useChatRunLifecycleSubscriptions(): void {
         strategyName: message.strategyName,
         error: null,
         pendingExecution: null,
+        pendingMcpConfirmation: false,
         messages: [...chatRun.messages, systemMessage],
         updatedAt: Date.now(),
       });

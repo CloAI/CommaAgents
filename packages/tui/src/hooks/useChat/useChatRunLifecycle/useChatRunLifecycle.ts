@@ -23,6 +23,8 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
   const { chatRuns, setChatRuns } = useChatRunStore();
   const prepareRunCommand = useDaemonCommand("prepare_run");
   const stopRunCommand = useDaemonCommand("stop_run");
+  const startRunCommand = useDaemonCommand("start_run");
+  const continueRunCommand = useDaemonCommand("continue_run");
 
   const updateChatRun = useCallback(
     (chatRunId: ChatRunId, updater: (chatRun: ChatRun) => ChatRun): void => {
@@ -243,6 +245,8 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
         pendingInputAgent: null,
         pendingPermissionRequests: [],
         pendingQuestionRequests: [],
+        mcpServers: [],
+        pendingMcpConfirmation: false,
         activeLaunchStrategyIds: [],
         strategyName: null,
         strategyPath: null,
@@ -267,6 +271,66 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
     setChatRuns(new Map());
   }, [setChatRuns]);
 
+  const confirmMcpPreparation = useCallback(
+    (chatRunId: ChatRunId, proceed: boolean): void => {
+      const chatRun = chatRuns.get(chatRunId);
+      const pendingExecution = chatRun?.pendingExecution;
+      if (!chatRun || !pendingExecution || !chatRun.pendingMcpConfirmation) {
+        return;
+      }
+
+      if (!proceed) {
+        stopRunCommand({ runId: chatRun.daemonRunId ?? chatRunId });
+        updateChatRun(chatRunId, (existingChatRun) => ({
+          ...existingChatRun,
+          status:
+            pendingExecution.mode === "continue" ? "completed" : "cancelled",
+          runStatus:
+            pendingExecution.mode === "continue" ? "completed" : "cancelled",
+          pendingExecution: null,
+          pendingMcpConfirmation: false,
+          messages: pendingExecution.queuedMessageId
+            ? existingChatRun.messages.filter(
+                (message) => message.id !== pendingExecution.queuedMessageId,
+              )
+            : existingChatRun.messages,
+        }));
+        return;
+      }
+
+      const requestId =
+        pendingExecution.mode === "continue"
+          ? continueRunCommand({
+              runId: chatRun.daemonRunId ?? chatRunId,
+              input: pendingExecution.input ?? "",
+            })
+          : startRunCommand({
+              runId: chatRun.daemonRunId ?? chatRunId,
+              ...(pendingExecution.input !== null
+                ? { input: pendingExecution.input }
+                : {}),
+            });
+      if (!requestId) return;
+
+      updateChatRun(chatRunId, (existingChatRun) => ({
+        ...existingChatRun,
+        daemonRunId: existingChatRun.daemonRunId ?? chatRunId,
+        pendingMcpConfirmation: false,
+        pendingExecution: {
+          ...pendingExecution,
+          requestId,
+        },
+      }));
+    },
+    [
+      chatRuns,
+      continueRunCommand,
+      startRunCommand,
+      stopRunCommand,
+      updateChatRun,
+    ],
+  );
+
   return {
     startStrategy,
     continueRun,
@@ -275,5 +339,6 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
     resetChatRun,
     removeChatRun,
     clearAllChatRuns,
+    confirmMcpPreparation,
   };
 }

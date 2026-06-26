@@ -8,6 +8,7 @@ export { AvailableModelsMessage } from "./available-models";
 export { CredentialSetMessage } from "./credential-set";
 export { ErrorMessage } from "./error";
 export { HubPackagesMessage } from "./hub-packages";
+export { McpServerListMessage } from "./mcp-server-list";
 export { PolicyUpdatedMessage } from "./policy-updated";
 export { PongMessage } from "./pong";
 export { ProviderListMessage } from "./provider-list";

@@ -140,4 +140,22 @@ describe("JSONL Timeline RunStore", () => {
     expect(deleted).toBe(true);
     expect(await store.getEvents(runId)).toEqual([]);
   });
+
+  it("should persist and replace run configuration", async () => {
+    const store = createRunStore({ runsDir: TEST_RUNS_DIR });
+
+    await store.saveRunConfig("configured-run", {
+      enabledMcpServerIds: ["github", "filesystem"],
+    });
+    expect(await store.getRunConfig("configured-run")).toEqual({
+      enabledMcpServerIds: ["github", "filesystem"],
+    });
+
+    await store.saveRunConfig("configured-run", {
+      enabledMcpServerIds: ["github"],
+    });
+    expect(await store.getRunConfig("configured-run")).toEqual({
+      enabledMcpServerIds: ["github"],
+    });
+  });
 });

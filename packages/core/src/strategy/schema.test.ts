@@ -153,6 +153,7 @@ describe("AgentDefSchema", () => {
         model: "openai/gpt-4o",
         systemPrompt: "You write code.",
         tools: ["bash", "write"],
+        mcpServers: ["github", "filesystem"],
         skills: ["typescript", "testing"],
       });
       expect(result.success).toBe(true);
@@ -235,6 +236,21 @@ describe("AgentDefSchema", () => {
       });
       expect(result.success).toBe(false);
     });
+  });
+
+  it("accepts strategy-private MCP definitions", () => {
+    const result = StrategySchema.safeParse({
+      ...minimalStrategy(),
+      mcpServers: {
+        local: {
+          transport: "stdio",
+          command: "bunx",
+          args: ["example-mcp-server"],
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
   });
 
   describe("custom agents", () => {

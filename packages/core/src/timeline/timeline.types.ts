@@ -2,6 +2,7 @@ import type {
   ConversationRecord,
   ConversationRetentionEvent,
 } from "../conversation-context";
+import type { McpServerStatus } from "../mcp";
 
 /**
  * Union type representing any event recorded on a strategy run's timeline.
@@ -17,6 +18,8 @@ export type TimelineEvent =
       readonly initialInput?: string;
       readonly manifestPath?: string;
       readonly modelOverride?: string;
+      readonly enabledMcpServerIds?: readonly string[];
+      readonly mcpServers?: readonly McpServerStatus[];
     }
   | {
       readonly type: "run_completed";

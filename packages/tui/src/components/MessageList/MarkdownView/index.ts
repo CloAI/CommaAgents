@@ -1,3 +1,7 @@
+export type {
+  MarkdownViewProps,
+  MarkdownViewRenderProps,
+} from "./MarkdownView";
 export { MarkdownView, MarkdownViewRender } from "./MarkdownView";
 export {
   HEADING_PREFIX_CHAR,
@@ -12,8 +16,6 @@ export {
 export type { MarkdownViewTheme } from "./MarkdownView.theme";
 export { useMarkdownViewTheme } from "./MarkdownView.theme";
 export type {
-  MarkdownViewProps,
-  MarkdownViewRenderProps,
   MdBlock,
   MdInline,
   MdListItem,

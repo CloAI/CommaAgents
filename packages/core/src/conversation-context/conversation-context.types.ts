@@ -120,7 +120,7 @@ export interface ConversationHistory {
 }
 
 /** Options for {@link createConversationContext}. */
-export interface ConversationContextOptions extends ContextRetentionOptions {}
+export type ConversationContextOptions = ContextRetentionOptions;
 
 export interface ConversationContext {
   readonly length: number;

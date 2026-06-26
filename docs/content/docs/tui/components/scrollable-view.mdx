@@ -12,34 +12,24 @@ import { ScrollableView } from "@comma-agents/tui";
 
 <ScrollableView
   items={messages}
-  getKey={(msg) => msg.id}
-  renderItem={(msg, index) => <Text>{msg.text}</Text>}
-  stickToBottom={true}
+  getKey={(message) => message.id}
+  renderItem={(message) => <Text>{message.text}</Text>}
+  stickToBottom
   onScrollChange={(state) => console.log(state.rowOffset)}
 />
 ```
 
 ## ScrollableViewProps
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `items` | `readonly ItemType[]` | -- | Items to render |
-| `getKey` | `(item, index) => string` | -- | Unique key for each item |
-| `renderItem` | `(item, index) => ReactNode` | -- | Render function |
-| `getRowHeight` | `(item, index, viewportWidth) => number` | `1` | Fallback height estimate before measurement |
-| `scrollToRow` | `number` | -- | Scroll so this row index is visible |
-| `stickToBottom` | `boolean` | `false` | Pin to bottom on new content |
-| `onScrollChange` | `(state: ScrollableViewState) => void` | -- | Called when scroll state changes |
-| `emptyText` | `string` | `"No items."` | Empty state text |
+Props accepted by the virtualized view.
+
+<AutoTypeTable path="../packages/tui/src/components/ScrollableView/ScrollableView.tsx" name="ScrollableViewProps" />
 
 ## ScrollableViewState
 
-| Field | Type | Description |
-|---|---|---|
-| `rowOffset` | `number` | Current top offset in terminal rows |
-| `totalRows` | `number` | Total content height in rows |
-| `viewportRows` | `number` | Measured viewport height in rows |
-| `atBottom` | `boolean` | Whether rowOffset is at the maximum valid value |
+Scroll state reported through `onScrollChange`.
+
+<AutoTypeTable path="../packages/tui/src/components/ScrollableView/ScrollableView.types.ts" name="ScrollableViewState" />
 
 ## Sticky-to-Bottom
 

@@ -1,14 +1,11 @@
 // List-providers request handler.
 // Returns provider discovery metadata: id, name, auth status, normalized model list.
 
-import type { ModelInfo } from "@comma-agents/core";
 import { getGlobalCredentialStore, listProviders } from "@comma-agents/core";
 
 import type { HandlerContext } from "../../dispatcher.types";
-import type {
-  ModelInfoWire,
-  ProviderInfoWire,
-} from "../../responses/provider-list";
+import type { ProviderInfoWire } from "../../responses/provider-list";
+import { toModelInfoWire } from "../../responses/provider-list/provider-list.utils";
 import type { ListProvidersMessage } from "./list-providers.schema";
 
 export { ListProvidersMessage } from "./list-providers.schema";
@@ -37,7 +34,7 @@ export async function handleListProviders(
       name: provider.name,
       credentialType: provider.credentialType,
       authStatus: provider.authStatus,
-      models: provider.models.map(toWireModel),
+      models: provider.models.map(toModelInfoWire),
       modelsSource: provider.modelsSource,
       ...(provider.fetchedAt !== undefined
         ? { fetchedAt: provider.fetchedAt }
@@ -69,47 +66,4 @@ export async function handleListProviders(
         : {}),
     });
   }
-}
-
-function toWireModel(model: ModelInfo): ModelInfoWire {
-  return {
-    id: model.id,
-    ...(model.name !== undefined ? { name: model.name } : {}),
-    ...(model.family !== undefined ? { family: model.family } : {}),
-    ...(model.contextWindow !== undefined
-      ? { contextWindow: model.contextWindow }
-      : {}),
-    ...(model.maxInputTokens !== undefined
-      ? { maxInputTokens: model.maxInputTokens }
-      : {}),
-    ...(model.maxOutputTokens !== undefined
-      ? { maxOutputTokens: model.maxOutputTokens }
-      : {}),
-    ...(model.knowledgeCutoff !== undefined
-      ? { knowledgeCutoff: model.knowledgeCutoff }
-      : {}),
-    ...(model.releaseDate !== undefined
-      ? { releaseDate: model.releaseDate }
-      : {}),
-    ...(model.lastUpdated !== undefined
-      ? { lastUpdated: model.lastUpdated }
-      : {}),
-    ...(model.status !== undefined ? { status: model.status } : {}),
-    ...(model.modalities !== undefined
-      ? {
-          modalities: {
-            ...(model.modalities.input !== undefined
-              ? { input: [...model.modalities.input] }
-              : {}),
-            ...(model.modalities.output !== undefined
-              ? { output: [...model.modalities.output] }
-              : {}),
-          },
-        }
-      : {}),
-    ...(model.capabilities !== undefined
-      ? { capabilities: { ...model.capabilities } }
-      : {}),
-    ...(model.cost !== undefined ? { cost: { ...model.cost } } : {}),
-  };
 }

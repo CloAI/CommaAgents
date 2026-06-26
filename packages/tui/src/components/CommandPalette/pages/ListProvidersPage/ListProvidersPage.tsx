@@ -16,13 +16,19 @@ type ProviderInfo = DaemonMessageOf<"provider_list">["providers"][number];
 
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
 
-function providerHaystack(p: ProviderInfo): string {
-  return [p.id, p.name, ...p.models.map((m: { id: string }) => m.id)].join(" ");
+function providerHaystack(provider: ProviderInfo): string {
+  return [
+    provider.id,
+    provider.name,
+    ...provider.models.map((model) => model.id),
+  ].join(" ");
 }
 
 export interface ListProvidersPageProps {
   /** The unique focus identifier for this page. */
   readonly focusId: string;
+  /** Return to the command list. */
+  readonly onBack: () => void;
 }
 
 /**
@@ -35,6 +41,7 @@ export interface ListProvidersPageProps {
  */
 export function ListProvidersPage({
   focusId,
+  onBack,
 }: ListProvidersPageProps): React.ReactElement {
   const debug = useDebugRender("ListProvidersPage", {});
   const { send, on } = useDaemon();
@@ -45,26 +52,28 @@ export function ListProvidersPage({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // 3. Custom hooks
   const { isFocused } = useFocus({ id: focusId, isActive: RAW_MODE_SUPPORTED });
-
-  // 2. Memos
   const filtered = filterByQuery(providers, query, providerHaystack);
 
   useInput(
     (input, key) => {
       if (input && isMouseEscape(input)) return;
+      if (key.escape) {
+        onBack();
+        return;
+      }
       if (key.upArrow) {
-        setSelectedIndex((i) => Math.max(0, i - 1));
+        setSelectedIndex((currentIndex) => Math.max(0, currentIndex - 1));
         return;
       }
       if (key.downArrow) {
-        setSelectedIndex((i) => Math.min(filtered.length - 1, i + 1));
+        setSelectedIndex((currentIndex) =>
+          Math.min(filtered.length - 1, currentIndex + 1),
+        );
         return;
       }
-      // Typing updates the search query.
       if (key.backspace || key.delete) {
-        setQuery((q) => q.slice(0, -1));
+        setQuery((currentQuery) => currentQuery.slice(0, -1));
         setSelectedIndex(0);
         return;
       }
@@ -76,7 +85,7 @@ export function ListProvidersPage({
         !key.return &&
         !key.escape
       ) {
-        setQuery((q) => q + input);
+        setQuery((currentQuery) => currentQuery + input);
         setSelectedIndex(0);
       }
     },
@@ -84,11 +93,11 @@ export function ListProvidersPage({
   );
 
   useEffect(() => {
-    const unsub = on("provider_list", (msg) => {
-      setProviders(msg.providers);
+    const unsubscribe = on("provider_list", (message) => {
+      setProviders(message.providers);
     });
     send({ type: "list_providers" });
-    return unsub;
+    return unsubscribe;
   }, [send, on]);
 
   return (
@@ -100,7 +109,6 @@ export function ListProvidersPage({
       query={query}
       selectedIndex={selectedIndex}
       filtered={filtered}
-      onQueryChange={setQuery}
       onSelectedIndexChange={setSelectedIndex}
     />
   );
@@ -121,8 +129,6 @@ export interface ListProvidersPageRenderProps {
   readonly selectedIndex: number;
   /** Providers filtered by the current query. */
   readonly filtered: readonly ProviderInfo[];
-  /** Callback to update the search query. */
-  readonly onQueryChange: (query: string) => void;
   /** Callback to update the selected index. */
   readonly onSelectedIndexChange: (index: number) => void;
 }
@@ -135,7 +141,6 @@ export function ListProvidersPageRender({
   query,
   selectedIndex,
   filtered,
-  _onQueryChange,
   onSelectedIndexChange,
 }: ListProvidersPageRenderProps): React.ReactElement {
   return (
@@ -150,14 +155,14 @@ export function ListProvidersPageRender({
       </Box>
       <ScrollableList
         items={filtered}
-        getKey={(p) => p.id}
+        getKey={(provider) => provider.id}
         selectedIndex={selectedIndex}
         onSelectedIndexChange={onSelectedIndexChange}
         isFocused={false}
         emptyText={
           providers.length === 0 ? "Loading providers..." : "No providers match"
         }
-        renderItem={(p, isSelected) => (
+        renderItem={(provider, isSelected) => (
           <Box
             flexDirection="row"
             paddingX={1}
@@ -170,21 +175,25 @@ export function ListProvidersPageRender({
                 color={tokens.colors.primary}
                 wrap="truncate"
               >
-                {p.name}
+                {provider.name}
               </Text>
             </Box>
             <Box width={14} flexShrink={0}>
               <Text
                 color={
-                  p.authStatus === "configured"
+                  provider.authStatus === "configured"
                     ? tokens.colors.success
                     : tokens.colors.muted
                 }
               >
-                {p.authStatus === "configured" ? "configured" : "no auth"}
+                {provider.authStatus === "configured"
+                  ? "configured"
+                  : "no auth"}
               </Text>
             </Box>
-            <Text color={tokens.colors.muted}>{p.models.length} models</Text>
+            <Text color={tokens.colors.muted}>
+              {provider.models.length} models
+            </Text>
           </Box>
         )}
       />

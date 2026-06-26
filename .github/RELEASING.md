@@ -23,12 +23,29 @@ The bootstrap workflow skips packages that already exist at the requested versio
 
 ## Tagged Releases
 
-Update the root and all four public package versions together, merge to `main`, then push the matching tag:
+Install the repository hooks once per clone:
 
 ```bash
-git tag v2.0.0-rc.0
-git push origin v2.0.0-rc.0
+bun run hooks:install
 ```
+
+Create the release commit and tag with npm's version command:
+
+```bash
+npm version 2.0.0-rc.2
+git push origin main v2.0.0-rc.2
+```
+
+The `version` lifecycle synchronizes the root and all four public package
+versions, pins their internal dependencies to the same version, builds the
+public packages, and validates the publication metadata before npm creates the
+commit and tag.
+
+The pre-push hook validates every pushed `v*` tag and builds the exact tagged
+commit in a temporary worktree. A mismatched version, stale internal dependency
+pin, frozen-lockfile failure, or package build failure rejects the push. Git
+hooks can still be bypassed with `--no-verify`, so the release workflow repeats
+the package validation on GitHub.
 
 Create a protected GitHub environment named `npm-release` and require reviewer approval. Configure the same environment name on each npm trusted publisher.
 

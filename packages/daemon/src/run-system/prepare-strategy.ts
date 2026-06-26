@@ -84,6 +84,7 @@ export async function prepareStrategy(
   const inputCollector = systemData.get("inputCollector");
   const launchStrategy = systemData.get("launchStrategy");
   const skillRegistry = systemData.get("skillRegistry");
+  const mcpToolsByAgent = systemData.get("mcpToolsByAgent");
 
   const strategy = await loadStrategyFromString(
     strategyFile.content,
@@ -96,6 +97,7 @@ export async function prepareStrategy(
       modelOverride,
       strategyDir: dirname(strategyPath),
       runId,
+      mcpToolsByAgent,
     },
   );
 

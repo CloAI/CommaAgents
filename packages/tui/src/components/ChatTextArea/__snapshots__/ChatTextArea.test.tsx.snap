@@ -4,7 +4,5 @@ exports[`ChatTextAreaRender should match snapshot for default state 1`] = `
 "│Enter your prompt...
 │
 │
-│
-│
 │Build             Tab to change strategy · Enter to submit│"
 `;

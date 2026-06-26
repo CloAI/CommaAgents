@@ -27,10 +27,13 @@ import {
 export interface RegisteredProvidersPageProps {
   /** Unique identifier for the page to manage focus. */
   readonly focusId: string;
+  /** Return to the command list. */
+  readonly onBack: () => void;
 }
 
 export function RegisteredProvidersPage({
   focusId,
+  onBack,
 }: RegisteredProvidersPageProps): React.ReactElement {
   const debug = useDebugRender("RegisteredProvidersPage", {});
   const { send, on } = useDaemon();
@@ -39,7 +42,7 @@ export function RegisteredProvidersPage({
 
   const [providers, setProviders] = useState<readonly ProviderInfo[]>([]);
   const [query, setQuery] = useState("");
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [isPending, setIsPending] = useState(false);
   const [viewState, setViewState] = useState<RegisteredProvidersViewState>({
     kind: "list",
@@ -76,12 +79,12 @@ export function RegisteredProvidersPage({
     [filteredRegisteredProviders, filteredAvailableProviders],
   );
 
-  const fetchProviders = useCallback(() => {
+  const fetchProviders = useCallback((): void => {
     send({ type: "list_providers" });
   }, [send]);
 
   const registerProvider = useCallback(
-    (provider: ProviderInfo) => {
+    (provider: ProviderInfo): void => {
       if (provider.isCustom || isPending) return;
       setIsPending(true);
       send({ type: "register_provider", providerId: provider.id });
@@ -94,7 +97,7 @@ export function RegisteredProvidersPage({
   );
 
   const saveCredentialAndRegister = useCallback(
-    (provider: ProviderInfo, key: string) => {
+    (provider: ProviderInfo, key: string): void => {
       if (isPending) return;
       setIsPending(true);
       send({
@@ -113,7 +116,7 @@ export function RegisteredProvidersPage({
   );
 
   const activateRegistration = useCallback(
-    (provider: ProviderInfo) => {
+    (provider: ProviderInfo): void => {
       if (isPending) return;
       if (provider.isCustom) {
         setIsPending(true);
@@ -142,17 +145,16 @@ export function RegisteredProvidersPage({
   );
 
   const statusColor = useCallback(
-    (status: string) =>
+    (status: ProviderInfo["authStatus"]): string =>
       status === "configured" ? tokens.colors.success : tokens.colors.muted,
     [tokens.colors.success, tokens.colors.muted],
   );
 
   const credentialTypeColor = useCallback(
-    (type: string) => {
-      if (type === "oauth") return tokens.colors.info ?? tokens.colors.primary;
-      if (type === "none") return tokens.colors.muted;
-      return tokens.colors.muted;
-    },
+    (credentialType: ProviderInfo["credentialType"]): string =>
+      credentialType === "oauth"
+        ? (tokens.colors.info ?? tokens.colors.primary)
+        : tokens.colors.muted,
     [tokens.colors],
   );
 
@@ -173,11 +175,11 @@ export function RegisteredProvidersPage({
           return;
         }
         if (key.backspace || key.delete) {
-          setApiKeyInput((v) => v.slice(0, -1));
+          setApiKeyInput((currentInput) => currentInput.slice(0, -1));
           return;
         }
         if (isPrintableCharacter(input, key)) {
-          setApiKeyInput((v) => v + input);
+          setApiKeyInput((currentInput) => currentInput + input);
         }
         return;
       }
@@ -194,45 +196,52 @@ export function RegisteredProvidersPage({
         return;
       }
 
+      if (key.escape) {
+        onBack();
+        return;
+      }
+
       if (key.upArrow) {
-        setSelectedIdx((i) => Math.max(0, i - 1));
+        setSelectedIndex((currentIndex) => Math.max(0, currentIndex - 1));
         return;
       }
       if (key.downArrow) {
-        setSelectedIdx((i) => Math.min(unifiedProviders.length - 1, i + 1));
+        setSelectedIndex((currentIndex) =>
+          Math.min(unifiedProviders.length - 1, currentIndex + 1),
+        );
         return;
       }
       if (key.return) {
-        const selected = unifiedProviders[selectedIdx];
-        if (selected) activateRegistration(selected);
+        const selectedProvider = unifiedProviders[selectedIndex];
+        if (selectedProvider) activateRegistration(selectedProvider);
         return;
       }
       if (key.backspace || key.delete) {
-        setQuery((q) => q.slice(0, -1));
-        setSelectedIdx(0);
+        setQuery((currentQuery) => currentQuery.slice(0, -1));
+        setSelectedIndex(0);
         return;
       }
       if (isPrintableCharacter(input, key)) {
-        setQuery((q) => q + input);
-        setSelectedIdx(0);
+        setQuery((currentQuery) => currentQuery + input);
+        setSelectedIndex(0);
       }
     },
     { isActive: isFocused },
   );
 
   useEffect(() => {
-    const unsub = on("provider_list", (msg) => {
-      setProviders(msg.providers);
+    const unsubscribe = on("provider_list", (message) => {
+      setProviders(message.providers);
     });
     fetchProviders();
-    return unsub;
+    return unsubscribe;
   }, [fetchProviders, on]);
 
   useEffect(() => {
-    const unsub = on("credential_set", () => {
+    const unsubscribe = on("credential_set", () => {
       fetchProviders();
     });
-    return unsub;
+    return unsubscribe;
   }, [fetchProviders, on]);
 
   return (
@@ -244,8 +253,8 @@ export function RegisteredProvidersPage({
       unifiedProviders={unifiedProviders}
       filteredRegisteredProviders={filteredRegisteredProviders}
       query={query}
-      selectedIdx={selectedIdx}
-      onSelectedIndexChange={setSelectedIdx}
+      selectedIndex={selectedIndex}
+      onSelectedIndexChange={setSelectedIndex}
       viewState={viewState}
       apiKeyInput={apiKeyInput}
       isPending={isPending}
@@ -271,7 +280,7 @@ export interface RegisteredProvidersPageRenderProps {
   /** Current search query. */
   readonly query: string;
   /** Index of the currently selected provider. */
-  readonly selectedIdx: number;
+  readonly selectedIndex: number;
   /** Callback to update the selected index. */
   readonly onSelectedIndexChange: (index: number) => void;
   /** Current view state (list, api-input, or oauth-confirm). */
@@ -281,9 +290,11 @@ export interface RegisteredProvidersPageRenderProps {
   /** Whether a registration process is currently pending. */
   readonly isPending: boolean;
   /** Function to resolve the status color for a provider. */
-  readonly statusColor: (status: string) => string;
+  readonly statusColor: (status: ProviderInfo["authStatus"]) => string;
   /** Function to resolve the credential type color for a provider. */
-  readonly credentialTypeColor: (type: string) => string;
+  readonly credentialTypeColor: (
+    credentialType: ProviderInfo["credentialType"],
+  ) => string;
 }
 
 export function RegisteredProvidersPageRender({
@@ -294,7 +305,7 @@ export function RegisteredProvidersPageRender({
   unifiedProviders,
   filteredRegisteredProviders,
   query,
-  selectedIdx,
+  selectedIndex,
   onSelectedIndexChange,
   viewState,
   apiKeyInput,
@@ -303,7 +314,7 @@ export function RegisteredProvidersPageRender({
   credentialTypeColor,
 }: RegisteredProvidersPageRenderProps): React.ReactElement {
   if (viewState.kind === "api-input") {
-    const p = viewState.provider;
+    const provider = viewState.provider;
     return (
       <Box
         ref={debugRef}
@@ -314,7 +325,7 @@ export function RegisteredProvidersPageRender({
       >
         <Box marginBottom={1}>
           <Text bold color={tokens.colors.primary}>
-            Register {p.name}
+            Register {provider.name}
           </Text>
         </Box>
         <Box marginBottom={1}>
@@ -347,7 +358,7 @@ export function RegisteredProvidersPageRender({
   }
 
   if (viewState.kind === "oauth-confirm") {
-    const p = viewState.provider;
+    const provider = viewState.provider;
     return (
       <Box
         ref={debugRef}
@@ -363,8 +374,8 @@ export function RegisteredProvidersPageRender({
         </Box>
         <Box marginBottom={1}>
           <Text color={tokens.colors.muted}>
-            {p.name} requires OAuth authentication. This must be configured
-            externally (e.g., device flow or web-based OAuth).
+            {provider.name} requires OAuth authentication. This must be
+            configured externally (e.g., device flow or web-based OAuth).
           </Text>
         </Box>
         <Box marginBottom={1}>
@@ -377,7 +388,7 @@ export function RegisteredProvidersPageRender({
           <Text color={tokens.colors.primary}>
             Register{" "}
             <Text bold color={tokens.colors.warning ?? tokens.colors.primary}>
-              {p.name}
+              {provider.name}
             </Text>{" "}
             without credentials?
           </Text>
@@ -418,16 +429,17 @@ export function RegisteredProvidersPageRender({
 
           <ScrollableList
             items={unifiedProviders}
-            getKey={(p) => p.id}
-            selectedIndex={selectedIdx}
+            getKey={(provider) => provider.id}
+            selectedIndex={selectedIndex}
             onSelectedIndexChange={onSelectedIndexChange}
             isFocused={false}
             emptyText=""
-            renderItem={(p, isSelected) => {
-              const ctLabel = CREDENTIAL_TYPE_LABELS[p.credentialType] ?? "api";
+            renderItem={(provider, isSelected) => {
+              const credentialTypeLabel =
+                CREDENTIAL_TYPE_LABELS[provider.credentialType] ?? "api";
               const isAvailableSection =
                 filteredRegisteredProviders.length > 0 &&
-                unifiedProviders.indexOf(p) ===
+                unifiedProviders.indexOf(provider) ===
                   filteredRegisteredProviders.length;
 
               return (
@@ -449,12 +461,12 @@ export function RegisteredProvidersPageRender({
                     <Box width={2} flexShrink={0}>
                       <Text
                         color={
-                          p.isCustom
+                          provider.isCustom
                             ? tokens.colors.success
                             : tokens.colors.muted
                         }
                       >
-                        {p.isCustom ? "●" : "○"}
+                        {provider.isCustom ? "●" : "○"}
                       </Text>
                     </Box>
                     <Box width={22} flexShrink={0} overflow="hidden">
@@ -463,23 +475,25 @@ export function RegisteredProvidersPageRender({
                         color={tokens.colors.primary}
                         wrap="truncate"
                       >
-                        {p.name}
+                        {provider.name}
                       </Text>
                     </Box>
                     <Box width={10} flexShrink={0}>
-                      <Text color={credentialTypeColor(p.credentialType)}>
-                        [{ctLabel}]
+                      <Text
+                        color={credentialTypeColor(provider.credentialType)}
+                      >
+                        [{credentialTypeLabel}]
                       </Text>
                     </Box>
                     <Box width={14} flexShrink={0}>
-                      <Text color={statusColor(p.authStatus)}>
-                        {p.authStatus === "configured"
+                      <Text color={statusColor(provider.authStatus)}>
+                        {provider.authStatus === "configured"
                           ? "configured"
                           : "no auth"}
                       </Text>
                     </Box>
                     <Text color={tokens.colors.muted}>
-                      {p.models.length} models
+                      {provider.models.length} models
                     </Text>
                   </Box>
                 </Box>

@@ -7,6 +7,7 @@ import type { AvailableModelsMessage } from "./responses/available-models";
 import type { CredentialSetMessage } from "./responses/credential-set";
 import type { ErrorMessage } from "./responses/error";
 import type { HubPackagesMessage } from "./responses/hub-packages/hub-packages.schema";
+import type { McpServerListMessage } from "./responses/mcp-server-list/mcp-server-list.schema";
 import type { PongMessage } from "./responses/pong";
 import type { ProviderListMessage } from "./responses/provider-list";
 import type { ProviderRegisteredMessage } from "./responses/provider-registered";
@@ -60,6 +61,8 @@ export interface RequestResponseMap {
   readonly hub_install: HubPackagesMessage;
   readonly hub_update: HubPackagesMessage;
   readonly hub_remove: HubPackagesMessage;
+  readonly list_mcp_servers: McpServerListMessage;
+  readonly update_mcp_server: McpServerListMessage;
 }
 
 /**

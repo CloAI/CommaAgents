@@ -1,8 +1,4 @@
-// Agent utility functions.
-//
-// Standalone helpers for building AI SDK call options, tool sets,
-// messages, and stream event mapping.
-
+import type { StepResult, TextStreamPart, ToolSet } from "ai";
 import { tool as aiTool, generateText, Output, stepCountIs } from "ai";
 import type {
   ConversationContext,
@@ -18,6 +14,7 @@ import { SandboxViolationError } from "../../errors/index";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
 import type { SideEffectHook, TransformHook } from "../../hooks/hooks.types";
 import type { LanguageService } from "../../language";
+import { parseMcpToolName } from "../../mcp";
 import { resolveModel } from "../../model/model";
 import { getQualifiedModelMetadata } from "../../model/model.utils";
 import {
@@ -155,7 +152,6 @@ export async function runPostCallHooks(
  *   sub-load). Tools that need per-launch isolation (notably `todo_*`)
  *   silo on this. Kept distinct from `sessionId`.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics vary per tool
 export function buildAgentToolSet(
   toolDefinitions: Readonly<Record<string, ToolDefinition>> | undefined,
   agentName: string,
@@ -168,7 +164,7 @@ export function buildAgentToolSet(
   launchStrategy?: LaunchStrategyHandle,
   languageService?: LanguageService,
   runId?: string,
-): Record<string, ReturnType<typeof aiTool<any, any>>> | undefined {
+): ToolSet | undefined {
   if (!toolDefinitions || Object.keys(toolDefinitions).length === 0) {
     return undefined;
   }
@@ -182,8 +178,7 @@ export function buildAgentToolSet(
     auditSink ??
     (sessionId !== undefined ? createFileAuditSink(workspaceCwd) : undefined);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Tool generics are complex
-  const toolSet: Record<string, ReturnType<typeof aiTool<any, any>>> = {};
+  const toolSet: ToolSet = {};
 
   for (const [name, definition] of Object.entries(toolDefinitions)) {
     // Per-tool guard from the sandbox, with tool-level policies
@@ -393,8 +388,8 @@ export async function buildCallOptions(
     : undefined;
 
   const [tools, resolvedSystemPrompt] = await Promise.all([
-    Promise.resolve(
-      buildAgentToolSet(
+    Promise.resolve({
+      ...(buildAgentToolSet(
         resolvedToolDefinitions,
         config.name,
         toolHooks,
@@ -406,8 +401,9 @@ export async function buildCallOptions(
         config.launchStrategy,
         config.languageService,
         config.runId,
-      ),
-    ),
+      ) ?? {}),
+      ...(config.mcpTools ?? {}),
+    }),
     resolveSystemPrompt({ systemPrompt: config.systemPrompt }),
   ]);
 
@@ -466,8 +462,9 @@ export function createModelSummarizer(model: string): SummarizeRecords {
  * Maps an AI SDK stream part to an AgentStreamEvent.
  * Returns undefined for parts we don't surface (e.g., finish, error).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK fullStream part is a complex union
-export function mapStreamPart(streamPart: any): AgentStreamEvent | undefined {
+export function mapStreamPart(
+  streamPart: TextStreamPart<ToolSet>,
+): AgentStreamEvent | undefined {
   switch (streamPart.type) {
     case "text-delta":
       return { type: "text", text: streamPart.text };
@@ -477,14 +474,20 @@ export function mapStreamPart(streamPart: any): AgentStreamEvent | undefined {
       return { type: "thinking", id: streamPart.id, text: streamPart.text };
     case "reasoning-end":
       return { type: "thinking-end", id: streamPart.id };
-    case "tool-call":
+    case "tool-call": {
+      const mcp = parseMcpToolName(streamPart.toolName);
       return {
         type: "tool-call",
         toolCallId: streamPart.toolCallId,
         toolName: streamPart.toolName,
-        args: JSON.stringify(streamPart.args ?? streamPart.input),
+        args: JSON.stringify(
+          "args" in streamPart ? streamPart.args : streamPart.input,
+        ),
+        ...(mcp ? { mcp } : {}),
       };
-    case "tool-result":
+    }
+    case "tool-result": {
+      const mcp = parseMcpToolName(streamPart.toolName);
       return {
         type: "tool-result",
         toolCallId: streamPart.toolCallId,
@@ -494,7 +497,9 @@ export function mapStreamPart(streamPart: any): AgentStreamEvent | undefined {
             ? streamPart.output
             : JSON.stringify(streamPart.output),
         status: "completed",
+        ...(mcp ? { mcp } : {}),
       };
+    }
     case "tool-error": {
       // The AI SDK surfaces tool execution failures as `tool-error` parts
       // separate from `tool-result`. We collapse them into a single
@@ -518,6 +523,9 @@ export function mapStreamPart(streamPart: any): AgentStreamEvent | undefined {
         output: "",
         status: "error",
         error: errorMessage,
+        ...(parseMcpToolName(streamPart.toolName)
+          ? { mcp: parseMcpToolName(streamPart.toolName) }
+          : {}),
       };
     }
     case "start-step":
@@ -536,8 +544,7 @@ export function mapStreamPart(streamPart: any): AgentStreamEvent | undefined {
 export function buildStreamCallResult(
   text: string,
   responseMessages: readonly ResponseMessage[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK step types are complex generics
-  steps: ReadonlyArray<any>,
+  steps: ReadonlyArray<StepResult<ToolSet>>,
   totalUsage: {
     readonly inputTokens: number | undefined;
     readonly outputTokens: number | undefined;

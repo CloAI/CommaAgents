@@ -1,0 +1,52 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`PermissionPrompt renders the fs.read operation clearly 1`] = `
+"┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                                  │
+│  ⚠ Permission request                                                                            │
+│                                                                                                  │
+│  coder (read_file) wants to read:                                                                │
+│  /workspace/file.ts                                                                              │
+│                                                                                                  │
+│  ────────────────────────────────────────                                                        │
+│                                                                                                  │
+│   [ Allow once ]    [ Allow session ]    [ Deny once ]    [ Deny session ]                       │
+│                                                                                                  │
+│  Tab · ↵ to select | mouse click also works                                                      │
+│                                                                                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`PermissionPrompt renders the fs.write operation clearly 1`] = `
+"┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                                  │
+│  ⚠ Permission request                                                                            │
+│                                                                                                  │
+│  coder (read_file) wants to write:                                                               │
+│  /workspace/file.ts                                                                              │
+│                                                                                                  │
+│  ────────────────────────────────────────                                                        │
+│                                                                                                  │
+│   [ Allow once ]    [ Allow session ]    [ Deny once ]    [ Deny session ]                       │
+│                                                                                                  │
+│  Tab · ↵ to select | mouse click also works                                                      │
+│                                                                                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`PermissionPrompt renders the fs.exec operation clearly 1`] = `
+"┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                                  │
+│  ⚠ Permission request                                                                            │
+│                                                                                                  │
+│  coder (read_file) wants to execute:                                                             │
+│  /workspace/file.ts                                                                              │
+│                                                                                                  │
+│  ────────────────────────────────────────                                                        │
+│                                                                                                  │
+│   [ Allow once ]    [ Allow session ]    [ Deny once ]    [ Deny session ]                       │
+│                                                                                                  │
+│  Tab · ↵ to select | mouse click also works                                                      │
+│                                                                                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;

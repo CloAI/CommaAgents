@@ -1,3 +1,4 @@
+import { parseMcpToolName } from "@comma-agents/core";
 import type {
   ChatMessage,
   ChatRun,
@@ -32,6 +33,8 @@ export function createInitialChatRun(
     runStatus: null,
     error: null,
     pendingExecution: null,
+    mcpServers: [],
+    pendingMcpConfirmation: false,
     pendingInputAgent: null,
     pendingPermissionRequests: [],
     pendingQuestionRequests: [],
@@ -131,7 +134,7 @@ export function conversationRecordsToChatMessages(
       role: "agent",
       sender: record.agentName,
       text: record.text,
-      segments: [{ type: "text", text: record.text, streaming: false }],
+      segments: conversationRecordSegments(record),
       streaming: false,
       usage: record.usage,
       ...(record.contextUsage !== undefined
@@ -162,6 +165,63 @@ export function conversationRecordsToChatMessages(
   }
 
   return messages;
+}
+
+function conversationRecordSegments(
+  record: PersistedConversationRecord,
+): NonNullable<ChatMessage["segments"]> {
+  const segments: NonNullable<ChatMessage["segments"]>[number][] = [];
+  if (record.text.length > 0) {
+    segments.push({ type: "text", text: record.text, streaming: false });
+  }
+
+  for (const responseMessage of record.responseMessages) {
+    if (!Array.isArray(responseMessage.content)) continue;
+    for (const rawPart of responseMessage.content) {
+      if (typeof rawPart !== "object" || rawPart === null) continue;
+      const part = rawPart as Record<string, unknown>;
+      if (
+        part.type === "tool-call" &&
+        typeof part.toolCallId === "string" &&
+        typeof part.toolName === "string"
+      ) {
+        const mcp = parseMcpToolName(part.toolName);
+        segments.push({
+          type: "tool-call",
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
+          args: stringifyToolValue(part.input ?? part.args),
+          ...(mcp ? { mcp } : {}),
+        });
+      } else if (
+        part.type === "tool-result" &&
+        typeof part.toolCallId === "string" &&
+        typeof part.toolName === "string"
+      ) {
+        const mcp = parseMcpToolName(part.toolName);
+        segments.push({
+          type: "tool-result",
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
+          output: stringifyToolValue(part.output),
+          status: "completed",
+          ...(mcp ? { mcp } : {}),
+        });
+      }
+    }
+  }
+
+  return segments;
+}
+
+function stringifyToolValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value === undefined) return "";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 /** Parse a record timestamp, falling back to the current clock if invalid. */

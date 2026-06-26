@@ -3,7 +3,17 @@ import type React from "react";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
 import type { BreakpointName } from "../../Theme";
 import { useTheme } from "../../Theme";
-import type { BreakpointOrColumns, HideProps } from "./Hide.types";
+import type { BreakpointOrColumns } from "./Hide.types";
+
+/** Props for the `Hide` component. */
+export interface HideProps {
+  /** Hide children when terminal width is below this breakpoint or column count. */
+  readonly below?: BreakpointOrColumns;
+  /** Hide children when terminal width is at or above this breakpoint or column count. */
+  readonly above?: BreakpointOrColumns;
+  /** Child content to conditionally render. */
+  readonly children: React.ReactNode;
+}
 
 /** Resolve a breakpoint name or raw column number to a column threshold. */
 function resolveThreshold(

@@ -1,6 +1,5 @@
 import { Box, Text, useFocus, useInput } from "ink";
-import type React from "react";
-import { useState } from "react";
+import React from "react";
 
 import { useUserConfig } from "../../../../hooks/useUserConfig";
 import { THEME_REGISTRY, type ThemeName } from "../../../../Theme/themes";
@@ -27,10 +26,13 @@ const THEME_OPTIONS: readonly ThemeOption[] = Array.from(
 export interface SettingsPageProps {
   /** Unique identifier for the focusable area. */
   readonly focusId: string;
+  /** Return to the command list. */
+  readonly onBack: () => void;
 }
 
 export function SettingsPage({
   focusId,
+  onBack,
 }: SettingsPageProps): React.ReactElement {
   const tokens = useTheme();
   const { config, updateConfig } = useUserConfig();
@@ -39,7 +41,7 @@ export function SettingsPage({
     0,
     THEME_OPTIONS.findIndex((option) => option.name === config.themeName),
   );
-  const [selectedIndex, setSelectedIndex] = useState(initialIndex);
+  const [selectedIndex, setSelectedIndex] = React.useState(initialIndex);
 
   const { isFocused } = useFocus({
     id: focusId,
@@ -57,9 +59,7 @@ export function SettingsPage({
 
   useInput(
     (_input, key) => {
-      if (key.return) {
-        applySelection(selectedIndex);
-      }
+      if (key.escape) onBack();
     },
     { isActive: isFocused },
   );

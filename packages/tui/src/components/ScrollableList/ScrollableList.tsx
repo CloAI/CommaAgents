@@ -2,17 +2,27 @@ import { useFocus, useInput } from "ink";
 import type React from "react";
 
 import { ScrollableView } from "../ScrollableView";
+import { clampIndex } from "./ScrollableList.utils";
 
-import type {
-  ScrollableListProps,
-  ScrollableListRenderProps,
-} from "./ScrollableList.types";
-
-function clampIndex(index: number, length: number): number {
-  if (length <= 0) return 0;
-  if (index < 0) return 0;
-  if (index >= length) return length - 1;
-  return index;
+export interface ScrollableListProps<ItemType> {
+  /** Items rendered by the list. */
+  readonly items: readonly ItemType[];
+  /** Stable key for each item. */
+  readonly getKey: (item: ItemType, index: number) => string;
+  /** Renderer receiving each item and its selected state. */
+  readonly renderItem: (item: ItemType, isSelected: boolean) => React.ReactNode;
+  /** Controlled selected index. */
+  readonly selectedIndex: number;
+  /** Callback invoked when keyboard navigation changes the selection. */
+  readonly onSelectedIndexChange: (next: number) => void;
+  /** Callback invoked when Enter activates the selected item. */
+  readonly onSelected?: (item: ItemType, index: number) => void;
+  /** Empty-state text. @default "No items." */
+  readonly emptyText?: string;
+  /** Stable Ink focus identifier. */
+  readonly id?: string;
+  /** Parent-controlled focus state. */
+  readonly isFocused?: boolean;
 }
 
 /**
@@ -44,21 +54,17 @@ function clampIndex(index: number, length: number): number {
  * />
  * ```
  */
-export function ScrollableList<ItemType>(
-  props: ScrollableListProps<ItemType>,
-): React.ReactElement {
-  const {
-    items,
-    getKey,
-    renderItem,
-    selectedIndex,
-    onSelectedIndexChange,
-    onSelected,
-    emptyText,
-    id,
-    isFocused: externalFocused,
-  } = props;
-
+export function ScrollableList<ItemType>({
+  items,
+  getKey,
+  renderItem,
+  selectedIndex,
+  onSelectedIndexChange,
+  onSelected,
+  emptyText,
+  id,
+  isFocused: externalFocused,
+}: ScrollableListProps<ItemType>): React.ReactElement {
   const totalCount = items.length;
   const clampedSelected = clampIndex(selectedIndex, totalCount);
 
@@ -98,6 +104,19 @@ export function ScrollableList<ItemType>(
       emptyText={emptyText}
     />
   );
+}
+
+export interface ScrollableListRenderProps<ItemType> {
+  /** Items rendered by the list. */
+  readonly items: readonly ItemType[];
+  /** Stable key for each item. */
+  readonly getKey: (item: ItemType, index: number) => string;
+  /** Renderer receiving each item and its selected state. */
+  readonly renderItem: (item: ItemType, isSelected: boolean) => React.ReactNode;
+  /** Selected index after clamping. */
+  readonly clampedSelected: number;
+  /** Empty-state text. */
+  readonly emptyText?: string;
 }
 
 export function ScrollableListRender<ItemType>({

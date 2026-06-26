@@ -1,4 +1,5 @@
 export * from "./input";
+export * from "./mcp";
 export * from "./permission";
 export * from "./persistence";
 export * from "./question";

@@ -1,18 +1,7 @@
-// Enable React act() environment for bun:test
-(globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
-
-// Suppress React act() warnings from ink-testing-library's internal renders
-const originalConsoleError = console.error;
-console.error = (...args: unknown[]) => {
-  if (typeof args[0] === "string" && args[0].includes("was not wrapped in act"))
-    return;
-  originalConsoleError(...args);
-};
-
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { Text } from "ink";
 import { render } from "ink-testing-library";
-import React, { act } from "react";
+import React, { act as reactAct } from "react";
 
 import type { ChatRunsContextType, UseChatState } from "./useChat.types";
 import type { ChatRunLifecycle } from "./useChatRunLifecycle";
@@ -75,6 +64,17 @@ const { useChat } = await import("./useChat");
 const { useChatRuns } = await import("./useChatRuns");
 const { useChatRunLifecycle } = await import("./useChatRunLifecycle");
 const { ChatRunsContextProvider } = await import("./useChat.context");
+
+function act(callback: () => void): void {
+  const globalState = globalThis as Record<string, unknown>;
+  const previousActEnvironment = globalState.IS_REACT_ACT_ENVIRONMENT;
+  globalState.IS_REACT_ACT_ENVIRONMENT = true;
+  try {
+    reactAct(callback);
+  } finally {
+    globalState.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+  }
+}
 
 /**
  * Render a component that observes `useChat` bound to an explicit run id.
@@ -332,7 +332,9 @@ describe("useChat", () => {
                 agentName: "writer",
                 createdAt: "2026-01-01T00:00:30.000Z",
                 userMessage: { role: "user", content: "human prompt" },
-                responseMessages: [{ role: "assistant", content: "writer out" }],
+                responseMessages: [
+                  { role: "assistant", content: "writer out" },
+                ],
                 text: "writer out",
                 usage: { promptTokens: 10, completionTokens: 5 },
                 finishReason: "stop",
@@ -427,6 +429,54 @@ describe("useChat", () => {
       expect(result.current.messages[1]?.role).toBe("system");
       expect(result.current.messages[1]?.text).toContain("test-strategy");
       expect(result.current.messages[1]?.text).toContain("agent-a");
+
+      cleanup();
+    });
+
+    it("should wait for confirmation when an enabled MCP server fails", () => {
+      const { result, runLifecycle, cleanup } = renderChatHook();
+
+      act(() => {
+        result.current.startStrategy("/path/to/strategy.json", "hello");
+      });
+      const runId = result.current.chatRunId!;
+
+      act(() => {
+        subscriptionHandlers.run_prepared?.({
+          runId,
+          strategyName: "test-strategy",
+          agents: ["agent-a"],
+          flowTree: {},
+          conversation: { records: [], retentionEvents: [], inputs: [] },
+          requestId: "req-1",
+          mcpServers: [
+            {
+              id: "github",
+              source: "workspace",
+              transport: "http",
+              enabled: true,
+              enabledByDefault: true,
+              connected: false,
+              toolCount: 0,
+              assignedAgents: ["agent-a"],
+              error: "Connection refused",
+            },
+          ],
+        });
+      });
+
+      expect(mockStartRunCommand).not.toHaveBeenCalled();
+      expect(result.current.pendingMcpConfirmation).toBe(true);
+
+      act(() => {
+        runLifecycle.current.confirmMcpPreparation(runId, true);
+      });
+
+      expect(mockStartRunCommand).toHaveBeenCalledWith({
+        runId,
+        input: "hello",
+      });
+      expect(result.current.pendingMcpConfirmation).toBe(false);
 
       cleanup();
     });

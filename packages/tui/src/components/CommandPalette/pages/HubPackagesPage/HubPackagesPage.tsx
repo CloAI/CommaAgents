@@ -18,19 +18,26 @@ type InstalledPackage = NonNullable<
   DaemonMessageOf<"hub_packages">["installed"]
 >[number];
 
+const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
+
 export interface HubPackagesPageProps {
   readonly focusId: string;
+  readonly onBack: () => void;
 }
 
 /** Browse and mutate Hub packages through the daemon-owned manager. */
 export function HubPackagesPage({
   focusId,
+  onBack,
 }: HubPackagesPageProps): React.ReactElement {
   const { send, on } = useDaemon();
   const refreshStrategies = useRefreshDiscoveredStrategies();
   const tokens = useTheme();
   const searchTheme = useSearchInputTheme();
-  const { isFocused } = useFocus({ id: focusId, isActive: true });
+  const { isFocused } = useFocus({
+    id: focusId,
+    isActive: RAW_MODE_SUPPORTED,
+  });
   const [packages, setPackages] = useState<readonly HubPackage[]>([]);
   const [installed, setInstalled] = useState<readonly InstalledPackage[]>([]);
   const [query, setQuery] = useState("");
@@ -39,7 +46,7 @@ export function HubPackagesPage({
   const [confirmName, setConfirmName] = useState<string>();
   const requestIdRef = useRef<string | undefined>(undefined);
 
-  const requestList = useCallback(() => {
+  const requestList = useCallback((): void => {
     const requestId = crypto.randomUUID();
     requestIdRef.current = requestId;
     setStatus("Loading packages...");
@@ -92,7 +99,7 @@ export function HubPackagesPage({
       type: "hub_install" | "hub_update" | "hub_remove",
       item: HubPackage,
       allowCode = false,
-    ) => {
+    ): void => {
       const requestId = crypto.randomUUID();
       requestIdRef.current = requestId;
       setStatus(
@@ -111,12 +118,18 @@ export function HubPackagesPage({
   useInput(
     (input, key) => {
       if (input && isMouseEscape(input)) return;
-      if (key.upArrow)
-        return setSelectedIndex((index) => Math.max(0, index - 1));
-      if (key.downArrow)
-        return setSelectedIndex((index) =>
-          Math.min(filtered.length - 1, index + 1),
-        );
+      if (key.escape) {
+        onBack();
+        return;
+      }
+      if (key.upArrow) {
+        setSelectedIndex((index) => Math.max(0, index - 1));
+        return;
+      }
+      if (key.downArrow) {
+        setSelectedIndex((index) => Math.min(filtered.length - 1, index + 1));
+        return;
+      }
       if (key.backspace || key.delete) {
         setQuery((value) => value.slice(0, -1));
         setSelectedIndex(0);
@@ -143,7 +156,14 @@ export function HubPackagesPage({
         mutate(action, selected, confirmName === selected.name);
         return;
       }
-      if (input && !key.ctrl && !key.meta && !key.tab && !key.escape) {
+      if (
+        input &&
+        !key.ctrl &&
+        !key.meta &&
+        !key.tab &&
+        !key.escape &&
+        !key.return
+      ) {
         setQuery((value) => value + input);
         setSelectedIndex(0);
         setConfirmName(undefined);

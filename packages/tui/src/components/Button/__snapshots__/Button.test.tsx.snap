@@ -1,0 +1,11 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`Button renders a clear primary snapshot 1`] = `" [ Confirm ]"`;
+
+exports[`Button renders a clear secondary snapshot 1`] = `" [ Details ]"`;
+
+exports[`Button renders a clear danger snapshot 1`] = `" [ Delete ]"`;
+
+exports[`Button renders a clear ghost snapshot 1`] = `" [ Cancel ]"`;
+
+exports[`Button renders the disabled state 1`] = `" [ Locked ]"`;

@@ -6,6 +6,7 @@ import { App } from "./App";
 import { ChatRunsContextProvider } from "./hooks/useChat";
 import { DaemonContextProvider } from "./hooks/useDaemon";
 import { logStore } from "./hooks/useLogs/logStore";
+import { McpContextProvider } from "./hooks/useMcp";
 import { ModalContextProvider } from "./hooks/useModal";
 import { StrategyDiscoveryContextProvider } from "./hooks/useStrategies";
 import { UserConfigContextProvider } from "./hooks/useUserConfig";
@@ -46,13 +47,15 @@ export function runTui({
       <UserConfigContextProvider>
         <ThemeContextProvider>
           <DaemonContextProvider url={daemonUrl}>
-            <StrategyDiscoveryContextProvider>
-              <ChatRunsContextProvider>
-                <ModalContextProvider>
-                  <App devMode={dev} />
-                </ModalContextProvider>
-              </ChatRunsContextProvider>
-            </StrategyDiscoveryContextProvider>
+            <McpContextProvider>
+              <StrategyDiscoveryContextProvider>
+                <ChatRunsContextProvider>
+                  <ModalContextProvider>
+                    <App devMode={dev} />
+                  </ModalContextProvider>
+                </ChatRunsContextProvider>
+              </StrategyDiscoveryContextProvider>
+            </McpContextProvider>
           </DaemonContextProvider>
         </ThemeContextProvider>
       </UserConfigContextProvider>

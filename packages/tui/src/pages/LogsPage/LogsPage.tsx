@@ -7,9 +7,7 @@ import type { LogsPageTheme } from "./LogsPage.theme";
 import { useLogsPageTheme } from "./LogsPage.theme";
 import { formatLevel, formatTimestamp } from "./LogsPage.utils";
 
-export type LogsPageProps = {};
-
-export function LogsPage({}: LogsPageProps): React.ReactElement {
+export function LogsPage(): React.ReactElement {
   const { logs, clearLogs } = useLogs();
   const debug = useDebugRender("LogsPage", {
     props: { logs, clearLogs },
@@ -45,7 +43,7 @@ export function LogsPageRender({
     <Box ref={debugRef} {...theme.root}>
       <ScrollableView
         items={logs}
-        getKey={(item, index) => `log_item-${index}`}
+        getKey={(_entry, index) => `log_item-${index}`}
         renderItem={(entry, _index) => (
           <Box key={entry.id} {...theme.logRow}>
             <Text {...theme.timestamp}>{formatTimestamp(entry.timestamp)}</Text>

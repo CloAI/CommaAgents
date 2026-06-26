@@ -3,6 +3,7 @@
 import type { Agent } from "../../agents/agent/agent.types";
 import type { AgentTypeRuntime } from "../../agents/registry/agent-registry.types";
 import type { FlowHooks } from "../../flows/flow/flow.types";
+import type { McpAgentToolSet } from "../../mcp";
 import type { Strategy } from "../schema";
 
 /**
@@ -20,6 +21,8 @@ export interface LoadStrategyOptions extends AgentTypeRuntime {
    * flow lifecycle, etc.
    */
   readonly flowHooks?: FlowHooks;
+  /** Run-scoped MCP tools already resolved for each agent name. */
+  readonly mcpToolsByAgent?: Readonly<Record<string, McpAgentToolSet>>;
 }
 
 /**

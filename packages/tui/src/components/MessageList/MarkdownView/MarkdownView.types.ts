@@ -1,7 +1,5 @@
 import type { BundledLanguage } from "shiki/langs";
 
-import type { MarkdownViewTheme } from "./MarkdownView.theme";
-
 /**
  * Inline span — a leaf or one level of nested formatting that lives
  * inside a single line of flowing text (paragraph, heading, list item,
@@ -63,28 +61,6 @@ export interface MdListItem {
   readonly children: readonly MdInline[];
   /** Nested blocks (e.g. a sub-list) rendered indented under the item. */
   readonly nested: readonly MdBlock[];
-}
-
-/** Props for the {@link MarkdownView} container. */
-export interface MarkdownViewProps {
-  /** Raw Markdown source. */
-  readonly markdown: string;
-  /**
-   * Optional override for the column width used to size the horizontal
-   * rule and the table layout. Defaults to
-   * {@link HORIZONTAL_RULE_DEFAULT_WIDTH}.
-   */
-  readonly width?: number;
-}
-
-/** Props for the pure {@link MarkdownViewRender} function. */
-export interface MarkdownViewRenderProps {
-  /** Block tree to render. */
-  readonly blocks: readonly MdBlock[];
-  /** Resolved theme styles. */
-  readonly theme: MarkdownViewTheme;
-  /** Effective column width for layout-sensitive blocks (hr, table). */
-  readonly width: number;
 }
 
 /**

@@ -257,6 +257,12 @@ async function buildLLMAgent(
     model: effectiveModel,
     systemPrompt,
     tools: agentDefinition.tools,
+    ...(options.mcpToolsByAgent?.[name]
+      ? {
+          mcpTools: options.mcpToolsByAgent[name]!.tools,
+          mcpToolOrigins: options.mcpToolsByAgent[name]!.origins,
+        }
+      : {}),
     ...(agentDefinition.providerOptions
       ? { providerOptions: agentDefinition.providerOptions }
       : {}),

@@ -18,6 +18,16 @@ export async function handlePrepareRun(
     context.reply({
       type: "run_prepared",
       ...prepared,
+      agents: [...prepared.agents],
+      mcpServers: prepared.mcpServers.map((server) => ({
+        ...server,
+        assignedAgents: [...server.assignedAgents],
+      })),
+      conversation: {
+        records: [...prepared.conversation.records],
+        retentionEvents: [...prepared.conversation.retentionEvents],
+        inputs: [...prepared.conversation.inputs],
+      },
       ts: new Date().toISOString(),
       ...(message.requestId !== undefined
         ? { requestId: message.requestId }

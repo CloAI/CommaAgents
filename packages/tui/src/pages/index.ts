@@ -10,11 +10,7 @@ export type {
   IntroPageTheme,
 } from "./IntroPage";
 export { IntroPage, IntroPageRender, useIntroPageTheme } from "./IntroPage";
-export type {
-  LogsPageProps,
-  LogsPageRenderProps,
-  LogsPageTheme,
-} from "./LogsPage";
+export type { LogsPageRenderProps, LogsPageTheme } from "./LogsPage";
 export { LogsPage, LogsPageRender, useLogsPageTheme } from "./LogsPage";
 export type { SpawnedStrategyPageRenderProps } from "./SpawnedStrategyPage";
 export {

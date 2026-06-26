@@ -4,6 +4,8 @@ import type {
   InputCollector,
   LaunchStrategyHandle,
   LoadedStrategy,
+  McpAgentToolSet,
+  McpConnectionManager,
   PermissionDecision,
   PermissionRequester,
   PolicyPatch,
@@ -15,6 +17,7 @@ import type { LanguageService } from "../../language";
 import type { Logger } from "../../logger/logger.types";
 import type { DaemonState, RunState } from "../../state/state.types";
 import type { EventSink } from "../event-sink";
+import type { RunMcpServerStatus } from "../mcp";
 import type { RunStore } from "../run-store";
 import type { QuestionRequester } from "./question/question.types";
 
@@ -67,6 +70,28 @@ export interface RunSystem {
   stopRun(runId: string): void;
   /** Abort active runs and wait for their cleanup to finish. */
   shutdown(): Promise<void>;
+
+  /** List effective MCP servers for global defaults or a specific run. */
+  listMcpServers(
+    options: ListMcpServersOptions,
+  ): Promise<readonly RunMcpServerStatus[]>;
+
+  /** Update a shared default or one run's persisted MCP selection. */
+  updateMcpServer(
+    options: UpdateMcpServerOptions,
+  ): Promise<readonly RunMcpServerStatus[]>;
+}
+
+export interface ListMcpServersOptions {
+  readonly cwd?: string;
+  readonly runId?: string;
+  readonly strategyPath?: string;
+}
+
+export interface UpdateMcpServerOptions extends ListMcpServersOptions {
+  readonly serverId: string;
+  readonly enabled: boolean;
+  readonly scope: "default" | "run";
 }
 
 /** Identifies and configures a run before execution begins. */
@@ -110,6 +135,7 @@ export interface PreparedRunMetadata {
   readonly agents: string[];
   readonly flowTree: Record<string, unknown>;
   readonly conversation: RehydratedConversation;
+  readonly mcpServers: readonly RunMcpServerStatus[];
 }
 
 export interface SystemDataMap {
@@ -122,6 +148,9 @@ export interface SystemDataMap {
   skillRegistry: SkillRegistry;
   languageService: LanguageService;
   lastAgentOutputText: string | null;
+  mcpConnectionManager: McpConnectionManager;
+  mcpToolsByAgent: Readonly<Record<string, McpAgentToolSet>>;
+  mcpServerStatuses: readonly RunMcpServerStatus[];
 }
 
 export interface SystemDataStore {
@@ -199,7 +228,7 @@ export interface ErrorContext extends ExecutionContext {
   };
 }
 
-export interface CleanupContext extends SystemRunContext {}
+export type CleanupContext = SystemRunContext;
 
 export interface DaemonSystem {
   readonly name: string;

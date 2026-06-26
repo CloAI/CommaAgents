@@ -1,11 +1,12 @@
 import type { DiscoveredStrategy } from "@comma-agents/core";
-import { Box, useFocusManager } from "ink";
+import { Box, Text, useFocusManager } from "ink";
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { ChatTextArea } from "../../components";
 import type { ChatTextAreaProps } from "../../components/ChatTextArea/ChatTextArea";
 import { TitleIcon } from "../../components/TitleIcon";
 import { useChatRunLifecycle } from "../../hooks/useChat";
+import { useMcp } from "../../hooks/useMcp";
 import {
   useDiscoveredStrategies,
   useStrategyDiscoveryStatus,
@@ -33,6 +34,7 @@ export function IntroPage(): React.ReactElement {
   const theme = useIntroPageTheme();
   const navigate = useNavigate();
   const { startStrategy } = useChatRunLifecycle();
+  const { servers: mcpServers } = useMcp();
 
   const strategies = useDiscoveredStrategies();
   const strategyDiscovery = useStrategyDiscoveryStatus();
@@ -59,6 +61,8 @@ export function IntroPage(): React.ReactElement {
         strategyDiscovery.error,
       )}
       onSubmit={handleStartChat}
+      mcpEnabled={mcpServers.filter((server) => server.enabled).length}
+      mcpTotal={mcpServers.length}
     />
   );
 }
@@ -74,6 +78,8 @@ export interface IntroPageRenderProps {
   readonly emptyStrategyPlaceholder: string;
   /** Submit handler — `(strategyKey, input)`. */
   readonly onSubmit: ChatTextAreaProps["onSubmit"];
+  readonly mcpEnabled: number;
+  readonly mcpTotal: number;
 }
 
 export function IntroPageRender({
@@ -82,6 +88,8 @@ export function IntroPageRender({
   emptyStrategyLabel,
   emptyStrategyPlaceholder,
   onSubmit,
+  mcpEnabled,
+  mcpTotal,
 }: IntroPageRenderProps): React.ReactElement {
   const { focus } = useFocusManager();
   useEffect(() => {
@@ -93,6 +101,11 @@ export function IntroPageRender({
       <Box marginBottom={2}></Box>
       <TitleIcon />
       <Box marginBottom={4}></Box>
+      <Box marginBottom={1}>
+        <Text dimColor>
+          MCP: {mcpEnabled}/{mcpTotal} servers enabled
+        </Text>
+      </Box>
       {/* Too lazy for margin and boxing TODO: Do the theme work*/}
       <ChatTextArea
         strategies={strategies}

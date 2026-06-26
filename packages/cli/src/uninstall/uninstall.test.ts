@@ -10,10 +10,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  removeSelectedData,
-  resolveCommaInstallation,
-} from "./uninstall.utils";
+import { resolveCliInstallation } from "../installation";
+import { removeSelectedData } from "./uninstall.utils";
 
 const temporaryDirectories: string[] = [];
 
@@ -47,10 +45,10 @@ async function createDataDirectory(): Promise<string> {
   return dataDirectory;
 }
 
-describe("resolveCommaInstallation", () => {
+describe("resolveCliInstallation", () => {
   it("should resolve a standalone executable", () => {
     expect(
-      resolveCommaInstallation({
+      resolveCliInstallation({
         standaloneBuild: true,
         executablePath: "/home/tester/.local/bin/comma",
         cliEntrypoint: undefined,
@@ -63,7 +61,7 @@ describe("resolveCommaInstallation", () => {
 
   it("should resolve Bun and npm global packages", () => {
     expect(
-      resolveCommaInstallation({
+      resolveCliInstallation({
         standaloneBuild: false,
         executablePath: "/home/tester/.bun/bin/bun",
         cliEntrypoint:
@@ -72,15 +70,9 @@ describe("resolveCommaInstallation", () => {
     ).toEqual({
       type: "package",
       manager: "bun",
-      command: [
-        "/home/tester/.bun/bin/bun",
-        "remove",
-        "--global",
-        "@comma-agents/cli",
-      ],
     });
     expect(
-      resolveCommaInstallation({
+      resolveCliInstallation({
         standaloneBuild: false,
         executablePath: "/home/tester/.bun/bin/bun",
         cliEntrypoint:
@@ -89,7 +81,6 @@ describe("resolveCommaInstallation", () => {
     ).toEqual({
       type: "package",
       manager: "npm",
-      command: ["npm", "uninstall", "--global", "@comma-agents/cli"],
     });
   });
 
@@ -116,7 +107,7 @@ describe("resolveCommaInstallation", () => {
     await symlink(packageEntrypoint, commandPath);
 
     expect(
-      resolveCommaInstallation({
+      resolveCliInstallation({
         standaloneBuild: false,
         executablePath: "/home/tester/.bun/bin/bun",
         cliEntrypoint: commandPath,
@@ -124,18 +115,12 @@ describe("resolveCommaInstallation", () => {
     ).toEqual({
       type: "package",
       manager: "bun",
-      command: [
-        "/home/tester/.bun/bin/bun",
-        "remove",
-        "--global",
-        "@comma-agents/cli",
-      ],
     });
   });
 
   it("should not remove a development checkout", () => {
     expect(
-      resolveCommaInstallation({
+      resolveCliInstallation({
         standaloneBuild: false,
         executablePath: "/home/tester/.bun/bin/bun",
         cliEntrypoint: "/workspace/packages/cli/src/main.ts",

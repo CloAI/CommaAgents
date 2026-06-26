@@ -1,0 +1,77 @@
+---
+title: MCP
+description: Configure Model Context Protocol servers and expose their tools to strategy agents.
+---
+
+# Model Context Protocol
+
+CommaAgents connects to MCP servers for the lifetime of a strategy execution.
+Shared definitions live in `~/.comma/mcp.json` or
+`<workspace>/.comma/mcp.json`; workspace definitions override global
+definitions with the same ID.
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "transport": "http",
+      "url": "https://example.com/mcp",
+      "headers": {
+        "Authorization": { "env": "GITHUB_MCP_TOKEN" }
+      },
+      "enabledByDefault": true
+    },
+    "local-tools": {
+      "transport": "stdio",
+      "command": "bunx",
+      "args": ["@example/mcp-server"],
+      "env": {
+        "API_TOKEN": { "env": "LOCAL_TOOLS_TOKEN" }
+      }
+    }
+  }
+}
+```
+
+Use environment references for secrets. Resolved values are used only when
+the daemon creates the connection; they are not included in run files or
+protocol status messages.
+
+## McpServerDefinition
+
+The supported HTTP, SSE, and stdio server definition.
+
+<AutoTypeTable path="../packages/core/src/mcp/mcp.types.ts" name="McpServerDefinition" />
+
+## McpValue
+
+A literal value or an explicit environment-variable reference.
+
+<AutoTypeTable path="../packages/core/src/mcp/mcp.types.ts" name="McpValue" />
+
+## Agent Assignment
+
+Strategies explicitly assign servers to each LLM agent:
+
+```yaml
+name: Repository Assistant
+version: "1.0"
+agents:
+  assistant:
+    model: openai/gpt-4o
+    mcpServers: [github]
+flow:
+  name: Main
+  type: sequential
+  steps:
+    - agent: assistant
+```
+
+Strategy-private definitions use the same format under the strategy's
+top-level `mcpServers` field. A referenced private server is enabled for a new
+run by default. Shared servers follow `enabledByDefault` and can be overridden
+for an individual run from the TUI.
+
+MCP tool names are namespaced internally so servers cannot collide with
+built-in tools or with each other. The TUI displays the original
+`server / tool` identity.

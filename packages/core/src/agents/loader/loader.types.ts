@@ -15,4 +15,4 @@ import type { AgentTypeRuntime } from "../registry/agent-registry.types";
  * });
  * ```
  */
-export interface LoadAgentOptions extends AgentTypeRuntime {}
+export type LoadAgentOptions = AgentTypeRuntime;

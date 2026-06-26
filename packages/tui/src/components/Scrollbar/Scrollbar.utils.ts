@@ -1,4 +1,4 @@
-import type { ScrollbarRenderProps } from "./Scrollbar.types";
+import type { ScrollbarGeometry } from "./Scrollbar.types";
 
 /**
  * Compute the thumb position and size for a vertical scrollbar.
@@ -19,7 +19,7 @@ export function computeScrollbarGeometry(params: {
   readonly windowSize: number;
   readonly offset: number;
   readonly height: number;
-}): ScrollbarRenderProps {
+}): ScrollbarGeometry {
   const { total, windowSize, offset, height } = params;
 
   if (height <= 0) {

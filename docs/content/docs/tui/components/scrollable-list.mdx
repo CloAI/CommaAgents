@@ -18,23 +18,15 @@ import { ScrollableList } from "@comma-agents/tui";
   )}
   selectedIndex={selectedIndex}
   onSelectedIndexChange={setSelectedIndex}
-  onSelected={(file, index) => openFile(file)}
+  onSelected={(file) => openFile(file)}
 />
 ```
 
 ## ScrollableListProps
 
-| Prop | Type | Description |
-|---|---|---|
-| `items` | `readonly ItemType[]` | Items to display |
-| `getKey` | `(item, index) => string` | Unique key for each item |
-| `renderItem` | `(item, isSelected) => ReactNode` | Render function; `isSelected` is true for the active item |
-| `selectedIndex` | `number` | Controlled; clamped to `[0, items.length - 1]` |
-| `onSelectedIndexChange` | `(next: number) => void` | Called when the user moves selection |
-| `onSelected` | `(item, index) => void` | Called on Enter |
-| `emptyText` | `string` | Text shown when list is empty (default: `"No items."`) |
-| `id` | `string` | Stable focus ID for tab order |
-| `isFocused` | `boolean` | External focus override |
+Props accepted by the controlled selection list.
+
+<AutoTypeTable path="../packages/tui/src/components/ScrollableList/ScrollableList.tsx" name="ScrollableListProps" />
 
 ## Keyboard
 

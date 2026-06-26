@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+repository_root="$(git rev-parse --show-toplevel)"
+
+while read -r local_ref local_object_id remote_ref remote_object_id; do
+  case "$local_ref" in
+    refs/tags/v*)
+      echo "Validating release tag ${local_ref#refs/tags/}..."
+      bun run --cwd "$repository_root" release:check-tag "$local_ref"
+      ;;
+  esac
+done

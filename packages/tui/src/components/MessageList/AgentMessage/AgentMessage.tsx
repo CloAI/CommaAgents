@@ -283,7 +283,7 @@ function SegmentView({
       if (segment.type !== "tool-call") return;
       const payload: OutputModalPayload = {
         kind: "tool-result",
-        title: segment.toolName,
+        title: displayToolName(segment),
         body: toolCallBody(pairedResult),
       };
       open(payload);
@@ -372,7 +372,7 @@ function SegmentView({
     return (
       <Box ref={toolCallRef} flexDirection="column">
         <ToolCallView
-          toolName={segment.toolName}
+          toolName={displayToolName(segment)}
           args={segment.args}
           status={pairedResult === undefined ? "running" : pairedResult.status}
           output={pairedResult?.output}
@@ -392,7 +392,7 @@ function SegmentView({
       <Box {...styles.toolResult.container}>
         <Text
           {...styles.toolResult.header}
-        >{`\u2190 ${segment.toolName} result`}</Text>
+        >{`\u2190 ${displayToolName(segment)} result`}</Text>
         <Text {...styles.toolResult.output}>{toolResultPreview}</Text>
       </Box>
     );
@@ -420,6 +420,17 @@ function SegmentView({
   // segment kinds at compile time, but we still render nothing rather
   // than crashing if a new variant slips through at runtime.
   return null;
+}
+
+function displayToolName(
+  segment: Extract<
+    MessageSegment,
+    { readonly type: "tool-call" | "tool-result" }
+  >,
+): string {
+  return segment.mcp
+    ? `${segment.mcp.serverId} / ${segment.mcp.toolName}`
+    : segment.toolName;
 }
 
 interface NestedMessageViewProps {

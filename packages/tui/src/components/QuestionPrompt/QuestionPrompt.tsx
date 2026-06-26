@@ -1,14 +1,18 @@
+import type { RequestQuestionMessage } from "@comma-agents/daemon";
 import { Box, Text, useFocusManager } from "ink";
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useTheme } from "../../Theme";
 import { TextAreaInput } from "../TextAreaInput";
-import type {
-  QuestionPromptProps,
-  QuestionPromptRenderProps,
-} from "./QuestionPrompt.types";
 
 const QUESTION_INPUT_ID = "question-prompt-input";
+
+export interface QuestionPromptProps {
+  /** The daemon's `request_question` message to display. */
+  readonly request: RequestQuestionMessage;
+  /** Called when the user submits their answer. */
+  readonly onSubmit: (response: string) => void;
+}
 
 export function QuestionPrompt({
   request,
@@ -39,6 +43,18 @@ export function QuestionPrompt({
       }}
     />
   );
+}
+
+export interface QuestionPromptRenderProps {
+  readonly actor: string;
+  readonly question: string;
+  readonly onSubmit: (response: string) => void;
+  readonly inputValue: string;
+  readonly onInputValueChange: (value: string) => void;
+  readonly colors: {
+    readonly primary: string;
+    readonly secondary: string;
+  };
 }
 
 export function QuestionPromptRender({

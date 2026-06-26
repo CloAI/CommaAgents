@@ -1,18 +1,34 @@
-import { Box, Text } from "ink";
+import { Box, Text, useFocus, useInput } from "ink";
 import type React from "react";
 import { useTheme } from "../../../../Theme";
 
 import { SHORTCUTS } from "./HelpPage.constants";
 
+const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
+
 export interface HelpPageProps {
   /** ID of the currently focused element for API consistency. */
   readonly focusId: string;
+  /** Return to the command list. */
+  readonly onBack: () => void;
 }
 
 export function HelpPage({
-  focusId: _focusId,
+  focusId,
+  onBack,
 }: HelpPageProps): React.ReactElement {
   const tokens = useTheme();
+  const { isFocused } = useFocus({
+    id: focusId,
+    isActive: RAW_MODE_SUPPORTED,
+  });
+
+  useInput(
+    (_input, key) => {
+      if (key.escape) onBack();
+    },
+    { isActive: isFocused },
+  );
 
   return <HelpPageRender tokens={tokens} />;
 }

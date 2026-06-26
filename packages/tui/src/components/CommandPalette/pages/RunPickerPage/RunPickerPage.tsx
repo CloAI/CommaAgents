@@ -6,26 +6,26 @@ import { useChatRunLifecycle } from "../../../../hooks/useChat/useChatRunLifecyc
 import { useChatRuns } from "../../../../hooks/useChat/useChatRuns";
 import { usePersistedRunList } from "../../../../hooks/useChat/usePersistedRunList";
 import { useDebugRender } from "../../../../hooks/useDebugRender";
-import { useModal } from "../../../../hooks/useModal";
 import { useTheme } from "../../../../Theme";
 import { isMouseEscape } from "../../../../utils/mouseEscape";
 import { ScrollableList } from "../../../ScrollableList";
 import { SearchInputRender, useSearchInputTheme } from "../../../SearchInput";
 import { filterByQuery } from "../../../SearchInput/SearchInput.utils";
-import {
-  COMMAND_PALETTE_MODAL_ID,
-  RAW_MODE_SUPPORTED,
-} from "./RunPickerPage.constants";
+import { useCommandPalette } from "../../useCommandPalette";
+import { RAW_MODE_SUPPORTED } from "./RunPickerPage.constants";
 import type { RunItem } from "./RunPickerPage.types";
 import { formatDate, formatIsoDate, itemHaystack } from "./RunPickerPage.utils";
 
 export interface RunPickerPageProps {
   /** ID used for focus management. */
   readonly focusId: string;
+  /** Return to the command list. */
+  readonly onBack: () => void;
 }
 
 export function RunPickerPage({
   focusId,
+  onBack,
 }: RunPickerPageProps): React.ReactElement {
   const debug = useDebugRender("RunPickerPage", {});
   const tokens = useTheme();
@@ -36,18 +36,15 @@ export function RunPickerPage({
   const { chatRuns } = useChatRuns();
   const { loadPersistedRun } = useChatRunLifecycle();
   const { persistedRuns, fetchPersistedRuns } = usePersistedRunList();
-  const { close } = useModal(COMMAND_PALETTE_MODAL_ID);
+  const { closePalette } = useCommandPalette();
 
-  // 1. State
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // 2. Custom hooks
   const { isFocused } = useFocus({ id: focusId, isActive: RAW_MODE_SUPPORTED });
 
-  // 3. Memos
   const localItems: readonly RunItem[] = Array.from(chatRuns.values())
-    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .sort((firstRun, secondRun) => secondRun.updatedAt - firstRun.updatedAt)
     .map((chatRun) => ({ kind: "local" as const, chatRun }));
 
   const liveDaemonRunIds = new Set<string>();
@@ -59,9 +56,14 @@ export function RunPickerPage({
 
   const persistedItems: readonly RunItem[] = persistedRuns
     .slice()
-    .filter((meta) => !liveDaemonRunIds.has(meta.runId))
-    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-    .map((meta) => ({ kind: "persisted" as const, meta }));
+    .filter((runOverview) => !liveDaemonRunIds.has(runOverview.runId))
+    .sort((firstRun, secondRun) =>
+      secondRun.startedAt.localeCompare(firstRun.startedAt),
+    )
+    .map((runOverview) => ({
+      kind: "persisted" as const,
+      meta: runOverview,
+    }));
 
   const allItems = [...localItems, ...persistedItems];
   const filtered = filterByQuery(allItems, query, itemHaystack);
@@ -69,18 +71,18 @@ export function RunPickerPage({
     matchPath("/chat/:chatRunId/*", location.pathname)?.params.chatRunId ??
     null;
 
-  // 4. Callbacks
   const selectRun = useCallback(
-    (item: RunItem): void => {
+    (runItem: RunItem): void => {
       const chatRunId =
-        item.kind === "local" ? item.chatRun.id : loadPersistedRun(item.meta);
+        runItem.kind === "local"
+          ? runItem.chatRun.id
+          : loadPersistedRun(runItem.meta);
       navigate(`/chat/${encodeURIComponent(chatRunId)}`);
-      close();
+      closePalette();
     },
-    [close, loadPersistedRun, navigate],
+    [closePalette, loadPersistedRun, navigate],
   );
 
-  // 5. Effects
   useEffect(() => {
     fetchPersistedRuns(process.cwd());
   }, [fetchPersistedRuns]);
@@ -88,8 +90,12 @@ export function RunPickerPage({
   useInput(
     (input, key) => {
       if (input && isMouseEscape(input)) return;
+      if (key.escape) {
+        onBack();
+        return;
+      }
       if (key.backspace || key.delete) {
-        setQuery((q) => q.slice(0, -1));
+        setQuery((currentQuery) => currentQuery.slice(0, -1));
         setSelectedIndex(0);
         return;
       }
@@ -101,7 +107,7 @@ export function RunPickerPage({
         !key.escape &&
         !key.return
       ) {
-        setQuery((q) => q + input);
+        setQuery((currentQuery) => currentQuery + input);
         setSelectedIndex(0);
       }
     },
@@ -113,6 +119,7 @@ export function RunPickerPage({
       debug={debug}
       tokens={tokens}
       searchTheme={searchTheme}
+      query={query}
       items={filtered}
       selectedIndex={selectedIndex}
       setSelectedIndex={setSelectedIndex}
@@ -130,6 +137,8 @@ export interface RunPickerPageRenderProps {
   readonly tokens: ReturnType<typeof useTheme>;
   /** Search input theme. */
   readonly searchTheme: ReturnType<typeof useSearchInputTheme>;
+  /** Current run search query. */
+  readonly query: string;
   /** Filtered list of runs. */
   readonly items: readonly RunItem[];
   /** Selected index in the main list. */
@@ -148,6 +157,7 @@ export function RunPickerPageRender({
   debug,
   tokens,
   searchTheme,
+  query,
   items,
   selectedIndex,
   setSelectedIndex,
@@ -160,7 +170,7 @@ export function RunPickerPageRender({
       <Box flexShrink={0} marginBottom={1}>
         <SearchInputRender
           theme={searchTheme}
-          value={""}
+          value={query}
           placeholder="Search runs..."
           prompt="› "
         />

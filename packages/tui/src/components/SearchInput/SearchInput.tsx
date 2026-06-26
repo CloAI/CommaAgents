@@ -5,14 +5,27 @@ import { useDebugRender } from "../../hooks/useDebugRender";
 
 import type { SearchInputTheme } from "./SearchInput.theme";
 import { useSearchInputTheme } from "./SearchInput.theme";
-import type {
-  SearchInputProps,
-  SearchInputRenderProps,
-} from "./SearchInput.types";
 import { isMouseEscape } from "./SearchInput.utils";
 
 /** Raw mode check for safe `useInput` activation. */
 const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
+
+/** Props for the `SearchInput` container component. */
+export interface SearchInputProps {
+  /** Current query string (controlled). */
+  readonly value: string;
+  /** Called with the new query whenever it changes. */
+  readonly onChange: (next: string) => void;
+  /** Placeholder shown when `value` is empty. */
+  readonly placeholder?: string;
+  /** Prompt character rendered at the start of the input. Defaults to `› `. */
+  readonly prompt?: string;
+  /**
+   * Stable focus ID for programmatic focusing via `useFocusManager().focus(id)`.
+   * When omitted the component still participates in tab-order cycling.
+   */
+  readonly id?: string;
+}
 
 /**
  * Single-line controlled search input with a rounded border, prompt caret,
@@ -73,9 +86,21 @@ export function SearchInput({
   );
 }
 
+/** Props for the `SearchInputRender` presentational component. */
+export interface SearchInputRenderProps {
+  /** Resolved theme styles. */
+  readonly theme: SearchInputTheme;
+  /** Current query value. */
+  readonly value: string;
+  /** Placeholder text for when the query is empty. */
+  readonly placeholder: string;
+  /** Prompt character(s) shown before the query. */
+  readonly prompt: string;
+}
+
 /** Presentational form of `SearchInput`; takes resolved props + theme. */
 export function SearchInputRender(
-  props: SearchInputRenderProps & { readonly theme: SearchInputTheme },
+  props: SearchInputRenderProps,
 ): React.ReactElement {
   const { theme, value, placeholder, prompt } = props;
 

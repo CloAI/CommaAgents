@@ -1,4 +1,5 @@
 import type {
+  McpServerStatusWire,
   RequestPermissionMessage,
   RequestQuestionMessage,
 } from "@comma-agents/daemon";
@@ -23,6 +24,8 @@ export interface UseChatStateResult {
   readonly pendingQuestionRequest: RequestQuestionMessage | null;
   readonly runId: string | null;
   readonly connectionStatus: WebSocketStatus;
+  readonly mcpServers: readonly McpServerStatusWire[];
+  readonly pendingMcpConfirmation: boolean;
 }
 
 export function useChatState(chatRunId: ChatRunId | null): UseChatStateResult {
@@ -45,6 +48,8 @@ export function useChatState(chatRunId: ChatRunId | null): UseChatStateResult {
       pendingPermissionRequest: chatRun?.pendingPermissionRequests[0] ?? null,
       pendingQuestionRequest: chatRun?.pendingQuestionRequests[0] ?? null,
       runId: chatRun?.daemonRunId ?? null,
+      mcpServers: chatRun?.mcpServers ?? [],
+      pendingMcpConfirmation: chatRun?.pendingMcpConfirmation ?? false,
       connectionStatus,
     };
   }, [chatRunId, context.chatRuns, connectionStatus]);

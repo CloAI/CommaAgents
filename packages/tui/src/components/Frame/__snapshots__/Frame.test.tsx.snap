@@ -1,109 +1,12 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`FrameRender tab rendering should render children (the active page content) 1`] = `
-" Chat  Settings  Logs
- ──────────────────────────────────────────────────────────────────────────────
-Chat content
+exports[`Frame renders active tabs, content, and a pinned footer snapshot 1`] = `
+" Chat Logs
+ ──────────────────────────────────────
+conversation
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"
-`;
-
-exports[`FrameRender tab rendering should mark the active tab path as active 1`] = `
-" Chat  Settings  Logs
- ──────────────────────────────────────────────────────────────────────────────
-Settings content
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"
-`;
-
-exports[`FrameRender footer should render footer content when provided 1`] = `
-" Chat  Settings  Logs
- ──────────────────────────────────────────────────────────────────────────────
-Chat content
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Status: Ready"
-`;
-
-exports[`FrameRender separator should render without crashing 1`] = `
-" Chat  Settings  Logs
- ──────────────────────────────────────────────────────────────────────────────
-Content
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"
+connected"
 `;

@@ -7,16 +7,17 @@ import { resolveDataDir } from "@comma-agents/core";
 import { stopDaemon } from "@comma-agents/daemon";
 
 import { buildAutostartPlan, disableAutostart } from "../autostart";
+import {
+  buildPackageRemovalCommand,
+  type CliInstallation,
+  resolveCliInstallation,
+} from "../installation";
 import type {
-  CommaInstallation,
   RunUninstallerOptions,
   UninstallResult,
   UninstallSelections,
 } from "./uninstall.types";
-import {
-  removeSelectedData,
-  resolveCommaInstallation,
-} from "./uninstall.utils";
+import { removeSelectedData } from "./uninstall.utils";
 
 async function promptForConfirmation(
   terminal: ReturnType<typeof createInterface>,
@@ -155,12 +156,12 @@ async function removeManagedUnixPathEntry(
   );
 }
 
-function scheduleUnixRemoval(installation: CommaInstallation): boolean {
+function scheduleUnixRemoval(installation: CliInstallation): boolean {
   const removalCommand =
     installation.type === "standalone"
       ? ["rm", "-f", "--", installation.executablePath]
       : installation.type === "package"
-        ? installation.command
+        ? buildPackageRemovalCommand(installation.manager, process.execPath)
         : undefined;
   if (removalCommand === undefined) return false;
 
@@ -190,7 +191,7 @@ function scheduleUnixRemoval(installation: CommaInstallation): boolean {
 }
 
 async function scheduleWindowsRemoval(
-  installation: CommaInstallation,
+  installation: CliInstallation,
 ): Promise<boolean> {
   if (installation.type === "development") return false;
 
@@ -226,7 +227,9 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
   await writeFile(scriptPath, script);
 
   const command =
-    installation.type === "package" ? installation.command : undefined;
+    installation.type === "package"
+      ? buildPackageRemovalCommand(installation.manager, process.execPath)
+      : undefined;
   const child = Bun.spawn(
     [
       "powershell.exe",
@@ -261,7 +264,7 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
 }
 
 async function scheduleInstallationRemoval(
-  installation: CommaInstallation,
+  installation: CliInstallation,
 ): Promise<boolean> {
   if (process.platform === "win32") {
     return scheduleWindowsRemoval(installation);
@@ -307,7 +310,7 @@ export async function runUninstaller(
 
   await removeSelectedData(resolveDataDir(), selections);
 
-  const installation = resolveCommaInstallation({
+  const installation = resolveCliInstallation({
     standaloneBuild: process.env.COMMA_STANDALONE_BUILD === "1",
     executablePath: process.execPath,
     cliEntrypoint: process.argv[1],

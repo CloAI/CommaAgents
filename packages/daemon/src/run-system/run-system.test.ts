@@ -277,9 +277,17 @@ describe("createRunSystem", () => {
     await writeFile(
       manifestPath,
       JSON.stringify({
-        name: "Run Project",
-        strategies: ["strategy.json"],
+        name: "@test/run-project",
+        version: "1.0.0",
+        strategies: {
+          test: {
+            path: "strategy.json",
+          },
+        },
         entry: "entry.ts",
+        permissions: {
+          executesCode: true,
+        },
       }),
     );
 
@@ -344,9 +352,21 @@ registerFlow(
     await writeFile(
       manifestPath,
       JSON.stringify({
-        name: "Custom Flow Project",
-        strategies: ["strategy.json"],
-        flows: ["custom-flow.ts"],
+        name: "@test/custom-flow-project",
+        version: "1.0.0",
+        strategies: {
+          test: {
+            path: "strategy.json",
+          },
+        },
+        flows: {
+          prefix: {
+            path: "custom-flow.ts",
+          },
+        },
+        permissions: {
+          executesCode: true,
+        },
       }),
     );
 

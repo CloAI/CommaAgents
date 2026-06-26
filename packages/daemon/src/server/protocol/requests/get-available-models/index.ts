@@ -13,6 +13,7 @@ import {
 import type { HandlerContext } from "../../dispatcher.types";
 import type { AvailableModelWire } from "../../responses/available-models";
 import type { ModelInfoWire } from "../../responses/provider-list";
+import { toModelInfoWire } from "../../responses/provider-list/provider-list.utils";
 import type { GetAvailableModelsMessage } from "./get-available-models.schema";
 
 export { GetAvailableModelsMessage } from "./get-available-models.schema";
@@ -90,46 +91,10 @@ function resolveModelMetadata(
     const provider = getCatalogProviderSync(providerId);
     if (!provider?.models[modelId]) continue;
 
-    const model = toModelInfo(provider.models[modelId]);
-    return {
-      ...(model.name !== undefined ? { name: model.name } : {}),
-      ...(model.family !== undefined ? { family: model.family } : {}),
-      ...(model.contextWindow !== undefined
-        ? { contextWindow: model.contextWindow }
-        : {}),
-      ...(model.maxInputTokens !== undefined
-        ? { maxInputTokens: model.maxInputTokens }
-        : {}),
-      ...(model.maxOutputTokens !== undefined
-        ? { maxOutputTokens: model.maxOutputTokens }
-        : {}),
-      ...(model.knowledgeCutoff !== undefined
-        ? { knowledgeCutoff: model.knowledgeCutoff }
-        : {}),
-      ...(model.releaseDate !== undefined
-        ? { releaseDate: model.releaseDate }
-        : {}),
-      ...(model.lastUpdated !== undefined
-        ? { lastUpdated: model.lastUpdated }
-        : {}),
-      ...(model.status !== undefined ? { status: model.status } : {}),
-      ...(model.modalities !== undefined
-        ? {
-            modalities: {
-              ...(model.modalities.input !== undefined
-                ? { input: [...model.modalities.input] }
-                : {}),
-              ...(model.modalities.output !== undefined
-                ? { output: [...model.modalities.output] }
-                : {}),
-            },
-          }
-        : {}),
-      ...(model.capabilities !== undefined
-        ? { capabilities: { ...model.capabilities } }
-        : {}),
-      ...(model.cost !== undefined ? { cost: { ...model.cost } } : {}),
-    };
+    const { id: _id, ...metadata } = toModelInfoWire(
+      toModelInfo(provider.models[modelId]),
+    );
+    return metadata;
   }
   return {};
 }

@@ -7,6 +7,7 @@ import {
   HubRemoveMessage,
   HubUpdateMessage,
 } from "./requests/hub-packages/hub-packages.schema";
+import { ListMcpServersMessage } from "./requests/list-mcp-servers/list-mcp-servers.schema";
 import { ListProvidersMessage } from "./requests/list-providers/list-providers.schema";
 import { ListRunsMessage } from "./requests/list-runs/list-runs.schema";
 import { ListStrategiesMessage } from "./requests/list-strategies/list-strategies.schema";
@@ -25,6 +26,7 @@ import { TrashListMessage } from "./requests/trash-list/trash-list.schema";
 import { TrashRestoreMessage } from "./requests/trash-restore/trash-restore.schema";
 import { UnregisterProviderMessage } from "./requests/unregister-provider/unregister-provider.schema";
 import { UnsubscribeMessage } from "./requests/unsubscribe/unsubscribe.schema";
+import { UpdateMcpServerMessage } from "./requests/update-mcp-server/update-mcp-server.schema";
 import { UpdatePolicyMessage } from "./requests/update-policy/update-policy.schema";
 import { UserInputMessage } from "./requests/user-input/user-input.schema";
 
@@ -35,6 +37,7 @@ import {
   CredentialSetMessage,
   ErrorMessage,
   HubPackagesMessage,
+  McpServerListMessage,
   PolicyUpdatedMessage,
   PongMessage,
   ProviderListMessage,
@@ -71,6 +74,8 @@ export const ClientMessage = z
     ListStrategiesMessage,
     GetAvailableModelsMessage,
     ListProvidersMessage,
+    ListMcpServersMessage,
+    UpdateMcpServerMessage,
     RegisterProviderMessage,
     UnregisterProviderMessage,
     SetCredentialMessage,
@@ -129,6 +134,7 @@ export const DaemonMessage = z.discriminatedUnion("type", [
   PongMessage,
   ErrorMessage,
   HubPackagesMessage,
+  McpServerListMessage,
 ]);
 
 export type DaemonMessage = z.infer<typeof DaemonMessage>;

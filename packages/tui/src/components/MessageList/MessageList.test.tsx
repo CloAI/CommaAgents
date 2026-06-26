@@ -114,6 +114,39 @@ describe("MessageList", () => {
       );
     });
 
+    it("should display MCP tool calls by server and original tool name", async () => {
+      const messages = [
+        createChatMessage({
+          id: "mcp",
+          role: "agent",
+          sender: "assistant",
+          text: "",
+          segments: [
+            {
+              type: "tool-call",
+              toolCallId: "call-1",
+              toolName: "mcp__encoded__tool",
+              args: "{}",
+              mcp: { serverId: "github", toolName: "search_repositories" },
+            },
+            {
+              type: "tool-result",
+              toolCallId: "call-1",
+              toolName: "mcp__encoded__tool",
+              output: "done",
+              status: "completed",
+              mcp: { serverId: "github", toolName: "search_repositories" },
+            },
+          ],
+        }),
+      ];
+
+      const result = renderSized(<MessageList messages={messages} />);
+      await flushFrames();
+
+      expect(result.lastFrame()).toContain("github / search_repositories");
+    });
+
     it("should group spawned strategy messages under the launch_strategy call", () => {
       const messages = [
         createChatMessage({

@@ -52,6 +52,13 @@ export type {
 } from "./useLogs";
 export { createLogStore, useLogs } from "./useLogs";
 export type {
+  McpContextProviderProps,
+  McpContextType,
+  McpListOptions,
+  McpUpdateOptions,
+} from "./useMcp";
+export { McpContextProvider, useMcp } from "./useMcp";
+export type {
   ModalContextProviderProps,
   ModalContextType,
   ModalControls,

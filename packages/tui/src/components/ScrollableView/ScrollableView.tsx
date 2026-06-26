@@ -14,32 +14,32 @@ import {
 import { useMouseWheelScroll } from "../../hooks/useMouseWheelScroll";
 import { Scrollbar } from "../Scrollbar";
 
+import {
+  DEFAULT_ROW_HEIGHT,
+  OVERSCAN_ROWS,
+  WHEEL_SCROLL_ROWS,
+} from "./ScrollableView.constants";
 import { useScrollableViewTheme } from "./ScrollableView.theme";
 import type {
-  ScrollableViewProps,
-  ScrollableViewRenderProps,
+  MeasurementCacheEntry,
+  ScrollableViewState,
 } from "./ScrollableView.types";
 
-/** Placeholder height used before an item has been measured. */
-const DEFAULT_ROW_HEIGHT = 1;
-/** Rows of items kept mounted above and below the visible window. */
-const OVERSCAN_ROWS = 3;
-/**
- * Terminal rows advanced per mouse-wheel tick. Matches the typical
- * "three lines per notch" default of GUI scroll wheels and is small
- * enough that a single tick inside a tall item still produces a visible
- * change.
- */
-const WHEEL_SCROLL_ROWS = 3;
-
-interface MeasurementCacheEntry<ItemType> {
-  readonly widths: Map<
-    number,
-    {
-      readonly item: ItemType;
-      readonly height: number;
-    }
-  >;
+export interface ScrollableViewProps<ItemType> {
+  /** Items rendered by the virtualized view. */
+  readonly items: readonly ItemType[];
+  /** Stable identity used for React keys and measurement caching. */
+  readonly getKey: (item: ItemType, index: number) => string;
+  /** Pure row renderer used for both measurement and visible output. */
+  readonly renderItem: (item: ItemType, index: number) => React.ReactNode;
+  /** Row index that should be scrolled into view. */
+  readonly scrollToRow?: number;
+  /** Whether new content should keep the view pinned to the bottom. */
+  readonly stickToBottom?: boolean;
+  /** Callback invoked when measured scroll state changes. */
+  readonly onScrollChange?: (state: ScrollableViewState) => void;
+  /** Empty-state text. @default "No items." */
+  readonly emptyText?: string;
 }
 
 /**
@@ -72,19 +72,15 @@ interface MeasurementCacheEntry<ItemType> {
  * />
  * ```
  */
-export function ScrollableView<ItemType>(
-  props: ScrollableViewProps<ItemType>,
-): React.ReactElement {
-  const {
-    items,
-    getKey,
-    renderItem,
-    scrollToRow,
-    stickToBottom = false,
-    onScrollChange,
-    emptyText = "No items.",
-  } = props;
-
+export function ScrollableView<ItemType>({
+  items,
+  getKey,
+  renderItem,
+  scrollToRow,
+  stickToBottom = false,
+  onScrollChange,
+  emptyText = "No items.",
+}: ScrollableViewProps<ItemType>): React.ReactElement {
   const theme = useScrollableViewTheme();
 
   const viewportRef = useRef<DOMElement | null>(null);
@@ -323,6 +319,37 @@ export function ScrollableView<ItemType>(
       viewportRef={viewportRef}
     />
   );
+}
+
+export interface ScrollableViewRenderProps<ItemType> {
+  /** Items available to the render window. */
+  readonly items: readonly ItemType[];
+  /** Stable key for each item. */
+  readonly getKey: (item: ItemType, index: number) => string;
+  /** Pure renderer for one item. */
+  readonly renderItem: (item: ItemType, index: number) => React.ReactNode;
+  /** Total item count. */
+  readonly totalCount: number;
+  /** Measured viewport height in terminal rows. */
+  readonly viewportHeight: number;
+  /** Total measured content height in terminal rows. */
+  readonly totalRows: number;
+  /** Current scroll offset in terminal rows. */
+  readonly rowOffset: number;
+  /** Rows clipped from the first mounted item. */
+  readonly topClipRows: number;
+  /** First mounted item index, inclusive. */
+  readonly renderStart: number;
+  /** Final mounted item index, exclusive. */
+  readonly renderEnd: number;
+  /** Whether the scrollbar is visible. */
+  readonly showScrollbar: boolean;
+  /** Empty-state text. */
+  readonly emptyText: string;
+  /** Resolved component theme. */
+  readonly theme: import("./ScrollableView.theme").ScrollableViewTheme;
+  /** Ref attached to the measured viewport. */
+  readonly viewportRef: React.RefObject<DOMElement>;
 }
 
 export function ScrollableViewRender<ItemType>({

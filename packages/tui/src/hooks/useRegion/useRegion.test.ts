@@ -1,6 +1,24 @@
 import { describe, expect, it } from "bun:test";
 
-import { fitToWidth, padToWidth, visibleLength } from "./useRegion.utils";
+import {
+  buildRegionOutput,
+  cursorTo,
+  fitToWidth,
+  padToWidth,
+  visibleLength,
+} from "./useRegion.utils";
+
+describe("cursor output", () => {
+  it("builds one-indexed cursor positions", () => {
+    expect(cursorTo(3, 7)).toBe("\x1b[3;7H");
+  });
+
+  it("positions and pads each region row", () => {
+    expect(buildRegionOutput(["one", "two"], 1, 2, 5)).toBe(
+      "\x1b7\x1b[2;3Hone  \x1b[3;3Htwo  \x1b8",
+    );
+  });
+});
 
 describe("visibleLength", () => {
   it("should return character count for plain strings", () => {

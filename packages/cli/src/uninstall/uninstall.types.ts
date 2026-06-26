@@ -1,3 +1,5 @@
+import type { CliInstallation } from "../installation";
+
 /** Data categories that can be removed alongside the CLI. */
 export interface UninstallSelections {
   /** Remove persisted daemon runs and conversation history. */
@@ -20,29 +22,6 @@ export interface RunUninstallerOptions {
   readonly removeConfig?: boolean;
 }
 
-/** @internal Detected installation method used to remove the running CLI. */
-export type CommaInstallation =
-  | {
-      readonly type: "standalone";
-      readonly executablePath: string;
-    }
-  | {
-      readonly type: "package";
-      readonly manager: "bun" | "npm" | "pnpm" | "yarn";
-      readonly command: readonly string[];
-    }
-  | {
-      readonly type: "development";
-      readonly entrypoint: string | undefined;
-    };
-
-/** @internal Inputs used to identify the current CLI installation method. */
-export interface ResolveInstallationOptions {
-  readonly standaloneBuild: boolean;
-  readonly executablePath: string;
-  readonly cliEntrypoint: string | undefined;
-}
-
 /** Outcome of an uninstall attempt. */
 export interface UninstallResult {
   /** Whether removal of the CLI executable or global package was scheduled. */
@@ -52,5 +31,5 @@ export interface UninstallResult {
   /** Non-fatal cleanup failures that may require manual attention. */
   readonly warnings: readonly string[];
   /** Detected installation method, or `undefined` when the user cancelled. */
-  readonly installation: CommaInstallation | undefined;
+  readonly installation: CliInstallation | undefined;
 }

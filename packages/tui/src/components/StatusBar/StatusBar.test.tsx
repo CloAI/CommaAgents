@@ -4,6 +4,14 @@ import type { ChatStatus } from "../../hooks/useChat/useChat.types";
 import { StatusBar } from "./StatusBar";
 
 describe("StatusBar", () => {
+  it("should display MCP enabled and total counts when provided", () => {
+    const { lastFrame } = render(
+      <StatusBar status="idle" error={null} mcpEnabled={2} mcpTotal={3} />,
+    );
+
+    expect(lastFrame()).toContain("[MCP 2/3]");
+  });
+
   describe("status labels", () => {
     it("should display Ready label for idle status", () => {
       const { lastFrame } = render(<StatusBar status="idle" error={null} />);

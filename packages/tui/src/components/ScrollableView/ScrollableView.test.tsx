@@ -37,6 +37,19 @@ async function flushFrames(): Promise<void> {
   }
 }
 
+async function waitFor(
+  predicate: () => boolean,
+  timeoutMs = 1_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Condition was not met within ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 /**
  * Render a `ScrollableView` inside a fixed-size Box so the measurement
  * pipeline has a deterministic viewport. Without an explicit height,
@@ -84,7 +97,7 @@ describe("ScrollableView measurement", () => {
         emptyText="Nothing here."
       />,
     );
-    await flushFrames();
+    await waitFor(() => result.lastFrame()?.includes("Nothing here.") ?? false);
     expect(result.lastFrame()).toContain("Nothing here.");
     result.cleanup();
   });
@@ -99,7 +112,7 @@ describe("ScrollableView measurement", () => {
       />,
       { height: 10, width: 30 },
     );
-    await flushFrames();
+    await waitFor(() => result.lastFrame()?.includes("Item 4") ?? false);
     const frame = result.lastFrame() ?? "";
     expect(frame).toContain("Item 0");
     expect(frame).toContain("Item 4");
@@ -118,7 +131,7 @@ describe("ScrollableView measurement", () => {
       />,
       { height: 5, width: 30 },
     );
-    await flushFrames();
+    await waitFor(() => /\u2588|\u2502/.test(result.lastFrame() ?? ""));
     const frame = result.lastFrame() ?? "";
     // Top items should be visible; far-future items should not.
     expect(frame).toContain("Item 0");
@@ -172,7 +185,7 @@ describe("ScrollableView measurement", () => {
       );
 
     const result = render(renderView(items));
-    await flushFrames();
+    await waitFor(() => (scrollStates.at(-1) ?? 0) > 0);
     const pinnedOffset = scrollStates.at(-1) ?? 0;
     expect(pinnedOffset).toBeGreaterThan(0);
 
@@ -185,7 +198,11 @@ describe("ScrollableView measurement", () => {
         })),
       ),
     );
-    await flushFrames();
+    await waitFor(
+      () =>
+        scrollStates.length > 0 &&
+        scrollStates.every((rowOffset) => rowOffset >= pinnedOffset),
+    );
 
     expect(scrollStates.every((rowOffset) => rowOffset >= pinnedOffset)).toBe(
       true,

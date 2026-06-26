@@ -1,0 +1,74 @@
+---
+title: MCP Servers
+description: List MCP servers, update defaults or run overrides, and inspect preparation results.
+---
+
+# MCP Servers
+
+Use `list_mcp_servers` to inspect shared defaults or the effective MCP
+configuration for a run.
+
+```json
+{
+  "type": "list_mcp_servers",
+  "cwd": "/workspace",
+  "runId": "run_abc123",
+  "strategyPath": "/workspace/.comma/strategies/build.yaml",
+  "requestId": "mcp-list-1"
+}
+```
+
+The daemon replies with `mcp_server_list`. Status entries contain server IDs,
+definition source, transport, enabled state, assigned agents, connection
+state, tool count, and a safe error message when connection failed. Header and
+environment values are never returned.
+
+```json
+{
+  "type": "mcp_server_list",
+  "servers": [
+    {
+      "id": "github",
+      "source": "workspace",
+      "transport": "http",
+      "enabled": true,
+      "enabledByDefault": true,
+      "connected": true,
+      "toolCount": 12,
+      "assignedAgents": ["coder"]
+    }
+  ],
+  "requestId": "mcp-list-1",
+  "ts": "2026-06-24T12:00:00.000Z"
+}
+```
+
+## Update A Server
+
+Set `scope` to `default` to update the shared global/workspace definition, or
+`run` to update `<runsDir>/<runId>.config.json`.
+
+```json
+{
+  "type": "update_mcp_server",
+  "serverId": "github",
+  "enabled": false,
+  "scope": "run",
+  "runId": "run_abc123",
+  "strategyPath": "/workspace/.comma/strategies/build.yaml",
+  "cwd": "/workspace",
+  "requestId": "mcp-update-1"
+}
+```
+
+Updates affect the next preparation or continuation. They never replace tools
+inside an active agent call. A successful update returns a refreshed
+`mcp_server_list`.
+
+## Preparation Failures
+
+`run_prepared.mcpServers` contains connection outcomes. An enabled server may
+have `connected: false` without failing preparation, allowing the client to
+ask whether the user wants to continue with the healthy servers. Unknown
+strategy references still fail preparation because the requested capability
+does not exist.
