@@ -1,0 +1,89 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`TUI shell-use E2E: MCP menu should open MCP servers and toggle a server 1`] = `
+"snapshot: menu-mcp-open
+ Chat Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭ you ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ │ review MCP server choices
+
+ ╭ echo · mock/model ·        18/128k · <elapsed> ────────────────────────────────────────────────────────────────────────────
+ │ Mock daemon response for: review MCP server choices
+
+                                    ┌──────────────────────────────────────────────┐
+                                    │                                              │
+                                    │ Command Palette                              │
+                                    │ MCP Servers                                  │
+                                    │                                              │
+                                    │  ● filesystem          stdio       3 tools   │
+                                    │  source: workspace · agents: echo            │
+                                    │  ○ browser             http        2 tools   │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │ Enter to toggle · g to save current choice   │
+                                    │ as the shared default · Esc to go back       │
+                                    │                                              │
+                                    └──────────────────────────────────────────────┘
+
+│Continue the conversation...                                                                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│MCP Strategy                                                                  Tab to change strategy · Enter to submit│
+ [Done] MCP Strategy  [MCP 1/2]"
+`;
+
+exports[`TUI shell-use E2E: MCP menu should open MCP servers and toggle a server 2`] = `
+"snapshot: menu-mcp-toggled
+ Chat Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭ you ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ │ review MCP server choices
+
+ ╭ echo · mock/model ·        18/128k · <elapsed> ────────────────────────────────────────────────────────────────────────────
+ │ Mock daemon response for: review MCP server choices
+
+                                    ┌──────────────────────────────────────────────┐
+                                    │                                              │
+                                    │ Command Palette                              │
+                                    │ MCP Servers                                  │
+                                    │                                              │
+                                    │  ○ filesystem          stdio       3 tools   │
+                                    │  source: workspace · agents: echo            │
+                                    │  ○ browser             http        2 tools   │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │ Enter to toggle · g to save current choice   │
+                                    │ as the shared default · Esc to go back       │
+                                    │                                              │
+                                    └──────────────────────────────────────────────┘
+
+│Continue the conversation...                                                                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│MCP Strategy                                                                  Tab to change strategy · Enter to submit│
+ [Done] MCP Strategy  [MCP 0/2]"
+`;

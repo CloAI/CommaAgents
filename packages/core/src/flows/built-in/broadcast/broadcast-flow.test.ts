@@ -5,7 +5,7 @@ import type { Agent } from "../../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../../errors/index";
 import type { FlowResult } from "../../flow/flow.types";
 import { hookIntoFlow } from "../../hook-into-flow/hook-into-flow";
-import { makeAgent } from "../../test.utils";
+import { makeAgent, makeFailingAgent } from "../../test.utils";
 import { createBroadcastFlow } from "./broadcast-flow";
 
 // Tests
@@ -13,18 +13,11 @@ import { createBroadcastFlow } from "./broadcast-flow";
 describe("createBroadcastFlow", () => {
   it("sends the same message to all steps", async () => {
     const messages: string[] = [];
-    const recorder = (name: string): Agent => ({
-      name,
-      async call(msg) {
+    const recorder = (name: string): Agent =>
+      makeAgent(name, (msg) => {
         messages.push(`${name}:${msg}`);
-        return {
-          text: name,
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
-      reset() {},
-    });
+        return name;
+      });
 
     const flow = createBroadcastFlow({
       name: "broadcast",
@@ -117,13 +110,7 @@ describe("createBroadcastFlow", () => {
   });
 
   it("wraps step errors in FlowExecutionError", async () => {
-    const failing: Agent = {
-      name: "bad",
-      async call() {
-        throw new Error("fail");
-      },
-      reset() {},
-    };
+    const failing = makeFailingAgent("bad", new Error("fail"));
 
     const flow = createBroadcastFlow({
       name: "broadcast",
@@ -160,27 +147,13 @@ describe("createBroadcastFlow", () => {
   it("reset() propagates to all steps", () => {
     const resets: string[] = [];
     const step1: Agent = {
-      name: "s1",
-      async call() {
-        return {
-          text: "",
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
+      ...makeAgent("s1", ""),
       reset() {
         resets.push("s1");
       },
     };
     const step2: Agent = {
-      name: "s2",
-      async call() {
-        return {
-          text: "",
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
+      ...makeAgent("s2", ""),
       reset() {
         resets.push("s2");
       },

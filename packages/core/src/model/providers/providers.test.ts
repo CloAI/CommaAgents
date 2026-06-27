@@ -56,6 +56,22 @@ describe("provider registry", () => {
     expect(unregisterProviderDefinition("zzz-custom")).toBe(true);
     expect(unregisterProviderDefinition("zzz-custom")).toBe(false);
   });
+
+  test("unregisterProviderDefinition restores catalog providers", async () => {
+    registerProviderDefinition({
+      id: "openai",
+      name: "Custom OpenAI",
+      packageName: "custom-openai",
+    });
+
+    expect(unregisterProviderDefinition("openai")).toBe(true);
+
+    const definition = await getProviderDefinition("openai");
+    expect(definition?.id).toBe("openai");
+    expect(definition?.isCustom).not.toBe(true);
+    expect(definition?.name).not.toBe("Custom OpenAI");
+    expect(definition?.packageName).not.toBe("custom-openai");
+  });
 });
 
 describe("listProviderModels", () => {

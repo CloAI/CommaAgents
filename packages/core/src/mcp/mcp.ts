@@ -34,7 +34,9 @@ export async function createMcpConnectionManager({
     let client: MCPClient | undefined;
     try {
       client = await connectMcpServer(entry, env);
-      const discoveredTools = await client.tools();
+      // `@ai-sdk/mcp` resolves a structurally identical but separately-typed
+      // Tool than `ai`'s ToolSet; the tools pass through opaquely.
+      const discoveredTools = (await client.tools()) as Readonly<ToolSet>;
       const toolSet = namespaceMcpTools(entry.id, discoveredTools);
       clients.set(entry.id, client);
       toolSets.set(entry.id, toolSet);

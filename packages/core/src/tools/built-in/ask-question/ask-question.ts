@@ -39,13 +39,7 @@ export function createAskQuestionTool(): ToolDefinition<
           description: "The feedback/question to present to the user.",
         },
       ],
-      outputs: [
-        {
-          name: "response",
-          type: "string",
-          description: "The user's direct text response.",
-        },
-      ],
+      outputs: "`{ response }` — the user's direct text response.",
       errors: [
         {
           kind: "unknown",

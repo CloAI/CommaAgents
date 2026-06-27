@@ -1,6 +1,7 @@
 import { realpathSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { SandboxViolationError } from "../errors/index";
+import type { PermissionDecision } from "../sandbox/sandbox.types";
 import type { SandboxTrashMetadata } from "../tools/io/trash";
 import type {
   AccessRequest,
@@ -169,7 +170,7 @@ export function createGuard(
     request: AccessRequest,
     ctx: AuthorizationContext,
     resolvedPath: string,
-  ): Promise<PolicyDecision> {
+  ): Promise<PermissionDecision> {
     if (!callbacks?.onAsk) {
       throw new SandboxViolationError(
         resolvedPath,
@@ -178,11 +179,11 @@ export function createGuard(
       );
     }
 
-    let decision: PolicyDecision;
+    let decision: PermissionDecision;
     try {
-      decision = (await callbacks.onAsk(
+      decision = await callbacks.onAsk(
         buildPermissionRequest(request, ctx, resolvedPath),
-      )) as PolicyDecision;
+      );
     } catch {
       throw new SandboxViolationError(
         resolvedPath,
@@ -203,9 +204,9 @@ export function createGuard(
         : resolvedPath;
 
       if (decision === "allow" || decision === "allow-session") {
-        addPolicy(pathSessionPolicy(mode, "allow", relative));
+        addPolicy(pathSessionPolicy(cwd, mode, "allow", relative));
       } else {
-        addPolicy(pathSessionPolicy(mode, "deny", relative));
+        addPolicy(pathSessionPolicy(cwd, mode, "deny", relative));
       }
     }
 
@@ -332,6 +333,7 @@ export function createGuard(
 // ── Session memory helper ──────────────────────────────────────────────────
 
 function pathSessionPolicy(
+  cwd: string,
   mode: "read" | "write",
   decision: "allow" | "deny",
   relative: string,

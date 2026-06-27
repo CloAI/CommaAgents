@@ -15,6 +15,8 @@ import type { LaunchStrategyHandle } from "./launch-strategy.types";
 export interface ToolContext {
   /** Name of the agent that invoked this tool. */
   readonly agentName: string;
+  /** Name of the flow currently executing, when invoked within one. */
+  readonly flowName?: string;
   /** AbortSignal for cancellation propagation. */
   readonly abort: AbortSignal;
   /**

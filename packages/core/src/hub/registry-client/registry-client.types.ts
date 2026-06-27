@@ -8,5 +8,8 @@ export interface HubRegistryClient {
 
 export interface CreateHubRegistryClientOptions {
   readonly repository: HubRepositoryConfig;
-  readonly fetch: typeof globalThis.fetch;
+  readonly fetch: (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ) => Promise<Response>;
 }

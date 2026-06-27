@@ -51,7 +51,10 @@ describe("createWebFetchTool", () => {
 
   it("should fetch a URL and convert HTML to markdown by default", async () => {
     const tool = createWebFetchTool();
-    const result = await tool.execute({ url: `${baseUrl}/html` }, toolContext);
+    const result = await tool.execute(
+      { url: `${baseUrl}/html`, format: "markdown" },
+      toolContext,
+    );
     expect(result.output).toContain("Hello");
     expect(result.output).toContain("**bold**");
     expect(result.metadata?.statusCode).toBe(200);
@@ -81,7 +84,10 @@ describe("createWebFetchTool", () => {
 
   it("should truncate content beyond maxContentLength", async () => {
     const tool = createWebFetchTool({ maxContentLength: 200 });
-    const result = await tool.execute({ url: `${baseUrl}/large` }, toolContext);
+    const result = await tool.execute(
+      { url: `${baseUrl}/large`, format: "markdown" },
+      toolContext,
+    );
     expect(result.metadata?.truncated).toBe(true);
     expect(result.output).toContain("[Content truncated");
   });
@@ -89,7 +95,7 @@ describe("createWebFetchTool", () => {
   it("should include HTTP status header for non-OK responses", async () => {
     const tool = createWebFetchTool();
     const result = await tool.execute(
-      { url: `${baseUrl}/notfound` },
+      { url: `${baseUrl}/notfound`, format: "markdown" },
       toolContext,
     );
     expect(result.output).toContain("[HTTP 404");

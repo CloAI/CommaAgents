@@ -200,7 +200,7 @@ describe("AgentDefSchema", () => {
         maxSteps: 5,
       });
       expect(result.success).toBe(true);
-      if (result.success) {
+      if (result.success && "model" in result.data) {
         expect(result.data.maxSteps).toBe(5);
       }
     });

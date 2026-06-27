@@ -1,7 +1,7 @@
 import type {
   AgentStreamEventWire,
   ContextUsageWire,
-  ConversationInputWire,
+  ConversationHistoryWire,
   ConversationRecordWire,
   ConversationRetentionEventWire,
   McpServerStatusWire,
@@ -191,7 +191,9 @@ export type PersistedRunMeta = RunOverview;
 export type PersistedConversationRecord = ConversationRecordWire;
 export type PersistedConversationRetentionEvent =
   ConversationRetentionEventWire;
-export type PersistedConversationInput = ConversationInputWire;
+export type PersistedConversationInput = NonNullable<
+  ConversationHistoryWire["inputs"]
+>[number];
 
 /** Value exposed by `ChatRunsContext`. */
 export interface ChatRunsContextType {

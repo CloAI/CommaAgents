@@ -1,7 +1,6 @@
 // Tests for hookIntoFlow (flows/hook-into-flow.ts)
 
 import { describe, expect, it } from "bun:test";
-import type { Agent, AgentCallResult } from "../../agents/agent/agent.types";
 import { createBroadcastFlow } from "../built-in/broadcast/broadcast-flow";
 import { createCycleFlow } from "../built-in/cycle/cycle-flow";
 import { createSequentialFlow } from "../built-in/sequential/sequential-flow";
@@ -26,19 +25,7 @@ describe("hookIntoFlow", () => {
     });
 
     it("should throw for agents without appendHook", () => {
-      const fake: Agent = {
-        name: "fake",
-        async call(): Promise<AgentCallResult> {
-          return {
-            text: "",
-            usage: { promptTokens: 0, completionTokens: 0 },
-            finishReason: "stop",
-            responseMessages: [],
-            steps: [],
-          };
-        },
-        reset(): void {},
-      };
+      const fake = makeAgent("fake", "");
 
       expect(() =>
         hookIntoFlow(fake, { beforeFlow: [async () => {}] }),
@@ -46,19 +33,7 @@ describe("hookIntoFlow", () => {
     });
 
     it("should include the agent name in the error message", () => {
-      const fake: Agent = {
-        name: "my-agent",
-        async call(): Promise<AgentCallResult> {
-          return {
-            text: "",
-            usage: { promptTokens: 0, completionTokens: 0 },
-            finishReason: "stop",
-            responseMessages: [],
-            steps: [],
-          };
-        },
-        reset(): void {},
-      };
+      const fake = makeAgent("my-agent", "");
 
       expect(() => hookIntoFlow(fake, {})).toThrow('"my-agent"');
     });

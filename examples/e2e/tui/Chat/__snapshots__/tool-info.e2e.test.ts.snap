@@ -1,0 +1,133 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`TUI shell-use E2E: tool and context info should open tool and context usage modals 1`] = `
+"snapshot: tool-info-chat
+ Chat Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭ you ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ │ inspect package metadata
+
+ ╭ inspector · mock/model · █▌     33k/128k · <elapsed> ──────────────────────────────────────────────────────────────────────
+ │
+ │ thinking
+ │ Inspecting the workspace before reading package metadata.
+ │
+ │ ✓ read_file {"path":"package.json"} → 4 lines
+ │ Package metadata inspected.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+│Continue the conversation...                                                                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│Tool Info Strategy                                                            Tab to change strategy · Enter to submit│
+ [Done] Tool Info Strategy  [MCP 0/0]"
+`;
+
+exports[`TUI shell-use E2E: tool and context info should open tool and context usage modals 2`] = `
+"snapshot: tool-info-output-modal
+ Chat Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭ you ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ │ inspect package metadata
+
+ ╭ inspector · mock/model · █▌     33k/128k · <elapsed> ──────────────────────────────────────────────────────────────────────
+ │
+ │ thinking
+ │ Inspecting the workspace before r┌──────────────────────────────────────────────┐
+ │                                  │                                              │
+ │ ✓ read_file {"path":"package.json│ tool-result: read_file                       │
+ │ Package metadata inspected.      │ ╭──────────────────────────────────────────╮ │
+                                    │ │ › regex…                                 │ │
+                                    │ ╰──────────────────────────────────────────╯ │
+                                    │ 4 lines                                      │
+                                    │                                              │
+                                    │    1 {                                       │
+                                    │    2   "name": "comma-agents"                │
+                                    │    3 }                                       │
+                                    │    4                                         │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    └──────────────────────────────────────────────┘
+│Continue the conversation...                                                                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│Tool Info Strategy                                                            Tab to change strategy · Enter to submit│
+ [Done] Tool Info Strategy  [MCP 0/0]"
+`;
+
+exports[`TUI shell-use E2E: tool and context info should open tool and context usage modals 3`] = `
+"snapshot: tool-info-context-modal
+ Chat Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭ you ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ │ inspect package metadata
+
+ ╭ inspector · mock/model · █▌     33k/128k · <elapsed> ──────────────────────────────────────────────────────────────────────
+ │
+ │ thinking
+ │ Inspecting the workspace before reading package metadata.
+ │
+ │ ✓ read_file {"path":"package.json"} → 4 lines
+ │ Package metadata inspected.         ┌────────────────────────────────────────┐
+                                       │                                        │
+                                       │ Context Usage: inspector               │
+                                       │  model mock/model                      │
+                                       │  window 33k/128k                       │
+                                       │  input = full context sent (system +   │
+                                       │  history + your msg)                   │
+                                       │  output = the model's generated reply  │
+                                       │                                        │
+                                       │  total           33k                   │
+                                       │  input (sent)    31k                   │
+                                       │    no cache      26k                   │
+                                       │    cache read    5k                    │
+                                       │  output (reply)  2k                    │
+                                       │    text          1k                    │
+                                       │    reasoning     600                   │
+                                       │                                        │
+                                       └────────────────────────────────────────┘
+
+
+
+
+│Continue the conversation...                                                                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│Tool Info Strategy                                                            Tab to change strategy · Enter to submit│
+ [Done] Tool Info Strategy  [MCP 0/0]"
+`;

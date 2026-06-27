@@ -2,6 +2,8 @@
 //
 // Provides common agent factories used across all flow test files.
 
+import { createAbortablePromise } from "../abortable/abortable";
+import type { AbortablePromise } from "../abortable/abortable.types";
 import type { Agent, AgentCallResult } from "../agents/agent/agent.types";
 
 // makeAgent — configurable mock agent
@@ -23,16 +25,18 @@ export function makeAgent(
 ): Agent {
   return {
     name,
-    async call(message: string): Promise<AgentCallResult> {
-      const text =
-        typeof response === "function" ? response(message) : response;
-      return {
-        text,
-        usage: tokens,
-        finishReason: "stop",
-        responseMessages: [],
-        steps: [],
-      };
+    call(message: string): AbortablePromise<AgentCallResult> {
+      return createAbortablePromise(async () => {
+        const text =
+          typeof response === "function" ? response(message) : response;
+        return {
+          text,
+          usage: tokens,
+          finishReason: "stop",
+          responseMessages: [],
+          steps: [],
+        };
+      });
     },
     reset(): void {},
   };
@@ -46,8 +50,10 @@ export function makeAgent(
 export function makeFailingAgent(name: string, error: Error): Agent {
   return {
     name,
-    async call(_message: string): Promise<AgentCallResult> {
-      throw error;
+    call(_message: string): AbortablePromise<AgentCallResult> {
+      return createAbortablePromise(async () => {
+        throw error;
+      });
     },
     reset(): void {},
   };
@@ -67,15 +73,17 @@ export function makeCountingAgent(name: string): {
   let count = 0;
   const agent: Agent = {
     name,
-    async call(message: string): Promise<AgentCallResult> {
-      count++;
-      return {
-        text: `${message}[${name}:${count}]`,
-        usage: { promptTokens: 1, completionTokens: 1 },
-        finishReason: "stop",
-        responseMessages: [],
-        steps: [],
-      };
+    call(message: string): AbortablePromise<AgentCallResult> {
+      return createAbortablePromise(async () => {
+        count++;
+        return {
+          text: `${message}[${name}:${count}]`,
+          usage: { promptTokens: 1, completionTokens: 1 },
+          finishReason: "stop",
+          responseMessages: [],
+          steps: [],
+        };
+      });
     },
     reset(): void {
       count = 0;

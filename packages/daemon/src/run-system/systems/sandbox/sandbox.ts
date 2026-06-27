@@ -1,3 +1,8 @@
+import type {
+  GuardCallbacks,
+  PermissionRequest,
+  SandboxConfig,
+} from "@comma-agents/core";
 import { getSandbox, inSandbox, pathPolicy } from "@comma-agents/core";
 import type {
   DaemonSystem,
@@ -49,27 +54,26 @@ export function createSandboxSystem(): DaemonSystem {
         );
       }
 
-      const sandboxConfig = {
+      const sandboxConfig: Partial<SandboxConfig> = {
         cwd: run.cwd,
         jail: false,
         allowAbsolutePaths: true,
         read: { default: "ask", allow: ["**"], deny: [] },
         write: { default: "ask", allow: ["**"], deny: [] },
-        execute: { default: "ask", allow: ["**"], deny: [] },
       };
 
-      const sandboxCallbacks = {
-        onAsk: permissionRequester,
+      const sandboxCallbacks: GuardCallbacks = {
+        // The guard dispatches the broader GuardPermissionRequest (its
+        // `operation` includes command execution); the daemon's requester only
+        // models the fs operations it actually handles, so adapt at the call.
+        onAsk: (request) => permissionRequester(request as PermissionRequest),
         onQuestion: questionRequester,
-        onPolicyChange: (snapshot: {
-          toolName: string;
-          policies: unknown;
-        }): void => {
+        onPolicyChange: (snapshot): void => {
           sink.broadcast(run.id, {
             type: "policy_updated",
             runId: run.id,
             tool: snapshot.toolName,
-            policies: snapshot.policies,
+            policies: [...snapshot.policies],
             ts: new Date().toISOString(),
           });
         },

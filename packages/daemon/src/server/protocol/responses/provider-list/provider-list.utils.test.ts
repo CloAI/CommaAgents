@@ -13,7 +13,7 @@ describe("toModelInfoWire", () => {
       knowledgeCutoff: "2025-01",
       releaseDate: "2025-02-01",
       lastUpdated: "2025-03-01",
-      status: "available",
+      status: "beta",
       modalities: { input: ["text"], output: ["text"] },
       capabilities: {
         tools: true,
@@ -35,7 +35,7 @@ describe("toModelInfoWire", () => {
       knowledgeCutoff: "2025-01",
       releaseDate: "2025-02-01",
       lastUpdated: "2025-03-01",
-      status: "available",
+      status: "beta",
       modalities: { input: ["text"], output: ["text"] },
       capabilities: {
         tools: true,

@@ -1,15 +1,21 @@
 import type {
   AgentCallResult,
+  AgentStreamEvent,
+  GuardCallbacks,
   LaunchStrategyHandle,
   LaunchStrategyRequest,
+  PermissionRequest,
+  SandboxConfig,
 } from "@comma-agents/core";
 import {
   inSandbox,
+  isUserAgentDef,
   loadProject,
   loadStrategyFromString,
   readStrategyFile,
 } from "@comma-agents/core";
 import type { HubManager } from "@comma-agents/core/hub";
+import { toAgentStreamEventWire } from "../../../server/protocol/responses/from-core";
 import { resolveAgentModelDetails } from "../../agent-model-details";
 import { createRunMcpRuntime, resolveRunMcpConfig } from "../../mcp";
 import { assertProjectCodeApproved } from "../../prepare-strategy";
@@ -39,7 +45,6 @@ export function createSubLaunchSystem(
         const questionRequester = systemData.get("questionRequester");
         const inputCollector = systemData.get("inputCollector");
         const skillRegistry = systemData.get("skillRegistry");
-        const _parentSandbox = systemData.get("sandbox");
 
         if (!permissionRequester || !questionRequester || !inputCollector) {
           throw new Error(
@@ -84,56 +89,51 @@ export function createSubLaunchSystem(
           {
             inputCollector: wrappedCollector,
             modelOverride,
-            cwd: run.cwd,
             skillRegistry,
             runId: `${run.id}:${crypto.randomUUID()}`,
             ...(mcpRuntime ? { mcpToolsByAgent: mcpRuntime.toolsByAgent } : {}),
           },
         );
 
-        const sandboxConfig = {
+        const sandboxConfig: Partial<SandboxConfig> = {
           cwd: run.cwd,
           jail: false,
           allowAbsolutePaths: true,
           read: { default: "ask", allow: ["**"], deny: [] },
           write: { default: "ask", allow: ["**"], deny: [] },
-          execute: { default: "ask", allow: ["**"], deny: [] },
         };
 
-        const sandboxCallbacks = {
-          onAsk: permissionRequester,
+        const sandboxCallbacks: GuardCallbacks = {
+          // The guard dispatches the broader GuardPermissionRequest; the
+          // daemon's requester only models the fs operations it handles.
+          onAsk: (request) => permissionRequester(request as PermissionRequest),
           onQuestion: questionRequester,
-          onPolicyChange: (snapshot: {
-            toolName: string;
-            policies: unknown;
-          }): void => {
+          onPolicyChange: (snapshot): void => {
             sink.broadcast(run.id, {
               type: "policy_updated",
               runId: run.id,
               tool: snapshot.toolName,
-              policies: snapshot.policies,
+              policies: [...snapshot.policies],
               ts: new Date().toISOString(),
             });
           },
         };
 
-        const _subSandbox = inSandbox(
-          subStrategy,
-          sandboxConfig,
-          sandboxCallbacks,
-        );
+        inSandbox(subStrategy, sandboxConfig, sandboxCallbacks);
 
         for (const [agentName, agent] of Object.entries(subStrategy.agents)) {
           if (!agent.appendHook) continue;
 
-          const isUserAgent = agent.config?.type === "user";
+          const agentDefinition = subStrategy.raw.agents[agentName];
+          const isUserAgent =
+            agentDefinition !== undefined && isUserAgentDef(agentDefinition);
           const modelDetails = resolveAgentModelDetails(agent.config?.model);
 
           agent.appendHook("beforeCall", (_message: string): void => {
             logger.debug(`Sub-strategy agent ${agentName} beforeCall`);
           });
 
-          agent.appendHook("onStreamEvent", (event: unknown): void => {
+          agent.appendHook("onStreamEvent", (event: AgentStreamEvent): void => {
             if (isUserAgent) return;
 
             sink.broadcast(run.id, {
@@ -141,30 +141,35 @@ export function createSubLaunchSystem(
               runId: run.id,
               agentName,
               ...modelDetails,
-              event,
+              event: toAgentStreamEventWire(event),
               ts: new Date().toISOString(),
             });
           });
 
-          agent.appendHook("afterCallResult", (result: unknown): void => {
-            const ts = new Date().toISOString();
-            const agentResult = result as AgentCallResult;
+          agent.appendHook(
+            "afterCallResult",
+            (result: AgentCallResult): void => {
+              const ts = new Date().toISOString();
 
-            if (!isUserAgent) {
-              sink.broadcast(run.id, {
-                type: "agent_output",
-                runId: run.id,
-                agentName,
-                ...modelDetails,
-                text: agentResult.text,
-                usage: agentResult.usage,
-                ...(agentResult.contextUsage !== undefined
-                  ? { contextUsage: agentResult.contextUsage }
-                  : {}),
-                ts,
-              });
-            }
-          });
+              if (!isUserAgent) {
+                sink.broadcast(run.id, {
+                  type: "agent_output",
+                  runId: run.id,
+                  agentName,
+                  ...modelDetails,
+                  text: result.text,
+                  usage: {
+                    promptTokens: result.usage.promptTokens,
+                    completionTokens: result.usage.completionTokens,
+                  },
+                  ...(result.contextUsage !== undefined
+                    ? { contextUsage: result.contextUsage }
+                    : {}),
+                  ts,
+                });
+              }
+            },
+          );
         }
 
         const flowCall = subStrategy.flow.call(input ?? "");
@@ -185,8 +190,8 @@ export function createSubLaunchSystem(
         );
 
         return {
+          strategyName: subStrategy.name,
           text: result.text,
-          usage: result.usage,
           finishReason: result.finishReason,
         };
       };

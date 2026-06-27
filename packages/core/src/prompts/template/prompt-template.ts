@@ -10,6 +10,7 @@ import { Liquid } from "liquidjs";
 import type {
   PromptTemplate,
   PromptTemplateConfig,
+  TemplateValue,
   TemplateVariables,
 } from "../prompts.types";
 

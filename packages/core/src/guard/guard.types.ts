@@ -98,8 +98,6 @@ export interface Guard {
   readonly cwd: string;
   /** Trash metadata for archive identification (runId, sessionId). */
   readonly trashMetadata?: SandboxTrashMetadata;
-  /** Trash metadata for archive identification (runId, sessionId). */
-  readonly trashMetadata?: SandboxTrashMetadata;
 
   /**
    * Full authorization through the policy chain.

@@ -1,4 +1,4 @@
-import { Box, type InkBoxProps, Text } from "ink";
+import { Box, type BoxProps, type DOMElement, Text } from "ink";
 import type React from "react";
 import { useMemo } from "react";
 
@@ -55,13 +55,13 @@ export interface MessageListRenderProps {
   /** Messages to render in chronological order. */
   readonly messages: readonly GroupedChatMessage[];
   /** Debug render ref from useDebugRender. */
-  readonly debugRef: React.RefObject<HTMLElement>;
+  readonly debugRef: React.RefCallback<DOMElement>;
   /** Props for the outer container Box. */
-  readonly containerProps: InkBoxProps;
+  readonly containerProps: BoxProps;
   /** Props for the empty state container Box. */
-  readonly emptyStateProps: InkBoxProps;
+  readonly emptyStateProps: BoxProps;
   /** Props for the empty state Text. */
-  readonly emptyStateTextProps: Omit<InkBoxProps, "children">;
+  readonly emptyStateTextProps: Omit<BoxProps, "children">;
   /** Opens a spawned strategy transcript in its dedicated page. */
   readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }

@@ -160,6 +160,7 @@ export function createTypeScriptLanguageService(
   function documentSymbols(request: LspRequest): readonly LanguageSymbol[] {
     const requestedFile = fileName(request);
     if (!requestedFile) return [];
+    const targetFile = requestedFile;
     const tree = service.getNavigationTree(requestedFile);
     const symbols: LanguageSymbol[] = [];
 
@@ -169,8 +170,8 @@ export function createTypeScriptLanguageService(
         symbols.push({
           name: item.text,
           kind: item.kind,
-          path: toWorkspacePath(requestedFile),
-          range: rangeOf(requestedFile, span),
+          path: toWorkspacePath(targetFile),
+          range: rangeOf(targetFile, span),
           ...(containerName ? { containerName } : {}),
         });
       }

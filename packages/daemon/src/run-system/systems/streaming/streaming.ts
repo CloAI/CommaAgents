@@ -1,18 +1,21 @@
-import type {
-  AgentCallResult,
-  AgentHooks,
-  AgentStreamEvent,
-  FlowHooks,
-} from "@comma-agents/core";
+import type { AgentCallResult, AgentStreamEvent } from "@comma-agents/core";
 import { isUserAgentDef } from "@comma-agents/core";
 import type { Logger } from "../../../logger";
+import {
+  toAgentCallResultWire,
+  toAgentStreamEventWire,
+} from "../../../server/protocol/responses/from-core";
 import type { RunState } from "../../../state";
 import {
   type AgentModelDetails,
   resolveAgentModelDetails,
 } from "../../agent-model-details";
 import type { EventSink } from "../../event-sink";
-import type { DaemonSystem, StrategyLoadedContext } from "../systems.types";
+import type {
+  DaemonSystem,
+  StrategyLoadedContext,
+  SystemDataStore,
+} from "../systems.types";
 import type { StreamingSystemOptions } from "./streaming.types";
 
 export function createStreamingSystem(
@@ -29,8 +32,8 @@ export function createStreamingSystem(
       systemData.set("lastAgentOutputText", null);
 
       const flowHooks = buildFlowHooks(run, sink);
-      strategy.flow.appendHook("beforeStep", flowHooks.beforeStep);
-      strategy.flow.appendHook("afterStep", flowHooks.afterStep);
+      strategy.flow.appendHook?.("beforeStep", flowHooks.beforeStep);
+      strategy.flow.appendHook?.("afterStep", flowHooks.afterStep);
 
       for (const [agentName, agent] of Object.entries(strategy.agents)) {
         if (!agent.appendHook) continue;
@@ -56,9 +59,15 @@ export function createStreamingSystem(
   };
 }
 
-function buildFlowHooks(run: RunState, sink: EventSink): FlowHooks {
+function buildFlowHooks(run: RunState, sink: EventSink) {
   return {
-    beforeStep({ stepName, message }): void {
+    beforeStep({
+      stepName,
+      message,
+    }: {
+      stepName: string;
+      message: string;
+    }): void {
       const ts = new Date().toISOString();
 
       sink.broadcast(run.id, {
@@ -70,14 +79,21 @@ function buildFlowHooks(run: RunState, sink: EventSink): FlowHooks {
       });
     },
 
-    afterStep({ stepName, message: _message, result }): void {
+    afterStep({
+      stepName,
+      result,
+    }: {
+      stepName: string;
+      message: string;
+      result: AgentCallResult;
+    }): void {
       const ts = new Date().toISOString();
 
       sink.broadcast(run.id, {
         type: "step_completed",
         runId: run.id,
         stepName,
-        result: toWireResult(result),
+        result: toAgentCallResultWire(result),
         ts,
       });
     },
@@ -89,13 +105,10 @@ function buildAgentHooks(
   run: RunState,
   sink: EventSink,
   logger: Logger,
-  systemData: {
-    get: (key: string) => unknown;
-    set: (key: string, value: unknown) => void;
-  },
+  systemData: SystemDataStore,
   isUserAgent: boolean,
   modelDetails: AgentModelDetails,
-): AgentHooks {
+) {
   return {
     onStreamEvent(event: AgentStreamEvent): void {
       if (event.type === "tool-call" || event.type === "tool-result") {
@@ -109,7 +122,7 @@ function buildAgentHooks(
         runId: run.id,
         agentName,
         ...modelDetails,
-        event: toWireStreamEvent(event),
+        event: toAgentStreamEventWire(event),
         ts: new Date().toISOString(),
       });
     },
@@ -164,33 +177,4 @@ function previewForLog(value: string): string {
   const flattened = value.replace(/\r?\n/g, "\\n");
   if (flattened.length <= limit) return flattened;
   return `${flattened.slice(0, limit)}…`;
-}
-
-function toWireResult(result: AgentCallResult): {
-  text: string;
-  usage: { promptTokens: number; completionTokens: number };
-  contextUsage?: AgentCallResult["contextUsage"];
-  finishReason: string;
-} {
-  return {
-    text: result.text,
-    usage: {
-      promptTokens: result.usage.promptTokens,
-      completionTokens: result.usage.completionTokens,
-    },
-    ...(result.contextUsage !== undefined
-      ? { contextUsage: result.contextUsage }
-      : {}),
-    finishReason: result.finishReason,
-  };
-}
-
-function toWireStreamEvent(event: AgentStreamEvent): unknown {
-  if (event.type === "done") {
-    return {
-      type: "done",
-      result: toWireResult(event.result),
-    };
-  }
-  return event;
 }

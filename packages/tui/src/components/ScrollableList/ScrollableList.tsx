@@ -1,6 +1,8 @@
-import { useFocus, useInput } from "ink";
+import { Box, type DOMElement, useFocus, useInput } from "ink";
 import type React from "react";
+import { useRef } from "react";
 
+import { useMouseClick } from "../../hooks/useMouseClick";
 import { ScrollableView } from "../ScrollableView";
 import { clampIndex } from "./ScrollableList.utils";
 
@@ -75,7 +77,8 @@ export function ScrollableList<ItemType>({
   const isFocused = externalFocused ?? ownFocus.isFocused;
 
   useInput(
-    (_input, key) => {
+    (input, key) => {
+      const isReturnInput = key.return || input === "\r" || input === "\n";
       if (totalCount === 0) return;
       if (key.upArrow) {
         if (clampedSelected > 0) onSelectedIndexChange(clampedSelected - 1);
@@ -87,7 +90,7 @@ export function ScrollableList<ItemType>({
         }
         return;
       }
-      if (key.return && onSelected !== undefined) {
+      if (isReturnInput && onSelected !== undefined) {
         const item = items[clampedSelected];
         if (item !== undefined) onSelected(item, clampedSelected);
       }
@@ -100,6 +103,8 @@ export function ScrollableList<ItemType>({
       items={items}
       getKey={getKey}
       renderItem={renderItem}
+      onSelectedIndexChange={onSelectedIndexChange}
+      onSelected={onSelected}
       clampedSelected={clampedSelected}
       emptyText={emptyText}
     />
@@ -113,6 +118,10 @@ export interface ScrollableListRenderProps<ItemType> {
   readonly getKey: (item: ItemType, index: number) => string;
   /** Renderer receiving each item and its selected state. */
   readonly renderItem: (item: ItemType, isSelected: boolean) => React.ReactNode;
+  /** Callback when a row click changes the selected item. */
+  readonly onSelectedIndexChange: (next: number) => void;
+  /** Callback invoked when a row click activates an item. */
+  readonly onSelected?: (item: ItemType, index: number) => void;
   /** Selected index after clamping. */
   readonly clampedSelected: number;
   /** Empty-state text. */
@@ -123,6 +132,8 @@ export function ScrollableListRender<ItemType>({
   items,
   getKey,
   renderItem,
+  onSelectedIndexChange,
+  onSelected,
   clampedSelected,
   emptyText,
 }: ScrollableListRenderProps<ItemType>): React.ReactElement {
@@ -132,7 +143,34 @@ export function ScrollableListRender<ItemType>({
       getKey={getKey}
       emptyText={emptyText}
       scrollToRow={clampedSelected}
-      renderItem={(item, index) => renderItem(item, index === clampedSelected)}
+      renderItem={(item, index) => (
+        <ScrollableListRow
+          onClick={() => {
+            onSelectedIndexChange(index);
+            onSelected?.(item, index);
+          }}
+        >
+          {renderItem(item, index === clampedSelected)}
+        </ScrollableListRow>
+      )}
     />
+  );
+}
+
+interface ScrollableListRowProps {
+  readonly children: React.ReactNode;
+  readonly onClick: () => void;
+}
+
+function ScrollableListRow({
+  children,
+  onClick,
+}: ScrollableListRowProps): React.ReactElement {
+  const rowRef = useRef<DOMElement | null>(null);
+  useMouseClick({ ref: rowRef, onClick });
+  return (
+    <Box ref={rowRef} width="100%" flexDirection="column">
+      {children}
+    </Box>
   );
 }

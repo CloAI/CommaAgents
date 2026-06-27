@@ -14,7 +14,7 @@ function shouldLog(entryLevel: LogLevel, minLevel: LogLevel): boolean {
 }
 
 function createLoggerImpl(
-  sinks: LogSink[],
+  sinks: readonly LogSink[],
   minLevel: LogLevel,
   component?: string,
 ): Logger {

@@ -39,6 +39,8 @@ function resolveStdin(): NodeJS.ReadStream | ReadStream {
  * ```
  */
 export function runTui({
+  strategy,
+  input,
   daemonUrl = "ws://localhost:7422/ws",
   dev = false,
 }: RunTuiOptions = {}): TuiInstance {
@@ -51,7 +53,11 @@ export function runTui({
               <StrategyDiscoveryContextProvider>
                 <ChatRunsContextProvider>
                   <ModalContextProvider>
-                    <App devMode={dev} />
+                    <App
+                      devMode={dev}
+                      initialStrategy={strategy}
+                      initialInput={input}
+                    />
                   </ModalContextProvider>
                 </ChatRunsContextProvider>
               </StrategyDiscoveryContextProvider>

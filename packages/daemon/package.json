@@ -19,7 +19,8 @@
     "start": "bun run src/cli.ts start --foreground",
     "build": "bun run ../../scripts/build-public-package.ts daemon",
     "prepack": "bun run build",
-    "test": "bun test --coverage"
+    "test": "bun test --coverage",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.30",

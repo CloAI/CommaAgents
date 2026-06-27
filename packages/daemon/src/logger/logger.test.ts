@@ -165,7 +165,7 @@ describe("createLogger level filtering", () => {
     log.error("kept");
 
     expect(sink.entries).toHaveLength(1);
-    expect(sink.entries[0].level).toBe("error");
+    expect(sink.entries[0]!.level).toBe("error");
   });
 });
 
@@ -178,7 +178,7 @@ describe("createLogger entry structure", () => {
 
     log.info("test message");
 
-    const entry = sink.entries[0];
+    const entry = sink.entries[0]!;
     expect(entry.ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     expect(entry.level).toBe("info");
     expect(entry.msg).toBe("test message");
@@ -190,7 +190,7 @@ describe("createLogger entry structure", () => {
 
     log.info("with meta", { key: "value", count: 42 });
 
-    expect(sink.entries[0].meta).toEqual({ key: "value", count: 42 });
+    expect(sink.entries[0]!.meta).toEqual({ key: "value", count: 42 });
   });
 
   test("entries omit meta when not provided", () => {
@@ -199,7 +199,7 @@ describe("createLogger entry structure", () => {
 
     log.info("no meta");
 
-    expect(sink.entries[0].meta).toBeUndefined();
+    expect(sink.entries[0]!.meta).toBeUndefined();
   });
 
   test("entries omit meta when empty object is passed", () => {
@@ -208,7 +208,7 @@ describe("createLogger entry structure", () => {
 
     log.info("empty meta", {});
 
-    expect(sink.entries[0].meta).toBeUndefined();
+    expect(sink.entries[0]!.meta).toBeUndefined();
   });
 });
 
@@ -222,7 +222,7 @@ describe("createLogger child loggers", () => {
 
     child.info("started");
 
-    expect(sink.entries[0].component).toBe("server");
+    expect(sink.entries[0]!.component).toBe("server");
   });
 
   test("grandchild chains component names", () => {
@@ -233,7 +233,7 @@ describe("createLogger child loggers", () => {
 
     grandchild.info("connected");
 
-    expect(sink.entries[0].component).toBe("server.ws");
+    expect(sink.entries[0]!.component).toBe("server.ws");
   });
 
   test("parent and child share the same sinks", () => {
@@ -245,8 +245,8 @@ describe("createLogger child loggers", () => {
     child.info("child");
 
     expect(sink.entries).toHaveLength(2);
-    expect(sink.entries[0].component).toBeUndefined();
-    expect(sink.entries[1].component).toBe("executor");
+    expect(sink.entries[0]!.component).toBeUndefined();
+    expect(sink.entries[1]!.component).toBe("executor");
   });
 
   test("child inherits level filtering", () => {
@@ -274,8 +274,8 @@ describe("createLogger multiple sinks", () => {
 
     expect(sink1.entries).toHaveLength(1);
     expect(sink2.entries).toHaveLength(1);
-    expect(sink1.entries[0].msg).toBe("broadcast");
-    expect(sink2.entries[0].msg).toBe("broadcast");
+    expect(sink1.entries[0]!.msg).toBe("broadcast");
+    expect(sink2.entries[0]!.msg).toBe("broadcast");
   });
 
   test("continues writing to other sinks if one throws", () => {
@@ -360,7 +360,7 @@ describe("createLogger default sink", () => {
       log.info("hello stderr");
 
       expect(stderrWrite).toHaveBeenCalledTimes(1);
-      const written = stderrWrite.mock.calls[0][0] as string;
+      const written = stderrWrite.mock.calls[0]![0] as string;
       expect(written).toContain('"level":"info"');
       expect(written).toContain('"msg":"hello stderr"');
       expect(written.endsWith("\n")).toBe(true);
@@ -388,7 +388,7 @@ describe("createStderrSink", () => {
       sink.write(entry);
 
       expect(stderrWrite).toHaveBeenCalledTimes(1);
-      const written = stderrWrite.mock.calls[0][0] as string;
+      const written = stderrWrite.mock.calls[0]![0] as string;
       const parsed = JSON.parse(written.trim());
       expect(parsed.level).toBe("warn");
       expect(parsed.msg).toBe("test");
@@ -441,8 +441,8 @@ describe("createFileSink", () => {
 
     const lines = readFileSync(logFile, "utf-8").trim().split("\n");
     expect(lines).toHaveLength(2);
-    expect(JSON.parse(lines[0]).msg).toBe("first");
-    expect(JSON.parse(lines[1]).msg).toBe("second");
+    expect(JSON.parse(lines[0]!).msg).toBe("first");
+    expect(JSON.parse(lines[1]!).msg).toBe("second");
   });
 
   test("creates parent directories if they don't exist", () => {
@@ -473,7 +473,7 @@ describe("createFileSink", () => {
 
     const lines = readFileSync(logFile, "utf-8").trim().split("\n");
     expect(lines).toHaveLength(1);
-    expect(JSON.parse(lines[0]).msg).toBe("new");
+    expect(JSON.parse(lines[0]!).msg).toBe("new");
   });
 });
 
@@ -494,7 +494,7 @@ describe("createSystemSink", () => {
         msg: "test",
       });
 
-      const written = stderrWrite.mock.calls[0][0] as string;
+      const written = stderrWrite.mock.calls[0]![0] as string;
       // Should not have syslog prefix unless running under systemd
       if (!process.env.JOURNAL_STREAM && !process.env.INVOCATION_ID) {
         expect(written.startsWith("{")).toBe(true);
@@ -534,7 +534,7 @@ describe("createSystemSink", () => {
       expect(calls[3]).toMatch(/^<7>\{/);
 
       // The JSON part should still be valid
-      const jsonPart = calls[0].replace(/^<\d>/, "").trim();
+      const jsonPart = calls[0]!.replace(/^<\d>/, "").trim();
       const parsed = JSON.parse(jsonPart);
       expect(parsed.level).toBe("error");
     } finally {
@@ -555,7 +555,7 @@ describe("createSystemSink", () => {
         msg: "test",
       });
 
-      const written = stderrWrite.mock.calls[0][0] as string;
+      const written = stderrWrite.mock.calls[0]![0] as string;
       expect(written.endsWith("\n")).toBe(true);
     } finally {
       stderrWrite.mockRestore();

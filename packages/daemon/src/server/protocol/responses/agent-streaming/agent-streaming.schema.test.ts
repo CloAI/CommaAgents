@@ -1,11 +1,15 @@
 // Tests for AgentStreamEventSchema.
 
 import { describe, expect, test } from "bun:test";
-import { AgentStreamEventSchema } from "./agent-streaming.schema";
+import type { ConversationRecordWire } from "../shared";
+import {
+  AgentStreamEventSchema,
+  type AgentStreamEventWire,
+} from "./agent-streaming.schema";
 
 describe("AgentStreamEventSchema", () => {
   test("parses retention event", () => {
-    const summaryRecord = {
+    const summaryRecord: ConversationRecordWire = {
       id: "summary-1",
       agentName: "writer",
       createdAt: "2026-01-01T00:00:00.000Z",
@@ -15,8 +19,8 @@ describe("AgentStreamEventSchema", () => {
       usage: { promptTokens: 0, completionTokens: 0 },
       finishReason: "stop",
       status: "active",
-    } as const;
-    const event = {
+    };
+    const event: AgentStreamEventWire = {
       type: "retention",
       event: {
         id: "retention-1",
@@ -37,7 +41,7 @@ describe("AgentStreamEventSchema", () => {
         supersededRecordIds: ["1", "2", "3"],
         insertBeforeRecordId: "4",
       },
-    } as const;
+    };
 
     expect(AgentStreamEventSchema.parse(event)).toEqual(event);
   });

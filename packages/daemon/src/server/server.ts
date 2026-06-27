@@ -182,7 +182,7 @@ export function createDaemon({
       });
 
       //TODO: Handle Unix Socket connections maybe...
-      boundPort = server.port;
+      boundPort = server.port ?? config.port;
       logger.info(`Daemon listening on ${config.host}:${boundPort}`);
 
       // Refresh the models.dev catalog in the background so newer models

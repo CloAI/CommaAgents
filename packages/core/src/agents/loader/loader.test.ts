@@ -1,6 +1,7 @@
 // Tests for agent loader — parse, validate, and instantiate agents.
 
 import { afterEach, describe, expect, it } from "bun:test";
+import type { Schema } from "ai";
 import { z } from "zod";
 import { StrategyValidationError } from "../../errors/index";
 import { registerModel, resetModelRegistry } from "../../model/model";
@@ -231,7 +232,7 @@ describe("AgentDescriptionSchema", () => {
       maxSteps: 3,
     });
     expect(result.success).toBe(true);
-    if (result.success) {
+    if (result.success && "model" in result.data) {
       expect(result.data.maxSteps).toBe(3);
     }
   });
@@ -607,9 +608,9 @@ describe("loadAgentFromString", () => {
         "json",
       );
 
-      expect(await agent.config?.outputSchema?.jsonSchema).toEqual(
-        outputSchema,
-      );
+      expect(
+        await (agent.config?.outputSchema as Schema | undefined)?.jsonSchema,
+      ).toEqual(outputSchema);
     });
 
     it("should pass context retention options to agent config", async () => {

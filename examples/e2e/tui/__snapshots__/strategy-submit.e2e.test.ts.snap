@@ -1,0 +1,45 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`TUI shell-use E2E: strategy submission should select a strategy and submit a prompt 1`] = `
+"snapshot: strategy-submit-completed
+ Chat Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭ you ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ │ hello from intro workflow
+
+ ╭ echo · mock/model ·        18/128k · <elapsed> ────────────────────────────────────────────────────────────────────────────
+ │ Mock daemon response for: hello from intro workflow
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+│Continue the conversation...                                                                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│Beta Strategy                                                                 Tab to change strategy · Enter to submit│
+ [Done] Beta Strategy  [MCP 0/0]"
+`;

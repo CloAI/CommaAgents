@@ -97,6 +97,7 @@ function CommandPaletteContent({
   initialCommandId,
 }: CommandPaletteContentProps): React.ReactElement | null {
   const [commandListFilter, setCommandListFilter] = useState("");
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [activeCommand, setActiveCommand] = useState<Command | null>(null);
   const { closePalette } = useCommandPalette();
   const { focus, activeId } = useFocusManager();
@@ -131,11 +132,19 @@ function CommandPaletteContent({
   useEffect(() => {
     if (isVisible) return;
     setCommandListFilter("");
+    setSelectedCommandIndex(0);
     setActiveCommand(null);
   }, [isVisible]);
 
+  const activateCommand = useCallback((command: Command): void => {
+    setCommandListFilter("");
+    setSelectedCommandIndex(0);
+    setActiveCommand(command);
+  }, []);
+
   useInput(
     (input, key) => {
+      const isReturnInput = key.return || input === "\r" || input === "\n";
       if (key.escape) {
         if (activeCommand === null) closePalette();
         return;
@@ -144,7 +153,29 @@ function CommandPaletteContent({
       if (activeCommand !== null) return;
       if (input && isMouseEscape(input)) return;
 
+      if (!isFocused && key.upArrow) {
+        setSelectedCommandIndex((currentIndex) =>
+          Math.max(0, currentIndex - 1),
+        );
+        return;
+      }
+
+      if (!isFocused && key.downArrow) {
+        setSelectedCommandIndex((currentIndex) =>
+          Math.min(Math.max(0, filteredCommands.length - 1), currentIndex + 1),
+        );
+        return;
+      }
+
+      if (isReturnInput) {
+        const selectedCommand =
+          filteredCommands[selectedCommandIndex] ?? filteredCommands[0];
+        if (selectedCommand) activateCommand(selectedCommand);
+        return;
+      }
+
       if (key.backspace || key.delete) {
+        setSelectedCommandIndex(0);
         setCommandListFilter((currentFilter) => currentFilter.slice(0, -1));
         return;
       }
@@ -154,22 +185,18 @@ function CommandPaletteContent({
         !key.ctrl &&
         !key.meta &&
         !key.tab &&
-        !key.return &&
+        !isReturnInput &&
         !key.upArrow &&
         !key.downArrow &&
         !key.leftArrow &&
         !key.rightArrow
       ) {
+        setSelectedCommandIndex(0);
         setCommandListFilter((currentFilter) => currentFilter + input);
       }
     },
     { isActive: isVisible && RAW_MODE_SUPPORTED },
   );
-
-  const activateCommand = useCallback((command: Command): void => {
-    setCommandListFilter("");
-    setActiveCommand(command);
-  }, []);
 
   const returnToCommandList = useCallback((): void => {
     setActiveCommand(null);
@@ -192,6 +219,8 @@ function CommandPaletteContent({
     <CommandPaletteRender
       query={commandListFilter}
       filtered={filteredCommands}
+      selectedIndex={selectedCommandIndex}
+      onSelectedIndexChange={setSelectedCommandIndex}
       onCommandSelected={activateCommand}
       isFocused={isFocused}
     />
@@ -203,6 +232,10 @@ export interface CommandPaletteRenderProps {
   readonly query: string;
   /** List of filtered commands to display. */
   readonly filtered: readonly Command[];
+  /** Currently selected command row. */
+  readonly selectedIndex?: number;
+  /** Callback when keyboard navigation changes the selected row. */
+  readonly onSelectedIndexChange?: (index: number) => void;
   /** Callback invoked when a command is selected. */
   readonly onCommandSelected: (command: Command) => void;
   /** Whether the palette home view owns keyboard focus. */
@@ -213,12 +246,17 @@ export interface CommandPaletteRenderProps {
 export function CommandPaletteRender({
   query,
   filtered,
+  selectedIndex,
+  onSelectedIndexChange,
   onCommandSelected,
   isFocused,
 }: CommandPaletteRenderProps): React.ReactElement {
   const theme = useCommandPaletteTheme();
   const searchTheme = useSearchInputTheme();
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [internalSelectedIndex, setInternalSelectedIndex] = useState(0);
+  const resolvedSelectedIndex = selectedIndex ?? internalSelectedIndex;
+  const handleSelectedIndexChange =
+    onSelectedIndexChange ?? setInternalSelectedIndex;
 
   return (
     <Box {...theme.container}>
@@ -233,8 +271,8 @@ export function CommandPaletteRender({
       <ScrollableList
         items={filtered}
         getKey={(command) => command.id}
-        selectedIndex={selectedIndex}
-        onSelectedIndexChange={setSelectedIndex}
+        selectedIndex={resolvedSelectedIndex}
+        onSelectedIndexChange={handleSelectedIndexChange}
         onSelected={onCommandSelected}
         isFocused={isFocused}
         emptyText="No commands match"

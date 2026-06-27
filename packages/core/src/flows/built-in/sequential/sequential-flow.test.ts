@@ -5,7 +5,7 @@ import type { Agent } from "../../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../../errors/index";
 import type { FlowResult } from "../../flow/flow.types";
 import { hookIntoFlow } from "../../hook-into-flow/hook-into-flow";
-import { makeAgent } from "../../test.utils";
+import { makeAgent, makeFailingAgent } from "../../test.utils";
 import { createSequentialFlow } from "./sequential-flow";
 
 // Tests
@@ -80,13 +80,7 @@ describe("createSequentialFlow", () => {
   });
 
   it("wraps step errors in FlowExecutionError", async () => {
-    const failing: Agent = {
-      name: "bad",
-      async call() {
-        throw new Error("oops");
-      },
-      reset() {},
-    };
+    const failing = makeFailingAgent("bad", new Error("oops"));
 
     const flow = createSequentialFlow({
       name: "pipe",
@@ -117,27 +111,13 @@ describe("createSequentialFlow", () => {
   it("reset() propagates to all steps", () => {
     const resets: string[] = [];
     const step1: Agent = {
-      name: "s1",
-      async call() {
-        return {
-          text: "",
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
+      ...makeAgent("s1", ""),
       reset() {
         resets.push("s1");
       },
     };
     const step2: Agent = {
-      name: "s2",
-      async call() {
-        return {
-          text: "",
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
+      ...makeAgent("s2", ""),
       reset() {
         resets.push("s2");
       },

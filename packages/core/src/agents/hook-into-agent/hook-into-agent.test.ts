@@ -1,6 +1,7 @@
 // Tests for hookIntoAgent (agents/hook-into-agent.ts)
 
 import { describe, expect, it } from "bun:test";
+import { createAbortablePromise } from "../../abortable/abortable";
 import { createAgent } from "../agent/agent";
 import type { Agent } from "../agent/agent.types";
 import { hookIntoAgent } from "./hook-into-agent";
@@ -29,34 +30,18 @@ describe("hookIntoAgent", () => {
 
     it("should throw for agents without appendHook", () => {
       // A plain object that satisfies Agent but not createAgent's concrete type
-      const fake = {
+      const fake: Agent = {
         name: "fake",
-        call: async () => ({
-          text: "",
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-          responseMessages: [],
-          steps: [],
-        }),
-        stream: async function* () {},
-        getConversationContext: () => ({
-          length: 0,
-          isEmpty: true,
-          appendRecord: () => {},
-          records: () => [],
-          messages: () => [],
-          importRecords: () => {},
-          exportRecords: () => [],
-          importJsonl: () => {},
-          exportJsonl: () => "",
-          clear: () => {},
-          [Symbol.iterator]: () => ({
-            next: () => ({ value: undefined, done: true }),
-          }),
-        }),
-        config: {} as any,
+        call: () =>
+          createAbortablePromise(async () => ({
+            text: "",
+            usage: { promptTokens: 0, completionTokens: 0 },
+            finishReason: "stop",
+            responseMessages: [],
+            steps: [],
+          })),
         reset: () => {},
-      } as Agent;
+      };
 
       expect(() =>
         hookIntoAgent(fake, { beforeCall: [async () => {}] }),

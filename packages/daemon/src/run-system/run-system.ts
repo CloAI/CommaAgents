@@ -100,7 +100,21 @@ export function createRunSystem({
       existingRun &&
       (existingRun.status === "pending" || existingRun.status === "running")
     ) {
-      throw new Error(`Run is still active: ${runId}`);
+      // Attaching to an in-flight run: subscribe this client so live agent
+      // streaming reaches it, and return the conversation persisted so far.
+      // New and ongoing streaming keeps broadcasting to every subscriber.
+      state.subscribe(clientId, runId);
+      const active = preparedRuns.get(runId);
+      return {
+        runId,
+        strategyName: active?.strategy.name ?? existingRun.strategyName,
+        agents: active ? Object.keys(active.strategy.agents) : [],
+        flowTree:
+          (active?.strategy.raw.flow as Record<string, unknown> | undefined) ??
+          {},
+        conversation: conversationHistoryFromEvents(persistedEvents),
+        mcpServers: active?.context.systemData.get("mcpServerStatuses") ?? [],
+      };
     }
     if (mode === "new" && existingRun) {
       throw new Error(`Run already exists: ${runId}`);
@@ -335,12 +349,23 @@ export function createRunSystem({
           : String(caughtError);
 
       const existingRun = state.getRun(run.id);
-      if (existingRun && existingRun.status !== "cancelled") {
-        state.updateRun(run.id, {
-          status: errorStatus,
-          completedAt: new Date(),
-          error: { code: errorCode, message: errorMessage },
-        });
+      // stopRun (including during daemon shutdown) may have already marked the
+      // run cancelled in memory and broadcast strategy_error. Don't duplicate
+      // the state update or broadcast, but we must still persist the terminal
+      // event — otherwise the run has no run_completed in its timeline and is
+      // stuck reporting "running" the next time it is listed or reloaded.
+      if (existingRun) {
+        const alreadyFinalized = existingRun.status === "cancelled";
+        const finalStatus = alreadyFinalized ? "cancelled" : errorStatus;
+        const finalCode = alreadyFinalized ? "CANCELLED" : errorCode;
+
+        if (!alreadyFinalized) {
+          state.updateRun(run.id, {
+            status: finalStatus,
+            completedAt: new Date(),
+            error: { code: finalCode, message: errorMessage },
+          });
+        }
 
         await invokeOnRunError(
           systems,
@@ -351,21 +376,23 @@ export function createRunSystem({
                 ? caughtError
                 : new Error(errorMessage),
             classified: {
-              status: errorStatus,
-              code: errorCode,
+              status: finalStatus,
+              code: finalCode,
               message: errorMessage,
             },
           },
           logger,
         );
 
-        sink.broadcast(run.id, {
-          type: "strategy_error",
-          runId: run.id,
-          error: { code: errorCode, message: errorMessage },
-          ts: new Date().toISOString(),
-          requestId,
-        });
+        if (!alreadyFinalized) {
+          sink.broadcast(run.id, {
+            type: "strategy_error",
+            runId: run.id,
+            error: { code: finalCode, message: errorMessage },
+            ts: new Date().toISOString(),
+            requestId,
+          });
+        }
       }
     } finally {
       await invokeOnRunCleanup(systems, prepared.context, logger);

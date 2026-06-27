@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { SKILL_FILENAME, SKILL_MAX_BYTES } from "./skills.constants";
@@ -79,7 +80,7 @@ async function scanDirectoryInto(
   registry: SkillRegistry,
   warnings: SkillLoadWarning[],
 ): Promise<void> {
-  let entries: Awaited<ReturnType<typeof readdir>>;
+  let entries: Dirent[];
   try {
     entries = await readdir(skillsDirectory, { withFileTypes: true });
   } catch (readError) {

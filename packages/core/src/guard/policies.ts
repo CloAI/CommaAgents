@@ -110,7 +110,9 @@ export function pathPolicy(
  * Always-deny specific commands (regex patterns).
  * Runs during the guard's policy chain for "command.execute" requests.
  */
-export function denyCommandsPolicy(patterns: readonly string[]): Policy {
+export function denyCommandsPolicy(
+  patterns: readonly (string | RegExp)[],
+): Policy {
   return {
     name: "deny-commands",
     evaluate: (req: AccessRequest): PolicyDecision => {
@@ -131,7 +133,9 @@ export function denyCommandsPolicy(patterns: readonly string[]): Policy {
  * Ask (prompt the user) for commands matching approval patterns.
  * Returns "ask" when a command matches; the guard's onAsk callback handles the prompt.
  */
-export function approveCommandsPolicy(patterns: readonly string[]): Policy {
+export function approveCommandsPolicy(
+  patterns: readonly (string | RegExp)[],
+): Policy {
   return {
     name: "approve-commands",
     evaluate: (req: AccessRequest): PolicyDecision => {

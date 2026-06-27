@@ -173,7 +173,8 @@ describe("getGlobalProviderResolver", () => {
     expect(typeof factory).toBe("function");
 
     const model = factory("test-model");
-    expect(model).toEqual({ modelId: "test-model", mock: true });
+    expect(model).toHaveProperty("modelId", "test-model");
+    expect(model).toHaveProperty("mock", true);
   });
 
   it("should resolve a registered provider with async factory", async () => {
@@ -190,7 +191,8 @@ describe("getGlobalProviderResolver", () => {
     const resolver = getGlobalProviderResolver();
     const factory = await resolver("async-provider", testApiCredential);
     const model = factory("my-model");
-    expect(model).toEqual({ modelId: "my-model", async: true });
+    expect(model).toHaveProperty("modelId", "my-model");
+    expect(model).toHaveProperty("async", true);
   });
 
   it("should throw for unresolvable provider when package does not exist", async () => {
@@ -213,7 +215,8 @@ describe("getGlobalProviderResolver", () => {
     const resolver = getGlobalProviderResolver();
     const factory = await resolver("openai", testApiCredential);
     const model = factory("gpt-4o");
-    expect(model).toEqual({ modelId: "gpt-4o", custom: true });
+    expect(model).toHaveProperty("modelId", "gpt-4o");
+    expect(model).toHaveProperty("custom", true);
   });
 
   it("should pass correct credential to factory", async () => {

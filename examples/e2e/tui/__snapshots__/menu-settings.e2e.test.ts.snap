@@ -1,0 +1,89 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`TUI shell-use E2E: menu settings should update and persist the selected theme 1`] = `
+"snapshot: menu-settings-open
+ Chat Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭ you ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ │ open settings after run
+
+ ╭ echo · mock/model ·        18/128k · <elapsed> ────────────────────────────────────────────────────────────────────────────
+ │ Mock daemon response for: open settings after run
+
+                                    ┌──────────────────────────────────────────────┐
+                                    │                                              │
+                                    │ Command Palette                              │
+                                    │ Settings                                     │
+                                    │                                              │
+                                    │ Theme                                        │
+                                    │                                              │
+                                    │                                              │
+                                    │  ● Material Dark     Material Design 3 dark  │
+                                    │                       palette with           │
+                                    │                      elevation depth         │
+                                    │    Light             Bright background,      │
+                                    │                      dark text               │
+                                    │    Dracula           Dark with               │
+                                    │                      purple/cyan/pink        │
+                                    │                      accents                 │
+                                    │    Solarized Dark    Low-contrast balanced   │
+                                    │                      terminal palette        │
+                                    │                                              │
+                                    │                                              │
+                                    │                                              │
+                                    │ Enter to apply · Esc to go back              │
+                                    │                                              │
+                                    └──────────────────────────────────────────────┘
+
+│Continue the conversation...                                                                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│Settings Strategy                                                             Tab to change strategy · Enter to submit│
+ [Done] Settings Strategy  [MCP 0/0]"
+`;
+
+exports[`TUI shell-use E2E: menu settings should update and persist the selected theme 2`] = `
+"snapshot: menu-settings-light
+ Chat  Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭ you ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ │ open settings after run
+
+ ╭ echo · mock/model ·        18/128k · <elapsed> ────────────────────────────────────────────────────────────────────────────
+ │ Mock daemon response for: open settings after run
+
+                                    ┌──────────────────────────────────────────────┐
+                                    │                                              │
+                                    │  Command Palette                             │
+                                    │  Settings                                    │
+                                    │                                              │
+                                    │  Theme                                       │
+                                    │                                              │
+                                    │                                              │
+                                    │     Material Dark     Material Design 3      │
+                                    │                       dark palette with      │
+                                    │                       elevation depth        │
+                                    │   ● Light             Bright background,     │
+                                    │                       dark text              │
+                                    │     Dracula           Dark with              │
+                                    │                       purple/cyan/pink       │
+                                    │                       accents                │
+                                    │     Solarized Dark    Low-contrast           │
+                                    │                       balanced terminal      │
+                                    │                       palette                │
+                                    │                                              │
+                                    │                                              │
+                                    │  Enter to apply · Esc to go back             │
+                                    │                                              │
+                                    └──────────────────────────────────────────────┘
+
+│Continue the conversation...                                                                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│Settings Strategy                                                             Tab to change strategy · Enter to submit│
+ [Done] Settings Strategy  [MCP 0/0]"
+`;

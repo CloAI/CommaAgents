@@ -21,7 +21,12 @@ describe("RunSummarySchema", () => {
   });
 
   test("accepts all status values", () => {
-    for (const status of ["running", "completed", "error", "cancelled"]) {
+    for (const status of [
+      "running",
+      "completed",
+      "error",
+      "cancelled",
+    ] as const) {
       expect(RunSummarySchema.parse({ ...valid, status }).status).toBe(status);
     }
   });

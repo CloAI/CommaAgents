@@ -10,7 +10,7 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
     agentName: "test-agent",
     abort: new AbortController().signal,
-    sandbox: createSandbox(PERMISSIVE_SANDBOX_CONFIG),
+    guard: createSandbox(PERMISSIVE_SANDBOX_CONFIG).guardFor("test-tool"),
     ...overrides,
   };
 }
@@ -89,7 +89,7 @@ describe("createListSkillsTool", () => {
     expect(entry.description).toBe("A skill.");
     expect(entry.origin).toBe("project");
     expect(entry.sourcePath).toBe("/path/SKILL.md");
-    expect((entry as Record<string, unknown>).content).toBeUndefined();
+    expect("content" in entry).toBe(false);
     expect(result.output).not.toContain("Full markdown body");
   });
 });

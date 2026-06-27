@@ -16,6 +16,7 @@ describe("buildToolSystemPrompt", () => {
       toolName: "test",
       cwd: "/test",
       authorize: async () => "/test",
+      askQuestion: async () => "test",
       canAccess: () => true,
       addPolicy: () => {},
       removePolicy: () => false,

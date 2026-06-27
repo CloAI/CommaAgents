@@ -1,7 +1,7 @@
 import type {
   Agent,
-  AgentHooks,
-  FlowHooks,
+  AgentStreamEvent,
+  McpServerStatus,
   TimelineEvent,
 } from "@comma-agents/core";
 import type { Logger } from "../../../logger";
@@ -36,7 +36,17 @@ export function createPersistenceSystem(
     }: ExecutionContext): Promise<void> {
       const enabledMcpServerIds =
         (await runStore.getRunConfig(run.id))?.enabledMcpServerIds ?? [];
-      const mcpServers = systemData.get("mcpServerStatuses") ?? [];
+      const mcpServers: readonly McpServerStatus[] = (
+        systemData.get("mcpServerStatuses") ?? []
+      ).map((status) => ({
+        id: status.id,
+        source: status.source,
+        transport: status.transport,
+        enabled: status.enabled,
+        connected: status.connected ?? false,
+        toolCount: status.toolCount,
+        ...(status.error !== undefined ? { error: status.error } : {}),
+      }));
       try {
         await runStore.appendEvent(run.id, {
           type: "run_started",
@@ -57,8 +67,8 @@ export function createPersistenceSystem(
       }
 
       const flowHooks = buildFlowHooks(run, runStore, logger);
-      strategy.flow.appendHook("beforeStep", flowHooks.beforeStep);
-      strategy.flow.appendHook("afterStep", flowHooks.afterStep);
+      strategy.flow.appendHook?.("beforeStep", flowHooks.beforeStep);
+      strategy.flow.appendHook?.("afterStep", flowHooks.afterStep);
 
       for (const agent of Object.values(strategy.agents)) {
         if (!agent.appendHook) continue;
@@ -107,13 +117,9 @@ export function createPersistenceSystem(
   };
 }
 
-function buildFlowHooks(
-  run: RunState,
-  runStore: RunStore,
-  logger: Logger,
-): FlowHooks {
+function buildFlowHooks(run: RunState, runStore: RunStore, logger: Logger) {
   return {
-    beforeStep({ stepName }): void {
+    beforeStep({ stepName }: { stepName: string }): void {
       appendEvent(runStore, logger, run.id, {
         type: "step_started",
         ts: new Date().toISOString(),
@@ -121,7 +127,7 @@ function buildFlowHooks(
       });
     },
 
-    afterStep({ stepName }): void {
+    afterStep({ stepName }: { stepName: string }): void {
       appendEvent(runStore, logger, run.id, {
         type: "step_completed",
         ts: new Date().toISOString(),
@@ -136,9 +142,9 @@ function buildAgentHooks(
   run: RunState,
   runStore: RunStore,
   logger: Logger,
-): AgentHooks {
+) {
   return {
-    onStreamEvent(event): void {
+    onStreamEvent(event: AgentStreamEvent): void {
       if (event.type !== "retention") return;
 
       appendEvent(runStore, logger, run.id, {

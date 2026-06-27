@@ -143,7 +143,9 @@ export async function loadAgentFromString(
 
   const description = result.data;
 
-  if (description.type && description.type !== "llm") {
+  // A custom registered agent is distinguished by the absence of `model`,
+  // which the LLM schema requires; its `type` names the registered factory.
+  if (!("model" in description)) {
     const registeredAgent = resolveRegisteredAgent(description.type);
     if (!registeredAgent) {
       throw new StrategyValidationError(

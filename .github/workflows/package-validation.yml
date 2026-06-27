@@ -23,6 +23,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run packages:build
       - run: bun run packages:validate
+      - run: bun run --cwd packages/core typecheck
+      - run: bun run --cwd packages/daemon typecheck
       - run: bun test packages/cli/src packages/daemon/src/daemon-control packages/core/src/abortable
       - name: Inspect npm tarballs
         shell: bash

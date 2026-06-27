@@ -304,7 +304,9 @@ describe("useTokenTracking", () => {
 
     hookIntoAgent(agent, {
       afterCallResult: [
-        async (result) => log.push(`afterCallResult: ${result.text}`),
+        async (result) => {
+          log.push(`afterCallResult: ${result.text}`);
+        },
       ],
     });
 

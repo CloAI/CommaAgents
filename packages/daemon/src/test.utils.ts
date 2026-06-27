@@ -53,7 +53,7 @@ export function registerMockModel(modelString: string): void {
         },
       }),
     }),
-  } as LanguageModel);
+  } as unknown as LanguageModel);
 }
 
 /** Register standard mock models used across daemon tests. */

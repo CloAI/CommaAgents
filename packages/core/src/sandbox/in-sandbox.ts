@@ -3,10 +3,10 @@ import type { GuardCallbacks } from "../guard/guard.types";
 import { createSandbox } from "./sandbox";
 import type { Sandbox, SandboxConfig } from "./sandbox.types";
 
-const SANDBOX_KEY = Symbol("comma-agents.sandbox");
+const sandboxByEntity = new WeakMap<object, Sandbox>();
 
 function setSandboxOnAgent(agent: Agent, sandbox: Sandbox): void {
-  (agent as Record<symbol, Sandbox>)[SANDBOX_KEY] = sandbox;
+  sandboxByEntity.set(agent, sandbox);
   // Also mutate config so buildCallOptions reads it via config.sandbox
   if (agent.config) {
     (agent.config as { sandbox?: Sandbox }).sandbox = sandbox;
@@ -64,5 +64,5 @@ export function inSandbox(
 export function getSandbox(
   boxed: Agent | { agents: Readonly<Record<string, Agent>> },
 ): Sandbox | undefined {
-  return (boxed as Record<symbol, Sandbox>)[SANDBOX_KEY];
+  return sandboxByEntity.get(boxed);
 }

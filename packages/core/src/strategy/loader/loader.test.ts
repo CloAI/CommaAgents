@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { mkdir, rm, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import type { Schema } from "ai";
 import { z } from "zod";
 import { createAgent } from "../../agents/agent/agent";
 import { hookIntoAgent } from "../../agents/hook-into-agent/hook-into-agent";
@@ -186,7 +187,9 @@ describe("loadStrategyFromString", () => {
       );
 
       expect(
-        await result.agents.assistant?.config?.outputSchema?.jsonSchema,
+        await (
+          result.agents.assistant?.config?.outputSchema as Schema | undefined
+        )?.jsonSchema,
       ).toEqual(outputSchema);
     });
 
@@ -386,7 +389,7 @@ describe("agent instantiation", () => {
     });
 
     const result = await loadStrategyFromString(json, "json");
-    const callResult = await result.agents.user?.call("ignored");
+    const callResult = await result.agents.user!.call("ignored");
     expect(callResult.text).toBe("Hello!");
   });
 
@@ -1362,8 +1365,8 @@ describe("JSONC support and systemPrompt file path loading", () => {
       const result = await loadStrategy(strategyPath);
       expect(result.name).toBe("File Prompt Strategy");
 
-      const textAgentPrompt = result.agents.textAgent.config?.systemPrompt;
-      const mdAgentPrompt = result.agents.mdAgent.config?.systemPrompt;
+      const textAgentPrompt = result.agents.textAgent!.config?.systemPrompt;
+      const mdAgentPrompt = result.agents.mdAgent!.config?.systemPrompt;
 
       expect(textAgentPrompt).toBe("Hello from text file!");
       expect(mdAgentPrompt).toBe("Hello from markdown file!");

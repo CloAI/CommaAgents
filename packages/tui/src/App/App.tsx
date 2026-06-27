@@ -1,6 +1,6 @@
 import { useApp, useFocusManager, useInput } from "ink";
 import type React from "react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router";
 
 import { CommandPalette } from "../components/CommandPalette";
@@ -9,10 +9,15 @@ import type { TabDefinition } from "../components/Frame/Frame";
 import { McpConnectionFailureModal } from "../components/McpConnectionFailureModal";
 import { ContextUsageModal, OutputModal } from "../components/MessageList";
 import { Modal } from "../components/Modal";
+import { MouseProvider } from "../components/MouseProvider";
 import { StatusBar } from "../components/StatusBar";
-import { useChatState } from "../hooks/useChat";
+import { useChatRunLifecycle, useChatState } from "../hooks/useChat";
 import { useMcp } from "../hooks/useMcp";
 import { useModal } from "../hooks/useModal";
+import {
+  useDiscoveredStrategies,
+  useStrategyDiscoveryStatus,
+} from "../hooks/useStrategies";
 import { ChatPage } from "../pages/ChatPage";
 import { IntroPage } from "../pages/IntroPage";
 import { LogsPage } from "../pages/LogsPage";
@@ -36,25 +41,74 @@ const DEV_TAB: TabDefinition = {
 export interface AppProps {
   /** Whether to enable developer-specific tabs and tools. @default false */
   readonly devMode?: boolean;
+  /** Strategy name, label, or path to launch once discovery is ready. */
+  readonly initialStrategy?: string;
+  /** Initial input to pass to the launched strategy. */
+  readonly initialInput?: string;
 }
 
-export function App({ devMode = false }: AppProps): React.ReactElement {
+export function App({
+  devMode = false,
+  initialStrategy,
+  initialInput,
+}: AppProps): React.ReactElement {
   const { exit } = useApp();
   const { enableFocus } = useFocusManager();
   const navigate = useNavigate();
   const location = useLocation();
   const commandPalette = useModal(COMMAND_PALETTE_MODAL_ID);
+  const strategies = useDiscoveredStrategies();
+  const strategyDiscovery = useStrategyDiscoveryStatus();
+  const { startStrategy } = useChatRunLifecycle();
   const { servers: mcpServers, refresh: refreshMcpServers } = useMcp();
   const chatRunId = chatRunIdFromPath(location.pathname);
   const chatState = useChatState(chatRunId);
-  const displayedMcpServers =
-    chatRunId && chatState.mcpServers.length > 0
-      ? chatState.mcpServers
-      : mcpServers;
+  const initialLaunchState = useRef<"pending" | "done">(
+    initialStrategy ? "pending" : "done",
+  );
 
   useEffect(() => {
     enableFocus();
   }, [enableFocus]);
+
+  useEffect(() => {
+    if (
+      initialStrategy === undefined ||
+      initialLaunchState.current === "done" ||
+      strategyDiscovery.status !== "ready"
+    ) {
+      return;
+    }
+
+    initialLaunchState.current = "done";
+    const selectedStrategy = strategies.find(
+      (strategy) =>
+        strategy.name === initialStrategy ||
+        strategy.label === initialStrategy ||
+        strategy.path === initialStrategy,
+    );
+    if (!selectedStrategy) {
+      console.error(
+        `[tui] Initial strategy "${initialStrategy}" was not discovered.`,
+      );
+      return;
+    }
+
+    const launchedChatRunId = startStrategy(
+      selectedStrategy.path,
+      initialInput,
+      process.cwd(),
+      selectedStrategy.manifestPath,
+    );
+    navigate(`/chat/${encodeURIComponent(launchedChatRunId)}`);
+  }, [
+    initialInput,
+    initialStrategy,
+    navigate,
+    startStrategy,
+    strategies,
+    strategyDiscovery.status,
+  ]);
 
   useEffect(() => {
     refreshMcpServers({
@@ -108,7 +162,7 @@ export function App({ devMode = false }: AppProps): React.ReactElement {
       chatStatus={chatState.status}
       chatError={chatState.error}
       strategyName={chatState.strategyName ?? undefined}
-      mcpServers={displayedMcpServers}
+      mcpServers={mcpServers}
       onOpenMcpServers={() => commandPalette.open({ commandId: "mcp-servers" })}
       chatRunId={chatRunId}
     />
@@ -153,7 +207,7 @@ export function AppRender({
     (server) => server.enabled,
   ).length;
   return (
-    <>
+    <MouseProvider>
       <Frame
         tabs={tabs}
         activeTabPath={activeTabPath}
@@ -195,7 +249,7 @@ export function AppRender({
       <ContextUsageModal />
       <OutputModal />
       {chatRunId ? <McpConnectionFailureModal chatRunId={chatRunId} /> : null}
-    </>
+    </MouseProvider>
   );
 }
 

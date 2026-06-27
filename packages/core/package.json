@@ -21,6 +21,7 @@
     "build": "bun run ../../scripts/build-public-package.ts core",
     "prepack": "bun run build",
     "test": "bun test --coverage",
+    "typecheck": "tsc --noEmit",
     "lint": "biome check src",
     "lint:fix": "biome check --write src"
   },

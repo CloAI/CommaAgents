@@ -671,7 +671,6 @@ registerFlow(
       text: "summary",
       usage: { promptTokens: 0, completionTokens: 0 },
       finishReason: "stop",
-      status: "active",
     });
 
     await runSystem.runStore.appendEvent("compacted-run", {
@@ -799,7 +798,7 @@ registerFlow(
     });
   });
 
-  it("rejects continuation commands for fresh, missing, and active runs", async () => {
+  it("rejects continuation commands for fresh and missing runs", async () => {
     setupMockModels();
     const state = createDaemonState();
     state.addClient("client-1");
@@ -825,7 +824,23 @@ registerFlow(
     await expect(
       runSystem.prepareRun("client-1", { runId: "fresh-run" }),
     ).rejects.toThrow("already exists");
+  });
 
+  it("attaches a client to an in-flight run instead of rejecting", async () => {
+    setupMockModels();
+    const state = createDaemonState();
+    state.addClient("client-1");
+    state.addClient("client-2");
+    const runSystem = createRunSystem({
+      state,
+      sink: mockSink(),
+      logger: mockLogger(),
+      runsDir: await createTempRunsDir(),
+    });
+    const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
+    tempFiles.push(filePath);
+
+    // Simulate a run that is already running with one persisted agent call.
     await runSystem.runStore.appendEvent("active-persisted-run", {
       type: "run_started",
       ts: new Date().toISOString(),
@@ -833,10 +848,35 @@ registerFlow(
       strategyName: "Test",
       cwd: "/workspace",
     });
-    state.createRun(filePath, "Test", "/workspace", "active-persisted-run");
-    await expect(
-      runSystem.prepareRun("client-1", { runId: "active-persisted-run" }),
-    ).rejects.toThrow("still active");
+    await runSystem.runStore.appendEvent(
+      "active-persisted-run",
+      makeAgentCallEvent(
+        "assistant",
+        "hello",
+        "world",
+        new Date().toISOString(),
+      ),
+    );
+    const run = state.createRun(
+      filePath,
+      "Test",
+      "/workspace",
+      "active-persisted-run",
+    );
+    state.updateRun(run.id, { status: "running" });
+
+    // A second client switching to the running chat should attach: get the
+    // conversation so far and be subscribed for live streaming, not an error.
+    const prepared = await runSystem.prepareRun("client-2", {
+      runId: "active-persisted-run",
+    });
+
+    expect(prepared.runId).toBe("active-persisted-run");
+    expect(prepared.strategyName).toBe("Test");
+    expect(prepared.conversation.records).toHaveLength(1);
+    expect(state.getSubscribers("active-persisted-run")).toContain("client-2");
+    // The run remains running and untouched.
+    expect(state.getRun("active-persisted-run")?.status).toBe("running");
   });
 
   it("stopRun cleans up a prepared run without persisting it", async () => {
@@ -894,7 +934,7 @@ registerFlow(
     const run = state.getRun(runId);
     expect(run).toBeDefined();
     // Status is either "pending" or "running" (depending on timing)
-    expect(["pending", "running"]).toContain(run?.status);
+    expect(["pending", "running"]).toContain(run!.status);
   });
 
   it("broadcasts strategy_started with strategy metadata", async () => {
@@ -1152,6 +1192,48 @@ registerFlow(
     ).toBe(false);
   });
 
+  it("shutdown persists a cancelled run_completed for in-flight runs", async () => {
+    setupMockModels();
+    const state = createDaemonState();
+    const sink = mockSink();
+
+    state.addClient("client-1");
+
+    const runSystem = createRunSystem({
+      state,
+      sink,
+      logger: mockLogger(),
+      runsDir: await createTempRunsDir(),
+    });
+
+    const filePath = await writeTempStrategy(USER_AGENT_STRATEGY);
+    tempFiles.push(filePath);
+
+    // Empty input parks the run on a request_input — it is now running with a
+    // persisted run_started and will not complete on its own.
+    const runId = await prepareAndStart(runSystem, "client-1", filePath, "");
+    await waitForBroadcasts(sink, 2, 10000);
+    expect(state.getRun(runId)?.status).toBe("running");
+
+    await runSystem.shutdown();
+
+    expect(state.getRun(runId)?.status).toBe("cancelled");
+
+    const events = await runSystem.runStore.getEvents(runId);
+    const completed = events.filter((event) => event.type === "run_completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0]).toMatchObject({
+      type: "run_completed",
+      status: "cancelled",
+    });
+
+    // The persisted run is now reported as cancelled, not stuck "running".
+    const overview = (await runSystem.runStore.listRuns()).find(
+      (run) => run.runId === runId,
+    );
+    expect(overview?.status).toBe("cancelled");
+  });
+
   it("resolveInput routes to the correct run's pending input", async () => {
     setupMockModels();
     const state = createDaemonState();
@@ -1206,11 +1288,17 @@ registerFlow(
     );
     expect(
       agentEvents.some(
-        (broadcast) => broadcast.message.agentName === "assistant",
+        (broadcast) =>
+          "agentName" in broadcast.message &&
+          broadcast.message.agentName === "assistant",
       ),
     ).toBe(true);
     expect(
-      agentEvents.some((broadcast) => broadcast.message.agentName === "user"),
+      agentEvents.some(
+        (broadcast) =>
+          "agentName" in broadcast.message &&
+          broadcast.message.agentName === "user",
+      ),
     ).toBe(false);
   });
 

@@ -61,6 +61,10 @@ export function createWorkspaceLanguageService(
         ) ??
         services[0];
 
+      if (!selected) {
+        throw new Error("No language service available for request");
+      }
+
       return await selected.service.request(request, signal);
     },
   };

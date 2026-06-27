@@ -69,7 +69,7 @@ describe("audit log replay", () => {
       ctx,
     );
     expect(editResult.ok).toBe(true);
-    const shaAfterEdit = editResult.data?.afterSha256;
+    const shaAfterEdit = editResult.data!.afterSha256;
     expect(shaAfterEdit).toBe(sha256OfBuffer("world\n"));
 
     // 3. write_file replaces content
@@ -82,7 +82,7 @@ describe("audit log replay", () => {
       ctx,
     );
     expect(writeResult.ok).toBe(true);
-    const shaAfterWrite = writeResult.data?.afterSha256;
+    const shaAfterWrite = writeResult.data!.afterSha256;
 
     // 4. move a.txt → b.txt
     const moveResult = await createMoveFileTool().execute(

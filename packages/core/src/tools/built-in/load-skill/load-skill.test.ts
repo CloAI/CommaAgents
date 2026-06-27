@@ -10,7 +10,7 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
     agentName: "test-agent",
     abort: new AbortController().signal,
-    sandbox: createSandbox(PERMISSIVE_SANDBOX_CONFIG),
+    guard: createSandbox(PERMISSIVE_SANDBOX_CONFIG).guardFor("test-tool"),
     ...overrides,
   };
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import yargs from "yargs";
+import yargs, { type Argv } from "yargs";
 import { hideBin } from "yargs/helpers";
 import {
   getDaemonStatus,
@@ -92,7 +92,7 @@ async function commandRestart(
   }
 }
 
-const startOptions = (commandArguments: yargs.Argv) =>
+const startOptions = (commandArguments: Argv): Argv<StartCommandArguments> =>
   commandArguments
     .option("foreground", {
       alias: "f",
@@ -143,7 +143,7 @@ yargs(hideBin(process.argv))
       await commandStart({
         foreground: commandArguments.foreground,
         port: commandArguments.port,
-        modelOverride: commandArguments.modelOverride as string | undefined,
+        modelOverride: commandArguments.modelOverride,
         verbose: commandArguments.verbose,
       });
     },
@@ -156,7 +156,7 @@ yargs(hideBin(process.argv))
       await commandRestart({
         foreground: commandArguments.foreground,
         port: commandArguments.port,
-        modelOverride: commandArguments.modelOverride as string | undefined,
+        modelOverride: commandArguments.modelOverride,
         verbose: commandArguments.verbose,
       });
     },

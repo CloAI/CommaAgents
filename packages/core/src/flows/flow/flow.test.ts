@@ -18,11 +18,15 @@ describe("buildFlowResult", () => {
       text: "a",
       usage: { promptTokens: 10, completionTokens: 20 },
       finishReason: "stop",
+      responseMessages: [],
+      steps: [],
     };
     const sr2: AgentCallResult = {
       text: "b",
       usage: { promptTokens: 5, completionTokens: 15 },
       finishReason: "stop",
+      responseMessages: [],
+      steps: [],
     };
 
     const result = buildFlowResult("final", [sr1, sr2]);
@@ -125,6 +129,7 @@ describe("buildFlowAgent", () => {
               );
             }),
         ),
+      reset() {},
     };
     const flow = buildFlowAgent(
       { name: "abortable", steps: [blockingStep] },
@@ -222,27 +227,13 @@ describe("buildFlowAgent", () => {
   it("reset() resets all steps", () => {
     const resetCalls: string[] = [];
     const agent1: Agent = {
-      name: "a1",
-      async call() {
-        return {
-          text: "",
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
+      ...makeAgent("a1", ""),
       reset() {
         resetCalls.push("a1");
       },
     };
     const agent2: Agent = {
-      name: "a2",
-      async call() {
-        return {
-          text: "",
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
+      ...makeAgent("a2", ""),
       reset() {
         resetCalls.push("a2");
       },
@@ -264,14 +255,7 @@ describe("buildFlowAgent", () => {
   it("reset() calls onReset after step resets", () => {
     const order: string[] = [];
     const step: Agent = {
-      name: "s",
-      async call() {
-        return {
-          text: "",
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
+      ...makeAgent("s", ""),
       reset() {
         order.push("step-reset");
       },

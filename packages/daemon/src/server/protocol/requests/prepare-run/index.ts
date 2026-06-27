@@ -1,4 +1,8 @@
 import type { HandlerContext } from "../../dispatcher.types";
+import {
+  toConversationRecordWire,
+  toConversationRetentionEventWire,
+} from "../../responses/from-core";
 import type { PrepareRunMessage } from "./prepare-run.schema";
 
 export { PrepareRunMessage } from "./prepare-run.schema";
@@ -24,8 +28,10 @@ export async function handlePrepareRun(
         assignedAgents: [...server.assignedAgents],
       })),
       conversation: {
-        records: [...prepared.conversation.records],
-        retentionEvents: [...prepared.conversation.retentionEvents],
+        records: prepared.conversation.records.map(toConversationRecordWire),
+        retentionEvents: prepared.conversation.retentionEvents.map(
+          toConversationRetentionEventWire,
+        ),
         inputs: [...prepared.conversation.inputs],
       },
       ts: new Date().toISOString(),

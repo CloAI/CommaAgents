@@ -135,7 +135,7 @@ export function createTodoRemoveTool(): ToolDefinition<
         );
       }
 
-      const [removed] = list.splice(index, 1);
+      const removed = list.splice(index, 1)[0]!;
       const pending = list.filter((entry) => entry.status === "pending").length;
       return okResult(`Removed todo #${removed.id}: ${removed.content}`, {
         metadata: {

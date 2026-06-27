@@ -11,10 +11,8 @@ import {
 import { BUILT_IN_AGENT_NAMES } from "../../agents/registry/agent-registry.constants";
 import { StrategyValidationError } from "../../errors/index";
 import type { Guard } from "../../guard/guard.types";
-import {
-  createPromptTemplate,
-  type PromptTemplate,
-} from "../../prompts/template/prompt-template";
+import type { PromptTemplate } from "../../prompts/prompts.types";
+import { createPromptTemplate } from "../../prompts/template/prompt-template";
 import { buildSkillsPromptHeader } from "../../skills/skills.loader";
 import type { SkillRegistry } from "../../skills/skills.types";
 import {
@@ -109,6 +107,9 @@ function createMinimalGuard(cwd: string): Guard {
     cwd,
     trashMetadata: undefined,
     authorize: async () => {
+      throw new Error("Minimal guard - not for authorization");
+    },
+    askQuestion: async () => {
       throw new Error("Minimal guard - not for authorization");
     },
     canAccess: () => false,

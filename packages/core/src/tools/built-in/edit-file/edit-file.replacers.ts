@@ -76,10 +76,11 @@ export const lineTrimmedReplacer: Replacer = function* (content, find) {
     // `searchLines.length`. We walk character positions so newline
     // accounting stays correct.
     let matchStart = 0;
-    for (let k = 0; k < i; k++) matchStart += originalLines[k]?.length + 1;
+    for (let k = 0; k < i; k++)
+      matchStart += (originalLines[k]?.length ?? 0) + 1;
     let matchEnd = matchStart;
     for (let k = 0; k < searchLines.length; k++) {
-      matchEnd += originalLines[i + k]?.length;
+      matchEnd += originalLines[i + k]?.length ?? 0;
       if (k < searchLines.length - 1) matchEnd += 1;
     }
     yield content.substring(matchStart, matchEnd);
@@ -127,10 +128,10 @@ export const blockAnchorReplacer: Replacer = function* (content, find) {
   const { startLine, endLine } = candidates[0]!;
   let matchStart = 0;
   for (let k = 0; k < startLine; k++)
-    matchStart += originalLines[k]?.length + 1;
+    matchStart += (originalLines[k]?.length ?? 0) + 1;
   let matchEnd = matchStart;
   for (let k = startLine; k <= endLine; k++) {
-    matchEnd += originalLines[k]?.length;
+    matchEnd += originalLines[k]?.length ?? 0;
     if (k < endLine) matchEnd += 1;
   }
   yield content.substring(matchStart, matchEnd);

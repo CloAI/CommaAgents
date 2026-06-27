@@ -64,7 +64,7 @@ export interface StatusBarRenderProps {
   readonly onMcpPress?: () => void;
   readonly showMcp: boolean;
   readonly theme: StatusBarTheme;
-  readonly debugRef: React.RefObject<unknown>;
+  readonly debugRef: React.RefCallback<DOMElement>;
 }
 
 export function StatusBarRender({

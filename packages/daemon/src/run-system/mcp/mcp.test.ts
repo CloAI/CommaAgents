@@ -75,7 +75,7 @@ describe("resolveRunMcpConfig", () => {
       persistDefaults: true,
     });
 
-    expect(config.enabledServerIds.sort()).toEqual(["github", "private"]);
+    expect([...config.enabledServerIds].sort()).toEqual(["github", "private"]);
     expect(config.assignments.get("github")).toEqual(["assistant"]);
     expect(config.servers.get("private")?.source).toBe("strategy");
     expect(await runStore.getRunConfig("run-1")).toEqual({

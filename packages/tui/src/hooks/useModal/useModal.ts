@@ -24,29 +24,36 @@ import type { ModalControls, ModalId } from "./useModal.types";
  * ```
  */
 export function useModal(modalId: ModalId): ModalControls {
-  const context = useContext(ModalContext);
+  const {
+    open: openModal,
+    close: closeModal,
+    toggle: toggleModal,
+    isOpen: getIsOpen,
+    isTopmost: getIsTopmost,
+    getData,
+  } = useContext(ModalContext);
 
   const open = useCallback(
     (data?: unknown): void => {
-      context.open(modalId, data);
+      openModal(modalId, data);
     },
-    [context, modalId],
+    [openModal, modalId],
   );
 
   const close = useCallback((): void => {
-    context.close(modalId);
-  }, [context, modalId]);
+    closeModal(modalId);
+  }, [closeModal, modalId]);
 
   const toggle = useCallback(
     (data?: unknown): void => {
-      context.toggle(modalId, data);
+      toggleModal(modalId, data);
     },
-    [context, modalId],
+    [toggleModal, modalId],
   );
 
-  const isOpen = context.isOpen(modalId);
-  const isTopmost = context.isTopmost(modalId);
-  const data = context.getData(modalId);
+  const isOpen = getIsOpen(modalId);
+  const isTopmost = getIsTopmost(modalId);
+  const data = getData(modalId);
 
   return useMemo<ModalControls>(
     () => ({ isOpen, isTopmost, data, open, close, toggle }),

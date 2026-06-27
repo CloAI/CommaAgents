@@ -9,7 +9,6 @@ export {
 
 export type {
   AccessMode,
-  AuthorizationContext,
   PathPolicy,
   PermissionDecision,
   PermissionOperation,

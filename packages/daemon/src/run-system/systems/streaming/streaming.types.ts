@@ -1,5 +1,5 @@
+import type { Logger } from "../../../logger/logger.types";
 import type { EventSink } from "../../event-sink";
-import type { Logger } from "../../logger/logger.types";
 import type { DaemonSystem } from "../systems.types";
 
 export interface StreamingSystemOptions {

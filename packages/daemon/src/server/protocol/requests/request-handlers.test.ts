@@ -227,7 +227,7 @@ describe("MCP request handlers", () => {
     const statuses = [
       {
         id: "filesystem",
-        source: "user" as const,
+        source: "global" as const,
         transport: "stdio" as const,
         enabled: true,
         enabledByDefault: true,

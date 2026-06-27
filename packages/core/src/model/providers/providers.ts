@@ -82,6 +82,30 @@ function attachBuiltInListers(): void {
   }
 }
 
+function createDefaultProviderDefinition(
+  providerId: string,
+): ProviderDefinition | undefined {
+  const catalogProvider = getCatalogProviderSync(providerId);
+  const override = BUILT_IN_OVERRIDES.find((entry) => entry.id === providerId);
+
+  if (catalogProvider === undefined && override === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...(catalogProvider !== undefined
+      ? {
+          id: catalogProvider.id,
+          name: catalogProvider.name,
+          packageName: catalogProvider.npm,
+        }
+      : {}),
+    ...override,
+    id: catalogProvider?.id ?? override?.id ?? providerId,
+    name: catalogProvider?.name ?? override?.name ?? providerId,
+  };
+}
+
 /**
  * Register (or override) a provider definition. Custom registrations take
  * precedence over catalog-derived defaults and persist across catalog reloads.
@@ -102,9 +126,18 @@ export function registerProviderDefinition(
   providerRegistry.set(definition.id, { ...definition, isCustom: true });
 }
 
-/** Remove a previously registered provider. Catalog-derived entries return on next init. */
+/** Remove a previously registered provider, restoring catalog metadata when available. */
 export function unregisterProviderDefinition(providerId: string): boolean {
-  return providerRegistry.delete(providerId);
+  if (!providerRegistry.has(providerId)) return false;
+
+  const defaultDefinition = createDefaultProviderDefinition(providerId);
+  if (defaultDefinition === undefined) {
+    providerRegistry.delete(providerId);
+  } else {
+    providerRegistry.set(providerId, defaultDefinition);
+  }
+
+  return true;
 }
 
 /** Reset all provider registrations. Primarily for tests. */

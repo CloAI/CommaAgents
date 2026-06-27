@@ -17,7 +17,7 @@ import { UserInputMessage } from "./requests/user-input/user-input.schema";
 describe("PrepareRunMessage", () => {
   test("parses valid message", () => {
     const msg = {
-      type: "prepare_run",
+      type: "prepare_run" as const,
       strategyPath: "/path/to/strategy.json",
     };
     expect(PrepareRunMessage.parse(msg)).toEqual(msg);
@@ -25,7 +25,7 @@ describe("PrepareRunMessage", () => {
 
   test("rejects input", () => {
     const msg = {
-      type: "prepare_run",
+      type: "prepare_run" as const,
       strategyPath: "/path.json",
       input: "hello",
     };
@@ -34,7 +34,7 @@ describe("PrepareRunMessage", () => {
 
   test("accepts a caller-selected runId", () => {
     const msg = {
-      type: "prepare_run",
+      type: "prepare_run" as const,
       runId: "run-stable",
       strategyPath: "/path.json",
     };
@@ -43,7 +43,7 @@ describe("PrepareRunMessage", () => {
 
   test("accepts optional requestId", () => {
     const msg = {
-      type: "prepare_run",
+      type: "prepare_run" as const,
       strategyPath: "/path.json",
       requestId: "req-1",
     };
@@ -52,7 +52,7 @@ describe("PrepareRunMessage", () => {
 
   test("accepts optional modelOverride", () => {
     const msg = {
-      type: "prepare_run",
+      type: "prepare_run" as const,
       strategyPath: "/path.json",
       modelOverride: "anthropic/claude-sonnet-4-20250514",
     };
@@ -64,7 +64,7 @@ describe("PrepareRunMessage", () => {
   test("rejects empty modelOverride", () => {
     expect(
       PrepareRunMessage.safeParse({
-        type: "prepare_run",
+        type: "prepare_run" as const,
         strategyPath: "/p.json",
         modelOverride: "",
       }).success,
@@ -73,14 +73,17 @@ describe("PrepareRunMessage", () => {
 
   test("accepts an existing runId without a strategyPath", () => {
     expect(
-      PrepareRunMessage.parse({ type: "prepare_run", runId: "existing-run" }),
-    ).toEqual({ type: "prepare_run", runId: "existing-run" });
+      PrepareRunMessage.parse({
+        type: "prepare_run" as const,
+        runId: "existing-run",
+      }),
+    ).toEqual({ type: "prepare_run" as const, runId: "existing-run" });
   });
 
   test("rejects empty strategyPath", () => {
     expect(
       PrepareRunMessage.safeParse({
-        type: "prepare_run",
+        type: "prepare_run" as const,
         strategyPath: "",
       }).success,
     ).toBe(false);
@@ -89,7 +92,7 @@ describe("PrepareRunMessage", () => {
   test("rejects wrong type literal", () => {
     expect(
       PrepareRunMessage.safeParse({
-        type: "stop_run",
+        type: "stop_run" as const,
         strategyPath: "/p",
       }).success,
     ).toBe(false);
@@ -98,25 +101,31 @@ describe("PrepareRunMessage", () => {
 
 describe("StartRunMessage", () => {
   test("accepts optional input", () => {
-    const msg = { type: "start_run", runId: "run-1", input: "hello" };
+    const msg = { type: "start_run" as const, runId: "run-1", input: "hello" };
     expect(StartRunMessage.parse(msg)).toEqual(msg);
   });
 });
 
 describe("ContinueRunMessage", () => {
   test("requires a run id and input", () => {
-    const msg = { type: "continue_run", runId: "run-1", input: "continue" };
+    const msg = {
+      type: "continue_run" as const,
+      runId: "run-1",
+      input: "continue",
+    };
     expect(ContinueRunMessage.parse(msg)).toEqual(msg);
     expect(
-      ContinueRunMessage.safeParse({ type: "continue_run", runId: "run-1" })
-        .success,
+      ContinueRunMessage.safeParse({
+        type: "continue_run" as const,
+        runId: "run-1",
+      }).success,
     ).toBe(false);
   });
 });
 
 describe("StopRunMessage", () => {
   test("parses valid message", () => {
-    const msg = { type: "stop_run", runId: "run-1" };
+    const msg = { type: "stop_run" as const, runId: "run-1" };
     expect(StopRunMessage.parse(msg)).toEqual(msg);
   });
 
@@ -126,7 +135,8 @@ describe("StopRunMessage", () => {
 
   test("rejects empty runId", () => {
     expect(
-      StopRunMessage.safeParse({ type: "stop_run", runId: "" }).success,
+      StopRunMessage.safeParse({ type: "stop_run" as const, runId: "" })
+        .success,
     ).toBe(false);
   });
 });
@@ -134,7 +144,7 @@ describe("StopRunMessage", () => {
 describe("UserInputMessage", () => {
   test("parses valid message", () => {
     const msg = {
-      type: "user_input",
+      type: "user_input" as const,
       runId: "run-1",
       agentName: "user-agent",
       text: "hello",
@@ -144,7 +154,7 @@ describe("UserInputMessage", () => {
 
   test("accepts empty text (user can send empty string)", () => {
     const msg = {
-      type: "user_input",
+      type: "user_input" as const,
       runId: "run-1",
       agentName: "ua",
       text: "",
@@ -154,15 +164,18 @@ describe("UserInputMessage", () => {
 
   test("rejects missing agentName", () => {
     expect(
-      UserInputMessage.safeParse({ type: "user_input", runId: "r", text: "hi" })
-        .success,
+      UserInputMessage.safeParse({
+        type: "user_input" as const,
+        runId: "r",
+        text: "hi",
+      }).success,
     ).toBe(false);
   });
 
   test("rejects missing text", () => {
     expect(
       UserInputMessage.safeParse({
-        type: "user_input",
+        type: "user_input" as const,
         runId: "r",
         agentName: "a",
       }).success,
@@ -173,12 +186,12 @@ describe("UserInputMessage", () => {
 describe("ListStrategiesMessage", () => {
   test("parses valid message", () => {
     expect(ListStrategiesMessage.parse({ type: "list_strategies" })).toEqual({
-      type: "list_strategies",
+      type: "list_strategies" as const,
     });
   });
 
   test("accepts optional requestId", () => {
-    const msg = { type: "list_strategies", requestId: "req-3" };
+    const msg = { type: "list_strategies" as const, requestId: "req-3" };
     expect(ListStrategiesMessage.parse(msg).requestId).toBe("req-3");
   });
 });
@@ -186,9 +199,9 @@ describe("ListStrategiesMessage", () => {
 describe("SubscribeMessage", () => {
   test("parses valid message", () => {
     expect(
-      SubscribeMessage.parse({ type: "subscribe", runId: "run-1" }),
+      SubscribeMessage.parse({ type: "subscribe" as const, runId: "run-1" }),
     ).toEqual({
-      type: "subscribe",
+      type: "subscribe" as const,
       runId: "run-1",
     });
   });
@@ -203,9 +216,12 @@ describe("SubscribeMessage", () => {
 describe("UnsubscribeMessage", () => {
   test("parses valid message", () => {
     expect(
-      UnsubscribeMessage.parse({ type: "unsubscribe", runId: "run-1" }),
+      UnsubscribeMessage.parse({
+        type: "unsubscribe" as const,
+        runId: "run-1",
+      }),
     ).toEqual({
-      type: "unsubscribe",
+      type: "unsubscribe" as const,
       runId: "run-1",
     });
   });
@@ -224,7 +240,8 @@ describe("PingMessage", () => {
 
   test("accepts optional requestId", () => {
     expect(
-      PingMessage.parse({ type: "ping", requestId: "req-4" }).requestId,
+      PingMessage.parse({ type: "ping" as const, requestId: "req-4" })
+        .requestId,
     ).toBe("req-4");
   });
 });
@@ -234,19 +251,19 @@ describe("PingMessage", () => {
 describe("ClientMessage union", () => {
   test("routes prepare_run and start_run correctly", () => {
     const result = ClientMessage.parse({
-      type: "prepare_run",
+      type: "prepare_run" as const,
       strategyPath: "/p.json",
     });
     expect(result.type).toBe("prepare_run");
-    expect(ClientMessage.parse({ type: "start_run", runId: "r" }).type).toBe(
-      "start_run",
-    );
+    expect(
+      ClientMessage.parse({ type: "start_run" as const, runId: "r" }).type,
+    ).toBe("start_run");
   });
 
   test("routes continue_run and rejects empty prepare_run messages", () => {
     expect(
       ClientMessage.parse({
-        type: "continue_run",
+        type: "continue_run" as const,
         runId: "r",
         input: "continue",
       }).type,
@@ -259,32 +276,36 @@ describe("ClientMessage union", () => {
   test("rejects removed get_run messages", () => {
     expect(
       ClientMessage.safeParse({
-        type: "get_run",
+        type: "get_run" as const,
         runId: "r",
       }).success,
     ).toBe(false);
   });
 
   test("routes stop_run correctly", () => {
-    const result = ClientMessage.parse({ type: "stop_run", runId: "r" });
+    const result = ClientMessage.parse({
+      type: "stop_run" as const,
+      runId: "r",
+    });
     expect(result.type).toBe("stop_run");
   });
 
   test("rejects removed strategy lifecycle requests", () => {
     expect(
       ClientMessage.safeParse({
-        type: "start_strategy",
+        type: "start_strategy" as const,
         strategyPath: "/p.json",
       }).success,
     ).toBe(false);
     expect(
-      ClientMessage.safeParse({ type: "stop_strategy", runId: "r" }).success,
+      ClientMessage.safeParse({ type: "stop_strategy" as const, runId: "r" })
+        .success,
     ).toBe(false);
   });
 
   test("routes user_input correctly", () => {
     const result = ClientMessage.parse({
-      type: "user_input",
+      type: "user_input" as const,
       runId: "r",
       agentName: "a",
       text: "t",
@@ -298,12 +319,18 @@ describe("ClientMessage union", () => {
   });
 
   test("routes subscribe correctly", () => {
-    const result = ClientMessage.parse({ type: "subscribe", runId: "r" });
+    const result = ClientMessage.parse({
+      type: "subscribe" as const,
+      runId: "r",
+    });
     expect(result.type).toBe("subscribe");
   });
 
   test("routes unsubscribe correctly", () => {
-    const result = ClientMessage.parse({ type: "unsubscribe", runId: "r" });
+    const result = ClientMessage.parse({
+      type: "unsubscribe" as const,
+      runId: "r",
+    });
     expect(result.type).toBe("unsubscribe");
   });
 

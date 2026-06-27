@@ -2,6 +2,7 @@ import type {
   AgentCallResult,
   ConversationHistory,
   InputCollector,
+  LanguageService,
   LaunchStrategyHandle,
   LoadedStrategy,
   McpAgentToolSet,
@@ -13,7 +14,6 @@ import type {
   SkillRegistry,
 } from "@comma-agents/core";
 import type { HubManager } from "@comma-agents/core/hub";
-import type { LanguageService } from "../../language";
 import type { Logger } from "../../logger/logger.types";
 import type { DaemonState, RunState } from "../../state/state.types";
 import type { EventSink } from "../event-sink";

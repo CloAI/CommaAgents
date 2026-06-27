@@ -56,7 +56,10 @@ export interface HubRepositoryConfig {
 export interface CreateHubManagerOptions {
   readonly dataDir?: string;
   readonly repository?: HubRepositoryConfig;
-  readonly fetch?: typeof globalThis.fetch;
+  readonly fetch?: (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ) => Promise<Response>;
 }
 
 export interface HubManager {

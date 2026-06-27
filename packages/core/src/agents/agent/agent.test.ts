@@ -110,7 +110,7 @@ describe("createAgent with config.execute", () => {
         execute: async (msg) => `Echo: ${msg}`,
       });
 
-      const generator = agent.stream?.("test");
+      const generator = agent.stream!("test");
       const events: unknown[] = [];
       for await (const event of generator) {
         events.push(event);
@@ -141,7 +141,7 @@ describe("createAgent with config.execute", () => {
       await agent.call("first");
       await agent.call("second");
 
-      const allMessages = agent.getConversationContext?.().messages();
+      const allMessages = agent.getConversationContext!().messages();
 
       // Context should contain user + assistant pairs for both calls
       expect(allMessages.length).toBeGreaterThanOrEqual(4);
@@ -379,7 +379,7 @@ describe("Agent.updatePromptVariables", () => {
       }),
     });
 
-    agent.updatePromptVariables({ role: "updated" });
+    agent.updatePromptVariables!({ role: "updated" });
 
     // Reset so first call flag is fresh (getConversationContext doesn't
     // reflect the system prompt — it only holds conversation turns. To
@@ -406,7 +406,7 @@ describe("Agent.updatePromptVariables", () => {
     });
 
     expect(() =>
-      agent.updatePromptVariables({ role: "reviewer" }),
+      agent.updatePromptVariables!({ role: "reviewer" }),
     ).not.toThrow();
   });
 
@@ -417,7 +417,7 @@ describe("Agent.updatePromptVariables", () => {
     });
 
     expect(() =>
-      agent.updatePromptVariables({ role: "reviewer" }),
+      agent.updatePromptVariables!({ role: "reviewer" }),
     ).not.toThrow();
   });
 
@@ -433,7 +433,7 @@ describe("Agent.updatePromptVariables", () => {
       systemPrompt: template,
     });
 
-    agent.updatePromptVariables({ role: "updated" });
+    agent.updatePromptVariables!({ role: "updated" });
 
     expect(template.defaults).toEqual({ role: "updated" });
   });

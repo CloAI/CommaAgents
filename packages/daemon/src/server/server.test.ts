@@ -102,46 +102,52 @@ function connectClient(daemon: Daemon): Promise<{
 
       // Check waiters
       for (let i = waiters.length - 1; i >= 0; i--) {
-        if (waiters[i].predicate(data)) {
-          waiters[i].resolve(data);
+        const waiter = waiters[i]!;
+        if (waiter.predicate(data)) {
+          waiter.resolve(data);
           waiters.splice(i, 1);
         }
       }
     };
 
     ws.onopen = () => {
+      const waitForMessage = (
+        predicate: (msg: unknown) => boolean,
+        timeoutMs = 5000,
+      ): Promise<unknown> => {
+        // Check already-received messages
+        const found = messages.find(predicate);
+        if (found) return Promise.resolve(found);
+
+        return new Promise<unknown>((res, rej) => {
+          const timer = setTimeout(() => {
+            const idx = waiters.findIndex((w) => w.resolve === res);
+            if (idx >= 0) waiters.splice(idx, 1);
+            rej(
+              new Error(
+                `Timed out waiting for message (${timeoutMs}ms). Got: ${JSON.stringify(messages)}`,
+              ),
+            );
+          }, timeoutMs);
+
+          waiters.push({
+            predicate,
+            resolve: (msg) => {
+              clearTimeout(timer);
+              res(msg);
+            },
+            reject: rej,
+          });
+        });
+      };
+
       resolve({
         ws,
         messages,
-        waitForMessage(predicate, timeoutMs = 5000) {
-          // Check already-received messages
-          const found = messages.find(predicate);
-          if (found) return Promise.resolve(found);
-
-          return new Promise<unknown>((res, rej) => {
-            const timer = setTimeout(() => {
-              const idx = waiters.findIndex((w) => w.resolve === res);
-              if (idx >= 0) waiters.splice(idx, 1);
-              rej(
-                new Error(
-                  `Timed out waiting for message (${timeoutMs}ms). Got: ${JSON.stringify(messages)}`,
-                ),
-              );
-            }, timeoutMs);
-
-            waiters.push({
-              predicate,
-              resolve: (msg) => {
-                clearTimeout(timer);
-                res(msg);
-              },
-              reject: rej,
-            });
-          });
-        },
+        waitForMessage,
         waitForType(type: string, timeoutMs = 5000) {
-          return this.waitForMessage(
-            (message: any) => message?.type === type,
+          return waitForMessage(
+            (message) => (message as { type?: string }).type === type,
             timeoutMs,
           );
         },
@@ -269,7 +275,12 @@ describe("Health check", () => {
     const daemon = await startDaemon();
     const res = await fetch(`http://127.0.0.1:${daemon.port}/health`);
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as {
+      status: string;
+      uptime: number;
+      activeRuns: number;
+      connectedClients: number;
+    };
     expect(body.status).toBe("ok");
     expect(typeof body.uptime).toBe("number");
     expect(body.activeRuns).toBe(0);
@@ -283,14 +294,14 @@ describe("Health check", () => {
     await settle();
 
     const res1 = await fetch(`http://127.0.0.1:${daemon.port}/health`);
-    const body1 = await res1.json();
+    const body1 = (await res1.json()) as { connectedClients: number };
     expect(body1.connectedClients).toBe(2);
 
     c1.close();
     await settle(100);
 
     const res2 = await fetch(`http://127.0.0.1:${daemon.port}/health`);
-    const body2 = await res2.json();
+    const body2 = (await res2.json()) as { connectedClients: number };
     expect(body2.connectedClients).toBe(1);
 
     c2.close();

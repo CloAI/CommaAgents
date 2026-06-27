@@ -56,12 +56,14 @@ export function ModalContextProvider(
 
   const open = useCallback((modalId: ModalId, data?: unknown): void => {
     setModals((previous) => {
+      const current = previous.get(modalId);
+      if (current?.isOpen && Object.is(current.data, data)) return previous;
       const next = new Map(previous);
       next.set(modalId, { isOpen: true, data });
       return next;
     });
     setOpenStack((previous) => {
-      // Move to top if already present, else push.
+      if (previous.at(-1) === modalId) return previous;
       const filtered = previous.filter((id) => id !== modalId);
       return [...filtered, modalId];
     });
@@ -69,11 +71,19 @@ export function ModalContextProvider(
 
   const close = useCallback((modalId: ModalId): void => {
     setModals((previous) => {
+      const current = previous.get(modalId);
+      if (!current || (!current.isOpen && current.data === undefined)) {
+        return previous;
+      }
       const next = new Map(previous);
       next.set(modalId, { isOpen: false, data: undefined });
       return next;
     });
-    setOpenStack((previous) => previous.filter((id) => id !== modalId));
+    setOpenStack((previous) =>
+      previous.includes(modalId)
+        ? previous.filter((id) => id !== modalId)
+        : previous,
+    );
   }, []);
 
   const toggle = useCallback((modalId: ModalId, data?: unknown): void => {

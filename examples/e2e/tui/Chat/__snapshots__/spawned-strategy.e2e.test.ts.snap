@@ -1,0 +1,133 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`TUI shell-use E2E: spawned strategy should open a spawned strategy detail page 1`] = `
+"snapshot: spawned-strategy-nested
+ Chat Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭ you ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ │ launch child strategy
+
+ ╭ parent · mock/model · <elapsed> ───────────────────────────────────────────────────────────────────────────────────────────
+ │
+ │ ╭ spawned Child Strategy ──────────────────────────────────────────────────────────────────────────────────────────
+ │ │  ✓ launch_strategy open
+ │ │
+ │ │   input: Investigate nested output
+ │ │   model: mock/child
+ │ │   path: @comma/test/child
+ │ │   finish: stop
+ │ │   result: Child strategy produced nested details.
+ │ │  ╭ child · mock/child · <elapsed> ─────────────────────────────────────────────────────────────────────────────────────
+ │ │  │ Child strategy produced nested details.
+ │ │
+ │
+ │ Parent observed the spawned result.
+
+
+
+
+
+
+
+
+
+
+
+
+
+│Continue the conversation...                                                                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│Spawn Parent Strategy                                                         Tab to change strategy · Enter to submit│
+ [Done] Spawn Parent Strategy  [MCP 0/0]"
+`;
+
+exports[`TUI shell-use E2E: spawned strategy should open a spawned strategy detail page 2`] = `
+"snapshot: spawned-strategy-detail
+ Chat Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ spawned Child Strategy Esc back
+ ╭ child · mock/child · <elapsed> ────────────────────────────────────────────────────────────────────────────────────────────
+ │ Child strategy produced nested details.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ [Done] Spawn Parent Strategy  [MCP 0/0]"
+`;
+
+exports[`TUI shell-use E2E: spawned strategy should open a spawned strategy detail page 3`] = `
+"snapshot: spawned-strategy-returned
+ Chat Logs
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭ you ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ │ launch child strategy
+
+ ╭ parent · mock/model · <elapsed> ───────────────────────────────────────────────────────────────────────────────────────────
+ │
+ │ ╭ spawned Child Strategy ──────────────────────────────────────────────────────────────────────────────────────────
+ │ │  ✓ launch_strategy open
+ │ │
+ │ │   input: Investigate nested output
+ │ │   model: mock/child
+ │ │   path: @comma/test/child
+ │ │   finish: stop
+ │ │   result: Child strategy produced nested details.
+ │ │  ╭ child · mock/child · <elapsed> ─────────────────────────────────────────────────────────────────────────────────────
+ │ │  │ Child strategy produced nested details.
+ │ │
+ │
+ │ Parent observed the spawned result.
+
+
+
+
+
+
+
+
+
+
+
+
+
+│Continue the conversation...                                                                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│Spawn Parent Strategy                                                         Tab to change strategy · Enter to submit│
+ [Done] Spawn Parent Strategy  [MCP 0/0]"
+`;

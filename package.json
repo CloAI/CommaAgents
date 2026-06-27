@@ -35,6 +35,7 @@
     "docs:build": "bun run --cwd docs build",
     "tui:docs": "bun run --cwd packages/tui/docs dev",
     "tui:docs:build": "bun run --cwd packages/tui/docs build",
+    "tui:e2e": "COMMA_TUI_E2E=1 bun test examples/e2e/tui --max-concurrency=1",
     "tui:storybook": "bun run --cwd packages/tui-storybook storybook",
     "tui:storybook:build": "bun run --cwd packages/tui-storybook build"
   },

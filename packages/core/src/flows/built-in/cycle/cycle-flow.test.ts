@@ -247,18 +247,10 @@ describe("createCycleFlow (observer)", () => {
 
   it("observer runs before user-provided alterMessageAfterCycle hooks", async () => {
     const order: string[] = [];
-    const observer: Agent = {
-      name: "obs",
-      async call(msg) {
-        order.push("observer");
-        return {
-          text: msg,
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
-      reset() {},
-    };
+    const observer = makeAgent("obs", (msg) => {
+      order.push("observer");
+      return msg;
+    });
 
     const flow = createCycleFlow({
       name: "observed",
@@ -284,27 +276,13 @@ describe("createCycleFlow (observer)", () => {
   it("reset() also resets the observer", () => {
     const resets: string[] = [];
     const observer: Agent = {
-      name: "obs",
-      async call() {
-        return {
-          text: "",
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
+      ...makeAgent("obs", ""),
       reset() {
         resets.push("observer");
       },
     };
     const step: Agent = {
-      name: "s",
-      async call() {
-        return {
-          text: "",
-          usage: { promptTokens: 0, completionTokens: 0 },
-          finishReason: "stop",
-        };
-      },
+      ...makeAgent("s", ""),
       reset() {
         resets.push("step");
       },

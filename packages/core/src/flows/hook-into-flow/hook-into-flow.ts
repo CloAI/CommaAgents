@@ -39,9 +39,7 @@ export function hookIntoFlow<HookType extends FlowHooks = FlowHooks>(
   flow: Agent,
   hooks: HookType,
 ): void {
-  const appendHook = (flow as Record<string, unknown>).appendHook as
-    | ((hookName: string, callback: unknown) => void)
-    | undefined;
+  const appendHook = flow.appendHook;
 
   if (!appendHook) {
     throw new Error(

@@ -48,6 +48,7 @@ export function RegisteredProvidersPage({
     kind: "list",
   });
   const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiKeyInputError, setApiKeyInputError] = useState(false);
 
   const { isFocused } = useFocus({
     id: focusId,
@@ -130,6 +131,7 @@ export function RegisteredProvidersPage({
       if (provider.credentialType === "api" && provider.authStatus === "none") {
         setViewState({ kind: "api-input", provider });
         setApiKeyInput("");
+        setApiKeyInputError(false);
         return;
       }
       if (
@@ -137,6 +139,7 @@ export function RegisteredProvidersPage({
         provider.authStatus === "none"
       ) {
         setViewState({ kind: "oauth-confirm", provider });
+        setApiKeyInputError(false);
         return;
       }
       registerProvider(provider);
@@ -166,20 +169,29 @@ export function RegisteredProvidersPage({
         if (key.escape) {
           setViewState({ kind: "list" });
           setApiKeyInput("");
+          setApiKeyInputError(false);
           return;
         }
         if (key.return) {
-          saveCredentialAndRegister(viewState.provider, apiKeyInput);
+          const trimmedApiKeyInput = apiKeyInput.trim();
+          if (trimmedApiKeyInput.length === 0) {
+            setApiKeyInputError(true);
+            return;
+          }
+          saveCredentialAndRegister(viewState.provider, trimmedApiKeyInput);
           setViewState({ kind: "list" });
           setApiKeyInput("");
+          setApiKeyInputError(false);
           return;
         }
         if (key.backspace || key.delete) {
           setApiKeyInput((currentInput) => currentInput.slice(0, -1));
+          setApiKeyInputError(false);
           return;
         }
         if (isPrintableCharacter(input, key)) {
           setApiKeyInput((currentInput) => currentInput + input);
+          setApiKeyInputError(false);
         }
         return;
       }
@@ -206,6 +218,7 @@ export function RegisteredProvidersPage({
         return;
       }
       if (key.downArrow) {
+        if (unifiedProviders.length === 0) return;
         setSelectedIndex((currentIndex) =>
           Math.min(unifiedProviders.length - 1, currentIndex + 1),
         );
@@ -244,6 +257,13 @@ export function RegisteredProvidersPage({
     return unsubscribe;
   }, [fetchProviders, on]);
 
+  useEffect(() => {
+    setSelectedIndex((currentIndex) => {
+      if (unifiedProviders.length === 0) return 0;
+      return Math.min(currentIndex, unifiedProviders.length - 1);
+    });
+  }, [unifiedProviders.length]);
+
   return (
     <RegisteredProvidersPageRender
       debugRef={debug.ref}
@@ -257,6 +277,7 @@ export function RegisteredProvidersPage({
       onSelectedIndexChange={setSelectedIndex}
       viewState={viewState}
       apiKeyInput={apiKeyInput}
+      apiKeyInputError={apiKeyInputError}
       isPending={isPending}
       statusColor={statusColor}
       credentialTypeColor={credentialTypeColor}
@@ -287,6 +308,8 @@ export interface RegisteredProvidersPageRenderProps {
   readonly viewState: RegisteredProvidersViewState;
   /** Current text in the API key input field. */
   readonly apiKeyInput: string;
+  /** Whether the API key field should show validation feedback. */
+  readonly apiKeyInputError: boolean;
   /** Whether a registration process is currently pending. */
   readonly isPending: boolean;
   /** Function to resolve the status color for a provider. */
@@ -309,18 +332,22 @@ export function RegisteredProvidersPageRender({
   onSelectedIndexChange,
   viewState,
   apiKeyInput,
+  apiKeyInputError,
   isPending,
   statusColor,
   credentialTypeColor,
 }: RegisteredProvidersPageRenderProps): React.ReactElement {
   if (viewState.kind === "api-input") {
     const provider = viewState.provider;
+    const maskedApiKeyInput =
+      apiKeyInput.length > 0 ? "•".repeat(apiKeyInput.length) : "";
     return (
       <Box
         ref={debugRef}
         flexDirection="column"
         width="100%"
         flexGrow={1}
+        flexShrink={1}
         paddingLeft={1}
       >
         <Box marginBottom={1}>
@@ -334,22 +361,29 @@ export function RegisteredProvidersPageRender({
             <Text color={tokens.colors.primary}>credentials.json</Text>.
           </Text>
         </Box>
-        <Box marginBottom={1}>
-          <Text color={tokens.colors.primary} bold>
-            API key:{" "}
-          </Text>
-          <Text color={tokens.colors.muted}>
-            {apiKeyInput.length > 0
-              ? "•".repeat(apiKeyInput.length)
-              : "(type to enter)"}
-          </Text>
-          {apiKeyInput.length > 0 && (
-            <Text dimColor> ({apiKeyInput.length} chars)</Text>
-          )}
+        <Box marginBottom={1} width="100%">
+          <SearchInputRender
+            theme={searchTheme}
+            value={maskedApiKeyInput}
+            placeholder="Paste API key..."
+            prompt="API key › "
+          />
         </Box>
+        {apiKeyInput.length > 0 && (
+          <Box marginBottom={1}>
+            <Text color={tokens.colors.muted}>
+              {apiKeyInput.length} characters entered
+            </Text>
+          </Box>
+        )}
+        {apiKeyInputError && (
+          <Box marginBottom={1}>
+            <Text color={tokens.colors.error}>API key is required.</Text>
+          </Box>
+        )}
         <Box marginTop={1}>
           <Text color={tokens.colors.muted}>
-            Enter to confirm · Esc to cancel
+            Enter to save key and register · Esc to cancel
             {isPending ? " · Processing..." : ""}
           </Text>
         </Box>
@@ -365,6 +399,7 @@ export function RegisteredProvidersPageRender({
         flexDirection="column"
         width="100%"
         flexGrow={1}
+        flexShrink={1}
         paddingLeft={1}
       >
         <Box marginBottom={1}>
@@ -402,8 +437,22 @@ export function RegisteredProvidersPageRender({
     );
   }
 
+  const availableCount =
+    unifiedProviders.length - filteredRegisteredProviders.length;
+  const selectedProvider = unifiedProviders[selectedIndex];
+  const actionText =
+    selectedProvider?.isCustom === true
+      ? "Enter to unregister selected provider · Esc to go back"
+      : "Enter to register & set credentials · Esc to go back";
+
   return (
-    <Box ref={debugRef} flexDirection="column" width="100%" flexGrow={1}>
+    <Box
+      ref={debugRef}
+      flexDirection="column"
+      width="100%"
+      flexGrow={1}
+      flexShrink={1}
+    >
       <Box flexShrink={0} marginBottom={1}>
         <SearchInputRender
           theme={searchTheme}
@@ -418,14 +467,21 @@ export function RegisteredProvidersPageRender({
       ) : unifiedProviders.length === 0 ? (
         <Text color={tokens.colors.muted}>No providers match</Text>
       ) : (
-        <Box flexDirection="column" flexGrow={1} overflow="hidden">
-          {filteredRegisteredProviders.length > 0 && (
-            <Box flexShrink={0} marginTop={0} marginBottom={1}>
-              <Text bold color={tokens.colors.primary}>
-                Registered
-              </Text>
-            </Box>
-          )}
+        <Box
+          flexDirection="column"
+          flexGrow={1}
+          flexShrink={1}
+          overflow="hidden"
+        >
+          <Box flexShrink={0} marginBottom={1}>
+            <Text bold color={tokens.colors.primary}>
+              Registered {filteredRegisteredProviders.length}
+            </Text>
+            <Text color={tokens.colors.muted}> · </Text>
+            <Text bold color={tokens.colors.primary}>
+              Available {availableCount}
+            </Text>
+          </Box>
 
           <ScrollableList
             items={unifiedProviders}
@@ -437,20 +493,9 @@ export function RegisteredProvidersPageRender({
             renderItem={(provider, isSelected) => {
               const credentialTypeLabel =
                 CREDENTIAL_TYPE_LABELS[provider.credentialType] ?? "api";
-              const isAvailableSection =
-                filteredRegisteredProviders.length > 0 &&
-                unifiedProviders.indexOf(provider) ===
-                  filteredRegisteredProviders.length;
 
               return (
                 <Box flexDirection="column">
-                  {isAvailableSection && (
-                    <Box flexShrink={0} marginTop={1} marginBottom={1}>
-                      <Text bold color={tokens.colors.primary}>
-                        Available
-                      </Text>
-                    </Box>
-                  )}
                   <Box
                     flexDirection="row"
                     paddingX={1}
@@ -505,9 +550,7 @@ export function RegisteredProvidersPageRender({
 
       <Box flexShrink={0} marginTop={1}>
         <Text color={tokens.colors.muted}>
-          {providers.some((provider) => !provider.isCustom)
-            ? "Enter to register & set credentials · Esc to go back"
-            : "Enter to toggle · Esc to go back"}
+          {actionText}
           {isPending ? " · Processing..." : ""}
         </Text>
       </Box>

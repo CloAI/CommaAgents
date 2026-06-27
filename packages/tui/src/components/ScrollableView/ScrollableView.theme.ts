@@ -15,6 +15,7 @@ export const useScrollableViewTheme = defineTheme((tokens) => ({
     flexDirection: "row",
     width: "100%",
     flexGrow: 1,
+    flexShrink: 1,
     overflow: "hidden",
   } satisfies BoxProps,
   /**
@@ -24,6 +25,7 @@ export const useScrollableViewTheme = defineTheme((tokens) => ({
   viewport: {
     flexDirection: "column",
     flexGrow: 1,
+    flexShrink: 1,
     overflow: "hidden",
   } satisfies BoxProps,
   /** Empty-state container. */

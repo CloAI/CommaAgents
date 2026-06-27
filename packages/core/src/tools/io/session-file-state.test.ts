@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AuditEntry } from "./audit";
+import type { AuditEntry } from "./audit.types";
 import { sha256OfBuffer } from "./hash";
 import {
   buildSessionFileState,
