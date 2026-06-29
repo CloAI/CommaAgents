@@ -14,8 +14,6 @@ import { filterByQuery } from "../../../SearchInput/SearchInput.utils";
 /** Provider shape as returned by the daemon's `provider_list` message. */
 type ProviderInfo = DaemonMessageOf<"provider_list">["providers"][number];
 
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 function providerHaystack(provider: ProviderInfo): string {
   return [
     provider.id,
@@ -52,7 +50,7 @@ export function ListProvidersPage({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const { isFocused } = useFocus({ id: focusId, isActive: RAW_MODE_SUPPORTED });
+  const { isFocused } = useFocus({ id: focusId });
   const filtered = filterByQuery(providers, query, providerHaystack);
 
   useInput(

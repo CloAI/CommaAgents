@@ -22,6 +22,7 @@
     "generate:frames": "bun run src/components/TitleIcon/icon-generator/generator.ts",
     "test": "bun test --coverage",
     "test:e2e": "COMMA_TUI_E2E=1 bun test ../../examples/e2e/tui --max-concurrency=1",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "lint": "bunx @biomejs/biome check src",
     "lint:fix": "bunx @biomejs/biome check --write src",
     "format": "bunx @biomejs/biome format --write src",

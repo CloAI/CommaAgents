@@ -5,6 +5,5 @@ export type {
 
 export { App, AppRender } from "./App";
 
+export type { AppTheme } from "./App.theme";
 export { useAppTheme } from "./App.theme";
-
-export type { AppTheme } from "./App.types";

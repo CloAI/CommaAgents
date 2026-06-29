@@ -199,7 +199,7 @@ describe("context providers", () => {
       servers: [
         {
           id: "filesystem",
-          source: "user",
+          source: "global",
           transport: "stdio",
           enabled: true,
           enabledByDefault: true,
@@ -253,7 +253,7 @@ describe("context providers", () => {
     expect(sent).toEqual([]);
 
     const chatRun = {
-      ...createInitialChatRun("daemon-run-1", 0),
+      ...createInitialChatRun("daemon-run-1", {}),
       daemonRunId: "daemon-run-1",
       status: "running" as const,
     };
@@ -278,6 +278,7 @@ describe("context providers", () => {
       requestId: "question-1",
       runId: chatRun.id,
       agentName: "reviewer",
+      toolName: "request_user_input",
       question: "Proceed?",
     } satisfies Extract<DaemonMessage, { type: "request_question" }>);
     listeners.get("steer_queued")?.({
@@ -358,7 +359,7 @@ describe("context providers", () => {
           cwd: "/workspace",
           status: "completed",
           startedAt: "2026-06-25T00:00:00.000Z",
-          updatedAt: "2026-06-25T00:01:00.000Z",
+          completedAt: "2026-06-25T00:01:00.000Z",
         },
       ],
     } satisfies Extract<DaemonMessage, { type: "run_list" }>);
@@ -444,10 +445,12 @@ describe("context providers", () => {
   });
 
   it("registers and cleans up mouse consumers through one event bus", () => {
-    let mouse: MouseContextValue | null = null;
+    const mouseCapture: { current: MouseContextValue | null } = {
+      current: null,
+    };
 
     function Probe() {
-      mouse = useContext(MouseContext);
+      mouseCapture.current = useContext(MouseContext);
       return null;
     }
 
@@ -457,9 +460,9 @@ describe("context providers", () => {
       </MouseProvider>,
     );
 
-    const unsubscribe = mouse?.subscribe(() => {});
-    const unregisterHover = mouse?.registerHoverConsumer();
-    expect(mouse).not.toBeNull();
+    const unsubscribe = mouseCapture.current?.subscribe(() => {});
+    const unregisterHover = mouseCapture.current?.registerHoverConsumer();
+    expect(mouseCapture.current).not.toBeNull();
 
     unregisterHover?.();
     unsubscribe?.();

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import { createLogStore } from "./logStore";
-import type { LogStore } from "./useLogs.types";
+import type { LogEntry, LogStore } from "./useLogs.types";
 
 /**
  * Snapshot the real console + stdio so each test can install a fresh
@@ -52,6 +52,14 @@ function restoreConsole(): void {
   console.debug = realConsole.debug;
 }
 
+function getLogEntry(store: LogStore, index = 0): LogEntry {
+  const entry = store.getSnapshot()[index];
+  if (entry === undefined) {
+    throw new Error(`Expected log entry at index ${index}`);
+  }
+  return entry;
+}
+
 describe("createLogStore", () => {
   let store: LogStore;
   let captured: CapturedOutput;
@@ -80,8 +88,8 @@ describe("createLogStore", () => {
       console.log("hello");
       const entries = store.getSnapshot();
       expect(entries.length).toBe(1);
-      expect(entries[0].level).toBe("log");
-      expect(entries[0].message).toBe("hello");
+      expect(getLogEntry(store).level).toBe("log");
+      expect(getLogEntry(store).message).toBe("hello");
     });
 
     it("should capture all five log levels with the correct level tag", () => {
@@ -110,14 +118,14 @@ describe("createLogStore", () => {
 
     it("should format multi-argument calls into a single space-separated message", () => {
       console.log("status:", { code: 200 });
-      const [entry] = store.getSnapshot();
+      const entry = getLogEntry(store);
       expect(entry.message.startsWith("status: ")).toBe(true);
       expect(entry.message).toContain("code: 200");
     });
 
     it("should capture Error objects with stack info", () => {
       console.error(new Error("boom"));
-      const [entry] = store.getSnapshot();
+      const entry = getLogEntry(store);
       expect(entry.level).toBe("error");
       expect(entry.message).toContain("Error: boom");
     });
@@ -171,7 +179,7 @@ describe("createLogStore", () => {
       console.log("after-commit");
       const entries = store.getSnapshot();
       expect(entries.length).toBe(1);
-      expect(entries[0].message).toBe("after-commit");
+      expect(getLogEntry(store).message).toBe("after-commit");
     });
 
     it("should reassert console interception when commit is called", () => {
@@ -184,7 +192,7 @@ describe("createLogStore", () => {
 
       const entries = store.getSnapshot();
       expect(entries.length).toBe(1);
-      expect(entries[0].message).toBe("after-reinstall");
+      expect(getLogEntry(store).message).toBe("after-reinstall");
       expect(captured.stdout.join("")).toBe("");
     });
 
@@ -203,7 +211,7 @@ describe("createLogStore", () => {
   describe("push", () => {
     it("should append a synthetic entry without going through console", () => {
       store.push("error", "synthetic");
-      const [entry] = store.getSnapshot();
+      const entry = getLogEntry(store);
       expect(entry.level).toBe("error");
       expect(entry.message).toBe("synthetic");
     });
@@ -360,7 +368,7 @@ describe("createLogStore", () => {
       const before = Date.now();
       console.log("entry");
       const after = Date.now();
-      const [entry] = store.getSnapshot();
+      const entry = getLogEntry(store);
       expect(typeof entry.id).toBe("string");
       expect(entry.id.length).toBeGreaterThan(0);
       expect(entry.timestamp).toBeGreaterThanOrEqual(before);

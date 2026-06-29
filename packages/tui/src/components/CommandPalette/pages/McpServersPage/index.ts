@@ -1,2 +1,5 @@
-export type { McpServersPageProps } from "./McpServersPage";
-export { McpServersPage } from "./McpServersPage";
+export type {
+  McpServersPageProps,
+  McpServersPageRenderProps,
+} from "./McpServersPage";
+export { McpServersPage, McpServersPageRender } from "./McpServersPage";

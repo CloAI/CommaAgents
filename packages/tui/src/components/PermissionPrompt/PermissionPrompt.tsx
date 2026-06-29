@@ -27,9 +27,6 @@ export interface PermissionPromptRenderProps {
   };
 }
 
-/** Raw mode check for safe `useInput` activation. */
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 /** Stable focus IDs for each decision button — order determines Tab cycle. */
 const FOCUS_IDS = {
   allow: "permission-allow",
@@ -74,7 +71,7 @@ export function PermissionPrompt({
   const verb = operationLabel(operation);
 
   useEffect(() => {
-    if (RAW_MODE_SUPPORTED) focus(FOCUS_IDS.allow);
+    focus(FOCUS_IDS.allow);
   }, [focus]);
 
   return (

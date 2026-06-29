@@ -5,9 +5,6 @@ import { parseMouseEvents } from "../../hooks/useMouse/useMouse.utils";
 import type { MouseListener } from "./MouseContext";
 import { MouseContext } from "./MouseContext";
 
-/** Whether stdin supports raw mode (false in piped / non-TTY contexts). */
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 export interface MouseProviderProps {
   /** Content that will have access to mouse events via context. */
   readonly children: React.ReactNode;
@@ -52,19 +49,16 @@ export function MouseProvider({
 
   // Single useInput subscription — parses every SGR mouse chunk and
   // dispatches to all registered listeners.
-  useInput(
-    (input) => {
-      const events = parseMouseEvents(input);
-      if (events.length === 0) return;
-      const listeners = listenersRef.current;
-      for (const event of events) {
-        for (const listener of listeners) {
-          listener(event);
-        }
+  useInput((input) => {
+    const events = parseMouseEvents(input);
+    if (events.length === 0) return;
+    const listeners = listenersRef.current;
+    for (const event of events) {
+      for (const listener of listeners) {
+        listener(event);
       }
-    },
-    { isActive: RAW_MODE_SUPPORTED },
-  );
+    }
+  });
 
   const subscribe = useCallback((listener: MouseListener): (() => void) => {
     listenersRef.current.add(listener);

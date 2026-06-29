@@ -39,3 +39,6 @@ docs/out/
 packages/tui/docs/.next/
 packages/tui/docs/.source/
 packages/tui/docs/out/
+
+# Storybook
+packages/tui-storybook/storybook-static/assets

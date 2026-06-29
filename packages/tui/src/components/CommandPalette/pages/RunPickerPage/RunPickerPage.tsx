@@ -12,7 +12,6 @@ import { ScrollableList } from "../../../ScrollableList";
 import { SearchInputRender, useSearchInputTheme } from "../../../SearchInput";
 import { filterByQuery } from "../../../SearchInput/SearchInput.utils";
 import { useCommandPalette } from "../../useCommandPalette";
-import { RAW_MODE_SUPPORTED } from "./RunPickerPage.constants";
 import type { RunItem } from "./RunPickerPage.types";
 import { formatDate, formatIsoDate, itemHaystack } from "./RunPickerPage.utils";
 
@@ -41,7 +40,7 @@ export function RunPickerPage({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const { isFocused } = useFocus({ id: focusId, isActive: RAW_MODE_SUPPORTED });
+  const { isFocused } = useFocus({ id: focusId });
 
   const localItems: readonly RunItem[] = Array.from(chatRuns.values())
     .sort((firstRun, secondRun) => secondRun.updatedAt - firstRun.updatedAt)

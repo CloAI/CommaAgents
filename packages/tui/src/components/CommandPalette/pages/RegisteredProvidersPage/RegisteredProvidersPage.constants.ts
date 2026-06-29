@@ -1,6 +1,3 @@
-export const RAW_MODE_SUPPORTED =
-  typeof process.stdin.setRawMode === "function";
-
 export const CREDENTIAL_TYPE_LABELS: Readonly<Record<string, string>> = {
   api: "API Key",
   oauth: "OAuth",

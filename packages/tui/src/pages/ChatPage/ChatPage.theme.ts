@@ -31,7 +31,7 @@ export const useChatPageTheme = defineTheme((tokens) => ({
       bold: tokens.typography.headerBold,
       color: tokens.colors.primary,
     } satisfies TextProps,
-  },
+  } satisfies BoxProps & { readonly title: TextProps },
   /**
    * Message list wrapper.
    *
@@ -56,7 +56,7 @@ export const useChatPageTheme = defineTheme((tokens) => ({
     text: {
       dimColor: tokens.typography.secondaryDim,
     } satisfies TextProps,
-  },
+  } satisfies BoxProps & { readonly text: TextProps },
 }));
 
 /** Resolved style shape returned by {@link useChatPageTheme}. */

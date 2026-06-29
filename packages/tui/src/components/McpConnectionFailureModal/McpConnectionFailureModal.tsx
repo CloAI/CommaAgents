@@ -1,3 +1,4 @@
+import type { McpServerStatusWire } from "@comma-agents/daemon";
 import { Box, Text, useInput } from "ink";
 import React from "react";
 
@@ -46,16 +47,30 @@ export function McpConnectionFailureModal({
       title="MCP connection failures"
       closeOnEsc={false}
     >
-      <Box flexDirection="column" gap={1}>
-        <Text>The run can continue without the following MCP servers:</Text>
-        {failedServers.map((server) => (
-          <Box key={server.id} flexDirection="column">
-            <Text bold>{server.id}</Text>
-            <Text dimColor>{server.error ?? "Connection failed"}</Text>
-          </Box>
-        ))}
-        <Text dimColor>Enter to continue · Esc to cancel the run</Text>
-      </Box>
+      <McpConnectionFailureModalRender failedServers={failedServers} />
     </Modal>
+  );
+}
+
+export interface McpConnectionFailureModalRenderProps {
+  /** Enabled MCP servers that failed to connect during run preparation. */
+  readonly failedServers: readonly McpServerStatusWire[];
+}
+
+/** Presentational content shown inside the MCP connection failure modal. */
+export function McpConnectionFailureModalRender({
+  failedServers,
+}: McpConnectionFailureModalRenderProps): React.ReactElement {
+  return (
+    <Box flexDirection="column" gap={1}>
+      <Text>The run can continue without the following MCP servers:</Text>
+      {failedServers.map((server) => (
+        <Box key={server.id} flexDirection="column">
+          <Text bold>{server.id}</Text>
+          <Text dimColor>{server.error ?? "Connection failed"}</Text>
+        </Box>
+      ))}
+      <Text dimColor>Enter to continue · Esc to cancel the run</Text>
+    </Box>
   );
 }

@@ -1,24 +1,20 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { CodeViewRender } from "./CodeView";
+import { CodeView } from "./CodeView";
 
 /**
  * `CodeView` syntax-highlights code via Shiki and prints ANSI to Ink. The
  * highlighter resolves asynchronously, so the first frame shows raw text
  * until the highlighted output is ready.
  */
-const meta: Meta<typeof CodeViewRender> = {
+const meta: Meta<typeof CodeView> = {
   title: "Components/CodeView",
-  component: CodeViewRender,
+  component: CodeView,
   args: {
     code: 'function greet(name: string) {\n  return `Hello, ${name}!`;\n}\n\ngreet("world");\n',
-    highlightedCode: null,
+    language: "typescript",
     showLineNumbers: false,
   },
   argTypes: {
-    highlightedCode: {
-      control: "text",
-      description: "ANSI highlighted code. Use null for raw fallback.",
-    },
     language: {
       control: "select",
       options: ["typescript", "javascript", "json", "python", "rust", "bash"],

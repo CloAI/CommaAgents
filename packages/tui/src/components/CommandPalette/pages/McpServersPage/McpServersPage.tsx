@@ -1,3 +1,4 @@
+import type { McpServerStatusWire } from "@comma-agents/daemon";
 import { Box, Text, useFocus, useInput } from "ink";
 import React from "react";
 import { useLocation } from "react-router";
@@ -6,8 +7,6 @@ import { useChatState } from "../../../../hooks/useChat";
 import { useMcp } from "../../../../hooks/useMcp";
 import { useTheme } from "../../../../Theme";
 import { ScrollableList } from "../../../ScrollableList";
-
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
 
 export interface McpServersPageProps {
   readonly focusId: string;
@@ -24,10 +23,7 @@ export function McpServersPage({
   const { servers, refresh, update } = useMcp();
   const tokens = useTheme();
   const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const { isFocused } = useFocus({
-    id: focusId,
-    isActive: RAW_MODE_SUPPORTED,
-  });
+  const { isFocused } = useFocus({ id: focusId });
   const visibleServers = runId
     ? servers.filter(
         (server) =>
@@ -95,14 +91,54 @@ export function McpServersPage({
   );
 
   return (
+    <McpServersPageRender
+      tokens={tokens}
+      servers={visibleServers}
+      selectedIndex={selectedIndex}
+      onSelectedIndexChange={setSelectedIndex}
+      onSelected={toggleServer}
+      isFocused={isFocused}
+      isRunScoped={Boolean(runId)}
+    />
+  );
+}
+
+export interface McpServersPageRenderProps {
+  /** Theme tokens used to style server states and selection. */
+  readonly tokens: ReturnType<typeof useTheme>;
+  /** MCP servers visible in the current default or run scope. */
+  readonly servers: readonly McpServerStatusWire[];
+  /** Index of the highlighted server. */
+  readonly selectedIndex: number;
+  /** Update the highlighted server index. */
+  readonly onSelectedIndexChange: (index: number) => void;
+  /** Toggle the server at the selected index. */
+  readonly onSelected: (index: number) => void;
+  /** Whether the server list currently owns keyboard focus. */
+  readonly isFocused: boolean;
+  /** Whether server choices apply to one active chat run. */
+  readonly isRunScoped: boolean;
+}
+
+/** Presentational MCP server list used by the command-palette page. */
+export function McpServersPageRender({
+  tokens,
+  servers,
+  selectedIndex,
+  onSelectedIndexChange,
+  onSelected,
+  isFocused,
+  isRunScoped,
+}: McpServersPageRenderProps): React.ReactElement {
+  return (
     <Box flexDirection="column" width="100%" height="100%">
       <Box flexGrow={1} overflow="hidden">
         <ScrollableList
-          items={visibleServers}
+          items={servers}
           getKey={(server) => server.id}
           selectedIndex={selectedIndex}
-          onSelectedIndexChange={setSelectedIndex}
-          onSelected={(_server, index) => toggleServer(index)}
+          onSelectedIndexChange={onSelectedIndexChange}
+          onSelected={(_server, index) => onSelected(index)}
           isFocused={isFocused}
           emptyText="No MCP servers configured"
           renderItem={(server, isSelected) => (
@@ -156,7 +192,7 @@ export function McpServersPage({
       </Box>
       <Text dimColor>
         Enter to toggle
-        {runId ? " · g to save current choice as the shared default" : ""}
+        {isRunScoped ? " · g to save current choice as the shared default" : ""}
         {" · Esc to go back"}
       </Text>
     </Box>

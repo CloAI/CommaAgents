@@ -4,23 +4,33 @@ import { render as inkRender } from "ink";
 import { type ReactNode, useEffect, useRef } from "react";
 import { MouseProvider } from "../../tui/src/components/MouseProvider";
 import { ModalContextProvider } from "../../tui/src/hooks/useModal";
+import { UserConfigContextProvider } from "../../tui/src/hooks/useUserConfig";
 import { ThemeContextProvider } from "../../tui/src/Theme";
 import { createStdinShim } from "./shims/stdin";
 import { createStdoutShim } from "./shims/stdout";
 
 /**
  * Wraps story content in the canonical provider tree expected by every
- * `@comma-agents/tui` component: `ThemeContextProvider > MouseProvider > ModalContextProvider`.
- * Mirrors the order used in `bootstrap.tsx` so stories behave identically
- * to a live TUI session.
+ * `@comma-agents/tui` component:
+ * `UserConfigContextProvider > ThemeContextProvider > MouseProvider > ModalContextProvider`.
+ * Mirrors the order used in `run-tui.tsx` so stories behave identically to a
+ * live TUI session.
+ *
+ * `UserConfigContextProvider` is required because `ThemeContextProvider` reads
+ * the active theme from `useUserConfig`; without it every story throws
+ * "useUserConfig must be used within a UserConfigContextProvider". In the
+ * browser preview `loadUserConfig` falls back to defaults (the fs shim's
+ * `existsSync` returns false) and config writes are no-ops.
  */
 function StoryProviders({ children }: { children: ReactNode }) {
   return (
-    <ThemeContextProvider>
-      <MouseProvider>
-        <ModalContextProvider>{children}</ModalContextProvider>
-      </MouseProvider>
-    </ThemeContextProvider>
+    <UserConfigContextProvider>
+      <ThemeContextProvider>
+        <MouseProvider>
+          <ModalContextProvider>{children}</ModalContextProvider>
+        </MouseProvider>
+      </ThemeContextProvider>
+    </UserConfigContextProvider>
   );
 }
 
@@ -58,6 +68,7 @@ export function XtermInkPreview({
   const inkRef = useRef<ReturnType<typeof inkRender> | null>(null);
 
   // Mount terminal + Ink once per host element.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Story content is updated by the rerender effect below.
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -109,8 +120,7 @@ export function XtermInkPreview({
       stdout.dispose();
       term.dispose();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [children, cols, fit, rows]);
+  }, [cols, fit, rows]);
 
   // Re-render Ink when story children change without remounting the terminal.
   useEffect(() => {

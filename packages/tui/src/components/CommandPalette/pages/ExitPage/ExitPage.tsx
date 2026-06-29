@@ -2,8 +2,6 @@ import { useApp, useFocus } from "ink";
 import type React from "react";
 import { useEffect } from "react";
 
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 export interface ExitPageProps {
   /** Unique identifier for the page focus zone. */
   readonly focusId: string;
@@ -16,7 +14,7 @@ export function ExitPage({
 }: ExitPageProps): React.ReactElement | null {
   const { exit } = useApp();
 
-  useFocus({ id: focusId, isActive: RAW_MODE_SUPPORTED });
+  useFocus({ id: focusId });
 
   useEffect(() => {
     exit();

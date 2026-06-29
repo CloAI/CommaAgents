@@ -61,7 +61,7 @@ function createRenderProps(
   const providers = overrides.providers ?? [];
 
   return {
-    debugRef: { current: null },
+    debugRef: () => {},
     tokens: darkTheme,
     searchTheme,
     providers,
@@ -99,7 +99,6 @@ describe("RegisteredProvidersPageRender", () => {
           apiKeyInput: "sk-test",
         })}
       />,
-      { columns: 80, rows: 12 },
     );
 
     const frame = lastFrame() ?? "";
@@ -120,7 +119,6 @@ describe("RegisteredProvidersPageRender", () => {
           apiKeyInputError: true,
         })}
       />,
-      { columns: 80, rows: 12 },
     );
 
     const frame = lastFrame() ?? "";
@@ -149,7 +147,6 @@ describe("RegisteredProvidersPageRender", () => {
           filteredRegisteredProviders: [registeredProvider],
         })}
       />,
-      { columns: 90, rows: 12 },
     );
 
     const frame = lastFrame() ?? "";

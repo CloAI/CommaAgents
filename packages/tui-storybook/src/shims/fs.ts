@@ -7,8 +7,16 @@ export const readFileSync = () => {
 
 export const openSync = readFileSync;
 export const appendFileSync = () => {};
+export const closeSync = () => {};
+export const fsyncSync = () => {};
 export const mkdirSync = () => {};
 export const writeFileSync = () => {};
+export const renameSync = () => {};
+export const rmSync = () => {};
+export const unlinkSync = () => {};
+export const realpathSync = (path: string) => path;
+export const readdirSync = () => [];
+export const createWriteStream = readFileSync;
 
 export const constants = {
   O_EVTONLY: 0,
@@ -17,10 +25,18 @@ export const constants = {
 
 export default {
   appendFileSync,
+  closeSync,
   constants,
   existsSync,
+  fsyncSync,
   mkdirSync,
   openSync,
+  createWriteStream,
+  readdirSync,
   readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
   writeFileSync,
 };

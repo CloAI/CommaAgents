@@ -6,8 +6,6 @@ import { useNavigate } from "react-router";
 import { useChatRunLifecycle } from "../../../../hooks/useChat/useChatRunLifecycle";
 import { useCommandPalette } from "../../useCommandPalette";
 
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 export interface NewRunPageProps {
   /** Unique identifier for the page focus zone. */
   readonly focusId: string;
@@ -22,7 +20,7 @@ export function NewRunPage({
   const { clearAllChatRuns } = useChatRunLifecycle();
   const { closePalette } = useCommandPalette();
 
-  useFocus({ id: focusId, isActive: RAW_MODE_SUPPORTED });
+  useFocus({ id: focusId });
 
   useEffect(() => {
     clearAllChatRuns();

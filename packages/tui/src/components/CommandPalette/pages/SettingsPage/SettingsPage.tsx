@@ -6,9 +6,6 @@ import { THEME_REGISTRY, type ThemeName } from "../../../../Theme/themes";
 import { useTheme } from "../../../../Theme/useTheme";
 import { ScrollableList } from "../../../ScrollableList";
 
-export const RAW_MODE_SUPPORTED =
-  typeof process.stdin.setRawMode === "function";
-
 interface ThemeOption {
   readonly name: ThemeName;
   readonly label: string;
@@ -43,10 +40,7 @@ export function SettingsPage({
   );
   const [selectedIndex, setSelectedIndex] = React.useState(initialIndex);
 
-  const { isFocused } = useFocus({
-    id: focusId,
-    isActive: RAW_MODE_SUPPORTED,
-  });
+  const { isFocused } = useFocus({ id: focusId });
 
   const applySelection = React.useCallback(
     (index: number): void => {

@@ -11,7 +11,7 @@ import {
 
 describe("RunPickerPage utils", () => {
   const chatRun = {
-    ...createInitialChatRun("chat-1", 0),
+    ...createInitialChatRun("chat-1", {}),
     label: "Research",
     strategyName: "Deep Research",
     strategyPath: "/strategies/research.yaml",
@@ -23,7 +23,7 @@ describe("RunPickerPage utils", () => {
     cwd: "/workspace",
     status: "completed",
     startedAt: "2026-06-25T12:00:00.000Z",
-    updatedAt: "2026-06-25T12:01:00.000Z",
+    completedAt: "2026-06-25T12:01:00.000Z",
   };
 
   it("builds search haystacks for local and persisted runs", () => {

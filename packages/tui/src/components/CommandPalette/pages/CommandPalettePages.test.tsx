@@ -7,9 +7,7 @@ import { SettingsPage, SettingsPageRender } from "./SettingsPage/SettingsPage";
 
 describe("command palette pages", () => {
   it("renders the complete shortcut help", () => {
-    const { lastFrame } = render(<HelpPageRender tokens={darkTheme} />, {
-      columns: 70,
-    });
+    const { lastFrame } = render(<HelpPageRender tokens={darkTheme} />);
 
     expect(lastFrame()).toContain("Keyboard Shortcuts");
     expect(lastFrame()).toContain("Ctrl+P");
@@ -33,7 +31,6 @@ describe("command palette pages", () => {
         onSelected={() => {}}
         isFocused={false}
       />,
-      { columns: 80, rows: 12 },
     );
 
     expect(lastFrame()).toContain("Theme");
@@ -47,7 +44,6 @@ describe("command palette pages", () => {
       <UserConfigContextProvider configFilePath="/dev/null">
         <SettingsPage focusId="settings" onBack={() => {}} />
       </UserConfigContextProvider>,
-      { columns: 80, rows: 12 },
     );
 
     expect(lastFrame()).toContain("Material Dark");

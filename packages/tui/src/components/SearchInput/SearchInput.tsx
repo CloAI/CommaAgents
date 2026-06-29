@@ -7,9 +7,6 @@ import type { SearchInputTheme } from "./SearchInput.theme";
 import { useSearchInputTheme } from "./SearchInput.theme";
 import { isMouseEscape } from "./SearchInput.utils";
 
-/** Raw mode check for safe `useInput` activation. */
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 /** Props for the `SearchInput` container component. */
 export interface SearchInputProps {
   /** Current query string (controlled). */
@@ -51,7 +48,7 @@ export function SearchInput({
   const debug = useDebugRender("SearchInput", { props: { value, id } });
   const theme = useSearchInputTheme();
 
-  const { isFocused } = useFocus({ id, isActive: RAW_MODE_SUPPORTED });
+  const { isFocused } = useFocus({ id });
 
   useInput(
     (input, key) => {

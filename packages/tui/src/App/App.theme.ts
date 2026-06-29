@@ -1,30 +1,21 @@
-import { useMemo } from "react";
-
-import { useTheme } from "../Theme";
-import type { AppTheme } from "./App.types";
+import { type BoxProps, defineTheme, type ThemeOf } from "../Theme";
 
 /**
- * Hook that returns themed style objects for the App component.
- * Consumes global tokens via `useTheme()`.
+ * Memoized themed style objects for the App component.
  *
  * @example
  * ```tsx
  * const theme = useAppTheme();
- * return <div style={theme.root}>...</div>;
+ * return <Box {...theme.root}>...</Box>;
  * ```
  */
-export function useAppTheme(): AppTheme {
-  // Note: useTheme() is called here to ensure the App component is wrapped
-  // in the ThemeProvider, as these styles rely on global design tokens.
-  useTheme();
+export const useAppTheme = defineTheme(() => ({
+  /** Root container (column layout, full height). */
+  root: {
+    flexDirection: "column",
+    height: "100%",
+  } satisfies BoxProps,
+}));
 
-  return useMemo<AppTheme>(
-    () => ({
-      root: {
-        flexDirection: "column",
-        height: "100%",
-      },
-    }),
-    [],
-  );
-}
+/** Resolved style object shape returned by {@link useAppTheme}. */
+export type AppTheme = ThemeOf<typeof useAppTheme>;

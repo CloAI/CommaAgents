@@ -6,7 +6,6 @@ describe("SystemMessage", () => {
   it("renders a readable system panel snapshot", () => {
     const { lastFrame } = render(
       <SystemMessage text="Strategy preparation completed." />,
-      { columns: 50 },
     );
 
     expect(lastFrame()).toContain("system");

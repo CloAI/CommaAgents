@@ -27,38 +27,8 @@ curl -fsSL https://commaagents.com/install | bash
 On Windows, run the PowerShell installer:
 
 ```powershell
-iwr https://commaagents.com/install.ps1 -useb | iex
+iwr https://commaagents.com/install-win -useb | iex
 ```
-
-The bootstrap scripts install a platform-native standalone executable to a user-local directory. That executable includes the Bun runtime and the CLI, TUI, daemon, and core packages.
-
-## Register A Development Checkout
-
-From the repository root, build and register the workspace CLI in Bun's global bin directory:
-
-```bash
-bun run cli:link
-comma --help
-```
-
-Remove the development link with `bun run cli:unlink`. To run without registering it, use `bun run cli --help`.
-
-## Build Distribution Artifacts
-
-Build the Bun-based npm launcher:
-
-```bash
-bun run cli:build
-```
-
-Build a standalone executable for the current platform, or all release targets:
-
-```bash
-bun run cli:build:standalone
-bun run --cwd packages/cli build:standalone all
-```
-
-Version tags matching `v*` publish all four public packages with npm trusted publishing, build macOS, Linux, and Windows archives, and publish a GitHub Release.
 
 ## Launch The TUI
 

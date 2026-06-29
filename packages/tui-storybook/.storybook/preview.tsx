@@ -7,7 +7,7 @@ import "../src/preview.css";
 
 const preview: Preview = {
   parameters: {
-    layout: "padded",
+    layout: "fullscreen",
     controls: { expanded: true },
     backgrounds: {
       options: {
@@ -21,7 +21,7 @@ const preview: Preview = {
     (Story, context) => {
       const { cols, rows } = context.parameters.xterm ?? {};
       return (
-        <XtermInkPreview cols={cols ?? 80} rows={rows ?? 24}>
+        <XtermInkPreview fit cols={cols ?? 80} rows={rows ?? 24}>
           <Story />
         </XtermInkPreview>
       );

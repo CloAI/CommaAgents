@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "storybook": "storybook dev -p 6006",
-    "build": "storybook build",
+    "build": "bun run check:stories && storybook build",
+    "check:stories": "bun run src/check-story-coverage.ts",
     "lint": "bunx @biomejs/biome check src .storybook"
   },
   "dependencies": {

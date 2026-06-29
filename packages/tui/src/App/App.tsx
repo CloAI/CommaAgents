@@ -23,8 +23,6 @@ import { IntroPage } from "../pages/IntroPage";
 import { LogsPage } from "../pages/LogsPage";
 import { SpawnedStrategyPage } from "../pages/SpawnedStrategyPage";
 
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 const COMMAND_PALETTE_MODAL_ID = "command-palette";
 
 const BASE_TABS: readonly TabDefinition[] = [
@@ -132,20 +130,17 @@ export function App({
     [navigate],
   );
 
-  useInput(
-    (inputText, keyPress) => {
-      if (keyPress.ctrl && inputText === "c") {
-        exit();
-      }
-      if (keyPress.ctrl && inputText === "p") {
-        commandPalette.toggle();
-      }
-      if (keyPress.meta && inputText === "1") navigate("/");
-      if (keyPress.meta && inputText === "2") navigate("/logs");
-      if (keyPress.meta && inputText === "3" && devMode) navigate("/dev");
-    },
-    { isActive: RAW_MODE_SUPPORTED },
-  );
+  useInput((inputText, keyPress) => {
+    if (keyPress.ctrl && inputText === "c") {
+      exit();
+    }
+    if (keyPress.ctrl && inputText === "p") {
+      commandPalette.toggle();
+    }
+    if (keyPress.meta && inputText === "1") navigate("/");
+    if (keyPress.meta && inputText === "2") navigate("/logs");
+    if (keyPress.meta && inputText === "3" && devMode) navigate("/dev");
+  });
 
   return (
     <AppRender

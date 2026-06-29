@@ -1,77 +1,48 @@
-import { useMemo } from "react";
-
-import { useTheme } from "../../Theme";
-
-/** Spread-ready style objects for the LogsPage component. */
-export interface LogsPageTheme {
-  /** Root container (column layout, full height). */
-  readonly root: {
-    readonly flexDirection: "column";
-    readonly flexGrow: number;
-    readonly paddingX: number;
-  };
-  /** Single log entry row. */
-  readonly logRow: {
-    readonly flexDirection: "row";
-    readonly gap: number;
-  };
-  /** Timestamp text style. */
-  readonly timestamp: {
-    readonly dimColor: boolean;
-  };
-  /** Level badge styles by level. */
-  readonly levels: {
-    readonly log: { readonly color: string };
-    readonly info: { readonly color: string };
-    readonly warn: { readonly color: string };
-    readonly error: { readonly color: string };
-    readonly debug: { readonly dimColor: boolean };
-  };
-  /** Log message body. */
-  readonly messageBody: {
-    readonly wrap: "wrap";
-  };
-  /** Empty state text. */
-  readonly emptyState: {
-    readonly dimColor: boolean;
-  };
-}
+import {
+  type BoxProps,
+  defineTheme,
+  type TextProps,
+  type ThemeOf,
+} from "../../Theme";
 
 /**
- * Returns themed style objects for the LogsPage component.
- * Consumes global tokens via `useTheme()`.
+ * Memoized themed style objects for the LogsPage component.
  */
-export function useLogsPageTheme(): LogsPageTheme {
-  const tokens = useTheme();
+export const useLogsPageTheme = defineTheme((tokens) => ({
+  /** Root container (column layout, full height). */
+  root: {
+    flexDirection: "column",
+    flexGrow: 1,
+    paddingX: tokens.spacing.sm,
+  } satisfies BoxProps,
+  /** Single log entry row. */
+  logRow: {
+    flexDirection: "row",
+    gap: tokens.spacing.sm,
+  } satisfies BoxProps,
+  /** Timestamp text style. */
+  timestamp: {
+    dimColor: tokens.typography.secondaryDim,
+  } satisfies TextProps,
+  /** Level badge styles by level. */
+  levels: {
+    log: { color: tokens.colors.muted } satisfies TextProps,
+    info: { color: tokens.colors.primary } satisfies TextProps,
+    warn: { color: tokens.colors.warning } satisfies TextProps,
+    error: { color: tokens.colors.error } satisfies TextProps,
+    debug: {
+      dimColor: tokens.typography.secondaryDim,
+    } satisfies TextProps,
+  },
+  /** Log message body. */
+  messageBody: {
+    wrap: "wrap",
+  } satisfies TextProps,
+  /** Empty state text. */
+  emptyState: {
+    dimColor: tokens.typography.secondaryDim,
+  } satisfies TextProps,
+}));
 
-  return useMemo<LogsPageTheme>(
-    () => ({
-      root: {
-        flexDirection: "column",
-        flexGrow: 1,
-        paddingX: tokens.spacing.sm,
-      },
-      logRow: {
-        flexDirection: "row",
-        gap: tokens.spacing.sm,
-      },
-      timestamp: {
-        dimColor: tokens.typography.secondaryDim,
-      },
-      levels: {
-        log: { color: tokens.colors.muted },
-        info: { color: tokens.colors.primary },
-        warn: { color: tokens.colors.warning },
-        error: { color: tokens.colors.error },
-        debug: { dimColor: tokens.typography.secondaryDim },
-      },
-      messageBody: {
-        wrap: "wrap",
-      },
-      emptyState: {
-        dimColor: tokens.typography.secondaryDim,
-      },
-    }),
-    [tokens],
-  );
-}
+/** Resolved style object shape returned by {@link useLogsPageTheme}. */
+export type LogsPageTheme = ThemeOf<typeof useLogsPageTheme>;

@@ -15,8 +15,6 @@ import {
   useCommandPalette,
 } from "./useCommandPalette";
 
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 /**
  * Command palette modal content.
  *
@@ -107,7 +105,7 @@ function CommandPaletteContent({
 
   const { isFocused } = useFocus({
     id,
-    isActive: isVisible && isHomeView && RAW_MODE_SUPPORTED,
+    isActive: isVisible && isHomeView,
   });
 
   useEffect(() => {
@@ -195,7 +193,7 @@ function CommandPaletteContent({
         setCommandListFilter((currentFilter) => currentFilter + input);
       }
     },
-    { isActive: isVisible && RAW_MODE_SUPPORTED },
+    { isActive: isVisible },
   );
 
   const returnToCommandList = useCallback((): void => {

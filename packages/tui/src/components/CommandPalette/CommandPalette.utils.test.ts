@@ -23,9 +23,11 @@ const commands: readonly Command[] = [
 
 describe("filterCommands", () => {
   it("matches labels, descriptions, and keywords", () => {
-    expect(filterCommands(commands, "new")).toEqual([commands[0]]);
-    expect(filterCommands(commands, "daemon")).toEqual([commands[1]]);
-    expect(filterCommands(commands, "create strategy")).toEqual([commands[0]]);
+    expect(filterCommands(commands, "new")).toEqual(commands.slice(0, 1));
+    expect(filterCommands(commands, "daemon")).toEqual(commands.slice(1, 2));
+    expect(filterCommands(commands, "create strategy")).toEqual(
+      commands.slice(0, 1),
+    );
   });
 
   it("returns all commands for an empty query", () => {

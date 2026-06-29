@@ -18,8 +18,6 @@ type InstalledPackage = NonNullable<
   DaemonMessageOf<"hub_packages">["installed"]
 >[number];
 
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 export interface HubPackagesPageProps {
   readonly focusId: string;
   readonly onBack: () => void;
@@ -34,10 +32,7 @@ export function HubPackagesPage({
   const refreshStrategies = useRefreshDiscoveredStrategies();
   const tokens = useTheme();
   const searchTheme = useSearchInputTheme();
-  const { isFocused } = useFocus({
-    id: focusId,
-    isActive: RAW_MODE_SUPPORTED,
-  });
+  const { isFocused } = useFocus({ id: focusId });
   const [packages, setPackages] = useState<readonly HubPackage[]>([]);
   const [installed, setInstalled] = useState<readonly InstalledPackage[]>([]);
   const [query, setQuery] = useState("");
@@ -173,6 +168,54 @@ export function HubPackagesPage({
   );
 
   return (
+    <HubPackagesPageRender
+      tokens={tokens}
+      searchTheme={searchTheme}
+      packages={packages}
+      filtered={filtered}
+      installedByName={installedByName}
+      query={query}
+      selectedIndex={selectedIndex}
+      onSelectedIndexChange={setSelectedIndex}
+      status={status}
+    />
+  );
+}
+
+export interface HubPackagesPageRenderProps {
+  /** Theme tokens used to style package status and selection. */
+  readonly tokens: ReturnType<typeof useTheme>;
+  /** Resolved theme for the package search field. */
+  readonly searchTheme: ReturnType<typeof useSearchInputTheme>;
+  /** Complete package list, used to distinguish loading from no matches. */
+  readonly packages: readonly HubPackage[];
+  /** Packages matching the current search query. */
+  readonly filtered: readonly HubPackage[];
+  /** Installed packages keyed by package name. */
+  readonly installedByName: ReadonlyMap<string, InstalledPackage>;
+  /** Current package search query. */
+  readonly query: string;
+  /** Index of the highlighted package. */
+  readonly selectedIndex: number;
+  /** Update the highlighted package index. */
+  readonly onSelectedIndexChange: (index: number) => void;
+  /** Current loading, mutation, or error status. */
+  readonly status: string;
+}
+
+/** Presentational package browser used by the command-palette page. */
+export function HubPackagesPageRender({
+  tokens,
+  searchTheme,
+  packages,
+  filtered,
+  installedByName,
+  query,
+  selectedIndex,
+  onSelectedIndexChange,
+  status,
+}: HubPackagesPageRenderProps): React.ReactElement {
+  return (
     <Box flexDirection="column" width="100%" flexGrow={1}>
       <Box marginBottom={1}>
         <SearchInputRender
@@ -186,7 +229,7 @@ export function HubPackagesPage({
         items={filtered}
         getKey={(item) => item.name}
         selectedIndex={selectedIndex}
-        onSelectedIndexChange={setSelectedIndex}
+        onSelectedIndexChange={onSelectedIndexChange}
         isFocused={false}
         emptyText={
           packages.length === 0

@@ -34,7 +34,6 @@ describe("Frame", () => {
       >
         <Text>conversation</Text>
       </Frame>,
-      { columns: 40, rows: 8 },
     );
 
     expect(lastFrame()).toContain("conversation");
@@ -58,7 +57,6 @@ describe("Frame", () => {
       >
         <Text>conversation</Text>
       </FrameRender>,
-      { columns: 40, rows: 8 },
     );
 
     expect(lastFrame()).toContain("Chat");

@@ -1,41 +1,26 @@
-import { useMemo } from "react";
-
-import { useTheme } from "../../Theme";
-
-/** Spread-ready style objects for the TitleIcon component. */
-export interface TitleIconTheme {
-  /** Outer container wrapping the ASCII art. */
-  readonly container: {
-    readonly flexDirection: "column";
-    readonly alignItems: "center";
-    readonly paddingY: number;
-  };
-  /** Each line of the ASCII frame. */
-  readonly frameLine: {
-    readonly color: string;
-    readonly dimColor: boolean;
-  };
-}
+import {
+  type BoxProps,
+  defineTheme,
+  type TextProps,
+  type ThemeOf,
+} from "../../Theme";
 
 /**
- * Returns themed style objects for the TitleIcon component.
- * Consumes global tokens via `useTheme()`.
+ * Memoized themed style objects for the TitleIcon component.
  */
-export function useTitleIconTheme(): TitleIconTheme {
-  const tokens = useTheme();
+export const useTitleIconTheme = defineTheme((tokens) => ({
+  /** Outer container wrapping the ASCII art. */
+  container: {
+    flexDirection: "column",
+    alignItems: "center",
+    paddingY: tokens.spacing.xs,
+  } satisfies BoxProps,
+  /** Each line of the ASCII frame. */
+  frameLine: {
+    color: tokens.colors.primary,
+    dimColor: false,
+  } satisfies TextProps,
+}));
 
-  return useMemo<TitleIconTheme>(
-    () => ({
-      container: {
-        flexDirection: "column",
-        alignItems: "center",
-        paddingY: tokens.spacing.xs,
-      },
-      frameLine: {
-        color: tokens.colors.primary,
-        dimColor: false,
-      },
-    }),
-    [tokens],
-  );
-}
+/** Resolved style object shape returned by {@link useTitleIconTheme}. */
+export type TitleIconTheme = ThemeOf<typeof useTitleIconTheme>;

@@ -2,7 +2,6 @@ import { Box, type BoxProps, Text, useInput } from "ink";
 import React from "react";
 import { useModal } from "../../hooks/useModal";
 
-import { RAW_MODE_SUPPORTED } from "./Modal.constants";
 import { useModalTheme } from "./Modal.theme";
 import type { ModalSize } from "./Modal.types";
 
@@ -75,7 +74,7 @@ export function Modal({
     [close],
   );
   useInput(handleInput, {
-    isActive: isOpen && isTopmost && closeOnEsc && RAW_MODE_SUPPORTED,
+    isActive: isOpen && isTopmost && closeOnEsc,
   });
 
   if (!isOpen) return null;
@@ -143,11 +142,9 @@ export function ModalRender({
     ...(minHeight !== undefined ? { minHeight } : {}),
   };
   return (
-    <Box ref={debugRef} {...theme.overlay}>
       <Box {...contentStyle}>
         {title !== undefined ? <Text {...theme.title}>{title}</Text> : null}
         {children}
       </Box>
-    </Box>
   );
 }

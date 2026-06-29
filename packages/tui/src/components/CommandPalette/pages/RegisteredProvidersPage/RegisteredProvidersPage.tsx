@@ -1,4 +1,4 @@
-import { Box, Text, useFocus, useInput } from "ink";
+import { Box, type DOMElement, Text, useFocus, useInput } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -11,10 +11,7 @@ import { ScrollableList } from "../../../ScrollableList";
 import { SearchInputRender, useSearchInputTheme } from "../../../SearchInput";
 import type { SearchInputTheme } from "../../../SearchInput/SearchInput.theme";
 import { filterByQuery } from "../../../SearchInput/SearchInput.utils";
-import {
-  CREDENTIAL_TYPE_LABELS,
-  RAW_MODE_SUPPORTED,
-} from "./RegisteredProvidersPage.constants";
+import { CREDENTIAL_TYPE_LABELS } from "./RegisteredProvidersPage.constants";
 import type {
   ProviderInfo,
   RegisteredProvidersViewState,
@@ -50,10 +47,7 @@ export function RegisteredProvidersPage({
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeyInputError, setApiKeyInputError] = useState(false);
 
-  const { isFocused } = useFocus({
-    id: focusId,
-    isActive: RAW_MODE_SUPPORTED,
-  });
+  const { isFocused } = useFocus({ id: focusId });
 
   const registeredProviders = useMemo(
     () => providers.filter((provider) => provider.isCustom),
@@ -155,10 +149,8 @@ export function RegisteredProvidersPage({
 
   const credentialTypeColor = useCallback(
     (credentialType: ProviderInfo["credentialType"]): string =>
-      credentialType === "oauth"
-        ? (tokens.colors.info ?? tokens.colors.primary)
-        : tokens.colors.muted,
-    [tokens.colors],
+      credentialType === "oauth" ? tokens.colors.primary : tokens.colors.muted,
+    [tokens.colors.primary, tokens.colors.muted],
   );
 
   useInput(
@@ -287,7 +279,7 @@ export function RegisteredProvidersPage({
 
 export interface RegisteredProvidersPageRenderProps {
   /** Reference for debug rendering. */
-  readonly debugRef: React.RefObject<unknown>;
+  readonly debugRef: React.RefCallback<DOMElement>;
   /** Global theme tokens. */
   readonly tokens: Theme;
   /** Theme for the search input. */

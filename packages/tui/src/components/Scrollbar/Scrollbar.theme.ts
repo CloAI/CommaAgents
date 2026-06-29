@@ -1,33 +1,18 @@
-import { useMemo } from "react";
-
-import { useTheme } from "../../Theme";
-
-/** Spread-ready style tokens for the `Scrollbar` component. */
-export interface ScrollbarTheme {
-  /** Thumb foreground color. */
-  readonly thumbColor: string;
-  /** Track foreground color. */
-  readonly trackColor: string;
-  /** Single-character glyph used for the thumb. */
-  readonly thumbChar: string;
-  /** Single-character glyph used for the track. */
-  readonly trackChar: string;
-}
+import { defineTheme, type ThemeOf } from "../../Theme";
 
 /**
- * Returns themed style tokens for `Scrollbar`. Consumes global tokens via
- * `useTheme()`.
+ * Memoized themed style tokens for the `Scrollbar` component.
  */
-export function useScrollbarTheme(): ScrollbarTheme {
-  const tokens = useTheme();
+export const useScrollbarTheme = defineTheme((tokens) => ({
+  /** Thumb foreground color. */
+  thumbColor: tokens.colors.muted,
+  /** Track foreground color. */
+  trackColor: tokens.borders.color,
+  /** Single-character glyph used for the thumb. */
+  thumbChar: "\u2588",
+  /** Single-character glyph used for the track. */
+  trackChar: "\u2502",
+}));
 
-  return useMemo<ScrollbarTheme>(
-    () => ({
-      thumbColor: tokens.colors.muted,
-      trackColor: tokens.borders.color,
-      thumbChar: "\u2588", // Full block.
-      trackChar: "\u2502", // Light vertical bar.
-    }),
-    [tokens],
-  );
-}
+/** Resolved style token shape returned by {@link useScrollbarTheme}. */
+export type ScrollbarTheme = ThemeOf<typeof useScrollbarTheme>;

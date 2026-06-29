@@ -31,7 +31,6 @@ describe("PermissionPrompt", () => {
         request={createRequest(operation, "read_file")}
         onDecide={() => {}}
       />,
-      { columns: 80 },
     );
 
     expect(lastFrame()).toContain(`wants to ${label}:`);

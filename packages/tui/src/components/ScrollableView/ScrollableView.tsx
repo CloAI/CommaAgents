@@ -349,7 +349,7 @@ export interface ScrollableViewRenderProps<ItemType> {
   /** Resolved component theme. */
   readonly theme: import("./ScrollableView.theme").ScrollableViewTheme;
   /** Ref attached to the measured viewport. */
-  readonly viewportRef: React.RefObject<DOMElement>;
+  readonly viewportRef: React.RefObject<DOMElement | null>;
 }
 
 export function ScrollableViewRender<ItemType>({

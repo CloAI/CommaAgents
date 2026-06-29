@@ -7,10 +7,8 @@
  * standard browser polyfill) and re-export the bits we need.
  *
  * Additionally, the npm `process` polyfill does NOT provide `stdin`,
- * `stdout`, or `stderr`. Some `@comma-agents/tui` components feature-detect
- * raw-mode support via `typeof process.stdin.setRawMode === "function"`,
- * which throws if `process.stdin` is `undefined`. We attach inert TTY-shaped
- * stubs so those reads return safe values. Real I/O still flows through the
+ * `stdout`, or `stderr`. We attach inert stream-shaped stubs for dependencies
+ * that import those process bindings. Real I/O still flows through the
  * xterm-backed stdin/stdout passed to `inkRender(...)` in `XtermInkPreview`.
  *
  * IMPORTANT: the local binding is named `nodeProcess` — NOT `process` —
@@ -20,7 +18,7 @@
  */
 import nodeProcess from "process";
 
-/** Inert ReadStream-shaped stub. `setRawMode` is the property tui code probes. */
+/** Inert ReadStream-shaped stub for dependencies that import `process.stdin`. */
 const stdinStub: NodeJS.ReadStream = Object.assign(Object.create(null), {
   isTTY: false,
   setRawMode: (_mode: boolean) => stdinStub,

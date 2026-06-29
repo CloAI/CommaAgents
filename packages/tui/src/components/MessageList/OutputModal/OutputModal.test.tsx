@@ -11,12 +11,18 @@ import { compileQuery, filterAndHighlight } from "./OutputModal.utils";
  * glyphs. Mirrors the literal-type discipline used by `MarkdownView.test`.
  */
 const TEST_THEME: OutputModalTheme = {
-  body: { flexDirection: "column", width: "100%" },
-  searchRow: { flexDirection: "row" },
-  statusRow: { flexDirection: "row", marginBottom: 0 },
+  body: {
+    flexDirection: "column",
+    width: "100%",
+    minHeight: 20,
+    flexGrow: 1,
+    overflow: "hidden",
+  },
+  searchRow: { flexDirection: "row", flexShrink: 0 },
+  statusRow: { flexDirection: "row", flexShrink: 0, marginBottom: 0 },
   searchStatus: { color: "", dimColor: false },
   searchStatusError: { color: "" },
-  lineList: { flexDirection: "column", flexGrow: 1 },
+  lineList: { flexDirection: "column", flexGrow: 1, overflow: "hidden" },
   lineRow: { flexDirection: "row" },
   lineNumber: { color: "", dimColor: false },
   lineText: { color: "" },

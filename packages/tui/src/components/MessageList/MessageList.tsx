@@ -1,4 +1,4 @@
-import { Box, type BoxProps, type DOMElement, Text } from "ink";
+import { Box, type BoxProps, type DOMElement, Text, type TextProps } from "ink";
 import type React from "react";
 import { useMemo } from "react";
 
@@ -61,7 +61,7 @@ export interface MessageListRenderProps {
   /** Props for the empty state container Box. */
   readonly emptyStateProps: BoxProps;
   /** Props for the empty state Text. */
-  readonly emptyStateTextProps: Omit<BoxProps, "children">;
+  readonly emptyStateTextProps: Omit<TextProps, "children">;
   /** Opens a spawned strategy transcript in its dedicated page. */
   readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }

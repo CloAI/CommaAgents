@@ -4,8 +4,6 @@ import { useTheme } from "../../../../Theme";
 
 import { SHORTCUTS } from "./HelpPage.constants";
 
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 export interface HelpPageProps {
   /** ID of the currently focused element for API consistency. */
   readonly focusId: string;
@@ -18,10 +16,7 @@ export function HelpPage({
   onBack,
 }: HelpPageProps): React.ReactElement {
   const tokens = useTheme();
-  const { isFocused } = useFocus({
-    id: focusId,
-    isActive: RAW_MODE_SUPPORTED,
-  });
+  const { isFocused } = useFocus({ id: focusId });
 
   useInput(
     (_input, key) => {

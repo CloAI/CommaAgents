@@ -1,32 +1,15 @@
-import { useMemo } from "react";
-
-import { useTheme } from "../../Theme";
-
-/** Spread-ready style objects for the IntroPage component. */
-export interface IntroPageTheme {
-  /** Root container — vertically centers TitleIcon + ChatTextArea. */
-  readonly root: {
-    readonly flexDirection: "column";
-    readonly alignItems: "center";
-  };
-}
+import { type BoxProps, defineTheme, type ThemeOf } from "../../Theme";
 
 /**
- * Returns themed style objects for the IntroPage component.
- * Consumes global tokens via `useTheme()`.
+ * Memoized themed style objects for the IntroPage component.
  */
-export function useIntroPageTheme(): IntroPageTheme {
-  // Currently no token-driven values, but we plumb the hook so future
-  // theme changes flow through the same channel as every other page.
-  useTheme();
+export const useIntroPageTheme = defineTheme(() => ({
+  /** Root container — vertically centers TitleIcon + ChatTextArea. */
+  root: {
+    flexDirection: "column",
+    alignItems: "center",
+  } satisfies BoxProps,
+}));
 
-  return useMemo<IntroPageTheme>(
-    () => ({
-      root: {
-        flexDirection: "column",
-        alignItems: "center",
-      },
-    }),
-    [],
-  );
-}
+/** Resolved style object shape returned by {@link useIntroPageTheme}. */
+export type IntroPageTheme = ThemeOf<typeof useIntroPageTheme>;

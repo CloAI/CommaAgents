@@ -61,9 +61,6 @@ export function Button({
   // 1. State
   const boxRef = useRef<DOMElement | null>(null);
 
-  // 2. Memos
-  // (None)
-
   // 3. Custom hooks
   const theme = useButtonTheme();
   const { isFocused } = useFocus({ id });

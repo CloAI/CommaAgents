@@ -13,8 +13,6 @@ import { useChatState } from "../../hooks/useChat";
 import type { ChatPageTheme } from "../ChatPage";
 import { useChatPageTheme } from "../ChatPage";
 
-const RAW_MODE_SUPPORTED = typeof process.stdin.setRawMode === "function";
-
 /** Read-only, live transcript for one spawned strategy invocation. */
 export function SpawnedStrategyPage(): React.ReactElement {
   const { chatRunId = "", toolCallId = "" } = useParams<{
@@ -46,12 +44,9 @@ export function SpawnedStrategyPage(): React.ReactElement {
     [chatRunId, navigate],
   );
 
-  useInput(
-    (_input, key) => {
-      if (key.escape) handleBack();
-    },
-    { isActive: RAW_MODE_SUPPORTED },
-  );
+  useInput((_input, key) => {
+    if (key.escape) handleBack();
+  });
 
   return (
     <SpawnedStrategyPageRender
