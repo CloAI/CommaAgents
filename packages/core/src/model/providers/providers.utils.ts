@@ -1,4 +1,6 @@
-import type { ModelInfo } from "./providers.types";
+import { getCatalogProviderSync } from "./catalog";
+import { BUILT_IN_OVERRIDES } from "./providers.constant";
+import type { ModelInfo, ProviderDefinition } from "./providers.types";
 
 /**
  * Merge a catalog baseline with a provider's live model list.
@@ -50,4 +52,28 @@ export function mergeModelInfo(base: ModelInfo, overlay: ModelInfo): ModelInfo {
 /** Sort models by id for stable output. */
 export function sortModels(models: readonly ModelInfo[]): readonly ModelInfo[] {
   return [...models].sort((left, right) => left.id.localeCompare(right.id));
+}
+
+export function createDefaultProviderDefinition(
+  providerId: string,
+): ProviderDefinition | undefined {
+  const catalogProvider = getCatalogProviderSync(providerId);
+  const override = BUILT_IN_OVERRIDES.find((entry) => entry.id === providerId);
+
+  if (catalogProvider === undefined && override === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...(catalogProvider !== undefined
+      ? {
+          id: catalogProvider.id,
+          name: catalogProvider.name,
+          packageName: catalogProvider.npm,
+        }
+      : {}),
+    ...override,
+    id: catalogProvider?.id ?? override?.id ?? providerId,
+    name: catalogProvider?.name ?? override?.name ?? providerId,
+  };
 }

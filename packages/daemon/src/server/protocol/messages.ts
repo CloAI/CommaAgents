@@ -141,7 +141,7 @@ export type DaemonMessage = z.infer<typeof DaemonMessage>;
 
 /**
  * Safely parse an unknown value as a ClientMessage.
- * Returns a Zod SafeParseResult.
+ * Returns typed data on success or validation details on failure.
  */
 export function parseClientMessage(raw: unknown) {
   return ClientMessage.safeParse(raw);
@@ -149,7 +149,7 @@ export function parseClientMessage(raw: unknown) {
 
 /**
  * Safely parse an unknown value as a DaemonMessage.
- * Returns a Zod SafeParseResult.
+ * Returns typed data on success or validation details on failure.
  */
 export function parseDaemonMessage(raw: unknown) {
   return DaemonMessage.safeParse(raw);

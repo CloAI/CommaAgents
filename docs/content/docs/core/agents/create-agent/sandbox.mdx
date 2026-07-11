@@ -1,0 +1,54 @@
+---
+title: Sandbox
+description: Provide file-system and command access controls through agent runtime services.
+---
+
+# Sandbox
+
+Create a sandbox once, then provide it through the second `createAgent` argument. This keeps authored agent behavior separate from services supplied by the current runtime.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+import { createSandbox } from "@comma-agents/core/sandbox";
+
+const sandbox = createSandbox(
+  {
+    cwd: "/projects/example",
+    outsideWorkspace: "deny",
+    absolutePaths: "deny",
+    write: { default: "ask" },
+  },
+  {
+    onAsk: async ({ operation, resource }) => {
+      const answer = globalThis.prompt(
+        `Allow ${operation} on ${resource}? [y/N]`,
+      );
+      return answer?.toLowerCase() === "y" ? "allow" : "deny";
+    },
+  },
+);
+
+const agent = createAgent(
+  {
+    name: "workspace-editor",
+    model: "openai/gpt-4o",
+    tools: ["read_file", "edit_file", "run_command"],
+  },
+  { sandbox },
+);
+```
+
+## Strategy-wide policy
+
+Strategy loaders accept the same runtime service. Agents and nested strategies share its policy updates and session decisions.
+
+```ts
+import { loadStrategy } from "@comma-agents/core";
+
+const strategy = await loadStrategy("./strategy.yaml", { sandbox });
+await strategy.flow.call("Review the current workspace");
+```
+
+When no sandbox is supplied, directly created agents use permissive access rooted at `process.cwd()`.
+
+See [Sandbox](/docs/core/sandbox) for path policies, permission callbacks, command policies, and predefined options.

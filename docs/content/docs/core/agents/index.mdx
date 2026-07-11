@@ -31,7 +31,7 @@ console.log(`Completion tokens: ${result.usage.completionTokens}`);
 
 **Model strings** support explicit `"providerID/modelID"` or bare model IDs like `"gpt-4o"` — the provider is auto-resolved from the catalog using available credentials. See [Model Resolution](/docs/core/model).
 
-**Provider options** enable provider-specific features (Anthropic extended thinking, OpenAI reasoning effort). **Model options** control generation parameters (temperature, max output tokens, seed). Both are set on the agent config and forwarded to every call. See [createAgent](/docs/core/agents/create-agent) for details.
+**Provider options** enable provider-specific features (Anthropic extended thinking, OpenAI reasoning effort). **Model options** control generation parameters (temperature, max output tokens, seed). Both are set on the agent config and applied to every call. See [Generation Options](/docs/core/agents/create-agent/generation-options) for details.
 
 Agents maintain conversation history automatically. A follow-up call sees everything that came before:
 
@@ -66,3 +66,5 @@ console.log(result.text);
 ```
 
 By default, input is read from stdin (works in both Node.js and Bun). You can pass a custom `inputCollector` function to collect input from other sources, such as a WebSocket or UI.
+
+Use [registerAgent](/docs/core/agents/register-agent) to expose a reusable custom agent implementation to JSON or YAML agent and strategy definitions.

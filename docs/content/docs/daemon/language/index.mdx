@@ -1,0 +1,30 @@
+---
+title: Language Services
+description: Create a TypeScript language service for workspace diagnostics and code navigation.
+---
+
+# Language Services
+
+`createTypeScriptLanguageService` provides the language operations exposed to daemon-run tools for TypeScript and JavaScript workspaces.
+
+```ts
+import { createTypeScriptLanguageService } from "@comma-agents/daemon";
+
+const service = createTypeScriptLanguageService({
+  workspaceRoot: process.cwd(),
+});
+
+const result = await service.request({
+  method: "textDocument/diagnostic",
+  languageId: "typescript",
+  path: "src/index.ts",
+});
+```
+
+The service uses the workspace's `tsconfig.json` when present and otherwise builds an inferred project. It supports diagnostics, hover information, definitions, type definitions, implementations, references, document symbols, and workspace symbols.
+
+## TypeScriptLanguageServiceOptions
+
+Options for selecting the workspace handled by the service.
+
+<AutoTypeTable path="../packages/daemon/src/language/typescript-service.ts" name="TypeScriptLanguageServiceOptions" />

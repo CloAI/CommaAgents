@@ -2,30 +2,40 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { capitalize } from "@comma-agents/utils";
-import { createJsonFileBackend } from "../credentials/backends/json-file";
+import { createJsonFileCredentialBackend } from "../credentials/backends/json-file";
 import { createCredentialStore } from "../credentials/credentials";
 import type {
   Credential,
   CredentialStore,
 } from "../credentials/credentials.types";
 import { resolveCredentialsPath } from "../credentials/credentials.utils";
+import { resolveApplicationDataDirectory } from "../data-directory";
 import type { ProviderFactory, ProviderResolver } from "../model/model.types";
-import { getProviderPackageNameSync } from "../model/providers/index";
-import type { GlobalDefaults, ProviderRegistration } from "./defaults.types";
+import {
+  getCustomProviderIdsSync,
+  getProviderPackageNameSync,
+  getRegisteredProviderSync,
+  resetProviderRegistry,
+} from "../model/providers/index";
+import type { ProviderDefinition } from "../model/providers/providers.types";
+import type { GlobalDefaults } from "./defaults.types";
 
 // -- Module state --
 
-/** Custom provider registrations (user-registered, not built-in). */
-let providerRegistry = new Map<string, ProviderRegistration>();
+/** Lazily-created default credential store instance. */
+const defaultCredentialStore: CredentialStore = createCredentialStore({
+  backend: createJsonFileCredentialBackend({
+    filePath: resolveCredentialsPath(),
+  }),
+});
 
 /** Overridden global credential store (undefined = use lazy default). */
 let customCredentialStore: CredentialStore | undefined;
 
-/** Lazily-created default credential store instance. */
-let defaultCredentialStore: CredentialStore | undefined;
-
-/** Optional cache directory for auto-installing provider npm packages. */
-let providerCacheDir: string | undefined;
+let providerInstallDirectory: string = join(
+  resolveApplicationDataDirectory(),
+  "providers",
+);
 
 /** Guards against duplicate concurrent installs of the same package. */
 const installLocks = new Map<string, Promise<void>>();
@@ -47,12 +57,6 @@ const installLocks = new Map<string, Promise<void>>();
 export function getGlobalCredentialStore(): CredentialStore {
   if (customCredentialStore) {
     return customCredentialStore;
-  }
-
-  if (!defaultCredentialStore) {
-    defaultCredentialStore = createCredentialStore({
-      backend: createJsonFileBackend({ filePath: resolveCredentialsPath() }),
-    });
   }
 
   return defaultCredentialStore;
@@ -87,58 +91,18 @@ export function setGlobalCredentialStore(
  * packages into this directory (using `bun add`) before falling back to
  * the standard module resolution. Pass `undefined` to disable auto-install.
  *
- * The daemon calls this on startup with its configured `providerCacheDir`.
+ * The daemon calls this on startup with its configured `providerInstallDirectory`.
  *
  * @example
  * ```ts
- * setProviderCacheDir("/Users/bot/.comma/providers");
+ * setProviderInstallDirectory("/Users/bot/.comma/providers");
  * ```
  */
-export function setProviderCacheDir(dir: string | undefined): void {
-  providerCacheDir = dir;
-  if (dir) installLocks.clear();
-}
-
-// -- Provider registry --
-
-/**
- * Register a custom provider with the global resolver.
- *
- * Registered providers take precedence over the models.dev catalog
- * map and the default `@ai-sdk/<providerId>` dynamic import convention.
- *
- * @example
- * ```ts
- * import { registerProvider } from "@comma-agents/core";
- *
- * // Direct factory — full control over provider creation
- * registerProvider("my-custom-llm", {
- *   factory: (credential) => {
- *     const apiKey = credential.type === "api" ? credential.key : undefined;
- *     return (modelId) => myProvider({ apiKey, model: modelId });
- *   },
- * });
- *
- * // Package-based — dynamic import with custom export name
- * registerProvider("deepinfra", {
- *   packageName: "@deepinfra/ai-sdk",
- *   factoryName: "createDeepInfra",
- * });
- * ```
- */
-export function registerProvider(
-  providerId: string,
-  registration: ProviderRegistration,
+export function setProviderInstallDirectory(
+  directory: string,
 ): void {
-  providerRegistry.set(providerId, registration);
-}
-
-/**
- * Remove a previously registered custom provider.
- * Returns `true` if the provider was registered and removed.
- */
-export function unregisterProvider(providerId: string): boolean {
-  return providerRegistry.delete(providerId);
+  providerInstallDirectory = directory;
+  if (directory) installLocks.clear();
 }
 
 // -- Provider cache helpers --
@@ -169,7 +133,7 @@ function isPackageCached(cacheDir: string, packageName: string): boolean {
 }
 
 async function ensurePackageInCache(
-  dir: string,
+  directory: string,
   packageName: string,
 ): Promise<void> {
   if (installLocks.has(packageName)) {
@@ -177,12 +141,12 @@ async function ensurePackageInCache(
   }
 
   const promise = (async () => {
-    ensureCacheDir(dir);
+    ensureCacheDir(directory);
 
-    if (isPackageCached(dir, packageName)) return;
+    if (isPackageCached(directory, packageName)) return;
 
     const result = Bun.spawnSync(["bun", "add", packageName], {
-      cwd: dir,
+      cwd: directory,
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -206,10 +170,10 @@ async function tryImportFromCache(
   packageName: string,
   importError: unknown,
 ): Promise<Record<string, unknown>> {
-  if (!providerCacheDir) throw importError;
+  if (!providerInstallDirectory) throw importError;
 
-  await ensurePackageInCache(providerCacheDir, packageName);
-  return requireFromCache(providerCacheDir, packageName);
+  await ensurePackageInCache(providerInstallDirectory, packageName);
+  return requireFromCache(providerInstallDirectory, packageName);
 }
 
 // -- Provider resolver --
@@ -265,7 +229,7 @@ function buildProviderOptions(credential: Credential): Record<string, unknown> {
 async function resolveViaRegistration(
   providerId: string,
   credential: Credential,
-  registration: ProviderRegistration,
+  registration: ProviderDefinition,
 ): Promise<ProviderFactory> {
   // 1. Direct factory takes precedence
   if (registration.factory) {
@@ -298,7 +262,7 @@ async function resolveViaPackage(
   try {
     providerModule = (await import(packageName)) as Record<string, unknown>;
   } catch (importError) {
-    if (providerCacheDir) {
+    if (providerInstallDirectory) {
       providerModule = await tryImportFromCache(packageName, importError);
     } else {
       throw new Error(
@@ -353,7 +317,7 @@ async function resolveCopilotProvider(
   try {
     providerModule = (await import(packageName)) as Record<string, unknown>;
   } catch (importError) {
-    if (providerCacheDir) {
+    if (providerInstallDirectory) {
       providerModule = await tryImportFromCache(packageName, importError);
     } else {
       throw new Error(
@@ -396,11 +360,15 @@ async function resolveCopilotProvider(
  * Get the global provider resolver.
  *
  * The resolver uses this resolution order for each provider ID:
- * 1. Custom registration with direct `factory` (via `registerProvider()`)
- * 2. Custom registration with `packageName`/`factoryName`
+ * 1. Registered definition with direct `factory` (via `registerProviderDefinition()`)
+ * 2. Registered definition with `packageName`/`factoryName`
  * 3. Special handling for `github-copilot` (uses `@ai-sdk/openai-compatible`)
  * 4. models.dev catalog + built-in overrides (ollama, deepseek) — sync lookup
  * 5. Last resort: attempt `@ai-sdk/<providerId>` as a guess
+ *
+ * Step 1 is a synchronous, network-free registry lookup — it never blocks
+ * on the async models.dev catalog fetch, so model resolution stays fast
+ * even on a cold start.
  *
  * @example
  * ```ts
@@ -414,8 +382,8 @@ export function getGlobalProviderResolver(): ProviderResolver {
     providerId: string,
     credential: Credential,
   ): Promise<ProviderFactory> => {
-    // 1. Check custom registry
-    const registration = providerRegistry.get(providerId);
+    // 1. Check registered provider definitions (sync, no catalog fetch)
+    const registration = getRegisteredProviderSync(providerId);
     if (registration) {
       return await resolveViaRegistration(providerId, credential, registration);
     }
@@ -460,7 +428,7 @@ export function getGlobalDefaults(): GlobalDefaults {
   return {
     credentialStore: getGlobalCredentialStore(),
     providerResolver: getGlobalProviderResolver(),
-    registeredProviderIds: [...providerRegistry.keys()],
+    registeredProviderIds: getCustomProviderIdsSync(),
   };
 }
 
@@ -471,9 +439,7 @@ export function getGlobalDefaults(): GlobalDefaults {
  * and discards the lazily-created default store. Primarily for tests.
  */
 export function resetGlobalDefaults(): void {
-  providerRegistry = new Map();
+  resetProviderRegistry();
   customCredentialStore = undefined;
-  defaultCredentialStore = undefined;
-  providerCacheDir = undefined;
   installLocks.clear();
 }

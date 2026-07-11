@@ -1,0 +1,20 @@
+{
+  "title": "Protocol",
+  "pages": [
+    "strategy-execution",
+    "strategy-observation",
+    "user-input",
+    "questions",
+    "steering",
+    "sandbox-permissions",
+    "mcp",
+    "list-and-subscribe",
+    "list-providers",
+    "get-available-models",
+    "provider-management",
+    "trash",
+    "hub-packages",
+    "ping",
+    "shared-types"
+  ]
+}

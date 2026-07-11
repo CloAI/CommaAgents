@@ -88,25 +88,18 @@ function createLoggerImpl(
 /**
  * Create a structured logger.
  *
- * @param options.level - Minimum severity to emit. Default: "info".
- * @param options.sinks - Output destinations. Default: [StderrSink].
+ * @param options - Minimum severity and output sinks.
  *
  * @example
  * ```ts
- * // Simple stderr logger
- * const log = createLogger();
- * log.info("Server started", { port: 7422 });
+ * import { createFileSink, createLogger, createStderrSink } from "@comma-agents/daemon";
  *
- * // Multiple sinks with debug level
  * const log = createLogger({
  *   level: "debug",
  *   sinks: [createStderrSink(), createFileSink("/var/log/daemon.log")],
  * });
- *
- * // Child logger for a subsystem
  * const wsLog = log.child("ws");
  * wsLog.info("Client connected", { clientId: "abc" });
- * // → {"ts":"...","level":"info","msg":"Client connected","component":"ws","clientId":"abc"}
  * ```
  */
 export function createLogger(options?: CreateLoggerOptions): Logger {

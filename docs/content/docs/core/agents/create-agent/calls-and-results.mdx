@@ -1,0 +1,85 @@
+---
+title: Calls and Results
+description: Call, stream, cancel, inspect, and reset an agent created with createAgent.
+---
+
+# Calls and Results
+
+Use `call()` when you need one final result. Use `stream()` when the application needs text, reasoning, tool, or step events as they arrive.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "assistant",
+  model: "openai/gpt-4o",
+});
+
+const result = await agent.call("Explain the latest change.");
+console.log(result.text);
+```
+
+## Agent
+
+The agent returned by `createAgent`.
+
+<AutoTypeTable path="../packages/core/src/agents/agent/agent.types.ts" name="Agent" />
+
+## Streaming
+
+Stream events when the caller needs incremental output or tool status.
+
+```ts
+const stream = agent.stream?.("Inspect the repository.");
+
+if (stream) {
+  for await (const event of stream) {
+    if (event.type === "text") process.stdout.write(event.text);
+    if (event.type === "tool-call") {
+      console.log(`Calling ${event.toolName}`);
+    }
+    if (event.type === "done") {
+      console.log(event.result.finishReason);
+    }
+  }
+}
+```
+
+## AgentStreamEvent
+
+Events emitted while an agent call is streaming.
+
+<AutoTypeTable path="../packages/core/src/agents/agent/agent.types.ts" name="AgentStreamEvent" />
+
+## Cancellation
+
+`call()` returns an abortable promise, and `stream()` returns an abortable async generator.
+
+```ts
+const pendingResult = agent.call("Summarize this repository.");
+pendingResult.abort();
+
+const pendingStream = agent.stream?.("Review every package.");
+pendingStream?.abort();
+```
+
+## AgentCallResult
+
+The final result returned by `call()` and by the `done` stream event.
+
+<AutoTypeTable path="../packages/core/src/agents/agent/agent.types.ts" name="AgentCallResult" />
+
+```ts
+const result = await agent.call("Explain the latest change.");
+
+console.log(result.text);
+console.log(result.usage);
+console.log(result.finishReason);
+console.log(result.steps);
+```
+
+Call `reset()` to clear the agent's conversation and restore first-call behavior:
+
+```ts
+agent.reset();
+```

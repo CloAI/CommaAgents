@@ -1,0 +1,10 @@
+---
+title: Question System
+description: Route structured questions from tools to the initiating client.
+---
+
+# Question System
+
+The question system broadcasts `request_question` when a tool needs user feedback and resumes the waiting tool after a matching `question_response`. Each request has its own correlation ID so multiple pending questions remain distinct.
+
+See [Questions protocol](/docs/daemon/server/protocol/questions) for request and response fields.

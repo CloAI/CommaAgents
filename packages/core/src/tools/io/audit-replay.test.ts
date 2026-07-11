@@ -39,7 +39,7 @@ function makeCtx(
 ): ToolContext {
   return makeToolContext({
     agentName: "replay-agent",
-    sandbox: createSandbox({ cwd: workspaceRoot, jail: true }),
+    sandbox: createSandbox({ cwd: workspaceRoot, outsideWorkspace: "deny" }),
     sessionId,
     auditSink: sink,
   });

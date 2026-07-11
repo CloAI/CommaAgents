@@ -12,8 +12,8 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
-import { resolveDataDir } from "@comma-agents/core";
-import { stopDaemon } from "@comma-agents/daemon";
+import { resolveApplicationDataDirectory } from "@comma-agents/core";
+import { stopDaemonProcess } from "@comma-agents/daemon";
 import { render } from "ink";
 import { createElement } from "react";
 
@@ -57,7 +57,7 @@ async function readCachedReleases(
   if (maxAgeMs <= 0) return undefined;
   try {
     const cache = JSON.parse(
-      await readFile(join(resolveDataDir(), UPDATE_CHECK_CACHE_FILE), "utf8"),
+      await readFile(join(resolveApplicationDataDirectory(), UPDATE_CHECK_CACHE_FILE), "utf8"),
     ) as Partial<ReleaseCache>;
     if (
       typeof cache.checkedAt !== "number" ||
@@ -96,7 +96,7 @@ function normalizeCachedReleases(value: unknown): readonly ReleaseInfo[] {
 async function writeReleaseCache(
   releases: readonly ReleaseInfo[],
 ): Promise<void> {
-  const dataDirectory = resolveDataDir();
+  const dataDirectory = resolveApplicationDataDirectory();
   await mkdir(dataDirectory, { recursive: true });
   await writeFile(
     join(dataDirectory, UPDATE_CHECK_CACHE_FILE),
@@ -354,13 +354,13 @@ export async function installUpdate(
         process.execPath,
       ),
     );
-    await stopDaemon();
+    await stopDaemonProcess();
     return { version: update.release.version, deferred: false };
   }
 
-  if (process.platform === "win32") await stopDaemon();
+  if (process.platform === "win32") await stopDaemonProcess();
   const deferred = await installStandaloneRelease(update.release, fetch);
-  if (!deferred) await stopDaemon();
+  if (!deferred) await stopDaemonProcess();
   return { version: update.release.version, deferred };
 }
 

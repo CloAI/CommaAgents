@@ -54,7 +54,7 @@ If the trash directory lives on a different filesystem than the target (an `EXDE
 |---|---|
 | `not_found` | The path does not exist. |
 | `permission_denied` | The path is write-blocked by `forbiddenGlobs` or sandbox policy. |
-| `outside_workspace` | The path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `outside_workspace` | The path escapes the sandbox or absolute paths are disabled. |
 | `command_failed` | The target is a directory and `recursive: true` was not passed. |
 
 ## Related

@@ -58,7 +58,7 @@ function resolveFromEnv(
  * @example
  * ```ts
  * const store = createCredentialStore({
- *   backend: createJsonFileBackend({ filePath: "/path/to/credentials.json" }),
+ *   backend: createJsonFileCredentialBackend({ filePath: "/path/to/credentials.json" }),
  * });
  * const credential = await store.resolve("openai", "my-strategy");
  * ```

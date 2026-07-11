@@ -26,6 +26,7 @@ describe("buildCallOptions output schema", () => {
         model: "mock/structured",
         outputSchema: z.object({ answer: z.string() }),
       },
+      {},
       "Answer the question",
       createConversationContext(),
     );
@@ -79,6 +80,7 @@ describe("buildCallOptions context retention", () => {
 
     const result = await buildCallOptions(
       { name: "writer", model: "mock/windowed" },
+      {},
       "third",
       context,
     );

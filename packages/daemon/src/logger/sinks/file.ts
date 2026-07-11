@@ -4,11 +4,10 @@ import type { LogEntry, LogSink } from "../logger.types";
 import { formatJsonLine } from "./stderr";
 
 /**
- * Create a sink that appends JSON lines to a file.
+ * Create a sink that writes JSON lines to a file.
  *
- * The parent directory is created automatically if it doesn't exist.
- * Writes are synchronous (appendFileSync) to ensure log entries are
- * flushed before process exit.
+ * Opening the sink creates or truncates the file. The parent directory is
+ * created automatically when it does not exist.
  *
  * @param filePath - Absolute path to the log file.
  */

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { resolveDataDir } from "../data-directory";
+import { resolveApplicationDataDirectory } from "../data-directory";
 import {
   GLOBAL_SKILLS_SUBDIR,
   PROJECT_SKILLS_SUBDIR,
@@ -10,7 +10,7 @@ import type { SkillMetadata } from "./skills.types";
 
 /** Absolute path to the default global skills directory for this user. */
 export function resolveDefaultGlobalSkillsDir(): string {
-  return join(resolveDataDir(), GLOBAL_SKILLS_SUBDIR);
+  return join(resolveApplicationDataDirectory(), GLOBAL_SKILLS_SUBDIR);
 }
 
 /** Absolute path to the default project-local skills directory for the given workspace. */

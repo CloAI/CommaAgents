@@ -18,7 +18,7 @@ import {
   resetGlobalDefaults,
   resetModelRegistry,
 } from "@comma-agents/core";
-import { createDaemonState } from "../state/state";
+import { createDaemonState } from "../daemon-state/daemon-state";
 import {
   MINIMAL_STRATEGY,
   MULTI_AGENT_STRATEGY,
@@ -197,7 +197,7 @@ describe("createRunSystem", () => {
   it("owns and exposes the run store", async () => {
     const runsDir = await createTempRunsDir();
     const runSystem = createRunSystem({
-      state: createDaemonState(),
+      daemonState: createDaemonState(),
       sink: mockSink(),
       logger: mockLogger(),
       runsDir,
@@ -225,7 +225,7 @@ describe("createRunSystem", () => {
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -260,7 +260,7 @@ describe("createRunSystem", () => {
     const state = createDaemonState();
     state.addClient("client-1");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink: mockSink(),
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -305,7 +305,7 @@ describe("createRunSystem", () => {
     const state = createDaemonState();
     state.addClient("client-1");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink: mockSink(),
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -387,7 +387,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -410,7 +410,7 @@ registerFlow(
     const state = createDaemonState();
     state.addClient("client-1");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink: mockSink(),
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -445,7 +445,7 @@ registerFlow(
     const sink = mockSink();
     state.addClient("client-1");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -528,7 +528,7 @@ registerFlow(
     const sink = mockSink();
     state.addClient("client-1");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -611,7 +611,7 @@ registerFlow(
     const sink = mockSink();
     state.addClient("client-1");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -643,7 +643,7 @@ registerFlow(
     const sink = mockSink();
     state.addClient("client-1");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -730,7 +730,7 @@ registerFlow(
     const sink = mockSink();
     state.addClient("client-1");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -803,7 +803,7 @@ registerFlow(
     const state = createDaemonState();
     state.addClient("client-1");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink: mockSink(),
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -832,7 +832,7 @@ registerFlow(
     state.addClient("client-1");
     state.addClient("client-2");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink: mockSink(),
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -885,7 +885,7 @@ registerFlow(
     const sink = mockSink();
     state.addClient("client-1");
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -914,7 +914,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -945,7 +945,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -977,7 +977,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1004,7 +1004,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1062,7 +1062,7 @@ registerFlow(
     );
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1107,7 +1107,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1129,7 +1129,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1151,7 +1151,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1200,7 +1200,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1242,7 +1242,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1310,7 +1310,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1346,7 +1346,7 @@ registerFlow(
     const sink = mockSink();
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1365,7 +1365,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1406,7 +1406,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1440,7 +1440,7 @@ registerFlow(
     const sink = mockSink();
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1459,7 +1459,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1497,7 +1497,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
@@ -1527,7 +1527,7 @@ registerFlow(
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
-      state,
+      daemonState: state,
       sink,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),

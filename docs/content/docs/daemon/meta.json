@@ -1,12 +1,14 @@
 {
   "title": "@comma-agents/daemon",
   "pages": [
-    "server",
-    "executor",
-    "protocol",
-    "logger",
     "cli",
-    "sessions",
+    "daemon",
+    "config",
+    "server",
+    "run-system",
+    "language",
+    "logger",
+    "state",
     "pid"
   ]
 }

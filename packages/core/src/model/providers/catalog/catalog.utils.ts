@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { resolveDataDir } from "../../../data-directory";
+import { resolveApplicationDataDirectory } from "../../../data-directory";
 import type {
   Modality,
   ModelCapabilities,
@@ -118,5 +118,5 @@ export const CATALOG_CACHE_FILENAME = "models-catalog.json";
 
 /** Resolve the model catalog cache inside the shared user data directory. */
 export function resolveCatalogCachePath(): string {
-  return join(resolveDataDir(), "cache", CATALOG_CACHE_FILENAME);
+  return join(resolveApplicationDataDirectory(), "cache", CATALOG_CACHE_FILENAME);
 }

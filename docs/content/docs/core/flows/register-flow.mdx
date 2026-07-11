@@ -1,0 +1,176 @@
+---
+title: registerFlow
+description: Register a custom flow type for JSON and YAML flow definitions.
+---
+
+# registerFlow
+
+`registerFlow` associates a declarative `type` name with a definition created by `defineFlowType`. Register the type before loading any standalone flow or strategy that references it.
+
+```ts
+import {
+  createFlow,
+  defineFlowType,
+  registerFlow,
+} from "@comma-agents/core";
+import { z } from "zod";
+
+const firstMatchFlow = defineFlowType({
+  configSchema: z.object({ marker: z.string() }).strict(),
+  create: ({ name, steps, config }) =>
+    createFlow({
+      name,
+      steps,
+      execute: async (availableSteps, message, flowContext) => {
+        for (const step of availableSteps) {
+          const result = await flowContext.runStep(step, message);
+          if (result.text.includes(config.marker)) return result.text;
+        }
+        return message;
+      },
+    }),
+});
+
+registerFlow("first-match", firstMatchFlow);
+```
+
+See [`defineFlowType`](/docs/core/flows/define-flow-type) for configuration inference and factory context.
+
+## Type name and overrides
+
+The first argument becomes the `type` value used in declarative flow definitions. Use a stable, non-empty, package-specific name to avoid registry collisions.
+
+Registering an existing custom name replaces its definition and emits a warning. Registering `sequential`, `cycle`, or `broadcast` overrides that built-in implementation and also emits a warning.
+
+```ts
+registerFlow("acme-first-match", firstMatchFlow);
+```
+
+Avoid built-in names unless you intentionally want to change every loaded flow of that type. Built-in declarative schemas still control which fields those definitions accept.
+
+## Use the registered type
+
+Standalone flow and strategy files place implementation-specific values under `config`. Common flow fields remain at the top level.
+
+```yaml
+name: First Approved Review
+type: first-match
+description: Return the first review containing the approval marker.
+steps:
+  - agent: reviewer-a
+  - agent: reviewer-b
+config:
+  marker: APPROVED
+```
+
+Load the definition only after its registration module has run:
+
+```ts
+import { createAgent, loadFlow } from "@comma-agents/core";
+import "./register-first-match";
+
+const reviewerA = createAgent({
+  name: "reviewer-a",
+  model: "openai/gpt-4o",
+});
+const reviewerB = createAgent({
+  name: "reviewer-b",
+  model: "openai/gpt-4o",
+});
+
+const flow = await loadFlow("./first-approved.yaml", {
+  agents: {
+    "reviewer-a": reviewerA,
+    "reviewer-b": reviewerB,
+  },
+});
+```
+
+Invalid `config` values fail with paths such as `config.marker`, making schema errors traceable to the declarative file.
+
+## Register a project flow
+
+Project flow modules belong in the `flows` map of `comma-project.json`. `loadProject()` imports those modules before you load the project's strategies.
+
+```json
+{
+  "name": "@acme/review-workflow",
+  "version": "1.0.0",
+  "strategies": {
+    "main": {
+      "path": "./strategies/main.yaml",
+      "expose": true
+    }
+  },
+  "flows": {
+    "first-match": {
+      "path": "./flows/first-match.ts",
+      "expose": false
+    }
+  },
+  "permissions": {
+    "executesCode": true
+  }
+}
+```
+
+```ts
+// flows/first-match.ts
+import { registerFlow } from "@comma-agents/core";
+import { firstMatchFlow } from "./first-match-definition";
+
+registerFlow("first-match", firstMatchFlow);
+```
+
+```ts
+import { loadProject, loadStrategy } from "@comma-agents/core";
+
+await loadProject("./comma-project.json");
+const strategy = await loadStrategy("./strategies/main.yaml");
+```
+
+Projects with executable flow modules must set `permissions.executesCode` to `true`. See [Project Packages](/docs/core/strategy/projects) for the complete manifest contract.
+
+## Inspect and remove registrations
+
+`getRegisteredFlowNames()` returns custom registry names, including any custom definitions that shadow built-ins. `unregisterFlow()` removes a custom definition and restores built-in resolution for a shadowed built-in name.
+
+```ts
+import {
+  getRegisteredFlowNames,
+  unregisterFlow,
+} from "@comma-agents/core";
+
+console.log(getRegisteredFlowNames());
+
+const removed = unregisterFlow("first-match");
+console.log(removed);
+```
+
+`resetFlowRegistry()` clears all custom registrations and is primarily useful for test isolation.
+
+## Related APIs
+
+Use [`loadFlow`](/docs/core/flows/load-flow) for standalone files and [Strategy Files](/docs/core/strategy/strategy-file) for flows embedded in a strategy.
+
+```ts
+import { createAgent, loadFlowFromString } from "@comma-agents/core";
+
+const reviewer = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+});
+
+const flow = loadFlowFromString(
+  `
+name: First Match
+type: first-match
+steps:
+  - agent: reviewer
+config:
+  marker: APPROVED
+`,
+  "yaml",
+  { agents: { reviewer } },
+);
+```

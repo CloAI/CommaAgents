@@ -2,7 +2,7 @@ import type {
   PermissionDecision,
   PermissionRequest,
   PermissionRequester,
-} from "@comma-agents/core";
+} from "@comma-agents/core/sandbox";
 import type {
   CleanupContext,
   DaemonSystem,

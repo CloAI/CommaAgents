@@ -14,6 +14,10 @@
       "types": "./dist/hub/index.d.ts",
       "import": "./dist/hub/index.js"
     },
+    "./sandbox": {
+      "types": "./dist/sandbox/index.d.ts",
+      "import": "./dist/sandbox/index.js"
+    },
     "./hub/comma-project.schema.json": "./dist/hub/comma-project.schema.json"
   },
   "files": ["dist", "README.md", "LICENSE"],

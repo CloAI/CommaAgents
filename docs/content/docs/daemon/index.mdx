@@ -1,0 +1,50 @@
+---
+title: Daemon
+description: Background strategy execution, process control, persistence, and the WebSocket client protocol.
+---
+
+# Daemon
+
+`@comma-agents/daemon` runs Comma Agents strategies in a long-lived process. It exposes a WebSocket server for clients, persists run timelines, manages interactive requests, and provides APIs for starting or embedding the daemon.
+
+For normal use, start the managed daemon through the CLI:
+
+```bash
+comma daemon start
+comma daemon status
+```
+
+Embed the server when another application owns the process lifecycle:
+
+```ts
+import { createDaemon, createLogger, loadDaemonConfig } from "@comma-agents/daemon";
+
+const config = loadDaemonConfig();
+const daemon = createDaemon({
+  config,
+  logger: createLogger({ level: config.logLevel }),
+});
+
+await daemon.start();
+console.log(daemon.url);
+```
+
+## Module tree
+
+The documentation follows the package's ownership tree:
+
+- [CLI](/docs/daemon/cli) — process commands and service autostart.
+- [Daemon module](/docs/daemon/daemon) — process, runtime, and command APIs.
+- [Configuration](/docs/daemon/config) — files, environment variables, and resolution priority.
+- [Server](/docs/daemon/server) — the WebSocket and health-check server.
+  - [Protocol](/docs/daemon/server/protocol) — client requests and daemon events.
+- [Run system](/docs/daemon/run-system) — preparation, execution, continuation, and cancellation.
+  - [Run store](/docs/daemon/run-system/run-store) — persisted run timelines and configuration.
+  - [MCP runtime](/docs/daemon/run-system/mcp) — per-run server selection and status.
+  - [Run systems](/docs/daemon/run-system/systems) — input, permission, streaming, persistence, and other run capabilities.
+- [Language services](/docs/daemon/language) — workspace-aware TypeScript language operations.
+- [Logging](/docs/daemon/logger) — structured loggers and output sinks.
+- [Run state](/docs/daemon/state) — shared run lifecycle statuses.
+- [PID files](/docs/daemon/pid) — process identity helpers.
+
+Types and functions documented on these pages are exported from `@comma-agents/daemon` unless a page identifies the API as a protocol message or an architectural submodule.

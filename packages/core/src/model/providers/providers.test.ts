@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { createJsonFileBackend } from "../../credentials/backends/json-file";
+import { createJsonFileCredentialBackend } from "../../credentials/backends/json-file";
 import { createCredentialStore } from "../../credentials/credentials";
 import {
   getProviderDefinition,
@@ -145,7 +145,7 @@ describe("listProviderModels", () => {
 describe("listAllProviderModels", () => {
   test("returns a result entry for every registered provider", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
 
     const all = await listAllProviderModels(store, { live: false });

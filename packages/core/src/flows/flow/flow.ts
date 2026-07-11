@@ -30,37 +30,29 @@ export type HookStore<HookType extends FlowHooks = FlowHooks> = {
 };
 
 /**
- * Build an `Agent` from a flow config, a hooks store, and an executor.
+ * Create a reusable flow from a step configuration and orchestration function.
+ * Step calls made through the provided context are included in the final flow result.
  *
- * This is the shared foundation for all flow types. It:
- * 1. Validates that steps are non-empty.
- * 2. Creates a `FlowContext` per call (tracks step results, fires step hooks).
- * 3. Runs the flow-level hook lifecycle around the executor.
- * 4. Returns an `Agent` with `name`, `call`, `reset`, and internal `appendHook`.
- *
- * The `store` is read on each call, so hooks appended via `appendHook` take
- * effect on subsequent calls.
- *
- * @param config - Flow configuration (name, steps).
- * @param typeName - Identifier for this flow type (for error messages).
- * @param store - Mutable hooks store (starts empty; hooks are added via `hookIntoFlow`).
- * @param executor - The orchestration function that defines step execution order.
- * @param onReset - Optional callback fired after steps are reset (e.g. for observer cleanup).
- * @returns An `Agent` implementing the flow.
+ * @param config - Flow name and the agents or nested flows it can run.
+ * @param typeName - Flow type name used when reporting configuration errors.
+ * @param store - Hook collection for this flow. Pass an empty object for standard flow hooks.
+ * @param executor - Function that chooses which steps run and what input each receives.
+ * @param onReset - Optional cleanup called after every configured step is reset.
+ * @returns An agent-compatible flow that can be called, reset, and hooked.
  *
  * @example
  * ```ts
- * const agent = buildFlowAgent(
+ * const flow = buildFlowAgent(
  *   config,
  *   "pipeline",
  *   {},
  *   async (steps, message, context) => {
- *     let current = message;
+ *     let currentMessage = message;
  *     for (const step of steps) {
- *       const result = await context.runStep(step, current);
- *       current = result.text;
+ *       const result = await context.runStep(step, currentMessage);
+ *       currentMessage = result.text;
  *     }
- *     return current;
+ *     return currentMessage;
  *   },
  * );
  * ```

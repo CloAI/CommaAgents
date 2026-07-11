@@ -61,7 +61,7 @@ export const editFileParams = z.object({
     .min(1)
     .describe(
       "Workspace-relative path of the file to edit. Absolute paths are rejected unless " +
-        "the sandbox is configured with `allowAbsolutePaths: true`.",
+        "the sandbox is configured with `absolutePaths: 'allow'`.",
     ),
   expectedSha256: z
     .string()

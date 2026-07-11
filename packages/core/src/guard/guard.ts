@@ -1,7 +1,7 @@
 import { realpathSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { SandboxViolationError } from "../errors/index";
-import type { PermissionDecision } from "../sandbox/sandbox.types";
+import type { AccessMode, PermissionDecision } from "../sandbox/sandbox.types";
 import type { SandboxTrashMetadata } from "../tools/io/trash";
 import type {
   AccessRequest,
@@ -11,9 +11,8 @@ import type {
   GuardPolicySnapshot,
   Policy,
   PolicyDecision,
+  PolicyPriority,
 } from "./guard.types";
-
-// ── Path resolution + jail ────────────────────────────────────────────────
 
 function resolveSymlinks(absolutePath: string): string {
   let current = absolutePath;
@@ -36,10 +35,9 @@ function resolveSymlinks(absolutePath: string): string {
 function resolvePath(
   cwd: string,
   inputPath: string,
-  allowAbsolutePaths: boolean,
-  jail: boolean,
-): string {
-  if (!allowAbsolutePaths && isAbsolute(inputPath)) {
+  absolutePaths: "allow" | "deny",
+): { readonly path: string; readonly outsideWorkspace: boolean } {
+  if (absolutePaths === "deny" && isAbsolute(inputPath)) {
     throw new SandboxViolationError(
       inputPath,
       "absolute-path",
@@ -48,54 +46,61 @@ function resolvePath(
   }
 
   const resolved = resolve(cwd, inputPath);
-
-  if (!jail) return resolved;
-
   const realResolved = resolveSymlinks(resolved);
   const realCwd = resolveSymlinks(cwd);
   const sep = "/";
   const jailRoot = realCwd.endsWith(sep) ? realCwd : `${realCwd}${sep}`;
 
-  if (realResolved !== realCwd && !realResolved.startsWith(jailRoot)) {
-    throw new SandboxViolationError(
-      resolve(cwd, inputPath),
-      "jail",
-      `Path escapes sandbox jail (cwd: ${cwd})`,
-    );
-  }
-
-  return realResolved;
+  return {
+    path: realResolved,
+    outsideWorkspace:
+      realResolved !== realCwd && !realResolved.startsWith(jailRoot),
+  };
 }
 
-// ── Guard factory ──────────────────────────────────────────────────────────
+const POLICY_PRIORITY: Readonly<Record<PolicyPriority, number>> = {
+  mandatory: 0,
+  session: 1,
+  tool: 2,
+  default: 3,
+};
+
+function sortPolicies(policies: Policy[]): void {
+  policies.sort(
+    (left, right) =>
+      POLICY_PRIORITY[left.priority ?? "tool"] -
+      POLICY_PRIORITY[right.priority ?? "tool"],
+  );
+}
 
 /**
  * Create a per-tool Guard instance.
  *
- * The guard resolves paths, enforces the jail boundary, evaluates the
+ * The guard resolves paths, enforces the workspace boundary, evaluates the
  * policy chain, dispatches "ask" via the callbacks, and self-updates
  * session memory when the user grants/denies access.
  *
  * @param toolName - The tool this guard enforces.
  * @param cwd - Workspace root for path resolution.
- * @param allowAbsolutePaths - Whether absolute input paths are allowed.
- * @param jail - Whether to enforce the cwd boundary.
+ * @param absolutePaths - Whether absolute input paths are accepted.
+ * @param outsideWorkspace - Decision for paths outside the workspace.
  * @param policies - Initial policy chain.
  * @param callbacks - onAsk / onPolicyChange handlers (shared across guards).
  */
 export function createGuard(
   toolName: string,
   cwd: string,
-  allowAbsolutePaths: boolean,
-  jail: boolean,
+  absolutePaths: "allow" | "deny",
+  outsideWorkspace: AccessMode,
   policies: readonly Policy[],
   callbacks?: GuardCallbacks,
   trashMetadata?: SandboxTrashMetadata,
 ): Guard {
-  const policyChain = [...policies];
+  const policyChain = [
+    ...new Map(policies.map((policy) => [policy.name, policy])).values(),
+  ];
+  sortPolicies(policyChain);
   const changeListeners = new Set<(snapshot: GuardPolicySnapshot) => void>();
-
-  // ── policy chain mutation ───────────────────────────────────────────
 
   function notifyChange(): void {
     const snapshot = getPolicies();
@@ -105,23 +110,15 @@ export function createGuard(
     }
   }
 
-  function addPolicy(policy: Policy, before?: string): void {
+  function addPolicy(policy: Policy): void {
     // Deduplicate by name: remove existing policy with same name first
     const existingIdx = policyChain.findIndex((p) => p.name === policy.name);
     if (existingIdx >= 0) {
       policyChain.splice(existingIdx, 1);
     }
 
-    if (before) {
-      const idx = policyChain.findIndex((p) => p.name === before);
-      if (idx >= 0) {
-        policyChain.splice(idx, 0, policy);
-      } else {
-        policyChain.push(policy);
-      }
-    } else {
-      policyChain.push(policy);
-    }
+    policyChain.push(policy);
+    sortPolicies(policyChain);
     notifyChange();
   }
 
@@ -136,7 +133,10 @@ export function createGuard(
   function getPolicies(): GuardPolicySnapshot {
     return {
       toolName,
-      policies: policyChain.map((p) => ({ name: p.name })),
+      policies: policyChain.map((policy) => ({
+        name: policy.name,
+        priority: policy.priority ?? "tool",
+      })),
     };
   }
 
@@ -148,8 +148,6 @@ export function createGuard(
       changeListeners.delete(listener);
     };
   }
-
-  // ── authorization ───────────────────────────────────────────────────
 
   function buildPermissionRequest(
     request: AccessRequest,
@@ -192,22 +190,14 @@ export function createGuard(
       );
     }
 
-    // Apply session memory for all positive/negative decisions.
-    if (
-      decision === "allow" ||
-      decision === "allow-session" ||
-      decision === "deny-session"
-    ) {
-      const mode = request.type === "fs.write" ? "write" : "read";
-      const relative = resolvedPath.startsWith(`${cwd}/`)
-        ? resolvedPath.slice(cwd.length + 1)
-        : resolvedPath;
-
-      if (decision === "allow" || decision === "allow-session") {
-        addPolicy(pathSessionPolicy(cwd, mode, "allow", relative));
-      } else {
-        addPolicy(pathSessionPolicy(cwd, mode, "deny", relative));
-      }
+    if (decision === "allow-session" || decision === "deny-session") {
+      addPolicy(
+        sessionPolicy(
+          request,
+          decision === "allow-session" ? "allow" : "deny",
+          resolvedPath,
+        ),
+      );
     }
 
     return decision;
@@ -217,11 +207,12 @@ export function createGuard(
     request: AccessRequest,
     ctx: AuthorizationContext,
   ): Promise<string> {
-    // For file-system access, resolve the path and enforce jail.
-    const resolvedPath =
+    // Resolve symlinks before applying the workspace boundary.
+    const resolved =
       request.type === "fs.read" || request.type === "fs.write"
-        ? resolvePath(cwd, request.resource, allowAbsolutePaths, jail)
-        : request.resource;
+        ? resolvePath(cwd, request.resource, absolutePaths)
+        : { path: request.resource, outsideWorkspace: false };
+    const resolvedPath = resolved.path;
 
     const resolvedRequest: AccessRequest = {
       ...request,
@@ -230,8 +221,73 @@ export function createGuard(
         : request.resource,
     };
 
-    // Evaluate policy chain — first non-"pass" wins.
+    const mandatoryDecision = await evaluatePolicyPriority(
+      policyChain,
+      resolvedRequest,
+      "mandatory",
+    );
+    if (mandatoryDecision === "deny") {
+      throw new SandboxViolationError(
+        resolvedPath,
+        request.type === "fs.write"
+          ? "write-denied"
+          : request.type === "fs.read"
+            ? "read-denied"
+            : "write-denied",
+        `${request.type} access denied for "${resolvedPath}".`,
+      );
+    }
+    if (mandatoryDecision === "ask") {
+      const prompted = await handleAsk(request, ctx, resolvedPath);
+      if (prompted === "deny" || prompted === "deny-session") {
+        throw new SandboxViolationError(
+          resolvedPath,
+          request.type === "fs.write"
+            ? "write-denied"
+            : request.type === "fs.read"
+              ? "read-denied"
+              : "write-denied",
+          `${request.type} access denied by user for "${resolvedPath}".`,
+        );
+      }
+    }
+
+    if (resolved.outsideWorkspace) {
+      const rememberedDecision = await evaluatePolicyPriority(
+        policyChain,
+        resolvedRequest,
+        "session",
+      );
+      if (rememberedDecision === "allow") return resolvedPath;
+      if (rememberedDecision === "deny") {
+        throw new SandboxViolationError(
+          resolvedPath,
+          request.type === "fs.write" ? "write-denied" : "read-denied",
+          `${request.type} access denied for "${resolvedPath}".`,
+        );
+      }
+      if (outsideWorkspace === "deny") {
+        throw new SandboxViolationError(
+          resolvedPath,
+          "jail",
+          `Path escapes sandbox workspace (cwd: ${cwd})`,
+        );
+      }
+      if (outsideWorkspace === "ask") {
+        const prompted = await handleAsk(request, ctx, resolvedPath);
+        if (prompted === "deny" || prompted === "deny-session") {
+          throw new SandboxViolationError(
+            resolvedPath,
+            request.type === "fs.write" ? "write-denied" : "read-denied",
+            `${request.type} access denied by user for "${resolvedPath}".`,
+          );
+        }
+        return resolvedPath;
+      }
+    }
+
     for (const policy of policyChain) {
+      if (policy.priority === "mandatory") continue;
       const decision = await policy.evaluate(resolvedRequest);
       if (decision === "pass") continue;
 
@@ -276,10 +332,15 @@ export function createGuard(
 
   function canAccess(request: AccessRequest): boolean {
     try {
-      const resolvedPath =
+      const resolved =
         request.type === "fs.read" || request.type === "fs.write"
-          ? resolvePath(cwd, request.resource, allowAbsolutePaths, jail)
-          : request.resource;
+          ? resolvePath(cwd, request.resource, absolutePaths)
+          : { path: request.resource, outsideWorkspace: false };
+      const resolvedPath = resolved.path;
+
+      if (resolved.outsideWorkspace && outsideWorkspace !== "allow") {
+        return false;
+      }
 
       const resolvedRequest: AccessRequest = {
         ...request,
@@ -290,9 +351,9 @@ export function createGuard(
 
       for (const policy of policyChain) {
         const decision = policy.evaluate(resolvedRequest);
-        // canAccess is sync — if a policy promises "ask", treat as deny.
-        if (decision instanceof Promise) continue;
+        if (decision instanceof Promise) return false;
         if (decision === "pass") continue;
+        if (policy.priority === "mandatory" && decision === "allow") continue;
         return decision === "allow";
       }
       // No policy handled = implicit allow.
@@ -300,20 +361,6 @@ export function createGuard(
     } catch {
       return false;
     }
-  }
-
-  async function askQuestion(
-    question: string,
-    ctx: AuthorizationContext,
-  ): Promise<string> {
-    if (!callbacks?.onQuestion) {
-      throw new Error("No onQuestion handler is configured.");
-    }
-    return callbacks.onQuestion({
-      agentName: ctx.agentName,
-      toolName: ctx.toolName,
-      question,
-    });
   }
 
   return {
@@ -326,46 +373,36 @@ export function createGuard(
     removePolicy,
     getPolicies,
     onPolicyChange,
-    askQuestion,
   };
 }
 
-// ── Session memory helper ──────────────────────────────────────────────────
-
-function pathSessionPolicy(
-  cwd: string,
-  mode: "read" | "write",
+function sessionPolicy(
+  request: AccessRequest,
   decision: "allow" | "deny",
-  relative: string,
+  resolvedResource: string,
 ): Policy {
-  const fsType = mode === "write" ? "fs.write" : "fs.read";
   const decisionName = decision === "allow" ? "allow" : "deny";
 
   return {
-    name: `session-${decisionName}-${mode}-${relative.replace(/[^a-zA-Z0-9]/g, "-")}`,
+    name: `session-${decisionName}-${request.type}-${resolvedResource.replace(/[^a-zA-Z0-9]/g, "-")}`,
+    priority: "session",
     evaluate: (req: AccessRequest): PolicyDecision => {
-      if (req.type !== fsType) return "pass";
-      if (
-        req.resource.endsWith(`/${relative}`) ||
-        req.resource === `${cwd}/${relative}` ||
-        req.resource === `${cwd}/${relative}`
-      ) {
-        return decision;
-      }
-      // Match the pattern as a suffix to handle the resolved absolute path
-      const cwdSep = cwd.endsWith("/") ? cwd : `${cwd}/`;
-      const pattern = `${cwdSep}${relative}`;
-      if (req.resource === pattern || req.resource.startsWith(`${pattern}/`)) {
-        return decision;
-      }
-      // Also try Bun.Glob-style matching
-      if (req.resource.startsWith(cwdSep)) {
-        const rel = req.resource.slice(cwdSep.length);
-        if (new Bun.Glob(relative).match(rel)) {
-          return decision;
-        }
-      }
-      return "pass";
+      return req.type === request.type && req.resource === resolvedResource
+        ? decision
+        : "pass";
     },
   };
+}
+
+async function evaluatePolicyPriority(
+  policies: readonly Policy[],
+  request: AccessRequest,
+  priority: PolicyPriority,
+): Promise<PolicyDecision> {
+  for (const policy of policies) {
+    if ((policy.priority ?? "tool") !== priority) continue;
+    const decision = await policy.evaluate(request);
+    if (decision !== "pass") return decision;
+  }
+  return "pass";
 }

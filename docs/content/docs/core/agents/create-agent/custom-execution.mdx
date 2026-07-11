@@ -1,0 +1,53 @@
+---
+title: Custom Execution
+description: Create an agent that runs application code instead of calling a model.
+---
+
+# Custom Execution
+
+`execute` replaces model execution with application code, so `model` is not required. Use it for deterministic adapters, mocks, service integrations, and other agent-compatible operations.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const echo = createAgent({
+  name: "echo",
+  execute: async (message) => `Echo: ${message}`,
+});
+
+const result = await echo.call("hello");
+console.log(result.text); // Echo: hello
+```
+
+## Return a string
+
+Return a string when the caller only needs final text. The resulting usage is zero and the finish reason is `stop`.
+
+```ts
+const slugify = createAgent({
+  name: "slugify",
+  execute: async (message) =>
+    message.trim().toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"),
+});
+```
+
+## Return a complete result
+
+Return `AgentCallResult` when you need to provide messages, usage, finish reason, or step details explicitly.
+
+```ts
+import type { AgentCallResult } from "@comma-agents/core";
+
+const resultAgent = createAgent({
+  name: "result-adapter",
+  execute: async (message): Promise<AgentCallResult> => ({
+    text: message.toUpperCase(),
+    usage: { promptTokens: 0, completionTokens: 0 },
+    finishReason: "stop",
+    responseMessages: [],
+    steps: [],
+  }),
+});
+```
+
+Use [`registerAgent`](/docs/core/agents/register-agent) when JSON or YAML files need to select a reusable custom implementation by `type`.

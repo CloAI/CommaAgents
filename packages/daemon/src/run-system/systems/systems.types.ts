@@ -7,15 +7,20 @@ import type {
   LoadedStrategy,
   McpAgentToolSet,
   McpConnectionManager,
+  SkillRegistry,
+} from "@comma-agents/core";
+import type { HubManager } from "@comma-agents/core/hub";
+import type {
   PermissionDecision,
   PermissionRequester,
   PolicyPatch,
   Sandbox,
-  SkillRegistry,
-} from "@comma-agents/core";
-import type { HubManager } from "@comma-agents/core/hub";
+} from "@comma-agents/core/sandbox";
+import type {
+  DaemonState,
+  RunState,
+} from "../../daemon-state/daemon-state.types";
 import type { Logger } from "../../logger/logger.types";
-import type { DaemonState, RunState } from "../../state/state.types";
 import type { EventSink } from "../event-sink";
 import type { RunMcpServerStatus } from "../mcp";
 import type { RunStore } from "../run-store";
@@ -24,15 +29,13 @@ import type { QuestionRequester } from "./question/question.types";
 /** Dependencies and defaults used to create a run system. */
 export interface CreateRunSystemOptions {
   /** In-memory daemon state for active runs and client subscriptions. */
-  readonly state: DaemonState;
+  readonly daemonState: DaemonState;
   /** Destination for run events and client-specific requests. */
   readonly sink: EventSink;
   /** Logger used for run diagnostics. */
   readonly logger: Logger;
   /** Directory containing persisted run timelines. */
   readonly runsDir: string;
-  /** Model applied to every loaded LLM agent unless preparation overrides it. */
-  readonly modelOverride?: string;
   /** Daemon-owned Hub service used to authorize installed executable projects. */
   readonly hubManager?: HubManager;
 }

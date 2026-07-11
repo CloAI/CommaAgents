@@ -1,0 +1,146 @@
+---
+title: Run Execution
+description: Preparing, starting, and stopping strategy runs.
+---
+
+Run creation and execution are separate operations. `prepare_run` loads the
+strategy and initializes its daemon systems. After the daemon replies with
+`run_prepared`, send `start_run` with the returned run ID and optional initial
+input. Send `stop_run` to cancel either a prepared or running run.
+
+## Prepare A Run
+
+```json
+{
+  "type": "prepare_run",
+  "runId": "run_abc123",
+  "strategyPath": "./strategies/code-review.yaml",
+  "modelOverride": "anthropic/claude-sonnet-4-20250514",
+  "cwd": "/workspace",
+  "requestId": "prepare-1"
+}
+```
+
+For a new run, `strategyPath` is required and `runId` is optional. To prepare
+an existing run for continuation, send its persisted `runId`; `strategyPath`,
+`modelOverride`, `cwd`, and `manifestPath` may override the previous
+execution's configuration. The requesting client is automatically subscribed
+to the run.
+
+Successful preparation replies directly:
+
+```json
+{
+  "type": "run_prepared",
+  "runId": "run_abc123",
+  "strategyName": "Code Review Pipeline",
+  "agents": ["analyzer", "reviewer"],
+  "flowTree": { "name": "Review Pipeline", "type": "sequential" },
+  "conversation": { "records": [], "retentionEvents": [], "inputs": [] },
+  "mcpServers": [],
+  "requestId": "prepare-1",
+  "ts": "2026-06-14T10:30:00.000Z"
+}
+```
+
+The run remains `pending` and is not persisted until it is started.
+Preparation failures return a correlated `error` with code `PREPARE_FAILED`.
+MCP connection failures are reported in `mcpServers` instead of failing the
+whole preparation, so clients can confirm whether to continue without those
+servers.
+
+`conversation` contains restored agent records, retention events, and human inputs. It is empty for a new run and populated when preparation attaches to or restores an existing run.
+
+## Start A Run
+
+```json
+{
+  "type": "start_run",
+  "runId": "run_abc123",
+  "input": "Review this function.",
+  "requestId": "start-1"
+}
+```
+
+`runId` is required and `input` is optional. A successful start emits
+`strategy_started`, followed by execution events. Lifecycle events echo the
+`start_run` request ID.
+
+```json
+{
+  "type": "strategy_started",
+  "runId": "run_abc123",
+  "strategyName": "Code Review Pipeline",
+  "agents": ["analyzer", "reviewer"],
+  "flowTree": { "name": "Review Pipeline", "type": "sequential" },
+  "requestId": "start-1",
+  "ts": "2026-06-14T10:30:01.000Z"
+}
+```
+
+Successful execution ends with `strategy_completed`:
+
+```json
+{
+  "type": "strategy_completed",
+  "runId": "run_abc123",
+  "result": "Review complete.",
+  "usage": { "promptTokens": 120, "completionTokens": 40 },
+  "requestId": "start-1",
+  "ts": "2026-06-14T10:30:04.000Z"
+}
+```
+
+Execution failures end with `strategy_error`, whose `error` contains a machine-readable `code` and human-readable `message`.
+
+## Continue A Run
+
+Prepare the completed run by ID before continuing it:
+
+```json
+{
+  "type": "prepare_run",
+  "runId": "run_abc123",
+  "requestId": "prepare-continuation-1"
+}
+```
+
+Preparation reloads the strategy and restores each matching agent's persisted
+conversation context. It does not append timeline events until execution
+starts. Then send the new input with `continue_run`:
+
+```json
+{
+  "type": "continue_run",
+  "runId": "run_abc123",
+  "input": "Refine the result using the review feedback.",
+  "requestId": "continue-1"
+}
+```
+
+The continuation reuses the same run ID and appends another lifecycle segment
+to its persisted timeline. `continue_run` only accepts a run prepared from an
+existing timeline; synchronous failures return a correlated `error` with code
+`CONTINUE_FAILED`.
+
+## Stop A Run
+
+```json
+{
+  "type": "stop_run",
+  "runId": "run_abc123"
+}
+```
+
+Stopping a pending run releases its prepared resources. Stopping a running run
+aborts execution. Subscribers receive `strategy_error` with code `CANCELLED`.
+
+## Event Sequence
+
+```text
+prepare_run -> run_prepared
+start_run -> strategy_started -> step/agent events -> strategy_completed
+prepare_run(existing) -> run_prepared
+continue_run -> strategy_started -> step/agent events -> strategy_completed
+stop_run -> strategy_error (CANCELLED)
+```

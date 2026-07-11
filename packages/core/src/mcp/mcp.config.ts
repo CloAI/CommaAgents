@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
-import { resolveDataDir } from "../data-directory";
+import { resolveApplicationDataDirectory } from "../data-directory";
 import { McpConfigFileSchema } from "./mcp.schema";
 import type {
   DiscoverMcpConfigOptions,
@@ -16,7 +16,7 @@ const MCP_CONFIG_FILENAME = "mcp.json";
 /** Discover and merge global and workspace MCP server definitions. */
 export function discoverMcpConfig({
   cwd = process.cwd(),
-  dataDir = resolveDataDir(),
+  dataDir = resolveApplicationDataDirectory(),
 }: DiscoverMcpConfigOptions = {}): McpConfigDiscovery {
   const globalConfigPath = join(dataDir, MCP_CONFIG_FILENAME);
   const workspaceConfigPath = join(cwd, ".comma", MCP_CONFIG_FILENAME);

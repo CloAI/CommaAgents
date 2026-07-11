@@ -64,7 +64,7 @@ const second = await tool.read_file({
 | Kind | When |
 |---|---|
 | `not_found` | The path does not exist or is a directory. The error suggests `list_directory` for directories. |
-| `outside_workspace` | The path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `outside_workspace` | The path escapes the sandbox or absolute paths are disabled. |
 | `permission_denied` | The path is blocked by `forbiddenGlobs` or sandbox read policy. |
 | `binary_file` | Binary content detected without `allowBinary: true`. Re-call with the flag to receive base64. |
 | `file_too_large` | The file exceeds the sandbox-configured size limit (separate from `maxBytes`). |

@@ -10,14 +10,16 @@ import type {
 } from "../credentials/credentials.types";
 import type { ProviderFactory } from "../model/model.types";
 import {
+  registerProviderDefinition,
+  unregisterProviderDefinition,
+} from "../model/providers/providers";
+import {
   getGlobalCredentialStore,
   getGlobalDefaults,
   getGlobalProviderResolver,
-  registerProvider,
   resetGlobalDefaults,
   setGlobalCredentialStore,
-  setProviderCacheDir,
-  unregisterProvider,
+  setProviderInstallDirectory,
 } from "./defaults";
 
 // -- Helpers --
@@ -104,11 +106,13 @@ describe("getGlobalCredentialStore", () => {
 
 // -- Provider registry --
 
-describe("registerProvider", () => {
+describe("registerProviderDefinition", () => {
   it("should register a provider with a direct factory", async () => {
     const mockFactory: ProviderFactory = (_modelId: string) => ({}) as any;
 
-    registerProvider("my-provider", {
+    registerProviderDefinition({
+      id: "my-provider",
+      name: "My Provider",
       factory: (_credential: Credential) => mockFactory,
     });
 
@@ -117,7 +121,9 @@ describe("registerProvider", () => {
   });
 
   it("should register a provider with a package name", () => {
-    registerProvider("deepinfra", {
+    registerProviderDefinition({
+      id: "deepinfra",
+      name: "DeepInfra",
       packageName: "@deepinfra/ai-sdk",
       factoryName: "createDeepInfra",
     });
@@ -130,25 +136,37 @@ describe("registerProvider", () => {
     const factory1: ProviderFactory = () => ({}) as any;
     const factory2: ProviderFactory = () => ({}) as any;
 
-    registerProvider("my-provider", { factory: () => factory1 });
-    registerProvider("my-provider", { factory: () => factory2 });
+    registerProviderDefinition({
+      id: "my-provider",
+      name: "My Provider",
+      factory: () => factory1,
+    });
+    registerProviderDefinition({
+      id: "my-provider",
+      name: "My Provider",
+      factory: () => factory2,
+    });
 
     const defaults = getGlobalDefaults();
     expect(defaults.registeredProviderIds).toEqual(["my-provider"]);
   });
 });
 
-describe("unregisterProvider", () => {
+describe("unregisterProviderDefinition", () => {
   it("should remove a registered provider", () => {
-    registerProvider("my-provider", { factory: () => () => ({}) as any });
-    expect(unregisterProvider("my-provider")).toBe(true);
+    registerProviderDefinition({
+      id: "my-provider",
+      name: "My Provider",
+      factory: () => () => ({}) as any,
+    });
+    expect(unregisterProviderDefinition("my-provider")).toBe(true);
 
     const defaults = getGlobalDefaults();
     expect(defaults.registeredProviderIds).toEqual([]);
   });
 
   it("should return false for unregistered provider", () => {
-    expect(unregisterProvider("nonexistent")).toBe(false);
+    expect(unregisterProviderDefinition("nonexistent")).toBe(false);
   });
 });
 
@@ -164,7 +182,9 @@ describe("getGlobalProviderResolver", () => {
     const mockFactory: ProviderFactory = (modelId: string) =>
       ({ modelId, mock: true }) as any;
 
-    registerProvider("test-provider", {
+    registerProviderDefinition({
+      id: "test-provider",
+      name: "Test Provider",
       factory: (_credential: Credential) => mockFactory,
     });
 
@@ -181,7 +201,9 @@ describe("getGlobalProviderResolver", () => {
     const mockFactory: ProviderFactory = (modelId: string) =>
       ({ modelId, async: true }) as any;
 
-    registerProvider("async-provider", {
+    registerProviderDefinition({
+      id: "async-provider",
+      name: "Async Provider",
       factory: async (_credential: Credential) => {
         await new Promise((resolve) => setTimeout(resolve, 1));
         return mockFactory;
@@ -208,7 +230,9 @@ describe("getGlobalProviderResolver", () => {
       ({ modelId, custom: true }) as any;
 
     // Register a custom "openai" that takes precedence over built-in
-    registerProvider("openai", {
+    registerProviderDefinition({
+      id: "openai",
+      name: "OpenAI",
       factory: (_credential: Credential) => customFactory,
     });
 
@@ -222,7 +246,9 @@ describe("getGlobalProviderResolver", () => {
   it("should pass correct credential to factory", async () => {
     let receivedCredential: Credential | undefined;
 
-    registerProvider("cred-test", {
+    registerProviderDefinition({
+      id: "cred-test",
+      name: "Cred Test",
       factory: (credential: Credential) => {
         receivedCredential = credential;
         return ((_modelId: string) => ({})) as any;
@@ -240,7 +266,11 @@ describe("getGlobalProviderResolver", () => {
 
 describe("resetGlobalDefaults", () => {
   it("should clear the provider registry", () => {
-    registerProvider("test", { factory: () => () => ({}) as any });
+    registerProviderDefinition({
+      id: "test",
+      name: "Test",
+      factory: () => () => ({}) as any,
+    });
     expect(getGlobalDefaults().registeredProviderIds).toHaveLength(1);
 
     resetGlobalDefaults();
@@ -275,8 +305,16 @@ describe("getGlobalDefaults", () => {
   });
 
   it("should reflect registered providers", () => {
-    registerProvider("alpha", { factory: () => () => ({}) as any });
-    registerProvider("beta", { packageName: "beta-pkg" });
+    registerProviderDefinition({
+      id: "alpha",
+      name: "Alpha",
+      factory: () => () => ({}) as any,
+    });
+    registerProviderDefinition({
+      id: "beta",
+      name: "Beta",
+      packageName: "beta-pkg",
+    });
 
     const defaults = getGlobalDefaults();
     expect(defaults.registeredProviderIds).toEqual(["alpha", "beta"]);
@@ -285,7 +323,7 @@ describe("getGlobalDefaults", () => {
 
 // -- Dynamic provider package install via cache dir --
 
-describe("dynamic provider install (setProviderCacheDir)", () => {
+describe("dynamic provider install (setProviderInstallDirectory)", () => {
   const CACHE_DIR = join(
     "/tmp",
     `comma-provider-test-${process.pid}-${Date.now()}`,
@@ -340,11 +378,13 @@ describe("dynamic provider install (setProviderCacheDir)", () => {
       // ok
     }
     resetGlobalDefaults();
-    setProviderCacheDir(CACHE_DIR);
+    setProviderInstallDirectory(CACHE_DIR);
 
     expect(existsSync(join(CACHE_DIR, "node_modules"))).toBe(false);
 
-    registerProvider("openrouter", {
+    registerProviderDefinition({
+      id: "openrouter",
+      name: "OpenRouter",
       packageName: "@openrouter/ai-sdk-provider",
       factoryName: "createOpenRouter",
     });

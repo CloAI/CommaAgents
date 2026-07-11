@@ -1,9 +1,6 @@
 // Unregister-provider request handler.
 
-import {
-  unregisterProvider,
-  unregisterProviderDefinition,
-} from "@comma-agents/core";
+import { unregisterProviderDefinition } from "@comma-agents/core";
 
 import type { HandlerContext } from "../../dispatcher.types";
 import {
@@ -34,7 +31,6 @@ export function handleUnregisterProvider(
       return;
     }
 
-    unregisterProvider(providerId);
     unregisterProviderDefinition(providerId);
 
     const updated = registry.filter((id) => id !== providerId);

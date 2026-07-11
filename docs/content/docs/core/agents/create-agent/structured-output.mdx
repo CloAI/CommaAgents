@@ -1,0 +1,50 @@
+---
+title: Structured Output
+description: Constrain an agent's model response with a validation schema.
+---
+
+# Structured Output
+
+`outputSchema` constrains the model response to a known shape. Programmatic callers can use Zod; JSON and YAML agent definitions use JSON Schema.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+import { z } from "zod";
+
+const classifier = createAgent({
+  name: "classifier",
+  model: "openai/gpt-4o",
+  outputSchema: z.object({
+    category: z.enum(["bug", "feature", "question"]),
+    confidence: z.number().min(0).max(1),
+    rationale: z.string(),
+  }),
+});
+
+const result = await classifier.call("The save button does nothing.");
+console.log(result.text);
+```
+
+## Declarative schema
+
+Standalone agent and strategy files express the same constraint as JSON Schema.
+
+```yaml
+name: classifier
+model: openai/gpt-4o
+outputSchema:
+  type: object
+  properties:
+    category:
+      type: string
+      enum: [bug, feature, question]
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    rationale:
+      type: string
+  required: [category, confidence, rationale]
+```
+
+See [`loadAgent`](/docs/core/agents/load-agent) for complete standalone JSON and YAML definitions.

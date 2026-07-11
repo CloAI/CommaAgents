@@ -1,0 +1,58 @@
+---
+title: Skills
+description: Expose discovered skills to an agent through skill-aware tools and prompt metadata.
+---
+
+# Skills
+
+`skillRegistry` makes skills available to `list_skills` and `load_skill`. A directly created agent also needs the compact skills summary in its system prompt so the model knows what it can load.
+
+```ts
+import {
+  buildSkillsPromptHeader,
+  createAgent,
+  loadSkills,
+} from "@comma-agents/core";
+
+const { registry, warnings } = await loadSkills(process.cwd());
+const skillsPrompt = buildSkillsPromptHeader(registry);
+
+for (const warning of warnings) {
+  console.warn(`${warning.sourcePath}: ${warning.message}`);
+}
+
+const coder = createAgent(
+  {
+    name: "coder",
+    model: "openai/gpt-4o",
+    systemPrompt: [
+      "Implement changes using this repository's conventions.",
+      skillsPrompt,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+    tools: ["list_skills", "load_skill", "read_file", "edit_file"],
+  },
+  { skillRegistry: registry },
+);
+```
+
+Strategy loading supplies the registry and skills prompt automatically.
+
+## Skill tools
+
+Include both skill tools when the agent should discover skills and load their instructions on demand.
+
+```ts
+const agent = createAgent(
+  {
+    name: "skill-aware-agent",
+    model: "openai/gpt-4o",
+    tools: ["list_skills", "load_skill"],
+    systemPrompt: buildSkillsPromptHeader(registry),
+  },
+  { skillRegistry: registry },
+);
+```
+
+See [Skills](/docs/core/skills) for discovery roots, precedence, required strategy skills, and `SKILL.md` format.

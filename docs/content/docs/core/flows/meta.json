@@ -1,4 +1,12 @@
 {
   "title": "Flows",
-  "pages": ["built-in", "custom-flow", "flow-hooks", "load-flow"]
+  "pages": [
+    "built-in",
+    "custom-flow",
+    "build-flow-agent",
+    "define-flow-type",
+    "register-flow",
+    "flow-hooks",
+    "load-flow"
+  ]
 }

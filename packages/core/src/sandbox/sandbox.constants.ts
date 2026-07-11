@@ -1,8 +1,8 @@
-import type { SandboxConfig } from "./sandbox.types";
+import type { SandboxOptions } from "./sandbox.types";
 
 /**
  * Cwd-relative glob patterns that are always denied for read and write
- * unless the caller explicitly overrides `forbiddenGlobs` on `SandboxConfig`.
+ * unless the caller explicitly overrides `forbiddenGlobs` on `SandboxOptions`.
  *
  * Covers VCS metadata, dotenv files, common private keys/certs, and
  * package-manager auth files. Patterns are evaluated by Bun.Glob.
@@ -20,46 +20,31 @@ export const DEFAULT_FORBIDDEN_GLOBS: readonly string[] = [
 ] as const;
 
 /**
- * Permissive config — unjailed, absolute paths allowed, no forbidden globs,
+ * Permissive options — outside paths and absolute paths allowed, no forbidden globs,
  * all reads and writes allowed.
  *
- * Applied as fallback in `buildAgentToolSet` when no sandbox is configured.
+ * Applied as fallback in `buildAgentToolSet` when no sandbox is provided.
  */
-export const PERMISSIVE_SANDBOX_CONFIG: SandboxConfig = {
+export const PERMISSIVE_SANDBOX_OPTIONS: SandboxOptions = {
   cwd: process.cwd(),
-  jail: false,
-  allowAbsolutePaths: true,
+  outsideWorkspace: "allow",
+  absolutePaths: "allow",
   forbiddenGlobs: [],
   read: { default: "allow" },
   write: { default: "allow" },
 } as const;
 
 /**
- * Recommended default config — jailed to cwd, absolute paths rejected,
+ * Recommended default options — outside paths and absolute paths rejected,
  * default forbidden globs enforced, all operations allowed within the boundary.
  * `.comma/**` and `.` are explicitly allowlisted for reading so skills and
  * configuration are always accessible without triggering permission prompts.
  */
-export const DEFAULT_SANDBOX_CONFIG: SandboxConfig = {
+export const DEFAULT_SANDBOX_OPTIONS: SandboxOptions = {
   cwd: process.cwd(),
-  jail: true,
-  allowAbsolutePaths: false,
+  outsideWorkspace: "deny",
+  absolutePaths: "deny",
   forbiddenGlobs: DEFAULT_FORBIDDEN_GLOBS,
   read: { default: "allow", allow: [".", ".comma/**"] },
   write: { default: "allow" },
-} as const;
-
-/**
- * Daemon default config — jailed to cwd, absolute paths allowed (daemon
- * passes absolute paths), in-cwd paths auto-allowed, anything outside
- * cwd triggers "ask" via the permission bridge. `.comma/**` and `.`
- * are explicitly allowlisted for reading so skills and configuration are
- * always accessible without prompting.
- */
-export const DEFAULT_DAEMON_SANDBOX_CONFIG: Omit<SandboxConfig, "cwd"> = {
-  jail: true,
-  allowAbsolutePaths: true,
-  forbiddenGlobs: DEFAULT_FORBIDDEN_GLOBS,
-  read: { default: "ask", allow: ["**", ".", ".comma/**"] },
-  write: { default: "ask", allow: ["**"] },
 } as const;

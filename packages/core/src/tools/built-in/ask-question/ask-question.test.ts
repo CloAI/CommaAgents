@@ -4,34 +4,16 @@ import type { ToolContext } from "../../tool.types";
 import { createAskQuestionTool } from "./ask-question";
 
 function makeCtx(overrides?: {
-  onQuestion?: (request: {
+  requestQuestion?: (request: {
     agentName: string;
     toolName: string;
     question: string;
   }) => Promise<string>;
   agentName?: string;
 }): ToolContext {
-  const mockGuard: any = {
-    toolName: "ask_question",
-    cwd: "",
-    askQuestion: overrides?.onQuestion
-      ? async (question: string, ctx: any) => {
-          return overrides.onQuestion!({
-            agentName: ctx.agentName,
-            toolName: ctx.toolName,
-            question,
-          });
-        }
-      : undefined,
-  };
-
   return makeToolContext({
     agentName: overrides?.agentName ?? "test-agent",
-    sandbox: {
-      cwd: "",
-      guards: new Map(),
-      guardFor: () => mockGuard,
-    },
+    requestQuestion: overrides?.requestQuestion,
   });
 }
 
@@ -45,10 +27,10 @@ describe("createAskQuestionTool", () => {
   it("successfully asks a question and receives user response", async () => {
     const tool = createAskQuestionTool();
     const ctx = makeCtx({
-      onQuestion: async (req) => {
-        expect(req.agentName).toBe("test-agent");
-        expect(req.toolName).toBe("ask_question");
-        expect(req.question).toBe("How are you?");
+      requestQuestion: async (request) => {
+        expect(request.agentName).toBe("test-agent");
+        expect(request.toolName).toBe("ask_question");
+        expect(request.question).toBe("How are you?");
         return "Fine";
       },
     });
@@ -59,14 +41,14 @@ describe("createAskQuestionTool", () => {
     expect(result.output).toContain('User response: "Fine"');
   });
 
-  it("returns an error if askQuestion callback is not available on guard", async () => {
+  it("returns an error if a question requester is not available", async () => {
     const tool = createAskQuestionTool();
-    const ctx = makeCtx(); // No onQuestion supplied
+    const ctx = makeCtx();
 
     const result = await tool.execute({ question: "How are you?" }, ctx);
     expect(result.ok).toBe(false);
     expect(result.error?.message).toContain(
-      "askQuestion callback is not available on guard",
+      "Question requester is not available",
     );
   });
 });

@@ -4,7 +4,7 @@ import type { DaemonConfig } from "./config.types";
 const LogLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 
 /**
- * Zod schema for the daemon config file.
+ * Validation schema for the daemon config file.
  * All fields are optional — missing fields use defaults.
  */
 export const DaemonConfigFileSchema = z
@@ -13,7 +13,6 @@ export const DaemonConfigFileSchema = z
     host: z.string().optional(),
     logLevel: LogLevelSchema.optional(),
     logFile: z.string().optional(),
-    providerCacheDir: z.string().optional(),
     pidFile: z.string().optional(),
     configFile: z.string().optional(),
     runsDir: z.string().optional(),
@@ -40,11 +39,6 @@ export const ENV_MAP: Array<{
   {
     env: "COMMA_DAEMON_LOG_FILE",
     key: "logFile",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_PROVIDER_CACHE_DIR",
-    key: "providerCacheDir",
     parse: (rawValue) => rawValue,
   },
   {

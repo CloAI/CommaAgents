@@ -53,7 +53,7 @@ await tool.move_file({
 |---|---|
 | `not_found` | The source path does not exist, or the destination's parent directory is missing. |
 | `already_exists` | The destination already exists as a file and `overwrite: true` was not passed. |
-| `outside_workspace` | Either path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `outside_workspace` | Either path escapes the sandbox or absolute paths are disabled. |
 | `permission_denied` | Either path is write-blocked by `forbiddenGlobs` or sandbox policy. |
 | `command_failed` | The destination is a directory, or `fromPath` and `toPath` are equal. |
 

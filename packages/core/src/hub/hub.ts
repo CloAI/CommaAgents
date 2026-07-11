@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { resolveDataDir } from "../data-directory";
+import { resolveApplicationDataDirectory } from "../data-directory";
 import {
   DEFAULT_HUB_REPOSITORY,
   HUB_INSTALLED_STATE_FILENAME,
@@ -25,7 +25,7 @@ import { createHubRegistryClient } from "./registry-client";
 export function createHubManager(
   options: CreateHubManagerOptions = {},
 ): HubManager {
-  const dataDirectory = options.dataDir ?? resolveDataDir();
+  const dataDirectory = options.dataDir ?? resolveApplicationDataDirectory();
   const repository = options.repository ?? DEFAULT_HUB_REPOSITORY;
   const registryClient = createHubRegistryClient({
     repository,

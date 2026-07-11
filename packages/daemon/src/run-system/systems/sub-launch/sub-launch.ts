@@ -1,14 +1,10 @@
 import type {
   AgentCallResult,
   AgentStreamEvent,
-  GuardCallbacks,
   LaunchStrategyHandle,
   LaunchStrategyRequest,
-  PermissionRequest,
-  SandboxConfig,
 } from "@comma-agents/core";
 import {
-  inSandbox,
   isUserAgentDef,
   loadProject,
   loadStrategyFromString,
@@ -41,14 +37,15 @@ export function createSubLaunchSystem(
           `Launching sub-strategy from ${strategyPath} with input length ${input?.length ?? 0}`,
         );
 
-        const permissionRequester = systemData.get("permissionRequester");
         const questionRequester = systemData.get("questionRequester");
         const inputCollector = systemData.get("inputCollector");
         const skillRegistry = systemData.get("skillRegistry");
+        const sandbox = systemData.get("sandbox");
+        const nestedLaunchStrategy = systemData.get("launchStrategy");
 
-        if (!permissionRequester || !questionRequester || !inputCollector) {
+        if (!questionRequester || !inputCollector || !sandbox) {
           throw new Error(
-            "SubLaunchSystem requires input, permission, and question systems to run first",
+            "SubLaunchSystem requires input, question, and sandbox systems to run first",
           );
         }
 
@@ -90,36 +87,13 @@ export function createSubLaunchSystem(
             inputCollector: wrappedCollector,
             modelOverride,
             skillRegistry,
+            sandbox,
+            questionRequester,
+            launchStrategy: nestedLaunchStrategy,
             runId: `${run.id}:${crypto.randomUUID()}`,
             ...(mcpRuntime ? { mcpToolsByAgent: mcpRuntime.toolsByAgent } : {}),
           },
         );
-
-        const sandboxConfig: Partial<SandboxConfig> = {
-          cwd: run.cwd,
-          jail: false,
-          allowAbsolutePaths: true,
-          read: { default: "ask", allow: ["**"], deny: [] },
-          write: { default: "ask", allow: ["**"], deny: [] },
-        };
-
-        const sandboxCallbacks: GuardCallbacks = {
-          // The guard dispatches the broader GuardPermissionRequest; the
-          // daemon's requester only models the fs operations it handles.
-          onAsk: (request) => permissionRequester(request as PermissionRequest),
-          onQuestion: questionRequester,
-          onPolicyChange: (snapshot): void => {
-            sink.broadcast(run.id, {
-              type: "policy_updated",
-              runId: run.id,
-              tool: snapshot.toolName,
-              policies: [...snapshot.policies],
-              ts: new Date().toISOString(),
-            });
-          },
-        };
-
-        inSandbox(subStrategy, sandboxConfig, sandboxCallbacks);
 
         for (const [agentName, agent] of Object.entries(subStrategy.agents)) {
           if (!agent.appendHook) continue;

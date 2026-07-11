@@ -9,7 +9,7 @@
 // 5. Returns a LoadedStrategy with the entry flow as a runnable Agent.
 //
 // Model and tool resolution happen internally via global registries
-// (registerModel / registerProvider / registerTool). Callers must
+// (registerModel / registerProviderDefinition / registerTool). Callers must
 // configure those registries before loading a strategy.
 
 import { dirname } from "node:path";
@@ -33,8 +33,8 @@ import { buildAgentRegistry } from "./loader.utils";
  * a runnable `LoadedStrategy`.
  *
  * Model and tool resolution happen via global registries. Call
- * `registerModel()` / `registerProvider()` / `registerTool()` before
- * loading a strategy.
+ * `registerModel()` / `registerProviderDefinition()` / `registerTool()`
+ * before loading a strategy.
  *
  * @param filePath - Absolute or relative path to the strategy file.
  * @param options  - Input collector, flow hooks, model override.
@@ -43,9 +43,13 @@ import { buildAgentRegistry } from "./loader.utils";
  *
  * @example
  * ```ts
- * import { loadStrategy, registerProvider } from "@comma-agents/core";
+ * import { loadStrategy, registerProviderDefinition } from "@comma-agents/core";
  *
- * registerProvider("openai", (modelId) => openai(modelId));
+ * registerProviderDefinition({
+ *   id: "openai",
+ *   name: "OpenAI",
+ *   factory: () => (modelId) => openai(modelId),
+ * });
  * const strategy = await loadStrategy("./strategy.json");
  * ```
  */

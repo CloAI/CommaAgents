@@ -3,16 +3,16 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveDataDir } from "@comma-agents/core";
+import { resolveApplicationDataDirectory } from "@comma-agents/core";
 
 const PROVIDER_REGISTRY_FILENAME = "provider-registry.json";
 
 function resolveProviderRegistryPath(): string {
-  return join(resolveDataDir(), PROVIDER_REGISTRY_FILENAME);
+  return join(resolveApplicationDataDirectory(), PROVIDER_REGISTRY_FILENAME);
 }
 
 function ensureDataDir(): void {
-  mkdirSync(resolveDataDir(), { recursive: true });
+  mkdirSync(resolveApplicationDataDirectory(), { recursive: true });
 }
 
 export function loadRegisteredProviders(): string[] {

@@ -26,7 +26,7 @@ const moveFileParams = z.object({
     .min(1)
     .describe(
       "Workspace-relative path of the existing file to move. Absolute paths are rejected " +
-        "unless the sandbox is configured with `allowAbsolutePaths: true`.",
+        "unless the sandbox is configured with `absolutePaths: 'allow'`.",
     ),
   toPath: z
     .string()

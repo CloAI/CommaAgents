@@ -24,7 +24,7 @@ import { existsSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import stripJsonComments from "strip-json-comments";
 
-import { resolveDataDir } from "../../data-directory";
+import { resolveApplicationDataDirectory } from "../../data-directory";
 import { CommaProjectManifestSchema } from "../../hub";
 import type {
   DiscoveredStrategy,
@@ -208,7 +208,7 @@ export async function resolveInstalledStrategyReference(
  */
 function safeResolveDataDir(): string | undefined {
   try {
-    return resolveDataDir();
+    return resolveApplicationDataDirectory();
   } catch {
     return undefined;
   }

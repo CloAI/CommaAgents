@@ -19,6 +19,7 @@ import type {
   Agent,
   AgentCallResult,
   AgentConfig,
+  AgentRuntime,
   AgentStreamEvent,
 } from "./agent.types";
 import {
@@ -53,8 +54,14 @@ import {
  * const result = await agent.call("Write a hello world in TypeScript");
  * console.log(result.text);
  * ```
+ *
+ * @param config - Authored model, prompt, tool, and conversation behavior.
+ * @param runtime - Optional services supplied by the current execution environment.
  */
-export function createAgent(config: AgentConfig): Agent {
+export function createAgent(
+  config: AgentConfig,
+  runtime: AgentRuntime = {},
+): Agent {
   const context = createConversationContext(resolveContextOptions(config));
   let firstCall = true;
 
@@ -145,6 +152,7 @@ export function createAgent(config: AgentConfig): Agent {
             // LLM path: stream via streamText, yield events as they arrive.
             const { callOptions, retentionEvents } = await buildCallOptions(
               config,
+              runtime,
               alteredMessage,
               context,
               getToolHooks(hooks),

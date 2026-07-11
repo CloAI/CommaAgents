@@ -1,0 +1,167 @@
+---
+title: createAgent
+description: Create model-backed or custom executable agents with tools, skills, MCP, and conversation state.
+---
+
+# createAgent
+
+`createAgent` creates a stateful agent that you can call or stream. Use it for model-backed agents, or provide `execute` when the agent should run application code instead of a model.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "assistant",
+  model: "openai/gpt-4o",
+  systemPrompt: "You are a concise coding assistant.",
+  tools: ["read_file", "search_files", "edit_file"],
+});
+
+const result = await agent.call("Find and fix the failing parser test.");
+console.log(result.text);
+```
+
+## AgentConfig
+
+The configuration passed to `createAgent`.
+
+<AutoTypeTable path="../packages/core/src/agents/agent/agent.types.ts" name="AgentConfig" />
+
+## Identity and model
+
+Every agent has a stable `name`. Model-backed agents also specify the model used for each call.
+
+```ts
+const reviewer = createAgent({
+  name: "pull-request-reviewer",
+  model: "anthropic/claude-sonnet-4-5",
+});
+```
+
+The name identifies the agent in flows, tool calls, logs, and conversation records. Give every agent in a workflow a unique, stable name.
+
+`model` accepts an explicit `"providerID/modelID"` value or a bare model ID that the catalog can resolve. Explicit provider IDs make model selection deterministic when several providers expose the same model name.
+
+```ts
+const explicit = createAgent({
+  name: "explicit-model",
+  model: "openai/gpt-4o",
+});
+
+const catalogResolved = createAgent({
+  name: "catalog-model",
+  model: "gpt-4o",
+});
+```
+
+Omit `model` only when using [custom execution](/docs/core/agents/create-agent/custom-execution). See [Model Resolution](/docs/core/model) for provider registration, credentials, and catalog lookup.
+
+## System prompt
+
+`systemPrompt` defines the instructions applied to each model call. Use a string for fixed instructions or a prompt template when values change while the agent remains the same.
+
+```ts
+const reviewer = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  systemPrompt: "Review TypeScript for correctness and maintainability.",
+});
+```
+
+Templates provide default variables that can be updated before later calls.
+
+```ts
+import { createAgent, createPromptTemplate } from "@comma-agents/core";
+
+const templatedReviewer = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  systemPrompt: createPromptTemplate({
+    template: "Review {{ language }} as a {{ role }}.",
+    variables: {
+      language: "TypeScript",
+      role: "maintainer",
+    },
+  }),
+});
+
+templatedReviewer.updatePromptVariables?.({ role: "security reviewer" });
+await templatedReviewer.call("Review src/auth.ts.");
+```
+
+`updatePromptVariables()` merges new values into the template defaults. It has no effect when the agent uses a static string prompt. See [Prompts & Templates](/docs/core/prompts) for filters, variable sources, and reusable templates.
+
+## Tools and maximum steps
+
+`tools` lists the built-in or registered tool names available to an agent. Names are resolved when the agent runs, so custom tools must be registered before the first call.
+
+```ts
+import {
+  createAgent,
+  defineTool,
+  okResult,
+  registerTool,
+} from "@comma-agents/core";
+import { z } from "zod";
+
+registerTool(
+  "lookup_issue",
+  defineTool({
+    description: "Look up an issue by number.",
+    parameters: z.object({ number: z.number().int().positive() }),
+    execute: async ({ number }) =>
+      okResult(`Issue #${number} is open.`, {
+        data: { number, status: "open" },
+      }),
+  }),
+);
+
+const triage = createAgent({
+  name: "triage",
+  model: "openai/gpt-4o",
+  tools: ["lookup_issue", "read_file", "search_files"],
+});
+```
+
+See [Tools](/docs/core/tools) for built-in tools and [registerTool](/docs/core/tools/tool-registry) for custom tools.
+
+`maxSteps` limits the number of model steps in one call. A step can produce a final answer or request tools and continue. The default is `10`.
+
+```ts
+const investigator = createAgent({
+  name: "investigator",
+  model: "openai/gpt-4o",
+  tools: ["search_files", "read_file", "run_command"],
+  maxSteps: 20,
+});
+```
+
+Lower the limit for tightly bounded work. Raise it only when the workflow legitimately needs more tool rounds.
+
+## Additional configuration guides
+
+Each configuration area has its own reference page:
+
+- [MCP tools](/docs/core/agents/create-agent/mcp) — connected MCP tool sets and origin metadata.
+- [Skills](/docs/core/agents/create-agent/skills) — skill discovery and skill-aware tools.
+- [Sandbox](/docs/core/agents/create-agent/sandbox) — file and command access policy.
+- [Generation options](/docs/core/agents/create-agent/generation-options) — provider and portable model settings.
+- [Structured output](/docs/core/agents/create-agent/structured-output) — schema-constrained responses.
+- [Conversation context](/docs/core/agents/create-agent/conversation-context) — history retention and compaction.
+- [Runtime services](/docs/core/agents/create-agent/runtime-services) — run IDs, input, child strategies, and language services.
+- [Custom execution](/docs/core/agents/create-agent/custom-execution) — agents that execute application code without a model.
+- [Calls and results](/docs/core/agents/create-agent/calls-and-results) — calling, streaming, cancellation, and result types.
+
+```ts
+const configuredAgent = createAgent({
+  name: "repository-agent",
+  model: "openai/gpt-4o",
+  systemPrompt: "Work only within the current repository.",
+  tools: ["read_file", "search_files", "edit_file", "run_command"],
+  modelOptions: { temperature: 0.2, maxOutputTokens: 4_096 },
+  maxSteps: 20,
+  context: { rollingWindow: 40 },
+});
+```
+
+Use [`registerAgent`](/docs/core/agents/register-agent) when JSON or YAML files need to select a reusable custom implementation by `type`.

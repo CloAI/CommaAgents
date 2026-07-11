@@ -4,8 +4,8 @@ import type {
   McpServerStatus,
   TimelineEvent,
 } from "@comma-agents/core";
+import type { RunState } from "../../../daemon-state";
 import type { Logger } from "../../../logger";
-import type { RunState } from "../../../state";
 import type { RunStore } from "../../run-store";
 import type {
   CompletionContext,

@@ -1,8 +1,6 @@
 import type { PathPolicy } from "../sandbox/sandbox.types";
 import type { AccessRequest, Policy, PolicyDecision } from "./guard.types";
 
-// ── Glob matching helpers ────────────────────────────────────────────────
-
 function matchesAny(
   absolutePath: string,
   patterns: readonly string[],
@@ -50,8 +48,6 @@ function decide(
   return "pass";
 }
 
-// ── Domain helpers ────────────────────────────────────────────────────────
-
 function isReadAccess(type: string): boolean {
   return type === "fs.read";
 }
@@ -68,8 +64,6 @@ function isFsAccess(type: string): boolean {
   return isReadAccess(type) || isWriteAccess(type);
 }
 
-// ── Built-in policy factories ─────────────────────────────────────────────
-
 /**
  * Unconditionally deny paths matching secret/sensitive glob patterns.
  * Runs before read/write policies; cannot be overridden.
@@ -80,6 +74,7 @@ export function forbiddenGlobsPolicy(
 ): Policy {
   return {
     name: "forbidden-globs",
+    priority: "mandatory",
     evaluate: (req: AccessRequest): PolicyDecision => {
       if (!isFsAccess(req.type)) return "pass";
       return matchesAny(req.resource, globs, cwd) ? "deny" : "pass";
@@ -98,6 +93,7 @@ export function pathPolicy(
 ): Policy {
   return {
     name: `${mode}-path-policy`,
+    priority: "default",
     evaluate: (req: AccessRequest): PolicyDecision => {
       if (mode === "read" && !isReadAccess(req.type)) return "pass";
       if (mode === "write" && !isWriteAccess(req.type)) return "pass";
@@ -115,6 +111,7 @@ export function denyCommandsPolicy(
 ): Policy {
   return {
     name: "deny-commands",
+    priority: "mandatory",
     evaluate: (req: AccessRequest): PolicyDecision => {
       if (!isCommandAccess(req.type)) return "pass";
       for (const pattern of patterns) {
@@ -138,6 +135,7 @@ export function approveCommandsPolicy(
 ): Policy {
   return {
     name: "approve-commands",
+    priority: "tool",
     evaluate: (req: AccessRequest): PolicyDecision => {
       if (!isCommandAccess(req.type)) return "pass";
       for (const pattern of patterns) {

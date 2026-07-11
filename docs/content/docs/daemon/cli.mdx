@@ -5,18 +5,19 @@ description: Command-line interface for managing the daemon process.
 
 # CLI
 
-The primary daemon management interface is `comma daemon`. The legacy `comma-agents-daemon` binary remains available for direct daemon process control.
+The primary daemon management interface is `comma daemon`. The package also provides the standalone `comma-agents-daemon` binary for direct process control.
 
 ```bash
 comma daemon start
 comma daemon status
 comma daemon stop
 comma daemon restart
+comma daemon logs
 ```
 
 Use `comma daemon enable` or `comma daemon disable` to manage user-level daemon autostart.
 
-The compatibility binary supports `start`, `stop`, `restart`, and `status`.
+The standalone binary supports `start`, `stop`, `restart`, `status`, and `logs`. Autostart commands are only available through `comma daemon`.
 
 ## start
 
@@ -36,15 +37,14 @@ comma-agents-daemon start --foreground
 |---|---|---|---|---|
 | `--foreground` | `-f` | boolean | `false` | Run in the foreground (don't daemonize) |
 | `--port` | `-p` | number | from config | Override the listening port |
-| `--model-override` | | string | — | Override model for all agents (e.g. `github-copilot/gpt-4o`) |
 | `--verbose` | `-v` | boolean | `false` | Enable debug-level logging |
 
 ```bash
 # Start on a custom port
 comma-agents-daemon start --port 9090
 
-# Start in foreground with model override and verbose logging
-comma-agents-daemon start --foreground --model-override github-copilot/gpt-4o --verbose
+# Start in foreground with verbose logging
+comma-agents-daemon start --foreground --verbose
 ```
 
 If the daemon is already running, `start` exits with an error message and exit code 1.
@@ -104,3 +104,13 @@ Autostart is managed through `comma daemon enable` and `comma daemon disable`.
 | macOS | launchd user agent |
 | Linux | systemd user service |
 | Windows | user logon scheduled task |
+
+## logs
+
+Print the configured daemon log-file path:
+
+```bash
+comma daemon logs
+```
+
+When no file sink is configured, the command reports that no daemon log file is available. Foreground and service-manager logs may still be available through standard error or the platform service log.

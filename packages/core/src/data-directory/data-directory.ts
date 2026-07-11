@@ -6,11 +6,11 @@ import { join } from "node:path";
  *
  * @example
  * ```ts
- * const dataDirectory = resolveDataDir();
+ * const dataDirectory = resolveApplicationDataDirectory();
  * // Unix:   "/home/alice/.comma"
  * // Windows: "C:\\Users\\Alice\\.comma"
  * ```
  */
-export function resolveDataDir(): string {
+export function resolveApplicationDataDirectory(): string {
   return join(homedir(), ".comma");
 }

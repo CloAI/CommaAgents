@@ -22,7 +22,7 @@ export const readFileParams = z.object({
     .min(1)
     .describe(
       "Workspace-relative path to the file. Absolute paths are rejected unless the sandbox " +
-        "is configured with `allowAbsolutePaths: true`.",
+        "is configured with `absolutePaths: 'allow'`.",
     ),
   startLine: z
     .number()

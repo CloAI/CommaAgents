@@ -1,6 +1,6 @@
 // Tool registry — global mutable registry for custom tools and resolution.
 //
-// Mirrors the registerProvider() / unregisterProvider() pattern in defaults/.
+// Mirrors the registerProviderDefinition() / unregisterProviderDefinition() pattern in model/providers/.
 // Built-in tools are always available; custom tools registered here extend
 // the set of names that resolveTools() can resolve.
 

@@ -28,8 +28,8 @@ afterEach(async () => {
 });
 
 function makeCtx(overrides?: {
-  jail?: boolean;
-  allowAbsolutePaths?: boolean;
+  outsideWorkspace?: "allow" | "deny";
+  absolutePaths?: "allow" | "deny";
   forbiddenGlobs?: readonly string[];
   auditSink?: AuditSink;
   sessionId?: string;
@@ -39,8 +39,8 @@ function makeCtx(overrides?: {
     agentName: overrides?.agentName ?? "test-agent",
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: overrides?.jail ?? true,
-      allowAbsolutePaths: overrides?.allowAbsolutePaths ?? false,
+      outsideWorkspace: overrides?.outsideWorkspace ?? "deny",
+      absolutePaths: overrides?.absolutePaths ?? "deny",
       forbiddenGlobs: overrides?.forbiddenGlobs ?? [],
     }),
     ...(overrides?.auditSink !== undefined
@@ -397,7 +397,7 @@ describe("createEditFileTool", () => {
         expectedSha256: sha256OfBuffer(""),
         edits: [{ oldText: "x", newText: "y" }],
       },
-      makeCtx({ jail: true }),
+      makeCtx({ outsideWorkspace: "deny" }),
     );
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("outside_workspace");
@@ -494,7 +494,7 @@ describe("createEditFileTool", () => {
     const controller = new AbortController();
     controller.abort();
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspaceRoot, jail: true }),
+      sandbox: createSandbox({ cwd: workspaceRoot, outsideWorkspace: "deny" }),
       abort: controller.signal,
     });
     const tool = createEditFileTool();

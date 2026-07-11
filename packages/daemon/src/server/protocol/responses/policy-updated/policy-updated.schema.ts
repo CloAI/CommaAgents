@@ -7,6 +7,7 @@ import { DaemonBase } from "../../shared";
 
 const PolicyWire = z.object({
   name: z.string(),
+  priority: z.enum(["mandatory", "session", "tool", "default"]),
 });
 
 export const PolicyUpdatedMessage = DaemonBase.extend({

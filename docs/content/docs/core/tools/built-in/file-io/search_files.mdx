@@ -76,7 +76,7 @@ await tool.search_files({
 | Kind | When |
 |---|---|
 | `not_found` | `root` is missing or is not a directory. |
-| `outside_workspace` | `root` escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `outside_workspace` | `root` escapes the sandbox or absolute paths are disabled. |
 | `permission_denied` | `root` is read-blocked by the sandbox. |
 | `command_failed` | `query` is not a valid regex (regex mode only). |
 

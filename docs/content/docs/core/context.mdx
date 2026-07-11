@@ -62,6 +62,39 @@ restored.importJsonl(jsonl);
 console.log(restored.exportRecords());
 ```
 
+## Restore an agent's context
+
+An agent created with `createAgent` owns its conversation context. To restore previous history, load or create a context, then import its records into the agent's context before the next call.
+
+```ts
+import { readFile } from "node:fs/promises";
+import {
+  createAgent,
+  createConversationContext,
+} from "@comma-agents/core";
+
+const loadedContext = createConversationContext();
+loadedContext.importJsonl(
+  await readFile("./assistant-context.jsonl", "utf8"),
+);
+
+const assistant = createAgent({
+  name: "assistant",
+  model: "openai/gpt-4o",
+});
+
+const agentContext = assistant.getConversationContext?.();
+if (!agentContext) {
+  throw new Error("This agent does not expose conversation context.");
+}
+
+agentContext.importRecords(loadedContext.records(assistant.name));
+
+await assistant.call("Continue from our previous conversation.");
+```
+
+The same pattern works with a context already populated in memory: pass its records to `importRecords()`. Filtering with `records(assistant.name)` prevents records for other agents from entering this agent's history. Importing records or serialized data replaces the agent's current context, so restore it before making new calls.
+
 ## Types
 
 ### ConversationContext

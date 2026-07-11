@@ -1,0 +1,28 @@
+---
+title: Hub Packages
+description: List, install, update, and remove Hub packages through the daemon.
+---
+
+# Hub Packages
+
+Hub package requests let a client manage packages through the same daemon connection used for runs.
+
+| Request | Required fields | Result |
+|---|---|---|
+| `hub_list` | none | Available and installed packages |
+| `hub_install` | `name`; optional `allowCode` | Installed package metadata |
+| `hub_update` | `name`; optional `allowCode` | Updated package metadata |
+| `hub_remove` | `name` | Whether a package was removed |
+
+```json
+{
+  "type": "hub_install",
+  "name": "example-package",
+  "allowCode": false,
+  "requestId": "hub-1"
+}
+```
+
+Every successful operation returns `hub_packages`. Its `operation` field is `list`, `install`, `update`, or `remove`, and the corresponding result fields are populated. Failures return `error` with code `HUB_ERROR`.
+
+Packages that declare executable code require `allowCode: true` before installation or update can approve that capability.

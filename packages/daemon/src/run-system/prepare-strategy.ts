@@ -84,6 +84,8 @@ export async function prepareStrategy(
   const inputCollector = systemData.get("inputCollector");
   const launchStrategy = systemData.get("launchStrategy");
   const skillRegistry = systemData.get("skillRegistry");
+  const sandbox = systemData.get("sandbox");
+  const questionRequester = systemData.get("questionRequester");
   const mcpToolsByAgent = systemData.get("mcpToolsByAgent");
 
   const strategy = await loadStrategyFromString(
@@ -93,6 +95,8 @@ export async function prepareStrategy(
       inputCollector,
       launchStrategy,
       skillRegistry,
+      sandbox,
+      questionRequester,
       flowHooks,
       modelOverride,
       strategyDir: dirname(strategyPath),

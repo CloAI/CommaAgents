@@ -1,0 +1,41 @@
+---
+title: MCP Tools
+description: Provide connected MCP tools through agent runtime services.
+---
+
+# MCP Tools
+
+Provide tools from connected MCP servers through `AgentRuntime.mcpTools`. Strategy definitions normally select MCP servers declaratively; direct callers can connect and assign tools explicitly.
+
+```ts
+import {
+  createAgent,
+  createMcpConnectionManager,
+  discoverMcpConfig,
+} from "@comma-agents/core";
+
+const { servers } = discoverMcpConfig({ cwd: process.cwd() });
+const mcp = await createMcpConnectionManager({
+  servers,
+  enabledServerIds: ["github"],
+});
+const github = mcp.toolsFor(["github"]);
+
+try {
+  const researcher = createAgent(
+    {
+      name: "repository-researcher",
+      model: "openai/gpt-4o",
+    },
+    { mcpTools: github.tools },
+  );
+
+  await researcher.call("Summarize the open issues assigned to me.");
+} finally {
+  await mcp.close();
+}
+```
+
+This example expects a `github` server in the effective MCP configuration.
+
+See [Model Context Protocol](/docs/core/mcp) for configuration discovery, transports, secrets, and strategy assignment.

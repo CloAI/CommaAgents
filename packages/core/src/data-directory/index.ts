@@ -1,1 +1,1 @@
-export { resolveDataDir } from "./data-directory";
+export { resolveApplicationDataDirectory } from "./data-directory";

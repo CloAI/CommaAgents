@@ -1,7 +1,7 @@
 import type { HubManager } from "@comma-agents/core/hub";
+import type { DaemonState } from "../../daemon-state/daemon-state.types";
 import type { Logger } from "../../logger/logger.types";
 import type { RunSystem } from "../../run-system";
-import type { DaemonState } from "../../state/state.types";
 import type { HandlerContext, MessageDispatcher } from "./dispatcher.types";
 import type { DaemonMessage } from "./messages";
 import { parseClientMessage } from "./messages";

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveDataDir } from "@comma-agents/core";
+import { resolveApplicationDataDirectory } from "@comma-agents/core";
 import { DaemonConfigFileSchema } from ".";
 import { loadDaemonConfig } from "./config";
 
@@ -30,16 +30,16 @@ function cleanEnv(): Record<string, string | undefined> {
   return {};
 }
 
-// resolveDataDir
+// resolveApplicationDataDirectory
 
-describe("resolveDataDir", () => {
+describe("resolveApplicationDataDirectory", () => {
   test("returns the shared .comma directory", () => {
-    const dir = resolveDataDir();
+    const dir = resolveApplicationDataDirectory();
     expect(dir).toBe(join(homedir(), ".comma"));
   });
 
   test("returns path under home directory", () => {
-    const dir = resolveDataDir();
+    const dir = resolveApplicationDataDirectory();
     const home = homedir();
     expect(dir.startsWith(home)).toBe(true);
   });
@@ -58,7 +58,6 @@ describe("DaemonConfigFileSchema", () => {
       host: "0.0.0.0",
       logLevel: "debug",
       logFile: "/var/log/daemon.log",
-      providerCacheDir: "/tmp/providers",
       pidFile: "/tmp/daemon.pid",
     } as const;
     expect(DaemonConfigFileSchema.parse(config)).toMatchObject(config);
@@ -112,23 +111,8 @@ describe("loadDaemonConfig defaults", () => {
       expect(config.host).toBe("127.0.0.1");
       expect(config.logLevel).toBe("info");
       expect(config.logFile).toContain("daemon.log");
-      expect(config.providerCacheDir).toContain("providers");
       expect(config.pidFile).toContain("daemon.pid");
       expect(config.configFile).toBe(configFile);
-    } finally {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
-  });
-
-  test("default providerCacheDir is under data dir", () => {
-    const tempDir = createTempDir();
-    try {
-      const config = loadDaemonConfig({
-        configFile: join(tempDir, "none.json"),
-        env: cleanEnv(),
-      });
-      expect(config.providerCacheDir).toContain(".comma");
-      expect(config.providerCacheDir.endsWith("providers")).toBe(true);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
@@ -186,14 +170,6 @@ describe("loadDaemonConfig JSON file overrides", () => {
     });
     const config = loadDaemonConfig({ configFile, env: cleanEnv() });
     expect(config.logFile).toBe("/var/log/comma.log");
-  });
-
-  test("overrides providerCacheDir from config file", () => {
-    const configFile = writeJsonConfig(tempDir, {
-      providerCacheDir: "/custom/providers",
-    });
-    const config = loadDaemonConfig({ configFile, env: cleanEnv() });
-    expect(config.providerCacheDir).toBe("/custom/providers");
   });
 
   test("overrides pidFile from config file", () => {
@@ -274,14 +250,6 @@ describe("loadDaemonConfig env var overrides", () => {
       env: { COMMA_DAEMON_LOG_FILE: "/tmp/daemon.log" },
     });
     expect(config.logFile).toBe("/tmp/daemon.log");
-  });
-
-  test("COMMA_DAEMON_PROVIDER_CACHE_DIR overrides default", () => {
-    const config = loadDaemonConfig({
-      configFile: join(tempDir, "none.json"),
-      env: { COMMA_DAEMON_PROVIDER_CACHE_DIR: "/custom/cache" },
-    });
-    expect(config.providerCacheDir).toBe("/custom/cache");
   });
 
   test("COMMA_DAEMON_PID_FILE overrides default", () => {

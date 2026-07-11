@@ -1,0 +1,56 @@
+---
+title: Daemon Module
+description: Process, runtime, and command APIs for managing the daemon.
+---
+
+# Daemon Module
+
+The daemon module groups process lifecycle APIs, foreground runtime helpers, and shared command handlers.
+
+```ts
+import {
+  getDaemonProcessStatus,
+  startDaemonProcess,
+  stopDaemonProcess,
+} from "@comma-agents/daemon";
+
+const started = await startDaemonProcess({ allowExisting: true });
+console.log(started.message);
+
+const status = getDaemonProcessStatus();
+console.log(status.state, status.pid);
+
+await stopDaemonProcess();
+```
+
+Use the process APIs when an application needs to start, stop, restart, or inspect the managed daemon. Use `createDaemon` directly when another host owns the server lifecycle.
+
+## DaemonProcessStartOptions
+
+Options shared by process start and restart operations.
+
+<AutoTypeTable path="../packages/daemon/src/daemon/process/process.types.ts" name="DaemonProcessStartOptions" />
+
+## DaemonProcessStatus
+
+The current process and configuration status.
+
+<AutoTypeTable path="../packages/daemon/src/daemon/process/process.types.ts" name="DaemonProcessStatus" />
+
+## DaemonProcessStartResult
+
+The result of starting or restarting the daemon process.
+
+<AutoTypeTable path="../packages/daemon/src/daemon/process/process.types.ts" name="DaemonProcessStartResult" />
+
+## DaemonProcessStopResult
+
+The result of a stop request.
+
+<AutoTypeTable path="../packages/daemon/src/daemon/process/process.types.ts" name="DaemonProcessStopResult" />
+
+## DaemonProcessWaitOptions
+
+Options for polling daemon readiness.
+
+<AutoTypeTable path="../packages/daemon/src/daemon/process/process.types.ts" name="DaemonProcessWaitOptions" />

@@ -1,10 +1,9 @@
 import { loadCatalog } from "@comma-agents/core";
 import { createHubManager } from "@comma-agents/core/hub";
 import type { Server, ServerWebSocket } from "bun";
-
+import { createDaemonState } from "../daemon-state/daemon-state";
 import type { EventSink } from "../run-system/event-sink";
 import { createRunSystem } from "../run-system/run-system";
-import { createDaemonState } from "../state/state";
 import { createDispatcher } from "./protocol/dispatcher";
 import type { DaemonMessage } from "./protocol/messages";
 import type { CreateDaemonOptions, Daemon, WsData } from "./server.types";
@@ -26,12 +25,8 @@ import type { CreateDaemonOptions, Daemon, WsData } from "./server.types";
  * await daemon.start();
  * ```
  */
-export function createDaemon({
-  config,
-  logger,
-  modelOverride,
-}: CreateDaemonOptions): Daemon {
-  const state = createDaemonState();
+export function createDaemon({ config, logger }: CreateDaemonOptions): Daemon {
+  const daemonState = createDaemonState();
   const wsMap = new Map<string, ServerWebSocket<WsData>>();
   const startTime = Date.now();
   let server: Server<WsData> | null = null;
@@ -39,7 +34,7 @@ export function createDaemon({
 
   const sink: EventSink = {
     broadcast(runId: string, message: DaemonMessage): void {
-      const subscribers = state.getSubscribers(runId);
+      const subscribers = daemonState.getSubscribers(runId);
       const json = JSON.stringify(message);
       for (const clientId of subscribers) {
         const websocket = wsMap.get(clientId);
@@ -73,17 +68,16 @@ export function createDaemon({
 
   const hubManager = createHubManager();
   const runSystem = createRunSystem({
-    state,
+    daemonState,
     sink,
     logger: logger.child("run-system"),
     runsDir: config.runsDir,
-    modelOverride,
     hubManager,
   });
 
   const dispatch = createDispatcher({
     runSystem,
-    state,
+    state: daemonState,
     logger: logger.child("dispatcher"),
     hubManager,
   });
@@ -107,7 +101,7 @@ export function createDaemon({
 
     // Health check at /health
     if (url.pathname === "/health" && request.method === "GET") {
-      const runs = state.listRuns();
+      const runs = daemonState.listRuns();
       const activeRuns = runs.filter(
         (run) => run.status === "pending" || run.status === "running",
       ).length;
@@ -115,7 +109,7 @@ export function createDaemon({
         status: "ok",
         uptime: Date.now() - startTime,
         activeRuns,
-        connectedClients: state.getClients().length,
+        connectedClients: daemonState.getClients().length,
       };
       return new Response(JSON.stringify(body), {
         status: 200,
@@ -144,7 +138,7 @@ export function createDaemon({
         websocket: {
           open(websocket) {
             const { clientId } = websocket.data;
-            state.addClient(clientId);
+            daemonState.addClient(clientId);
             wsMap.set(clientId, websocket);
             logger.info(`Client connected: ${clientId}`);
           },
@@ -174,7 +168,7 @@ export function createDaemon({
 
           close(websocket) {
             const { clientId } = websocket.data;
-            state.removeClient(clientId);
+            daemonState.removeClient(clientId);
             wsMap.delete(clientId);
             logger.info(`Client disconnected: ${clientId}`);
           },
@@ -212,7 +206,7 @@ export function createDaemon({
         } catch {
           // Already closed
         }
-        state.removeClient(clientId);
+        daemonState.removeClient(clientId);
       }
       wsMap.clear();
 

@@ -1,0 +1,61 @@
+---
+title: Generation Options
+description: Configure provider-specific capabilities and portable model generation settings.
+---
+
+# Generation Options
+
+`providerOptions` enables provider-specific features. `modelOptions` controls portable settings such as temperature, token limits, sampling, retry count, and seed. Both apply to every model call made by the agent.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const planner = createAgent({
+  name: "planner",
+  model: "anthropic/claude-sonnet-4-5",
+  providerOptions: {
+    anthropic: {
+      thinking: { type: "enabled", budgetTokens: 8_000 },
+    },
+  },
+  modelOptions: {
+    temperature: 0.2,
+    maxOutputTokens: 4_096,
+    maxRetries: 2,
+  },
+});
+```
+
+## Provider options
+
+Use `providerOptions` only for settings defined by the selected provider. Keys are provider IDs, and each value contains that provider's settings.
+
+```ts
+const reasoningAgent = createAgent({
+  name: "reasoning-agent",
+  model: "openai/gpt-4o",
+  providerOptions: {
+    openai: { reasoningEffort: "high" },
+  },
+});
+```
+
+## ModelOptions
+
+The provider-independent settings accepted by `modelOptions`.
+
+<AutoTypeTable path="../packages/core/src/agents/agent/agent.types.ts" name="ModelOptions" />
+
+```ts
+const deterministic = createAgent({
+  name: "deterministic-writer",
+  model: "openai/gpt-4o",
+  modelOptions: {
+    temperature: 0,
+    seed: 42,
+    maxOutputTokens: 2_048,
+  },
+});
+```
+
+Use `modelOptions` when a generation control should survive a model or provider change.

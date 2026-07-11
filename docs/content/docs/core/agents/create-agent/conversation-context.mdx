@@ -1,0 +1,66 @@
+---
+title: Conversation Context
+description: Configure agent history retention, rolling windows, and compaction.
+---
+
+# Conversation Context
+
+Every created agent keeps its own conversation history. `context` controls how much active history is visible to the next model call without deleting the full retained record set.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const assistant = createAgent({
+  name: "long-running-assistant",
+  model: "openai/gpt-4o",
+  context: {
+    rollingWindow: { maxRecords: 40 },
+    compaction: {
+      keepRecent: 8,
+      threshold: 24,
+      thresholdRatio: 0.8,
+    },
+  },
+});
+
+await assistant.call("Remember that the release branch is release/next.");
+await assistant.call("Which branch should the next change target?");
+```
+
+## Rolling window
+
+`rollingWindow` keeps only the newest active records visible to the model. A number is shorthand for `{ maxRecords: number }`.
+
+```ts
+const recentContextAgent = createAgent({
+  name: "recent-context-agent",
+  model: "openai/gpt-4o",
+  context: { rollingWindow: 20 },
+});
+```
+
+## Compaction
+
+`compaction` replaces older active records with a summary when its record-count or context-usage threshold is reached. Superseded records remain available when exporting full history.
+
+```ts
+const compactingAgent = createAgent({
+  name: "compacting-agent",
+  model: "openai/gpt-4o",
+  context: {
+    compaction: {
+      keepRecent: 8,
+      threshold: 24,
+      thresholdRatio: 0.8,
+    },
+  },
+});
+```
+
+Call `reset()` to clear stored conversation and first-call state:
+
+```ts
+assistant.reset();
+```
+
+See [Conversation Context](/docs/core/context) for records, import/export, retention events, and custom transforms.

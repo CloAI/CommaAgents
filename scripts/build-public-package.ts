@@ -7,8 +7,15 @@ interface PublicPackageConfig {
 }
 
 const PACKAGE_CONFIGS: ReadonlyArray<PublicPackageConfig> = [
-  { directory: "core", entrypoints: ["src/index.ts", "src/hub/index.ts"] },
-  { directory: "daemon", entrypoints: ["src/index.ts", "src/cli.ts"] },
+  {
+    directory: "core",
+    entrypoints: [
+      "src/index.ts",
+      "src/hub/index.ts",
+      "src/sandbox/index.ts",
+    ],
+  },
+  { directory: "daemon", entrypoints: ["src/index.ts", "src/daemon-cli/daemon-cli.ts"] },
   { directory: "tui", entrypoints: ["src/index.ts", "src/main.tsx"] },
 ];
 

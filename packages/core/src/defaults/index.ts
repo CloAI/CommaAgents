@@ -2,12 +2,10 @@ export {
   getGlobalCredentialStore,
   getGlobalDefaults,
   getGlobalProviderResolver,
-  registerProvider,
   resetGlobalDefaults,
   setGlobalCredentialStore,
-  setProviderCacheDir,
-  unregisterProvider,
+  setProviderInstallDirectory,
 } from "./defaults";
 
 // Types
-export type { GlobalDefaults, ProviderRegistration } from "./defaults.types";
+export type { GlobalDefaults } from "./defaults.types";

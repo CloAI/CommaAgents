@@ -23,15 +23,15 @@ afterEach(async () => {
 });
 
 function makePrimaryContext(overrides?: {
-  jail?: boolean;
-  allowAbsolutePaths?: boolean;
+  outsideWorkspace?: "allow" | "deny";
+  absolutePaths?: "allow" | "deny";
   forbiddenGlobs?: readonly string[];
 }): ToolContext {
   return makeToolContext({
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: overrides?.jail ?? true,
-      allowAbsolutePaths: overrides?.allowAbsolutePaths ?? false,
+      outsideWorkspace: overrides?.outsideWorkspace ?? "deny",
+      absolutePaths: overrides?.absolutePaths ?? "deny",
       forbiddenGlobs: overrides?.forbiddenGlobs ?? [],
     }),
   });
@@ -148,7 +148,7 @@ describe("createGlobTool", () => {
     const tool = createGlobTool();
     const result = await tool.execute(
       { pattern: "*.ts", root: "../../etc" },
-      makePrimaryContext({ jail: true }),
+      makePrimaryContext({ outsideWorkspace: "deny" }),
     );
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("outside_workspace");

@@ -114,7 +114,7 @@ async function resolveExplicitModel(
       modelString,
       `No credential found for provider "${parsed.providerId}". ` +
         "Register the model directly with registerModel(), register a provider with " +
-        "registerProvider(), or configure credentials via the credential store.",
+        "registerProviderDefinition(), or configure credentials via the credential store.",
     );
   }
 

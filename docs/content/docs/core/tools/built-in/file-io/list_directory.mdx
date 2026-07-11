@@ -60,7 +60,7 @@ Entries blocked by `forbiddenGlobs` or by the sandbox read policy are filtered s
 | Kind | When |
 |---|---|
 | `not_found` | The path is missing or is a file, not a directory. The error suggests `read_file` for files. |
-| `outside_workspace` | The path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `outside_workspace` | The path escapes the sandbox or absolute paths are disabled. |
 | `permission_denied` | The directory itself cannot be read. Entries blocked by policy are filtered silently. |
 
 ## Related

@@ -1,11 +1,11 @@
 import type {
+  AccessOperation,
   PermissionDecision,
-  PermissionOperation,
 } from "../sandbox/sandbox.types";
 import type { SandboxTrashMetadata } from "../tools/io/trash";
 
 /** Closed set of access categories that a tool can request. */
-export type AccessType = "fs.read" | "fs.write" | "command.execute";
+export type AccessType = AccessOperation;
 
 /** Describes what a tool wants to do. Evaluated against the guard's policy chain. */
 export interface AccessRequest {
@@ -18,12 +18,17 @@ export interface AccessRequest {
 /** A policy's evaluation result. "pass" means "skip me, let the next policy decide." */
 export type PolicyDecision = "allow" | "deny" | "ask" | "pass";
 
+/** Stable policy layers evaluated from strongest to weakest. */
+export type PolicyPriority = "mandatory" | "session" | "tool" | "default";
+
 /**
  * Pure evaluation function — stateless, composable, testable.
  * Returns "pass" when the policy doesn't handle this request type.
  */
 export interface Policy {
   readonly name: string;
+  /** Evaluation layer for this policy. @default "tool" */
+  readonly priority?: PolicyPriority;
   evaluate(request: AccessRequest): PolicyDecision | Promise<PolicyDecision>;
 }
 
@@ -43,7 +48,7 @@ export interface AuthorizationContext {
 export interface GuardPermissionRequest {
   readonly agentName: string;
   readonly toolName: string;
-  readonly operation: PermissionOperation | AccessType;
+  readonly operation: AccessOperation;
   readonly resource: string;
   readonly reason: "policy-ask";
   readonly signal?: AbortSignal;
@@ -52,11 +57,12 @@ export interface GuardPermissionRequest {
 /** Snapshot of the guard's current policy chain. */
 export interface GuardPolicySnapshot {
   readonly toolName: string;
-  readonly policies: ReadonlyArray<{ readonly name: string }>;
+  readonly policies: ReadonlyArray<{
+    readonly name: string;
+    readonly priority: PolicyPriority;
+  }>;
 }
 
-/** Callbacks injected into every guard at creation time. */
-/** Callbacks injected into every guard at creation time. */
 /** Callbacks injected into every guard at creation time. */
 export interface GuardCallbacks {
   /**
@@ -73,22 +79,13 @@ export interface GuardCallbacks {
    * the ordered policy chain.
    */
   readonly onPolicyChange?: (snapshot: GuardPolicySnapshot) => void;
-
-  /**
-   * Called when a tool requests direct user input/feedback.
-   */
-  readonly onQuestion?: (request: {
-    readonly agentName: string;
-    readonly toolName: string;
-    readonly question: string;
-  }) => Promise<string>;
 }
 
 /**
  * Per-tool enforcement engine.
  *
  * Created lazily by the Sandbox for each tool. Handles path resolution,
- * jail enforcement, policy chain evaluation, "ask" dispatch, and
+ * workspace-boundary enforcement, policy chain evaluation, "ask" dispatch, and
  * self-updating session memory.
  */
 export interface Guard {
@@ -101,10 +98,10 @@ export interface Guard {
 
   /**
    * Full authorization through the policy chain.
-   * Resolves the path, checks jail, evaluates policies, dispatches "ask"
+   * Resolves the path, checks workspace boundaries, evaluates policies, dispatches "ask"
    * if needed. Returns the resolved absolute path on success.
    *
-   * @throws {SandboxViolationError} on deny, jail escape, or forbidden glob.
+   * @throws {SandboxViolationError} on deny, workspace escape, or forbidden glob.
    */
   authorize(request: AccessRequest, ctx: AuthorizationContext): Promise<string>;
 
@@ -114,8 +111,8 @@ export interface Guard {
    */
   canAccess(request: AccessRequest): boolean;
 
-  /** Insert a policy into the chain, optionally before a named policy. */
-  addPolicy(policy: Policy, before?: string): void;
+  /** Add or replace a policy by name. */
+  addPolicy(policy: Policy): void;
 
   /** Remove a policy by name. Returns true if it was found and removed. */
   removePolicy(name: string): boolean;
@@ -125,7 +122,4 @@ export interface Guard {
 
   /** Subscribe to policy chain changes. Returns an unsubscribe function. */
   onPolicyChange(listener: (snapshot: GuardPolicySnapshot) => void): () => void;
-
-  /** Ask the user a question / prompt for interactive feedback. */
-  askQuestion(question: string, ctx: AuthorizationContext): Promise<string>;
 }

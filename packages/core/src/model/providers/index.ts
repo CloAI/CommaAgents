@@ -22,9 +22,11 @@ export {
 export { listCopilotModels, listOllamaModels } from "./listers/index";
 export type { ProviderWithModels } from "./providers";
 export {
+  getCustomProviderIdsSync,
   getProviderDefinition,
   getProviderPackageNameSync,
   getRegisteredProviderIds,
+  getRegisteredProviderSync,
   isKnownProviderSync,
   listAllProviderModels,
   listProviderDefinitions,

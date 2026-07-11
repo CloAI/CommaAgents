@@ -1,0 +1,24 @@
+---
+title: Run State
+description: Lifecycle statuses shared by daemon runs and protocol summaries.
+---
+
+# Run State
+
+Every daemon run moves through a small shared status set. Clients receive these values in run-listing protocol responses, while embedded hosts can use the exported `RunStatus` type.
+
+## RunStatus
+
+The lifecycle status of a strategy run.
+
+<AutoTypeTable path="../packages/daemon/src/daemon-state/daemon-state.types.ts" name="RunStatus" />
+
+| Status | Meaning |
+|---|---|
+| `pending` | The run is prepared but has not started. |
+| `running` | The strategy is executing. |
+| `completed` | Execution finished successfully. |
+| `error` | Execution stopped because of an error. |
+| `cancelled` | A client or shutdown request stopped execution. |
+
+See [run execution](/docs/daemon/server/protocol/strategy-execution) for the messages that cause or report these transitions.

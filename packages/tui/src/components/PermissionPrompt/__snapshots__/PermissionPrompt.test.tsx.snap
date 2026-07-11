@@ -34,7 +34,7 @@ exports[`PermissionPrompt renders the fs.write operation clearly 1`] = `
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘"
 `;
 
-exports[`PermissionPrompt renders the fs.exec operation clearly 1`] = `
+exports[`PermissionPrompt renders the command.execute operation clearly 1`] = `
 "┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                                                                                  │
 │  ⚠ Permission request                                                                            │

@@ -10,7 +10,7 @@ import type { Strategy } from "../schema";
  * Options for loading a strategy.
  *
  * Model and tool resolution happen internally via global registries
- * (registerModel / registerProvider / registerTool). The loader does
+ * (registerModel / registerProviderDefinition / registerTool). The loader does
  * not accept provider factories or credential stores — callers must
  * configure those globally before loading a strategy.
  */

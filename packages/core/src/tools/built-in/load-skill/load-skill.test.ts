@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { createSandbox } from "../../../sandbox/sandbox";
-import { PERMISSIVE_SANDBOX_CONFIG } from "../../../sandbox/sandbox.constants";
+import { PERMISSIVE_SANDBOX_OPTIONS } from "../../../sandbox/sandbox.constants";
 import { createSkillRegistry } from "../../../skills/skills.registry";
 import type { ToolContext } from "../../tool.types";
 import { createLoadSkillTool } from "./index";
@@ -10,7 +10,7 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
     agentName: "test-agent",
     abort: new AbortController().signal,
-    guard: createSandbox(PERMISSIVE_SANDBOX_CONFIG).guardFor("test-tool"),
+    guard: createSandbox(PERMISSIVE_SANDBOX_OPTIONS).guardFor("test-tool"),
     ...overrides,
   };
 }

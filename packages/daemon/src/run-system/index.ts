@@ -8,23 +8,23 @@ export type {
   FlowHooks,
   LaunchStrategyHandle,
   LaunchStrategyResult,
-  PermissionDecision,
-  PolicyPatch,
   ProviderResolver,
-  Sandbox,
   UserModelMessage,
 } from "@comma-agents/core";
 export {
   extractProviderIds,
-  getSandbox,
   hookIntoAgent,
-  inSandbox,
   loadProject,
   loadSkills,
   loadStrategyFromString,
-  pathPolicy,
   readStrategyFile,
 } from "@comma-agents/core";
+export type {
+  PermissionDecision,
+  PolicyPatch,
+  Sandbox,
+} from "@comma-agents/core/sandbox";
+export { pathPolicy } from "@comma-agents/core/sandbox";
 export type { EventSink } from "./event-sink";
 export type { PrepareStrategyOptions } from "./prepare-strategy";
 export { prepareStrategy } from "./prepare-strategy";

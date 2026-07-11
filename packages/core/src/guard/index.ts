@@ -10,6 +10,7 @@ export type {
   GuardPolicySnapshot,
   Policy,
   PolicyDecision,
+  PolicyPriority,
 } from "./guard.types";
 
 export {

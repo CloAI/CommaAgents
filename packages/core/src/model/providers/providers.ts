@@ -7,13 +7,17 @@ import {
   getCatalogProviderSync,
   listCatalogProviders,
 } from "./catalog/index";
-import { listCopilotModels, listOllamaModels } from "./listers/index";
+import { BUILT_IN_OVERRIDES } from "./providers.constant";
 import type {
   ListModelsContext,
   ListModelsResult,
   ProviderDefinition,
 } from "./providers.types";
-import { mergeCatalogWithLive, sortModels } from "./providers.utils";
+import {
+  createDefaultProviderDefinition,
+  mergeCatalogWithLive,
+  sortModels,
+} from "./providers.utils";
 
 /** Per-lister timeout. Callers may override via the passed AbortSignal. */
 const LIVE_LIST_TIMEOUT_MS = 5_000;
@@ -25,7 +29,15 @@ async function ensureInitialized(): Promise<void> {
   if (initialized) return;
   initialized = true;
   await registerCatalogProviders();
-  attachBuiltInListers();
+  for (const override of BUILT_IN_OVERRIDES) {
+    const existing = providerRegistry.get(override.id);
+    // Override wins on packageName/listModels; catalog wins on display name when present.
+    providerRegistry.set(override.id, {
+      ...(existing ?? {}),
+      ...override,
+      name: existing?.name ?? override.name,
+    });
+  }
 }
 
 async function registerCatalogProviders(): Promise<void> {
@@ -38,72 +50,6 @@ async function registerCatalogProviders(): Promise<void> {
       packageName: catalogProvider.npm,
     });
   }
-}
-
-/**
- * Built-in provider definitions that are either missing from the catalog or
- * need to override catalog metadata (typically `packageName`).
- *
- * - `ollama` is absent from models.dev (local runtime); hardcode the npm package.
- * - `deepseek` exists in the catalog but is listed as `@ai-sdk/openai-compatible`;
- *   we prefer the dedicated `@ai-sdk/deepseek` package.
- */
-const BUILT_IN_OVERRIDES: readonly ProviderDefinition[] = [
-  {
-    id: "ollama",
-    name: "Ollama",
-    packageName: "ollama-ai-provider",
-    credentialType: "none",
-    listModels: listOllamaModels,
-  },
-  {
-    id: "deepseek",
-    name: "DeepSeek",
-    packageName: "@ai-sdk/deepseek",
-    credentialType: "api",
-  },
-  {
-    id: "github-copilot",
-    name: "GitHub Copilot",
-    credentialType: "oauth",
-    listModels: listCopilotModels,
-  },
-];
-
-function attachBuiltInListers(): void {
-  for (const override of BUILT_IN_OVERRIDES) {
-    const existing = providerRegistry.get(override.id);
-    // Override wins on packageName/listModels; catalog wins on display name when present.
-    providerRegistry.set(override.id, {
-      ...(existing ?? {}),
-      ...override,
-      name: existing?.name ?? override.name,
-    });
-  }
-}
-
-function createDefaultProviderDefinition(
-  providerId: string,
-): ProviderDefinition | undefined {
-  const catalogProvider = getCatalogProviderSync(providerId);
-  const override = BUILT_IN_OVERRIDES.find((entry) => entry.id === providerId);
-
-  if (catalogProvider === undefined && override === undefined) {
-    return undefined;
-  }
-
-  return {
-    ...(catalogProvider !== undefined
-      ? {
-          id: catalogProvider.id,
-          name: catalogProvider.name,
-          packageName: catalogProvider.npm,
-        }
-      : {}),
-    ...override,
-    id: catalogProvider?.id ?? override?.id ?? providerId,
-    name: catalogProvider?.name ?? override?.name ?? providerId,
-  };
 }
 
 /**
@@ -146,6 +92,7 @@ export function resetProviderRegistry(): void {
   initialized = false;
 }
 
+// TODO: Review this Initialized stuff
 /** Look up a single provider definition by id. */
 export async function getProviderDefinition(
   providerId: string,
@@ -268,6 +215,30 @@ export async function listAllProviderModels(
 /** Expose a snapshot of the current registry for inspection (test helper). */
 export function getRegisteredProviderIds(): readonly string[] {
   return [...providerRegistry.keys()].sort();
+}
+
+/**
+ * Synchronously look up a provider definition without triggering catalog
+ * initialization. Custom registrations (via `registerProviderDefinition()`)
+ * are written to the registry immediately, so this reliably finds them even
+ * before the async catalog has loaded. Catalog-derived entries are only
+ * found once initialization has completed elsewhere.
+ *
+ * Used by the provider resolver, which must never block model resolution
+ * on a network fetch to the models.dev catalog.
+ */
+export function getRegisteredProviderSync(
+  providerId: string,
+): ProviderDefinition | undefined {
+  return providerRegistry.get(providerId);
+}
+
+/** IDs of providers explicitly registered via `registerProviderDefinition()`, sorted. */
+export function getCustomProviderIdsSync(): readonly string[] {
+  return [...providerRegistry.entries()]
+    .filter(([, definition]) => definition.isCustom === true)
+    .map(([id]) => id)
+    .sort();
 }
 
 /**

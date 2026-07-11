@@ -13,6 +13,7 @@ export type {
   AgentCallResult,
   AgentConfig,
   AgentOutputSchema,
+  AgentRuntime,
   AgentStreamEvent,
   ModelOptions,
 } from "./agents/agent/agent.types";
@@ -109,21 +110,19 @@ export {
   CredentialSchema,
   CustomCredentialSchema,
   createCredentialStore,
-  createJsonFileBackend,
+  createJsonFileCredentialBackend,
   OAuthCredentialSchema,
   resolveCredentialsPath,
 } from "./credentials/index";
-export { resolveDataDir } from "./data-directory";
-export type { GlobalDefaults, ProviderRegistration } from "./defaults/index";
+export { resolveApplicationDataDirectory } from "./data-directory";
+export type { GlobalDefaults } from "./defaults/index";
 export {
   getGlobalCredentialStore,
   getGlobalDefaults,
   getGlobalProviderResolver,
-  registerProvider,
   resetGlobalDefaults,
   setGlobalCredentialStore,
-  setProviderCacheDir,
-  unregisterProvider,
+  setProviderInstallDirectory,
 } from "./defaults/index";
 export {
   AgentCallError,
@@ -176,6 +175,7 @@ export type {
   GuardPolicySnapshot,
   Policy,
   PolicyDecision,
+  PolicyPriority,
 } from "./guard/index";
 export {
   approveCommandsPolicy,
@@ -313,26 +313,6 @@ export {
   resolveSystemPrompt,
 } from "./prompts/index";
 export type {
-  AccessMode,
-  PathPolicy,
-  PermissionDecision,
-  PermissionOperation,
-  PermissionRequest,
-  PermissionRequester,
-  PolicyPatch,
-  Sandbox,
-  SandboxConfig,
-} from "./sandbox/index";
-export {
-  createSandbox,
-  DEFAULT_DAEMON_SANDBOX_CONFIG,
-  DEFAULT_FORBIDDEN_GLOBS,
-  DEFAULT_SANDBOX_CONFIG,
-  getSandbox,
-  inSandbox,
-  PERMISSIVE_SANDBOX_CONFIG,
-} from "./sandbox/index";
-export type {
   LoadSkillsOptions,
   Skill,
   SkillLoadResult,
@@ -455,6 +435,8 @@ export {
   unregisterTool,
 } from "./tools/tool.registry";
 export type {
+  QuestionRequest,
+  QuestionRequester,
   ToolContext,
   ToolDefinition as ToolDef,
   ToolError,

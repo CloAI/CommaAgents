@@ -1,0 +1,10 @@
+---
+title: Input System
+description: Collect human input for user agents running through the daemon.
+---
+
+# Input System
+
+The input system pauses a user agent, broadcasts `request_input` to run subscribers, and resumes the agent after a matching `user_input` request. Pending requests are scoped by run ID and agent name and are cancelled when the run ends.
+
+See [User input protocol](/docs/daemon/server/protocol/user-input) for message fields and error behavior.

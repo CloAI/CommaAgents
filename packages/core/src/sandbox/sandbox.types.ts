@@ -1,3 +1,6 @@
+import type { Guard, Policy } from "../guard/guard.types";
+import type { SandboxTrashMetadata } from "../tools/io/trash";
+
 /**
  * Decision mode for a path or operation.
  * - `"allow"` — permit immediately.
@@ -21,43 +24,36 @@ export interface PathPolicy {
   readonly deny?: readonly string[];
 }
 
-/**
- * Static configuration for a Sandbox instance.
- */
-export interface SandboxConfig {
-  /** Absolute path used as the root for relative-path resolution and jail boundary. */
+/** Options used to create a sandbox. */
+export interface SandboxOptions {
+  /** Absolute path used as the root for relative-path resolution. */
   readonly cwd: string;
   /**
-   * When `true`, any path that resolves outside `cwd` throws a
-   * SandboxViolationError with `reason: "jail"`.
+   * Decision applied when a resolved path is outside `cwd`.
+   * @default "deny"
    */
-  readonly jail: boolean;
+  readonly outsideWorkspace?: AccessMode;
   /**
-   * When `false`, tools that pass an absolute path receive a
-   * SandboxViolationError with `reason: "absolute-path"`.
+   * Whether tools may submit absolute paths.
+   * @default "deny"
    */
-  readonly allowAbsolutePaths: boolean;
+  readonly absolutePaths?: "allow" | "deny";
   /**
    * Cwd-relative glob patterns that are unconditionally denied for both
    * read and write operations. Evaluated before `read` / `write` policies;
    * cannot be overridden by `allow` patterns or session decisions.
    */
-  readonly forbiddenGlobs: readonly string[];
-  /** Read-access policy applied to every FS read operation. */
-  readonly read: PathPolicy;
-  /** Write-access policy applied to every FS write operation. */
-  readonly write: PathPolicy;
+  readonly forbiddenGlobs?: readonly string[];
+  /** Read-access policy applied to every FS read operation. @default { default: "allow" } */
+  readonly read?: PathPolicy;
+  /** Write-access policy applied to every FS write operation. @default { default: "allow" } */
+  readonly write?: PathPolicy;
   /** Metadata for trash archive identification (runId, sessionId). Injected by the daemon executor. */
   readonly trashMetadata?: SandboxTrashMetadata;
 }
 
-// Permission request / response types
-
-/**
- * File-system operation categories used in permission requests.
- * `"fs.exec"` is reserved for future bash sandboxing.
- */
-export type PermissionOperation = "fs.read" | "fs.write" | "fs.exec";
+/** Access operation evaluated by a tool guard. */
+export type AccessOperation = "fs.read" | "fs.write" | "command.execute";
 
 /**
  * The decision returned by a PermissionRequester.
@@ -77,9 +73,9 @@ export type PermissionDecision =
 export interface PermissionRequest {
   readonly agentName: string;
   readonly toolName?: string;
-  readonly operation: PermissionOperation;
+  readonly operation: AccessOperation;
   readonly resource: string;
-  readonly reason: "policy-ask" | "policy-deny-override";
+  readonly reason: "policy-ask";
   readonly details?: Readonly<Record<string, unknown>>;
   readonly signal?: AbortSignal;
 }
@@ -105,11 +101,6 @@ export interface PolicyPatch {
   readonly default?: AccessMode;
 }
 
-// Sandbox — thin wrapper
-
-import type { Guard, Policy } from "../guard/guard.types";
-import type { SandboxTrashMetadata } from "../tools/io/trash";
-
 /**
  * Thin guard registry. Creates per-tool Guard instances lazily.
  * Tools access their guard directly via `ToolContext.guard`.
@@ -117,8 +108,8 @@ import type { SandboxTrashMetadata } from "../tools/io/trash";
 export interface Sandbox {
   /** The resolved absolute working directory. */
   readonly cwd: string;
-  /** Map of tool name → Guard (lazily populated). */
-  readonly guards: ReadonlyMap<string, Guard>;
   /** Get or lazily create a guard for the given tool. Accepts optional tool-level policies. */
   guardFor(toolName: string, toolPolicies?: readonly Policy[]): Guard;
+  /** Apply a read or write policy update to one tool or every tool. */
+  updatePolicy(patch: PolicyPatch, toolName?: string): void;
 }

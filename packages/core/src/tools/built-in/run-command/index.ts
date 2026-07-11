@@ -3,5 +3,4 @@ export type {
   PlatformInfo,
   RunCommandData,
   RunCommandToolConfig,
-  RunCommandToolConfigWithRequester,
 } from "./run-command.types";

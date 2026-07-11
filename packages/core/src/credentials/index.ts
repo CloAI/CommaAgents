@@ -1,4 +1,4 @@
-export { createJsonFileBackend } from "./backends/json-file";
+export { createJsonFileCredentialBackend } from "./backends/json-file";
 export { createCredentialStore } from "./credentials";
 
 export type {

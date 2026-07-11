@@ -2,10 +2,9 @@
 
 import { createHubManager } from "@comma-agents/core/hub";
 import {
-  getDaemonStatus,
-  restartDaemon,
-  startDaemon,
-  stopDaemon,
+  type DaemonCommandArguments,
+  daemonStartOptions,
+  runDaemonCommand,
 } from "@comma-agents/daemon";
 import type { Argv } from "yargs";
 import yargs from "yargs";
@@ -23,28 +22,6 @@ interface TuiCommandArguments {
   readonly input?: string;
   readonly daemonUrl?: string;
   readonly dev?: boolean;
-}
-
-function printDaemonStatus(json: boolean): void {
-  const status = getDaemonStatus();
-  if (json) {
-    console.log(JSON.stringify(status, null, 2));
-    return;
-  }
-
-  if (!status.running) {
-    console.log("Daemon is not running");
-    return;
-  }
-
-  console.log(`Daemon is running (PID: ${status.pid})`);
-  console.log(`  Host: ${status.host}`);
-  console.log(`  Port: ${status.port}`);
-  console.log(`  Config: ${status.configFile}`);
-  console.log(`  PID file: ${status.pidFile}`);
-  if (status.logFile !== undefined) {
-    console.log(`  Log file: ${status.logFile}`);
-  }
 }
 
 function printDoctor(json: boolean): void {
@@ -72,6 +49,17 @@ function optionalNumber(value: unknown): number | undefined {
 
 function booleanValue(value: unknown): boolean {
   return value === true;
+}
+
+function daemonCommandArguments(
+  commandArguments: Record<string, unknown>,
+): DaemonCommandArguments {
+  return {
+    foreground: booleanValue(commandArguments.foreground),
+    port: optionalNumber(commandArguments.port),
+    verbose: booleanValue(commandArguments.verbose),
+    json: booleanValue(commandArguments.json),
+  };
 }
 
 async function runTuiCommand(
@@ -103,30 +91,6 @@ const tuiOptions = (commandArguments: Argv) =>
       type: "boolean",
       default: false,
       describe: "Enable TUI development mode",
-    });
-
-const daemonStartOptions = (commandArguments: Argv) =>
-  commandArguments
-    .option("foreground", {
-      alias: "f",
-      type: "boolean",
-      default: false,
-      describe: "Run in foreground",
-    })
-    .option("port", {
-      alias: "p",
-      type: "number",
-      describe: "Override the daemon port",
-    })
-    .option("model-override", {
-      type: "string",
-      describe: "Override model for all agents as provider/model",
-    })
-    .option("verbose", {
-      alias: "v",
-      type: "boolean",
-      default: false,
-      describe: "Enable debug logging",
     });
 
 yargs(hideBin(process.argv))
@@ -184,34 +148,37 @@ yargs(hideBin(process.argv))
     async (commandArguments) => {
       switch (commandArguments.action) {
         case "start": {
-          const result = await startDaemon({
-            foregroundCommand: resolveSelfDaemonCommand(),
-            foreground: booleanValue(commandArguments.foreground),
-            port: optionalNumber(commandArguments.port),
-            modelOverride: optionalString(commandArguments.modelOverride),
-            verbose: booleanValue(commandArguments.verbose),
-          });
-          console.log(result.message);
+          await runDaemonCommand(
+            "start",
+            daemonCommandArguments(commandArguments),
+            {
+              foregroundCommand: resolveSelfDaemonCommand(),
+            },
+          );
           return;
         }
         case "stop": {
-          const result = await stopDaemon();
-          console.log(result.message);
+          await runDaemonCommand(
+            "stop",
+            daemonCommandArguments(commandArguments),
+          );
           return;
         }
         case "restart": {
-          const result = await restartDaemon({
-            foregroundCommand: resolveSelfDaemonCommand(),
-            foreground: booleanValue(commandArguments.foreground),
-            port: optionalNumber(commandArguments.port),
-            modelOverride: optionalString(commandArguments.modelOverride),
-            verbose: booleanValue(commandArguments.verbose),
-          });
-          console.log(result.message);
+          await runDaemonCommand(
+            "restart",
+            daemonCommandArguments(commandArguments),
+            {
+              foregroundCommand: resolveSelfDaemonCommand(),
+            },
+          );
           return;
         }
         case "status":
-          printDaemonStatus(booleanValue(commandArguments.json));
+          await runDaemonCommand(
+            "status",
+            daemonCommandArguments(commandArguments),
+          );
           return;
         case "enable": {
           const plan = await enableAutostart();
@@ -224,8 +191,10 @@ yargs(hideBin(process.argv))
           return;
         }
         case "logs": {
-          const status = getDaemonStatus();
-          console.log(status.logFile ?? "Daemon log file is not configured");
+          await runDaemonCommand(
+            "logs",
+            daemonCommandArguments(commandArguments),
+          );
           return;
         }
         default:

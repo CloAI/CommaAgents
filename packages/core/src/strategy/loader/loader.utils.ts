@@ -109,9 +109,6 @@ function createMinimalGuard(cwd: string): Guard {
     authorize: async () => {
       throw new Error("Minimal guard - not for authorization");
     },
-    askQuestion: async () => {
-      throw new Error("Minimal guard - not for authorization");
-    },
     canAccess: () => false,
     addPolicy: () => {},
     removePolicy: () => false,
@@ -253,39 +250,35 @@ async function buildLLMAgent(
   }
 
   // Pass string model and tool names directly — createAgent resolves internally
-  return createAgent({
-    name,
-    model: effectiveModel,
-    systemPrompt,
-    tools: agentDefinition.tools,
-    ...(options.mcpToolsByAgent?.[name]
-      ? {
-          mcpTools: options.mcpToolsByAgent[name]!.tools,
-          mcpToolOrigins: options.mcpToolsByAgent[name]!.origins,
-        }
-      : {}),
-    ...(agentDefinition.providerOptions
-      ? { providerOptions: agentDefinition.providerOptions }
-      : {}),
-    ...(agentDefinition.modelOptions
-      ? { modelOptions: agentDefinition.modelOptions }
-      : {}),
-    ...(agentDefinition.outputSchema
-      ? { outputSchema: jsonSchema(agentDefinition.outputSchema) }
-      : {}),
-    ...(agentDefinition.context ? { context: agentDefinition.context } : {}),
-    ...(options.skillRegistry ? { skillRegistry: options.skillRegistry } : {}),
-    ...(options.inputCollector
-      ? { inputCollector: options.inputCollector }
-      : {}),
-    ...(options.launchStrategy
-      ? { launchStrategy: options.launchStrategy }
-      : {}),
-    ...(options.languageService
-      ? { languageService: options.languageService }
-      : {}),
-    ...(options.runId ? { runId: options.runId } : {}),
-  });
+  return createAgent(
+    {
+      name,
+      model: effectiveModel,
+      systemPrompt,
+      tools: agentDefinition.tools,
+      maxSteps: agentDefinition.maxSteps,
+      ...(agentDefinition.providerOptions
+        ? { providerOptions: agentDefinition.providerOptions }
+        : {}),
+      ...(agentDefinition.modelOptions
+        ? { modelOptions: agentDefinition.modelOptions }
+        : {}),
+      ...(agentDefinition.outputSchema
+        ? { outputSchema: jsonSchema(agentDefinition.outputSchema) }
+        : {}),
+      ...(agentDefinition.context ? { context: agentDefinition.context } : {}),
+    },
+    {
+      sandbox: options.sandbox,
+      skillRegistry: options.skillRegistry,
+      inputCollector: options.inputCollector,
+      launchStrategy: options.launchStrategy,
+      languageService: options.languageService,
+      questionRequester: options.questionRequester,
+      runId: options.runId,
+      mcpTools: options.mcpToolsByAgent?.[name]?.tools,
+    },
+  );
 }
 
 function buildAgentSkillsPrompt(

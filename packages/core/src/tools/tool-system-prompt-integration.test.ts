@@ -21,7 +21,6 @@ describe("Tool System Prompt Injection - Integration", () => {
       cwd: "/workspace",
       trashMetadata: undefined,
       authorize: async () => "/workspace/test",
-      askQuestion: async () => "test",
       canAccess: () => true,
       addPolicy: () => {},
       removePolicy: () => false,

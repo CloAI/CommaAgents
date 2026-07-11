@@ -1,7 +1,6 @@
-import type { GuardCallbacks } from "@comma-agents/core";
 import type { DaemonSystem } from "../systems.types";
 
-export type QuestionRequester = NonNullable<GuardCallbacks["onQuestion"]>;
+export type { QuestionRequester } from "@comma-agents/core";
 
 /**
  * System that manages question requests and client responses.

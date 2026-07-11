@@ -1,0 +1,41 @@
+---
+title: Server
+description: Daemon server creation and configuration.
+---
+
+# Server
+
+The daemon is a WebSocket server that hosts strategy runs and communicates with clients through the typed protocol. Use `createDaemon` when embedding the server, or the [CLI](/docs/daemon/cli) to run it as a managed process.
+
+```ts
+import {
+  createDaemon,
+  createLogger,
+  loadDaemonConfig,
+} from "@comma-agents/daemon";
+
+const config = loadDaemonConfig();
+const logger = createLogger({ level: config.logLevel });
+const daemon = createDaemon({ config, logger });
+
+await daemon.start();
+console.log(daemon.url);
+```
+
+## Daemon
+
+The daemon instance interface.
+
+<AutoTypeTable path="../packages/daemon/src/server/server.types.ts" name="Daemon" />
+
+## CreateDaemonOptions
+
+Options for `createDaemon`.
+
+<AutoTypeTable path="../packages/daemon/src/server/server.types.ts" name="CreateDaemonOptions" />
+
+Server creation accepts a fully resolved daemon configuration. See [Configuration](/docs/daemon/config) for file fields, environment variables, defaults, and resolution priority.
+
+## Connecting clients
+
+After `start()` resolves, use `daemon.url` as the WebSocket endpoint. The server also exposes `GET /health` on the same host and port. See the [protocol overview](/docs/daemon/server/protocol) for connection and message details.

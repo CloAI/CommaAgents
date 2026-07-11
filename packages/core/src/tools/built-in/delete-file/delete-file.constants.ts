@@ -6,7 +6,7 @@ export const deleteFileParams = z.object({
     .min(1)
     .describe(
       "Workspace-relative path of the file to delete. Absolute paths are rejected unless " +
-        "the sandbox is configured with `allowAbsolutePaths: true`.",
+        "the sandbox is configured with `absolutePaths: 'allow'`.",
     ),
   expectedSha256: z
     .string()

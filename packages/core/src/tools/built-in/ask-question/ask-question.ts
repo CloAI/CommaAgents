@@ -44,29 +44,28 @@ export function createAskQuestionTool(): ToolDefinition<
         {
           kind: "unknown",
           description:
-            "No onQuestion handler is configured or execution aborted.",
+            "No question requester is configured or execution aborted.",
         },
       ],
     }),
     parameters: askQuestionParams,
     async execute(validatedArguments, toolContext) {
       const { question } = validatedArguments;
-      const { guard, agentName, abort } = toolContext;
+      const { requestQuestion, agentName, abort } = toolContext;
 
       try {
-        if (!guard.askQuestion) {
+        if (!requestQuestion) {
           return errorResult(
-            toolError(
-              "unknown",
-              "askQuestion callback is not available on guard",
-              { recoverable: false },
-            ),
+            toolError("unknown", "Question requester is not available", {
+              recoverable: false,
+            }),
           );
         }
 
-        const response = await guard.askQuestion(question, {
+        const response = await requestQuestion({
           agentName,
           toolName: "ask_question",
+          question,
           signal: abort,
         });
 

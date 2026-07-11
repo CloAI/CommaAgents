@@ -31,7 +31,7 @@ function makeCtx(overrides?: {
 }): ToolContext {
   return makeToolContext({
     agentName: overrides?.agentName ?? "test-agent",
-    sandbox: createSandbox({ cwd: workspaceRoot, jail: true }),
+    sandbox: createSandbox({ cwd: workspaceRoot, outsideWorkspace: "deny" }),
     ...(overrides?.auditSink !== undefined
       ? { auditSink: overrides.auditSink }
       : {}),

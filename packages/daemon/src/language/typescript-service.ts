@@ -10,10 +10,26 @@ import type {
 } from "@comma-agents/core";
 import * as ts from "typescript";
 
+/** Selects the workspace handled by a TypeScript language service. */
 export interface TypeScriptLanguageServiceOptions {
+  /** Root directory containing the TypeScript or JavaScript project. */
   readonly workspaceRoot: string;
 }
 
+/**
+ * Create a language service for TypeScript and JavaScript workspace operations.
+ *
+ * @param options - Workspace selection for project discovery and file resolution.
+ * @example
+ * ```ts
+ * const service = createTypeScriptLanguageService({ workspaceRoot: process.cwd() });
+ * const result = await service.request({
+ *   method: "textDocument/diagnostic",
+ *   languageId: "typescript",
+ *   path: "src/index.ts",
+ * });
+ * ```
+ */
 export function createTypeScriptLanguageService(
   options: TypeScriptLanguageServiceOptions,
 ): LanguageService {

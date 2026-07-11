@@ -88,7 +88,7 @@ export class StrategyValidationError extends CommaAgentsError {
  *   These are always-deny patterns evaluated before the read/write policies and
  *   cannot be overridden by `allow` patterns or session decisions.
  * - `"absolute-path"` — the input was an absolute path while the sandbox has
- *   `allowAbsolutePaths: false` (the default). Tools must use relative paths.
+ *   `absolutePaths: "deny"` (the default). Tools must use relative paths.
  */
 export class SandboxViolationError extends CommaAgentsError {
   readonly path: string;

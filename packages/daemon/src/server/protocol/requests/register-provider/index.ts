@@ -2,7 +2,6 @@
 
 import {
   getProviderDefinition,
-  registerProvider,
   registerProviderDefinition,
 } from "@comma-agents/core";
 
@@ -50,9 +49,6 @@ export async function handleRegisterProvider(
     }
 
     registerProviderDefinition(definition);
-
-    const packageName = definition.packageName ?? `@ai-sdk/${providerId}`;
-    registerProvider(providerId, { packageName });
 
     registry.push(providerId);
     saveRegisteredProviders(registry);

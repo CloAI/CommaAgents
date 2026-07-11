@@ -1,0 +1,174 @@
+---
+title: Sandbox Permissions
+description: The request_permission / permission_decision message pair for interactive sandbox authorization.
+---
+
+# Sandbox Permissions
+
+When a guard's policy chain returns `"ask"` for an access request, the daemon pauses the tool and asks the client for a permission decision. The client responds with `allow`, `deny`, `allow-session`, or `deny-session`, and execution resumes.
+
+## Event: `request_permission`
+
+Sent by the daemon when a tool needs authorization. Broadcast to all subscribers of the run.
+
+```json
+{
+  "type": "request_permission",
+  "runId": "run_abc123",
+  "requestId": "perm-uuid-1234",
+  "agentName": "writer",
+  "toolName": "write_file",
+  "operation": "fs.write",
+  "resource": "/projects/app/src/index.ts",
+  "reason": "policy-ask",
+  "ts": "2025-01-15T10:30:01.000Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"request_permission"` | Message type discriminator |
+| `runId` | `string` | The run that needs a permission decision |
+| `requestId` | `string` | Unique ID for this request — echo back in `permission_decision` |
+| `agentName` | `string` | Name of the agent that triggered the operation |
+| `toolName` | `string?` | Name of the tool that triggered the operation |
+| `operation` | `"fs.read" \| "fs.write" \| "command.execute"` | Category of the operation |
+| `resource` | `string` | Resolved absolute path or command being accessed |
+| `reason` | `"policy-ask"` | Why this request was raised |
+| `details` | `Record<string, unknown>?` | Optional extra context (e.g. content about to be written) |
+| `ts` | `string` | ISO-8601 timestamp |
+
+`reason` is `"policy-ask"` when the guard's policy chain requests a decision.
+
+## Request: `permission_decision`
+
+Sent by the client to deliver the decision. The `runId` and `permissionRequestId` must match the pending `request_permission`.
+
+```json
+{
+  "type": "permission_decision",
+  "runId": "run_abc123",
+  "permissionRequestId": "perm-uuid-1234",
+  "decision": "allow-session"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"permission_decision"` | yes | Message type discriminator |
+| `runId` | `string` | yes | The run this decision is for |
+| `permissionRequestId` | `string` | yes | The `requestId` from the matching `request_permission` |
+| `decision` | `"allow" \| "deny" \| "allow-session" \| "deny-session"` | yes | The client's decision |
+| `requestId` | `string` | no | Optional correlation ID echoed on any error response |
+
+Decision semantics:
+- `"allow"` / `"deny"` — one-shot for this invocation only.
+- `"allow-session"` / `"deny-session"` — remembered in the tool's guard for the lifetime of this run (stored in-memory, not persisted to disk). Triggers a `policy_updated` broadcast for that tool.
+
+On success, there is no direct response — the guard unblocks and the tool continues execution.
+
+If no pending request matches the `permissionRequestId`, the daemon replies with an error:
+
+```json
+{
+  "type": "error",
+  "code": "NO_PENDING_PERMISSION",
+  "message": "No pending permission request perm-uuid-1234 for run run_abc123",
+  "ts": "2025-01-15T10:30:02.000Z"
+}
+```
+
+## Event: `policy_updated`
+
+Broadcast to all subscribers of the run whenever a tool's guard policy chain changes. This happens after `"allow-session"` / `"deny-session"` decisions and after `update_policy` messages. Each tool's guard emits its own event.
+
+```json
+{
+  "type": "policy_updated",
+  "runId": "run_abc123",
+  "tool": "write_file",
+  "policies": [
+    { "name": "forbidden-globs", "priority": "mandatory" },
+    { "name": "session-allow-fs-write-generated---json", "priority": "session" },
+    { "name": "write-path-policy", "priority": "default" }
+  ],
+  "ts": "2025-01-15T10:30:02.500Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"policy_updated"` | Message type discriminator |
+| `runId` | `string` | The run whose guard policy changed |
+| `tool` | `string` | Which tool's guard emitted the change |
+| `policies` | `{ name: string, priority: "mandatory" \| "session" \| "tool" \| "default" }[]` | Current policy chain in evaluation order |
+| `ts` | `string` | ISO-8601 timestamp |
+
+## Request: `update_policy`
+
+Sent by the client to replace a read or write policy for one tool or the whole sandbox. Updates also apply to guards created later.
+
+```json
+{
+  "type": "update_policy",
+  "runId": "run_abc123",
+  "tool": "read_file",
+  "mode": "read",
+  "allow": ["generated/**", "tmp/**"]
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"update_policy"` | yes | Message type discriminator |
+| `runId` | `string` | yes | The run whose guard to update |
+| `tool` | `string` | no | Tool to target. Omitted = every tool in the sandbox |
+| `mode` | `"read" \| "write"` | yes | Which policy dimension to update |
+| `allow` | `string[]` | no | Allow-list glob patterns for this policy |
+| `deny` | `string[]` | no | Deny-list glob patterns for this policy |
+| `default` | `"allow" \| "deny" \| "ask"` | no | Replace the default decision for this dimension |
+
+On success, the daemon applies the patch and broadcasts `policy_updated` to all subscribers.
+
+If the run is not found, the daemon replies with an error:
+
+```json
+{
+  "type": "error",
+  "code": "RUN_NOT_FOUND",
+  "message": "No active run found for runId run_abc123",
+  "ts": "2025-01-15T10:30:02.000Z"
+}
+```
+
+## Sequence Diagram
+
+```
+Client                          Daemon
+  |                               |
+  |  prepare_run -> start_run     |
+  |------------------------------>|
+  |                               |
+  |     strategy_started          |
+  |<------------------------------|
+  |                               |
+  |    request_permission         |
+  |  (operation: "fs.write",      |
+  |   resource: "/app/src/...",   |
+  |   reason: "policy-ask")       |
+  |<------------------------------|
+  |                               |
+  |  permission_decision          |
+  |  (decision: "allow-session")  |
+  |------------------------------>|
+  |                               |
+  |     policy_updated            |
+  |  (tool: "write_file")         |
+  |<------------------------------|
+  |                               |
+  |  agent_output, ...            |
+  |<------------------------------|
+  |                               |
+  |     strategy_completed        |
+  |<------------------------------|
+```

@@ -23,7 +23,7 @@ import {
 import type {
   PlatformInfo,
   RunCommandData,
-  RunCommandToolConfigWithRequester,
+  RunCommandToolConfig,
 } from "./run-command.types";
 import {
   buildRunCommandDescription,
@@ -78,7 +78,7 @@ function formatOutputWithCapturedStreams(
 }
 
 export function createRunCommandTool(
-  config?: RunCommandToolConfigWithRequester,
+  config?: RunCommandToolConfig,
 ): ToolDefinition<typeof runCommandParams, RunCommandData> {
   const platformInfo: PlatformInfo =
     config?.platformInfo ?? detectPlatformInfo();
@@ -161,7 +161,7 @@ export function createRunCommandTool(
         );
       }
 
-      // cwd validation — guard handles path resolution and jail
+      // The guard resolves the cwd and enforces the workspace boundary.
       let resolvedCwd: string;
       try {
         resolvedCwd =

@@ -5,11 +5,11 @@ import {
   readEnvOverrides,
 } from "./config.utils";
 
-/** Options for loadDaemonConfig. Mostly for testing. */
+/** Options for selecting daemon configuration inputs. */
 export interface LoadConfigOptions {
   /** Override the config file path. */
   readonly configFile?: string;
-  /** Override process.env for testing. */
+  /** Environment values used to resolve overrides. @default process.env */
   readonly env?: Record<string, string | undefined>;
 }
 

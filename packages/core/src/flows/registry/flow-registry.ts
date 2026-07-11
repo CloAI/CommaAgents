@@ -40,6 +40,8 @@ export function defineFlowType<ConfigSchema extends z.ZodTypeAny>(
 
 /**
  * Register a custom flow type for use in strategy and standalone flow files.
+ * Registering an existing custom or built-in name replaces its current
+ * implementation and emits a warning.
  *
  * @param name - Value referenced by a declarative flow's `type` field.
  * @param definition - Configuration schema and factory for the custom flow.

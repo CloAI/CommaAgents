@@ -6,6 +6,21 @@ import type { SkillRegistry } from "../skills/skills.types";
 import type { AuditSink } from "./io/audit.types";
 import type { LaunchStrategyHandle } from "./launch-strategy.types";
 
+/** User question emitted by a tool during an agent call. */
+export interface QuestionRequest {
+  /** Name of the agent requesting input. */
+  readonly agentName: string;
+  /** Name of the tool requesting input. */
+  readonly toolName: string;
+  /** Question presented to the user. */
+  readonly question: string;
+  /** Signal that aborts the pending question. */
+  readonly signal?: AbortSignal;
+}
+
+/** Present a tool-originated question and return the user's response. */
+export type QuestionRequester = (request: QuestionRequest) => Promise<string>;
+
 /**
  * Context passed to tool execute functions.
  * Provides the calling agent's identity, its per-tool Guard for
@@ -20,11 +35,13 @@ export interface ToolContext {
   /** AbortSignal for cancellation propagation. */
   readonly abort: AbortSignal;
   /**
-   * Per-tool guard that handles path resolution, jail enforcement,
+   * Per-tool guard that handles path resolution, workspace boundaries,
    * policy chain evaluation, and interactive "ask" dispatch.
    * Always present — defaults to a permissive guard when none is configured.
    */
   readonly guard: Guard;
+  /** Callback used by tools that request clarification from the user. */
+  readonly requestQuestion?: QuestionRequester;
   /**
    * Optional session identifier. When present, mutations are written to a
    * session-scoped audit log and `SessionFileState` can be reconstructed

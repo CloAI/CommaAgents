@@ -4,6 +4,7 @@ export type {
   AgentCallResult,
   AgentConfig,
   AgentOutputSchema,
+  AgentRuntime,
   AgentStreamEvent,
 } from "./agent/agent.types";
 export { hookIntoAgent } from "./hook-into-agent/hook-into-agent";

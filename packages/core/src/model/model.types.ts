@@ -89,7 +89,7 @@ export interface ProviderInfo {
   /** Error message when live discovery failed and we fell back to catalog. */
   readonly error?: string;
   /**
-   * `true` if this provider was added via `registerProvider()` rather
+   * `true` if this provider was added via `registerProviderDefinition()` rather
    * than being derived from the models.dev catalog or built-in overrides.
    */
   readonly isCustom: boolean;

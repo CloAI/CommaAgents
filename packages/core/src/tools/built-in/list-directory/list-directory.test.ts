@@ -23,15 +23,15 @@ afterEach(async () => {
 });
 
 function makePrimaryContext(overrides?: {
-  jail?: boolean;
-  allowAbsolutePaths?: boolean;
+  outsideWorkspace?: "allow" | "deny";
+  absolutePaths?: "allow" | "deny";
   forbiddenGlobs?: readonly string[];
 }): ToolContext {
   return makeToolContext({
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: overrides?.jail ?? true,
-      allowAbsolutePaths: overrides?.allowAbsolutePaths ?? false,
+      outsideWorkspace: overrides?.outsideWorkspace ?? "deny",
+      absolutePaths: overrides?.absolutePaths ?? "deny",
       forbiddenGlobs: overrides?.forbiddenGlobs ?? [],
     }),
   });
@@ -108,7 +108,10 @@ describe("createListDirectoryTool", () => {
 
     const tool = createListDirectoryTool();
     const data = await getOk(
-      await tool.execute({ path: "." }, makePrimaryContext({ jail: false })),
+      await tool.execute(
+        { path: "." },
+        makePrimaryContext({ outsideWorkspace: "allow" }),
+      ),
     );
 
     const byName = new Map(data.entries.map((e) => [e.name, e]));
@@ -204,17 +207,17 @@ describe("createListDirectoryTool", () => {
     const tool = createListDirectoryTool();
     const result = await tool.execute(
       { path: "../../etc" },
-      makePrimaryContext({ jail: true }),
+      makePrimaryContext({ outsideWorkspace: "deny" }),
     );
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("outside_workspace");
   });
 
-  it("rejects absolute paths when allowAbsolutePaths is false", async () => {
+  it("rejects absolute paths when absolute paths are disabled", async () => {
     const tool = createListDirectoryTool();
     const result = await tool.execute(
       { path: workspaceRoot },
-      makePrimaryContext({ allowAbsolutePaths: false }),
+      makePrimaryContext({ absolutePaths: "deny" }),
     );
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("outside_workspace");

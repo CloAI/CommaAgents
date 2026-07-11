@@ -13,9 +13,9 @@ export const UpdatePolicyMessage = ClientBase.extend({
   tool: z.string().optional(),
   /** Which policy dimension to update. */
   mode: z.enum(["read", "write"]),
-  /** Additional glob patterns to append to the allow list. */
+  /** Allow-list glob patterns for the replacement policy. */
   allow: z.array(z.string()).optional(),
-  /** Additional glob patterns to append to the deny list. */
+  /** Deny-list glob patterns for the replacement policy. */
   deny: z.array(z.string()).optional(),
   /** Replace the default decision for this dimension. */
   default: z.enum(["allow", "deny", "ask"]).optional(),

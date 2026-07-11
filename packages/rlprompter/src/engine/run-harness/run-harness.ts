@@ -2,7 +2,7 @@
 // capturing the produced text (agent_call) and file mutations (tool_mutation)
 // onto a timeline. The base strategy file and the real working directory are
 // never touched: overrides are applied to an in-memory copy and all file tools
-// are jailed to a throwaway temp directory.
+// are restricted to a throwaway temp directory.
 
 import { cp, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,10 +12,10 @@ import {
   type FlowHooks,
   hookIntoAgent,
   type InputCollector,
-  inSandbox,
   loadStrategyFromString,
   type TimelineEvent,
 } from "@comma-agents/core";
+import { createSandbox } from "@comma-agents/core/sandbox";
 import { applyOverrides } from "../overrides";
 import { createMutationCapture } from "./mutation-capture";
 import type {
@@ -82,26 +82,25 @@ export async function runIteration(
     ],
   };
 
-  const loaded = await loadStrategyFromString(JSON.stringify(merged), "json", {
-    inputCollector,
-    flowHooks,
-    ...(strategyDir !== undefined ? { strategyDir } : {}),
-    ...(modelOverride !== undefined ? { modelOverride } : {}),
-    ...(runId !== undefined ? { runId } : {}),
-  });
-
-  // 3. Jail every agent's file tools to the temp workdir. Default-allow so
-  //    autonomous runs never block on a permission prompt.
-  inSandbox(loaded, {
+  const sandbox = createSandbox({
     cwd: tempDir,
-    jail: true,
-    allowAbsolutePaths: false,
+    outsideWorkspace: "deny",
+    absolutePaths: "deny",
     forbiddenGlobs: [],
     read: { default: "allow", allow: ["**"], deny: [] },
     write: { default: "allow", allow: ["**"], deny: [] },
   });
 
-  // 4. Hook every agent: capture conversation records + file mutations + stream.
+  const loaded = await loadStrategyFromString(JSON.stringify(merged), "json", {
+    inputCollector,
+    flowHooks,
+    sandbox,
+    ...(strategyDir !== undefined ? { strategyDir } : {}),
+    ...(modelOverride !== undefined ? { modelOverride } : {}),
+    ...(runId !== undefined ? { runId } : {}),
+  });
+
+  // 3. Hook every agent: capture conversation records + file mutations + stream.
   for (const agent of Object.values(loaded.agents)) {
     if (!agent.appendHook) continue;
 

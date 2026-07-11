@@ -171,32 +171,33 @@ export async function loadAgentFromString(
     : description.systemPrompt;
 
   // 4. Create and return the agent — model and tools are resolved internally by createAgent
-  return createAgent({
-    name: description.name,
-    model: options.modelOverride ?? description.model,
-    systemPrompt,
-    tools: description.tools,
-    maxSteps: description.maxSteps,
-    ...(description.providerOptions
-      ? { providerOptions: description.providerOptions }
-      : {}),
-    ...(description.modelOptions
-      ? { modelOptions: description.modelOptions }
-      : {}),
-    ...(description.outputSchema
-      ? { outputSchema: jsonSchema(description.outputSchema) }
-      : {}),
-    ...(description.context ? { context: description.context } : {}),
-    ...(options.skillRegistry ? { skillRegistry: options.skillRegistry } : {}),
-    ...(options.inputCollector
-      ? { inputCollector: options.inputCollector }
-      : {}),
-    ...(options.launchStrategy
-      ? { launchStrategy: options.launchStrategy }
-      : {}),
-    ...(options.languageService
-      ? { languageService: options.languageService }
-      : {}),
-    ...(options.runId ? { runId: options.runId } : {}),
-  });
+  return createAgent(
+    {
+      name: description.name,
+      model: options.modelOverride ?? description.model,
+      systemPrompt,
+      tools: description.tools,
+      maxSteps: description.maxSteps,
+      ...(description.providerOptions
+        ? { providerOptions: description.providerOptions }
+        : {}),
+      ...(description.modelOptions
+        ? { modelOptions: description.modelOptions }
+        : {}),
+      ...(description.outputSchema
+        ? { outputSchema: jsonSchema(description.outputSchema) }
+        : {}),
+      ...(description.context ? { context: description.context } : {}),
+    },
+    {
+      sandbox: options.sandbox,
+      skillRegistry: options.skillRegistry,
+      inputCollector: options.inputCollector,
+      launchStrategy: options.launchStrategy,
+      languageService: options.languageService,
+      questionRequester: options.questionRequester,
+      runId: options.runId,
+      mcpTools: options.mcpTools,
+    },
+  );
 }

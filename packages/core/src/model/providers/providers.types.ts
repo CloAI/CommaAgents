@@ -150,10 +150,12 @@ export interface ProviderDefinition {
    */
   readonly listModels?: ListModelsFn;
   /**
-   * Direct factory for the provider's `LanguageModel` instances. When set,
-   * takes precedence over `packageName`/`factoryName`.
+   * Direct factory — given a credential, returns a `ProviderFactory`. When
+   * set, takes precedence over `packageName`/`factoryName` in resolution.
    */
-  readonly factory?: ProviderFactory;
+  readonly factory?: (
+    credential: Credential,
+  ) => ProviderFactory | Promise<ProviderFactory>;
   /**
    * npm package name used by the resolver to dynamically import the AI SDK
    * integration. Defaults to `@ai-sdk/<id>` when omitted.
@@ -164,8 +166,8 @@ export interface ProviderDefinition {
    */
   readonly factoryName?: string;
   /**
-   * `true` when the definition was added via `registerProvider()` rather
-   * than derived from the bundled catalog. Set automatically by the registry.
+   * `true` when the definition was added via `registerProviderDefinition()`
+   * rather than derived from the bundled catalog. Set automatically by the registry.
    */
   readonly isCustom?: boolean;
 }

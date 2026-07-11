@@ -13,7 +13,7 @@ let workspaceRoot: string;
 let outsideRoot: string;
 
 beforeEach(async () => {
-  // realpath to dodge macOS /tmp → /private/tmp symlink in jail checks
+  // realpath avoids the macOS /tmp to /private/tmp symlink crossing the boundary.
   const base = realpathSync(tmpdir());
   workspaceRoot = await mkdtemp(join(base, "read-file-ws-"));
   outsideRoot = await mkdtemp(join(base, "read-file-outside-"));
@@ -25,15 +25,15 @@ afterEach(async () => {
 });
 
 function makeCtx(overrides?: {
-  jail?: boolean;
-  allowAbsolutePaths?: boolean;
+  outsideWorkspace?: "allow" | "deny";
+  absolutePaths?: "allow" | "deny";
   forbiddenGlobs?: readonly string[];
 }): ToolContext {
   return makeToolContext({
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: overrides?.jail ?? true,
-      allowAbsolutePaths: overrides?.allowAbsolutePaths ?? false,
+      outsideWorkspace: overrides?.outsideWorkspace ?? "deny",
+      absolutePaths: overrides?.absolutePaths ?? "deny",
       forbiddenGlobs: overrides?.forbiddenGlobs ?? [],
     }),
   });
@@ -234,18 +234,18 @@ describe("createReadFileTool", () => {
       expect(result.error?.suggestedNextAction).toContain("list_directory");
     });
 
-    it("rejects path traversal with outside_workspace when jail is on", async () => {
+    it("rejects path traversal when outside-workspace access is denied", async () => {
       const tool = createReadFileTool();
       const result = await tool.execute(
         { path: "../../etc/hosts" },
-        makeCtx({ jail: true }),
+        makeCtx({ outsideWorkspace: "deny" }),
       );
 
       expect(result.ok).toBe(false);
       expect(result.error?.kind).toBe("outside_workspace");
     });
 
-    it("rejects absolute paths when allowAbsolutePaths is false", async () => {
+    it("rejects absolute paths when absolute paths are disabled", async () => {
       const path = join(workspaceRoot, "ok.txt");
       await writeFile(path, "x");
 
@@ -253,7 +253,7 @@ describe("createReadFileTool", () => {
       // absolute path → blocked even though it points inside the workspace
       const result = await tool.execute(
         { path },
-        makeCtx({ allowAbsolutePaths: false, jail: true }),
+        makeCtx({ absolutePaths: "deny", outsideWorkspace: "deny" }),
       );
 
       expect(result.ok).toBe(false);
@@ -283,7 +283,7 @@ describe("createReadFileTool", () => {
       const tool = createReadFileTool();
       const result = await tool.execute(
         { path: "escape.txt" },
-        makeCtx({ jail: true }),
+        makeCtx({ outsideWorkspace: "deny" }),
       );
 
       expect(result.ok).toBe(false);
@@ -305,8 +305,8 @@ describe("createReadFileTool — sha256 reference vector", () => {
       const ctx = makeToolContext({
         sandbox: createSandbox({
           cwd: ws,
-          jail: true,
-          allowAbsolutePaths: false,
+          outsideWorkspace: "deny",
+          absolutePaths: "deny",
           forbiddenGlobs: [],
         }),
       });

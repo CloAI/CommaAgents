@@ -1,7 +1,7 @@
 import type { HubManager } from "@comma-agents/core/hub";
+import type { DaemonState } from "../../daemon-state/daemon-state.types";
 import type { Logger } from "../../logger/logger.types";
 import type { RunSystem } from "../../run-system";
-import type { DaemonState } from "../../state/state.types";
 import type { DaemonMessage } from "./messages";
 import type { AvailableModelsMessage } from "./responses/available-models";
 import type { CredentialSetMessage } from "./responses/credential-set";

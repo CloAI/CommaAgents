@@ -95,7 +95,7 @@ export const ProviderInfoSchema = z.object({
   fetchedAt: z.string().optional(),
   /** Error message when live discovery failed and we fell back to catalog. */
   error: z.string().optional(),
-  /** `true` if the provider was added via `registerProvider()`. */
+  /** `true` if the provider was added via `registerProviderDefinition()`. */
   isCustom: z.boolean(),
 });
 

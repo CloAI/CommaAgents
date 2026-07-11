@@ -13,7 +13,6 @@ import {
 import { SandboxViolationError } from "../../errors/index";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
 import type { SideEffectHook, TransformHook } from "../../hooks/hooks.types";
-import type { LanguageService } from "../../language";
 import { parseMcpToolName } from "../../mcp";
 import { resolveModel } from "../../model/model";
 import { getQualifiedModelMetadata } from "../../model/model.utils";
@@ -22,13 +21,10 @@ import {
   resolveSystemPrompt,
 } from "../../prompts/message-builder";
 import { createSandbox } from "../../sandbox/sandbox";
-import { PERMISSIVE_SANDBOX_CONFIG } from "../../sandbox/sandbox.constants";
-import type { Sandbox } from "../../sandbox/sandbox.types";
-import type { SkillRegistry } from "../../skills/skills.types";
+import { PERMISSIVE_SANDBOX_OPTIONS } from "../../sandbox/sandbox.constants";
 import type { AuditSink } from "../../tools/io/audit.types";
 import { createFileAuditSink } from "../../tools/io/audit-sink";
 import { sandboxErrorToToolError } from "../../tools/io/sandbox-error";
-import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
 import { errorResult } from "../../tools/result";
 import { resolveTools } from "../../tools/tool.registry";
 import type {
@@ -36,16 +32,27 @@ import type {
   ToolDefinition,
   ToolError,
 } from "../../tools/tool.types";
-import type { InputCollector } from "../built-in/user/user-agent.types";
 import type { ToolHooks } from "../hooks";
 import { resolveHook } from "../hooks";
 import { DEFAULT_MAX_STEPS } from "./agent.constants";
 import type {
   AgentCallResult,
   AgentConfig,
+  AgentRuntime,
   AgentStreamEvent,
   BuildCallOptionsResult,
 } from "./agent.types";
+
+export interface BuildAgentToolSetOptions {
+  readonly toolDefinitions:
+    | Readonly<Record<string, ToolDefinition>>
+    | undefined;
+  readonly agentName: string;
+  readonly toolHooks?: ToolHooks;
+  readonly runtime?: AgentRuntime;
+  readonly sessionId?: string;
+  readonly auditSink?: AuditSink;
+}
 
 export type AgentHookStore = {
   alterFirstCallMessage: Array<TransformHook<string>> | undefined;
@@ -132,45 +139,26 @@ export async function runPostCallHooks(
  * SandboxViolationError → ToolError catch.
  *
  * Each tool gets its own per-tool Guard from `sandbox.guardFor(toolName)`.
- * Tools call `ctx.guard.authorize()` for path resolution, jail enforcement,
+ * Tools call `ctx.guard.authorize()` for path resolution, workspace boundaries,
  * and policy evaluation.
  *
- * @param toolDefinitions - The tool definitions to wrap.
- * @param agentName - Surfaced on `ToolContext.agentName` and audit entries.
- * @param toolHooks - Optional side-effect hooks invoked around each call.
- * @param sandbox - Guard registry; falls back to a permissive sandbox.
- * @param sessionId - Propagated to `ToolContext.sessionId`. Identifies a
- *   broader user/daemon session; used by audit log / trash metadata.
- * @param auditSink - Explicit audit sink. When omitted but `sessionId` is set,
- *   a `createFileAuditSink(sandbox.cwd)` is constructed automatically.
- * @param skillRegistry - Propagated to `ToolContext.skillRegistry`.
- * @param inputCollector - Propagated to `ToolContext.inputCollector`.
- * @param launchStrategy - Propagated to `ToolContext.launchStrategy`.
- * @param languageService - Propagated to `ToolContext.languageService`.
- * @param runId - Propagated to `ToolContext.runId`. Identifies a single
- *   strategy invocation (top-level run *or* one `launch_strategy`
- *   sub-load). Tools that need per-launch isolation (notably `todo_*`)
- *   silo on this. Kept distinct from `sessionId`.
+ * @param options - Tool definitions, agent identity, hooks, and runtime services.
  */
-export function buildAgentToolSet(
-  toolDefinitions: Readonly<Record<string, ToolDefinition>> | undefined,
-  agentName: string,
-  toolHooks?: ToolHooks,
-  sandbox?: Sandbox,
-  sessionId?: string,
-  auditSink?: AuditSink,
-  skillRegistry?: SkillRegistry,
-  inputCollector?: InputCollector,
-  launchStrategy?: LaunchStrategyHandle,
-  languageService?: LanguageService,
-  runId?: string,
-): ToolSet | undefined {
+export function buildAgentToolSet({
+  toolDefinitions,
+  agentName,
+  toolHooks,
+  runtime = {},
+  sessionId,
+  auditSink,
+}: BuildAgentToolSetOptions): ToolSet | undefined {
   if (!toolDefinitions || Object.keys(toolDefinitions).length === 0) {
     return undefined;
   }
 
   // Fall back to a permissive sandbox so tools always have a guard available
-  const effectiveSandbox = sandbox ?? createSandbox(PERMISSIVE_SANDBOX_CONFIG);
+  const effectiveSandbox =
+    runtime.sandbox ?? createSandbox(PERMISSIVE_SANDBOX_OPTIONS);
 
   // Resolve the audit sink.
   const workspaceCwd = effectiveSandbox.cwd;
@@ -183,13 +171,6 @@ export function buildAgentToolSet(
   for (const [name, definition] of Object.entries(toolDefinitions)) {
     // Per-tool guard from the sandbox, with tool-level policies
     const guard = effectiveSandbox.guardFor(name, definition.policies);
-
-    // Wire tool-level policies into the guard's chain
-    if (definition.policies) {
-      for (const policy of definition.policies) {
-        guard.addPolicy(policy);
-      }
-    }
 
     toolSet[name] = aiTool({
       description: definition.description,
@@ -205,14 +186,25 @@ export function buildAgentToolSet(
           guard,
           abort: options.abortSignal ?? AbortSignal.timeout(30_000),
           ...(sessionId !== undefined ? { sessionId } : {}),
-          ...(runId !== undefined ? { runId } : {}),
+          ...(runtime.runId !== undefined ? { runId: runtime.runId } : {}),
           ...(effectiveAuditSink !== undefined
             ? { auditSink: effectiveAuditSink }
             : {}),
-          ...(skillRegistry !== undefined ? { skillRegistry } : {}),
-          ...(inputCollector !== undefined ? { inputCollector } : {}),
-          ...(launchStrategy !== undefined ? { launchStrategy } : {}),
-          ...(languageService !== undefined ? { languageService } : {}),
+          ...(runtime.skillRegistry !== undefined
+            ? { skillRegistry: runtime.skillRegistry }
+            : {}),
+          ...(runtime.inputCollector !== undefined
+            ? { inputCollector: runtime.inputCollector }
+            : {}),
+          ...(runtime.launchStrategy !== undefined
+            ? { launchStrategy: runtime.launchStrategy }
+            : {}),
+          ...(runtime.languageService !== undefined
+            ? { languageService: runtime.languageService }
+            : {}),
+          ...(runtime.questionRequester !== undefined
+            ? { requestQuestion: runtime.questionRequester }
+            : {}),
         };
 
         // AI SDK v6's `tool()` wrapper does NOT validate the
@@ -337,6 +329,7 @@ export function buildAgentToolSet(
  * then builds messages and system prompt into a single options object.
  *
  * @param config - The agent configuration.
+ * @param runtime - Services available to the agent's tools.
  * @param message - The current user message.
  * @param context - The conversation context.
  * @param toolHooks - Tool hooks from the agent's mutable closure store.
@@ -348,6 +341,7 @@ export function buildAgentToolSet(
  */
 export async function buildCallOptions(
   config: AgentConfig,
+  runtime: AgentRuntime,
   message: string,
   context: ConversationContext,
   toolHooks?: ToolHooks,
@@ -389,20 +383,13 @@ export async function buildCallOptions(
 
   const [tools, resolvedSystemPrompt] = await Promise.all([
     Promise.resolve({
-      ...(buildAgentToolSet(
-        resolvedToolDefinitions,
-        config.name,
+      ...(buildAgentToolSet({
+        toolDefinitions: resolvedToolDefinitions,
+        agentName: config.name,
         toolHooks,
-        config.sandbox,
-        undefined,
-        undefined,
-        config.skillRegistry,
-        config.inputCollector,
-        config.launchStrategy,
-        config.languageService,
-        config.runId,
-      ) ?? {}),
-      ...(config.mcpTools ?? {}),
+        runtime,
+      }) ?? {}),
+      ...(runtime.mcpTools ?? {}),
     }),
     resolveSystemPrompt({ systemPrompt: config.systemPrompt }),
   ]);

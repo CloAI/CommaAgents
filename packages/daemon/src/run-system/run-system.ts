@@ -54,13 +54,23 @@ interface PreparedRun {
   execution?: Promise<void>;
 }
 
+/**
+ * Create the run lifecycle used by a daemon server.
+ *
+ * @param options - daemonState, event delivery, logging, storage, and run defaults.
+ * @example
+ * ```ts
+ * const runSystem = createRunSystem({ daemonState, sink, logger, runsDir });
+ * const prepared = await runSystem.prepareRun(clientId, { strategyPath });
+ * runSystem.startRun(clientId, prepared.runId, "Start the task");
+ * ```
+ */
 export function createRunSystem({
-  state,
+  daemonState,
   sink,
   logger,
   runsDir,
   hubManager,
-  modelOverride: defaultModelOverride,
 }: CreateRunSystemOptions): RunSystem {
   const runStore = createRunStore({ runsDir });
   const actions = createRunActionRegistry();
@@ -93,8 +103,10 @@ export function createRunSystem({
       options.runId !== undefined ? await runStore.getEvents(runId) : [];
     const latestStart = findLatestRunStart(persistedEvents);
     const mode = latestStart ? "continuation" : "new";
-    const existingRun = state.getRun(runId);
-    const existingSubscribers = existingRun ? state.getSubscribers(runId) : [];
+    const existingRun = daemonState.getRun(runId);
+    const existingSubscribers = existingRun
+      ? daemonState.getSubscribers(runId)
+      : [];
 
     if (
       existingRun &&
@@ -103,7 +115,7 @@ export function createRunSystem({
       // Attaching to an in-flight run: subscribe this client so live agent
       // streaming reaches it, and return the conversation persisted so far.
       // New and ongoing streaming keeps broadcasting to every subscriber.
-      state.subscribe(clientId, runId);
+      daemonState.subscribe(clientId, runId);
       const active = preparedRuns.get(runId);
       return {
         runId,
@@ -135,16 +147,14 @@ export function createRunSystem({
       throw new Error(`Run not found: ${runId}`);
     }
 
-    if (existingRun) state.removeRun(runId);
+    if (existingRun) daemonState.removeRun(runId);
 
     const effectiveCwd = options.cwd ?? latestStart?.cwd ?? process.cwd();
     const effectiveModelOverride =
-      options.modelOverride ??
-      latestStart?.modelOverride ??
-      defaultModelOverride;
+      options.modelOverride ?? latestStart?.modelOverride;
     const effectiveManifestPath =
       options.manifestPath ?? latestStart?.manifestPath;
-    const run = state.createRun(
+    const run = daemonState.createRun(
       strategyPath,
       strategyPath,
       effectiveCwd,
@@ -166,9 +176,9 @@ export function createRunSystem({
     };
 
     for (const subscriberId of existingSubscribers) {
-      state.subscribe(subscriberId, run.id);
+      daemonState.subscribe(subscriberId, run.id);
     }
-    state.subscribe(clientId, run.id);
+    daemonState.subscribe(clientId, run.id);
 
     try {
       await invokeOnRunPrepare(systems, context, logger);
@@ -205,15 +215,15 @@ export function createRunSystem({
       };
     } catch (error) {
       await invokeOnRunCleanup(systems, context, logger);
-      state.removeRun(run.id);
+      daemonState.removeRun(run.id);
       if (existingRun) {
-        const restoredRun = state.createRun(
+        const restoredRun = daemonState.createRun(
           existingRun.strategyPath,
           existingRun.strategyName,
           existingRun.cwd,
           existingRun.id,
         );
-        state.updateRun(restoredRun.id, {
+        daemonState.updateRun(restoredRun.id, {
           status: existingRun.status,
           ...(existingRun.completedAt
             ? { completedAt: existingRun.completedAt }
@@ -222,7 +232,7 @@ export function createRunSystem({
           ...(existingRun.error ? { error: existingRun.error } : {}),
         });
         for (const subscriberId of existingSubscribers) {
-          state.subscribe(subscriberId, restoredRun.id);
+          daemonState.subscribe(subscriberId, restoredRun.id);
         }
       }
       throw error;
@@ -267,7 +277,7 @@ export function createRunSystem({
       throw new Error(`Run already started: ${runId}`);
     }
 
-    state.subscribe(clientId, runId);
+    daemonState.subscribe(clientId, runId);
     const executionContext: ExecutionContext = {
       ...prepared.context,
       strategy: prepared.strategy,
@@ -292,7 +302,7 @@ export function createRunSystem({
 
     try {
       await invokeOnBeforeExecute(systems, context, logger);
-      state.updateRun(run.id, { status: "running" });
+      daemonState.updateRun(run.id, { status: "running" });
 
       sink.broadcast(run.id, {
         type: "strategy_started",
@@ -318,7 +328,7 @@ export function createRunSystem({
         run.abortController.signal.removeEventListener("abort", abortFlow);
       }
 
-      state.updateRun(run.id, {
+      daemonState.updateRun(run.id, {
         status: "completed",
         completedAt: new Date(),
         result,
@@ -348,10 +358,10 @@ export function createRunSystem({
           ? caughtError.message
           : String(caughtError);
 
-      const existingRun = state.getRun(run.id);
+      const existingRun = daemonState.getRun(run.id);
       // stopRun (including during daemon shutdown) may have already marked the
       // run cancelled in memory and broadcast strategy_error. Don't duplicate
-      // the state update or broadcast, but we must still persist the terminal
+      // the daemonState update or broadcast, but we must still persist the terminal
       // event — otherwise the run has no run_completed in its timeline and is
       // stuck reporting "running" the next time it is listed or reloaded.
       if (existingRun) {
@@ -360,7 +370,7 @@ export function createRunSystem({
         const finalCode = alreadyFinalized ? "CANCELLED" : errorCode;
 
         if (!alreadyFinalized) {
-          state.updateRun(run.id, {
+          daemonState.updateRun(run.id, {
             status: finalStatus,
             completedAt: new Date(),
             error: { code: finalCode, message: errorMessage },
@@ -401,7 +411,7 @@ export function createRunSystem({
   }
 
   function stopRun(runId: string): void {
-    const run = state.getRun(runId);
+    const run = daemonState.getRun(runId);
     if (!run) {
       logger.warn(`stopRun: run not found: ${runId}`);
       return;
@@ -410,7 +420,7 @@ export function createRunSystem({
     run.abortController.abort();
 
     if (run.status === "pending" || run.status === "running") {
-      state.updateRun(runId, {
+      daemonState.updateRun(runId, {
         status: "cancelled",
         completedAt: new Date(),
         error: {

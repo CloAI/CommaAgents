@@ -127,13 +127,13 @@ import {
   getGlobalCredentialStore,
   getGlobalProviderResolver,
   createCredentialStore,
-  createJsonFileBackend,
+  createJsonFileCredentialBackend,
   resolveCredentialsPath,
 } from "@comma-agents/core";
 
 // 1. Configure a custom credential store
 const store = createCredentialStore({
-  backend: createJsonFileBackend({ filePath: resolveCredentialsPath() }),
+  backend: createJsonFileCredentialBackend({ filePath: resolveCredentialsPath() }),
 });
 setGlobalCredentialStore(store);
 

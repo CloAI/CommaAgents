@@ -1,5 +1,5 @@
 import type { TimelineEvent } from "@comma-agents/core";
-import type { RunStatus } from "../../state/state.types";
+import type { RunStatus } from "../../daemon-state/daemon-state.types";
 
 /**
  * Lightweight metadata for listing runs (no events included).
@@ -23,14 +23,12 @@ export interface RunOverview {
 }
 
 /**
- * Persistent run store interface.
- * Stores each run as an append-only JSONL file of TimelineEvents: `<runsDir>/<runId>.jsonl`.
+ * Persistent run history and configuration store.
  */
 export interface RunStore {
   /**
    * Append a single event to a run's timeline.
-   * Creates the file if it doesn't exist.
-   * Uses a per-run serialization queue to prevent concurrent write conflicts.
+   * Creates the run timeline when it does not exist.
    */
   appendEvent(runId: string, event: TimelineEvent): Promise<void>;
 
@@ -42,7 +40,7 @@ export interface RunStore {
 
   /**
    * List runs, optionally filtered by cwd.
-   * Synthesizes lightweight RunOverview[] by reading the first/last events.
+   * Returns lightweight summaries without including timeline events.
    */
   listRuns(filter?: { cwd?: string }): Promise<readonly RunOverview[]>;
 

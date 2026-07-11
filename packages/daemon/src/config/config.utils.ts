@@ -1,20 +1,19 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveDataDir } from "@comma-agents/core";
+import { resolveApplicationDataDirectory } from "@comma-agents/core";
 import { type DaemonConfig, DaemonConfigFileSchema } from ".";
 import { ENV_MAP } from "./config.constants";
 
 export function buildDefaults(): DaemonConfig {
-  const dataDir = resolveDataDir();
+  const applicationDataDirectory = resolveApplicationDataDirectory();
   return {
     port: 7422,
     host: "127.0.0.1",
     logLevel: "info",
-    logFile: join(dataDir, "daemon.log"),
-    providerCacheDir: join(dataDir, "providers"),
-    pidFile: join(dataDir, "daemon.pid"),
-    configFile: join(dataDir, "daemon.json"),
-    runsDir: join(dataDir, "runs"),
+    logFile: join(applicationDataDirectory, "daemon.log"),
+    pidFile: join(applicationDataDirectory, "daemon.pid"),
+    configFile: join(applicationDataDirectory, "daemon.json"),
+    runsDir: join(applicationDataDirectory, "runs"),
   };
 }
 

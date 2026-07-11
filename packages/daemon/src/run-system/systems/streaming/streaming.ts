@@ -1,11 +1,11 @@
 import type { AgentCallResult, AgentStreamEvent } from "@comma-agents/core";
 import { isUserAgentDef } from "@comma-agents/core";
+import type { RunState } from "../../../daemon-state";
 import type { Logger } from "../../../logger";
 import {
   toAgentCallResultWire,
   toAgentStreamEventWire,
 } from "../../../server/protocol/responses/from-core";
-import type { RunState } from "../../../state";
 import {
   type AgentModelDetails,
   resolveAgentModelDetails,

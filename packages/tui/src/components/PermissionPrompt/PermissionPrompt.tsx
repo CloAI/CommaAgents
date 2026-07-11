@@ -1,4 +1,4 @@
-import type { PermissionDecision } from "@comma-agents/core";
+import type { PermissionDecision } from "@comma-agents/core/sandbox";
 import type { RequestPermissionMessage } from "@comma-agents/daemon";
 import { Box, Text, useFocusManager } from "ink";
 import type React from "react";
@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { useTheme } from "../../Theme";
 import { Button } from "../Button";
 
-export type { PermissionDecision } from "@comma-agents/core";
+export type { PermissionDecision } from "@comma-agents/core/sandbox";
 
 export interface PermissionPromptProps {
   /** The daemon's `request_permission` message to display. */
@@ -44,7 +44,7 @@ function operationLabel(
       return "read";
     case "fs.write":
       return "write";
-    case "fs.exec":
+    case "command.execute":
       return "execute";
   }
 }

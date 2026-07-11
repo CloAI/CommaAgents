@@ -1,7 +1,7 @@
 import type { DaemonConfig } from "../config";
 import type { Logger } from "../logger/logger.types";
 
-/** Per-WebSocket connection data (attached during upgrade). */
+/** @internal Per-WebSocket connection data attached during upgrade. */
 export interface WsData {
   readonly clientId: string;
 }
@@ -9,20 +9,14 @@ export interface WsData {
 /**
  * Options for creating a daemon instance.
  *
- * Model and credential resolution happen via global registries
- * (setGlobalCredentialStore / registerProvider / registerModel).
- * The daemon must configure those at startup before creating the daemon.
+ * Use a fully resolved daemon configuration and a logger suitable for the
+ * process that owns the server.
  */
 export interface CreateDaemonOptions {
   /** Fully resolved daemon configuration. */
   readonly config: DaemonConfig;
   /** Logger for server-level diagnostics. */
   readonly logger: Logger;
-  /**
-   * Override the model for ALL agents in every strategy execution.
-   * Format: "providerID/modelID" (e.g., "github-copilot/gpt-4o").
-   */
-  readonly modelOverride?: string;
 }
 
 /** The daemon instance — start/stop the server. */

@@ -29,8 +29,8 @@ function makeCtx(options?: {
   return makeToolContext({
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: true,
-      allowAbsolutePaths: false,
+      outsideWorkspace: "deny",
+      absolutePaths: "deny",
       forbiddenGlobs: options?.forbiddenGlobs ?? [],
     }),
     ...(options?.abort ? { abort: options.abort } : {}),

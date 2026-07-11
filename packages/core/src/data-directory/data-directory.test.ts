@@ -2,10 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { resolveDataDir } from "./data-directory";
+import { resolveApplicationDataDirectory } from "./data-directory";
 
-describe("resolveDataDir", () => {
+describe("resolveApplicationDataDirectory", () => {
   it("should resolve the .comma directory under the current user's home", () => {
-    expect(resolveDataDir()).toBe(join(homedir(), ".comma"));
+    expect(resolveApplicationDataDirectory()).toBe(join(homedir(), ".comma"));
   });
 });

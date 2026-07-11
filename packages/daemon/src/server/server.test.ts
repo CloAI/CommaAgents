@@ -15,7 +15,7 @@ import {
 } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resetGlobalDefaults, resetModelRegistry } from "@comma-agents/core";
+import { resetGlobalDefaults, resetModelRegistry, setProviderInstallDirectory } from "@comma-agents/core";
 import {
   MINIMAL_STRATEGY,
   MULTI_AGENT_STRATEGY,
@@ -62,13 +62,14 @@ async function startDaemon(): Promise<Daemon> {
       host: "127.0.0.1",
       logLevel: "error",
       logFile: undefined,
-      providerCacheDir: join(tmpdir(), "providers"),
       pidFile: join(tmpdir(), "test.pid"),
       configFile: join(tmpdir(), "test.json"),
       runsDir: join(tmpdir(), `runs-${crypto.randomUUID()}`),
     },
     logger: mockLogger(),
   });
+
+  setProviderInstallDirectory(join(tmpdir(), "providers"))
 
   await daemon.start();
   activeDaemons.push(daemon);

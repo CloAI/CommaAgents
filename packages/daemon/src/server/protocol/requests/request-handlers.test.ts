@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { moveToTrash, trashWorkspaceDir } from "@comma-agents/core";
 import type { HubManager, InstalledHubPackage } from "@comma-agents/core/hub";
+import { createDaemonState } from "../../../daemon-state";
 import { createRunSystem, type RunSystem } from "../../../run-system";
-import { createDaemonState } from "../../../state";
 import { mockLogger, mockSink } from "../../../test.utils";
 import type { HandlerContext, RequestResponseMap } from "../dispatcher.types";
 import type { DaemonMessage } from "../messages";
@@ -41,7 +41,7 @@ async function createTestRunSystem(): Promise<RunSystem> {
   const runsDir = await mkdtemp(join(tmpdir(), "comma-handler-tests-"));
   tempDirs.push(runsDir);
   return createRunSystem({
-    state: createDaemonState(),
+    daemonState: createDaemonState(),
     sink: mockSink(),
     logger: mockLogger(),
     runsDir,

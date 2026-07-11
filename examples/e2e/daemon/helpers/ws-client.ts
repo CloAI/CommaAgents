@@ -103,7 +103,7 @@ export async function startTestDaemon(): Promise<Daemon> {
       host: "127.0.0.1",
       logLevel: "error",
       logFile: undefined,
-      providerCacheDir: join(tmpdir(), "providers"),
+      providerInstallDirectory: join(tmpdir(), "providers"),
       pidFile: join(tmpdir(), `test-${crypto.randomUUID()}.pid`),
       configFile: join(tmpdir(), `test-${crypto.randomUUID()}.json`),
     },

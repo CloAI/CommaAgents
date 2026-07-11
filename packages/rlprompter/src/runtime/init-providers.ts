@@ -11,18 +11,17 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   createCredentialStore,
-  createJsonFileBackend,
+  createJsonFileCredentialBackend,
   getProviderDefinition,
-  registerProvider,
   registerProviderDefinition,
-  resolveDataDir,
+  resolveApplicationDataDirectory,
   setGlobalCredentialStore,
 } from "@comma-agents/core";
 
 /** Read the daemon-written list of registered provider ids, if present. */
 function loadRegisteredProviderIds(): string[] {
   try {
-    const filePath = join(resolveDataDir(), "provider-registry.json");
+    const filePath = join(resolveApplicationDataDirectory(), "provider-registry.json");
     if (!existsSync(filePath)) return [];
     const parsed: unknown = JSON.parse(readFileSync(filePath, "utf-8"));
     if (!Array.isArray(parsed)) return [];
@@ -39,9 +38,9 @@ function loadRegisteredProviderIds(): string[] {
  * startup. Returns the number of providers restored.
  */
 export async function initProviders(): Promise<number> {
-  const dataDir = resolveDataDir();
+  const dataDir = resolveApplicationDataDirectory();
   const credentialStore = createCredentialStore({
-    backend: createJsonFileBackend({
+    backend: createJsonFileCredentialBackend({
       filePath: join(dataDir, "credentials.json"),
     }),
   });
@@ -53,9 +52,6 @@ export async function initProviders(): Promise<number> {
       const definition = await getProviderDefinition(providerId);
       if (!definition) continue;
       registerProviderDefinition(definition);
-      registerProvider(providerId, {
-        packageName: definition.packageName ?? `@ai-sdk/${providerId}`,
-      });
       restored++;
     } catch {
       // Provider package may be unavailable — skip silently.

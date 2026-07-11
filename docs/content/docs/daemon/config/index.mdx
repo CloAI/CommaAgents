@@ -1,0 +1,63 @@
+---
+title: Configuration
+description: Resolve daemon settings from environment variables, JSON configuration, and platform defaults.
+---
+
+# Configuration
+
+Use `loadDaemonConfig` to resolve every daemon setting before creating a server or controlling a daemon process.
+
+```ts
+import { loadDaemonConfig } from "@comma-agents/daemon";
+
+const config = loadDaemonConfig();
+console.log(`${config.host}:${config.port}`);
+```
+
+## DaemonConfig
+
+The fully resolved configuration used by the daemon.
+
+<AutoTypeTable path="../packages/daemon/src/config/config.types.ts" name="DaemonConfig" />
+
+## DaemonConfigFile
+
+The optional fields accepted by the JSON configuration file.
+
+<AutoTypeTable path="../packages/daemon/src/config/config.types.ts" name="DaemonConfigFile" />
+
+## LoadConfigOptions
+
+Options for selecting a configuration file or supplying an environment map.
+
+<AutoTypeTable path="../packages/daemon/src/config/config.ts" name="LoadConfigOptions" />
+
+## Validate configuration data
+
+Use `DaemonConfigFileSchema` when another part of your application reads or constructs daemon configuration data.
+
+```ts
+import { DaemonConfigFileSchema } from "@comma-agents/daemon";
+
+const fileConfig = DaemonConfigFileSchema.parse({
+  host: "127.0.0.1",
+  port: 7422,
+  logLevel: "info",
+});
+```
+
+## Resolution priority
+
+Each setting is resolved in this order:
+
+1. `COMMA_DAEMON_*` environment variables.
+2. The JSON configuration file.
+3. Platform-aware built-in defaults.
+
+Set `COMMA_DAEMON_CONFIG_FILE` to choose the JSON file. The supported setting variables are `COMMA_DAEMON_PORT`, `COMMA_DAEMON_HOST`, `COMMA_DAEMON_LOG_LEVEL`, `COMMA_DAEMON_LOG_FILE`, `COMMA_DAEMON_PID_FILE`, and `COMMA_DAEMON_RUNS_DIR`.
+
+```bash
+COMMA_DAEMON_PORT=7423 COMMA_DAEMON_LOG_LEVEL=debug comma daemon start
+```
+
+Invalid JSON, unknown configuration shapes, invalid ports, and unsupported log levels cause configuration loading to fail before the server starts.

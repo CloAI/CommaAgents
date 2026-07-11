@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createDaemonState } from "../../../../daemon-state";
 import { createRunSystem } from "../../../../run-system";
-import { createDaemonState } from "../../../../state";
 import { mockLogger, mockSink } from "../../../../test.utils";
 import type { RunListMessage } from "../../responses/run-list";
 import { handleListRuns } from ".";
@@ -22,7 +22,7 @@ describe("handleListRuns", () => {
     const runsDir = await mkdtemp(join(tmpdir(), "comma-agents-list-runs-"));
     tempDirs.push(runsDir);
     const runSystem = createRunSystem({
-      state: createDaemonState(),
+      daemonState: createDaemonState(),
       sink: mockSink(),
       logger: mockLogger(),
       runsDir,

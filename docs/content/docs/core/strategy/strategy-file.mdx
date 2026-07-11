@@ -69,7 +69,9 @@ agents:
         keepRecent: 8
 ```
 
-`providerOptions` configures provider-specific features such as extended thinking or reasoning effort. `modelOptions` configures provider-independent generation parameters such as `temperature`, `maxOutputTokens`, `topP`, and `seed`. `outputSchema` accepts a JSON Schema object for structured output. `context` controls rolling-window and compaction behavior for conversation history. See [createAgent](/docs/core/agents/create-agent) for details.
+`providerOptions` configures provider-specific features such as extended thinking or reasoning effort. `modelOptions` configures provider-independent generation parameters such as `temperature`, `maxOutputTokens`, `topP`, and `seed`. See [Generation Options](/docs/core/agents/create-agent/generation-options).
+
+`outputSchema` accepts a JSON Schema object for [Structured Output](/docs/core/agents/create-agent/structured-output). `context` controls rolling-window and compaction behavior described in [Conversation Context](/docs/core/agents/create-agent/conversation-context).
 
 ### UserAgentDef
 
@@ -109,7 +111,7 @@ agents:
 
 <AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="CustomAgentDef" />
 
-The project must register `prefixed-echo` before the strategy loads. See [createAgent](/docs/core/agents/create-agent#declarative-custom-agent-types) for the TypeScript registration API.
+The project must register `prefixed-echo` before the strategy loads. See [registerAgent](/docs/core/agents/register-agent) for the TypeScript registration API.
 
 ## Flow Definitions
 
@@ -170,7 +172,7 @@ config:
 
 <AutoTypeTable path="../packages/core/src/strategy/schema.ts" name="CustomFlowDef" />
 
-The project must register `first-match` before the strategy loads. See [Custom Flows](/docs/core/flows/custom-flow) for the TypeScript registration API.
+The project must register `first-match` before the strategy loads. See [registerFlow](/docs/core/flows/register-flow) for the TypeScript registration API.
 
 ## Steps
 

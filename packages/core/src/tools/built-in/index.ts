@@ -52,7 +52,6 @@ export type {
   PlatformInfo,
   RunCommandData,
   RunCommandToolConfig,
-  RunCommandToolConfigWithRequester,
 } from "./run-command";
 export { createRunCommandTool } from "./run-command";
 export type {

@@ -1,0 +1,44 @@
+---
+title: Log Sinks
+description: Send structured daemon logs to stderr, files, or the host service manager.
+---
+
+# Log Sinks
+
+Pass one or more sinks to `createLogger`. Every sink receives the same structured entry after logger-level filtering.
+
+```ts
+import {
+  createFileSink,
+  createLogger,
+  createSystemSink,
+} from "@comma-agents/daemon";
+
+const logger = createLogger({
+  level: "info",
+  sinks: [
+    createSystemSink(),
+    createFileSink("./logs/daemon.jsonl"),
+  ],
+});
+```
+
+## stderr
+
+`createStderrSink()` writes one JSON object per line to standard error. It is the default when `createLogger` receives no sinks.
+
+## File
+
+`createFileSink(path)` creates or truncates the selected file when the sink opens, appends JSON lines for subsequent entries, and creates the parent directory when needed.
+
+## System service
+
+`createSystemSink()` writes service-manager-friendly output. Under systemd it adds severity prefixes understood by journald; on other platforms it writes JSON lines to standard error for the service manager to capture.
+
+Use `describeSystemLogging()` to display the behavior selected for the current platform.
+
+```ts
+import { describeSystemLogging } from "@comma-agents/daemon";
+
+console.log(describeSystemLogging());
+```

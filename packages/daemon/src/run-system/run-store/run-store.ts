@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import type { TimelineEvent } from "@comma-agents/core";
-import type { RunStatus } from "../../state/state.types";
+import type { RunStatus } from "../../daemon-state/daemon-state.types";
 import type {
   CreateRunStoreOptions,
   RunConfig,

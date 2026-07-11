@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { createJsonFileBackend } from "./backends/json-file";
+import { createJsonFileCredentialBackend } from "./backends/json-file";
 import { createCredentialStore } from "./credentials";
 import { WELL_KNOWN_ENV_VARS } from "./credentials.constants";
 import type { Credential } from "./credentials.schema";
@@ -64,20 +64,20 @@ describe("JsonFileBackend", () => {
   afterEach(cleanup);
 
   test("readAll returns empty object when file does not exist", async () => {
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     expect(await backend.readAll()).toEqual({});
   });
 
   test("writeAll creates parent directories", async () => {
     const nested = join(TEST_DIR, "deep", "nested", "credentials.json");
-    const backend = createJsonFileBackend({ filePath: nested });
+    const backend = createJsonFileCredentialBackend({ filePath: nested });
     await backend.writeAll({ $global: { openai: apiKey } });
     expect(existsSync(nested)).toBe(true);
   });
 
   test("writeAll + readAll round-trips data", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
 
     const data: CredentialStoreData = {
       $global: { openai: apiKey, anthropic: oauthCred },
@@ -91,7 +91,7 @@ describe("JsonFileBackend", () => {
   test("writeAll sets file permissions to 0o600 on Unix", async () => {
     if (process.platform === "win32") return; // skip on Windows
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     await backend.writeAll({ $global: { openai: apiKey } });
 
     const stats = statSync(TEST_FILE);
@@ -103,14 +103,14 @@ describe("JsonFileBackend", () => {
   test("readAll returns empty for empty file", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
     writeFileSync(TEST_FILE, "", "utf-8");
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     expect(await backend.readAll()).toEqual({});
   });
 
   test("readAll returns empty for invalid JSON", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
     writeFileSync(TEST_FILE, "not-json{{{", "utf-8");
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     expect(await backend.readAll()).toEqual({});
   });
 
@@ -122,13 +122,13 @@ describe("JsonFileBackend", () => {
       JSON.stringify({ $global: { openai: "just-a-string" } }),
       "utf-8",
     );
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     expect(await backend.readAll()).toEqual({});
   });
 
   test("writeAll validates data before writing", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     // Pass invalid data — should throw
     await expect(
       backend.writeAll({
@@ -139,7 +139,7 @@ describe("JsonFileBackend", () => {
 
   test("writeAll produces readable JSON", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     await backend.writeAll({ $global: { openai: apiKey } });
 
     const raw = readFileSync(TEST_FILE, "utf-8");
@@ -150,7 +150,7 @@ describe("JsonFileBackend", () => {
 
   test("readAll handles all credential types", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const data: CredentialStoreData = {
       $global: {
         provider1: apiKey,
@@ -432,13 +432,13 @@ describe("getAuthStatus", () => {
   afterEach(cleanup);
 
   test("returns 'none' when no credential exists in any source", async () => {
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
     expect(await store.getAuthStatus("openai")).toBe("none");
   });
 
   test("returns 'configured' when env var is set", async () => {
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({
       backend,
       env: { OPENAI_API_KEY: "sk-env" },
@@ -447,14 +447,14 @@ describe("getAuthStatus", () => {
   });
 
   test("returns 'configured' when global-scope credential exists", async () => {
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
     await store.set("anthropic", "$global", { type: "api", key: "sk-a" });
     expect(await store.getAuthStatus("anthropic")).toBe("configured");
   });
 
   test("returns 'configured' when strategy-scoped credential exists", async () => {
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
     await store.set("openai", "my-strategy", { type: "api", key: "sk-s" });
     expect(await store.getAuthStatus("openai", "my-strategy")).toBe(

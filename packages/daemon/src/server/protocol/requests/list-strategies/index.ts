@@ -1,7 +1,7 @@
 // List-strategies request handler.
 // Returns a summary of all known runs.
 
-import type { RunState } from "../../../../state/state.types";
+import type { RunState } from "../../../../daemon-state/daemon-state.types";
 import type { HandlerContext } from "../../dispatcher.types";
 import type { RunSummary } from "../../responses/strategy-list/strategy-list.schema";
 import type { ListStrategiesMessage } from "./list-strategies.schema";

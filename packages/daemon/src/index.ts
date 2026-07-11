@@ -8,21 +8,35 @@ export {
   loadDaemonConfig,
 } from "./config";
 export type {
-  DaemonRunState,
-  DaemonStartOptions,
-  DaemonStartResult,
-  DaemonStatus,
-  DaemonStopResult,
-  DaemonWaitOptions,
-} from "./daemon-control";
+  DaemonCommandAction,
+  DaemonCommandArguments,
+  DaemonCommandOptions,
+  DaemonProcessRunState,
+  DaemonProcessStartOptions,
+  DaemonProcessStartResult,
+  DaemonProcessStatus,
+  DaemonProcessStopResult,
+  DaemonProcessWaitOptions,
+} from "./daemon-cli";
 export {
-  getDaemonStatus,
-  restartDaemon,
-  runDaemonForeground,
-  startDaemon,
-  stopDaemon,
-  waitForDaemonReady,
-} from "./daemon-control";
+  daemonStartOptions,
+  daemonStatusOptions,
+  getDaemonProcessStatus,
+  restartDaemonProcess,
+  runDaemonCommand,
+  runStandaloneDaemonCli,
+  startDaemonProcess,
+  startDaemonRuntime,
+  stopDaemonProcess,
+  waitForDaemonProcessReady,
+} from "./daemon-cli";
+export {
+  isRunning,
+  readPid,
+  removePid,
+  writePid,
+} from "./daemon-cli/process/pid/pid";
+export type { RunStatus } from "./daemon-state";
 export {
   createTypeScriptLanguageService,
   type TypeScriptLanguageServiceOptions,
@@ -41,7 +55,6 @@ export {
   createSystemSink,
   describeSystemLogging,
 } from "./logger";
-export { isRunning, readPid, removePid, writePid } from "./pid";
 export type {
   CreateRunSystemOptions,
   EventSink,
@@ -55,6 +68,8 @@ export {
   createRunSystem,
   extractProviderIds,
 } from "./run-system";
+export type { CreateDaemonOptions, Daemon } from "./server";
+export { createDaemon } from "./server";
 export type {
   AgentCallResultWire,
   AgentStreamEventWire,
@@ -79,6 +94,3 @@ export {
   parseClientMessage,
   parseDaemonMessage,
 } from "./server/protocol";
-export { createDaemon } from "./server/server";
-export type { CreateDaemonOptions, Daemon } from "./server/server.types";
-export type { RunStatus } from "./state";
