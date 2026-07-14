@@ -16,10 +16,14 @@ export {
   loadCatalog,
   refreshCatalog,
   resetCatalog,
-  resolveCatalogCachePath,
   toModelInfo,
 } from "./catalog/index";
 export { listCopilotModels, listOllamaModels } from "./listers/index";
+export {
+  getGlobalProviderResolver,
+  resetGlobalProviderResolver,
+  setProviderInstallDirectory,
+} from "./provider-resolver";
 export type { ProviderWithModels } from "./providers";
 export {
   getCustomProviderIdsSync,

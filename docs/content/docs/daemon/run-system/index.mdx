@@ -41,11 +41,11 @@ Options for preparing either a new run or a continuation.
 
 For a new run, provide `strategyPath`; the run system generates a run ID unless you supply one. For a continuation, provide the completed run's `runId`. The saved run supplies the strategy path, working directory, model override, and project manifest unless you explicitly override them.
 
-## EventSink
+## MessageSender
 
 The destination for run events sent to individual clients or all subscribers of a run.
 
-<AutoTypeTable path="../packages/daemon/src/run-system/event-sink.ts" name="EventSink" />
+<AutoTypeTable path="../packages/daemon/src/server/protocol/dispatcher.types.ts" name="MessageSender" />
 
 ## Persistence and continuation
 

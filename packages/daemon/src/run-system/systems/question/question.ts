@@ -28,7 +28,7 @@ export function createQuestionSystem(): DaemonSystem {
 
     onRunPrepare({
       run,
-      sink,
+      messageSender,
       abortSignal,
       systemData,
       actions,
@@ -68,7 +68,7 @@ export function createQuestionSystem(): DaemonSystem {
           abortSignal.addEventListener("abort", abortHandler, { once: true });
           pending.set(requestId, entry);
 
-          sink.broadcast(run.id, {
+          messageSender.broadcast(run.id, {
             type: "request_question",
             runId: run.id,
             requestId,

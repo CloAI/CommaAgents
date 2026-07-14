@@ -2,14 +2,14 @@ import { isRunning, readPid, removePid } from "@comma-agents/utils";
 import { sleep } from "bun";
 import { loadDaemonConfig } from "../../../config";
 import {
+  DEFAULT_DAEMON_POLL_INTERVAL_MS,
+  DEFAULT_DAEMON_STOP_TIMEOUT_MS,
+} from "../../../defaults";
+import {
   type DaemonProcessStartOptions,
   type DaemonProcessStatus,
   getDaemonProcessStatus,
 } from "..";
-import {
-  DAEMON_POLL_INTERVAL_MS,
-  DEFAULT_DAEMON_STOP_TIMEOUT_MS,
-} from "../process.constants";
 import { buildDaemonProcessEnvOverrides } from "../process.utils";
 
 /** Result returned after a daemon process stop request. */
@@ -66,7 +66,7 @@ export async function stopDaemonProcess(
         message: "Daemon stopped",
       };
     }
-    await sleep(DAEMON_POLL_INTERVAL_MS);
+    await sleep(DEFAULT_DAEMON_POLL_INTERVAL_MS);
   }
 
   throw new Error(

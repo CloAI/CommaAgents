@@ -1,7 +1,7 @@
 // Ping request handler.
 // Responds with a pong message to keep the connection alive.
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { PingMessage } from "./ping.schema";
 
 export { PingMessage } from "./ping.schema";

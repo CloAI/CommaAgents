@@ -1,7 +1,7 @@
 // Question-response request handler.
 // Routes a user feedback response to the pending question request on a running strategy.
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { QuestionResponseMessage } from "./question-response.schema";
 
 export { QuestionResponseMessage } from "./question-response.schema";

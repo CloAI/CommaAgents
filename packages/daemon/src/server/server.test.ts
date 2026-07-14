@@ -15,7 +15,11 @@ import {
 } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resetGlobalDefaults, resetModelRegistry, setProviderInstallDirectory } from "@comma-agents/core";
+import {
+  resetGlobalDefaults,
+  resetModelRegistry,
+  setProviderInstallDirectory,
+} from "@comma-agents/core";
 import {
   MINIMAL_STRATEGY,
   MULTI_AGENT_STRATEGY,
@@ -69,7 +73,7 @@ async function startDaemon(): Promise<Daemon> {
     logger: mockLogger(),
   });
 
-  setProviderInstallDirectory(join(tmpdir(), "providers"))
+  setProviderInstallDirectory(join(tmpdir(), "providers"));
 
   await daemon.start();
   activeDaemons.push(daemon);
@@ -735,9 +739,9 @@ describe("user_input error cases", () => {
   });
 });
 
-// EventSink broadcast routing
+// Dispatcher broadcast routing
 
-describe("EventSink broadcast routing", () => {
+describe("Dispatcher broadcast routing", () => {
   it("two clients subscribed to same run → both receive strategy_started and strategy_completed", async () => {
     const daemon = await startDaemon();
     const c1 = await connectClient(daemon);

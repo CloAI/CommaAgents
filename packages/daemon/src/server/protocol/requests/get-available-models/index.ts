@@ -10,7 +10,7 @@ import {
   toModelInfo,
 } from "@comma-agents/core";
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { AvailableModelWire } from "../../responses/available-models";
 import type { ModelInfoWire } from "../../responses/provider-list";
 import { toModelInfoWire } from "../../responses/provider-list/provider-list.utils";

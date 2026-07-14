@@ -2,6 +2,7 @@ import type { AgentCallResult, AgentStreamEvent } from "@comma-agents/core";
 import { isUserAgentDef } from "@comma-agents/core";
 import type { RunState } from "../../../daemon-state";
 import type { Logger } from "../../../logger";
+import type { MessageSender } from "../../../server/protocol/dispatcher/dispatcher.types";
 import {
   toAgentCallResultWire,
   toAgentStreamEventWire,
@@ -10,7 +11,6 @@ import {
   type AgentModelDetails,
   resolveAgentModelDetails,
 } from "../../agent-model-details";
-import type { EventSink } from "../../event-sink";
 import type {
   DaemonSystem,
   StrategyLoadedContext,
@@ -21,7 +21,7 @@ import type { StreamingSystemOptions } from "./streaming.types";
 export function createStreamingSystem(
   options: StreamingSystemOptions,
 ): DaemonSystem {
-  const { logger, sink } = options;
+  const { logger, messageSender } = options;
 
   return {
     name: "streaming",
@@ -31,7 +31,7 @@ export function createStreamingSystem(
 
       systemData.set("lastAgentOutputText", null);
 
-      const flowHooks = buildFlowHooks(run, sink);
+      const flowHooks = buildFlowHooks(run, messageSender);
       strategy.flow.appendHook?.("beforeStep", flowHooks.beforeStep);
       strategy.flow.appendHook?.("afterStep", flowHooks.afterStep);
 
@@ -45,7 +45,7 @@ export function createStreamingSystem(
         const agentHooks = buildAgentHooks(
           agentName,
           run,
-          sink,
+          messageSender,
           logger,
           systemData,
           isUserAgent,
@@ -59,7 +59,7 @@ export function createStreamingSystem(
   };
 }
 
-function buildFlowHooks(run: RunState, sink: EventSink) {
+function buildFlowHooks(run: RunState, messageSender: MessageSender) {
   return {
     beforeStep({
       stepName,
@@ -70,7 +70,7 @@ function buildFlowHooks(run: RunState, sink: EventSink) {
     }): void {
       const ts = new Date().toISOString();
 
-      sink.broadcast(run.id, {
+      messageSender.broadcast(run.id, {
         type: "step_started",
         runId: run.id,
         stepName,
@@ -89,7 +89,7 @@ function buildFlowHooks(run: RunState, sink: EventSink) {
     }): void {
       const ts = new Date().toISOString();
 
-      sink.broadcast(run.id, {
+      messageSender.broadcast(run.id, {
         type: "step_completed",
         runId: run.id,
         stepName,
@@ -103,7 +103,7 @@ function buildFlowHooks(run: RunState, sink: EventSink) {
 function buildAgentHooks(
   agentName: string,
   run: RunState,
-  sink: EventSink,
+  messageSender: MessageSender,
   logger: Logger,
   systemData: SystemDataStore,
   isUserAgent: boolean,
@@ -117,7 +117,7 @@ function buildAgentHooks(
 
       if (isUserAgent) return;
 
-      sink.broadcast(run.id, {
+      messageSender.broadcast(run.id, {
         type: "agent_streaming",
         runId: run.id,
         agentName,
@@ -131,7 +131,7 @@ function buildAgentHooks(
       const ts = new Date().toISOString();
 
       if (!isUserAgent) {
-        sink.broadcast(run.id, {
+        messageSender.broadcast(run.id, {
           type: "agent_output",
           runId: run.id,
           agentName,

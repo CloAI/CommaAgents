@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { getCatalogCachePath } from "../../../defaults/defaults";
 import {
   getCatalogModels,
   getCatalogProvider,
@@ -8,7 +9,7 @@ import {
   loadCatalog,
 } from "./catalog";
 import type { CatalogModel } from "./catalog.types";
-import { resolveCatalogCachePath, toModelInfo } from "./catalog.utils";
+import { toModelInfo } from "./catalog.utils";
 
 describe("loadCatalog (bundled snapshot)", () => {
   test("returns an object keyed by provider id", async () => {
@@ -119,9 +120,9 @@ describe("toModelInfo", () => {
   });
 });
 
-describe("resolveCatalogCachePath", () => {
+describe("getCatalogCachePath", () => {
   test("uses the shared data directory", () => {
-    expect(resolveCatalogCachePath()).toBe(
+    expect(getCatalogCachePath()).toBe(
       join(homedir(), ".comma", "cache", "models-catalog.json"),
     );
   });

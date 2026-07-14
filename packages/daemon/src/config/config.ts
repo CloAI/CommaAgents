@@ -1,9 +1,16 @@
-import type { DaemonConfig } from "./config.types";
 import {
-  buildDefaults,
-  readConfigFile,
-  readEnvOverrides,
-} from "./config.utils";
+  getDaemonConfigFile,
+  getDaemonDefaults,
+  setDaemonConfigFile,
+  setDaemonHost,
+  setDaemonLogFile,
+  setDaemonLogLevel,
+  setDaemonPidFile,
+  setDaemonPort,
+  setDaemonRunsDirectory,
+} from "../defaults";
+import type { DaemonConfig } from "./config.types";
+import { readConfigFile } from "./config.utils";
 
 /** Options for selecting daemon configuration inputs. */
 export interface LoadConfigOptions {
@@ -24,23 +31,43 @@ export interface LoadConfigOptions {
  * @throws If the config file exists but contains invalid JSON or fails schema validation.
  */
 export function loadDaemonConfig(options?: LoadConfigOptions): DaemonConfig {
-  const defaults: DaemonConfig = buildDefaults();
-  const env = options?.env ?? process.env;
-
-  // Determine config file path: explicit option > env var > default
   const configFile =
-    options?.configFile ?? env.COMMA_DAEMON_CONFIG_FILE ?? defaults.configFile;
+    options?.configFile ??
+    options?.env?.COMMA_DAEMON_CONFIG_FILE ??
+    getDaemonConfigFile();
 
-  // Layer 1: defaults
-  let config: DaemonConfig = { ...defaults, configFile };
-
-  // Layer 2: JSON config file
   const fileOverrides = readConfigFile(configFile);
-  config = { ...config, ...fileOverrides, configFile };
+  if (fileOverrides.port !== undefined) setDaemonPort(fileOverrides.port);
+  if (fileOverrides.host !== undefined) setDaemonHost(fileOverrides.host);
+  if (fileOverrides.logLevel !== undefined) {
+    setDaemonLogLevel(fileOverrides.logLevel);
+  }
+  if (fileOverrides.logFile !== undefined)
+    setDaemonLogFile(fileOverrides.logFile);
+  if (fileOverrides.pidFile !== undefined)
+    setDaemonPidFile(fileOverrides.pidFile);
+  setDaemonConfigFile(configFile);
+  if (fileOverrides.runsDir !== undefined) {
+    setDaemonRunsDirectory(fileOverrides.runsDir);
+  }
 
-  // Layer 3: env vars (highest priority)
-  const envOverrides = readEnvOverrides(env);
-  config = { ...config, ...envOverrides, configFile };
+  const env = options?.env;
+  if (env) {
+    if (env.COMMA_DAEMON_PORT) {
+      setDaemonPort(Number.parseInt(env.COMMA_DAEMON_PORT, 10));
+    }
+    if (env.COMMA_DAEMON_HOST) setDaemonHost(env.COMMA_DAEMON_HOST);
+    if (env.COMMA_DAEMON_LOG_LEVEL) {
+      setDaemonLogLevel(env.COMMA_DAEMON_LOG_LEVEL as DaemonConfig["logLevel"]);
+    }
+    if (env.COMMA_DAEMON_LOG_FILE) setDaemonLogFile(env.COMMA_DAEMON_LOG_FILE);
+    if (env.COMMA_DAEMON_PID_FILE) setDaemonPidFile(env.COMMA_DAEMON_PID_FILE);
+    if (env.COMMA_DAEMON_RUNS_DIR) {
+      setDaemonRunsDirectory(env.COMMA_DAEMON_RUNS_DIR);
+    }
+  }
+
+  const config = getDaemonDefaults();
 
   // Validate the final port is in range
   if (

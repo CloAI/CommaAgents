@@ -62,7 +62,7 @@ export function createAgent(
   config: AgentConfig,
   runtime: AgentRuntime = {},
 ): Agent {
-  const context = createConversationContext(resolveContextOptions(config));
+  const conversationContext = createConversationContext(resolveContextOptions(config));
   let firstCall = true;
 
   // Mutable hooks store — starts empty, populated via appendHook (hookIntoAgent).
@@ -154,7 +154,7 @@ export function createAgent(
               config,
               runtime,
               alteredMessage,
-              context,
+              conversationContext,
               getToolHooks(hooks),
               signal,
             );
@@ -202,7 +202,7 @@ export function createAgent(
               : {}),
             finishReason: result.finishReason,
           });
-          context.appendRecord(conversationRecord);
+          conversationContext.appendRecord(conversationRecord);
 
           // 4-5. Post-call hooks
           const finalResult = await runPostCallHooks(hooks, result, isFirst);
@@ -229,7 +229,7 @@ export function createAgent(
     },
 
     getConversationContext() {
-      return context;
+      return conversationContext;
     },
 
     /** Append a hook callback to this agent's lifecycle. */
@@ -249,7 +249,7 @@ export function createAgent(
 
     reset(): void {
       firstCall = true;
-      context.clear();
+      conversationContext.clear();
     },
 
     updatePromptVariables(variables: TemplateVariables): void {

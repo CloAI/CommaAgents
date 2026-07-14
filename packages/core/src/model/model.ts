@@ -1,11 +1,11 @@
 import type { LanguageModel } from "ai";
-import {
-  getGlobalCredentialStore,
-  getGlobalProviderResolver,
-} from "../defaults/defaults";
+import { getGlobalCredentialStore } from "../credentials";
 import { ModelResolutionError } from "../errors/index";
 import { parseModel } from "./model.utils";
-import { getProvidersForModel } from "./providers/index";
+import {
+  getGlobalProviderResolver,
+  getProvidersForModel,
+} from "./providers/index";
 
 /** Direct model registrations — maps full model strings to LanguageModel instances. */
 let modelRegistry = new Map<string, LanguageModel>();

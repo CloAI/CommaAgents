@@ -23,7 +23,7 @@ import {
   MINIMAL_STRATEGY,
   MULTI_AGENT_STRATEGY,
   mockLogger,
-  mockSink,
+  mockMessageSender,
   setupMockModels,
   USER_AGENT_STRATEGY,
   waitForBroadcasts,
@@ -198,7 +198,7 @@ describe("createRunSystem", () => {
     const runsDir = await createTempRunsDir();
     const runSystem = createRunSystem({
       daemonState: createDaemonState(),
-      sink: mockSink(),
+      messageSender: mockMessageSender(),
       logger: mockLogger(),
       runsDir,
     });
@@ -220,13 +220,13 @@ describe("createRunSystem", () => {
   it("prepareRun creates a pending run, subscribes client, and returns metadata", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -261,7 +261,7 @@ describe("createRunSystem", () => {
     state.addClient("client-1");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink: mockSink(),
+      messageSender: mockMessageSender(),
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -306,7 +306,7 @@ describe("createRunSystem", () => {
     state.addClient("client-1");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink: mockSink(),
+      messageSender: mockMessageSender(),
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -382,13 +382,13 @@ registerFlow(
   it("prepareRun uses a caller-selected stable runId", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -411,7 +411,7 @@ registerFlow(
     state.addClient("client-1");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink: mockSink(),
+      messageSender: mockMessageSender(),
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -442,11 +442,11 @@ registerFlow(
     const capturedPrompts: unknown[] = [];
     registerCapturingModel("openai/gpt-4o", capturedPrompts);
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
     state.addClient("client-1");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -499,7 +499,7 @@ registerFlow(
     ).toThrow("prepared for continuation");
 
     runSystem.continueRun("client-1", "continued-run", "first continuation");
-    await waitForBroadcasts(sink, 6, 10000);
+    await waitForBroadcasts(messageSender, 6, 10000);
 
     expect(JSON.stringify(capturedPrompts[0])).toContain("prior request");
     expect(JSON.stringify(capturedPrompts[0])).toContain("prior response");
@@ -510,7 +510,7 @@ registerFlow(
 
     await runSystem.prepareRun("client-1", { runId: "continued-run" });
     runSystem.continueRun("client-1", "continued-run", "second continuation");
-    await waitForBroadcasts(sink, 12, 10000);
+    await waitForBroadcasts(messageSender, 12, 10000);
 
     expect(capturedPrompts).toHaveLength(2);
     expect(JSON.stringify(capturedPrompts[1])).toContain("second continuation");
@@ -525,11 +525,11 @@ registerFlow(
 
   it("extracts genuine human inputs anchored to the first agent_call of each run segment", async () => {
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
     state.addClient("client-1");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -608,11 +608,11 @@ registerFlow(
 
   it("anchors a human input with no following agent_call as a trailing input", async () => {
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
     state.addClient("client-1");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -640,11 +640,11 @@ registerFlow(
 
   it("reconstructs compacted conversation history from retention events", async () => {
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
     state.addClient("client-1");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -727,11 +727,11 @@ registerFlow(
     registerCapturingModel("openai/gpt-4o", assistantPrompts);
     registerCapturingModel("anthropic/claude-3.5-sonnet", newcomerPrompts);
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
     state.addClient("client-1");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -782,7 +782,7 @@ registerFlow(
     });
     expect(prepared.strategyName).toBe("Override");
     runSystem.continueRun("client-1", "override-run", "continue override");
-    await waitForBroadcasts(sink, 10, 10000);
+    await waitForBroadcasts(messageSender, 10, 10000);
 
     expect(JSON.stringify(assistantPrompts[0])).toContain("assistant history");
     expect(JSON.stringify(newcomerPrompts[0])).not.toContain(
@@ -804,7 +804,7 @@ registerFlow(
     state.addClient("client-1");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink: mockSink(),
+      messageSender: mockMessageSender(),
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -833,7 +833,7 @@ registerFlow(
     state.addClient("client-2");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink: mockSink(),
+      messageSender: mockMessageSender(),
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -882,11 +882,11 @@ registerFlow(
   it("stopRun cleans up a prepared run without persisting it", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
     state.addClient("client-1");
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -909,13 +909,13 @@ registerFlow(
   it("fire-and-forget: startRun returns before execution completes", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -940,13 +940,13 @@ registerFlow(
   it("broadcasts strategy_started with strategy metadata", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -957,9 +957,9 @@ registerFlow(
     await prepareAndStart(runSystem, "client-1", filePath, "hello");
 
     // Wait for strategy_started broadcast
-    await waitForBroadcasts(sink, 1);
+    await waitForBroadcasts(messageSender, 1);
 
-    const flowStarted = sink.broadcasts.find(
+    const flowStarted = messageSender.broadcasts.find(
       (b) => b.message.type === "strategy_started",
     );
     expect(flowStarted).toBeDefined();
@@ -972,13 +972,13 @@ registerFlow(
   it("broadcasts step_started and step_completed for each step", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -989,9 +989,9 @@ registerFlow(
     await prepareAndStart(runSystem, "client-1", filePath, "hello");
 
     // Wait for strategy_completed (which means all steps have run)
-    await waitForBroadcasts(sink, 4, 10000);
+    await waitForBroadcasts(messageSender, 4, 10000);
 
-    const types = sink.broadcasts.map((b) => b.message.type);
+    const types = messageSender.broadcasts.map((b) => b.message.type);
     expect(types).toContain("step_started");
     expect(types).toContain("step_completed");
   });
@@ -999,13 +999,13 @@ registerFlow(
   it("broadcasts strategy_completed on success", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1021,9 +1021,9 @@ registerFlow(
     );
 
     // Wait for strategy_completed
-    await waitForBroadcasts(sink, 4, 10000);
+    await waitForBroadcasts(messageSender, 4, 10000);
 
-    const flowCompleted = sink.broadcasts.find(
+    const flowCompleted = messageSender.broadcasts.find(
       (b) => b.message.type === "strategy_completed",
     );
     expect(flowCompleted).toBeDefined();
@@ -1043,7 +1043,7 @@ registerFlow(
   it("discovers project skills and wires them into strategy agents", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
     state.addClient("client-1");
 
     const cwd = await mkdtemp(join(tmpdir(), "comma-skills-"));
@@ -1063,7 +1063,7 @@ registerFlow(
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1095,20 +1095,20 @@ registerFlow(
       undefined,
       cwd,
     );
-    await waitForBroadcasts(sink, 4, 10000);
+    await waitForBroadcasts(messageSender, 4, 10000);
 
     expect(state.getRun(runId)?.status).toBe("completed");
   });
 
   it("broadcasts strategy_error when strategy file is invalid", async () => {
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1124,13 +1124,13 @@ registerFlow(
 
   it("broadcasts strategy_error when strategy file is not found", async () => {
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1146,13 +1146,13 @@ registerFlow(
   it("stopRun aborts execution and broadcasts strategy_error with CANCELLED", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1176,7 +1176,7 @@ registerFlow(
     expect(run?.error?.code).toBe("CANCELLED");
 
     // Should have broadcast a strategy_error with CANCELLED
-    const cancelledMsg = sink.broadcasts.find(
+    const cancelledMsg = messageSender.broadcasts.find(
       (b) =>
         b.message.type === "strategy_error" &&
         b.message.error.code === "CANCELLED",
@@ -1186,7 +1186,7 @@ registerFlow(
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(state.getRun(runId)?.status).toBe("cancelled");
     expect(
-      sink.broadcasts.some(
+      messageSender.broadcasts.some(
         (broadcast) => broadcast.message.type === "strategy_completed",
       ),
     ).toBe(false);
@@ -1195,13 +1195,13 @@ registerFlow(
   it("shutdown persists a cancelled run_completed for in-flight runs", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1212,7 +1212,7 @@ registerFlow(
     // Empty input parks the run on a request_input — it is now running with a
     // persisted run_started and will not complete on its own.
     const runId = await prepareAndStart(runSystem, "client-1", filePath, "");
-    await waitForBroadcasts(sink, 2, 10000);
+    await waitForBroadcasts(messageSender, 2, 10000);
     expect(state.getRun(runId)?.status).toBe("running");
 
     await runSystem.shutdown();
@@ -1237,13 +1237,13 @@ registerFlow(
   it("resolveInput routes to the correct run's pending input", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1256,9 +1256,9 @@ registerFlow(
     const runId = await prepareAndStart(runSystem, "client-1", filePath, "");
 
     // Wait for request_input broadcast
-    await waitForBroadcasts(sink, 2, 10000);
+    await waitForBroadcasts(messageSender, 2, 10000);
 
-    const requestInput = sink.broadcasts.find(
+    const requestInput = messageSender.broadcasts.find(
       (b) => b.message.type === "request_input",
     );
     expect(requestInput).toBeDefined();
@@ -1274,14 +1274,14 @@ registerFlow(
     }
 
     // Wait for strategy_completed
-    await waitForBroadcasts(sink, 6, 10000);
+    await waitForBroadcasts(messageSender, 6, 10000);
 
-    const flowCompleted = sink.broadcasts.find(
+    const flowCompleted = messageSender.broadcasts.find(
       (b) => b.message.type === "strategy_completed",
     );
     expect(flowCompleted).toBeDefined();
 
-    const agentEvents = sink.broadcasts.filter(
+    const agentEvents = messageSender.broadcasts.filter(
       (broadcast) =>
         broadcast.message.type === "agent_streaming" ||
         broadcast.message.type === "agent_output",
@@ -1305,13 +1305,13 @@ registerFlow(
   it("uses initial input for a user-first strategy without requesting it again", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1326,15 +1326,15 @@ registerFlow(
       "build this",
     );
 
-    await waitForBroadcasts(sink, 6, 10000);
+    await waitForBroadcasts(messageSender, 6, 10000);
 
     expect(
-      sink.broadcasts.some(
+      messageSender.broadcasts.some(
         (broadcast) => broadcast.message.type === "request_input",
       ),
     ).toBe(false);
     expect(
-      sink.broadcasts.some(
+      messageSender.broadcasts.some(
         (broadcast) => broadcast.message.type === "strategy_completed",
       ),
     ).toBe(true);
@@ -1343,11 +1343,11 @@ registerFlow(
 
   it("resolveInput returns false for unknown run", async () => {
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1360,13 +1360,13 @@ registerFlow(
   it("broadcasts strategy_error when no model is registered for a provider", async () => {
     // No mock models registered — model resolution will fail at call time
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1382,9 +1382,9 @@ registerFlow(
     );
 
     // Wait for strategy_error broadcast (model resolution fails)
-    await waitForBroadcasts(sink, 1, 5000);
+    await waitForBroadcasts(messageSender, 1, 5000);
 
-    const flowError = sink.broadcasts.find(
+    const flowError = messageSender.broadcasts.find(
       (b) => b.message.type === "strategy_error",
     );
     expect(flowError).toBeDefined();
@@ -1401,13 +1401,13 @@ registerFlow(
   it("multi-agent strategy broadcasts events for each step", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1418,9 +1418,9 @@ registerFlow(
     await prepareAndStart(runSystem, "client-1", filePath, "hello");
 
     // Wait for strategy_completed (1 strategy_started + 2 step_started + 2 step_completed + agent events + strategy_completed)
-    await waitForBroadcasts(sink, 6, 10000);
+    await waitForBroadcasts(messageSender, 6, 10000);
 
-    const types = sink.broadcasts.map((b) => b.message.type);
+    const types = messageSender.broadcasts.map((b) => b.message.type);
 
     // Should have strategy_started
     expect(types).toContain("strategy_started");
@@ -1437,11 +1437,11 @@ registerFlow(
 
   it("steer returns false for an unknown run", async () => {
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1454,13 +1454,13 @@ registerFlow(
   it("steer queues text and broadcasts steer_queued for a running run", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1470,7 +1470,7 @@ registerFlow(
     tempFiles.push(filePath);
 
     const runId = await prepareAndStart(runSystem, "client-1", filePath, "");
-    await waitForBroadcasts(sink, 2, 10000);
+    await waitForBroadcasts(messageSender, 2, 10000);
 
     const queued = runSystem.actions.invoke(
       "steer",
@@ -1479,7 +1479,7 @@ registerFlow(
     );
     expect(queued).toBe(true);
 
-    const steerQueued = sink.broadcasts.find(
+    const steerQueued = messageSender.broadcasts.find(
       (b) => b.message.type === "steer_queued",
     );
     expect(steerQueued).toBeDefined();
@@ -1492,13 +1492,13 @@ registerFlow(
   it("steer returns false once a run has finished", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1512,7 +1512,7 @@ registerFlow(
       filePath,
       "hello",
     );
-    await waitForBroadcasts(sink, 4, 10000);
+    await waitForBroadcasts(messageSender, 4, 10000);
 
     // Run has completed — steering is no longer accepted.
     expect(state.getRun(runId)?.status).toBe("completed");
@@ -1522,13 +1522,13 @@ registerFlow(
   it("requestId is echoed in strategy_started and strategy_completed", async () => {
     setupMockModels();
     const state = createDaemonState();
-    const sink = mockSink();
+    const messageSender = mockMessageSender();
 
     state.addClient("client-1");
 
     const runSystem = createRunSystem({
       daemonState: state,
-      sink,
+      messageSender,
       logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
@@ -1538,12 +1538,12 @@ registerFlow(
 
     await prepareAndStart(runSystem, "client-1", filePath, "hello", "req-123");
 
-    await waitForBroadcasts(sink, 4, 10000);
+    await waitForBroadcasts(messageSender, 4, 10000);
 
-    const flowStarted = sink.broadcasts.find(
+    const flowStarted = messageSender.broadcasts.find(
       (b) => b.message.type === "strategy_started",
     );
-    const flowCompleted = sink.broadcasts.find(
+    const flowCompleted = messageSender.broadcasts.find(
       (b) => b.message.type === "strategy_completed",
     );
 

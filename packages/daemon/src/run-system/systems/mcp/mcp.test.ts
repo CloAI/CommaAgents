@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { createRunStore } from "../run-store";
+import { createRunStore } from "../../run-store";
 import { resolveRunMcpConfig } from "./mcp";
 
 const temporaryDirectories: string[] = [];

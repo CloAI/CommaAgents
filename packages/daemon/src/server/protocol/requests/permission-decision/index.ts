@@ -1,7 +1,7 @@
 // Permission-decision request handler.
 // Routes a permission decision to the pending sandbox request on a running flow.
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { PermissionDecisionMessage } from "./permission-decision.schema";
 
 export { PermissionDecisionMessage } from "./permission-decision.schema";

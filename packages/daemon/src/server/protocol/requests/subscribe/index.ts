@@ -1,7 +1,7 @@
 // Subscribe request handler.
 // Subscribes a client to events from a specific run.
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import { SUBSCRIBE_ERROR } from "./subscribe.constants";
 import type { SubscribeMessage } from "./subscribe.schema";
 

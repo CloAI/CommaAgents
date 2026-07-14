@@ -1,4 +1,4 @@
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { StopRunMessage } from "./stop-run.schema";
 
 export { StopRunMessage } from "./stop-run.schema";

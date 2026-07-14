@@ -1,23 +1,25 @@
 import type { HubManager } from "@comma-agents/core/hub";
-import type { DaemonState } from "../../daemon-state/daemon-state.types";
-import type { Logger } from "../../logger/logger.types";
-import type { RunSystem } from "../../run-system";
-import type { DaemonMessage } from "./messages";
-import type { AvailableModelsMessage } from "./responses/available-models";
-import type { CredentialSetMessage } from "./responses/credential-set";
-import type { ErrorMessage } from "./responses/error";
-import type { HubPackagesMessage } from "./responses/hub-packages/hub-packages.schema";
-import type { McpServerListMessage } from "./responses/mcp-server-list/mcp-server-list.schema";
-import type { PongMessage } from "./responses/pong";
-import type { ProviderListMessage } from "./responses/provider-list";
-import type { ProviderRegisteredMessage } from "./responses/provider-registered";
-import type { ProviderUnregisteredMessage } from "./responses/provider-unregistered";
-import type { RunListMessage } from "./responses/run-list";
-import type { RunPreparedMessage } from "./responses/run-prepared";
-import type { StrategyListMessage } from "./responses/strategy-list";
-import type { TrashClearResultMessage } from "./responses/trash-clear-result";
-import type { TrashListResultMessage } from "./responses/trash-list-result";
-import type { TrashRestoreResultMessage } from "./responses/trash-restore-result";
+import type { ServerWebSocket } from "bun";
+import type { DaemonState } from "../../../daemon-state/daemon-state.types";
+import type { Logger } from "../../../logger/logger.types";
+import type { RunSystem } from "../../../run-system";
+import type { WsData } from "../../server.types";
+import type { DaemonMessage } from "../messages";
+import type { AvailableModelsMessage } from "../responses/available-models";
+import type { CredentialSetMessage } from "../responses/credential-set";
+import type { ErrorMessage } from "../responses/error";
+import type { HubPackagesMessage } from "../responses/hub-packages/hub-packages.schema";
+import type { McpServerListMessage } from "../responses/mcp-server-list/mcp-server-list.schema";
+import type { PongMessage } from "../responses/pong";
+import type { ProviderListMessage } from "../responses/provider-list";
+import type { ProviderRegisteredMessage } from "../responses/provider-registered";
+import type { ProviderUnregisteredMessage } from "../responses/provider-unregistered";
+import type { RunListMessage } from "../responses/run-list";
+import type { RunPreparedMessage } from "../responses/run-prepared";
+import type { StrategyListMessage } from "../responses/strategy-list";
+import type { TrashClearResultMessage } from "../responses/trash-clear-result";
+import type { TrashListResultMessage } from "../responses/trash-list-result";
+import type { TrashRestoreResultMessage } from "../responses/trash-restore-result";
 
 /**
  * Compile-time map from each client request type literal to the success
@@ -106,15 +108,35 @@ export interface HandlerContext<
   reply(message: RequestResponseMap[RequestType] | ErrorMessage): void;
 }
 
-/**
- * A dispatcher function produced by `createDispatcher()`.
- *
- * The server calls this for every incoming WebSocket message.
- * It handles JSON parsing, Zod validation, and routing to the
- * correct handler — the server never touches message content.
- */
-export type MessageDispatcher = (
+/** Sends daemon messages to one client or every subscriber of a run. */
+export interface MessageSender {
+  /** Send a message to one connected client. */
+  send(clientId: string, message: DaemonMessage): void;
+
+  /** Send a message to every client subscribed to a run. */
+  broadcast(runId: string, message: DaemonMessage): void;
+}
+
+/** Handles one raw client frame after the run system has been composed. */
+export type MessageHandler = (
   clientId: string,
   raw: string | Buffer,
-  reply: (message: DaemonMessage) => void,
-) => void;
+) => Promise<void>;
+
+/** Bidirectional daemon protocol boundary for inbound and outbound messages. */
+export interface Dispatcher extends MessageSender {
+  /** Bind request routing to the daemon's run system. */
+  createMessageHandler(runSystem: RunSystem): MessageHandler;
+}
+
+/** Dependencies used to create the daemon protocol dispatcher. */
+export interface CreateDispatcherOptions {
+  /** Centralized daemon state for client subscriptions. */
+  readonly state: DaemonState;
+  /** Connected WebSocket clients keyed by their daemon client ID. */
+  readonly clients: Map<string, ServerWebSocket<WsData>>;
+  /** Logger for routing and delivery diagnostics. */
+  readonly logger: Logger;
+  /** Daemon-owned Hub package service. */
+  readonly hubManager: HubManager;
+}

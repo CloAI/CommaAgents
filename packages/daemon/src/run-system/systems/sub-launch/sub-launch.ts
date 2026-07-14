@@ -13,9 +13,9 @@ import {
 import type { HubManager } from "@comma-agents/core/hub";
 import { toAgentStreamEventWire } from "../../../server/protocol/responses/from-core";
 import { resolveAgentModelDetails } from "../../agent-model-details";
-import { createRunMcpRuntime, resolveRunMcpConfig } from "../../mcp";
 import { assertProjectCodeApproved } from "../../prepare-strategy";
 import type { RunStore } from "../../run-store";
+import { createRunMcpRuntime, resolveRunMcpConfig } from "../mcp";
 import type { DaemonSystem, SystemRunContext } from "../systems.types";
 
 export function createSubLaunchSystem(
@@ -26,7 +26,8 @@ export function createSubLaunchSystem(
     name: "sub-launch",
 
     onRunPrepare(runContext: SystemRunContext): void {
-      const { run, sink, systemData, logger, abortSignal } = runContext;
+      const { run, messageSender, systemData, logger, abortSignal } =
+        runContext;
 
       const launchStrategy: LaunchStrategyHandle = async (
         request: LaunchStrategyRequest,
@@ -110,7 +111,7 @@ export function createSubLaunchSystem(
           agent.appendHook("onStreamEvent", (event: AgentStreamEvent): void => {
             if (isUserAgent) return;
 
-            sink.broadcast(run.id, {
+            messageSender.broadcast(run.id, {
               type: "agent_streaming",
               runId: run.id,
               agentName,
@@ -126,7 +127,7 @@ export function createSubLaunchSystem(
               const ts = new Date().toISOString();
 
               if (!isUserAgent) {
-                sink.broadcast(run.id, {
+                messageSender.broadcast(run.id, {
                   type: "agent_output",
                   runId: run.id,
                   agentName,

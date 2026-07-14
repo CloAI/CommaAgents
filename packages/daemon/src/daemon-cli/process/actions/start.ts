@@ -1,7 +1,7 @@
 import { loadDaemonConfig } from "../../../config";
+import { DEFAULT_DAEMON_READY_TIMEOUT_MS } from "../../../defaults";
 import { startDaemonRuntime } from "../../runtime";
 import { isRunning, readPid, removePid } from "../pid/pid";
-import { DEFAULT_DAEMON_READY_TIMEOUT_MS } from "../process.constants";
 import {
   buildDaemonProcessEnvOverrides,
   buildDaemonProcessForegroundArgs,

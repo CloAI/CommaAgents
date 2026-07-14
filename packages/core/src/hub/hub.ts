@@ -1,6 +1,10 @@
 import { join } from "node:path";
 
-import { resolveApplicationDataDirectory } from "../data-directory";
+import {
+  getApplicationDataDirectory,
+  getHubDirectory,
+  getPackagesDirectory,
+} from "../defaults/defaults";
 import {
   DEFAULT_HUB_REPOSITORY,
   HUB_INSTALLED_STATE_FILENAME,
@@ -25,17 +29,20 @@ import { createHubRegistryClient } from "./registry-client";
 export function createHubManager(
   options: CreateHubManagerOptions = {},
 ): HubManager {
-  const dataDirectory = options.dataDir ?? resolveApplicationDataDirectory();
+  const dataDirectory = options.dataDir ?? getApplicationDataDirectory();
   const repository = options.repository ?? DEFAULT_HUB_REPOSITORY;
   const registryClient = createHubRegistryClient({
     repository,
     fetch: options.fetch ?? globalThis.fetch,
   });
   const installedPackages = createInstalledPackageStore({
-    statePath: join(dataDirectory, "hub", HUB_INSTALLED_STATE_FILENAME),
+    statePath: join(
+      getHubDirectory(dataDirectory),
+      HUB_INSTALLED_STATE_FILENAME,
+    ),
   });
   const packageInstaller = createHubPackageInstaller({
-    packagesRoot: join(dataDirectory, "packages"),
+    packagesRoot: getPackagesDirectory(dataDirectory),
     installedPackages,
     registryClient,
   });

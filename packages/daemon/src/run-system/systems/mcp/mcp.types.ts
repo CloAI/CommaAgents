@@ -4,7 +4,7 @@ import type {
   McpServerEntry,
   McpServerSource,
 } from "@comma-agents/core";
-import type { RunStore } from "../run-store";
+import type { RunStore } from "../../run-store";
 
 /** MCP server state exposed by run preparation and management protocol messages. */
 export interface RunMcpServerStatus {

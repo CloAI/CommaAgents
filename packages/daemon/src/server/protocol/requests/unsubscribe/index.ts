@@ -1,7 +1,7 @@
 // Unsubscribe request handler.
 // Removes a client's subscription from a specific run.
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { UnsubscribeMessage } from "./unsubscribe.schema";
 
 export { UnsubscribeMessage } from "./unsubscribe.schema";

@@ -34,7 +34,7 @@ export function createPermissionSystem(): DaemonSystem {
 
     onRunPrepare({
       run,
-      sink,
+      messageSender,
       systemData,
       actions,
       abortSignal,
@@ -99,7 +99,7 @@ export function createPermissionSystem(): DaemonSystem {
           });
           pending.set(requestId, entry);
 
-          sink.broadcast(run.id, {
+          messageSender.broadcast(run.id, {
             type: "request_permission",
             runId: run.id,
             requestId,

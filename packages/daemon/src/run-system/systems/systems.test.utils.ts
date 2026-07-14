@@ -1,4 +1,4 @@
-import { mockLogger, mockSink } from "../../test.utils";
+import { mockLogger, mockMessageSender } from "../../test.utils";
 import type { SystemRunContext } from "./systems.types";
 import {
   createRunActionRegistry,
@@ -6,7 +6,7 @@ import {
 } from "./systems.utils";
 
 export function createSystemRunContext(runId = "run-1"): SystemRunContext & {
-  sink: ReturnType<typeof mockSink>;
+  messageSender: ReturnType<typeof mockMessageSender>;
 } {
   const abortController = new AbortController();
 
@@ -20,7 +20,7 @@ export function createSystemRunContext(runId = "run-1"): SystemRunContext & {
       cwd: "/workspace",
       status: "running",
     },
-    sink: mockSink(),
+    messageSender: mockMessageSender(),
     logger: mockLogger(),
     clientId: "client-1",
     modelOverride: undefined,

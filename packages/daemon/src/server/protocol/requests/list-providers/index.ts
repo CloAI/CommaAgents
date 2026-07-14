@@ -3,7 +3,7 @@
 
 import { getGlobalCredentialStore, listProviders } from "@comma-agents/core";
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { ProviderInfoWire } from "../../responses/provider-list";
 import { toModelInfoWire } from "../../responses/provider-list/provider-list.utils";
 import type { ListProvidersMessage } from "./list-providers.schema";

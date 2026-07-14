@@ -1,6 +1,7 @@
 import type { Argv } from "yargs";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+import { PROCESS_ENV_COMMA_BUILD_VERSION } from "../../defaults";
 import { processDaemonCommand } from "../process";
 import type {
   DaemonCommandArguments,
@@ -55,7 +56,12 @@ export function runStandaloneDaemonCli({
 }: DaemonCommandOptions & {
   readonly argv?: readonly string[];
 } = {}): void {
-  void yargs(argv)
+  const daemonCli = yargs(argv);
+  const versionedDaemonCli = PROCESS_ENV_COMMA_BUILD_VERSION
+    ? daemonCli.version(PROCESS_ENV_COMMA_BUILD_VERSION)
+    : daemonCli.version(false);
+
+  void versionedDaemonCli
     .scriptName("comma-agents-daemon")
     .usage("$0 <command> [options]")
     .command(
@@ -101,7 +107,6 @@ export function runStandaloneDaemonCli({
     .strict()
     .help()
     .alias("h", "help")
-    .version(process.env.COMMA_BUILD_VERSION ?? "development")
     .fail((message, error) => {
       if (error) {
         console.error(`Fatal error: ${error.message}`);

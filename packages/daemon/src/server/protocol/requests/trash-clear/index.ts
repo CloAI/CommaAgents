@@ -1,5 +1,5 @@
 import { clearTrash } from "@comma-agents/core";
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { TrashClearMessage } from "./trash-clear.schema";
 
 export { TrashClearMessage } from "./trash-clear.schema";

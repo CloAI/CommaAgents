@@ -5,6 +5,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveApplicationDataDirectory } from "@comma-agents/core";
+import { resetDaemonDefaultOverrides } from "../defaults";
 import { DaemonConfigFileSchema } from ".";
 import { loadDaemonConfig } from "./config";
 
@@ -29,6 +30,8 @@ function writeJsonConfig(dir: string, config: Record<string, unknown>): string {
 function cleanEnv(): Record<string, string | undefined> {
   return {};
 }
+
+afterEach(resetDaemonDefaultOverrides);
 
 // resolveApplicationDataDirectory
 

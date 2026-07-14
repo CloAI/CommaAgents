@@ -16,7 +16,9 @@ describe("createInputSystem", () => {
       prompt: "What next?",
     });
 
-    expect(context.sink.broadcasts[0]?.message.type).toBe("request_input");
+    expect(context.messageSender.broadcasts[0]?.message.type).toBe(
+      "request_input",
+    );
     expect(
       context.actions.invoke(
         "resolveInput",

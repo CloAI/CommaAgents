@@ -1,5 +1,6 @@
 import { appendFile, mkdir, open, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { getProjectAuditDirectory } from "../../defaults/defaults";
 import type { AuditEntry, AuditSink } from "./audit.types";
 
 /**
@@ -52,7 +53,7 @@ export function createFileAuditSink(
   workspaceRoot: string,
   options: FileAuditSinkOptions = {},
 ): AuditSink {
-  const auditDir = join(workspaceRoot, ".comma", "audit");
+  const auditDir = getProjectAuditDirectory(workspaceRoot);
   const maxDiffBytes = options.maxDiffBytes ?? DEFAULT_MAX_DIFF_BYTES;
 
   /** Resolve the JSONL file path for a given session ID. */

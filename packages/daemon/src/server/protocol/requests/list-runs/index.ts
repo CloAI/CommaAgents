@@ -1,7 +1,7 @@
 // List-runs request handler.
 // Returns run summaries, optionally filtered by cwd.
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { ListRunsMessage } from "./list-runs.schema";
 
 export { ListRunsMessage } from "./list-runs.schema";

@@ -1,4 +1,4 @@
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { ContinueRunMessage } from "./continue-run.schema";
 
 export { ContinueRunMessage } from "./continue-run.schema";

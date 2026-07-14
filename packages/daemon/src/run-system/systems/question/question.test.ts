@@ -18,7 +18,7 @@ describe("createQuestionSystem", () => {
     if (!requester) throw new Error("Question requester was not registered");
 
     const result = requester(request);
-    const message = context.sink.broadcasts[0]?.message;
+    const message = context.messageSender.broadcasts[0]?.message;
     if (message?.type !== "request_question") {
       throw new Error("Question request was not broadcast");
     }
@@ -44,8 +44,8 @@ describe("createQuestionSystem", () => {
 
     const first = requester(request);
     const second = requester(request);
-    const firstMessage = context.sink.broadcasts[0]?.message;
-    const secondMessage = context.sink.broadcasts[1]?.message;
+    const firstMessage = context.messageSender.broadcasts[0]?.message;
+    const secondMessage = context.messageSender.broadcasts[1]?.message;
     if (
       firstMessage?.type !== "request_question" ||
       secondMessage?.type !== "request_question"

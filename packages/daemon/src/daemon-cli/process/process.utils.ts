@@ -2,13 +2,13 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sleep } from "bun";
+import { DEFAULT_DAEMON_POLL_INTERVAL_MS } from "../../defaults";
 import {
   type DaemonCommandArguments,
   type DaemonCommandOptions,
   type DaemonProcessStartOptions,
   getDaemonProcessStatus,
 } from "..";
-import { DAEMON_POLL_INTERVAL_MS } from "./process.constants";
 import type { DaemonProcessWaitOptions } from "./process.types";
 
 export function buildDaemonProcessEnvOverrides({
@@ -24,15 +24,6 @@ export function buildDaemonProcessEnvOverrides({
     envOverrides.COMMA_DAEMON_LOG_LEVEL = "debug";
   }
   return envOverrides;
-}
-
-function resolveDefaultDaemonCommand(): string[] {
-  return [
-    process.execPath,
-    "-i",
-    "run",
-    fileURLToPath(new URL("../daemon-cli.ts", import.meta.url)),
-  ];
 }
 
 export function readDaemonPackageVersion(): string | undefined {
@@ -60,7 +51,14 @@ export function buildDaemonProcessForegroundArgs({
 }: DaemonProcessStartOptions): string[] {
   const spawnArguments = foregroundCommand
     ? [...foregroundCommand, "start", "--foreground"]
-    : [...resolveDefaultDaemonCommand(), "start", "--foreground"];
+    : [
+        process.execPath,
+        "-i",
+        "run",
+        fileURLToPath(new URL("../daemon-cli.ts", import.meta.url)),
+        "start",
+        "--foreground",
+      ];
   if (port !== undefined) {
     spawnArguments.push("--port", String(port));
   }
@@ -82,7 +80,7 @@ export async function waitForDaemonProcessReady({
         `http://${config.host}:${config.port}/health`,
         {
           signal: AbortSignal.timeout(
-            Math.max(1, Math.min(DAEMON_POLL_INTERVAL_MS, remainingMs)),
+            Math.max(1, Math.min(DEFAULT_DAEMON_POLL_INTERVAL_MS, remainingMs)),
           ),
         },
       );
@@ -90,7 +88,7 @@ export async function waitForDaemonProcessReady({
         return true;
       }
     } catch {
-      await sleep(DAEMON_POLL_INTERVAL_MS);
+      await sleep(DEFAULT_DAEMON_POLL_INTERVAL_MS);
     }
   }
   return false;

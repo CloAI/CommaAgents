@@ -10,7 +10,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import stripJsonComments from "strip-json-comments";
 import YAML from "yaml";
-
+import { getPackagesDirectory } from "../../defaults/defaults";
 import { CommaProjectManifestSchema } from "../../hub";
 import { StrategySchema } from "../schema";
 import type {
@@ -246,7 +246,7 @@ export function listProjectManifests(dir: string): string[] {
 
 /** List installed Hub manifests under `<dataDir>/packages/@scope/project`. */
 export function listInstalledProjectManifests(dataDir: string): string[] {
-  const packagesDir = join(dataDir, "packages");
+  const packagesDir = getPackagesDirectory(dataDir);
   if (!existsSync(packagesDir)) return [];
   try {
     return readdirSync(packagesDir, { withFileTypes: true })

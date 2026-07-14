@@ -7,7 +7,7 @@ export function createSandboxSystem(): DaemonSystem {
     name: "sandbox",
 
     onRunPrepare(runContext: SystemRunContext): void {
-      const { run, actions, sink, systemData } = runContext;
+      const { run, actions, messageSender, systemData } = runContext;
       const permissionRequester = systemData.get("permissionRequester");
 
       if (!permissionRequester) {
@@ -17,7 +17,7 @@ export function createSandboxSystem(): DaemonSystem {
       const sandboxCallbacks: GuardCallbacks = {
         onAsk: permissionRequester,
         onPolicyChange: (snapshot): void => {
-          sink.broadcast(run.id, {
+          messageSender.broadcast(run.id, {
             type: "policy_updated",
             runId: run.id,
             tool: snapshot.toolName,

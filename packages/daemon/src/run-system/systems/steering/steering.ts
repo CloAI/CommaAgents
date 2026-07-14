@@ -9,7 +9,7 @@ export function createSteeringSystem(): DaemonSystem {
     name: "steering",
 
     onRunPrepare(runContext: SystemRunContext): void {
-      const { run, sink, systemData, actions } = runContext;
+      const { run, messageSender, systemData, actions } = runContext;
 
       systemData.set("steeringMailbox", []);
 
@@ -19,7 +19,7 @@ export function createSteeringSystem(): DaemonSystem {
 
         mailbox.push(text);
 
-        sink.broadcast(run.id, {
+        messageSender.broadcast(run.id, {
           type: "steer_queued",
           runId: run.id,
           text,

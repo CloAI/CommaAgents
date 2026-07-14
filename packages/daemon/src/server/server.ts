@@ -2,16 +2,14 @@ import { loadCatalog } from "@comma-agents/core";
 import { createHubManager } from "@comma-agents/core/hub";
 import type { Server, ServerWebSocket } from "bun";
 import { createDaemonState } from "../daemon-state/daemon-state";
-import type { EventSink } from "../run-system/event-sink";
 import { createRunSystem } from "../run-system/run-system";
-import { createDispatcher } from "./protocol/dispatcher";
-import type { DaemonMessage } from "./protocol/messages";
+import { createDispatcher } from "./protocol/dispatcher/dispatcher";
 import type { CreateDaemonOptions, Daemon, WsData } from "./server.types";
 
 /**
  * Create a daemon instance.
  *
- * The daemon owns the DaemonState, EventSink, and RunSystem.
+ * The daemon owns the DaemonState, Dispatcher, and RunSystem.
  * Call `start()` to begin listening and `stop()` to shut down.
  *
  * @param options - Configuration for the daemon instance.
@@ -26,61 +24,28 @@ import type { CreateDaemonOptions, Daemon, WsData } from "./server.types";
  * ```
  */
 export function createDaemon({ config, logger }: CreateDaemonOptions): Daemon {
-  const daemonState = createDaemonState();
   const wsMap = new Map<string, ServerWebSocket<WsData>>();
   const startTime = Date.now();
   let server: Server<WsData> | null = null;
   let boundPort = 0;
 
-  const sink: EventSink = {
-    broadcast(runId: string, message: DaemonMessage): void {
-      const subscribers = daemonState.getSubscribers(runId);
-      const json = JSON.stringify(message);
-      for (const clientId of subscribers) {
-        const websocket = wsMap.get(clientId);
-        if (websocket) {
-          try {
-            websocket.send(json);
-          } catch {
-            // Client may have disconnected between getSubscribers and send.
-            // The close handler will clean up.
-            logger.debug(
-              `Failed to send to client ${clientId}, likely disconnected`,
-            );
-          }
-        }
-      }
-    },
-
-    send(clientId: string, message: DaemonMessage): void {
-      const websocket = wsMap.get(clientId);
-      if (!websocket) {
-        logger.debug(`send: client ${clientId} not found in wsMap`);
-        return;
-      }
-      try {
-        websocket.send(JSON.stringify(message));
-      } catch {
-        logger.debug(`Failed to send to client ${clientId}`);
-      }
-    },
-  };
-
+  const daemonState = createDaemonState();
   const hubManager = createHubManager();
+  
+  const dispatcher = createDispatcher({
+    state: daemonState,
+    clients: wsMap,
+    logger: logger.child("dispatcher"),
+    hubManager,
+  });
   const runSystem = createRunSystem({
     daemonState,
-    sink,
+    messageSender: dispatcher,
     logger: logger.child("run-system"),
     runsDir: config.runsDir,
     hubManager,
   });
-
-  const dispatch = createDispatcher({
-    runSystem,
-    state: daemonState,
-    logger: logger.child("dispatcher"),
-    hubManager,
-  });
+  const handleMessage = dispatcher.createMessageHandler(runSystem);
 
   function handleFetch(
     request: Request,
@@ -157,13 +122,7 @@ export function createDaemon({ config, logger }: CreateDaemonOptions): Daemon {
             logger.debug(
               `ws.message from ${clientId} (${preview.length} bytes): ${truncated}`,
             );
-            dispatch(clientId, raw, (message) => {
-              try {
-                websocket.send(JSON.stringify(message));
-              } catch {
-                logger.debug(`Failed to reply to client ${clientId}`);
-              }
-            });
+            void handleMessage(clientId, raw);
           },
 
           close(websocket) {

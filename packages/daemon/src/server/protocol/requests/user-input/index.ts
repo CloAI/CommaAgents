@@ -1,7 +1,7 @@
 // User-input request handler.
 // Routes user text input to a pending input request on a running flow.
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import { NO_PENDING_INPUT } from "./user-input.constants";
 import type { UserInputMessage } from "./user-input.schema";
 

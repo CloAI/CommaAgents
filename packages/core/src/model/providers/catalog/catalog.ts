@@ -1,9 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { getCatalogCachePath } from "../../../defaults/defaults";
 import type { ModelInfo } from "../providers.types";
 import bundledSnapshot from "./catalog.data.json" with { type: "json" };
 import type { CatalogData, CatalogProvider } from "./catalog.types";
-import { resolveCatalogCachePath, toModelInfo } from "./catalog.utils";
+import { toModelInfo } from "./catalog.utils";
 
 /** Source URL for the live catalog. */
 export const CATALOG_SOURCE_URL = "https://models.dev/api.json";
@@ -67,7 +68,7 @@ export async function loadCatalog(options?: {
 }): Promise<CatalogData> {
   if (!options?.forceRefresh && loadedCatalog) return loadedCatalog.data;
 
-  const cachePath = resolveCatalogCachePath();
+  const cachePath = getCatalogCachePath();
 
   if (!options?.forceRefresh) {
     const cached = readCache(cachePath);

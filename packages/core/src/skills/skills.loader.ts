@@ -1,14 +1,14 @@
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
+import {
+  getGlobalSkillsDirectory,
+  getProjectSkillsDirectory,
+} from "../defaults/defaults";
 import { SKILL_FILENAME, SKILL_MAX_BYTES } from "./skills.constants";
 import { createSkillRegistry } from "./skills.registry";
 import type { LoadSkillsOptions, Skill, SkillRegistry } from "./skills.types";
-import {
-  parseSkillFile,
-  resolveDefaultGlobalSkillsDir,
-  resolveDefaultProjectSkillsDir,
-} from "./skills.utils";
+import { parseSkillFile } from "./skills.utils";
 
 /**
  * A non-fatal warning produced while scanning a skills directory. Surfaced
@@ -47,12 +47,11 @@ export async function loadSkills(
   const globalSkillsDir =
     options.globalSkillsDir === null
       ? null
-      : (options.globalSkillsDir ?? resolveDefaultGlobalSkillsDir());
+      : (options.globalSkillsDir ?? getGlobalSkillsDirectory());
   const projectSkillsDir =
     options.projectSkillsDir === null
       ? null
-      : (options.projectSkillsDir ??
-        resolveDefaultProjectSkillsDir(workspaceRoot));
+      : (options.projectSkillsDir ?? getProjectSkillsDirectory(workspaceRoot));
 
   const registry = createSkillRegistry();
   const warnings: SkillLoadWarning[] = [];

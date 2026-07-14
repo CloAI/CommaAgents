@@ -1,7 +1,7 @@
 // Update-policy request handler.
 // Applies a policy patch to a guard of a running strategy.
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { UpdatePolicyMessage } from "./update-policy.schema";
 
 export { UpdatePolicyMessage } from "./update-policy.schema";

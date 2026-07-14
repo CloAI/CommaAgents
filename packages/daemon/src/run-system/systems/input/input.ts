@@ -28,7 +28,7 @@ export function createInputSystem(): DaemonSystem {
 
     onRunPrepare({
       run,
-      sink,
+      messageSender,
       actions,
       systemData,
       abortSignal,
@@ -63,7 +63,7 @@ export function createInputSystem(): DaemonSystem {
           abortSignal.addEventListener("abort", abortHandler, { once: true });
           pending.set(agentName, entry);
 
-          sink.broadcast(run.id, {
+          messageSender.broadcast(run.id, {
             type: "request_input",
             runId: run.id,
             agentName,

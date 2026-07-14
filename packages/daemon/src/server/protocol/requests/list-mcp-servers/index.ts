@@ -1,4 +1,4 @@
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { ListMcpServersMessage } from "./list-mcp-servers.schema";
 
 export { ListMcpServersMessage } from "./list-mcp-servers.schema";

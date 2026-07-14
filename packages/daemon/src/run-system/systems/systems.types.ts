@@ -21,9 +21,9 @@ import type {
   RunState,
 } from "../../daemon-state/daemon-state.types";
 import type { Logger } from "../../logger/logger.types";
-import type { EventSink } from "../event-sink";
-import type { RunMcpServerStatus } from "../mcp";
+import type { MessageSender } from "../../server/protocol/dispatcher/dispatcher.types";
 import type { RunStore } from "../run-store";
+import type { RunMcpServerStatus } from "./mcp";
 import type { QuestionRequester } from "./question/question.types";
 
 /** Dependencies and defaults used to create a run system. */
@@ -31,7 +31,7 @@ export interface CreateRunSystemOptions {
   /** In-memory daemon state for active runs and client subscriptions. */
   readonly daemonState: DaemonState;
   /** Destination for run events and client-specific requests. */
-  readonly sink: EventSink;
+  readonly messageSender: MessageSender;
   /** Logger used for run diagnostics. */
   readonly logger: Logger;
   /** Directory containing persisted run timelines. */
@@ -197,7 +197,7 @@ export interface RunActionRegistry {
 
 export interface SystemRunContext {
   readonly run: RunState;
-  readonly sink: EventSink;
+  readonly messageSender: MessageSender;
   readonly logger: Logger;
   readonly clientId: string;
   readonly modelOverride: string | undefined;

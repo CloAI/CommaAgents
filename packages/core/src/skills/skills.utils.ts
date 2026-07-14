@@ -1,22 +1,5 @@
-import { join } from "node:path";
-
-import { resolveApplicationDataDirectory } from "../data-directory";
-import {
-  GLOBAL_SKILLS_SUBDIR,
-  PROJECT_SKILLS_SUBDIR,
-  SKILL_NAME_PATTERN,
-} from "./skills.constants";
+import { SKILL_NAME_PATTERN } from "./skills.constants";
 import type { SkillMetadata } from "./skills.types";
-
-/** Absolute path to the default global skills directory for this user. */
-export function resolveDefaultGlobalSkillsDir(): string {
-  return join(resolveApplicationDataDirectory(), GLOBAL_SKILLS_SUBDIR);
-}
-
-/** Absolute path to the default project-local skills directory for the given workspace. */
-export function resolveDefaultProjectSkillsDir(workspaceRoot: string): string {
-  return join(workspaceRoot, PROJECT_SKILLS_SUBDIR);
-}
 
 /**
  * Parse the YAML frontmatter of a `SKILL.md` file and return the metadata

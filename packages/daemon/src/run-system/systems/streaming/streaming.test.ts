@@ -41,7 +41,7 @@ describe("createStreamingSystem", () => {
     };
     const system = createStreamingSystem({
       logger: context.logger,
-      sink: context.sink,
+      messageSender: context.messageSender,
     });
 
     system.onStrategyLoaded?.(strategyContext);
@@ -64,7 +64,9 @@ describe("createStreamingSystem", () => {
     afterCallResult(result);
 
     expect(
-      context.sink.broadcasts.map((broadcast) => broadcast.message.type),
+      context.messageSender.broadcasts.map(
+        (broadcast) => broadcast.message.type,
+      ),
     ).toEqual(["step_started", "step_completed", "agent_output"]);
   });
 });

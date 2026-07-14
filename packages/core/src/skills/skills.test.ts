@@ -2,9 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { getGlobalSkillsDirectory } from "../defaults/defaults";
 import { buildSkillsPromptHeader, loadSkills } from "./skills.loader";
 import { createSkillRegistry } from "./skills.registry";
-import { parseSkillFile, resolveDefaultGlobalSkillsDir } from "./skills.utils";
+import { parseSkillFile } from "./skills.utils";
 import { createSkillsWorkspace, writeSkillFile } from "./test.utils";
 
 describe("parseSkillFile", () => {
@@ -76,9 +77,9 @@ describe("parseSkillFile", () => {
   });
 });
 
-describe("resolveDefaultGlobalSkillsDir", () => {
+describe("getGlobalSkillsDirectory", () => {
   it("should resolve global skills from the shared data directory", () => {
-    expect(resolveDefaultGlobalSkillsDir()).toBe(
+    expect(getGlobalSkillsDirectory()).toBe(
       join(homedir(), ".comma", "skills"),
     );
   });

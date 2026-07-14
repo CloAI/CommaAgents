@@ -4,20 +4,14 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveApplicationDataDirectory } from "@comma-agents/core";
-
-const PROVIDER_REGISTRY_FILENAME = "provider-registry.json";
-
-function resolveProviderRegistryPath(): string {
-  return join(resolveApplicationDataDirectory(), PROVIDER_REGISTRY_FILENAME);
-}
-
-function ensureDataDir(): void {
-  mkdirSync(resolveApplicationDataDirectory(), { recursive: true });
-}
+import { DEFAULT_DAEMON_PROVIDER_REGISTRY_FILENAME } from "../../defaults";
 
 export function loadRegisteredProviders(): string[] {
   try {
-    const filePath = resolveProviderRegistryPath();
+    const filePath = join(
+      resolveApplicationDataDirectory(),
+      DEFAULT_DAEMON_PROVIDER_REGISTRY_FILENAME,
+    );
     const raw = readFileSync(filePath, "utf-8").trim();
     if (raw.length === 0) return [];
     const parsed: unknown = JSON.parse(raw);
@@ -37,8 +31,12 @@ export function loadRegisteredProviders(): string[] {
 }
 
 export function saveRegisteredProviders(providerIds: string[]): void {
-  ensureDataDir();
-  const filePath = resolveProviderRegistryPath();
+  const dataDirectory = resolveApplicationDataDirectory();
+  mkdirSync(dataDirectory, { recursive: true });
+  const filePath = join(
+    dataDirectory,
+    DEFAULT_DAEMON_PROVIDER_REGISTRY_FILENAME,
+  );
   writeFileSync(filePath, JSON.stringify(providerIds, null, 2), {
     mode: 0o600,
   });

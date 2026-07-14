@@ -1,5 +1,3 @@
-import { join } from "node:path";
-import { resolveApplicationDataDirectory } from "../../../data-directory";
 import type {
   Modality,
   ModelCapabilities,
@@ -111,12 +109,4 @@ export function toModelInfo(catalogModel: CatalogModel): ModelInfo {
     capabilities,
     ...(cost ? { cost } : {}),
   };
-}
-
-/** Filename used for the on-disk catalog snapshot. */
-export const CATALOG_CACHE_FILENAME = "models-catalog.json";
-
-/** Resolve the model catalog cache inside the shared user data directory. */
-export function resolveCatalogCachePath(): string {
-  return join(resolveApplicationDataDirectory(), "cache", CATALOG_CACHE_FILENAME);
 }

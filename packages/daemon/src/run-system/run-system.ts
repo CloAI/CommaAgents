@@ -6,15 +6,15 @@ import type {
   LoadedStrategy,
   TimelineEvent,
 } from "@comma-agents/core";
-import {
-  listRunMcpStatuses,
-  resolveRunMcpConfig,
-  updateMcpDefault,
-} from "./mcp";
 import { prepareStrategy } from "./prepare-strategy";
 import { createRunStore } from "./run-store";
 import { createInputSystem } from "./systems/input";
-import { createMcpSystem } from "./systems/mcp";
+import {
+  createMcpSystem,
+  listRunMcpStatuses,
+  resolveRunMcpConfig,
+  updateMcpDefault,
+} from "./systems/mcp";
 import { createPermissionSystem } from "./systems/permission";
 import { createPersistenceSystem } from "./systems/persistence";
 import { createQuestionSystem } from "./systems/question";
@@ -60,14 +60,14 @@ interface PreparedRun {
  * @param options - daemonState, event delivery, logging, storage, and run defaults.
  * @example
  * ```ts
- * const runSystem = createRunSystem({ daemonState, sink, logger, runsDir });
+ * const runSystem = createRunSystem({ daemonState, messageSender, logger, runsDir });
  * const prepared = await runSystem.prepareRun(clientId, { strategyPath });
  * runSystem.startRun(clientId, prepared.runId, "Start the task");
  * ```
  */
 export function createRunSystem({
   daemonState,
-  sink,
+  messageSender,
   logger,
   runsDir,
   hubManager,
@@ -84,7 +84,7 @@ export function createRunSystem({
     createMcpSystem(runStore),
     createSkillsSystem(),
     createSteeringSystem(),
-    createStreamingSystem({ logger, sink }),
+    createStreamingSystem({ logger, messageSender }),
     createPersistenceSystem({ logger: logger.child("persistence"), runStore }),
     createSandboxSystem(),
     createSubLaunchSystem(hubManager, runStore),
@@ -163,7 +163,7 @@ export function createRunSystem({
     const systemData = createSystemDataStore();
     const context: SystemRunContext = {
       run,
-      sink,
+      messageSender,
       logger,
       clientId,
       modelOverride: effectiveModelOverride,
@@ -304,7 +304,7 @@ export function createRunSystem({
       await invokeOnBeforeExecute(systems, context, logger);
       daemonState.updateRun(run.id, { status: "running" });
 
-      sink.broadcast(run.id, {
+      messageSender.broadcast(run.id, {
         type: "strategy_started",
         runId: run.id,
         strategyName: strategy.name,
@@ -336,7 +336,7 @@ export function createRunSystem({
 
       await invokeOnRunComplete(systems, { ...context, result }, logger);
 
-      sink.broadcast(run.id, {
+      messageSender.broadcast(run.id, {
         type: "strategy_completed",
         runId: run.id,
         result: result.text,
@@ -395,7 +395,7 @@ export function createRunSystem({
         );
 
         if (!alreadyFinalized) {
-          sink.broadcast(run.id, {
+          messageSender.broadcast(run.id, {
             type: "strategy_error",
             runId: run.id,
             error: { code: finalCode, message: errorMessage },
@@ -429,7 +429,7 @@ export function createRunSystem({
         },
       });
 
-      sink.broadcast(runId, {
+      messageSender.broadcast(runId, {
         type: "strategy_error",
         runId,
         error: {
@@ -451,7 +451,7 @@ export function createRunSystem({
 
   async function listMcpServers(
     options: import("./systems/systems.types").ListMcpServersOptions,
-  ): Promise<readonly import("./mcp").RunMcpServerStatus[]> {
+  ): Promise<readonly import("./systems/mcp").RunMcpServerStatus[]> {
     const persistedEvents = options.runId
       ? await runStore.getEvents(options.runId)
       : [];
@@ -476,7 +476,7 @@ export function createRunSystem({
 
   async function updateMcpServer(
     options: import("./systems/systems.types").UpdateMcpServerOptions,
-  ): Promise<readonly import("./mcp").RunMcpServerStatus[]> {
+  ): Promise<readonly import("./systems/mcp").RunMcpServerStatus[]> {
     const persistedEvents = options.runId
       ? await runStore.getEvents(options.runId)
       : [];

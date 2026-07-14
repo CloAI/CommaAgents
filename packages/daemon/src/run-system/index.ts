@@ -25,7 +25,6 @@ export type {
   Sandbox,
 } from "@comma-agents/core/sandbox";
 export { pathPolicy } from "@comma-agents/core/sandbox";
-export type { EventSink } from "./event-sink";
 export type { PrepareStrategyOptions } from "./prepare-strategy";
 export { prepareStrategy } from "./prepare-strategy";
 export type { RunConfig, RunOverview, RunStore } from "./run-store";

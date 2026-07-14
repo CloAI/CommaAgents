@@ -1,5 +1,5 @@
 import { restoreFromTrash } from "@comma-agents/core";
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { TrashRestoreMessage } from "./trash-restore.schema";
 
 export { TrashRestoreMessage } from "./trash-restore.schema";

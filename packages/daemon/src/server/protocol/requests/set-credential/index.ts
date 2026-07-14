@@ -3,7 +3,7 @@
 import type { ApiCredential, OAuthCredential } from "@comma-agents/core";
 import { getGlobalCredentialStore } from "@comma-agents/core";
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { SetCredentialMessage } from "./set-credential.schema";
 
 export { SetCredentialMessage } from "./set-credential.schema";

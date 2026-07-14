@@ -7,8 +7,6 @@ export type DaemonProcessRunState =
   | "starting"
   | "error";
 
-
-
 /** Options for waiting until the daemon health endpoint is ready. */
 export interface DaemonProcessWaitOptions {
   /** Fully resolved daemon config to poll. */

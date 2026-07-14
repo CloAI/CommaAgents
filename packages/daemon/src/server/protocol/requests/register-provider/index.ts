@@ -5,7 +5,7 @@ import {
   registerProviderDefinition,
 } from "@comma-agents/core";
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import {
   loadRegisteredProviders,
   saveRegisteredProviders,

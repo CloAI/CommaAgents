@@ -24,7 +24,13 @@ import { existsSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import stripJsonComments from "strip-json-comments";
 
-import { resolveApplicationDataDirectory } from "../../data-directory";
+import {
+  getApplicationDataDirectory,
+  getPackagesDirectory,
+  getProjectDirectory,
+  getProjectStrategiesDirectory,
+  getStrategiesDirectory,
+} from "../../defaults/defaults";
 import { CommaProjectManifestSchema } from "../../hub";
 import type {
   DiscoveredStrategy,
@@ -114,7 +120,7 @@ export async function discoverStrategies(
   }
 
   // 1. Cwd single-file strategies.
-  const cwdStrategiesDir = join(cwd, ".comma", "strategies");
+  const cwdStrategiesDir = getProjectStrategiesDirectory(cwd);
   await collectSingleFiles(cwdStrategiesDir, "cwd");
 
   // 2. Cwd project strategies (subdirs of `.comma/strategies/`).
@@ -123,14 +129,14 @@ export async function discoverStrategies(
   }
 
   // 3. Cwd root project (`.comma/comma-project.json`).
-  const cwdRootManifest = join(cwd, ".comma", "comma-project.json");
+  const cwdRootManifest = join(getProjectDirectory(cwd), "comma-project.json");
   if (existsSync(cwdRootManifest)) {
     await collectProjectManifest(cwdRootManifest, "cwd-root-project");
   }
 
   if (dataDir) {
     // 4. Data dir single-file strategies.
-    const dataStrategiesDir = join(dataDir, "strategies");
+    const dataStrategiesDir = getStrategiesDirectory(dataDir);
     await collectSingleFiles(dataStrategiesDir, "data");
 
     // 5. Data dir project strategies.
@@ -175,8 +181,7 @@ export async function resolveInstalledStrategyReference(
 
   if (dataDir) {
     const installedManifestPath = join(
-      dataDir,
-      "packages",
+      getPackagesDirectory(dataDir),
       packageName,
       "comma-project.json",
     );
@@ -208,7 +213,7 @@ export async function resolveInstalledStrategyReference(
  */
 function safeResolveDataDir(): string | undefined {
   try {
-    return resolveApplicationDataDirectory();
+    return getApplicationDataDirectory();
   } catch {
     return undefined;
   }

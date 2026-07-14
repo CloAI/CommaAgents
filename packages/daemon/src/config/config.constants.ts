@@ -1,5 +1,4 @@
 import z from "zod";
-import type { DaemonConfig } from "./config.types";
 
 const LogLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 
@@ -18,37 +17,3 @@ export const DaemonConfigFileSchema = z
     runsDir: z.string().optional(),
   })
   .strict();
-
-/** Map of env var names → config keys + parsers. */
-export const ENV_MAP: Array<{
-  env: string;
-  key: keyof DaemonConfig;
-  parse: (val: string) => unknown;
-}> = [
-  {
-    env: "COMMA_DAEMON_PORT",
-    key: "port",
-    parse: (rawValue) => parseInt(rawValue, 10),
-  },
-  { env: "COMMA_DAEMON_HOST", key: "host", parse: (rawValue) => rawValue },
-  {
-    env: "COMMA_DAEMON_LOG_LEVEL",
-    key: "logLevel",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_LOG_FILE",
-    key: "logFile",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_PID_FILE",
-    key: "pidFile",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_RUNS_DIR",
-    key: "runsDir",
-    parse: (rawValue) => rawValue,
-  },
-];

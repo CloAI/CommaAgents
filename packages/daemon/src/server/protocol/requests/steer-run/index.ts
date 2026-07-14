@@ -2,7 +2,7 @@
 // Queues a steering message that the run system injects into the running
 // strategy before its next agent turn.
 
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import { RUN_NOT_STEERABLE } from "./steer-run.constants";
 import type { SteerRunMessage } from "./steer-run.schema";
 

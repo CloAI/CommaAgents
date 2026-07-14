@@ -5,9 +5,9 @@ import type { LanguageModel } from "ai";
 import { createJsonFileCredentialBackend } from "../credentials/backends/json-file";
 import { createCredentialStore } from "../credentials/credentials";
 import {
-  resetGlobalDefaults,
+  resetGlobalCredentialStore,
   setGlobalCredentialStore,
-} from "../defaults/defaults";
+} from "../credentials/global-credential-store";
 import { registerModel, resetModelRegistry, resolveModel } from "./model";
 import {
   getModelCapabilities,
@@ -20,7 +20,10 @@ import {
   getReverseModelIndex,
   resetCatalog,
 } from "./providers/catalog/catalog";
-import { registerProviderDefinition } from "./providers/index";
+import {
+  registerProviderDefinition,
+  resetGlobalProviderResolver,
+} from "./providers/index";
 import { resetProviderRegistry } from "./providers/providers";
 
 const TEST_DIR = join(import.meta.dir, "__test_providers__");
@@ -32,7 +35,8 @@ function cleanup() {
 
 afterEach(() => {
   cleanup();
-  resetGlobalDefaults();
+  resetGlobalCredentialStore();
+  resetGlobalProviderResolver();
   resetProviderRegistry();
   resetCatalog();
   resetModelRegistry();

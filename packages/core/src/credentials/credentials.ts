@@ -45,8 +45,6 @@ function resolveFromEnv(
   return undefined;
 }
 
-// createCredentialStore()
-
 /**
  * Create a credential store backed by the given storage backend.
  *

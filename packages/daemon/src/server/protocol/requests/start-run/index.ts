@@ -1,4 +1,4 @@
-import type { HandlerContext } from "../../dispatcher.types";
+import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { StartRunMessage } from "./start-run.schema";
 
 export { StartRunMessage } from "./start-run.schema";

@@ -1,8 +1,7 @@
-/** Subdirectory under the shared data directory holding global skills. */
-export const GLOBAL_SKILLS_SUBDIR = "skills";
-
-/** Subdirectory under the project workspace holding project-local skills. */
-export const PROJECT_SKILLS_SUBDIR = ".comma/skills";
+export {
+  DEFAULT_GLOBAL_SKILLS_DIRECTORY_NAME as GLOBAL_SKILLS_SUBDIR,
+  DEFAULT_PROJECT_DIRECTORY_NAME as PROJECT_SKILLS_SUBDIR,
+} from "../defaults/defaults.constants";
 
 /** Filename inside each skill directory. */
 export const SKILL_FILENAME = "SKILL.md";

@@ -6,8 +6,8 @@ import { moveToTrash, trashWorkspaceDir } from "@comma-agents/core";
 import type { HubManager, InstalledHubPackage } from "@comma-agents/core/hub";
 import { createDaemonState } from "../../../daemon-state";
 import { createRunSystem, type RunSystem } from "../../../run-system";
-import { mockLogger, mockSink } from "../../../test.utils";
-import type { HandlerContext, RequestResponseMap } from "../dispatcher.types";
+import { mockLogger, mockMessageSender } from "../../../test.utils";
+import type { HandlerContext, RequestResponseMap } from "../dispatcher/dispatcher.types";
 import type { DaemonMessage } from "../messages";
 import { handleGetAvailableModels } from "./get-available-models";
 import {
@@ -42,7 +42,7 @@ async function createTestRunSystem(): Promise<RunSystem> {
   tempDirs.push(runsDir);
   return createRunSystem({
     daemonState: createDaemonState(),
-    sink: mockSink(),
+    messageSender: mockMessageSender(),
     logger: mockLogger(),
     runsDir,
   });

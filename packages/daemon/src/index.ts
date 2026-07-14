@@ -37,6 +37,25 @@ export {
   writePid,
 } from "./daemon-cli/process/pid/pid";
 export type { RunStatus } from "./daemon-state";
+export type { DaemonDefaultOverrides } from "./defaults";
+export {
+  getDaemonConfigFile,
+  getDaemonDefaults,
+  getDaemonHost,
+  getDaemonLogFile,
+  getDaemonLogLevel,
+  getDaemonPidFile,
+  getDaemonPort,
+  getDaemonRunsDirectory,
+  resetDaemonDefaultOverrides,
+  setDaemonConfigFile,
+  setDaemonHost,
+  setDaemonLogFile,
+  setDaemonLogLevel,
+  setDaemonPidFile,
+  setDaemonPort,
+  setDaemonRunsDirectory,
+} from "./defaults";
 export {
   createTypeScriptLanguageService,
   type TypeScriptLanguageServiceOptions,
@@ -57,7 +76,6 @@ export {
 } from "./logger";
 export type {
   CreateRunSystemOptions,
-  EventSink,
   ProviderResolver,
   RunConfig,
   RunOverview,
@@ -79,10 +97,12 @@ export type {
   ConversationRecordWire,
   ConversationRetentionEventWire,
   DaemonMessage,
+  Dispatcher,
   ErrorInfo,
   HandlerContext,
   McpServerStatusWire,
-  MessageDispatcher,
+  MessageHandler,
+  MessageSender,
   RequestPermissionMessage,
   RequestQuestionMessage,
   RequestResponseMap,

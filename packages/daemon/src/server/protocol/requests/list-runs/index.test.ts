@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDaemonState } from "../../../../daemon-state";
 import { createRunSystem } from "../../../../run-system";
-import { mockLogger, mockSink } from "../../../../test.utils";
+import { mockLogger, mockMessageSender } from "../../../../test.utils";
 import type { RunListMessage } from "../../responses/run-list";
 import { handleListRuns } from ".";
 
@@ -23,7 +23,7 @@ describe("handleListRuns", () => {
     tempDirs.push(runsDir);
     const runSystem = createRunSystem({
       daemonState: createDaemonState(),
-      sink: mockSink(),
+      messageSender: mockMessageSender(),
       logger: mockLogger(),
       runsDir,
     });

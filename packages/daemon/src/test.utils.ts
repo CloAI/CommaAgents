@@ -1,6 +1,6 @@
 // Shared test utilities for daemon unit tests.
 //
-// Provides mock factories for EventSink, Logger, and model registration
+// Provides mock factories for MessageSender, Logger, and model registration
 // helpers. Also includes strategy fixtures and temp-file helpers.
 //
 // Model and credential resolution happen via global registries. Tests
@@ -12,8 +12,8 @@ import { join } from "node:path";
 import { registerModel, type TimelineEvent } from "@comma-agents/core";
 import type { LanguageModel } from "ai";
 import type { Logger } from "./logger/logger.types";
-import type { EventSink } from "./run-system/event-sink";
 import type { RunStore } from "./run-system/run-store";
+import type { MessageSender } from "./server/protocol/dispatcher/dispatcher.types";
 import type { DaemonMessage } from "./server/protocol/messages";
 
 // Mock model registration
@@ -62,8 +62,8 @@ export function setupMockModels(): void {
   registerMockModel("anthropic/claude-3.5-sonnet");
 }
 
-/** Mock EventSink that records messages. */
-export function mockSink(): EventSink & {
+/** Mock MessageSender that records messages. */
+export function mockMessageSender(): MessageSender & {
   broadcasts: Array<{ runId: string; message: DaemonMessage }>;
   sends: Array<{ clientId: string; message: DaemonMessage }>;
 } {
@@ -205,15 +205,15 @@ export async function writeTempStrategy(
 
 /** Wait for broadcasts to accumulate, with a maximum wait time. */
 export async function waitForBroadcasts(
-  sink: ReturnType<typeof mockSink>,
+  messageSender: ReturnType<typeof mockMessageSender>,
   count: number,
   timeoutMs: number = 5000,
 ): Promise<void> {
   const start = Date.now();
-  while (sink.broadcasts.length < count) {
+  while (messageSender.broadcasts.length < count) {
     if (Date.now() - start > timeoutMs) {
       throw new Error(
-        `Timed out waiting for ${count} broadcasts (got ${sink.broadcasts.length})`,
+        `Timed out waiting for ${count} broadcasts (got ${messageSender.broadcasts.length})`,
       );
     }
     await new Promise((resolve) => setTimeout(resolve, 10));

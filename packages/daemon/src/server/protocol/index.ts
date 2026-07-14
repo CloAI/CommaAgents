@@ -3,13 +3,15 @@
 // and the dispatcher.
 
 // Dispatcher
-export type { CreateDispatcherOptions } from "./dispatcher";
-export { createDispatcher } from "./dispatcher";
+export { createDispatcher } from "./dispatcher/dispatcher";
 export type {
+  CreateDispatcherOptions,
+  Dispatcher,
   HandlerContext,
-  MessageDispatcher,
+  MessageHandler,
+  MessageSender,
   RequestResponseMap,
-} from "./dispatcher.types";
+} from "./dispatcher/dispatcher.types";
 // Message unions + parse helpers
 export {
   ClientMessage,

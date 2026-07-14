@@ -10,7 +10,7 @@ import {
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { extract, pack } from "tar-stream";
-import { resolveApplicationDataDirectory } from "../../data-directory";
+import { getTrashDirectory } from "../../defaults/defaults";
 
 /** Metadata stored inside each trash archive. */
 export interface TrashMetadata {
@@ -37,7 +37,7 @@ export interface TrashEntry {
  */
 export function trashWorkspaceDir(workspaceRoot: string): string {
   const key = createHash("sha256").update(workspaceRoot).digest("hex");
-  return join(resolveApplicationDataDirectory(), "trash", key);
+  return join(getTrashDirectory(), key);
 }
 
 /** Generate a short hash prefix for unique archive naming. */
