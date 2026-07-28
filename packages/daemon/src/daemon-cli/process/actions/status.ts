@@ -1,11 +1,11 @@
-import { isRunning, readPid, removePid } from "@comma-agents/utils";
 import { loadDaemonConfig } from "../../../config";
-import type { DaemonProcessStartOptions } from "..";
+import { isRunning, readPid, removePid } from "../pid";
 import type { DaemonProcessRunState } from "../process.types";
 import {
   buildDaemonProcessEnvOverrides,
   readDaemonPackageVersion,
 } from "../process.utils";
+import type { DaemonProcessStartOptions } from "./start";
 
 /** Current daemon process state and resolved connection details. */
 export interface DaemonProcessStatus {

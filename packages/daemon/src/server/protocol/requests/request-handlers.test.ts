@@ -4,10 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { moveToTrash, trashWorkspaceDir } from "@comma-agents/core";
 import type { HubManager, InstalledHubPackage } from "@comma-agents/core/hub";
-import { createDaemonState } from "../../../daemon-state";
-import { createRunSystem, type RunSystem } from "../../../run-system";
+import {
+  createDaemonRunState,
+  type DaemonRunState,
+} from "../../../daemon-run-state";
+import { createDaemonStore } from "../../../daemon-store";
 import { mockLogger, mockMessageSender } from "../../../test.utils";
-import type { HandlerContext, RequestResponseMap } from "../dispatcher/dispatcher.types";
+import type {
+  HandlerContext,
+  RequestResponseMap,
+} from "../dispatcher/dispatcher.types";
 import type { DaemonMessage } from "../messages";
 import { handleGetAvailableModels } from "./get-available-models";
 import {
@@ -37,11 +43,11 @@ afterEach(async () => {
   );
 });
 
-async function createTestRunSystem(): Promise<RunSystem> {
+async function createTestDaemonRunState(): Promise<DaemonRunState> {
   const runsDir = await mkdtemp(join(tmpdir(), "comma-handler-tests-"));
   tempDirs.push(runsDir);
-  return createRunSystem({
-    daemonState: createDaemonState(),
+  return createDaemonRunState({
+    daemonStore: createDaemonStore(),
     messageSender: mockMessageSender(),
     logger: mockLogger(),
     runsDir,
@@ -49,14 +55,14 @@ async function createTestRunSystem(): Promise<RunSystem> {
 }
 
 function createContext<RequestType extends keyof RequestResponseMap>(
-  runSystem: RunSystem,
+  daemonRunState: DaemonRunState,
   replies: DaemonMessage[],
   hubManager?: HubManager,
 ): HandlerContext<RequestType> {
   return {
     clientId: "client-1",
-    runSystem,
-    state: createDaemonState(),
+    daemonRunState,
+    daemonStore: createDaemonStore(),
     logger: mockLogger(),
     ...(hubManager !== undefined ? { hubManager } : {}),
     reply(message) {
@@ -67,17 +73,13 @@ function createContext<RequestType extends keyof RequestResponseMap>(
 
 describe("action request handlers", () => {
   it("routes permission decisions through the canonical run action", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
     let received: readonly string[] = [];
-    runSystem.actions.register(
-      "resolvePermission",
-      "run-1",
-      (requestId, decision) => {
-        received = [requestId, decision];
-        return true;
-      },
-    );
+    daemonRunState.resolvePermission = (_runId, requestId, decision) => {
+      received = [requestId, decision];
+      return true;
+    };
 
     handlePermissionDecision(
       {
@@ -86,7 +88,7 @@ describe("action request handlers", () => {
         permissionRequestId: "permission-1",
         decision: "allow",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(received).toEqual(["permission-1", "allow"]);
@@ -94,7 +96,7 @@ describe("action request handlers", () => {
   });
 
   it("reports missing permission requests", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
 
     handlePermissionDecision(
@@ -105,7 +107,7 @@ describe("action request handlers", () => {
         decision: "deny",
         requestId: "request-1",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(replies[0]).toMatchObject({
@@ -116,17 +118,17 @@ describe("action request handlers", () => {
   });
 
   it("routes question responses and steering messages", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
     const received: string[] = [];
-    runSystem.actions.register("resolveQuestion", "run-1", (id, response) => {
+    daemonRunState.resolveQuestion = (_runId, id, response) => {
       received.push(id, response);
       return true;
-    });
-    runSystem.actions.register("steer", "run-1", (text) => {
+    };
+    daemonRunState.steerRun = (_runId, text) => {
       received.push(text);
       return true;
-    });
+    };
 
     handleQuestionResponse(
       {
@@ -135,11 +137,11 @@ describe("action request handlers", () => {
         questionRequestId: "question-1",
         response: "answer",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
     handleSteerRun(
       { type: "steer_run", runId: "run-1", text: "redirect" },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(received).toEqual(["question-1", "answer", "redirect"]);
@@ -147,7 +149,7 @@ describe("action request handlers", () => {
   });
 
   it("reports missing question and steering actions", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
 
     handleQuestionResponse(
@@ -157,11 +159,11 @@ describe("action request handlers", () => {
         questionRequestId: "missing",
         response: "answer",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
     handleSteerRun(
       { type: "steer_run", runId: "run-1", text: "redirect" },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(
@@ -170,16 +172,16 @@ describe("action request handlers", () => {
   });
 
   it("passes policy patches through without reshaping their contract", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
     let called = false;
-    runSystem.actions.register("updatePolicy", "run-1", (patch, toolName) => {
+    daemonRunState.updatePolicy = (_runId, patch, toolName) => {
       called =
         patch.mode === "write" &&
         patch.default === "allow" &&
         toolName === "write_file";
       return true;
-    });
+    };
 
     handleUpdatePolicy(
       {
@@ -191,7 +193,7 @@ describe("action request handlers", () => {
         deny: [],
         tool: "write_file",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(called).toBe(true);
@@ -199,7 +201,7 @@ describe("action request handlers", () => {
   });
 
   it("reports a missing run for policy updates", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
 
     handleUpdatePolicy(
@@ -209,7 +211,7 @@ describe("action request handlers", () => {
         mode: "read",
         default: "deny",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(replies[0]).toMatchObject({
@@ -220,8 +222,8 @@ describe("action request handlers", () => {
 });
 
 describe("MCP request handlers", () => {
-  it("lists and updates servers using RunSystem contracts", async () => {
-    const runSystem = await createTestRunSystem();
+  it("lists and updates servers using DaemonRunState contracts", async () => {
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
     const assignedAgents = ["assistant"] as const;
     const statuses = [
@@ -236,9 +238,11 @@ describe("MCP request handlers", () => {
         assignedAgents,
       },
     ];
-    let updateOptions: Parameters<RunSystem["updateMcpServer"]>[0] | undefined;
-    runSystem.listMcpServers = async () => statuses;
-    runSystem.updateMcpServer = async (options) => {
+    let updateOptions:
+      | Parameters<DaemonRunState["updateMcpServer"]>[0]
+      | undefined;
+    daemonRunState.listMcpServers = async () => statuses;
+    daemonRunState.updateMcpServer = async (options) => {
       updateOptions = options;
       return statuses;
     };
@@ -251,7 +255,7 @@ describe("MCP request handlers", () => {
         strategyPath: "/strategy.json",
         requestId: "list-1",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
     await handleUpdateMcpServer(
       {
@@ -264,7 +268,7 @@ describe("MCP request handlers", () => {
         strategyPath: "/strategy.json",
         requestId: "update-1",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(replies).toHaveLength(2);
@@ -288,18 +292,18 @@ describe("MCP request handlers", () => {
   });
 
   it("converts MCP failures into protocol errors", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
-    runSystem.listMcpServers = async () => {
+    daemonRunState.listMcpServers = async () => {
       throw new Error("list failed");
     };
-    runSystem.updateMcpServer = async () => {
+    daemonRunState.updateMcpServer = async () => {
       throw "update failed";
     };
 
     await handleListMcpServers(
       { type: "list_mcp_servers" },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
     await handleUpdateMcpServer(
       {
@@ -308,7 +312,7 @@ describe("MCP request handlers", () => {
         enabled: true,
         scope: "default",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(replies).toEqual([
@@ -328,7 +332,7 @@ describe("MCP request handlers", () => {
 
 describe("provider discovery request handlers", () => {
   it("lists catalog models through the available-model wire contract", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
 
     await handleGetAvailableModels(
@@ -338,7 +342,7 @@ describe("provider discovery request handlers", () => {
         scope: "$global",
         requestId: "models-1",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(replies[0]?.type).toBe("available_models");
@@ -354,7 +358,7 @@ describe("provider discovery request handlers", () => {
   });
 
   it("lists providers using the daemon's canonical model mapper", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
 
     await handleListProviders(
@@ -364,7 +368,7 @@ describe("provider discovery request handlers", () => {
         scope: "$global",
         requestId: "providers-1",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(replies[0]?.type).toBe("provider_list");
@@ -381,7 +385,7 @@ describe("provider discovery request handlers", () => {
 
 describe("Hub request handlers", () => {
   it("handles list, install, update, and remove through HubManager", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
     const installedPackage: InstalledHubPackage = {
       name: "@comma/test",
@@ -400,7 +404,7 @@ describe("Hub request handlers", () => {
 
     await handleHubList(
       { type: "hub_list", requestId: "list-1" },
-      createContext(runSystem, replies, hubManager),
+      createContext(daemonRunState, replies, hubManager),
     );
     await handleHubInstall(
       {
@@ -408,15 +412,15 @@ describe("Hub request handlers", () => {
         name: installedPackage.name,
         allowCode: true,
       },
-      createContext(runSystem, replies, hubManager),
+      createContext(daemonRunState, replies, hubManager),
     );
     await handleHubUpdate(
       { type: "hub_update", name: installedPackage.name },
-      createContext(runSystem, replies, hubManager),
+      createContext(daemonRunState, replies, hubManager),
     );
     await handleHubRemove(
       { type: "hub_remove", name: installedPackage.name },
-      createContext(runSystem, replies, hubManager),
+      createContext(daemonRunState, replies, hubManager),
     );
 
     expect(replies.map((reply) => reply.type)).toEqual([
@@ -428,7 +432,7 @@ describe("Hub request handlers", () => {
   });
 
   it("reports unavailable and failing Hub managers", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const replies: DaemonMessage[] = [];
     const failingManager = {
       install: async () => {
@@ -438,11 +442,11 @@ describe("Hub request handlers", () => {
 
     await handleHubList(
       { type: "hub_list" },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
     await handleHubInstall(
       { type: "hub_install", name: "@comma/test" },
-      createContext(runSystem, replies, failingManager),
+      createContext(daemonRunState, replies, failingManager),
     );
 
     expect(replies).toEqual([
@@ -462,7 +466,7 @@ describe("Hub request handlers", () => {
 
 describe("trash request handlers", () => {
   it("lists, restores, and clears workspace trash entries", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const workspace = await mkdtemp(join(tmpdir(), "comma-trash-handlers-"));
     tempDirs.push(workspace, trashWorkspaceDir(workspace));
     const replies: DaemonMessage[] = [];
@@ -472,7 +476,7 @@ describe("trash request handlers", () => {
 
     await handleTrashList(
       { type: "trash_list", cwd: workspace, requestId: "list-1" },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
     await handleTrashRestore(
       {
@@ -482,7 +486,7 @@ describe("trash request handlers", () => {
         targetPath: "restored.txt",
         requestId: "restore-1",
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     const secondArchive = await moveToTrash(
@@ -493,7 +497,7 @@ describe("trash request handlers", () => {
 
     await handleTrashClear(
       { type: "trash_clear", cwd: workspace, requestId: "clear-1" },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(replies[0]).toMatchObject({
@@ -514,7 +518,7 @@ describe("trash request handlers", () => {
   });
 
   it("reports restore failures through the protocol error contract", async () => {
-    const runSystem = await createTestRunSystem();
+    const daemonRunState = await createTestDaemonRunState();
     const workspace = await mkdtemp(join(tmpdir(), "comma-trash-handlers-"));
     tempDirs.push(workspace, trashWorkspaceDir(workspace));
     const replies: DaemonMessage[] = [];
@@ -525,7 +529,7 @@ describe("trash request handlers", () => {
         cwd: workspace,
         trashPath: join(workspace, "missing.tar.gz"),
       },
-      createContext(runSystem, replies),
+      createContext(daemonRunState, replies),
     );
 
     expect(replies[0]).toMatchObject({

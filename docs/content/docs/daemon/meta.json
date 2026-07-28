@@ -5,7 +5,7 @@
     "daemon",
     "config",
     "server",
-    "run-system",
+    "daemon-run-state",
     "language",
     "logger",
     "state",

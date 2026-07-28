@@ -11,8 +11,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerModel, type TimelineEvent } from "@comma-agents/core";
 import type { LanguageModel } from "ai";
+import type { RunStore } from "./daemon-run-state/run-store";
 import type { Logger } from "./logger/logger.types";
-import type { RunStore } from "./run-system/run-store";
 import type { MessageSender } from "./server/protocol/dispatcher/dispatcher.types";
 import type { DaemonMessage } from "./server/protocol/messages";
 
@@ -100,7 +100,7 @@ export function mockLogger(): Logger {
 // Strategy fixtures
 
 /**
- * Minimal in-memory RunStore for run-system/dispatcher tests.
+ * Minimal in-memory RunStore for daemon-run-state/dispatcher tests.
  *
  * Stores runs by runId. All operations succeed synchronously and are
  * observable via the returned `runs` map.

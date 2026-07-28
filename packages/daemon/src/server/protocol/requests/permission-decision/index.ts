@@ -16,8 +16,7 @@ export function handlePermissionDecision(
   message: PermissionDecisionMessage,
   context: HandlerContext<"permission_decision">,
 ): void {
-  const delivered = context.runSystem.actions.invoke(
-    "resolvePermission",
+  const delivered = context.daemonRunState.resolvePermission(
     message.runId,
     message.permissionRequestId,
     message.decision,

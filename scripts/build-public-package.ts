@@ -15,7 +15,7 @@ const PACKAGE_CONFIGS: ReadonlyArray<PublicPackageConfig> = [
       "src/sandbox/index.ts",
     ],
   },
-  { directory: "daemon", entrypoints: ["src/index.ts", "src/daemon-cli/daemon-cli.ts"] },
+  { directory: "daemon", entrypoints: ["src/index.ts", "src/cli.ts"] },
   { directory: "tui", entrypoints: ["src/index.ts", "src/main.tsx"] },
 ];
 

@@ -8,7 +8,7 @@ export async function handleListMcpServers(
   context: HandlerContext<"list_mcp_servers">,
 ): Promise<void> {
   try {
-    const servers = await context.runSystem.listMcpServers({
+    const servers = await context.daemonRunState.listMcpServers({
       ...(message.cwd ? { cwd: message.cwd } : {}),
       ...(message.runId ? { runId: message.runId } : {}),
       ...(message.strategyPath ? { strategyPath: message.strategyPath } : {}),

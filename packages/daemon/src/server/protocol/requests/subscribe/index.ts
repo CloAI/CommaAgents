@@ -18,7 +18,7 @@ export function handleSubscribe(
   context: HandlerContext<"subscribe">,
 ): void {
   try {
-    context.state.subscribe(context.clientId, message.runId);
+    context.daemonStore.subscribe(context.clientId, message.runId);
   } catch (caughtError) {
     context.reply({
       type: "error" as const,

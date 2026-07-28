@@ -12,7 +12,7 @@ export async function handlePrepareRun(
   context: HandlerContext<"prepare_run">,
 ): Promise<void> {
   try {
-    const prepared = await context.runSystem.prepareRun(context.clientId, {
+    const prepared = await context.daemonRunState.prepareRun(context.clientId, {
       runId: message.runId,
       strategyPath: message.strategyPath,
       modelOverride: message.modelOverride,

@@ -8,7 +8,6 @@ export type {
   CreateDispatcherOptions,
   Dispatcher,
   HandlerContext,
-  MessageHandler,
   MessageSender,
   RequestResponseMap,
 } from "./dispatcher/dispatcher.types";

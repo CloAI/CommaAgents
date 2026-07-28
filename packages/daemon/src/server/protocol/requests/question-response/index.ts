@@ -16,8 +16,7 @@ export function handleQuestionResponse(
   message: QuestionResponseMessage,
   context: HandlerContext<"question_response">,
 ): void {
-  const delivered = context.runSystem.actions.invoke(
-    "resolveQuestion",
+  const delivered = context.daemonRunState.resolveQuestion(
     message.runId,
     message.questionRequestId,
     message.response,

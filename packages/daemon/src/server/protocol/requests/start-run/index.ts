@@ -8,7 +8,7 @@ export function handleStartRun(
   context: HandlerContext<"start_run">,
 ): void {
   try {
-    context.runSystem.startRun(
+    context.daemonRunState.startRun(
       context.clientId,
       message.runId,
       message.input,

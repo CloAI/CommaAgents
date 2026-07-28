@@ -8,7 +8,7 @@ export async function handleUpdateMcpServer(
   context: HandlerContext<"update_mcp_server">,
 ): Promise<void> {
   try {
-    const servers = await context.runSystem.updateMcpServer({
+    const servers = await context.daemonRunState.updateMcpServer({
       serverId: message.serverId,
       enabled: message.enabled,
       scope: message.scope,

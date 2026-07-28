@@ -19,11 +19,7 @@ export function handleSteerRun(
   message: SteerRunMessage,
   context: HandlerContext<"steer_run">,
 ): void {
-  const queued = context.runSystem.actions.invoke(
-    "steer",
-    message.runId,
-    message.text,
-  );
+  const queued = context.daemonRunState.steerRun(message.runId, message.text);
   if (!queued) {
     context.reply({
       type: "error" as const,

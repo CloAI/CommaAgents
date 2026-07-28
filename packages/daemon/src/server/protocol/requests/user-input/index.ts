@@ -17,8 +17,7 @@ export function handleUserInput(
   message: UserInputMessage,
   context: HandlerContext<"user_input">,
 ): void {
-  const delivered = context.runSystem.actions.invoke(
-    "resolveInput",
+  const delivered = context.daemonRunState.resolveInput(
     message.runId,
     message.agentName,
     message.text,

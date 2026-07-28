@@ -1,15 +1,30 @@
 import { loadCatalog } from "@comma-agents/core";
 import { createHubManager } from "@comma-agents/core/hub";
 import type { Server, ServerWebSocket } from "bun";
-import { createDaemonState } from "../daemon-state/daemon-state";
-import { createRunSystem } from "../run-system/run-system";
+import {
+  createClientLifecycleEffect,
+  createDaemonEventDispatcher,
+  createRunLifecycleEffect,
+} from "../daemon-effects";
+import { createDaemonRunState } from "../daemon-run-state/daemon-run-state";
+import {
+  createCoreService,
+  createDaemonServiceRegistry,
+  createHistoryService,
+  createHubService,
+  createMcpService,
+  createProviderService,
+  createRunService,
+  createSubscriptionService,
+} from "../daemon-services";
+import { createDaemonStore } from "../daemon-store/daemon-store";
 import { createDispatcher } from "./protocol/dispatcher/dispatcher";
 import type { CreateDaemonOptions, Daemon, WsData } from "./server.types";
 
 /**
  * Create a daemon instance.
  *
- * The daemon owns the DaemonState, Dispatcher, and RunSystem.
+ * The daemon owns the DaemonStore, Dispatcher, and DaemonRunState.
  * Call `start()` to begin listening and `stop()` to shut down.
  *
  * @param options - Configuration for the daemon instance.
@@ -29,23 +44,69 @@ export function createDaemon({ config, logger }: CreateDaemonOptions): Daemon {
   let server: Server<WsData> | null = null;
   let boundPort = 0;
 
-  const daemonState = createDaemonState();
+  const daemonStore = createDaemonStore();
   const hubManager = createHubManager();
-  
   const dispatcher = createDispatcher({
-    state: daemonState,
+    daemonStore,
     clients: wsMap,
     logger: logger.child("dispatcher"),
-    hubManager,
   });
-  const runSystem = createRunSystem({
-    daemonState,
+  const events = createDaemonEventDispatcher({
+    daemonStore,
+    effects: [
+      createClientLifecycleEffect(logger),
+      createRunLifecycleEffect(logger.child("run-lifecycle")),
+    ],
+    logger: logger.child("effects"),
+  });
+  const daemonRunState = createDaemonRunState({
+    daemonStore,
     messageSender: dispatcher,
-    logger: logger.child("run-system"),
+    logger: logger.child("daemon-run-state"),
     runsDir: config.runsDir,
     hubManager,
+    events,
   });
-  const handleMessage = dispatcher.createMessageHandler(runSystem);
+  const serviceDependencies = {
+    daemonRunState,
+    daemonStore,
+    logger: logger.child("services"),
+  };
+  const serviceRegistry = createDaemonServiceRegistry({
+    services: [
+      createRunService(serviceDependencies),
+      createSubscriptionService(
+        daemonRunState,
+        daemonStore,
+        serviceDependencies.logger,
+      ),
+      createMcpService(daemonRunState, daemonStore, serviceDependencies.logger),
+      createProviderService(
+        daemonRunState,
+        daemonStore,
+        serviceDependencies.logger,
+      ),
+      createHistoryService(
+        daemonRunState,
+        daemonStore,
+        serviceDependencies.logger,
+      ),
+      createHubService(
+        daemonRunState,
+        daemonStore,
+        hubManager,
+        serviceDependencies.logger,
+      ),
+      createCoreService(
+        daemonRunState,
+        daemonStore,
+        serviceDependencies.logger,
+      ),
+    ],
+    messageSender: dispatcher,
+    events,
+    logger: logger.child("service-registry"),
+  });
 
   function handleFetch(
     request: Request,
@@ -66,7 +127,7 @@ export function createDaemon({ config, logger }: CreateDaemonOptions): Daemon {
 
     // Health check at /health
     if (url.pathname === "/health" && request.method === "GET") {
-      const runs = daemonState.listRuns();
+      const runs = daemonStore.listRuns();
       const activeRuns = runs.filter(
         (run) => run.status === "pending" || run.status === "running",
       ).length;
@@ -74,7 +135,7 @@ export function createDaemon({ config, logger }: CreateDaemonOptions): Daemon {
         status: "ok",
         uptime: Date.now() - startTime,
         activeRuns,
-        connectedClients: daemonState.getClients().length,
+        connectedClients: daemonStore.getClients().length,
       };
       return new Response(JSON.stringify(body), {
         status: 200,
@@ -103,9 +164,9 @@ export function createDaemon({ config, logger }: CreateDaemonOptions): Daemon {
         websocket: {
           open(websocket) {
             const { clientId } = websocket.data;
-            daemonState.addClient(clientId);
+            daemonStore.addClient(clientId);
             wsMap.set(clientId, websocket);
-            logger.info(`Client connected: ${clientId}`);
+            events.publish({ type: "client.runtime.connected", clientId });
           },
 
           message(websocket, raw) {
@@ -122,14 +183,14 @@ export function createDaemon({ config, logger }: CreateDaemonOptions): Daemon {
             logger.debug(
               `ws.message from ${clientId} (${preview.length} bytes): ${truncated}`,
             );
-            void handleMessage(clientId, raw);
+            void serviceRegistry.handleMessage(clientId, raw);
           },
 
           close(websocket) {
             const { clientId } = websocket.data;
-            daemonState.removeClient(clientId);
+            daemonStore.removeClient(clientId);
             wsMap.delete(clientId);
-            logger.info(`Client disconnected: ${clientId}`);
+            events.publish({ type: "client.runtime.disconnected", clientId });
           },
         },
       });
@@ -156,7 +217,9 @@ export function createDaemon({ config, logger }: CreateDaemonOptions): Daemon {
     async stop(): Promise<void> {
       if (!server) return;
 
-      await runSystem.shutdown();
+      await daemonRunState.shutdown();
+      serviceRegistry.dispose();
+      events.dispose();
 
       // Close all WebSocket connections
       for (const [clientId, websocket] of wsMap) {
@@ -165,7 +228,7 @@ export function createDaemon({ config, logger }: CreateDaemonOptions): Daemon {
         } catch {
           // Already closed
         }
-        daemonState.removeClient(clientId);
+        daemonStore.removeClient(clientId);
       }
       wsMap.clear();
 

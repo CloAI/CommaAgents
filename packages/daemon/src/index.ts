@@ -36,7 +36,19 @@ export {
   removePid,
   writePid,
 } from "./daemon-cli/process/pid/pid";
-export type { RunStatus } from "./daemon-state";
+export type {
+  CreateDaemonRunStateOptions,
+  DaemonRunState,
+  ProviderResolver,
+  RunConfig,
+  RunOverview,
+  RunStore,
+} from "./daemon-run-state";
+export {
+  createDaemonRunState,
+  extractProviderIds,
+} from "./daemon-run-state";
+export type { RunStatus } from "./daemon-store";
 export type { DaemonDefaultOverrides } from "./defaults";
 export {
   getDaemonConfigFile,
@@ -74,18 +86,6 @@ export {
   createSystemSink,
   describeSystemLogging,
 } from "./logger";
-export type {
-  CreateRunSystemOptions,
-  ProviderResolver,
-  RunConfig,
-  RunOverview,
-  RunStore,
-  RunSystem,
-} from "./run-system";
-export {
-  createRunSystem,
-  extractProviderIds,
-} from "./run-system";
 export type { CreateDaemonOptions, Daemon } from "./server";
 export { createDaemon } from "./server";
 export type {
@@ -101,7 +101,6 @@ export type {
   ErrorInfo,
   HandlerContext,
   McpServerStatusWire,
-  MessageHandler,
   MessageSender,
   RequestPermissionMessage,
   RequestQuestionMessage,

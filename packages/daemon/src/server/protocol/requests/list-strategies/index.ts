@@ -1,15 +1,15 @@
 // List-strategies request handler.
 // Returns a summary of all known runs.
 
-import type { RunState } from "../../../../daemon-state/daemon-state.types";
+import type { RunSnapshot } from "../../../../daemon-store/daemon-store.types";
 import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { RunSummary } from "../../responses/strategy-list/strategy-list.schema";
 import type { ListStrategiesMessage } from "./list-strategies.schema";
 
 export { ListStrategiesMessage } from "./list-strategies.schema";
 
-/** Convert a RunState into a wire-safe RunSummary. */
-function toRunSummary(run: RunState): RunSummary {
+/** Convert a RunSnapshot into a wire-safe RunSummary. */
+function toRunSummary(run: RunSnapshot): RunSummary {
   return {
     runId: run.id,
     strategyName: run.strategyName,
@@ -26,7 +26,7 @@ export function handleListStrategies(
   message: ListStrategiesMessage,
   context: HandlerContext<"list_strategies">,
 ): void {
-  const runs = context.state.listRuns();
+  const runs = context.daemonStore.listRuns();
   const summaries = runs.map(toRunSummary);
   context.reply({
     type: "strategy_list" as const,

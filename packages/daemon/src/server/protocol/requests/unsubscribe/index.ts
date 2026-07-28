@@ -13,5 +13,5 @@ export function handleUnsubscribe(
   message: UnsubscribeMessage,
   context: HandlerContext<"unsubscribe">,
 ): void {
-  context.state.unsubscribe(context.clientId, message.runId);
+  context.daemonStore.unsubscribe(context.clientId, message.runId);
 }

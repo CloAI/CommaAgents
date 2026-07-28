@@ -1,16 +1,13 @@
-import { isRunning, readPid, removePid } from "@comma-agents/utils";
 import { sleep } from "bun";
 import { loadDaemonConfig } from "../../../config";
 import {
   DEFAULT_DAEMON_POLL_INTERVAL_MS,
   DEFAULT_DAEMON_STOP_TIMEOUT_MS,
 } from "../../../defaults";
-import {
-  type DaemonProcessStartOptions,
-  type DaemonProcessStatus,
-  getDaemonProcessStatus,
-} from "..";
+import { isRunning, readPid, removePid } from "../pid";
 import { buildDaemonProcessEnvOverrides } from "../process.utils";
+import type { DaemonProcessStartOptions } from "./start";
+import { type DaemonProcessStatus, getDaemonProcessStatus } from "./status";
 
 /** Result returned after a daemon process stop request. */
 export interface DaemonProcessStopResult {

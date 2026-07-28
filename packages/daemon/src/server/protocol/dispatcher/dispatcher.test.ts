@@ -1,9 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { createHubManager } from "@comma-agents/core/hub";
 import type { ServerWebSocket } from "bun";
-import { createDaemonState } from "../../../daemon-state";
+import { createDaemonStore } from "../../../daemon-store";
 import type { Logger } from "../../../logger";
-import type { RunSystem } from "../../../run-system";
 import type { WsData } from "../../server.types";
 import { createDispatcher } from "./dispatcher";
 
@@ -44,14 +42,13 @@ function createTestLogger(): Logger & { readonly debugMessages: string[] } {
 }
 
 function createTestDispatcher() {
-  const state = createDaemonState();
+  const state = createDaemonStore();
   const clients = new Map<string, ServerWebSocket<WsData>>();
   const logger = createTestLogger();
   const dispatcher = createDispatcher({
-    state,
+    daemonStore: state,
     clients,
     logger,
-    hubManager: createHubManager(),
   });
   return { state, clients, logger, dispatcher };
 }
@@ -111,72 +108,5 @@ describe("createDispatcher", () => {
     expect(logger.debugMessages).toContain(
       "Failed to send to client disconnected",
     );
-  });
-
-  it("routes a valid request and replies through the dispatcher", async () => {
-    const { clients, dispatcher } = createTestDispatcher();
-    const client = createTestSocket();
-    clients.set("client-1", client.socket);
-    const handleMessage = dispatcher.createMessageHandler({} as RunSystem);
-
-    await handleMessage(
-      "client-1",
-      JSON.stringify({ type: "ping", requestId: "request-1" }),
-    );
-
-    expect(parseMessage(client.messages)).toMatchObject({
-      type: "pong",
-      requestId: "request-1",
-    });
-  });
-
-  it("returns parse and validation errors with available correlation", async () => {
-    const { clients, dispatcher } = createTestDispatcher();
-    const client = createTestSocket();
-    clients.set("client-1", client.socket);
-    const handleMessage = dispatcher.createMessageHandler({} as RunSystem);
-
-    await handleMessage("client-1", "not-json");
-    await handleMessage(
-      "client-1",
-      JSON.stringify({ type: "unknown", requestId: "request-2" }),
-    );
-
-    expect(parseMessage(client.messages, 0)).toMatchObject({
-      type: "error",
-      code: "PARSE_ERROR",
-    });
-    expect(parseMessage(client.messages, 1)).toMatchObject({
-      type: "error",
-      code: "VALIDATION_ERROR",
-      requestId: "request-2",
-    });
-  });
-
-  it("returns handler failures to the requesting client", async () => {
-    const { clients, dispatcher } = createTestDispatcher();
-    const client = createTestSocket();
-    clients.set("client-1", client.socket);
-    const handleMessage = dispatcher.createMessageHandler({
-      startRun() {
-        throw new Error("run unavailable");
-      },
-    } as unknown as RunSystem);
-
-    await handleMessage(
-      "client-1",
-      JSON.stringify({
-        type: "start_run",
-        runId: "run-1",
-        requestId: "request-3",
-      }),
-    );
-
-    expect(parseMessage(client.messages)).toMatchObject({
-      type: "error",
-      code: "START_FAILED",
-      message: "run unavailable",
-      requestId: "request-3",
-    });
   });
 });

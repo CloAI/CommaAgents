@@ -2,8 +2,11 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createDaemonState } from "../../../../daemon-state";
-import { createRunSystem } from "../../../../run-system";
+import {
+  createDaemonRunState,
+  createRunStore,
+} from "../../../../daemon-run-state";
+import { createDaemonStore } from "../../../../daemon-store";
 import { mockLogger, mockMessageSender } from "../../../../test.utils";
 import type { RunListMessage } from "../../responses/run-list";
 import { handleListRuns } from ".";
@@ -18,23 +21,24 @@ afterEach(async () => {
 });
 
 describe("handleListRuns", () => {
-  it("lists persisted runs through the run system's exposed store", async () => {
+  it("should list persisted runs through the run-state service", async () => {
     const runsDir = await mkdtemp(join(tmpdir(), "comma-agents-list-runs-"));
     tempDirs.push(runsDir);
-    const runSystem = createRunSystem({
-      daemonState: createDaemonState(),
+    const daemonRunState = createDaemonRunState({
+      daemonStore: createDaemonStore(),
       messageSender: mockMessageSender(),
       logger: mockLogger(),
       runsDir,
     });
-    await runSystem.runStore.appendEvent("run-1", {
+    const runStore = createRunStore({ runsDir });
+    await runStore.appendEvent("run-1", {
       type: "run_started",
       ts: new Date(0).toISOString(),
       cwd: "/workspace",
       strategyName: "Test",
       strategyPath: "/strategy.json",
     });
-    await runSystem.runStore.appendEvent("other-run", {
+    await runStore.appendEvent("other-run", {
       type: "run_started",
       ts: new Date(1).toISOString(),
       cwd: "/other-workspace",
@@ -47,8 +51,8 @@ describe("handleListRuns", () => {
       { type: "list_runs", cwd: "/workspace", requestId: "request-1" },
       {
         clientId: "client-1",
-        runSystem,
-        state: createDaemonState(),
+        daemonRunState,
+        daemonStore: createDaemonStore(),
         logger: mockLogger(),
         reply(message) {
           if (message.type === "run_list") response = message;

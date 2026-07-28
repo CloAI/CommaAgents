@@ -7,5 +7,5 @@ export function handleStopRun(
   message: StopRunMessage,
   context: HandlerContext<"stop_run">,
 ): void {
-  context.runSystem.stopRun(message.runId);
+  context.daemonRunState.stopRun(message.runId);
 }

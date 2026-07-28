@@ -1,8 +1,8 @@
 import type { HubManager } from "@comma-agents/core/hub";
 import type { ServerWebSocket } from "bun";
-import type { DaemonState } from "../../../daemon-state/daemon-state.types";
+import type { DaemonRunState } from "../../../daemon-run-state";
+import type { DaemonStore } from "../../../daemon-store/daemon-store.types";
 import type { Logger } from "../../../logger/logger.types";
-import type { RunSystem } from "../../../run-system";
 import type { WsData } from "../../server.types";
 import type { DaemonMessage } from "../messages";
 import type { AvailableModelsMessage } from "../responses/available-models";
@@ -97,9 +97,9 @@ export interface HandlerContext<
   /** The client ID that sent this request. */
   readonly clientId: string;
   /** Run lifecycle, actions, and persisted run storage. */
-  readonly runSystem: RunSystem;
+  readonly daemonRunState: DaemonRunState;
   /** Centralized daemon state for run/client/subscription tracking. */
-  readonly state: DaemonState;
+  readonly daemonStore: DaemonStore;
   /** Logger for handler-level diagnostics. */
   readonly logger: Logger;
   /** Daemon-owned Hub package service. */
@@ -117,26 +117,15 @@ export interface MessageSender {
   broadcast(runId: string, message: DaemonMessage): void;
 }
 
-/** Handles one raw client frame after the run system has been composed. */
-export type MessageHandler = (
-  clientId: string,
-  raw: string | Buffer,
-) => Promise<void>;
-
-/** Bidirectional daemon protocol boundary for inbound and outbound messages. */
-export interface Dispatcher extends MessageSender {
-  /** Bind request routing to the daemon's run system. */
-  createMessageHandler(runSystem: RunSystem): MessageHandler;
-}
+/** Outbound daemon protocol boundary. */
+export interface Dispatcher extends MessageSender {}
 
 /** Dependencies used to create the daemon protocol dispatcher. */
 export interface CreateDispatcherOptions {
   /** Centralized daemon state for client subscriptions. */
-  readonly state: DaemonState;
+  readonly daemonStore: DaemonStore;
   /** Connected WebSocket clients keyed by their daemon client ID. */
   readonly clients: Map<string, ServerWebSocket<WsData>>;
   /** Logger for routing and delivery diagnostics. */
   readonly logger: Logger;
-  /** Daemon-owned Hub package service. */
-  readonly hubManager: HubManager;
 }
