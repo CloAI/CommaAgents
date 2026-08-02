@@ -14,14 +14,14 @@ import {
   createJsonFileCredentialBackend,
   getProviderDefinition,
   registerProviderDefinition,
-  resolveApplicationDataDirectory,
+  getApplicationDataDirectory,
   setGlobalCredentialStore,
 } from "@comma-agents/core";
 
 /** Read the daemon-written list of registered provider ids, if present. */
 function loadRegisteredProviderIds(): string[] {
   try {
-    const filePath = join(resolveApplicationDataDirectory(), "provider-registry.json");
+    const filePath = join(getApplicationDataDirectory(), "provider-registry.json");
     if (!existsSync(filePath)) return [];
     const parsed: unknown = JSON.parse(readFileSync(filePath, "utf-8"));
     if (!Array.isArray(parsed)) return [];
@@ -38,7 +38,7 @@ function loadRegisteredProviderIds(): string[] {
  * startup. Returns the number of providers restored.
  */
 export async function initProviders(): Promise<number> {
-  const dataDir = resolveApplicationDataDirectory();
+  const dataDir = getApplicationDataDirectory();
   const credentialStore = createCredentialStore({
     backend: createJsonFileCredentialBackend({
       filePath: join(dataDir, "credentials.json"),

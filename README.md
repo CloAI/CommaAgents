@@ -229,7 +229,7 @@ bun run cli
 Useful development commands:
 
 ```bash
-bun run build          # Build every workspace package
+bun run build          # Build and validate the four public packages
 bun test               # Run package test suites
 bun run lint           # Check formatting and lint rules
 bun run docs           # Start the documentation site

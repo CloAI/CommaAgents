@@ -122,7 +122,7 @@ export function ModalRender({
   theme,
   title,
   children,
-  debugRef,
+  debugRef: _debugRef,
   width,
   height,
   minWidth,

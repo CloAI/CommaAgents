@@ -3,13 +3,13 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveApplicationDataDirectory } from "@comma-agents/core";
+import { getApplicationDataDirectory } from "@comma-agents/core";
 import { DEFAULT_DAEMON_PROVIDER_REGISTRY_FILENAME } from "../../defaults";
 
 export function loadRegisteredProviders(): string[] {
   try {
     const filePath = join(
-      resolveApplicationDataDirectory(),
+      getApplicationDataDirectory(),
       DEFAULT_DAEMON_PROVIDER_REGISTRY_FILENAME,
     );
     const raw = readFileSync(filePath, "utf-8").trim();
@@ -31,7 +31,7 @@ export function loadRegisteredProviders(): string[] {
 }
 
 export function saveRegisteredProviders(providerIds: string[]): void {
-  const dataDirectory = resolveApplicationDataDirectory();
+  const dataDirectory = getApplicationDataDirectory();
   mkdirSync(dataDirectory, { recursive: true });
   const filePath = join(
     dataDirectory,

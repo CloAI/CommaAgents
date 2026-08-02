@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveApplicationDataDirectory } from "@comma-agents/core";
+import { getApplicationDataDirectory } from "@comma-agents/core";
 import { resetDaemonDefaultOverrides } from "../defaults";
 import { DaemonConfigFileSchema } from ".";
 import { loadDaemonConfig } from "./config";
@@ -33,16 +33,16 @@ function cleanEnv(): Record<string, string | undefined> {
 
 afterEach(resetDaemonDefaultOverrides);
 
-// resolveApplicationDataDirectory
+// getApplicationDataDirectory
 
-describe("resolveApplicationDataDirectory", () => {
+describe("getApplicationDataDirectory", () => {
   test("returns the shared .comma directory", () => {
-    const dir = resolveApplicationDataDirectory();
+    const dir = getApplicationDataDirectory();
     expect(dir).toBe(join(homedir(), ".comma"));
   });
 
   test("returns path under home directory", () => {
-    const dir = resolveApplicationDataDirectory();
+    const dir = getApplicationDataDirectory();
     const home = homedir();
     expect(dir.startsWith(home)).toBe(true);
   });

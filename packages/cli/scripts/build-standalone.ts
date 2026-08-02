@@ -1,5 +1,8 @@
 import { mkdirSync, rmSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  assertReleasePackageEntrypoints,
+  releasePackageResolver,
+} from "./release-package-resolver";
 
 const SUPPORTED_TARGETS = [
   "bun-darwin-arm64",
@@ -17,14 +20,6 @@ type StandaloneTarget = (typeof SUPPORTED_TARGETS)[number];
 const packageManifest = (await Bun.file("package.json").json()) as {
   readonly version: string;
 };
-const workspaceAliases = {
-  "@comma-agents/core/hub": resolve("../core/src/hub/index.ts"),
-  "@comma-agents/core": resolve("../core/src/index.ts"),
-  "@comma-agents/daemon": resolve("../daemon/src/index.ts"),
-  "@comma-agents/tui": resolve("../tui/src/index.ts"),
-  "@comma-agents/utils": resolve("../utils/src/index.ts"),
-};
-
 function resolveHostTarget(): StandaloneTarget {
   if (process.platform === "darwin") {
     return process.arch === "arm64" ? "bun-darwin-arm64" : "bun-darwin-x64";
@@ -58,7 +53,7 @@ async function buildTarget(target: StandaloneTarget): Promise<void> {
       autoloadBunfig: false,
     },
     minify: true,
-    alias: workspaceAliases,
+    plugins: [releasePackageResolver],
     define: {
       "process.env.COMMA_BUILD_VERSION": JSON.stringify(
         packageManifest.version,
@@ -73,6 +68,7 @@ async function buildTarget(target: StandaloneTarget): Promise<void> {
 }
 
 const requestedTarget = process.argv[2] ?? resolveHostTarget();
+assertReleasePackageEntrypoints();
 rmSync("dist/standalone", { recursive: true, force: true });
 if (requestedTarget === "all") {
   for (const target of SUPPORTED_TARGETS) {

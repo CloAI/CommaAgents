@@ -3,7 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 
-import { resolveApplicationDataDirectory } from "@comma-agents/core";
+import { getApplicationDataDirectory } from "@comma-agents/core";
 import { stopDaemonProcess } from "@comma-agents/daemon";
 
 import { buildAutostartPlan, disableAutostart } from "../autostart";
@@ -308,7 +308,7 @@ export async function runUninstaller(
     );
   }
 
-  await removeSelectedData(resolveApplicationDataDirectory(), selections);
+  await removeSelectedData(getApplicationDataDirectory(), selections);
 
   const installation = resolveCliInstallation({
     standaloneBuild: process.env.COMMA_STANDALONE_BUILD === "1",

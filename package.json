@@ -9,7 +9,7 @@
     "examples/e2e"
   ],
   "scripts": {
-    "build": "bun run --filter '*' build",
+    "build": "bun run packages:build && bun run packages:validate",
     "test": "bun run --filter '*' test",
     "test:e2e": "bun test examples/e2e/",
     "lint": "bunx @biomejs/biome check .",
@@ -26,7 +26,7 @@
     "release:version": "bun run scripts/release-version.ts sync",
     "release:check-tag": "bun run scripts/release-version.ts check-tag",
     "hooks:install": "git config core.hooksPath .githooks",
-    "version": "bun run release:version && bun run packages:build && bun run packages:validate",
+    "version": "bun run release:version && bun run build",
     "daemon": "bun run --filter @comma-agents/daemon start",
     "tui": "bun run --cwd packages/tui start",
     "example": "bun run examples/core/strategies/run.ts",

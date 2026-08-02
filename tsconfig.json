@@ -1,5 +1,13 @@
 {
   "compilerOptions": {
+    "paths": {
+      "@comma-agents/core": ["./packages/core/src/index.ts"],
+      "@comma-agents/core/hub": ["./packages/core/src/hub/index.ts"],
+      "@comma-agents/core/sandbox": ["./packages/core/src/sandbox/index.ts"],
+      "@comma-agents/daemon": ["./packages/daemon/src/index.ts"],
+      "@comma-agents/tui": ["./packages/tui/src/index.ts"],
+      "@comma-agents/utils": ["./packages/utils/src/index.ts"]
+    },
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
@@ -18,8 +26,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "exactOptionalPropertyTypes": false,
-    "outDir": "dist",
-    "rootDir": "src"
+    "outDir": "dist"
   },
   "exclude": ["node_modules", "dist"]
 }

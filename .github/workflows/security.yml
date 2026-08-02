@@ -32,7 +32,7 @@ jobs:
           tar -xzf "$archive" gitleaks
       - name: Scan full Git history
         run: ./gitleaks git . --redact
-      - run: bun run packages:build
+      - run: bun run build
       - name: Scan publication artifacts
         shell: bash
         run: |

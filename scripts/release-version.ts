@@ -123,8 +123,7 @@ function checkReleaseTag(tag: string): void {
     ]);
     worktreeAdded = true;
     runCommand("bun", ["install", "--frozen-lockfile"], temporaryDirectory);
-    runCommand("bun", ["run", "packages:build"], temporaryDirectory);
-    runCommand("bun", ["run", "packages:validate"], temporaryDirectory);
+    runCommand("bun", ["run", "build"], temporaryDirectory);
   } finally {
     if (worktreeAdded) {
       runCommand("git", ["worktree", "remove", "--force", temporaryDirectory]);

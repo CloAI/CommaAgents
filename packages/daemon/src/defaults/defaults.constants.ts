@@ -19,17 +19,17 @@ export const PROCESS_ENV_COMMA_DAEMON_LOG_LEVEL =
   process.env.COMMA_DAEMON_LOG_LEVEL || DEFAULT_DAEMON_LOG_LEVEL;
 export const PROCESS_ENV_COMMA_DAEMON_LOG_FILE =
   process.env.COMMA_DAEMON_LOG_FILE ||
-  join(resolveApplicationDataDirectory(), DEFAULT_DAEMON_LOG_FILENAME);
+  join(getApplicationDataDirectory(), DEFAULT_DAEMON_LOG_FILENAME);
 export const PROCESS_ENV_COMMA_DAEMON_PID_FILE =
   process.env.COMMA_DAEMON_PID_FILE ||
-  join(resolveApplicationDataDirectory(), DEFAULT_DAEMON_PID_FILENAME);
+  join(getApplicationDataDirectory(), DEFAULT_DAEMON_PID_FILENAME);
 export const PROCESS_ENV_COMMA_DAEMON_CONFIG_FILE =
   process.env.COMMA_DAEMON_CONFIG_FILE ||
-  join(resolveApplicationDataDirectory(), DEFAULT_DAEMON_CONFIG_FILENAME);
+  join(getApplicationDataDirectory(), DEFAULT_DAEMON_CONFIG_FILENAME);
 export const PROCESS_ENV_COMMA_DAEMON_RUNS_DIR =
   process.env.COMMA_DAEMON_RUNS_DIR ||
-  join(resolveApplicationDataDirectory(), DEFAULT_DAEMON_RUNS_DIRECTORY_NAME);
+  join(getApplicationDataDirectory(), DEFAULT_DAEMON_RUNS_DIRECTORY_NAME);
 export const PROCESS_ENV_COMMA_BUILD_VERSION = process.env.COMMA_BUILD_VERSION;
 
 import { join } from "node:path";
-import { resolveApplicationDataDirectory } from "@comma-agents/core";
+import { getApplicationDataDirectory } from "@comma-agents/core";

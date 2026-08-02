@@ -36,8 +36,7 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match package version v$version" >&2
             exit 1
           fi
-      - run: bun run packages:build
-      - run: bun run packages:validate
+      - run: bun run build
       - run: bun test packages/cli/src packages/daemon/src/daemon-control packages/core/src/abortable
       - run: bun run --cwd packages/cli build:standalone all
       - name: Package standalone executables

@@ -29,8 +29,7 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm install --global npm@11.5.1
       - run: bun install --frozen-lockfile
-      - run: bun run packages:build
-      - run: bun run packages:validate
+      - run: bun run build
       - name: Confirm version
         run: test "$(node -p "require('./package.json').version")" = "${{ inputs.version }}"
       - name: Publish packages in dependency order

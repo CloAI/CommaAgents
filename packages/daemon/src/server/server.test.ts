@@ -16,7 +16,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  resetGlobalDefaults,
+  resetCoreLocationOverrides,
   resetModelRegistry,
   setProviderInstallDirectory,
 } from "@comma-agents/core";
@@ -39,7 +39,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetModelRegistry();
-  resetGlobalDefaults();
+  resetCoreLocationOverrides();
 });
 
 // Helpers — strategy files

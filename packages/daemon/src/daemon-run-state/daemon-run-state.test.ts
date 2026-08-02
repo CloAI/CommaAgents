@@ -15,7 +15,7 @@ import {
   extractProviderIds,
   registerModel,
   resetFlowRegistry,
-  resetGlobalDefaults,
+  resetCoreLocationOverrides,
   resetModelRegistry,
 } from "@comma-agents/core";
 import { createDaemonStore } from "../daemon-store/daemon-store";
@@ -160,7 +160,7 @@ afterEach(async () => {
   // Clean up global registries
   resetModelRegistry();
   resetFlowRegistry();
-  resetGlobalDefaults();
+  resetCoreLocationOverrides();
 
   // Clean up temp files
   for (const f of tempFiles) {

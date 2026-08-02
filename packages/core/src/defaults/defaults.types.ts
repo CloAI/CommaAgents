@@ -6,3 +6,6 @@ export interface CoreDefaultOverrides {
   readonly catalogCachePath?: string;
   readonly globalSkillsDirectory?: string;
 }
+
+/** @deprecated Use {@link CoreDefaultOverrides}. */
+export type CoreLocationOverrides = CoreDefaultOverrides;

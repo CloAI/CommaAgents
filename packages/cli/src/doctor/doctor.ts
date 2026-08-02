@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { resolveApplicationDataDirectory } from "@comma-agents/core";
+import { getApplicationDataDirectory } from "@comma-agents/core";
 import { getDaemonProcessStatus, loadDaemonConfig } from "@comma-agents/daemon";
 import { buildAutostartPlan } from "../autostart";
 import type {
@@ -84,7 +84,7 @@ function checkProviderFiles(dataDir: string): DoctorCheck {
 }
 
 export function runDoctor({
-  dataDir = resolveApplicationDataDirectory(),
+  dataDir = getApplicationDataDirectory(),
   pathValue = process.env.PATH,
 }: DoctorOptions = {}): DoctorResult {
   const daemonStatus = getDaemonProcessStatus();

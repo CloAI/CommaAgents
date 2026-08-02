@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
-import { resolveApplicationDataDirectory } from "@comma-agents/core";
+import { getApplicationDataDirectory } from "@comma-agents/core";
 import { stopDaemonProcess } from "@comma-agents/daemon";
 import { render } from "ink";
 import { createElement } from "react";
@@ -57,7 +57,7 @@ async function readCachedReleases(
   if (maxAgeMs <= 0) return undefined;
   try {
     const cache = JSON.parse(
-      await readFile(join(resolveApplicationDataDirectory(), UPDATE_CHECK_CACHE_FILE), "utf8"),
+      await readFile(join(getApplicationDataDirectory(), UPDATE_CHECK_CACHE_FILE), "utf8"),
     ) as Partial<ReleaseCache>;
     if (
       typeof cache.checkedAt !== "number" ||
@@ -96,7 +96,7 @@ function normalizeCachedReleases(value: unknown): readonly ReleaseInfo[] {
 async function writeReleaseCache(
   releases: readonly ReleaseInfo[],
 ): Promise<void> {
-  const dataDirectory = resolveApplicationDataDirectory();
+  const dataDirectory = getApplicationDataDirectory();
   await mkdir(dataDirectory, { recursive: true });
   await writeFile(
     join(dataDirectory, UPDATE_CHECK_CACHE_FILE),
