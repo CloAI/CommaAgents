@@ -1,7 +1,7 @@
+import { getLogger } from "@logtape/logtape";
 import type { AgentCallResult, AgentStreamEvent } from "@comma-agents/core";
 import { isUserAgentDef } from "@comma-agents/core";
-import type { RunSnapshot } from "../../../daemon-store";
-import type { Logger } from "../../../logger";
+import type { RunSnapshot } from "../../../server/daemon-store";
 import type { MessageSender } from "../../../server/protocol/dispatcher/dispatcher.types";
 import {
   toAgentCallResultWire,
@@ -18,14 +18,15 @@ import type {
 } from "../systems.types";
 import type { StreamingSystemOptions } from "./streaming.types";
 
+const logger = getLogger(["comma", "daemon", "streaming"]);
+
 export function createStreamingSystem(
   options: StreamingSystemOptions,
 ): DaemonSystem {
-  const { logger, messageSender } = options;
+  const { messageSender } = options;
 
   return {
     name: "streaming",
-
     onStrategyLoaded(strategyContext: StrategyLoadedContext): void {
       const { strategy, run, systemData } = strategyContext;
 
@@ -46,7 +47,6 @@ export function createStreamingSystem(
           agentName,
           run,
           messageSender,
-          logger,
           systemData,
           isUserAgent,
           modelDetails,
@@ -78,7 +78,6 @@ function buildFlowHooks(run: RunSnapshot, messageSender: MessageSender) {
         ts,
       });
     },
-
     afterStep({
       stepName,
       result,
@@ -104,7 +103,6 @@ function buildAgentHooks(
   agentName: string,
   run: RunSnapshot,
   messageSender: MessageSender,
-  logger: Logger,
   systemData: SystemDataStore,
   isUserAgent: boolean,
   modelDetails: AgentModelDetails,
@@ -112,7 +110,7 @@ function buildAgentHooks(
   return {
     onStreamEvent(event: AgentStreamEvent): void {
       if (event.type === "tool-call" || event.type === "tool-result") {
-        logToolEvent(run.id, agentName, event, logger);
+        logToolEvent(run.id, agentName, event);
       }
 
       if (isUserAgent) return;
@@ -126,7 +124,6 @@ function buildAgentHooks(
         ts: new Date().toISOString(),
       });
     },
-
     afterCallResult(result: AgentCallResult): void {
       const ts = new Date().toISOString();
 
@@ -157,7 +154,6 @@ function logToolEvent(
   runId: string,
   agentName: string,
   event: AgentStreamEvent,
-  logger: Logger,
 ): void {
   const tag = `[run ${runId.slice(0, 8)}]`;
 

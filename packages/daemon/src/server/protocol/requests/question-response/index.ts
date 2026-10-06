@@ -11,6 +11,10 @@ export { QuestionResponseMessage } from "./question-response.schema";
  *
  * If no pending question request exists for the specified `questionRequestId`,
  * sends a `NO_PENDING_QUESTION` error back to the client.
+ *
+ * @param {QuestionResponseMessage} message - Question response received from the client.
+ * @param {HandlerContext<"question_response">} context - Request handler context used to reply.
+ * @returns {void} Nothing; resolves the question or sends an error response.
  */
 export function handleQuestionResponse(
   message: QuestionResponseMessage,

@@ -2,7 +2,7 @@
 title: loadAgent
 description: Load an agent from a JSON or YAML description file with schema validation and template support.
 ---
-`loadAgent` reads a standalone built-in or registered custom agent description file (JSON or YAML), validates it against a strict schema, and returns a live `Agent` ready to call. For content already in memory, `loadAgentFromString` accepts a raw string directly.
+`loadAgent` reads a standalone agent description file (JSON or YAML), validates it against a strict schema, and returns a live `Agent` ready to call. For content already in memory, `loadAgentFromString` accepts a raw string directly.
 
 ```ts
 import { loadAgent } from "@comma-agents/core";
@@ -14,9 +14,7 @@ console.log(result.text);
 
 ## Agent Description File
 
-A description file defines a single agent — its name, model, optional system prompt, optional tools, and optional generation parameters. The schema is strict: unknown fields are rejected.
-
-Model strings support two formats: explicit `"providerID/modelID"` (e.g. `"openai/gpt-4o"`) or bare model IDs (e.g. `"gpt-4o"`) where the provider is auto-resolved from the catalog. See [Model Resolution](/docs/core/model) for details.
+A description file defines a single agent — its name, model, optional system prompt, and optional tools. The schema is strict: unknown fields are rejected.
 
 ### YAML
 
@@ -25,24 +23,8 @@ name: researcher
 model: openai/gpt-4o
 systemPrompt: You are a research assistant.
 tools:
-  - read_file
-  - search_files
-providerOptions:
-  openai:
-    reasoningEffort: high
-modelOptions:
-  temperature: 0.7
-  maxOutputTokens: 4096
-outputSchema:
-  type: object
-  properties:
-    answer:
-      type: string
-  required: [answer]
-context:
-  rollingWindow: 40
-  compaction:
-    keepRecent: 8
+  - read
+  - grep
 ```
 
 ### JSON
@@ -52,64 +34,15 @@ context:
   "name": "researcher",
   "model": "openai/gpt-4o",
   "systemPrompt": "You are a research assistant.",
-  "tools": ["read_file", "search_files"],
-  "providerOptions": {
-    "openai": { "reasoningEffort": "high" }
-  },
-  "modelOptions": {
-    "temperature": 0.7,
-    "maxOutputTokens": 4096
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": { "answer": { "type": "string" } },
-    "required": ["answer"]
-  },
-  "context": {
-    "rollingWindow": 40,
-    "compaction": { "keepRecent": 8 }
-  }
+  "tools": ["read", "grep"]
 }
 ```
-
-### providerOptions
-
-Provider-specific options applied to each model call. The outer key is the provider ID (for example, `"openai"` or `"anthropic"`) and the inner record contains that provider's options.
-
-```yaml
-providerOptions:
-  anthropic:
-    thinking: { type: enabled, budgetTokens: 8000 }
-  openai:
-    reasoningEffort: high
-```
-
-### modelOptions
-
-Provider-independent generation parameters applied to every call. Supported fields include `temperature`, `topP`, `topK`, `maxOutputTokens`, `maxRetries`, `frequencyPenalty`, `presencePenalty`, and `seed`. See `AgentDescription` below for the generated field types.
-
-### outputSchema
-
-`outputSchema` is a JSON Schema object. It requests a structured object response that conforms to that schema.
-
-### context
-
-`context` controls conversation retention before each model call. Use
-`rollingWindow` to keep only the most recent active records visible to the
-model, and `compaction` to summarize older active records while keeping the
-full record history available for export.
 
 ## AgentDescriptionSchema
 
 Zod schema used to validate agent description files. Requires `name` and `model`; everything else is optional.
 
 <AutoTypeTable path="../packages/core/src/agents/loader/loader.schema.ts" name="AgentDescription" />
-
-## LoadAgentOptions
-
-Options passed to `loadAgent` or `loadAgentFromString`.
-
-<AutoTypeTable path="../packages/core/src/agents/loader/loader.types.ts" name="LoadAgentOptions" />
 
 ## loadAgentFromString
 
@@ -130,64 +63,25 @@ const result = await agent.call("Write a haiku about TypeScript.");
 
 The `format` parameter must be `"json"` or `"yaml"`. `loadAgent` auto-detects format from the file extension (`.json`, `.yaml`, `.yml`).
 
-## Registered Custom Agents
-
-Register the custom type before loading its description:
-
-```ts
-import {
-  createAgent,
-  defineAgentType,
-  loadAgent,
-  registerAgent,
-} from "@comma-agents/core";
-import { z } from "zod";
-
-registerAgent(
-  "prefixed-echo",
-  defineAgentType({
-    configSchema: z.object({ prefix: z.string() }).strict(),
-    create: ({ name, config }) =>
-      createAgent({
-        name,
-        execute: async (message) => `${config.prefix}${message}`,
-      }),
-  }),
-);
-
-const agent = await loadAgent("./agents/echo.yaml");
-```
-
-```yaml
-name: echo
-type: prefixed-echo
-config:
-  prefix: "Echo: "
-```
-
-The registered schema validates `config`. See [registerAgent](/docs/core/agents/register-agent) for naming, schemas, runtime services, and project registration.
-
-## LLMAgentDescription
-
-The standalone description for the built-in LLM agent type.
-
-<AutoTypeTable path="../packages/core/src/agents/loader/loader.schema.ts" name="LLMAgentDescription" />
-
-## CustomAgentDescription
-
-The standalone description for a registered custom agent type.
-
-<AutoTypeTable path="../packages/core/src/agents/loader/loader.schema.ts" name="CustomAgentDescription" />
-
 ## System Prompt Templates
 
-Instead of a static `systemPrompt`, you can define a `systemPromptTemplate` using [Liquid](https://liquidjs.com/) syntax with default variables. The loader converts it to a `PromptTemplate` automatically. When both `systemPromptTemplate` and `systemPrompt` are present, the template takes precedence.
+Instead of a static `systemPrompt`, you can define a `systemPromptTemplate` using [Liquid](https://liquidjs.com/) syntax with default variables:
 
-See the [Prompts & Templates](/docs/core/prompts) documentation for the full template syntax, custom filters, and how to use `updatePromptVariables` to change defaults at runtime.
+```yaml
+name: greeter
+model: openai/gpt-4o
+systemPromptTemplate:
+  template: "You are a {{ role }} who speaks {{ language }}."
+  variables:
+    role: friendly assistant
+    language: English
+```
+
+When both `systemPromptTemplate` and `systemPrompt` are present, the template takes precedence.
 
 ## Model and Tool Resolution
 
-Model and tool names in the description file are plain strings, such as `"openai/gpt-4o"` and `"read_file"`. They resolve through the model, provider, and tool registries. Register custom providers, models, and tools before loading the agent.
+Model and tool names in the description file are plain strings (e.g., `"openai/gpt-4o"`, `"read"`). They are resolved at call time through the global registries — `registerProvider()`, `registerModel()`, and `registerTool()`. Make sure the required providers and tools are registered before calling the agent.
 
 ## Error Handling
 
@@ -196,8 +90,7 @@ Both `loadAgent` and `loadAgentFromString` throw `StrategyValidationError` for:
 - Unsupported file extensions (only `.json`, `.yaml`, `.yml`)
 - Missing files
 - Malformed JSON or YAML
-- Schema validation failures (missing required built-in fields, unknown fields, or wrong types)
-- Unknown registered agent types or invalid custom `config`
+- Schema validation failures (missing `name` or `model`, unknown fields, wrong types)
 
 ```ts
 import { loadAgent, StrategyValidationError } from "@comma-agents/core";

@@ -1,3 +1,4 @@
+import { getLogger } from "@logtape/logtape";
 // Get-available-models request handler.
 // Returns every model from the reverse index with credential availability
 // metadata. The TUI can use this to show which models are ready to use
@@ -15,6 +16,8 @@ import type { AvailableModelWire } from "../../responses/available-models";
 import type { ModelInfoWire } from "../../responses/provider-list";
 import { toModelInfoWire } from "../../responses/provider-list/provider-list.utils";
 import type { GetAvailableModelsMessage } from "./get-available-models.schema";
+
+const logger = getLogger(["comma", "daemon", "get-available-models"]);
 
 export { GetAvailableModelsMessage } from "./get-available-models.schema";
 
@@ -67,7 +70,7 @@ export async function handleGetAvailableModels(
         : {}),
     });
   } catch (caughtError) {
-    context.logger.error(`get_available_models failed: ${caughtError}`);
+    logger.error(`get_available_models failed: ${caughtError}`);
     context.reply({
       type: "error" as const,
       code: "INTERNAL_ERROR",

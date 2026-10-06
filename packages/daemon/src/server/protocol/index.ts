@@ -27,10 +27,7 @@ export {
   handleListMcpServers,
   ListMcpServersMessage,
 } from "./requests/list-mcp-servers";
-export {
-  handleListRuns,
-  ListRunsMessage,
-} from "./requests/list-runs";
+export { handleListRuns, ListRunsMessage } from "./requests/list-runs";
 export {
   handleListStrategies,
   ListStrategiesMessage,
@@ -42,25 +39,19 @@ export {
 export { handlePing, PingMessage } from "./requests/ping";
 export { handlePrepareRun, PrepareRunMessage } from "./requests/prepare-run";
 export { handleStartRun, StartRunMessage } from "./requests/start-run";
-export {
-  handleSteerRun,
-  SteerRunMessage,
-} from "./requests/steer-run";
+export { handleSteerRun, SteerRunMessage } from "./requests/steer-run";
 export { handleStopRun, StopRunMessage } from "./requests/stop-run";
 export { handleSubscribe, SubscribeMessage } from "./requests/subscribe";
-export {
-  handleTrashClear,
-  TrashClearMessage,
-} from "./requests/trash-clear";
-export {
-  handleTrashList,
-  TrashListMessage,
-} from "./requests/trash-list";
+export { handleTrashClear, TrashClearMessage } from "./requests/trash-clear";
+export { handleTrashList, TrashListMessage } from "./requests/trash-list";
 export {
   handleTrashRestore,
   TrashRestoreMessage,
 } from "./requests/trash-restore";
-export { handleUnsubscribe, UnsubscribeMessage } from "./requests/unsubscribe";
+export {
+  handleUnsubscribe,
+  UnsubscribeMessage,
+} from "../daemon-services/subscription/unsubscribe";
 // Request handlers + client message schemas
 export {
   handleUpdateMcpServer,
@@ -90,10 +81,7 @@ export { RequestInputMessage } from "./responses/request-input";
 export { RequestPermissionMessage } from "./responses/request-permission";
 export { RequestQuestionMessage } from "./responses/request-question";
 export type { RunOverviewWire } from "./responses/run-list";
-export {
-  RunListMessage,
-  RunOverviewSchema,
-} from "./responses/run-list";
+export { RunListMessage, RunOverviewSchema } from "./responses/run-list";
 export { RunPreparedMessage } from "./responses/run-prepared";
 // Colocated schemas re-exported for public API
 export type {

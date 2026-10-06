@@ -1,11 +1,18 @@
+import { getLogger } from "@logtape/logtape";
 import type { AgentCallResult, LoadedStrategy } from "@comma-agents/core";
+import { createRunLifecycleEffect } from "../daemon-effects";
+import type { RunStore } from "../server/daemon-store";
 import {
   conversationHistoryFromEvents,
   findLatestRunStart,
   restoreAgentContexts,
 } from "./daemon-run-state.utils";
 import { prepareStrategy } from "./prepare-strategy";
-import { createRunStore } from "./run-store";
+import {
+  createRunPersistenceEffect,
+  createRunProtocolEffect,
+} from "./run-effects";
+import { createRunRepository } from "./run-repository";
 import { createInputSystem } from "./systems/input";
 import {
   createMcpSystem,
@@ -36,27 +43,31 @@ import type {
   ExecutionContext,
   PreparedRunMetadata,
   PrepareRunOptions,
+  RunActionRegistry,
   SystemRunContext,
 } from "./systems/systems.types";
-import {
-  createRunActionRegistry,
-  createSystemDataStore,
-} from "./systems/systems.utils";
+import { createSystemDataStore } from "./systems/systems.utils";
+
+const logger = getLogger(["comma", "daemon", "daemon-run-state"]);
 
 interface PreparedRun {
+  readonly runStore: RunStore;
   readonly context: SystemRunContext;
   readonly strategy: LoadedStrategy;
   readonly mode: "new" | "continuation";
   execution?: Promise<void>;
 }
 
+const PREPARED_RUN_RUNTIME_KEY = "preparedRun";
+
 /**
  * Create the run lifecycle used by a daemon server.
  *
- * @param options - daemonStore, event delivery, logging, storage, and run defaults.
+ * @param {CreateDaemonRunStateOptions} options - Daemon store, event delivery, logging, storage, and run defaults.
+ * @returns {DaemonRunState} Lifecycle API for preparing and managing daemon runs.
  * @example
  * ```ts
- * const daemonRunState = createDaemonRunState({ daemonStore, messageSender, logger, runsDir });
+ * const daemonRunState = createDaemonRunState({ daemonStore, messageSender, runsDir });
  * const prepared = await daemonRunState.prepareRun(clientId, { strategyPath });
  * daemonRunState.startRun(clientId, prepared.runId, "Start the task");
  * ```
@@ -65,26 +76,25 @@ export function createDaemonRunState({
   daemonStore,
   events,
   messageSender,
-  logger,
   runsDir,
   hubManager,
 }: CreateDaemonRunStateOptions): DaemonRunState {
-  const runStore = createRunStore({ runsDir });
-  const actions = createRunActionRegistry();
-  const preparedRuns = new Map<string, PreparedRun>();
+  const runRepository = createRunRepository({ runsDir });
   const cleanupPromises = new Set<Promise<void>>();
 
   const systems: DaemonSystem[] = [
     createInputSystem(),
     createPermissionSystem(),
     createQuestionSystem(),
-    createMcpSystem(runStore),
+    createMcpSystem(runRepository),
     createSkillsSystem(),
     createSteeringSystem(),
-    createStreamingSystem({ logger, messageSender }),
-    createPersistenceSystem({ logger: logger.child("persistence"), runStore }),
+    createStreamingSystem({ messageSender }),
+    createPersistenceSystem({
+      runRepository,
+    }),
     createSandboxSystem(),
-    createSubLaunchSystem(hubManager, runStore),
+    createSubLaunchSystem(hubManager, runRepository),
   ];
 
   async function prepareRun(
@@ -92,28 +102,33 @@ export function createDaemonRunState({
     options: PrepareRunOptions,
   ): Promise<PreparedRunMetadata> {
     const runId = options.runId ?? crypto.randomUUID();
-    if (preparedRuns.has(runId)) {
+    const registeredRunStore = daemonStore.getRunStore(runId);
+    if (
+      registeredRunStore?.getRuntimeValue<PreparedRun>(PREPARED_RUN_RUNTIME_KEY)
+    ) {
       throw new Error(`Run already exists: ${runId}`);
     }
 
     const persistedEvents =
-      options.runId !== undefined ? await runStore.getEvents(runId) : [];
+      options.runId !== undefined ? await runRepository.getEvents(runId) : [];
     const latestStart = findLatestRunStart(persistedEvents);
     const mode = latestStart ? "continuation" : "new";
-    const existingRun = daemonStore.getRun(runId);
-    const existingSubscribers = existingRun
-      ? daemonStore.getSubscribers(runId)
-      : [];
+    const existingRunStore = daemonStore.getRunStore(runId);
+    const existingRun = existingRunStore?.snapshot();
+    const existingSubscribers = existingRunStore?.getSubscribers() ?? [];
 
     if (
+      existingRunStore &&
       existingRun &&
       (existingRun.status === "pending" || existingRun.status === "running")
     ) {
       // Attaching to an in-flight run: subscribe this client so live agent
       // streaming reaches it, and return the conversation persisted so far.
       // New and ongoing streaming keeps broadcasting to every subscriber.
-      daemonStore.subscribe(clientId, runId);
-      const active = preparedRuns.get(runId);
+      existingRunStore.addSubscriber(clientId);
+      const active = existingRunStore.getRuntimeValue<PreparedRun>(
+        PREPARED_RUN_RUNTIME_KEY,
+      );
       return {
         runId,
         strategyName: active?.strategy.name ?? existingRun.strategyName,
@@ -151,20 +166,32 @@ export function createDaemonRunState({
       options.modelOverride ?? latestStart?.modelOverride;
     const effectiveManifestPath =
       options.manifestPath ?? latestStart?.manifestPath;
-    const run = daemonStore.createRun(
+    const runStore = daemonStore.createRun(
       strategyPath,
       strategyPath,
       effectiveCwd,
       runId,
     );
+    runStore.subscribeToTransitions(createRunLifecycleEffect());
+    const run = runStore.snapshot();
     const systemData = createSystemDataStore();
+    const actions: RunActionRegistry = {
+      register(actionName, handler): void {
+        runStore.registerAction(actionName, handler);
+      },
+      invoke(actionName, ...actionArguments): boolean {
+        return runStore.invokeAction(actionName, ...actionArguments);
+      },
+      unregisterAll(): void {
+        runStore.clearActions();
+      },
+    };
     const context: SystemRunContext = {
       run,
       messageSender,
-      logger,
       clientId,
       modelOverride: effectiveModelOverride,
-      abortSignal: daemonStore.getAbortSignal(run.id),
+      abortSignal: runStore.abortSignal,
       systemData,
       actions,
       strategyPath,
@@ -173,12 +200,12 @@ export function createDaemonRunState({
     };
 
     for (const subscriberId of existingSubscribers) {
-      daemonStore.subscribe(subscriberId, run.id);
+      runStore.addSubscriber(subscriberId);
     }
-    daemonStore.subscribe(clientId, run.id);
+    runStore.addSubscriber(clientId);
 
     try {
-      await invokeOnRunPrepare(systems, context, logger);
+      await invokeOnRunPrepare(systems, context);
 
       if (!systemData.get("inputCollector")) {
         throw new Error("InputCollector not initialized by systems");
@@ -192,15 +219,15 @@ export function createDaemonRunState({
         modelOverride: context.modelOverride,
         runId: run.id,
         systemData,
-        logger,
         hubManager,
       });
 
       const conversation = conversationHistoryFromEvents(persistedEvents);
       if (mode === "continuation") restoreAgentContexts(strategy, conversation);
 
-      await invokeOnStrategyLoaded(systems, { ...context, strategy }, logger);
-      preparedRuns.set(run.id, { context, strategy, mode });
+      await invokeOnStrategyLoaded(systems, { ...context, strategy });
+      const preparedRun: PreparedRun = { runStore, context, strategy, mode };
+      runStore.setRuntimeValue(PREPARED_RUN_RUNTIME_KEY, preparedRun);
       events?.publish({ type: "run.runtime.prepared", runId: run.id });
 
       return {
@@ -212,12 +239,12 @@ export function createDaemonRunState({
         mcpServers: systemData.get("mcpServerStatuses") ?? [],
       };
     } catch (error) {
-      await invokeOnRunCleanup(systems, context, logger);
+      await invokeOnRunCleanup(systems, context);
       daemonStore.removeRun(run.id);
-      if (existingRun) {
-        const restoredRun = daemonStore.restoreRun(existingRun);
+      if (existingRunStore && existingRun) {
+        const restoredRunStore = daemonStore.restoreRun(existingRun);
         for (const subscriberId of existingSubscribers) {
-          daemonStore.subscribe(subscriberId, restoredRun.id);
+          restoredRunStore.addSubscriber(subscriberId);
         }
       }
       throw error;
@@ -249,7 +276,10 @@ export function createDaemonRunState({
     requestId: string | undefined,
     expectedMode: PreparedRun["mode"],
   ): void {
-    const prepared = preparedRuns.get(runId);
+    const runStore = daemonStore.getRunStore(runId);
+    const prepared = runStore?.getRuntimeValue<PreparedRun>(
+      PREPARED_RUN_RUNTIME_KEY,
+    );
     if (!prepared) throw new Error(`Prepared run not found: ${runId}`);
     if (prepared.mode !== expectedMode) {
       throw new Error(
@@ -258,17 +288,29 @@ export function createDaemonRunState({
           : `Run was prepared for continuation: ${runId}`,
       );
     }
-    if (prepared.execution || daemonStore.getRun(runId)?.status !== "pending") {
+    if (
+      prepared.execution ||
+      prepared.runStore.snapshot().status !== "pending"
+    ) {
       throw new Error(`Run already started: ${runId}`);
     }
 
-    daemonStore.subscribe(clientId, runId);
+    prepared.runStore.addSubscriber(clientId);
     const executionContext: ExecutionContext = {
       ...prepared.context,
       strategy: prepared.strategy,
       input,
       requestId,
     };
+    prepared.runStore.subscribeToTransitions(
+      createRunPersistenceEffect({
+        context: executionContext,
+        runRepository,
+      }),
+    );
+    prepared.runStore.subscribeToTransitions(
+      createRunProtocolEffect({ context: executionContext }),
+    );
 
     const execution = executeRun(prepared, executionContext);
     prepared.execution = execution;
@@ -283,22 +325,12 @@ export function createDaemonRunState({
     prepared: PreparedRun,
     context: ExecutionContext,
   ): Promise<void> {
-    const { run, strategy, input, requestId } = context;
+    const { run, strategy, input } = context;
 
     try {
-      await invokeOnBeforeExecute(systems, context, logger);
-      daemonStore.startRun(run.id);
+      await invokeOnBeforeExecute(systems, context);
+      await prepared.runStore.transition({ type: "running" });
       events?.publish({ type: "run.runtime.started", runId: run.id });
-
-      messageSender.broadcast(run.id, {
-        type: "strategy_started",
-        runId: run.id,
-        strategyName: strategy.name,
-        agents: Object.keys(strategy.agents),
-        flowTree: strategy.raw.flow as Record<string, unknown>,
-        ts: new Date().toISOString(),
-        requestId,
-      });
 
       const flowCall = strategy.flow.call(input);
       const abortFlow = (): void => flowCall.abort();
@@ -314,26 +346,14 @@ export function createDaemonRunState({
         context.abortSignal.removeEventListener("abort", abortFlow);
       }
 
-      daemonStore.completeRun(run.id, result);
+      await prepared.runStore.transition({ type: "completed", result });
       events?.publish({
         type: "run.runtime.finished",
         runId: run.id,
         status: "completed",
       });
 
-      await invokeOnRunComplete(systems, { ...context, result }, logger);
-
-      messageSender.broadcast(run.id, {
-        type: "strategy_completed",
-        runId: run.id,
-        result: result.text,
-        usage: {
-          promptTokens: result.usage.promptTokens,
-          completionTokens: result.usage.completionTokens,
-        },
-        ts: new Date().toISOString(),
-        requestId,
-      });
+      await invokeOnRunComplete(systems, { ...context, result });
     } catch (caughtError) {
       const isAbort =
         caughtError instanceof DOMException &&
@@ -345,13 +365,14 @@ export function createDaemonRunState({
           ? caughtError.message
           : String(caughtError);
 
-      const existingRun = daemonStore.getRun(run.id);
+      const existingRunStore = daemonStore.getRunStore(run.id);
+      const existingRun = existingRunStore?.snapshot();
       // stopRun (including during daemon shutdown) may have already marked the
       // run cancelled in memory and broadcast strategy_error. Don't duplicate
       // the daemonStore update or broadcast, but we must still persist the terminal
       // event — otherwise the run has no run_completed in its timeline and is
       // stuck reporting "running" the next time it is listed or reloaded.
-      if (existingRun) {
+      if (existingRunStore && existingRun) {
         const alreadyFinalized = existingRun.status === "cancelled";
         const finalStatus = alreadyFinalized ? "cancelled" : errorStatus;
         const finalCode = alreadyFinalized ? "CANCELLED" : errorCode;
@@ -359,9 +380,15 @@ export function createDaemonRunState({
         if (!alreadyFinalized) {
           const runError = { code: finalCode, message: errorMessage };
           if (finalStatus === "cancelled") {
-            daemonStore.cancelRun(run.id, runError);
+            await existingRunStore.transition({
+              type: "cancelled",
+              error: runError,
+            });
           } else {
-            daemonStore.failRun(run.id, runError);
+            await existingRunStore.transition({
+              type: "error",
+              error: runError,
+            });
           }
         }
 
@@ -371,64 +398,49 @@ export function createDaemonRunState({
           status: finalStatus,
         });
 
-        await invokeOnRunError(
-          systems,
-          {
-            ...context,
-            error:
-              caughtError instanceof Error
-                ? caughtError
-                : new Error(errorMessage),
-            classified: {
-              status: finalStatus,
-              code: finalCode,
-              message: errorMessage,
-            },
+        await invokeOnRunError(systems, {
+          ...context,
+          error:
+            caughtError instanceof Error
+              ? caughtError
+              : new Error(errorMessage),
+          classified: {
+            status: finalStatus,
+            code: finalCode,
+            message: errorMessage,
           },
-          logger,
-        );
-
-        if (!alreadyFinalized) {
-          messageSender.broadcast(run.id, {
-            type: "strategy_error",
-            runId: run.id,
-            error: { code: finalCode, message: errorMessage },
-            ts: new Date().toISOString(),
-            requestId,
-          });
-        }
+        });
       }
     } finally {
-      await invokeOnRunCleanup(systems, prepared.context, logger);
-      preparedRuns.delete(run.id);
+      await invokeOnRunCleanup(systems, prepared.context);
+      prepared.runStore.deleteRuntimeValue(PREPARED_RUN_RUNTIME_KEY);
     }
   }
 
-  function stopRun(runId: string): void {
-    const run = daemonStore.getRun(runId);
-    if (!run) {
-      logger.warn(`stopRun: run not found: ${runId}`);
+  async function stopRun(runId: string): Promise<void> {
+    const runStore = daemonStore.getRunStore(runId);
+    if (!runStore) {
+      logger.warning(`stopRun: run not found: ${runId}`);
       return;
     }
+    const run = runStore.snapshot();
 
     if (run.status === "pending" || run.status === "running") {
-      daemonStore.cancelRun(runId);
-
-      messageSender.broadcast(runId, {
-        type: "strategy_error",
-        runId,
+      await runStore.transition({
+        type: "cancelled",
         error: {
           code: "CANCELLED",
           message: "Run cancelled by client",
         },
-        ts: new Date().toISOString(),
       });
     }
 
-    const prepared = preparedRuns.get(runId);
+    const prepared = runStore.getRuntimeValue<PreparedRun>(
+      PREPARED_RUN_RUNTIME_KEY,
+    );
     if (prepared && !prepared.execution) {
-      preparedRuns.delete(runId);
-      const cleanup = invokeOnRunCleanup(systems, prepared.context, logger);
+      runStore.deleteRuntimeValue(PREPARED_RUN_RUNTIME_KEY);
+      const cleanup = invokeOnRunCleanup(systems, prepared.context);
       cleanupPromises.add(cleanup);
       void cleanup.finally(() => cleanupPromises.delete(cleanup));
     }
@@ -438,7 +450,7 @@ export function createDaemonRunState({
     options: import("./systems/systems.types").ListMcpServersOptions,
   ): Promise<readonly import("./systems/mcp").RunMcpServerStatus[]> {
     const persistedEvents = options.runId
-      ? await runStore.getEvents(options.runId)
+      ? await runRepository.getEvents(options.runId)
       : [];
     const strategyPath =
       options.strategyPath ?? findLatestRunStart(persistedEvents)?.strategyPath;
@@ -449,11 +461,12 @@ export function createDaemonRunState({
         findLatestRunStart(persistedEvents)?.cwd ??
         process.cwd(),
       runId: options.runId,
-      runStore,
+      runRepository,
     });
     const preparedStatuses = options.runId
-      ? preparedRuns
-          .get(options.runId)
+      ? daemonStore
+          .getRunStore(options.runId)
+          ?.getRuntimeValue<PreparedRun>(PREPARED_RUN_RUNTIME_KEY)
           ?.context.systemData.get("mcpServerStatuses")
       : undefined;
     return listRunMcpStatuses(config, preparedStatuses);
@@ -463,7 +476,7 @@ export function createDaemonRunState({
     options: import("./systems/systems.types").UpdateMcpServerOptions,
   ): Promise<readonly import("./systems/mcp").RunMcpServerStatus[]> {
     const persistedEvents = options.runId
-      ? await runStore.getEvents(options.runId)
+      ? await runRepository.getEvents(options.runId)
       : [];
     const strategyPath =
       options.strategyPath ?? findLatestRunStart(persistedEvents)?.strategyPath;
@@ -473,7 +486,7 @@ export function createDaemonRunState({
       strategyPath,
       cwd,
       runId: options.runId,
-      runStore,
+      runRepository,
     });
 
     if (options.scope === "default") {
@@ -488,7 +501,7 @@ export function createDaemonRunState({
       const enabledIds = new Set(config.enabledServerIds);
       if (options.enabled) enabledIds.add(options.serverId);
       else enabledIds.delete(options.serverId);
-      await runStore.saveRunConfig(options.runId, {
+      await runRepository.saveRunConfig(options.runId, {
         enabledMcpServerIds: [...enabledIds],
       });
     }
@@ -514,22 +527,35 @@ export function createDaemonRunState({
     stopRun,
     listMcpServers,
     updateMcpServer,
-    listRuns: (filter) => runStore.listRuns(filter),
-    steerRun: (runId, text) => actions.invoke("steer", runId, text),
+    listRuns: (filter) => runRepository.listRuns(filter),
+    steerRun: (runId, text) =>
+      daemonStore.getRunStore(runId)?.invokeAction("steer", text) ?? false,
     resolveInput: (runId, agentName, text) =>
-      actions.invoke("resolveInput", runId, agentName, text),
+      daemonStore
+        .getRunStore(runId)
+        ?.invokeAction("resolveInput", agentName, text) ?? false,
     resolvePermission: (runId, permissionRequestId, decision) =>
-      actions.invoke("resolvePermission", runId, permissionRequestId, decision),
+      daemonStore
+        .getRunStore(runId)
+        ?.invokeAction("resolvePermission", permissionRequestId, decision) ??
+      false,
     resolveQuestion: (runId, questionRequestId, response) =>
-      actions.invoke("resolveQuestion", runId, questionRequestId, response),
+      daemonStore
+        .getRunStore(runId)
+        ?.invokeAction("resolveQuestion", questionRequestId, response) ?? false,
     updatePolicy: (runId, patch, toolName) =>
-      actions.invoke("updatePolicy", runId, patch, toolName),
-
+      daemonStore
+        .getRunStore(runId)
+        ?.invokeAction("updatePolicy", patch, toolName) ?? false,
     async shutdown(): Promise<void> {
       const executions: Promise<void>[] = [];
-      for (const [runId, prepared] of preparedRuns) {
+      for (const runStore of daemonStore.listRunStores()) {
+        const prepared = runStore.getRuntimeValue<PreparedRun>(
+          PREPARED_RUN_RUNTIME_KEY,
+        );
+        if (!prepared) continue;
         if (prepared.execution) executions.push(prepared.execution);
-        stopRun(runId);
+        await stopRun(runStore.id);
       }
       await Promise.allSettled([...executions, ...cleanupPromises]);
     },

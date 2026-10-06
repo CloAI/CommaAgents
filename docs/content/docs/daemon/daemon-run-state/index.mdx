@@ -5,7 +5,7 @@ description: How the daemon prepares, starts, continues, and stops strategy runs
 
 # Daemon Run State
 
-`DaemonRunState` owns each prepared and executing strategy run through cleanup. It depends on `DaemonStore` for authoritative lifecycle state while keeping execution resources, persistence, action registries, and concrete run storage private.
+`DaemonStore` is the daemon-wide registry for connected clients and per-run `RunStore` instances. Each `RunStore` owns its lifecycle state, cancellation, subscribers, execution resources, run actions, and transition effects. `DaemonRunState` keeps preparation and cleanup ordering deterministic, while `RunRepository` persists timelines and configuration.
 
 Most applications interact with this lifecycle through the [WebSocket protocol](/docs/daemon/server/protocol). Use the exported `createDaemonRunState` API only when embedding the run lifecycle in a custom daemon host.
 
@@ -20,6 +20,14 @@ A run uses one stable run ID across preparation, execution, persistence, and con
 5. **Shutdown** aborts remaining work and waits for cleanup to finish.
 
 Preparation is separate from execution. Wait for `run_prepared` before sending `start_run` or `continue_run`; this guarantees that the strategy and any restored conversation are ready before execution begins.
+
+## RunStore
+
+The in-memory authority for one run. Retrieve it from `DaemonStore`, call `transition()` with a typed next state, and attach independent asynchronous effects with `subscribeToTransitions()`.
+
+<AutoTypeTable path="../packages/daemon/src/daemon-store/run-store/run-store.types.ts" name="RunStore" />
+
+<AutoTypeTable path="../packages/daemon/src/daemon-store/run-store/run-store.types.ts" name="RunTransition" />
 
 ## DaemonRunState
 
@@ -51,4 +59,4 @@ The destination for run events sent to individual clients or all subscribers of 
 
 Run events are stored under the configured runs directory. Preparing a completed run reconstructs its conversation from those events and restores agent context before the next prompt starts. A run that is still pending or running cannot be prepared as a continuation.
 
-See [Run persistence](/docs/daemon/daemon-run-state/run-store) for the stored event format, [MCP runtime](/docs/daemon/daemon-run-state/mcp) for per-run server selection, [execution systems](/docs/daemon/daemon-run-state/systems) for capability ownership, and [Protocol](/docs/daemon/server/protocol) for the client messages that control the lifecycle.
+See [Run persistence](/docs/daemon/daemon-run-state/run-repository) for the stored event format, [MCP runtime](/docs/daemon/daemon-run-state/mcp) for per-run server selection, [execution systems](/docs/daemon/daemon-run-state/systems) for capability ownership, and [Protocol](/docs/daemon/server/protocol) for the client messages that control the lifecycle.

@@ -17,9 +17,10 @@ export async function processDaemonCommand(
   commandArguments: DaemonCommandArguments,
   options: DaemonCommandOptions = {},
 ): Promise<void> {
+  const startOptions = buildStartOptions(commandArguments, options);
+
   switch (action) {
     case "start": {
-      const startOptions = buildStartOptions(commandArguments, options);
       const result = await startDaemonProcess(startOptions);
       if (startOptions.foreground !== true) {
         console.log(result.message);
@@ -32,8 +33,7 @@ export async function processDaemonCommand(
       return;
     }
     case "restart": {
-      const result = await restartDaemonProcess(
-        buildStartOptions(commandArguments, options),
+      const result = await restartDaemonProcess(startOptions,
       );
       console.log(result.message);
       return;

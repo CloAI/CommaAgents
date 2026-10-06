@@ -33,7 +33,7 @@ export function createSandboxSystem(): DaemonSystem {
       );
       systemData.set("sandbox", sandbox);
 
-      actions.register("updatePolicy", run.id, (patch, toolName): boolean => {
+      actions.register("updatePolicy", (patch, toolName): boolean => {
         sandbox.updatePolicy(patch, toolName);
         return true;
       });

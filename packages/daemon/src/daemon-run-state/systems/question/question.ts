@@ -18,7 +18,7 @@ interface PendingQuestion {
  * - Stores the questionRequester in systemData for sandbox callbacks
  * - Registers the resolveQuestion action for handling user responses
  *
- * @returns A DaemonSystem that handles question requests
+ * @returns {DaemonSystem} A daemon system that handles question requests.
  */
 export function createQuestionSystem(): DaemonSystem {
   const destroyByRunId = new Map<string, () => void>();
@@ -58,14 +58,15 @@ export function createQuestionSystem(): DaemonSystem {
 
         const requestId = crypto.randomUUID();
         return new Promise<string>((resolve, reject) => {
-          let entry: PendingQuestion;
-          const abortHandler = (): void => {
-            removePending(requestId, entry);
-            reject(new DOMException("Run aborted", "AbortError"));
+          const entry: PendingQuestion = {
+            resolve,
+            reject,
+            abortHandler: (): void => {
+              removePending(requestId, entry);
+              reject(new DOMException("Run aborted", "AbortError"));
+            },
           };
-
-          entry = { resolve, reject, abortHandler };
-          abortSignal.addEventListener("abort", abortHandler, { once: true });
+          abortSignal.addEventListener("abort", entry.abortHandler, { once: true });
           pending.set(requestId, entry);
 
           messageSender.broadcast(run.id, {
@@ -97,7 +98,6 @@ export function createQuestionSystem(): DaemonSystem {
 
       actions.register(
         "resolveQuestion",
-        run.id,
         (questionRequestId, response): boolean => {
           const entry = pending.get(questionRequestId);
           if (!entry) return false;
@@ -112,7 +112,7 @@ export function createQuestionSystem(): DaemonSystem {
     onRunCleanup({ run, actions }: CleanupContext): void {
       destroyByRunId.get(run.id)?.();
       destroyByRunId.delete(run.id);
-      actions.unregisterAll(run.id);
+      actions.unregisterAll();
     },
   };
 }

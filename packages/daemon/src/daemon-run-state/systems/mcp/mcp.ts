@@ -8,7 +8,7 @@ import {
   parseStrategyFromString,
   readStrategyFile,
 } from "@comma-agents/core";
-import type { RunStore } from "../../run-store";
+import type { RunRepository } from "../../run-repository";
 import type { DaemonSystem, SystemRunContext } from "../systems.types";
 import type {
   ResolvedRunMcpConfig,
@@ -17,12 +17,17 @@ import type {
   RunMcpServerStatus,
 } from "./mcp.types";
 
-/** Resolve layered MCP definitions, agent assignments, and the persisted selection. */
+/**
+ * Resolve layered MCP definitions, agent assignments, and the persisted selection.
+ *
+ * @param {ResolveRunMcpConfigOptions} options - Strategy, workspace, and persistence inputs.
+ * @returns {Promise<ResolvedRunMcpConfig>} Resolved servers, assignments, and enabled IDs.
+ */
 export async function resolveRunMcpConfig({
   strategyPath,
   cwd,
   runId,
-  runStore,
+  runRepository,
   persistDefaults = false,
 }: ResolveRunMcpConfigOptions): Promise<ResolvedRunMcpConfig> {
   const shared = discoverMcpConfig({ cwd });
@@ -63,7 +68,9 @@ export async function resolveRunMcpConfig({
     }
   }
 
-  const existingConfig = runId ? await runStore.getRunConfig(runId) : undefined;
+  const existingConfig = runId
+    ? await runRepository.getRunConfig(runId)
+    : undefined;
   const defaultCandidates = strategyPath
     ? Array.from(assignments.keys())
     : Array.from(servers.keys());
@@ -79,7 +86,7 @@ export async function resolveRunMcpConfig({
     : defaultEnabledIds;
 
   if (persistDefaults && runId && !existingConfig) {
-    await runStore.saveRunConfig(runId, {
+    await runRepository.saveRunConfig(runId, {
       enabledMcpServerIds: enabledServerIds,
     });
   }
@@ -87,7 +94,12 @@ export async function resolveRunMcpConfig({
   return { servers, assignments, enabledServerIds };
 }
 
-/** Connect the enabled assigned servers and build per-agent tool sets. */
+/**
+ * Connect the enabled assigned servers and build per-agent tool sets.
+ *
+ * @param {ResolvedRunMcpConfig} config - Resolved server configuration to connect.
+ * @returns {Promise<RunMcpRuntime>} Connected manager, agent tools, and server statuses.
+ */
 export async function createRunMcpRuntime(
   config: ResolvedRunMcpConfig,
 ): Promise<RunMcpRuntime> {
@@ -125,7 +137,14 @@ export async function createRunMcpRuntime(
   return { manager, toolsByAgent, statuses };
 }
 
-/** Persist a shared server's global/workspace default enablement. */
+/**
+ * Persist a shared server's global/workspace default enablement.
+ *
+ * @param {ResolvedRunMcpConfig} config - Resolved configuration containing the server.
+ * @param {string} serverId - Shared server whose default is updated.
+ * @param {boolean} enabled - Whether the server is enabled by default.
+ * @returns {void} Nothing; writes the shared MCP configuration.
+ */
 export function updateMcpDefault(
   config: ResolvedRunMcpConfig,
   serverId: string,
@@ -155,7 +174,13 @@ export function updateMcpDefault(
   renameSync(temporaryPath, entry.configPath);
 }
 
-/** Build list-safe status before or after a connection attempt. */
+/**
+ * Build list-safe status before or after a connection attempt.
+ *
+ * @param {ResolvedRunMcpConfig} config - Resolved server configuration.
+ * @param {readonly RunMcpServerStatus[]} [connectedStatuses] - Statuses from an active runtime.
+ * @returns {readonly RunMcpServerStatus[]} Status for every configured MCP server.
+ */
 export function listRunMcpStatuses(
   config: ResolvedRunMcpConfig,
   connectedStatuses: readonly RunMcpServerStatus[] = [],
@@ -180,8 +205,13 @@ export function listRunMcpStatuses(
   });
 }
 
-/** Own MCP clients for the lifetime of one prepared run execution. */
-export function createMcpSystem(runStore: RunStore): DaemonSystem {
+/**
+ * Own MCP clients for the lifetime of one prepared run execution.
+ *
+ * @param {RunRepository} runRepository - Persistent repository for MCP defaults.
+ * @returns {DaemonSystem} Lifecycle system that connects and cleans up MCP clients.
+ */
+export function createMcpSystem(runRepository: RunRepository): DaemonSystem {
   return {
     name: "mcp",
 
@@ -195,7 +225,7 @@ export function createMcpSystem(runStore: RunStore): DaemonSystem {
         strategyPath,
         cwd,
         runId: run.id,
-        runStore,
+        runRepository,
         persistDefaults: true,
       });
       const runtime = await createRunMcpRuntime(config);

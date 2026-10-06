@@ -19,14 +19,9 @@ describe("createInputSystem", () => {
     expect(context.messageSender.broadcasts[0]?.message.type).toBe(
       "request_input",
     );
-    expect(
-      context.actions.invoke(
-        "resolveInput",
-        context.run.id,
-        "user",
-        "continue",
-      ),
-    ).toBe(true);
+    expect(context.actions.invoke("resolveInput", "user", "continue")).toBe(
+      true,
+    );
     expect(await result).toBe("continue");
   });
 
@@ -42,14 +37,9 @@ describe("createInputSystem", () => {
     await system.onRunCleanup?.(context);
 
     await expect(result).rejects.toThrow("Input system cleaned up");
-    expect(
-      context.actions.invoke(
-        "resolveInput",
-        context.run.id,
-        "user",
-        "continue",
-      ),
-    ).toBe(false);
+    expect(context.actions.invoke("resolveInput", "user", "continue")).toBe(
+      false,
+    );
   });
 
   it("rejects pending input when the run is aborted", async () => {

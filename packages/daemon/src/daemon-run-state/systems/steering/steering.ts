@@ -13,7 +13,7 @@ export function createSteeringSystem(): DaemonSystem {
 
       systemData.set("steeringMailbox", []);
 
-      actions.register("steer", run.id, (text): boolean => {
+      actions.register("steer", (text): boolean => {
         const mailbox = systemData.get("steeringMailbox");
         if (!mailbox) return false;
 

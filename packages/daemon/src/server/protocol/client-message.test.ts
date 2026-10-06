@@ -9,7 +9,7 @@ import { PrepareRunMessage } from "./requests/prepare-run/prepare-run.schema";
 import { StartRunMessage } from "./requests/start-run/start-run.schema";
 import { StopRunMessage } from "./requests/stop-run/stop-run.schema";
 import { SubscribeMessage } from "./requests/subscribe/subscribe.schema";
-import { UnsubscribeMessage } from "./requests/unsubscribe/unsubscribe.schema";
+import { UnsubscribeMessage } from "../daemon-services/subscription/unsubscribe/unsubscribe.schema";
 import { UserInputMessage } from "./requests/user-input/user-input.schema";
 
 // Individual message schemas

@@ -11,7 +11,12 @@ import type {
   ConversationRetentionEventWire,
 } from "./shared";
 
-/** Project a core agent call result onto the wire contract. */
+/**
+ * Project a core agent call result onto the wire contract.
+ *
+ * @param {AgentCallResult} result - Core agent call result to serialize.
+ * @returns {AgentCallResultWire} Wire-safe agent call result.
+ */
 export function toAgentCallResultWire(
   result: AgentCallResult,
 ): AgentCallResultWire {
@@ -28,7 +33,12 @@ export function toAgentCallResultWire(
   };
 }
 
-/** Project a core conversation record onto the wire contract. */
+/**
+ * Project a core conversation record onto the wire contract.
+ *
+ * @param {ConversationRecord} record - Core conversation record to serialize.
+ * @returns {ConversationRecordWire} Wire-safe conversation record.
+ */
 export function toConversationRecordWire(
   record: ConversationRecord,
 ): ConversationRecordWire {
@@ -54,7 +64,12 @@ export function toConversationRecordWire(
   };
 }
 
-/** Project a core conversation retention event onto the wire contract. */
+/**
+ * Project a core conversation retention event onto the wire contract.
+ *
+ * @param {ConversationRetentionEvent} event - Core retention event to serialize.
+ * @returns {ConversationRetentionEventWire} Wire-safe retention event.
+ */
 export function toConversationRetentionEventWire(
   event: ConversationRetentionEvent,
 ): ConversationRetentionEventWire {
@@ -81,6 +96,9 @@ export function toConversationRetentionEventWire(
  * The text/tool/thinking/step variants share core's shape exactly and pass
  * through; `retention` and `done` carry richer core structures that are mapped
  * down to their wire projections.
+ *
+ * @param {AgentStreamEvent} event - Core stream event to serialize.
+ * @returns {AgentStreamEventWire} Corresponding protocol stream event.
  */
 export function toAgentStreamEventWire(
   event: AgentStreamEvent,

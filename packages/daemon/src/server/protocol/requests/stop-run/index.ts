@@ -6,6 +6,6 @@ export { StopRunMessage } from "./stop-run.schema";
 export function handleStopRun(
   message: StopRunMessage,
   context: HandlerContext<"stop_run">,
-): void {
-  context.daemonRunState.stopRun(message.runId);
+): Promise<void> {
+  return context.daemonRunState.stopRun(message.runId);
 }

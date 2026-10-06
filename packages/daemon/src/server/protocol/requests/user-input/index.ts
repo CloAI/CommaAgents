@@ -12,6 +12,10 @@ export { UserInputMessage } from "./user-input.schema";
  *
  * If no pending input request exists for the specified run/agent,
  * sends a `NO_PENDING_INPUT` error back to the client.
+ *
+ * @param {UserInputMessage} message - Input response received from the client.
+ * @param {HandlerContext<"user_input">} context - Request handler context used to reply.
+ * @returns {void} Nothing; resolves input or sends an error response.
  */
 export function handleUserInput(
   message: UserInputMessage,

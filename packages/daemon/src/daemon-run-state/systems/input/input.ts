@@ -18,7 +18,7 @@ interface PendingInput {
  * - Stores the inputCollector in systemData for strategy loading
  * - Registers the resolveInput action for handling user responses
  *
- * @returns A DaemonSystem that handles input collection
+ * @returns {DaemonSystem} A daemon system that handles input collection.
  */
 export function createInputSystem(): DaemonSystem {
   const destroyByRunId = new Map<string, () => void>();
@@ -53,14 +53,15 @@ export function createInputSystem(): DaemonSystem {
 
         const { agentName, prompt } = request;
         return new Promise<string>((resolve, reject) => {
-          let entry: PendingInput;
-          const abortHandler = (): void => {
-            removePending(agentName, entry);
-            reject(new DOMException("Run aborted", "AbortError"));
+          const entry: PendingInput = {
+            resolve,
+            reject,
+            abortHandler: (): void => {
+              removePending(agentName, entry);
+              reject(new DOMException("Run aborted", "AbortError"));
+            },
           };
-
-          entry = { resolve, reject, abortHandler };
-          abortSignal.addEventListener("abort", abortHandler, { once: true });
+          abortSignal.addEventListener("abort", entry.abortHandler, { once: true });
           pending.set(agentName, entry);
 
           messageSender.broadcast(run.id, {
@@ -85,7 +86,7 @@ export function createInputSystem(): DaemonSystem {
       destroyByRunId.set(run.id, destroy);
       systemData.set("inputCollector", inputCollector);
 
-      actions.register("resolveInput", run.id, (agentName, text): boolean => {
+      actions.register("resolveInput", (agentName, text): boolean => {
         const entry = pending.get(agentName);
         if (!entry) return false;
 
@@ -98,7 +99,7 @@ export function createInputSystem(): DaemonSystem {
     onRunCleanup({ run, actions }: CleanupContext): void {
       destroyByRunId.get(run.id)?.();
       destroyByRunId.delete(run.id);
-      actions.unregisterAll(run.id);
+      actions.unregisterAll();
     },
   };
 }

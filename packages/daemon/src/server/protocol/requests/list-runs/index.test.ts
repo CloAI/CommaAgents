@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   createDaemonRunState,
-  createRunStore,
+  createRunRepository,
 } from "../../../../daemon-run-state";
-import { createDaemonStore } from "../../../../daemon-store";
-import { mockLogger, mockMessageSender } from "../../../../test.utils";
+import { createDaemonStore } from "../../../daemon-store";
+import { mockMessageSender } from "../../../../test.utils";
 import type { RunListMessage } from "../../responses/run-list";
 import { handleListRuns } from ".";
 
@@ -27,10 +27,9 @@ describe("handleListRuns", () => {
     const daemonRunState = createDaemonRunState({
       daemonStore: createDaemonStore(),
       messageSender: mockMessageSender(),
-      logger: mockLogger(),
       runsDir,
     });
-    const runStore = createRunStore({ runsDir });
+    const runStore = createRunRepository({ runsDir });
     await runStore.appendEvent("run-1", {
       type: "run_started",
       ts: new Date(0).toISOString(),
@@ -53,7 +52,6 @@ describe("handleListRuns", () => {
         clientId: "client-1",
         daemonRunState,
         daemonStore: createDaemonStore(),
-        logger: mockLogger(),
         reply(message) {
           if (message.type === "run_list") response = message;
         },

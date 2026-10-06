@@ -53,7 +53,7 @@ function TitleIconBody({ playing }: { readonly playing: boolean }) {
         {currentFrame?.map((line, lineIndex) => (
           // Index-as-key is correct here: each row renders at a fixed line
           // position every tick — there's no reordering, just content swap.
-          // biome-ignore lint/suspicious/noArrayIndexKey: stable per-row position
+          // oxlint-disable-next-line react/no-array-index-key -- stable per-row position
           <Text key={`frame-${lineIndex}`} {...theme.frameLine}>
             {line}
           </Text>

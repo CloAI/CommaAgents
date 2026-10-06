@@ -1,6 +1,14 @@
 import z from "zod";
 
-const LogLevelSchema = z.enum(["debug", "info", "warn", "error"]);
+const LogLevelSchema = z.enum([
+  "trace",
+  "debug",
+  "info",
+  "warn",
+  "warning",
+  "error",
+  "fatal",
+]);
 
 /**
  * Validation schema for the daemon config file.

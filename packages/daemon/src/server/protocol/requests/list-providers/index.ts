@@ -1,3 +1,4 @@
+import { getLogger } from "@logtape/logtape";
 // List-providers request handler.
 // Returns provider discovery metadata: id, name, auth status, normalized model list.
 
@@ -8,6 +9,8 @@ import type { ProviderInfoWire } from "../../responses/provider-list";
 import { toModelInfoWire } from "../../responses/provider-list/provider-list.utils";
 import type { ListProvidersMessage } from "./list-providers.schema";
 
+const logger = getLogger(["comma", "daemon", "list-providers"]);
+
 export { ListProvidersMessage } from "./list-providers.schema";
 
 /**
@@ -17,6 +20,10 @@ export { ListProvidersMessage } from "./list-providers.schema";
  * When `message.live === true`, providers with a live lister (Ollama,
  * GitHub Copilot) are queried directly and the results are merged with
  * the catalog. Otherwise the response contains catalog data only.
+ *
+ * @param {ListProvidersMessage} message - Request specifying the provider lookup scope.
+ * @param {HandlerContext<"list_providers">} context - Request handler context used to reply.
+ * @returns {Promise<void>} Resolves after the provider list or error response is sent.
  */
 export async function handleListProviders(
   message: ListProvidersMessage,
@@ -52,7 +59,7 @@ export async function handleListProviders(
         : {}),
     });
   } catch (caughtError) {
-    context.logger.error(`list_providers failed: ${caughtError}`);
+    logger.error(`list_providers failed: ${caughtError}`);
     context.reply({
       type: "error" as const,
       code: "INTERNAL_ERROR",

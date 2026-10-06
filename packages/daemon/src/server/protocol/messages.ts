@@ -25,7 +25,7 @@ import { TrashClearMessage } from "./requests/trash-clear/trash-clear.schema";
 import { TrashListMessage } from "./requests/trash-list/trash-list.schema";
 import { TrashRestoreMessage } from "./requests/trash-restore/trash-restore.schema";
 import { UnregisterProviderMessage } from "./requests/unregister-provider/unregister-provider.schema";
-import { UnsubscribeMessage } from "./requests/unsubscribe/unsubscribe.schema";
+import { UnsubscribeMessage } from "../daemon-services/subscription/unsubscribe/unsubscribe.schema";
 import { UpdateMcpServerMessage } from "./requests/update-mcp-server/update-mcp-server.schema";
 import { UpdatePolicyMessage } from "./requests/update-policy/update-policy.schema";
 import { UserInputMessage } from "./requests/user-input/user-input.schema";
@@ -142,6 +142,9 @@ export type DaemonMessage = z.infer<typeof DaemonMessage>;
 /**
  * Safely parse an unknown value as a ClientMessage.
  * Returns typed data on success or validation details on failure.
+ *
+ * @param {unknown} raw - Value received from an untrusted client frame.
+ * @returns {z.ZodSafeParseResult<ClientMessage>} Parsed message or validation errors.
  */
 export function parseClientMessage(raw: unknown) {
   return ClientMessage.safeParse(raw);
@@ -150,6 +153,9 @@ export function parseClientMessage(raw: unknown) {
 /**
  * Safely parse an unknown value as a DaemonMessage.
  * Returns typed data on success or validation details on failure.
+ *
+ * @param {unknown} raw - Value to validate as an outbound daemon message.
+ * @returns {z.ZodSafeParseResult<DaemonMessage>} Parsed message or validation errors.
  */
 export function parseDaemonMessage(raw: unknown) {
   return DaemonMessage.safeParse(raw);

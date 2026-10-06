@@ -1,11 +1,10 @@
-// Mock model registration, logger, and strategy fixtures for daemon E2E tests.
+// Mock model registration and strategy fixtures for daemon E2E tests.
 //
 // Model resolution happens via global registries. Tests call
 // registerMockModel() to register mock LanguageModel instances and must
 // call resetModelRegistry() + resetGlobalDefaults() in afterEach.
 
 import { registerModel } from "@comma-agents/core";
-import type { Logger } from "@comma-agents/daemon";
 
 // Mock model registration
 
@@ -83,42 +82,6 @@ export function registerMockModel(
 export function setupMockModels(): void {
   registerMockModel("openai/gpt-4o");
   registerMockModel("anthropic/claude-3.5-sonnet");
-}
-
-// Mock Logger
-
-/**
- * Create a silent logger for tests.
- *
- * All methods are no-ops. `child()` returns another silent logger.
- * Pass `capture: true` to collect log entries for assertions.
- */
-export function createMockLogger(options?: { capture?: boolean }): Logger & {
-  entries: Array<{ level: string; args: unknown[] }>;
-} {
-  const entries: Array<{ level: string; args: unknown[] }> = [];
-  const capture = options?.capture ?? false;
-
-  const log = (level: string) => {
-    return (...args: unknown[]) => {
-      if (capture) {
-        entries.push({ level, args });
-      }
-    };
-  };
-
-  return {
-    debug: log("debug"),
-    info: log("info"),
-    warn: log("warn"),
-    error: log("error"),
-    child() {
-      return createMockLogger(options);
-    },
-    flush() {},
-    close() {},
-    entries,
-  };
 }
 
 // Strategy JSON helpers

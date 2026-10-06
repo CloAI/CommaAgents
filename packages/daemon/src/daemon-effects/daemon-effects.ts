@@ -1,27 +1,28 @@
-import type { Logger } from "../logger/logger.types";
+import { getLogger } from "@logtape/logtape";
+import type { RunTransitionEffect } from "../server/daemon-store";
 import type {
   DaemonEffect,
   DaemonEventDispatcher,
   DaemonEventDispatcherConfig,
 } from "./daemon-effects.types";
 
+const logger = getLogger(["comma", "daemon", "daemon-effects"]);
+
 /**
  * Create synchronous typed event delivery for internal daemon effects.
  *
- * @param config - Store observation, initial effects, and failure logging.
- * @returns An internal dispatcher with deterministic effect ordering.
+ * @param {DaemonEventDispatcherConfig} config - Store observation, initial effects, and failure logging.
+ * @returns {DaemonEventDispatcher} An internal dispatcher with deterministic effect ordering.
  * @internal
  *
  * @example
  * ```ts
- * const events = createDaemonEventDispatcher({ daemonStore, effects, logger });
+ * const events = createDaemonEventDispatcher({ daemonStore, effects });
  * events.publish({ type: "client.runtime.connected", clientId });
  * ```
  */
 export function createDaemonEventDispatcher({
-  daemonStore,
   effects = [],
-  logger,
 }: DaemonEventDispatcherConfig): DaemonEventDispatcher {
   const registeredEffects = new Set<DaemonEffect>(effects);
 
@@ -42,8 +43,6 @@ export function createDaemonEventDispatcher({
     }
   }
 
-  const unsubscribeFromStore = daemonStore.subscribeToActions(publish);
-
   return {
     publish,
     subscribe(effect): () => void {
@@ -53,7 +52,6 @@ export function createDaemonEventDispatcher({
       };
     },
     dispose(): void {
-      unsubscribeFromStore();
       registeredEffects.clear();
     },
   };
@@ -62,23 +60,22 @@ export function createDaemonEventDispatcher({
 /**
  * Create logging for client connection lifecycle transitions.
  *
- * @param logger - Destination for connection diagnostics.
- * @returns A client lifecycle effect.
+ * @returns {DaemonEffect} A client lifecycle effect.
  * @internal
  *
  * @example
  * ```ts
- * const effect = createClientLifecycleEffect(logger);
+ * const effect = createClientLifecycleEffect();
  * ```
  */
-export function createClientLifecycleEffect(logger: Logger): DaemonEffect {
+export function createClientLifecycleEffect(): DaemonEffect {
   return {
     name: "client-lifecycle-logging",
-    eventTypes: ["client.added", "client.removed"],
+    eventTypes: ["client.runtime.connected", "client.runtime.disconnected"],
     handle(event): void {
-      if (event.type === "client.added") {
+      if (event.type === "client.runtime.connected") {
         logger.info(`Client connected: ${event.clientId}`);
-      } else if (event.type === "client.removed") {
+      } else if (event.type === "client.runtime.disconnected") {
         logger.info(`Client disconnected: ${event.clientId}`);
       }
     },
@@ -88,29 +85,19 @@ export function createClientLifecycleEffect(logger: Logger): DaemonEffect {
 /**
  * Create diagnostic logging for run lifecycle transitions.
  *
- * @param logger - Destination for run lifecycle diagnostics.
- * @returns A run lifecycle effect.
+ * @returns {RunTransitionEffect} A run lifecycle effect.
  * @internal
  *
  * @example
  * ```ts
- * const effect = createRunLifecycleEffect(logger);
+ * const effect = createRunLifecycleEffect();
  * ```
  */
-export function createRunLifecycleEffect(logger: Logger): DaemonEffect {
+export function createRunLifecycleEffect(): RunTransitionEffect {
   return {
     name: "run-lifecycle-logging",
-    eventTypes: [
-      "run.created",
-      "run.started",
-      "run.completed",
-      "run.failed",
-      "run.cancelled",
-      "run.removed",
-    ],
-    handle(event): void {
-      if (!("run" in event)) return;
-      logger.debug(`Daemon ${event.type}`, { runId: event.run.id });
+    handle({ run, transition }): void {
+      logger.debug(`Daemon run.${transition.type}`, { runId: run.id });
     },
   };
 }

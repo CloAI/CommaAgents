@@ -11,6 +11,10 @@ export { UpdatePolicyMessage } from "./update-policy.schema";
  *
  * If no active run is found for the specified `runId`, sends a `RUN_NOT_FOUND`
  * error back to the client.
+ *
+ * @param {UpdatePolicyMessage} message - Request containing the policy patch.
+ * @param {HandlerContext<"update_policy">} context - Request handler context used to reply.
+ * @returns {void} Nothing; applies the policy or sends an error response.
  */
 export function handleUpdatePolicy(
   message: UpdatePolicyMessage,

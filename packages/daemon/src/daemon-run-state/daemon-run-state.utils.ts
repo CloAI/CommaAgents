@@ -10,7 +10,13 @@ import type {
   RehydratedConversationInput,
 } from "./systems/systems.types";
 
-/** Find the latest persisted lifecycle start for a run. @internal */
+/**
+ * Find the latest persisted lifecycle start for a run.
+ *
+ * @param {readonly TimelineEvent[]} events - Timeline events to search.
+ * @returns {Extract<TimelineEvent, { type: "run_started" }> | undefined} The latest start event, if present.
+ * @internal
+ */
 export function findLatestRunStart(
   events: readonly TimelineEvent[],
 ): Extract<TimelineEvent, { type: "run_started" }> | undefined {
@@ -22,7 +28,14 @@ export function findLatestRunStart(
     );
 }
 
-/** Restore persisted conversation records into matching strategy agents. @internal */
+/**
+ * Restore persisted conversation records into matching strategy agents.
+ *
+ * @param {LoadedStrategy} strategy - Loaded strategy whose agent contexts are restored.
+ * @param {ConversationHistory} conversation - Persisted conversation to restore.
+ * @returns {void} Nothing; mutates matching agent conversation contexts.
+ * @internal
+ */
 export function restoreAgentContexts(
   strategy: LoadedStrategy,
   conversation: ConversationHistory,
@@ -42,7 +55,13 @@ export function restoreAgentContexts(
   }
 }
 
-/** Rebuild conversation state and human-input anchors from timeline events. @internal */
+/**
+ * Rebuild conversation state and human-input anchors from timeline events.
+ *
+ * @param {readonly TimelineEvent[]} events - Timeline events to rehydrate.
+ * @returns {RehydratedConversation} Rebuilt conversation records, retention events, and inputs.
+ * @internal
+ */
 export function conversationHistoryFromEvents(
   events: readonly TimelineEvent[],
 ): RehydratedConversation {

@@ -27,7 +27,7 @@ You do not audit files yourself. You scout, you decide the standards, you write 
 ## Workflow
 1. **Restate the request** in one sentence: what is being standardized, against which standards, with what scope.
 2. **Locate the target.** Use `list_directory` to confirm the path exists and to see the top-level shape. If ambiguous on a top-level run, use `ask_question`.
-3. **Resolve standards** (top-level only). Read `package.json`, `tsconfig*.json`, `eslint*`, `biome.json`, `.prettierrc`, `pyproject.toml`, `Cargo.toml` — whichever applies. `list_skills` then `load_skill` on each relevant skill.
+3. **Resolve standards** (top-level only). Read `package.json`, `tsconfig*.json`, `eslint*`, `.oxlintrc.json`, `.oxfmtrc.json`, `.prettierrc`, `pyproject.toml`, `Cargo.toml` — whichever applies. `list_skills` then `load_skill` on each relevant skill.
 4. **Plan the initial todos** based on the immediate children of the target:
    - Single-file target → one `AUDIT_FILE:` todo.
    - Folder target → one todo per immediate child. Subdirectory → `AUDIT_FOLDER:`. File matching the standards' languages → `AUDIT_FILE:`. Excluded entries → skip and report.

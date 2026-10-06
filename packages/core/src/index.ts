@@ -1,22 +1,21 @@
-export type {
-  AbortableAsyncGenerator,
-  AbortablePromise,
-} from "./abortable";
-export {
-  createAbortableGenerator,
-  createAbortablePromise,
-} from "./abortable";
+// @comma-agents/core
+// Composable agent orchestration framework
 
+export type { AbortableAsyncGenerator, AbortablePromise } from "@comma-agents/utils";
+// -- Abortable utilities (re-exported from @comma-agents/utils) --
+export { createAbortableGenerator, createAbortablePromise } from "@comma-agents/utils";
+
+// -- Agent composition --
 export { createAgent } from "./agents/agent/agent";
+// -- Agents --
+// -- Agent types (the core contracts) --
 export type {
   Agent,
   AgentCallResult,
   AgentConfig,
-  AgentOutputSchema,
-  AgentRuntime,
   AgentStreamEvent,
-  ModelOptions,
 } from "./agents/agent/agent.types";
+// -- Agent hook middleware --
 export { createUserAgent } from "./agents/built-in/user/user-agent";
 export type {
   InputCollector,
@@ -24,78 +23,31 @@ export type {
   UserAgentConfig,
 } from "./agents/built-in/user/user-agent.types";
 export { hookIntoAgent } from "./agents/hook-into-agent/hook-into-agent";
+// -- Hooks --
 // Agent-specific hook types (co-located with agent code)
 export type { AgentHooks, ToolHooks } from "./agents/hooks/hooks.types";
-export type {
-  AgentDescription,
-  CustomAgentDescription,
-  LLMAgentDescription,
-  LoadAgentOptions,
-} from "./agents/loader/index";
-export {
-  AgentDescriptionSchema,
-  CustomAgentDescriptionSchema,
-  LLMAgentDescriptionSchema,
-  loadAgent,
-  loadAgentFromString,
-} from "./agents/loader/index";
-export type {
-  AgentTypeContext,
-  AgentTypeDefinition,
-  AgentTypeRuntime,
-} from "./agents/registry";
-export {
-  defineAgentType,
-  getRegisteredAgentNames,
-  registerAgent,
-  resetAgentRegistry,
-  unregisterAgent,
-} from "./agents/registry";
+export type { AgentDescription } from "./agents/loader/index";
+// -- Agent loader (standalone agent files) --
+export { AgentDescriptionSchema, loadAgent, loadAgentFromString } from "./agents/loader/index";
 // Re-export AI SDK message types and our ResponseMessage alias for consumer convenience
 export type {
   AssistantModelMessage,
-  CompactionOptions,
-  ContextPrepareInput,
-  ContextRecordTransform,
-  ContextRetentionOptions,
-  ContextTransformInput,
-  ContextUsage,
-  ConversationHistory,
-  ConversationRecord,
-  ConversationRecordStatus,
-  ConversationRetentionEvent,
-  ConversationUsage,
-  CreateConversationRecordInput,
   ModelMessage,
   ResponseMessage,
-  RollingWindowOptions,
-  SummarizeRecords,
   ToolModelMessage,
   UserModelMessage,
-} from "./conversation-context";
+} from "./context/conversation-context.types";
 export type {
+  ContextStrategy,
   ConversationContext,
-  ConversationContextOptions,
-} from "./conversation-context/index";
-export {
-  applyCompaction,
-  applyRollingWindow,
-  contextUsageFromSteps,
-  createConversationContext,
-  createConversationRecord,
-  parseConversationJson,
-  parseConversationJsonl,
-  parseConversationYaml,
-  prepareContextRecords,
-  recordsToMessages,
-  recordToJsonlLine,
-  serializeConversationRecords,
-  serializeConversationRecordsJson,
-  serializeConversationRecordsYaml,
-} from "./conversation-context/index";
+  ConversationContextConfig,
+  ConversationTurn,
+} from "./context/index";
+// -- Context (conversation state management) --
+export { createConversationContext } from "./context/index";
+// -- Credentials --
 export type {
   ApiCredential,
-  AuthStatus,
   CreateCredentialStoreOptions,
   Credential,
   CredentialBackend,
@@ -103,6 +55,7 @@ export type {
   CredentialStoreData,
   CustomCredential,
   EnvVarMap,
+  JsonFileBackendOptions,
   OAuthCredential,
 } from "./credentials/index";
 export {
@@ -110,61 +63,30 @@ export {
   CredentialSchema,
   CustomCredentialSchema,
   createCredentialStore,
-  createJsonFileCredentialBackend,
-  getGlobalCredentialStore,
+  createJsonFileBackend,
   OAuthCredentialSchema,
-  resetGlobalCredentialStore,
-  setGlobalCredentialStore,
+  resolveCredentialsPath,
+  resolveDataDir,
+  WELL_KNOWN_ENV_VARS,
 } from "./credentials/index";
-export type { CoreLocationOverrides } from "./defaults/index";
+// -- Global Defaults --
+export type { GlobalDefaults, ProviderRegistration } from "./defaults/index";
 export {
-  DEFAULT_APPLICATION_DATA_DIRECTORY_NAME,
-  DEFAULT_AUDIT_DIRECTORY_NAME,
-  DEFAULT_CACHE_DIRECTORY_NAME,
-  DEFAULT_CATALOG_CACHE_FILENAME,
-  DEFAULT_CREDENTIALS_FILENAME,
-  DEFAULT_GLOBAL_SKILLS_DIRECTORY_NAME,
-  DEFAULT_HUB_DIRECTORY_NAME,
-  DEFAULT_MCP_CONFIG_FILENAME,
-  DEFAULT_PACKAGES_DIRECTORY_NAME,
-  DEFAULT_PROJECT_DIRECTORY_NAME,
-  DEFAULT_PROVIDERS_DIRECTORY_NAME,
-  DEFAULT_STRATEGIES_DIRECTORY_NAME,
-  DEFAULT_TRASH_DIRECTORY_NAME,
-  getApplicationDataDirectory,
-  getCatalogCachePath,
-  getCredentialsPath,
-  getGlobalMcpConfigPath,
-  getGlobalSkillsDirectory,
-  getHubDirectory,
-  getPackagesDirectory,
-  getProjectAuditDirectory,
-  getProjectDirectory,
-  getProjectMcpConfigPath,
-  getProjectSkillsDirectory,
-  getProjectStrategiesDirectory,
-  getProviderInstallDirectory,
-  getStrategiesDirectory,
-  getTrashDirectory,
-  PROCESS_ENV_COMMA_AGENTS_CATALOG_CACHE_FILENAME,
-  PROCESS_ENV_COMMA_AGENTS_CREDENTIALS_FILENAME,
-  PROCESS_ENV_COMMA_AGENTS_DATA_DIRECTORY,
-  PROCESS_ENV_COMMA_AGENTS_MCP_CONFIG_FILENAME,
-  PROCESS_ENV_COMMA_AGENTS_PROJECT_DIRECTORY_NAME,
-  resetCoreLocationOverrides,
-  setApplicationDataDirectory,
-  setCatalogCachePath,
-  setCredentialsPath,
-  setGlobalSkillsDirectory,
-  setProviderInstallDirectoryPath,
+  getGlobalCredentialStore,
+  getGlobalDefaults,
+  getGlobalProviderResolver,
+  registerProvider,
+  resetGlobalDefaults,
+  setGlobalCredentialStore,
+  unregisterProvider,
 } from "./defaults/index";
+// -- Errors --
 export {
   AgentCallError,
   CommaAgentsError,
   FlowExecutionError,
   HookExecutionError,
   ModelResolutionError,
-  SandboxViolationError,
   StrategyValidationError,
   ToolExecutionError,
 } from "./errors/index";
@@ -178,47 +100,16 @@ export type {
   FlowExecutor,
   FlowHooks,
   FlowResult,
-  FlowTypeContext,
-  FlowTypeDefinition,
 } from "./flows/index";
+// -- Flows (Phase 4) --
 export {
   buildFlowAgent,
   createBroadcastFlow,
   createCycleFlow,
   createFlow,
   createSequentialFlow,
-  defineFlowType,
-  getRegisteredFlowNames,
   hookIntoFlow,
-  registerFlow,
-  resetFlowRegistry,
-  unregisterFlow,
 } from "./flows/index";
-export type { FlowDescription, LoadFlowOptions } from "./flows/loader/index";
-export {
-  FlowDescriptionSchema,
-  loadFlow,
-  loadFlowFromString,
-} from "./flows/loader/index";
-export type {
-  AccessRequest,
-  AccessType,
-  Guard,
-  GuardCallbacks,
-  GuardPermissionRequest,
-  GuardPolicySnapshot,
-  Policy,
-  PolicyDecision,
-  PolicyPriority,
-} from "./guard/index";
-export {
-  approveCommandsPolicy,
-  buildDefaultPolicies,
-  createGuard,
-  denyCommandsPolicy,
-  forbiddenGlobsPolicy,
-  pathPolicy,
-} from "./guard/index";
 // Shared hook infrastructure
 export type { SideEffectHook, TransformHook } from "./hooks";
 export { runSideEffectHooks, runTransformHooks } from "./hooks";
@@ -230,239 +121,74 @@ export type {
   TokenUsageRecord,
   UseTokenTrackingConfig,
 } from "./hooks/built-in/token-tracking/index";
-export {
-  createTokenTracker,
-  useTokenTracking,
-} from "./hooks/built-in/token-tracking/index";
-export type {
-  LanguageDiagnostic,
-  LanguageDiagnosticSeverity,
-  LanguageHoverResult,
-  LanguageLocation,
-  LanguagePosition,
-  LanguageRange,
-  LanguageService,
-  LanguageSymbol,
-  LspMethod,
-  LspRequest,
-  LspResponse,
-} from "./language/index";
-export type {
-  CreateMcpConnectionManagerOptions,
-  DiscoverMcpConfigOptions,
-  McpAgentToolSet,
-  McpConfigDiscovery,
-  McpConfigFile,
-  McpConnectionManager,
-  McpServerDefinition,
-  McpServerEntry,
-  McpServerSource,
-  McpServerStatus,
-  McpServerToolSet,
-  McpToolOrigin,
-  McpValue,
-  ResolvedMcpHttpServer,
-  ResolvedMcpServer,
-  ResolvedMcpStdioServer,
-} from "./mcp";
-export {
-  createMcpConnectionManager,
-  discoverMcpConfig,
-  McpConfigFileSchema,
-  McpHttpServerDefinitionSchema,
-  McpServerDefinitionSchema,
-  McpStdioServerDefinitionSchema,
-  McpValueSchema,
-  namespaceMcpToolName,
-  parseMcpToolName,
-  resolveMcpServer,
-  resolveMcpValue,
-} from "./mcp";
-export type {
-  CatalogData,
-  CatalogModel,
-  CatalogProvider,
-  ListModelsContext,
-  ListModelsFn,
-  ListModelsResult,
-  Modality,
-  ModelCapabilities,
-  ModelCost,
-  ModelInfo,
-  ModelModalities,
-  ModelStatus,
-  ModelsSource,
-  ParsedModel,
-  ProviderDefinition,
-  ProviderFactory,
-  ProviderInfo,
-  ProviderResolver,
-  ProviderWithModels,
-} from "./model/index";
+// -- Token Tracking --
+export { createTokenTracker, useTokenTracking } from "./hooks/built-in/token-tracking/index";
+// -- Model resolution --
+export type { ParsedModel, ProviderFactory, ProviderResolver } from "./model/index";
 export {
   extractProviderIds,
-  getCatalogModels,
-  getCatalogProvider,
-  getCatalogProviderSync,
-  getCatalogSnapshot,
-  getGlobalProviderResolver,
-  getModelCapabilities,
-  getModelMetadata,
-  getProviderDefinition,
-  getProviderInfo,
   getProviderPackage,
-  getProvidersForModel,
-  getQualifiedModelMetadata,
-  getReverseModelIndex,
   isKnownProvider,
-  listAllProviderModels,
-  listCatalogProviders,
-  listProviderDefinitions,
-  listProviderModels,
-  listProviders,
-  loadCatalog,
+  KNOWN_PROVIDERS,
   parseModel,
-  refreshCatalog,
   registerModel,
-  registerProviderDefinition,
-  resetCatalog,
-  resetGlobalProviderResolver,
   resetModelRegistry,
-  resetProviderRegistry,
   resolveModel,
-  setProviderInstallDirectory,
-  toModelInfo,
   unregisterModel,
-  unregisterProviderDefinition,
 } from "./model/index";
 export type {
   BuildMessagesOptions,
-  PromptTemplate,
-  PromptTemplateConfig,
   SystemPromptOptions,
-  TemplateValue,
-  TemplateVariables,
-} from "./prompts/index";
-export {
-  buildMessages,
-  createPromptTemplate,
-  resolveSystemPrompt,
-} from "./prompts/index";
-export type {
-  LoadSkillsOptions,
-  Skill,
-  SkillLoadResult,
-  SkillLoadWarning,
-  SkillMetadata,
-  SkillRegistry,
-} from "./skills/index";
-export {
-  buildSkillsPromptHeader,
-  createSkillRegistry,
-  loadSkills,
-} from "./skills/index";
+} from "./prompts/message-builder";
+// -- Prompts --
+export { buildMessages, resolveSystemPrompt } from "./prompts/message-builder";
+export { createPromptTemplate } from "./prompts/template/prompt-template";
 export type {
   AgentDef,
   AgentStep,
   BroadcastFlowDef,
   BuiltInToolName,
-  CustomAgentDef,
-  CustomFlowDef,
   CycleFlowDef,
-  DiscoveredStrategy,
-  DiscoveredStrategyOrigin,
-  DiscoverStrategiesOptions,
-  DiscoverStrategiesResult,
-  DiscoveryWarning,
   ExportStrategyOptions,
   FlowDef,
   LLMAgentDef,
-  LoadedProject,
   LoadedStrategy,
   LoadStrategyOptions,
   SequentialFlowDef,
   Strategy,
   UserAgentDef,
 } from "./strategy/index";
+// -- Strategy (Phase 7) --
 export {
-  CustomAgentDefSchema,
-  CustomFlowDefSchema,
-  discoverStrategies,
   exportStrategy,
   isAgentStep,
-  isCustomAgentDef,
   isFlowDef,
   isLLMAgentDef,
   isUserAgentDef,
-  loadProject,
   loadStrategy,
   loadStrategyFromString,
-  parseStrategyFromString,
-  readStrategyFile,
   StrategySchema,
 } from "./strategy/index";
-// Timeline and unified event timeline types/factories
 export type {
-  ProjectedConversationContext,
-  Timeline,
-  TimelineEvent,
-  TimelineFilter,
-} from "./timeline/index";
+  BashToolConfig,
+  DefaultToolsConfig,
+  GlobToolConfig,
+  GrepToolConfig,
+  ReadToolConfig,
+} from "./tools/built-in/index";
+// -- Built-in Tools (Phase 6) --
 export {
-  createTimeline,
-  projectConversationContext,
-  projectFileState,
-} from "./timeline/index";
-export {
-  buildToolSystemPrompt,
-  mergeSystemPrompts,
-} from "./tools/build-tool-system-prompt";
-export type { LspRequestData } from "./tools/built-in/lsp-request";
+  createBashTool,
+  createDefaultTools,
+  createEditTool,
+  createGlobTool,
+  createGrepTool,
+  createReadTool,
+  createWriteTool,
+} from "./tools/built-in/index";
+// -- Tools --
 export { defineTool } from "./tools/define/define-tool";
-export type {
-  AuditEntry,
-  AuditOperation,
-  AuditSink,
-  FileAuditSinkOptions,
-  NewlineStyle,
-  SessionFileEntry,
-  SessionFileState,
-  TrashEntry,
-  TrashMetadata,
-  UnifiedDiffOptions,
-  WriteAtomicOptions,
-} from "./tools/io";
-export {
-  applyBom,
-  applyNewline,
-  BINARY_DETECTION_SAMPLE_BYTES,
-  BOM,
-  buildSessionFileState,
-  clearTrash,
-  createFileAuditSink,
-  createMemoryAuditSink,
-  detectNewline,
-  hasBom,
-  isLikelyBinary,
-  listTrash,
-  moveToTrash,
-  restoreFromTrash,
-  STALE_FILE_RECOVERY_HINT,
-  sha256OfBuffer,
-  sha256OfFile,
-  stripBom,
-  toLF,
-  trashWorkspaceDir,
-  unifiedDiff,
-  verifySessionFileState,
-  writeAtomic,
-} from "./tools/io";
-export type {
-  LaunchStrategyHandle,
-  LaunchStrategyRequest,
-  LaunchStrategyResult,
-} from "./tools/launch-strategy.types";
-export { errorResult, okResult, toolError } from "./tools/result";
+// -- Tool registry --
 export {
   getRegisteredToolNames,
   registerTool,
@@ -470,12 +196,4 @@ export {
   resolveTools,
   unregisterTool,
 } from "./tools/tool.registry";
-export type {
-  QuestionRequest,
-  QuestionRequester,
-  ToolContext,
-  ToolDefinition as ToolDef,
-  ToolError,
-  ToolErrorKind,
-  ToolResult,
-} from "./tools/tool.types";
+export type { ToolContext, ToolDefinition as ToolDef, ToolResult } from "./tools/tool.types";

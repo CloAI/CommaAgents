@@ -8,6 +8,10 @@ export { PingMessage } from "./ping.schema";
 
 /**
  * Handle a `ping` request by sending back a `pong` response.
+ *
+ * @param {PingMessage} message - Ping request received from the client.
+ * @param {HandlerContext<"ping">} context - Request handler context used to reply.
+ * @returns {void} Nothing; replies through the handler context.
  */
 export function handlePing(
   message: PingMessage,

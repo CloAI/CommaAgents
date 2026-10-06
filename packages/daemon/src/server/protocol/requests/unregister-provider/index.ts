@@ -1,3 +1,4 @@
+import { getLogger } from "@logtape/logtape";
 // Unregister-provider request handler.
 
 import { unregisterProviderDefinition } from "@comma-agents/core";
@@ -8,6 +9,8 @@ import {
   saveRegisteredProviders,
 } from "../../provider-registry";
 import type { UnregisterProviderMessage } from "./unregister-provider.schema";
+
+const logger = getLogger(["comma", "daemon", "unregister-provider"]);
 
 export { UnregisterProviderMessage } from "./unregister-provider.schema";
 
@@ -45,7 +48,7 @@ export function handleUnregisterProvider(
         : {}),
     });
   } catch (caughtError) {
-    context.logger.error(`unregister_provider failed: ${caughtError}`);
+    logger.error(`unregister_provider failed: ${caughtError}`);
     context.reply({
       type: "error" as const,
       code: "INTERNAL_ERROR",

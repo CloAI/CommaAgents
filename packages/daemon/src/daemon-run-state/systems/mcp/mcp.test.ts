@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { createRunStore } from "../../run-store";
+import { createRunRepository } from "../../run-repository";
 import { resolveRunMcpConfig } from "./mcp";
 
 const temporaryDirectories: string[] = [];
@@ -65,20 +65,22 @@ describe("resolveRunMcpConfig", () => {
         },
       }),
     );
-    const runStore = createRunStore({ runsDir: join(workspace, "runs") });
+    const runRepository = createRunRepository({
+      runsDir: join(workspace, "runs"),
+    });
 
     const config = await resolveRunMcpConfig({
       strategyPath,
       cwd: workspace,
       runId: "run-1",
-      runStore,
+      runRepository,
       persistDefaults: true,
     });
 
     expect([...config.enabledServerIds].sort()).toEqual(["github", "private"]);
     expect(config.assignments.get("github")).toEqual(["assistant"]);
     expect(config.servers.get("private")?.source).toBe("strategy");
-    expect(await runStore.getRunConfig("run-1")).toEqual({
+    expect(await runRepository.getRunConfig("run-1")).toEqual({
       enabledMcpServerIds: ["github", "private"],
     });
   });
@@ -107,14 +109,18 @@ describe("resolveRunMcpConfig", () => {
         },
       }),
     );
-    const runStore = createRunStore({ runsDir: join(workspace, "runs") });
-    await runStore.saveRunConfig("run-1", { enabledMcpServerIds: [] });
+    const runRepository = createRunRepository({
+      runsDir: join(workspace, "runs"),
+    });
+    await runRepository.saveRunConfig("run-1", {
+      enabledMcpServerIds: [],
+    });
 
     const config = await resolveRunMcpConfig({
       strategyPath,
       cwd: workspace,
       runId: "run-1",
-      runStore,
+      runRepository,
       persistDefaults: true,
     });
 
@@ -142,14 +148,16 @@ describe("resolveRunMcpConfig", () => {
         },
       }),
     );
-    const runStore = createRunStore({ runsDir: join(workspace, "runs") });
+    const runRepository = createRunRepository({
+      runsDir: join(workspace, "runs"),
+    });
 
     await expect(
       resolveRunMcpConfig({
         strategyPath,
         cwd: workspace,
         runId: "run-1",
-        runStore,
+        runRepository,
       }),
     ).rejects.toThrow(
       'Agent "assistant" references unknown MCP server "missing".',

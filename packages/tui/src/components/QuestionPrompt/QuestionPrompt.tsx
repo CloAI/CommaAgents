@@ -25,7 +25,7 @@ export function QuestionPrompt({
 
   const actor = toolName ? `${agentName} (${toolName})` : agentName;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: focus on request change
+  // oxlint-disable-next-line react/exhaustive-deps -- focus on request change
   useEffect(() => {
     focus(QUESTION_INPUT_ID);
   }, [focus, request.requestId]);

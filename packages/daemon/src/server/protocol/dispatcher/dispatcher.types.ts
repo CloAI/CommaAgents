@@ -1,9 +1,8 @@
 import type { HubManager } from "@comma-agents/core/hub";
 import type { ServerWebSocket } from "bun";
 import type { DaemonRunState } from "../../../daemon-run-state";
-import type { DaemonStore } from "../../../daemon-store/daemon-store.types";
-import type { Logger } from "../../../logger/logger.types";
-import type { WsData } from "../../server.types";
+import type { DaemonStore } from "../../daemon-store";
+import type { WsData } from "../../createDaemon.types";
 import type { DaemonMessage } from "../messages";
 import type { AvailableModelsMessage } from "../responses/available-models";
 import type { CredentialSetMessage } from "../responses/credential-set";
@@ -100,8 +99,7 @@ export interface HandlerContext<
   readonly daemonRunState: DaemonRunState;
   /** Centralized daemon state for run/client/subscription tracking. */
   readonly daemonStore: DaemonStore;
-  /** Logger for handler-level diagnostics. */
-  readonly logger: Logger;
+
   /** Daemon-owned Hub package service. */
   readonly hubManager?: HubManager;
   /** Send a response to the requesting client. Constrained by `RequestResponseMap`. */
@@ -126,6 +124,4 @@ export interface CreateDispatcherOptions {
   readonly daemonStore: DaemonStore;
   /** Connected WebSocket clients keyed by their daemon client ID. */
   readonly clients: Map<string, ServerWebSocket<WsData>>;
-  /** Logger for routing and delivery diagnostics. */
-  readonly logger: Logger;
 }

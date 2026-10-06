@@ -6,7 +6,7 @@ import {
   createConversationRecord,
   type LoadedStrategy,
 } from "@comma-agents/core";
-import { mockRunStore } from "../../../test.utils";
+import { mockRunRepository } from "../../../test.utils";
 import { createSystemRunContext } from "../systems.test.utils";
 import type { ExecutionContext } from "../systems.types";
 import { createPersistenceSystem } from "./persistence";
@@ -22,7 +22,7 @@ const result: AgentCallResult = {
 describe("createPersistenceSystem", () => {
   it("records run, flow, and agent events through its own hooks", async () => {
     const context = createSystemRunContext();
-    const runStore = mockRunStore();
+    const runRepository = mockRunRepository();
     const flowHooks = new Map<string, unknown>();
     const agentHooks = new Map<string, unknown>();
     const conversationContext = createConversationContext();
@@ -65,8 +65,7 @@ describe("createPersistenceSystem", () => {
       requestId: "start-1",
     };
     const system = createPersistenceSystem({
-      logger: context.logger,
-      runStore,
+      runRepository,
     });
 
     await system.onBeforeExecute?.(executionContext);
@@ -117,23 +116,21 @@ describe("createPersistenceSystem", () => {
     });
     afterCallResult(result);
 
-    const events = await runStore.getEvents(context.run.id);
+    const events = await runRepository.getEvents(context.run.id);
     expect(events.map((event) => event.type)).toEqual([
-      "run_started",
       "step_started",
       "step_completed",
       "conversation_retention",
       "agent_call",
     ]);
     expect(events[0]).toMatchObject({
-      type: "run_started",
-      initialInput: "initial input",
+      type: "step_started",
     });
-    expect(events[3]).toMatchObject({
+    expect(events[2]).toMatchObject({
       type: "conversation_retention",
       event: { id: "retention-1" },
     });
-    expect(events[4]).toMatchObject({
+    expect(events[3]).toMatchObject({
       type: "agent_call",
       record: {
         agentName: "assistant",

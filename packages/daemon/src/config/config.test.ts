@@ -26,7 +26,11 @@ function writeJsonConfig(dir: string, config: Record<string, unknown>): string {
   return filePath;
 }
 
-/** Clean env — no COMMA_DAEMON_* variables. */
+/**
+ * Clean env — no COMMA_DAEMON_* variables.
+ *
+ * @returns {Record<string, string | undefined>} Empty environment override map.
+ */
 function cleanEnv(): Record<string, string | undefined> {
   return {};
 }

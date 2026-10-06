@@ -9,7 +9,11 @@ import { isRunning, readPid, removePid, writePid } from "./pid";
 
 // Helpers
 
-/** Generate a unique temp path for a PID file. */
+/**
+ * Generate a unique temp path for a PID file.
+ *
+ * @returns {string} Unique PID-file path in the system temporary directory.
+ */
 function tmpPidFile(): string {
   return join(tmpdir(), `comma-test-${crypto.randomUUID()}`, "daemon.pid");
 }

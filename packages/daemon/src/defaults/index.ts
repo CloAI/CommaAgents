@@ -1,6 +1,6 @@
 export {
   getDaemonConfigFile,
-  getDaemonDefaults,
+  getDaemonConfig,
   getDaemonHost,
   getDaemonLogFile,
   getDaemonLogLevel,

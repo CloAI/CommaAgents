@@ -8,8 +8,8 @@ import {
   createDaemonRunState,
   type DaemonRunState,
 } from "../../../daemon-run-state";
-import { createDaemonStore } from "../../../daemon-store";
-import { mockLogger, mockMessageSender } from "../../../test.utils";
+import { createDaemonStore } from "../../daemon-store";
+import { mockMessageSender } from "../../../test.utils";
 import type {
   HandlerContext,
   RequestResponseMap,
@@ -49,7 +49,6 @@ async function createTestDaemonRunState(): Promise<DaemonRunState> {
   return createDaemonRunState({
     daemonStore: createDaemonStore(),
     messageSender: mockMessageSender(),
-    logger: mockLogger(),
     runsDir,
   });
 }
@@ -63,7 +62,6 @@ function createContext<RequestType extends keyof RequestResponseMap>(
     clientId: "client-1",
     daemonRunState,
     daemonStore: createDaemonStore(),
-    logger: mockLogger(),
     ...(hubManager !== undefined ? { hubManager } : {}),
     reply(message) {
       replies.push(message);
@@ -353,7 +351,7 @@ describe("provider discovery request handlers", () => {
       replies[0].models.every((model) => model.id.includes("gpt-4o")),
     ).toBe(true);
     expect(replies[0].models.map((model) => model.id)).toEqual(
-      [...replies[0].models.map((model) => model.id)].sort(),
+      replies[0].models.map((model) => model.id).sort(),
     );
   });
 

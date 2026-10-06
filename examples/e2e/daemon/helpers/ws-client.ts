@@ -21,7 +21,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Daemon } from "@comma-agents/daemon";
 import { createDaemon } from "@comma-agents/daemon";
-import { createMockLogger, setupMockModels } from "./mock-providers";
+import { setupMockModels } from "./mock-providers";
 
 // Types
 
@@ -107,7 +107,6 @@ export async function startTestDaemon(): Promise<Daemon> {
       pidFile: join(tmpdir(), `test-${crypto.randomUUID()}.pid`),
       configFile: join(tmpdir(), `test-${crypto.randomUUID()}.json`),
     },
-    logger: createMockLogger(),
   });
 
   await daemon.start();

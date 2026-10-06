@@ -17,16 +17,21 @@ comma daemon status
 Embed the server when another application owns the process lifecycle:
 
 ```ts
-import { createDaemon, createLogger, loadDaemonConfig } from "@comma-agents/daemon";
+import { createDaemon, initializeLogging, loadDaemonConfig } from "@comma-agents/daemon";
 
 const config = loadDaemonConfig();
-const daemon = createDaemon({
-  config,
-  logger: createLogger({ level: config.logLevel }),
-});
+const logging = initializeLogging({ level: config.logLevel, file: config.logFile });
+const daemon = createDaemon({ config });
 
 await daemon.start();
 console.log(daemon.url);
+
+// When the application is ready to shut down:
+try {
+  await daemon.stop();
+} finally {
+  logging.close();
+}
 ```
 
 ## Module tree
@@ -39,7 +44,7 @@ The documentation follows the package's ownership tree:
 - [Server](/docs/daemon/server) — the WebSocket and health-check server.
   - [Protocol](/docs/daemon/server/protocol) — client requests and daemon events.
 - [Daemon run state](/docs/daemon/daemon-run-state) — preparation, execution, continuation, and cancellation.
-  - [Run store](/docs/daemon/daemon-run-state/run-store) — persisted run timelines and configuration.
+  - [Run repository](/docs/daemon/daemon-run-state/run-repository) — persisted run timelines and configuration.
   - [MCP runtime](/docs/daemon/daemon-run-state/mcp) — per-run server selection and status.
   - [Execution systems and effects](/docs/daemon/daemon-run-state/systems) — input, permission, streaming, persistence, services, and effects.
 - [Language services](/docs/daemon/language) — workspace-aware TypeScript language operations.

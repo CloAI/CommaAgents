@@ -1,3 +1,4 @@
+import { getLogger } from "@logtape/logtape";
 // Set-credential request handler.
 
 import type { ApiCredential, OAuthCredential } from "@comma-agents/core";
@@ -5,6 +6,8 @@ import { getGlobalCredentialStore } from "@comma-agents/core";
 
 import type { HandlerContext } from "../../dispatcher/dispatcher.types";
 import type { SetCredentialMessage } from "./set-credential.schema";
+
+const logger = getLogger(["comma", "daemon", "set-credential"]);
 
 export { SetCredentialMessage } from "./set-credential.schema";
 
@@ -67,7 +70,7 @@ export async function handleSetCredential(
         : {}),
     });
   } catch (caughtError) {
-    context.logger.error(`set_credential failed: ${caughtError}`);
+    logger.error(`set_credential failed: ${caughtError}`);
     context.reply({
       type: "error" as const,
       code: "INTERNAL_ERROR",

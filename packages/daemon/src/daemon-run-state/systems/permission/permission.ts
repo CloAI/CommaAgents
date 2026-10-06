@@ -24,7 +24,7 @@ interface PendingPermission {
  * - Stores the permissionRequester in systemData for sandbox callbacks
  * - Registers the resolvePermission action for handling user decisions
  *
- * @returns A DaemonSystem that handles permission requests
+ * @returns {DaemonSystem} A daemon system that handles permission requests.
  */
 export function createPermissionSystem(): DaemonSystem {
   const destroyByRunId = new Map<string, () => void>();
@@ -70,31 +70,27 @@ export function createPermissionSystem(): DaemonSystem {
 
         const requestId = crypto.randomUUID();
         return new Promise<PermissionDecision>((resolve, reject) => {
-          let entry: PendingPermission;
-          const runAbortHandler = (): void => {
-            removePending(requestId, entry);
-            reject(new DOMException("Run aborted", "AbortError"));
-          };
           const toolSignal =
             request.signal !== abortSignal ? request.signal : undefined;
-          const toolAbortHandler = toolSignal
-            ? (): void => {
-                removePending(requestId, entry);
-                reject(new DOMException("Tool aborted", "AbortError"));
-              }
-            : undefined;
-
-          entry = {
+          const entry: PendingPermission = {
             resolve,
             reject,
-            runAbortHandler,
+            runAbortHandler: (): void => {
+              removePending(requestId, entry);
+              reject(new DOMException("Run aborted", "AbortError"));
+            },
             toolSignal,
-            toolAbortHandler,
+            toolAbortHandler: toolSignal
+              ? (): void => {
+                  removePending(requestId, entry);
+                  reject(new DOMException("Tool aborted", "AbortError"));
+                }
+              : undefined,
           };
-          abortSignal.addEventListener("abort", runAbortHandler, {
+          abortSignal.addEventListener("abort", entry.runAbortHandler, {
             once: true,
           });
-          toolSignal?.addEventListener("abort", toolAbortHandler!, {
+          toolSignal?.addEventListener("abort", entry.toolAbortHandler!, {
             once: true,
           });
           pending.set(requestId, entry);
@@ -131,7 +127,6 @@ export function createPermissionSystem(): DaemonSystem {
 
       actions.register(
         "resolvePermission",
-        run.id,
         (permissionRequestId, decision): boolean => {
           const entry = pending.get(permissionRequestId);
           if (!entry) return false;
@@ -146,7 +141,7 @@ export function createPermissionSystem(): DaemonSystem {
     onRunCleanup({ run, actions }: CleanupContext): void {
       destroyByRunId.get(run.id)?.();
       destroyByRunId.delete(run.id);
-      actions.unregisterAll(run.id);
+      actions.unregisterAll();
     },
   };
 }

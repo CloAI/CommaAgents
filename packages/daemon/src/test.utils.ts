@@ -1,6 +1,6 @@
 // Shared test utilities for daemon unit tests.
 //
-// Provides mock factories for MessageSender, Logger, and model registration
+// Provides mock factories for MessageSender and model registration
 // helpers. Also includes strategy fixtures and temp-file helpers.
 //
 // Model and credential resolution happen via global registries. Tests
@@ -11,8 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerModel, type TimelineEvent } from "@comma-agents/core";
 import type { LanguageModel } from "ai";
-import type { RunStore } from "./daemon-run-state/run-store";
-import type { Logger } from "./logger/logger.types";
+import type { RunRepository } from "./daemon-run-state/run-repository";
 import type { MessageSender } from "./server/protocol/dispatcher/dispatcher.types";
 import type { DaemonMessage } from "./server/protocol/messages";
 
@@ -23,6 +22,9 @@ import type { DaemonMessage } from "./server/protocol/messages";
  *
  * The mock returns a fixed text response and an empty stream.
  * Must be paired with resetModelRegistry() in afterEach.
+ *
+ * @param {string} modelString - Qualified model identifier to register.
+ * @returns {void} Nothing; registers the mock model globally.
  */
 export function registerMockModel(modelString: string): void {
   registerModel(modelString, {
@@ -56,13 +58,21 @@ export function registerMockModel(modelString: string): void {
   } as unknown as LanguageModel);
 }
 
-/** Register standard mock models used across daemon tests. */
+/**
+ * Register standard mock models used across daemon tests.
+ *
+ * @returns {void} Nothing; registers the standard model fixtures.
+ */
 export function setupMockModels(): void {
   registerMockModel("openai/gpt-4o");
   registerMockModel("anthropic/claude-3.5-sonnet");
 }
 
-/** Mock MessageSender that records messages. */
+/**
+ * Mock MessageSender that records messages.
+ *
+ * @returns {MessageSender & { broadcasts: Array<{ runId: string; message: DaemonMessage }>; sends: Array<{ clientId: string; message: DaemonMessage }> }} Sender and recorded messages.
+ */
 export function mockMessageSender(): MessageSender & {
   broadcasts: Array<{ runId: string; message: DaemonMessage }>;
   sends: Array<{ clientId: string; message: DaemonMessage }>;
@@ -81,31 +91,17 @@ export function mockMessageSender(): MessageSender & {
   };
 }
 
-/** Silent logger that discards all messages. */
-export function mockLogger(): Logger {
-  const noop = () => {};
-  return {
-    debug: noop,
-    info: noop,
-    warn: noop,
-    error: noop,
-    child() {
-      return mockLogger();
-    },
-    flush: noop,
-    close: noop,
-  };
-}
-
 // Strategy fixtures
 
 /**
- * Minimal in-memory RunStore for daemon-run-state/dispatcher tests.
+ * Minimal in-memory RunRepository for daemon-run-state/dispatcher tests.
  *
  * Stores runs by runId. All operations succeed synchronously and are
  * observable via the returned `runs` map.
+ *
+ * @returns {RunRepository & { runs: Map<string, TimelineEvent[]> }} In-memory repository and its event map.
  */
-export function mockRunStore(): RunStore & {
+export function mockRunRepository(): RunRepository & {
   runs: Map<string, TimelineEvent[]>;
 } {
   const runs = new Map<string, TimelineEvent[]>();
@@ -192,7 +188,13 @@ export const USER_AGENT_STRATEGY = JSON.stringify({
 
 // Temp-file helpers
 
-/** Write a strategy JSON string to a temp file and return the path. */
+/**
+ * Write a strategy JSON string to a temp file and return the path.
+ *
+ * @param {string} content - Strategy source to write.
+ * @param {string} [extension] - File extension for the temporary strategy.
+ * @returns {Promise<string>} Path to the created strategy file.
+ */
 export async function writeTempStrategy(
   content: string,
   extension: string = "json",
@@ -203,7 +205,14 @@ export async function writeTempStrategy(
   return filePath;
 }
 
-/** Wait for broadcasts to accumulate, with a maximum wait time. */
+/**
+ * Wait for broadcasts to accumulate, with a maximum wait time.
+ *
+ * @param {ReturnType<typeof mockMessageSender>} messageSender - Sender whose broadcasts are observed.
+ * @param {number} count - Minimum number of broadcasts to await.
+ * @param {number} [timeoutMs] - Maximum time to wait in milliseconds.
+ * @returns {Promise<void>} Resolves once the requested broadcast count is reached.
+ */
 export async function waitForBroadcasts(
   messageSender: ReturnType<typeof mockMessageSender>,
   count: number,

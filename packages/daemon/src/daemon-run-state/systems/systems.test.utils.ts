@@ -1,4 +1,4 @@
-import { mockLogger, mockMessageSender } from "../../test.utils";
+import { mockMessageSender } from "../../test.utils";
 import type { SystemRunContext } from "./systems.types";
 import {
   createRunActionRegistry,
@@ -22,7 +22,6 @@ export function createSystemRunContext(runId = "run-1"): SystemRunContext & {
       status: "running",
     },
     messageSender: mockMessageSender(),
-    logger: mockLogger(),
     clientId: "client-1",
     modelOverride: undefined,
     abortSignal: abortController.signal,

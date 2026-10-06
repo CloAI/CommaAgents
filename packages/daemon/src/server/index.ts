@@ -1,3 +1,3 @@
-export { createDaemon } from "./server";
+export { createDaemon } from "./createDaemon";
 
-export type { CreateDaemonOptions, Daemon } from "./server.types";
+export type { CreateDaemonOptions, Daemon } from "./createDaemon.types";

@@ -1,3 +1,4 @@
+import { getLogger } from "@logtape/logtape";
 import { dirname, resolve } from "node:path";
 import type { AgentHooks, FlowHooks, LoadedStrategy } from "@comma-agents/core";
 import {
@@ -11,8 +12,9 @@ import {
   CommaProjectManifestSchema,
   type HubManager,
 } from "@comma-agents/core/hub";
-import type { Logger } from "../logger/logger.types";
 import type { SystemDataStore } from "./systems/systems.types";
+
+const logger = getLogger(["comma", "daemon", "prepare-strategy"]);
 
 export interface PrepareStrategyOptions {
   readonly strategyPath: string;
@@ -20,13 +22,19 @@ export interface PrepareStrategyOptions {
   readonly modelOverride?: string;
   readonly runId: string;
   readonly systemData: SystemDataStore;
-  readonly logger: Logger;
+
   readonly flowHooks?: FlowHooks;
   readonly agentHooks?: AgentHooks;
   readonly hubManager?: HubManager;
 }
 
-/** Refuse executable code from installed packages without persisted approval. */
+/**
+ * Refuse executable code from installed packages without persisted approval.
+ *
+ * @param {string} manifestPath - Path to the project manifest.
+ * @param {HubManager} [hubManager] - Installed-package manager used for approval checks.
+ * @returns {Promise<void>} Resolves when executable code is approved or not applicable.
+ */
 export async function assertProjectCodeApproved(
   manifestPath: string,
   hubManager?: HubManager,
@@ -60,7 +68,6 @@ export async function prepareStrategy(
     modelOverride,
     runId,
     systemData,
-    logger,
     flowHooks,
     agentHooks,
     hubManager,

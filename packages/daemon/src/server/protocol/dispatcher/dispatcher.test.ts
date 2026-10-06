@@ -1,8 +1,8 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, spyOn } from "bun:test";
 import type { ServerWebSocket } from "bun";
-import { createDaemonStore } from "../../../daemon-store";
-import type { Logger } from "../../../logger";
-import type { WsData } from "../../server.types";
+import { createDaemonStore } from "../../daemon-store";
+import { getLogger } from "@logtape/logtape";
+import type { WsData } from "../../createDaemon.types";
 import { createDispatcher } from "./dispatcher";
 
 interface TestSocket {
@@ -23,34 +23,14 @@ function createTestSocket(throwOnSend = false): TestSocket {
   };
 }
 
-function createTestLogger(): Logger & { readonly debugMessages: string[] } {
-  const debugMessages: string[] = [];
-  return {
-    debugMessages,
-    debug(message) {
-      debugMessages.push(message);
-    },
-    info() {},
-    warn() {},
-    error() {},
-    child() {
-      return this;
-    },
-    flush() {},
-    close() {},
-  };
-}
-
 function createTestDispatcher() {
   const state = createDaemonStore();
   const clients = new Map<string, ServerWebSocket<WsData>>();
-  const logger = createTestLogger();
   const dispatcher = createDispatcher({
     daemonStore: state,
     clients,
-    logger,
   });
-  return { state, clients, logger, dispatcher };
+  return { state, clients, dispatcher };
 }
 
 function parseMessage(messages: readonly string[], index = 0) {
@@ -79,8 +59,13 @@ describe("createDispatcher", () => {
     clients.set("other", otherClient.socket);
     state.addClient("subscribed");
     state.addClient("other");
-    state.createRun("/strategy.json", "Test", "/workspace", "run-1");
-    state.subscribe("subscribed", "run-1");
+    const runStore = state.createRun(
+      "/strategy.json",
+      "Test",
+      "/workspace",
+      "run-1",
+    );
+    runStore.addSubscriber("subscribed");
 
     dispatcher.broadcast("run-1", {
       type: "pong",
@@ -92,21 +77,29 @@ describe("createDispatcher", () => {
   });
 
   it("logs missing clients and send failures without throwing", () => {
-    const { clients, logger, dispatcher } = createTestDispatcher();
-    clients.set("disconnected", createTestSocket(true).socket);
+    const { clients, dispatcher } = createTestDispatcher();
+    const debug = spyOn(
+      getLogger(["comma", "daemon", "dispatcher"]),
+      "debug",
+    ).mockReturnValue(undefined);
+    try {
+      clients.set("disconnected", createTestSocket(true).socket);
 
-    dispatcher.send("missing", {
-      type: "pong",
-      ts: "2026-01-01T00:00:00.000Z",
-    });
-    dispatcher.send("disconnected", {
-      type: "pong",
-      ts: "2026-01-01T00:00:00.000Z",
-    });
+      dispatcher.send("missing", {
+        type: "pong",
+        ts: "2026-01-01T00:00:00.000Z",
+      });
+      dispatcher.send("disconnected", {
+        type: "pong",
+        ts: "2026-01-01T00:00:00.000Z",
+      });
 
-    expect(logger.debugMessages).toContain("send: client missing not found");
-    expect(logger.debugMessages).toContain(
-      "Failed to send to client disconnected",
-    );
+      expect(debug).toHaveBeenCalledWith("send: client missing not found");
+      expect(debug).toHaveBeenCalledWith(
+        "Failed to send to client disconnected",
+      );
+    } finally {
+      debug.mockRestore();
+    }
   });
 });

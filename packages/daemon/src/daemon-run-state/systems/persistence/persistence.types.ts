@@ -1,10 +1,8 @@
-import type { Logger } from "../../../logger/logger.types";
-import type { RunStore } from "../../run-store";
+import type { RunRepository } from "../../run-repository";
 import type { DaemonSystem } from "../systems.types";
 
 export interface PersistenceSystemOptions {
-  readonly logger: Logger;
-  readonly runStore: RunStore;
+  readonly runRepository: RunRepository;
 }
 
 export interface PersistenceSystem extends DaemonSystem {

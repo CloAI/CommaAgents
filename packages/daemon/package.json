@@ -25,6 +25,8 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.30",
     "@comma-agents/core": "2.0.0-rc.1",
+    "@logtape/file": "2.3.7",
+    "@logtape/logtape": "2.3.7",
     "typescript": "6.0.2",
     "yaml": "2.8.3",
     "yargs": "17.7.2",
@@ -35,8 +37,13 @@
     "@types/yargs": "17.0.33",
     "ai": "6.0.91"
   },
-  "engines": { "bun": ">=1.3.0" },
-  "publishConfig": { "access": "public", "tag": "next" },
+  "engines": {
+    "bun": ">=1.3.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "next"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/CloAI/CommaAgents.git",

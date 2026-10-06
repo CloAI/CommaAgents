@@ -11,6 +11,10 @@ export { PermissionDecisionMessage } from "./permission-decision.schema";
  *
  * If no pending permission request exists for the specified `permissionRequestId`,
  * sends a `NO_PENDING_PERMISSION` error back to the client.
+ *
+ * @param {PermissionDecisionMessage} message - Permission decision received from the client.
+ * @param {HandlerContext<"permission_decision">} context - Request handler context used to reply.
+ * @returns {void} Nothing; resolves the request or sends an error response.
  */
 export function handlePermissionDecision(
   message: PermissionDecisionMessage,

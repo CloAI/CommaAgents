@@ -46,6 +46,7 @@ export async function startDaemonProcess(
     env: buildDaemonProcessEnvOverrides(options),
   });
   const existingPid = readPid(config.pidFile);
+  
   if (existingPid !== undefined && isRunning(existingPid)) {
     const status = getDaemonProcessStatus(options);
     if (options.allowExisting === true) {

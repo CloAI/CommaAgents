@@ -14,15 +14,14 @@ import {
   createConversationRecord,
   extractProviderIds,
   registerModel,
-  resetFlowRegistry,
   resetCoreLocationOverrides,
+  resetFlowRegistry,
   resetModelRegistry,
 } from "@comma-agents/core";
-import { createDaemonStore } from "../daemon-store/daemon-store";
+import { createDaemonStore } from "../server/daemon-store/daemon-store";
 import {
   MINIMAL_STRATEGY,
   MULTI_AGENT_STRATEGY,
-  mockLogger,
   mockMessageSender,
   setupMockModels,
   USER_AGENT_STRATEGY,
@@ -30,14 +29,14 @@ import {
   writeTempStrategy,
 } from "../test.utils";
 import { createDaemonRunState as createProductionDaemonRunState } from "./daemon-run-state";
-import { createRunStore, type RunStore } from "./run-store";
+import { createRunRepository, type RunRepository } from "./run-repository";
 import type {
   CreateDaemonRunStateOptions,
   DaemonRunState,
 } from "./systems/systems.types";
 
 interface TestDaemonRunState extends DaemonRunState {
-  readonly runStore: RunStore;
+  readonly runStore: RunRepository;
   readonly actions: {
     invoke(action: string, runId: string, ...args: readonly unknown[]): boolean;
   };
@@ -49,7 +48,7 @@ function createDaemonRunState(
   const daemonRunState = createProductionDaemonRunState(options);
   return {
     ...daemonRunState,
-    runStore: createRunStore({ runsDir: options.runsDir }),
+    runStore: createRunRepository({ runsDir: options.runsDir }),
     actions: {
       invoke(action, runId, ...args): boolean {
         if (action === "steer") {
@@ -235,7 +234,6 @@ describe("createDaemonRunState", () => {
     const daemonRunState = createDaemonRunState({
       daemonStore: createDaemonStore(),
       messageSender: mockMessageSender(),
-      logger: mockLogger(),
       runsDir,
     });
 
@@ -263,7 +261,6 @@ describe("createDaemonRunState", () => {
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -278,17 +275,16 @@ describe("createDaemonRunState", () => {
     expect(prepared.strategyName).toBe("Test");
     expect(prepared.agents).toContain("assistant");
     expect(prepared.conversation.records).toEqual([]);
-    expect(state.getRun(runId)?.status).toBe("pending");
+    expect(state.getRunStore(runId)?.snapshot().status).toBe("pending");
     expect(await daemonRunState.runStore.listRuns()).toHaveLength(0);
 
     // Run should exist in state
-    const run = state.getRun(runId);
+    const run = state.getRunStore(runId)?.snapshot();
     expect(run).toBeDefined();
     expect(run?.strategyPath).toBe(filePath);
 
     // Client should be subscribed
-    const subs = state.getSubscriptions("client-1");
-    expect(subs).toContain(runId);
+    expect(state.getRunStore(runId)?.getSubscribers()).toContain("client-1");
   });
 
   it("prepareRun loads the project manifest before the strategy", async () => {
@@ -298,7 +294,6 @@ describe("createDaemonRunState", () => {
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender: mockMessageSender(),
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const projectDir = await mkdtemp(join(tmpdir(), "comma-run-project-"));
@@ -343,7 +338,6 @@ describe("createDaemonRunState", () => {
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender: mockMessageSender(),
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const projectDir = await mkdtemp(join(tmpdir(), "comma-custom-flow-"));
@@ -425,7 +419,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -438,7 +431,7 @@ registerFlow(
     });
 
     expect(prepared.runId).toBe("run-stable");
-    expect(state.getRun("run-stable")).toBeDefined();
+    expect(state.getRunStore("run-stable")).toBeDefined();
   });
 
   it("rejects duplicate run IDs and unknown or repeated starts", async () => {
@@ -448,7 +441,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender: mockMessageSender(),
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -483,7 +475,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -576,7 +567,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -659,7 +649,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -691,7 +680,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -778,7 +766,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const originalPath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -851,7 +838,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender: mockMessageSender(),
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -880,7 +866,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender: mockMessageSender(),
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -909,7 +894,7 @@ registerFlow(
       "/workspace",
       "active-persisted-run",
     );
-    state.startRun(run.id);
+    await run.transition({ type: "running" });
 
     // A second client switching to the running chat should attach: get the
     // conversation so far and be subscribed for live streaming, not an error.
@@ -920,9 +905,13 @@ registerFlow(
     expect(prepared.runId).toBe("active-persisted-run");
     expect(prepared.strategyName).toBe("Test");
     expect(prepared.conversation.records).toHaveLength(1);
-    expect(state.getSubscribers("active-persisted-run")).toContain("client-2");
+    expect(
+      state.getRunStore("active-persisted-run")?.getSubscribers(),
+    ).toContain("client-2");
     // The run remains running and untouched.
-    expect(state.getRun("active-persisted-run")?.status).toBe("running");
+    expect(state.getRunStore("active-persisted-run")?.snapshot().status).toBe(
+      "running",
+    );
   });
 
   it("stopRun cleans up a prepared run without persisting it", async () => {
@@ -933,7 +922,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const filePath = await writeTempStrategy(MINIMAL_STRATEGY);
@@ -942,10 +930,12 @@ registerFlow(
     const prepared = await daemonRunState.prepareRun("client-1", {
       strategyPath: filePath,
     });
-    daemonRunState.stopRun(prepared.runId);
+    await daemonRunState.stopRun(prepared.runId);
     await daemonRunState.shutdown();
 
-    expect(state.getRun(prepared.runId)?.status).toBe("cancelled");
+    expect(state.getRunStore(prepared.runId)?.snapshot().status).toBe(
+      "cancelled",
+    );
     expect(await daemonRunState.runStore.listRuns()).toHaveLength(0);
     expect(
       daemonRunState.actions.invoke("steer", prepared.runId, "after stop"),
@@ -962,7 +952,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -977,7 +966,7 @@ registerFlow(
     );
 
     // At this point, the run is pending — execution hasn't completed yet
-    const run = state.getRun(runId);
+    const run = state.getRunStore(runId)?.snapshot();
     expect(run).toBeDefined();
     // Status is either "pending" or "running" (depending on timing)
     expect(["pending", "running"]).toContain(run!.status);
@@ -993,7 +982,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1025,7 +1013,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1052,7 +1039,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1080,7 +1066,7 @@ registerFlow(
     }
 
     // State should be updated to completed
-    const run = state.getRun(runId);
+    const run = state.getRunStore(runId)?.snapshot();
     expect(run?.status).toBe("completed");
     expect(run?.completedAt).toBeDefined();
     expect(run?.result).toBeDefined();
@@ -1110,7 +1096,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
     const filePath = await writeTempStrategy(
@@ -1143,7 +1128,7 @@ registerFlow(
     );
     await waitForBroadcasts(messageSender, 4, 10000);
 
-    expect(state.getRun(runId)?.status).toBe("completed");
+    expect(state.getRunStore(runId)?.snapshot().status).toBe("completed");
   });
 
   it("broadcasts strategy_error when strategy file is invalid", async () => {
@@ -1155,7 +1140,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1165,7 +1149,7 @@ registerFlow(
     await expect(
       daemonRunState.prepareRun("client-1", { strategyPath: filePath }),
     ).rejects.toThrow();
-    expect(state.listRuns()).toHaveLength(0);
+    expect(state.listRunStores()).toHaveLength(0);
   });
 
   it("broadcasts strategy_error when strategy file is not found", async () => {
@@ -1177,7 +1161,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1186,7 +1169,7 @@ registerFlow(
         strategyPath: "/nonexistent/path/strategy.json",
       }),
     ).rejects.toThrow("not found");
-    expect(state.listRuns()).toHaveLength(0);
+    expect(state.listRunStores()).toHaveLength(0);
   });
 
   it("stopRun aborts execution and broadcasts strategy_error with CANCELLED", async () => {
@@ -1199,7 +1182,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1214,10 +1196,10 @@ registerFlow(
     );
 
     // Stop immediately
-    daemonRunState.stopRun(runId);
+    await daemonRunState.stopRun(runId);
 
     // State should be cancelled
-    const run = state.getRun(runId);
+    const run = state.getRunStore(runId)?.snapshot();
     expect(run?.status).toBe("cancelled");
     expect(run?.error?.code).toBe("CANCELLED");
 
@@ -1230,7 +1212,7 @@ registerFlow(
     expect(cancelledMsg).toBeDefined();
 
     await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(state.getRun(runId)?.status).toBe("cancelled");
+    expect(state.getRunStore(runId)?.snapshot().status).toBe("cancelled");
     expect(
       messageSender.broadcasts.some(
         (broadcast) => broadcast.message.type === "strategy_completed",
@@ -1248,7 +1230,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1264,11 +1245,11 @@ registerFlow(
       "",
     );
     await waitForBroadcasts(messageSender, 2, 10000);
-    expect(state.getRun(runId)?.status).toBe("running");
+    expect(state.getRunStore(runId)?.snapshot().status).toBe("running");
 
     await daemonRunState.shutdown();
 
-    expect(state.getRun(runId)?.status).toBe("cancelled");
+    expect(state.getRunStore(runId)?.snapshot().status).toBe("cancelled");
 
     const events = await daemonRunState.runStore.getEvents(runId);
     const completed = events.filter((event) => event.type === "run_completed");
@@ -1295,7 +1276,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1368,7 +1348,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1394,7 +1373,7 @@ registerFlow(
         (broadcast) => broadcast.message.type === "strategy_completed",
       ),
     ).toBe(true);
-    expect(state.getRun(runId)?.status).toBe("completed");
+    expect(state.getRunStore(runId)?.snapshot().status).toBe("completed");
   });
 
   it("resolveInput returns false for unknown run", async () => {
@@ -1404,7 +1383,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1428,7 +1406,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1455,7 +1432,7 @@ registerFlow(
     }
 
     // State should be "error"
-    const run = state.getRun(runId);
+    const run = state.getRunStore(runId)?.snapshot();
     expect(run?.status).toBe("error");
   });
 
@@ -1469,7 +1446,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1503,7 +1479,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1522,7 +1497,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1565,7 +1539,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 
@@ -1581,7 +1554,7 @@ registerFlow(
     await waitForBroadcasts(messageSender, 4, 10000);
 
     // Run has completed — steering is no longer accepted.
-    expect(state.getRun(runId)?.status).toBe("completed");
+    expect(state.getRunStore(runId)?.snapshot().status).toBe("completed");
     expect(daemonRunState.actions.invoke("steer", runId, "too late")).toBe(
       false,
     );
@@ -1597,7 +1570,6 @@ registerFlow(
     const daemonRunState = createDaemonRunState({
       daemonStore: state,
       messageSender,
-      logger: mockLogger(),
       runsDir: await createTempRunsDir(),
     });
 

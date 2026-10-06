@@ -19,7 +19,8 @@ export interface TypeScriptLanguageServiceOptions {
 /**
  * Create a language service for TypeScript and JavaScript workspace operations.
  *
- * @param options - Workspace selection for project discovery and file resolution.
+ * @param {TypeScriptLanguageServiceOptions} options - Workspace selection for project discovery and file resolution.
+ * @returns {LanguageService} TypeScript and JavaScript language service for the workspace.
  * @example
  * ```ts
  * const service = createTypeScriptLanguageService({ workspaceRoot: process.cwd() });

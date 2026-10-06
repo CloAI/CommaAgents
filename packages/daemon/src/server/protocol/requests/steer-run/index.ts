@@ -14,6 +14,10 @@ export { SteerRunMessage } from "./steer-run.schema";
  *
  * If the run is not found or has already finished, sends a
  * `RUN_NOT_STEERABLE` error back to the client.
+ *
+ * @param {SteerRunMessage} message - Request containing the steering text.
+ * @param {HandlerContext<"steer_run">} context - Request handler context used to reply.
+ * @returns {void} Nothing; queues steering text or sends an error response.
  */
 export function handleSteerRun(
   message: SteerRunMessage,

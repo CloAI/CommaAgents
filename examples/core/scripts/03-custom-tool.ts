@@ -79,7 +79,7 @@ const calculatorTool = defineTool({
       if (sanitized !== args.expression.trim()) {
         return { output: "Error: expression contains invalid characters." };
       }
-      // biome-ignore lint/security/noGlobalEval: demo-only arithmetic eval
+      // oxlint-disable-next-line no-eval -- demo-only arithmetic eval
       const result = eval(sanitized) as number;
       return {
         output: `${args.expression} = ${result}`,

@@ -166,7 +166,7 @@ export function ScrollableView<ItemType>({
   // `measureRevision` is in the deps on purpose. The cache is mutated in
   // place by the measurement effect; the revision counter is the only
   // reactive signal that lets this memo recompute when new heights land.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above.
+  // oxlint-disable-next-line react/exhaustive-deps -- see comment above.
   const rowOffsets = useMemo(() => {
     const offsets: number[] = [0];
     for (let i = 0; i < totalCount; i += 1) {

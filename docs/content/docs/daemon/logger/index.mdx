@@ -1,98 +1,94 @@
 ---
-title: Logger
-description: Logger types, sinks, and configuration.
+title: Logging
+description: Application-wide LogTape configuration and named loggers.
 ---
 
-# Logger
+# Logging
 
-The daemon's structured logging system supports multiple output sinks and configurable log levels.
+The daemon uses [LogTape](https://logtape.org/). Application startup configures logging once; services, request handlers, and run systems obtain named loggers directly. There is no per-instance logger parameter or CommaAgents logging interface.
 
-## Logger
+## Startup and shutdown
 
-The logger interface.
+`startDaemonRuntime` initializes logging before provider hydration and server creation, then closes it after the daemon stops. Imports and `createDaemon()` do not configure logging.
 
-<AutoTypeTable path="../packages/daemon/src/logger/logger.types.ts" name="Logger" />
-
-## LogEntry
-
-A single log entry.
-
-<AutoTypeTable path="../packages/daemon/src/logger/logger.types.ts" name="LogEntry" />
-
-## LogSink
-
-Interface for log output destinations (stderr, file, system log).
-
-<AutoTypeTable path="../packages/daemon/src/logger/logger.types.ts" name="LogSink" />
-
-## CreateLoggerOptions
-
-Options for `createLogger`.
-
-<AutoTypeTable path="../packages/daemon/src/logger/logger.types.ts" name="CreateLoggerOptions" />
-
-## Log levels
-
-The logger orders severity levels as follows:
-
-| Level | Value |
-|---|---|
-| `debug` | 0 |
-| `info` | 1 |
-| `warn` | 2 |
-| `error` | 3 |
-
-Higher values are more severe. The logger drops messages below the configured minimum level.
-
-## createLogger
-
-Factory function that creates a structured logger. Defaults to `"info"` level with stderr output.
+An embedding application can use the supplied policy:
 
 ```ts
-import {
-  createFileSink,
-  createLogger,
-  createStderrSink,
-} from "@comma-agents/daemon";
+import { initializeLogging, createDaemon, loadDaemonConfig } from "@comma-agents/daemon";
 
-// Simple stderr logger
-const log = createLogger();
-log.info("Server started", { port: 7422 });
+const config = loadDaemonConfig();
+const logging = initializeLogging({ level: config.logLevel, file: config.logFile });
+const daemon = createDaemon({ config });
+try {
+  await daemon.start();
+  // Run the application until shutdown is requested.
+} finally {
+  try {
+    await daemon.stop();
+  } finally {
+    logging.close();
+  }
+}
+```
 
-// Multiple sinks with debug level
-const diagnosticLog = createLogger({
-  level: "debug",
-  sinks: [createStderrSink(), createFileSink("/var/log/daemon.log")],
+`initializeLogging` configures the `comma` category, so all `comma.*` loggers in the process share the policy. It refuses to replace an existing LogTape configuration. Applications already using LogTape should configure that category themselves and own disposal. Multiple daemon instances share this application policy.
+
+<AutoTypeTable path="../packages/daemon/src/logger/configure.ts" name="LoggingOptions" />
+
+## Logging from any module
+
+```ts
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["comma", "daemon", "providers"]);
+logger.info("Registered provider {providerId}", { providerId: "example" });
+logger.warning("Provider could not be loaded", { providerId: "example", error });
+```
+
+Logger handles can be created during module import, before configuration. Unconfigured application loggers are silent. Use stable component categories and put run IDs or client IDs in structured properties.
+
+Native levels are `trace`, `debug`, `info`, `warning`, `error`, and `fatal`. Existing `warn` daemon configuration is accepted and mapped to `warning`; calls use `.warning()`.
+
+## Tests without property drilling
+
+LogTape returns the same named instance, so a test can mock a module's logger directly:
+
+```ts
+import { expect, spyOn, test } from "bun:test";
+import { getLogger } from "@logtape/logtape";
+
+test("reports a failed operation", () => {
+  const error = spyOn(getLogger(["comma", "daemon", "providers"]), "error")
+    .mockReturnValue(undefined);
+  try {
+    // Exercise the service normally, without a logger argument.
+    // expect(error).toHaveBeenCalledWith(...);
+  } finally {
+    error.mockRestore();
+  }
 });
-
-// Child logger for a subsystem
-const wsLog = diagnosticLog.child("ws");
-wsLog.info("Client connected", { clientId: "abc" });
-// → {"ts":"...","level":"info","msg":"Client connected","component":"ws","clientId":"abc"}
 ```
 
-## createStderrSink
-
-Creates a sink that writes JSON lines to `process.stderr`. Each log entry is serialized as a single JSON line followed by a newline — compatible with journald, CloudWatch, Datadog, and other log aggregators.
+Instance spies mutate shared methods; use them in serial tests and restore them. For concurrent tests, use LogTape's `withConfig()` with a capture sink. Initialize a silent policy once for the suite (`initializeLogging({ stderr: false })`), then give each awaited scope its own sink:
 
 ```ts
-import { createStderrSink } from "@comma-agents/daemon";
+import { withConfig, type LogRecord } from "@logtape/logtape";
 
-const sink = createStderrSink();
+const records: LogRecord[] = [];
+await withConfig({
+  sinks: { capture: (record) => { records.push(record); } },
+  loggers: [{ category: ["comma"], lowestLevel: "debug", sinks: ["capture"] }],
+}, async () => {
+  // Exercise and await the service, then assert on records.
+});
 ```
 
-This is the default sink when no sinks are specified.
+All background work under test must finish before its scope returns. Close the suite's logging owner after all scopes complete. Production initialization provides the async context storage used by these scopes.
 
-## createFileSink
+## Migration from the custom logger
 
-Creates or truncates a log file when the sink opens, then appends one JSON line per entry. The parent directory is created automatically.
+`createLogger`, `createStderrSink`, `createFileSink`, `createSystemSink`, `describeSystemLogging`, and their custom types have been removed. Configure LogTape at application startup and use its native `getLogger()` API. `createDaemon({ config })` and internal service constructors no longer accept a logger.
 
-```ts
-import { createFileSink } from "@comma-agents/daemon";
+JSON output uses LogTape's native fields: `@timestamp`, `level`, `message`, `logger`, and nested `properties`. Levels are uppercase in JSON. Update consumers of the previous `ts`, `msg`, and `component` fields. Nested properties prevent metadata from overwriting record fields.
 
-const sink = createFileSink("/var/log/comma-agents/daemon.log");
-```
-
-Useful for debugging, audit trails, or when the service manager doesn't capture stderr.
-
-See [Log sinks](/docs/daemon/logger/sinks) for system-service output and sink selection.
+See [log sinks](/docs/daemon/logger/sinks) for file rotation and output behavior.

@@ -28,8 +28,12 @@ export { pathPolicy } from "@comma-agents/core/sandbox";
 export { createDaemonRunState } from "./daemon-run-state";
 export type { PrepareStrategyOptions } from "./prepare-strategy";
 export { prepareStrategy } from "./prepare-strategy";
-export type { RunConfig, RunOverview, RunStore } from "./run-store";
-export { createRunStore } from "./run-store";
+export type {
+  RunConfig,
+  RunOverview,
+  RunRepository,
+} from "./run-repository";
+export { createRunRepository } from "./run-repository";
 export * from "./systems";
 export type {
   CreateDaemonRunStateOptions,

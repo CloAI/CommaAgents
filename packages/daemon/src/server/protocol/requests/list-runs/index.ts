@@ -6,7 +6,13 @@ import type { ListRunsMessage } from "./list-runs.schema";
 
 export { ListRunsMessage } from "./list-runs.schema";
 
-/** Handle a `list_runs` request. */
+/**
+ * Handle a `list_runs` request.
+ *
+ * @param {ListRunsMessage} message - Request containing an optional working-directory filter.
+ * @param {HandlerContext<"list_runs">} context - Request handler context used to reply.
+ * @returns {Promise<void>} Resolves after the run list has been sent.
+ */
 export async function handleListRuns(
   message: ListRunsMessage,
   context: HandlerContext<"list_runs">,

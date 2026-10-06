@@ -3,10 +3,7 @@ export type {
   DaemonConfigFile,
   LoadConfigOptions,
 } from "./config";
-export {
-  DaemonConfigFileSchema,
-  loadDaemonConfig,
-} from "./config";
+export { DaemonConfigFileSchema, loadDaemonConfig } from "./config";
 export type {
   DaemonCommandAction,
   DaemonCommandArguments,
@@ -42,13 +39,27 @@ export type {
   ProviderResolver,
   RunConfig,
   RunOverview,
-  RunStore,
+  RunRepository,
 } from "./daemon-run-state";
 export {
   createDaemonRunState,
+  createRunRepository,
   extractProviderIds,
 } from "./daemon-run-state";
-export type { RunStatus } from "./daemon-store";
+export type {
+  CreateRunStoreOptions,
+  DaemonStore,
+  RunError,
+  RunSnapshot,
+  RunStatus,
+  RunStore,
+  RunTransition,
+  RunTransitionEffect,
+  RunTransitionEffectError,
+  RunTransitionEvent,
+  RunTransitionResult,
+} from "./server/daemon-store";
+export { createDaemonStore, createRunStore } from "./server/daemon-store";
 export type { DaemonDefaultOverrides } from "./defaults";
 export {
   getDaemonConfigFile,
@@ -72,20 +83,7 @@ export {
   createTypeScriptLanguageService,
   type TypeScriptLanguageServiceOptions,
 } from "./language";
-export type {
-  CreateLoggerOptions,
-  LogEntry,
-  Logger,
-  LogLevel,
-  LogSink,
-} from "./logger";
-export {
-  createFileSink,
-  createLogger,
-  createStderrSink,
-  createSystemSink,
-  describeSystemLogging,
-} from "./logger";
+export { initializeLogging, type LoggingOptions } from "./logger";
 export type { CreateDaemonOptions, Daemon } from "./server";
 export { createDaemon } from "./server";
 export type {
@@ -109,7 +107,4 @@ export type {
   RunSummary,
   Usage,
 } from "./server/protocol";
-export {
-  parseClientMessage,
-  parseDaemonMessage,
-} from "./server/protocol";
+export { parseClientMessage, parseDaemonMessage } from "./server/protocol";

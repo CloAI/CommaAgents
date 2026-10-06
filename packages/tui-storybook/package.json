@@ -8,7 +8,9 @@
     "storybook": "storybook dev -p 6006",
     "build": "bun run check:stories && storybook build",
     "check:stories": "bun run src/check-story-coverage.ts",
-    "lint": "bunx @biomejs/biome check src .storybook"
+    "lint": "oxlint src .storybook",
+    "lint:fix": "oxlint --fix src .storybook",
+    "format": "oxfmt src .storybook"
   },
   "dependencies": {
     "@comma-agents/tui": "workspace:*",
@@ -23,6 +25,7 @@
     "readable-stream": "^4.7.0"
   },
   "devDependencies": {
+    "@storybook/addon-docs": "^10.4.6",
     "@storybook/react": "^10.4.6",
     "@storybook/react-vite": "^10.4.6",
     "@types/react": "19.2.14",
@@ -30,7 +33,6 @@
     "@types/readable-stream": "^4.0.23",
     "storybook": "^10.4.6",
     "typescript": "6.0.2",
-    "vite": "^6.4.3",
-    "@storybook/addon-docs": "^10.4.6"
+    "vite": "^6.4.3"
   }
 }

@@ -88,13 +88,13 @@ The split rule:
 
 ## Resolving the verifier (top-level only)
 
-The project chooses its own lint / type-check / test tools. **Use what the project uses — do not pick your own.** Running `tsc --noEmit` in a Biome-only project, or `eslint .` in a Biome project, produces noise the project doesn't enforce, and the workers will then "fix" things they shouldn't.
+The project chooses its own lint / type-check / test tools. **Use what the project uses — do not pick your own.** Running `tsc --noEmit` in an Oxlint-only project, or `eslint .` in an Oxlint project, produces noise the project doesn't enforce, and the workers will then "fix" things they shouldn't.
 
 On iteration 1, **`read_file` `package.json`** (or `Cargo.toml` / `pyproject.toml` / etc.) and inspect the `scripts` block. Identify which scripts run lint and type-check. Common project shapes:
 
 | Project shape | Tell-tale config | Verifier the worker should run |
 |---|---|---|
-| **Biome** | `biome.json` / `biome.jsonc` present | `bun run lint` (typically wired to `biome check`). **Do not also run `tsc --noEmit`** unless the `scripts` block lists a separate type-check script — Biome covers lint + format together, and if the project chose not to run `tsc` separately, neither should the worker. |
+| **Oxlint + Oxfmt** | `.oxlintrc.json` / `.oxfmtrc.json` present | `bun run lint` (typically wired to `oxlint`). Run formatting through the configured format script. **Do not also run `tsc --noEmit`** unless the `scripts` block lists a separate type-check script. |
 | **ESLint + TypeScript** | `.eslintrc*` / `eslint.config.*` plus `tsconfig.json` | Both `bun run lint` and `bun run typecheck` (or `tsc --noEmit -p <tsconfig>` if there's no script). Lint catches style; type-check catches broken imports across files. |
 | **Ruff (Python)** | `pyproject.toml` with `[tool.ruff]` | `ruff check <path>` plus `pyright` / `mypy` if also configured. |
 | **Cargo (Rust)** | `Cargo.toml` | `cargo check` and `cargo clippy`. |
@@ -102,7 +102,7 @@ On iteration 1, **`read_file` `package.json`** (or `Cargo.toml` / `pyproject.tom
 
 **Prefer `scripts` entries over guessing.** If a project lists `"lint": "bun run lint:js && bun run lint:css"`, run `bun run lint`, not the sub-commands. The `scripts` block is the project's chosen abstraction.
 
-**If no scripts are configured** (rare): degrade gracefully to the obvious config-file-driven defaults: `biome.json` → `biome check`, `tsconfig.json` alone → `tsc --noEmit`. **Never invent** a verifier that isn't supported by any config or script.
+**If no scripts are configured** (rare): degrade gracefully to the obvious config-file-driven defaults: `.oxlintrc.json` → `oxlint`, `tsconfig.json` alone → `tsc --noEmit`. **Never invent** a verifier that isn't supported by any config or script.
 
 Record the resolved commands in your conversation history and pass them verbatim in **every** worker dispatch (see Input Template).
 
@@ -147,7 +147,7 @@ Skills:
 - <skill name 1>
 - <skill name 2>
 Verifier:
-- lint: <the project's actual lint command, e.g. `bun run lint` or `biome check`>
+- lint: <the project's actual lint command, e.g. `bun run lint` or `oxlint`>
 - typecheck: <the project's actual type-check command, or `n/a` if the project doesn't have one>
 - test: <the project's actual test command, or `n/a`>
 Scope:
@@ -175,7 +175,7 @@ Verifier:
 
 `name: "@comma/core-strategies/strategies/standardize-worker"`, `input: <the block above>`.
 
-**Pass the same standards, skills, and verifier bullets every time** — they're inherited verbatim from your resolved (top-level) or received (sub-folder) list. The worker uses your `Verifier:` block to know which lint / type-check command to actually run — without it, the worker would guess (e.g. running `tsc --noEmit` in a Biome-only project, which produces irrelevant noise).
+**Pass the same standards, skills, and verifier bullets every time** — they're inherited verbatim from your resolved (top-level) or received (sub-folder) list. The worker uses your `Verifier:` block to know which lint / type-check command to actually run — without it, the worker would guess (e.g. running `tsc --noEmit` in an Oxlint-only project, which produces irrelevant noise).
 
 ## Output Format
 
@@ -255,7 +255,7 @@ If zero blocked items, omit the `Blocked Items` section.
 - `edit_file` / `write_file`: structural edits only at this level (barrels, import paths after moves, tiny cross-cutting touches). Per-file content audits are the worker's job.
 - `create_file` / `move_file` / `delete_file` / `restore_file`: structural moves, renames, new barrels.
 - `run_command`: project-wide verification at the end (top-level only). Pass `cwd` — never write `cd …; cmd`.
-- `run_command`: project-wide verification at the end (top-level only) **using the resolved verifier commands from `package.json` scripts** — never a generic default like `tsc --noEmit` in a Biome project. Pass `cwd` — never write `cd …; cmd`.
+- `run_command`: project-wide verification at the end (top-level only) **using the resolved verifier commands from `package.json` scripts** — never a generic default like `tsc --noEmit` in an Oxlint project. Pass `cwd` — never write `cd …; cmd`.
 - `list_skills` / `load_skill`: top-level only.
 - `ask_question`: only when you genuinely cannot resolve the target path.
 - `list_strategy`: once on iteration 1 (top-level only) to confirm sub-strategies exist.
@@ -271,7 +271,7 @@ If zero blocked items, omit the `Blocked Items` section.
 - **Never** edit a file's contents to do work the worker should do (formatting, JSDoc, type strength). Your edits are structural / cross-cutting only at this directory level.
 - **Never** write to a file whose `sha256` you don't have. `read_file` first; carry `expectedSha256`.
 - **Never** invent a standard the user didn't ask for and no config/skill supports.
-- **Never** invent a verifier command. **Always** use what `package.json` scripts (or the equivalent project manifest) actually defines. Running `tsc --noEmit` in a Biome-only project, or `eslint .` in a Biome project, produces noise the project doesn't enforce and corrupts every downstream worker's iteration loop. If the project lists no lint / typecheck scripts at all, fall back to the obvious config-driven default (Biome → `biome check`, tsconfig alone → `tsc --noEmit`) — **never** layer on additional checks the project didn't ask for.
+- **Never** invent a verifier command. **Always** use what `package.json` scripts (or the equivalent project manifest) actually defines. Running `tsc --noEmit` in an Oxlint-only project, or `eslint .` in an Oxlint project, produces noise the project doesn't enforce and corrupts every downstream worker's iteration loop. If the project lists no lint / typecheck scripts at all, fall back to the obvious config-driven default (Oxlint → `oxlint`, tsconfig alone → `tsc --noEmit`) — **never** layer on additional checks the project didn't ask for.
 - **Never** dispatch a worker (or recurse into a sub-folder) without a `Verifier:` block in the input. Sub-managers and workers depend on this to know which command to actually run.
 - **Never** narrate progress between items in your visible output — the timeline shows your tool calls. Save text for the final report / summary.
 - **Never** dispatch a worker (or recurse into a sub-folder) while your own structural mutations have left the resolved verifier unhappy. Fix it first — otherwise every downstream worker inherits broken imports and will report failure cascades that you caused.

@@ -1,45 +1,31 @@
-import { describe, expect, it } from "bun:test";
-import { createDaemonStore } from "../daemon-store";
-import type { Logger } from "../logger/logger.types";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { createDaemonStore } from "../server/daemon-store";
+import { getLogger } from "@logtape/logtape";
 import {
   createClientLifecycleEffect,
   createDaemonEventDispatcher,
   createRunLifecycleEffect,
 } from "./daemon-effects";
 
-function createRecordingLogger(): Logger & {
-  readonly entries: Array<{ level: string; message: string }>;
-} {
-  const entries: Array<{ level: string; message: string }> = [];
-  const logger: Logger & { readonly entries: typeof entries } = {
-    entries,
-    debug(message): void {
-      entries.push({ level: "debug", message });
-    },
-    info(message): void {
-      entries.push({ level: "info", message });
-    },
-    warn(message): void {
-      entries.push({ level: "warn", message });
-    },
-    error(message): void {
-      entries.push({ level: "error", message });
-    },
-    child(): Logger {
-      return logger;
-    },
-    flush(): void {},
-    close(): void {},
-  };
-  return logger;
-}
+const logger = getLogger(["comma", "daemon", "daemon-effects"]);
+let debug: ReturnType<typeof spyOn<typeof logger, "debug">>;
+let info: ReturnType<typeof spyOn<typeof logger, "info">>;
+let error: ReturnType<typeof spyOn<typeof logger, "error">>;
+beforeEach(() => {
+  debug = spyOn(logger, "debug").mockReturnValue(undefined);
+  info = spyOn(logger, "info").mockReturnValue(undefined);
+  error = spyOn(logger, "error").mockReturnValue(undefined);
+});
+afterEach(() => {
+  debug.mockRestore();
+  info.mockRestore();
+  error.mockRestore();
+});
 
 describe("createDaemonEventDispatcher", () => {
   it("should route actions to effects in order", () => {
-    const store = createDaemonStore();
     const calls: string[] = [];
-    createDaemonEventDispatcher({
-      daemonStore: store,
+    const events = createDaemonEventDispatcher({
       effects: [
         {
           name: "first",
@@ -54,20 +40,16 @@ describe("createDaemonEventDispatcher", () => {
           },
         },
       ],
-      logger: createRecordingLogger(),
     });
 
-    store.addClient("client-1");
+    events.publish({ type: "client.runtime.connected", clientId: "client-1" });
 
     expect(calls).toEqual(["first", "second"]);
   });
 
   it("should isolate an effect failure", () => {
-    const store = createDaemonStore();
-    const logger = createRecordingLogger();
     const calls: string[] = [];
-    createDaemonEventDispatcher({
-      daemonStore: store,
+    const events = createDaemonEventDispatcher({
       effects: [
         {
           name: "failing",
@@ -82,23 +64,20 @@ describe("createDaemonEventDispatcher", () => {
           },
         },
       ],
-      logger,
     });
 
-    store.addClient("client-1");
+    events.publish({ type: "client.runtime.connected", clientId: "client-1" });
 
     expect(calls).toEqual(["later"]);
-    expect(logger.entries).toContainEqual({
-      level: "error",
-      message: "Daemon effect failing failed",
+    expect(error).toHaveBeenCalledWith("Daemon effect failing failed", {
+      eventType: "client.runtime.connected",
+      error: "failed",
     });
   });
 
   it("should dispose all effect delivery", () => {
-    const store = createDaemonStore();
     const calls: string[] = [];
     const effects = createDaemonEventDispatcher({
-      daemonStore: store,
       effects: [
         {
           name: "test",
@@ -107,33 +86,36 @@ describe("createDaemonEventDispatcher", () => {
           },
         },
       ],
-      logger: createRecordingLogger(),
     });
     effects.dispose();
 
-    store.addClient("client-1");
+    effects.publish({ type: "client.runtime.connected", clientId: "client-1" });
 
     expect(calls).toEqual([]);
   });
 
-  it("should log only matching client and run actions", () => {
+  it("should separate daemon-wide and per-run lifecycle effects", async () => {
     const store = createDaemonStore();
-    const logger = createRecordingLogger();
-    createDaemonEventDispatcher({
-      daemonStore: store,
-      effects: [
-        createClientLifecycleEffect(logger),
-        createRunLifecycleEffect(logger),
-      ],
-      logger,
+    const events = createDaemonEventDispatcher({
+      effects: [createClientLifecycleEffect()],
     });
 
     store.addClient("client-1");
-    store.createRun("/strategy.json", "Test", "/workspace", "run-1");
+    events.publish({ type: "client.runtime.connected", clientId: "client-1" });
+    const runStore = store.createRun(
+      "/strategy.json",
+      "Test",
+      "/workspace",
+      "run-1",
+    );
+    runStore.subscribeToTransitions(createRunLifecycleEffect());
+    await runStore.transition({ type: "running" });
 
-    expect(logger.entries).toEqual([
-      { level: "info", message: "Client connected: client-1" },
-      { level: "debug", message: "Daemon run.created" },
-    ]);
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(info).toHaveBeenCalledWith("Client connected: client-1");
+    expect(debug).toHaveBeenCalledTimes(1);
+    expect(debug).toHaveBeenCalledWith("Daemon run.running", {
+      runId: "run-1",
+    });
   });
 });

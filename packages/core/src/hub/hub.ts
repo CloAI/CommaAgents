@@ -19,6 +19,7 @@ import { createHubRegistryClient } from "./registry-client";
  * Create a manager for discovering, installing, updating, and removing Hub packages.
  *
  * @param options - Optional data directory, repository, and fetch implementation.
+ * @returns A Hub manager for managing Hub packages.
  * @example
  * ```ts
  * const hub = createHubManager();

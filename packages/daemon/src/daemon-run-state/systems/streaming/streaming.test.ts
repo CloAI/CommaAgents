@@ -40,7 +40,6 @@ describe("createStreamingSystem", () => {
       strategy,
     };
     const system = createStreamingSystem({
-      logger: context.logger,
       messageSender: context.messageSender,
     });
 

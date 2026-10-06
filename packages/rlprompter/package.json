@@ -2,19 +2,21 @@
   "name": "@comma-agents/rlprompter",
   "version": "1.0.0",
   "description": "Reinforced prompt generation — benchmark and tune CommaAgents strategy prompts through human feedback",
-  "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "license": "MIT",
+  "author": "CloAI",
   "bin": {
     "rlprompter": "src/main.tsx"
   },
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "scripts": {
     "start": "bun run src/main.tsx",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "test": "bun test",
-    "lint": "bunx @biomejs/biome check src",
-    "lint:fix": "bunx @biomejs/biome check --write src",
-    "format": "bunx @biomejs/biome format --write src"
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt src"
   },
   "dependencies": {
     "@comma-agents/core": "workspace:*",
@@ -30,7 +32,5 @@
     "@types/yargs": "17.0.33",
     "ink-testing-library": "4.0.0",
     "typescript": "6.0.2"
-  },
-  "author": "CloAI",
-  "license": "MIT"
+  }
 }

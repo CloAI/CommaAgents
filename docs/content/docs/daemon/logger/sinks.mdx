@@ -1,44 +1,29 @@
 ---
-title: Log Sinks
-description: Send structured daemon logs to stderr, files, or the host service manager.
+title: Log sinks
+description: Shared stderr and rotating file output provided by LogTape.
 ---
 
-# Log Sinks
+# Log sinks
 
-Pass one or more sinks to `createLogger`. Every sink receives the same structured entry after logger-level filtering.
+`initializeLogging` uses LogTape's built-in JSON-lines formatter, console sink, and `@logtape/file` rotating sink. CommaAgents does not implement its own sinks.
 
 ```ts
-import {
-  createFileSink,
-  createLogger,
-  createSystemSink,
-} from "@comma-agents/daemon";
+import { initializeLogging } from "@comma-agents/daemon";
 
-const logger = createLogger({
+const logging = initializeLogging({
   level: "info",
-  sinks: [
-    createSystemSink(),
-    createFileSink("./logs/daemon.jsonl"),
-  ],
+  file: "./logs/daemon.log",
+  maxSize: 10 * 1024 * 1024,
+  maxFiles: 5,
 });
+// On application shutdown, after all services have stopped:
+logging.close();
 ```
 
-## stderr
+All severities go to stderr. Set `stderr: false` for file-only application logs. LogTape's internal warnings and sink failures still go to stderr.
 
-`createStderrSink()` writes one JSON object per line to standard error. It is the default when `createLogger` receives no sinks.
+File output is enabled when `file` is supplied; the daemon supplies its configured `logFile` by default. Parent directories are created automatically. Existing logs are appended across restarts. The default rotation threshold is 10 MiB with five numbered backups (`daemon.log.1` through `daemon.log.5`). Rotation happens on writes; a buffered batch can exceed the threshold before the next rotation. File buffering and disposal are owned by LogTape, and `close()` flushes pending records.
 
-## File
+Detached daemon startup ignores stderr, so the rotating file is its retained diagnostic output. OS service managers can collect foreground stderr; there is no separate system sink or automatic syslog severity prefix.
 
-`createFileSink(path)` creates or truncates the selected file when the sink opens, appends JSON lines for subsequent entries, and creates the parent directory when needed.
-
-## System service
-
-`createSystemSink()` writes service-manager-friendly output. Under systemd it adds severity prefixes understood by journald; on other platforms it writes JSON lines to standard error for the service manager to capture.
-
-Use `describeSystemLogging()` to display the behavior selected for the current platform.
-
-```ts
-import { describeSystemLogging } from "@comma-agents/daemon";
-
-console.log(describeSystemLogging());
-```
+Applications needing different destinations can configure LogTape directly instead of calling `initializeLogging`. Use the `comma` category for application logs and configure `logtape.meta` separately for sink diagnostics. See the [LogTape sink documentation](https://logtape.org/manual/sinks).

@@ -127,13 +127,13 @@ export function createRunCommandTool(
 
 **Use what the project actually configures, not generic defaults.** Read \`package.json\`'s \`scripts\` block (or the equivalent project manifest) once to find out — then reuse those commands for the rest of the session.
 
-- **Biome project** (\`biome.json\` present): the project's lint script (typically \`bun run lint\` → \`biome check\`). Do not also run \`tsc --noEmit\` unless the project's scripts list it as a separate step.
+- **Oxlint + Oxfmt project** (\`.oxlintrc.json\` / \`.oxfmtrc.json\` present): the project's lint script (typically \`bun run lint\` → \`oxlint\`). Run the format script separately when formatting is required. Do not also run \`tsc --noEmit\` unless the project's scripts list it as a separate step.
 - **ESLint + TypeScript**: both \`bun run lint\` and \`bun run typecheck\` (or \`tsc --noEmit -p <tsconfig>\` if no script).
 - **Ruff (Python)**: \`ruff check <path>\`.
 - **Cargo (Rust)**: \`cargo check\` and \`cargo clippy\`.
 - **Tests**: prefer \`bun test <file>\` or \`bun run test\` (scoped to the file when possible).
 
-**Never run a verifier the project doesn't configure** — running \`tsc --noEmit\` in a Biome-only project, or \`eslint .\` in a Biome project, produces noise the project intentionally doesn't enforce and corrupts downstream iteration loops.
+**Never run a verifier the project doesn't configure** — running \`tsc --noEmit\` in an Oxlint-only project, or \`eslint .\` in an Oxlint project, produces noise the project intentionally doesn't enforce and corrupts downstream iteration loops.
 
 **If you receive a \`Verifier:\` block in your seed input** (typical when launched by the Standardize Manager): those are the project's actual commands — use them verbatim, do not substitute or augment.
 

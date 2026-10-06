@@ -52,7 +52,7 @@ export function buildRegionOutput(
  * visible character length.
  */
 export function visibleLength(str: string): number {
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escapes requires matching control chars
+  // oxlint-disable-next-line no-control-regex -- stripping ANSI escapes requires matching control chars
   return str.replace(/\x1b\[[0-9;]*m/g, "").length;
 }
 
@@ -69,7 +69,7 @@ export function padToWidth(str: string, width: number): string {
   return str + " ".repeat(width - visible);
 }
 
-// biome-ignore lint/suspicious/noControlCharactersInRegex: matching ANSI SGR escapes requires control chars
+// oxlint-disable-next-line no-control-regex -- matching ANSI SGR escapes requires control chars
 const ANSI_SGR_PATTERN = /\x1b\[[0-9;]*m/g;
 
 /**

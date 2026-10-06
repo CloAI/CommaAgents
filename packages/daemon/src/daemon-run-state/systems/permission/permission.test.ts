@@ -27,12 +27,7 @@ describe("createPermissionSystem", () => {
     }
 
     expect(
-      context.actions.invoke(
-        "resolvePermission",
-        context.run.id,
-        message.requestId,
-        "allow",
-      ),
+      context.actions.invoke("resolvePermission", message.requestId, "allow"),
     ).toBe(true);
     expect(await result).toBe("allow");
   });
@@ -59,13 +54,11 @@ describe("createPermissionSystem", () => {
     expect(firstMessage.requestId).not.toBe(secondMessage.requestId);
     context.actions.invoke(
       "resolvePermission",
-      context.run.id,
       firstMessage.requestId,
       "allow",
     );
     context.actions.invoke(
       "resolvePermission",
-      context.run.id,
       secondMessage.requestId,
       "deny",
     );

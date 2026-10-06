@@ -26,7 +26,6 @@ describe("createQuestionSystem", () => {
     expect(
       context.actions.invoke(
         "resolveQuestion",
-        context.run.id,
         message.requestId,
         "The first option",
       ),
@@ -54,15 +53,9 @@ describe("createQuestionSystem", () => {
     }
 
     expect(firstMessage.requestId).not.toBe(secondMessage.requestId);
+    context.actions.invoke("resolveQuestion", firstMessage.requestId, "first");
     context.actions.invoke(
       "resolveQuestion",
-      context.run.id,
-      firstMessage.requestId,
-      "first",
-    );
-    context.actions.invoke(
-      "resolveQuestion",
-      context.run.id,
       secondMessage.requestId,
       "second",
     );
@@ -82,14 +75,9 @@ describe("createQuestionSystem", () => {
     await system.onRunCleanup?.(context);
 
     await expect(result).rejects.toThrow("Question system cleaned up");
-    expect(
-      context.actions.invoke(
-        "resolveQuestion",
-        context.run.id,
-        "missing",
-        "answer",
-      ),
-    ).toBe(false);
+    expect(context.actions.invoke("resolveQuestion", "missing", "answer")).toBe(
+      false,
+    );
   });
 
   it("rejects pending questions when the run is aborted", async () => {

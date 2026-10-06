@@ -22,7 +22,7 @@ export function DiffView({ diff, maxLines = 40 }: DiffViewProps) {
   return (
     <Box flexDirection="column">
       {shown.map((line, index) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: diff lines are a static, non-reorderable snapshot
+        // oxlint-disable-next-line react/no-array-index-key -- diff lines are a static, non-reorderable snapshot
         <Text key={index} color={colorFor(line, theme)}>
           {line.length > 0 ? line : " "}
         </Text>

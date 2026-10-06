@@ -10,16 +10,23 @@ The daemon is a WebSocket server that hosts strategy runs and communicates with 
 ```ts
 import {
   createDaemon,
-  createLogger,
+  initializeLogging,
   loadDaemonConfig,
 } from "@comma-agents/daemon";
 
 const config = loadDaemonConfig();
-const logger = createLogger({ level: config.logLevel });
-const daemon = createDaemon({ config, logger });
+const logging = initializeLogging({ level: config.logLevel, file: config.logFile });
+const daemon = createDaemon({ config });
 
 await daemon.start();
 console.log(daemon.url);
+
+// When the application is ready to shut down:
+try {
+  await daemon.stop();
+} finally {
+  logging.close();
+}
 ```
 
 ## Daemon

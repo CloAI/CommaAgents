@@ -1,5 +1,5 @@
 import type z from "zod";
-import type { LogLevel } from "../logger";
+import type { LogLevel } from "@logtape/logtape";
 import type { DaemonConfigFileSchema } from "./config.constants";
 
 /** Optional daemon settings accepted by the JSON configuration file. */
@@ -12,7 +12,7 @@ export interface DaemonConfig {
   /** WebSocket server bind address. @default "127.0.0.1" */
   readonly host: string;
   /** Minimum log level. @default "info" */
-  readonly logLevel: LogLevel;
+  readonly logLevel: LogLevel | "warn";
   /** Optional file that receives structured daemon logs. */
   readonly logFile: string | undefined;
   /** Path to the PID file. */

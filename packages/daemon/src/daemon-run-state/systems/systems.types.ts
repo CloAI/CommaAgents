@@ -17,13 +17,9 @@ import type {
   Sandbox,
 } from "@comma-agents/core/sandbox";
 import type { DaemonEventDispatcher } from "../../daemon-effects";
-import type {
-  DaemonStore,
-  RunSnapshot,
-} from "../../daemon-store/daemon-store.types";
-import type { Logger } from "../../logger/logger.types";
+import type { DaemonStore, RunSnapshot } from "../../server/daemon-store";
 import type { MessageSender } from "../../server/protocol/dispatcher/dispatcher.types";
-import type { RunOverview } from "../run-store";
+import type { RunOverview } from "../run-repository";
 import type { RunMcpServerStatus } from "./mcp";
 import type { QuestionRequester } from "./question/question.types";
 
@@ -35,8 +31,7 @@ export interface CreateDaemonRunStateOptions {
   readonly events?: DaemonEventDispatcher;
   /** Destination for run events and client-specific requests. */
   readonly messageSender: MessageSender;
-  /** Logger used for run diagnostics. */
-  readonly logger: Logger;
+
   /** Directory containing persisted run timelines. */
   readonly runsDir: string;
   /** Daemon-owned Hub service used to authorize installed executable projects. */
@@ -68,7 +63,7 @@ export interface DaemonRunState {
   ): void;
 
   /** Abort an active run. */
-  stopRun(runId: string): void;
+  stopRun(runId: string): Promise<void>;
   /** Abort active runs and wait for their cleanup to finish. */
   shutdown(): Promise<void>;
 
@@ -203,21 +198,19 @@ export type RunActionHandler<ActionName extends keyof RunActionArgsMap> = (
 export interface RunActionRegistry {
   register<ActionName extends keyof RunActionArgsMap>(
     actionName: ActionName,
-    runId: string,
     handler: RunActionHandler<ActionName>,
   ): void;
   invoke<ActionName extends keyof RunActionArgsMap>(
     actionName: ActionName,
-    runId: string,
     ...args: RunActionArgsMap[ActionName]
   ): boolean;
-  unregisterAll(runId: string): void;
+  unregisterAll(): void;
 }
 
 export interface SystemRunContext {
   readonly run: RunSnapshot;
   readonly messageSender: MessageSender;
-  readonly logger: Logger;
+
   readonly clientId: string;
   readonly modelOverride: string | undefined;
   readonly abortSignal: AbortSignal;

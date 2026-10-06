@@ -1,134 +1,53 @@
+import { getLogger } from "@logtape/logtape";
 import type {
   Agent,
   AgentStreamEvent,
-  McpServerStatus,
   TimelineEvent,
 } from "@comma-agents/core";
-import type { RunSnapshot } from "../../../daemon-store";
-import type { Logger } from "../../../logger";
-import type { RunStore } from "../../run-store";
-import type {
-  CompletionContext,
-  ErrorContext,
-  ExecutionContext,
-} from "../systems.types";
+import type { RunSnapshot } from "../../../server/daemon-store";
+import type { RunRepository } from "../../run-repository";
+import type { ExecutionContext } from "../systems.types";
 import type {
   PersistenceSystem,
   PersistenceSystemOptions,
 } from "./persistence.types";
 
+const logger = getLogger(["comma", "daemon", "persistence"]);
+
 export function createPersistenceSystem(
   options: PersistenceSystemOptions,
 ): PersistenceSystem {
-  const { logger, runStore } = options;
+  const { runRepository } = options;
 
   return {
     name: "persistence",
-
-    async onBeforeExecute({
-      run,
-      strategy,
-      input,
-      cwd,
-      manifestPath,
-      modelOverride,
-      systemData,
-    }: ExecutionContext): Promise<void> {
-      const enabledMcpServerIds =
-        (await runStore.getRunConfig(run.id))?.enabledMcpServerIds ?? [];
-      const mcpServers: readonly McpServerStatus[] = (
-        systemData.get("mcpServerStatuses") ?? []
-      ).map((status) => ({
-        id: status.id,
-        source: status.source,
-        transport: status.transport,
-        enabled: status.enabled,
-        connected: status.connected ?? false,
-        toolCount: status.toolCount,
-        ...(status.error !== undefined ? { error: status.error } : {}),
-      }));
-      try {
-        await runStore.appendEvent(run.id, {
-          type: "run_started",
-          ts: new Date().toISOString(),
-          strategyPath: run.strategyPath,
-          strategyName: strategy.name,
-          cwd,
-          initialInput: input,
-          ...(manifestPath !== undefined ? { manifestPath } : {}),
-          ...(modelOverride !== undefined ? { modelOverride } : {}),
-          enabledMcpServerIds,
-          mcpServers,
-        });
-      } catch (error) {
-        logger.warn(
-          `Failed to append run_started event for run ${run.id}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-
-      const flowHooks = buildFlowHooks(run, runStore, logger);
+    onBeforeExecute({ run, strategy }: ExecutionContext): void {
+      const flowHooks = buildFlowHooks(run, runRepository);
       strategy.flow.appendHook?.("beforeStep", flowHooks.beforeStep);
       strategy.flow.appendHook?.("afterStep", flowHooks.afterStep);
 
       for (const agent of Object.values(strategy.agents)) {
         if (!agent.appendHook) continue;
 
-        const agentHooks = buildAgentHooks(agent, run, runStore, logger);
+        const agentHooks = buildAgentHooks(agent, run, runRepository);
         agent.appendHook("onStreamEvent", agentHooks.onStreamEvent);
         agent.appendHook("afterCallResult", agentHooks.afterCallResult);
-      }
-    },
-
-    async onRunComplete(completionContext: CompletionContext): Promise<void> {
-      const { run } = completionContext;
-
-      try {
-        await runStore.appendEvent(run.id, {
-          type: "run_completed",
-          ts: new Date().toISOString(),
-          status: "completed",
-        });
-      } catch (error) {
-        logger.warn(
-          `Failed to append run_completed event for run ${run.id}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    },
-
-    async onRunError(errorContext: ErrorContext): Promise<void> {
-      const { run, classified } = errorContext;
-
-      try {
-        await runStore.appendEvent(run.id, {
-          type: "run_completed",
-          ts: new Date().toISOString(),
-          status: classified.status,
-          error: {
-            code: classified.code,
-            message: classified.message,
-          },
-        });
-      } catch (error) {
-        logger.warn(
-          `Failed to append run_completed event for run ${run.id}: ${error instanceof Error ? error.message : String(error)}`,
-        );
       }
     },
   };
 }
 
-function buildFlowHooks(run: RunSnapshot, runStore: RunStore, logger: Logger) {
+function buildFlowHooks(run: RunSnapshot, runRepository: RunRepository) {
   return {
     beforeStep({ stepName }: { stepName: string }): void {
-      appendEvent(runStore, logger, run.id, {
+      appendEvent(runRepository, run.id, {
         type: "step_started",
         ts: new Date().toISOString(),
         stepName,
       });
     },
-
     afterStep({ stepName }: { stepName: string }): void {
-      appendEvent(runStore, logger, run.id, {
+      appendEvent(runRepository, run.id, {
         type: "step_completed",
         ts: new Date().toISOString(),
         stepName,
@@ -140,30 +59,28 @@ function buildFlowHooks(run: RunSnapshot, runStore: RunStore, logger: Logger) {
 function buildAgentHooks(
   agent: Agent,
   run: RunSnapshot,
-  runStore: RunStore,
-  logger: Logger,
+  runRepository: RunRepository,
 ) {
   return {
     onStreamEvent(event: AgentStreamEvent): void {
       if (event.type !== "retention") return;
 
-      appendEvent(runStore, logger, run.id, {
+      appendEvent(runRepository, run.id, {
         type: "conversation_retention",
         ts: event.event.createdAt,
         event: event.event,
       });
     },
-
     afterCallResult(): void {
       const record = agent.getConversationContext?.().records().at(-1);
       if (!record) {
-        logger.warn(
+        logger.warning(
           `No conversation record available to persist for agent ${agent.name} in run ${run.id}`,
         );
         return;
       }
 
-      appendEvent(runStore, logger, run.id, {
+      appendEvent(runRepository, run.id, {
         type: "agent_call",
         ts: record.createdAt,
         record,
@@ -173,13 +90,12 @@ function buildAgentHooks(
 }
 
 function appendEvent(
-  runStore: RunStore,
-  logger: Logger,
+  runRepository: RunRepository,
   runId: string,
   event: TimelineEvent,
 ): void {
-  runStore.appendEvent(runId, event).catch((error) => {
-    logger.warn(
+  runRepository.appendEvent(runId, event).catch((error) => {
+    logger.warning(
       `Failed to append ${event.type} event for run ${runId}: ${error instanceof Error ? error.message : String(error)}`,
     );
   });

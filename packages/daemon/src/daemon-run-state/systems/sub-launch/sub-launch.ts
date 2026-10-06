@@ -1,3 +1,4 @@
+import { getLogger } from "@logtape/logtape";
 import type {
   AgentCallResult,
   AgentStreamEvent,
@@ -14,20 +15,20 @@ import type { HubManager } from "@comma-agents/core/hub";
 import { toAgentStreamEventWire } from "../../../server/protocol/responses/from-core";
 import { resolveAgentModelDetails } from "../../agent-model-details";
 import { assertProjectCodeApproved } from "../../prepare-strategy";
-import type { RunStore } from "../../run-store";
+import type { RunRepository } from "../../run-repository";
 import { createRunMcpRuntime, resolveRunMcpConfig } from "../mcp";
 import type { DaemonSystem, SystemRunContext } from "../systems.types";
 
+const logger = getLogger(["comma", "daemon", "sub-launch"]);
+
 export function createSubLaunchSystem(
   hubManager?: HubManager,
-  runStore?: RunStore,
+  runRepository?: RunRepository,
 ): DaemonSystem {
   return {
     name: "sub-launch",
-
     onRunPrepare(runContext: SystemRunContext): void {
-      const { run, messageSender, systemData, logger, abortSignal } =
-        runContext;
+      const { run, messageSender, systemData, abortSignal } = runContext;
 
       const launchStrategy: LaunchStrategyHandle = async (
         request: LaunchStrategyRequest,
@@ -56,13 +57,13 @@ export function createSubLaunchSystem(
         }
 
         const strategyFile = await readStrategyFile(strategyPath);
-        const mcpRuntime = runStore
+        const mcpRuntime = runRepository
           ? await createRunMcpRuntime(
               await resolveRunMcpConfig({
                 strategyPath,
                 cwd: run.cwd,
                 runId: run.id,
-                runStore,
+                runRepository,
               }),
             )
           : undefined;

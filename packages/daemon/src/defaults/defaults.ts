@@ -80,7 +80,7 @@ export function setDaemonRunsDirectory(runsDir: string | undefined): void {
   daemonDefaultOverrides = { ...daemonDefaultOverrides, runsDir };
 }
 
-export function getDaemonDefaults(): DaemonConfig {
+export function getDaemonConfig(): DaemonConfig {
   return {
     port: getDaemonPort(),
     host: getDaemonHost(),

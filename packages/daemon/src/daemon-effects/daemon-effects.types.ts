@@ -1,5 +1,4 @@
-import type { DaemonAction, DaemonStore, RunStatus } from "../daemon-store";
-import type { Logger } from "../logger/logger.types";
+import type { RunStatus } from "../server/daemon-store";
 
 /** Runtime facts published while coordinating a run. @internal */
 export type RunRuntimeEvent =
@@ -30,7 +29,6 @@ export type ClientRuntimeEvent =
 
 /** Internal fact observable by daemon effects. @internal */
 export type DaemonEvent =
-  | DaemonAction
   | RunRuntimeEvent
   | McpRuntimeEvent
   | ClientRuntimeEvent;
@@ -57,10 +55,6 @@ export interface DaemonEventDispatcher {
 
 /** Dependencies used to create daemon event dispatching. @internal */
 export interface DaemonEventDispatcherConfig {
-  /** Authoritative store whose successful actions become daemon events. */
-  readonly daemonStore: DaemonStore;
   /** Effects installed when the dispatcher is created. */
   readonly effects?: readonly DaemonEffect[];
-  /** Destination for isolated effect failure diagnostics. */
-  readonly logger: Logger;
 }

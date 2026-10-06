@@ -1,3 +1,4 @@
+import { getLogger } from "@logtape/logtape";
 // Register-provider request handler.
 
 import {
@@ -11,6 +12,8 @@ import {
   saveRegisteredProviders,
 } from "../../provider-registry";
 import type { RegisterProviderMessage } from "./register-provider.schema";
+
+const logger = getLogger(["comma", "daemon", "register-provider"]);
 
 export { RegisterProviderMessage } from "./register-provider.schema";
 
@@ -62,7 +65,7 @@ export async function handleRegisterProvider(
         : {}),
     });
   } catch (caughtError) {
-    context.logger.error(`register_provider failed: ${caughtError}`);
+    logger.error(`register_provider failed: ${caughtError}`);
     context.reply({
       type: "error" as const,
       code: "INTERNAL_ERROR",

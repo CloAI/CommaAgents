@@ -1,4 +1,4 @@
-import type { Logger } from "../../logger/logger.types";
+import { getLogger } from "@logtape/logtape";
 import type {
   CleanupContext,
   CompletionContext,
@@ -9,10 +9,11 @@ import type {
   SystemRunContext,
 } from "./systems.types";
 
+const logger = getLogger(["comma", "daemon", "systems"]);
+
 export async function invokeOnRunPrepare(
   systems: readonly DaemonSystem[],
   runContext: SystemRunContext,
-  logger: Logger,
 ): Promise<void> {
   for (const system of systems) {
     if (system.onRunPrepare) {
@@ -31,7 +32,6 @@ export async function invokeOnRunPrepare(
 export async function invokeOnStrategyLoaded(
   systems: readonly DaemonSystem[],
   strategyContext: StrategyLoadedContext,
-  logger: Logger,
 ): Promise<void> {
   for (const system of systems) {
     if (system.onStrategyLoaded) {
@@ -50,7 +50,6 @@ export async function invokeOnStrategyLoaded(
 export async function invokeOnBeforeExecute(
   systems: readonly DaemonSystem[],
   executionContext: ExecutionContext,
-  logger: Logger,
 ): Promise<void> {
   for (const system of systems) {
     if (system.onBeforeExecute) {
@@ -69,14 +68,13 @@ export async function invokeOnBeforeExecute(
 export async function invokeOnRunComplete(
   systems: readonly DaemonSystem[],
   completionContext: CompletionContext,
-  logger: Logger,
 ): Promise<void> {
   for (const system of systems) {
     if (system.onRunComplete) {
       try {
         await system.onRunComplete(completionContext);
       } catch (error) {
-        logger.warn(
+        logger.warning(
           `System ${system.name} onRunComplete failed: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
@@ -87,14 +85,13 @@ export async function invokeOnRunComplete(
 export async function invokeOnRunError(
   systems: readonly DaemonSystem[],
   errorContext: ErrorContext,
-  logger: Logger,
 ): Promise<void> {
   for (const system of systems) {
     if (system.onRunError) {
       try {
         await system.onRunError(errorContext);
       } catch (error) {
-        logger.warn(
+        logger.warning(
           `System ${system.name} onRunError failed: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
@@ -105,14 +102,13 @@ export async function invokeOnRunError(
 export async function invokeOnRunCleanup(
   systems: readonly DaemonSystem[],
   cleanupContext: CleanupContext,
-  logger: Logger,
 ): Promise<void> {
   for (const system of systems) {
     if (system.onRunCleanup) {
       try {
         await system.onRunCleanup(cleanupContext);
       } catch (error) {
-        logger.warn(
+        logger.warning(
           `System ${system.name} onRunCleanup failed: ${error instanceof Error ? error.message : String(error)}`,
         );
       }

@@ -1,5 +1,8 @@
+import { getLogger } from "@logtape/logtape";
 import type { DaemonMessage } from "../messages";
 import type { CreateDispatcherOptions, Dispatcher } from "./dispatcher.types";
+
+const logger = getLogger(["comma", "daemon", "dispatcher"]);
 
 /**
  * Create the daemon's outbound protocol dispatcher.
@@ -7,20 +10,19 @@ import type { CreateDispatcherOptions, Dispatcher } from "./dispatcher.types";
  * Inbound frames are owned by the daemon service registry. This boundary only
  * knows how to deliver a message to one client or to a run's subscribers.
  *
- * @param options - Dependencies needed for WebSocket message delivery.
- * @returns An outbound daemon message sender.
+ * @param {CreateDispatcherOptions} options - Dependencies needed for WebSocket message delivery.
+ * @returns {Dispatcher} An outbound daemon message sender.
  * @internal
  *
  * @example
  * ```ts
- * const dispatcher = createDispatcher({ daemonStore, clients, logger });
+ * const dispatcher = createDispatcher({ daemonStore, clients });
  * dispatcher.send(clientId, { type: "pong", ts: new Date().toISOString() });
  * ```
  */
 export function createDispatcher({
   daemonStore,
   clients,
-  logger,
 }: CreateDispatcherOptions): Dispatcher {
   function send(clientId: string, message: DaemonMessage): void {
     const websocket = clients.get(clientId);
@@ -38,7 +40,9 @@ export function createDispatcher({
 
   function broadcast(runId: string, message: DaemonMessage): void {
     const serializedMessage = JSON.stringify(message);
-    for (const clientId of daemonStore.getSubscribers(runId)) {
+    const runStore = daemonStore.getRunStore(runId);
+    if (!runStore) return;
+    for (const clientId of runStore.getSubscribers()) {
       const websocket = clients.get(clientId);
       if (!websocket) continue;
 
