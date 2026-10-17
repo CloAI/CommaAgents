@@ -1,0 +1,92 @@
+---
+title: LSP Plugin
+description: Query saved TypeScript and JavaScript projects through shared per-directory language subprocesses.
+---
+
+# LSP Plugin
+
+Use `daemon.plugins.lsp` for diagnostics, hover, definitions, type definitions, implementations, references, document symbols, and workspace symbols. Prepared strategies receive the service automatically for the `lsp_request` tool.
+
+```ts
+import { createDaemonKernel } from "@comma-agents/daemon";
+
+const daemon = await createDaemonKernel({ runs: { runsDir: "./runs" } });
+
+try {
+  const prepared = await daemon.plugins.runs.prepareRun({
+    strategyPath: "./strategy.json",
+    cwd: process.cwd(),
+  });
+  const result = await daemon.plugins.lsp.request(prepared.runId, {
+    method: "textDocument/diagnostic",
+    path: "src/index.ts",
+  });
+  console.log(result.diagnostics);
+  console.log(daemon.plugins.lsp.getStatus(process.cwd()));
+} finally {
+  await daemon.dispose();
+}
+```
+
+## CreateLspPluginOptions
+
+Supply the runs plugin when constructing LSP support individually.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/lsp/lsp.types.ts"
+  name="CreateLspPluginOptions"
+/>
+
+## LspPlugin
+
+Language queries belong to an execution; process status is selected by working directory.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/lsp/lsp.types.ts"
+  name="LspPlugin"
+/>
+
+## LspProcessStatus
+
+Inspect process state without starting a subprocess.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/lsp/lsp.types.ts"
+  name="LspProcessStatus"
+/>
+
+## Sharing and cleanup
+
+Preparation does not start a subprocess. The first language request acquires a run reference and starts or reuses the process for its resolved `cwd`. Runs sharing that directory share startup and a single subprocess; different working directories have independent subprocesses. Runs that never query LSP do not retain a process.
+
+```ts
+const status = daemon.plugins.lsp.getStatus(process.cwd());
+console.log(status.phase, status.pid, status.runIds);
+```
+
+An acquired reference lasts until execution cleanup. Cancelling a query affects that caller without stopping other runs' queries. When the last referencing execution finishes or is disposed, its subprocess closes. A continuation acquires a new reference on its first query. Automatic typings installation is disabled so it does not create an additional helper process.
+
+## Saved files and project discovery
+
+Queries synchronize saved edits, added files, renames, deletions, and root configuration changes. File operations invalidate an existing backend without starting a dormant one. Unsaved editor buffers are not supported.
+
+Only the working directory's root `tsconfig.json` or `jsconfig.json` is discovered. Source subdirectories included by that configuration are supported. Without a root configuration, discovery covers loose root-level source files and explicitly requested source files. Recursive discovery of separate nested projects remains deferred and is marked in code for a later bounded implementation.
+
+```ts
+await daemon.plugins.lsp.request(runId, {
+  method: "workspace/symbol",
+  query: "Configuration",
+});
+```
+
+Positions and ranges are one-indexed. The existing `lsp_request` tool continues to authorize its requested file through the run's sandbox. Direct plugin calls are trusted service operations and do not add a server endpoint.
+
+## Failure and recovery
+
+A subprocess crash rejects affected requests and triggers an automatic replacement while run references remain. Interrupted requests are not replayed. Other working directories and run execution remain independent.
+
+The initial implementation attempts one automatic replacement between successful queries. If that replacement fails or crashes before serving a successful query, status becomes `failed`. Further requests report the failure instead of entering an endless restart loop. Recovery ownership, retry escalation, and UI-versus-agent intervention are deferred and marked with TODOs at the failure transitions.
+
+Invalid requests and malformed project configuration fail the request without restarting a healthy process. Correcting the project configuration allows a subsequent query to succeed. Requests have a 30-second transport deadline; an unresponsive subprocess is replaced through the same recovery path.
+
+The old `createTypeScriptLanguageService` factory has been replaced by this plugin. Core request and response types remain available through `@comma-agents/core/language`.

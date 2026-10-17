@@ -59,24 +59,22 @@ export function defineDaemonRoute<MessageType extends ClientMessageType>(
 /**
  * Create the daemon's centralized inbound service registry.
  *
- * @param {DaemonServiceRegistryConfig} config - Services, event delivery, outbound delivery, and logging.
+ * @param {DaemonServiceRegistryConfig} config - Services and outbound protocol delivery.
  * @returns {DaemonServiceRegistry} A registry that parses and routes raw client frames.
  * @throws When two services register the same client message type.
  * @internal
  *
  * @example
  * ```ts
- * const registry = createDaemonServiceRegistry({ services, messageSender, events });
+ * const registry = createDaemonServiceRegistry({ services, messageSender });
  * await registry.handleMessage(clientId, rawFrame);
  * ```
  */
 export function createDaemonServiceRegistry({
   services,
   messageSender,
-  events,
 }: DaemonServiceRegistryConfig): DaemonServiceRegistry {
   const routesByType = new Map<ClientMessageType, DaemonRoute>();
-  const unsubscribeEffects: Array<() => void> = [];
 
   for (const service of services) {
     for (const route of service.routes) {
@@ -84,9 +82,6 @@ export function createDaemonServiceRegistry({
         throw new Error(`Duplicate daemon route: ${route.type}`);
       }
       routesByType.set(route.type, route);
-    }
-    for (const effect of service.effects ?? []) {
-      unsubscribeEffects.push(events.subscribe(effect));
     }
   }
 
@@ -150,7 +145,6 @@ export function createDaemonServiceRegistry({
         await route.handle(message, {
           clientId,
           requestId: message.requestId,
-          events,
           reply(response): void {
             messageSender.send(clientId, response);
           },
@@ -166,9 +160,6 @@ export function createDaemonServiceRegistry({
           ),
         );
       }
-    },
-    dispose(): void {
-      for (const unsubscribe of unsubscribeEffects) unsubscribe();
     },
   };
 }

@@ -27,7 +27,7 @@ for (const failure of [
         mock.module(${JSON.stringify(new URL("./runtime.utils.ts", import.meta.url).pathname)}, () => ({
           async hydrateRegisteredProviders() { if (failure === "hydrate") throw new Error("hydrate"); },
         }));
-        mock.module(${JSON.stringify(new URL("../../server/server.ts", import.meta.url).pathname)}, () => ({
+        mock.module(${JSON.stringify(new URL("../../server/createDaemon.ts", import.meta.url).pathname)}, () => ({
           createDaemon() {
             if (failure === "construct") throw new Error("construct");
             return {

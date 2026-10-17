@@ -4,7 +4,7 @@ export type {
   CreateRunStoreOptions,
   RunError,
   RunSnapshot,
-  RunStatus,
+  RunLifecycleStatus,
   RunStore,
   RunTransition,
   RunTransitionEffect,

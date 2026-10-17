@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { createDaemonEventDispatcher } from "../../daemon-effects";
 import type { DaemonMessage } from "../protocol/messages";
 import {
   createDaemonServiceRegistry,
@@ -12,7 +11,6 @@ function createRegistry(
   >[0]["services"][number]["routes"],
 ) {
   const messages: DaemonMessage[] = [];
-  const events = createDaemonEventDispatcher({});
   const registry = createDaemonServiceRegistry({
     services: [{ name: "test", routes }],
     messageSender: {
@@ -21,9 +19,8 @@ function createRegistry(
       },
       broadcast(): void {},
     },
-    events,
   });
-  return { events, messages, registry };
+  return { messages, registry };
 }
 
 describe("createDaemonServiceRegistry", () => {
@@ -62,7 +59,6 @@ describe("createDaemonServiceRegistry", () => {
           { name: "second", routes: [route] },
         ],
         messageSender: { send(): void {}, broadcast(): void {} },
-        events: createDaemonEventDispatcher({}),
       }),
     ).toThrow("Duplicate daemon route: ping");
   });
@@ -106,35 +102,5 @@ describe("createDaemonServiceRegistry", () => {
         requestId: "request-3",
       },
     ]);
-  });
-
-  it("should remove service effects when disposed", () => {
-    const calls: string[] = [];
-    const events = createDaemonEventDispatcher({});
-    const registry = createDaemonServiceRegistry({
-      services: [
-        {
-          name: "effect-service",
-          routes: [],
-          effects: [
-            {
-              name: "client-effect",
-              eventTypes: ["client.runtime.connected"],
-              handle(event): void {
-                calls.push(event.type);
-              },
-            },
-          ],
-        },
-      ],
-      messageSender: { send(): void {}, broadcast(): void {} },
-      events,
-    });
-
-    events.publish({ type: "client.runtime.connected", clientId: "client-1" });
-    registry.dispose();
-    events.publish({ type: "client.runtime.connected", clientId: "client-2" });
-
-    expect(calls).toEqual(["client.runtime.connected"]);
   });
 });

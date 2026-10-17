@@ -8,7 +8,12 @@ import type { McpServerStatus } from "../mcp";
  * Union type representing any event recorded on a strategy run's timeline.
  * All events are immutable, timestamped, and conform to this common schema.
  */
-export type TimelineEvent =
+export type TimelineEvent = {
+  /** Execution that produced this event; omitted by older timeline producers. */
+  readonly runId?: string;
+  /** Immediate parent of the producing execution. */
+  readonly parentRunId?: string;
+} & (
   | {
       readonly type: "run_started";
       readonly ts: string;
@@ -26,16 +31,28 @@ export type TimelineEvent =
       readonly ts: string;
       readonly status: "completed" | "error" | "cancelled";
       readonly error?: { readonly code: string; readonly message: string };
+      readonly result?: {
+        readonly version: 1;
+        readonly text: string;
+        readonly finishReason: string;
+        readonly usage: {
+          readonly promptTokens: number;
+          readonly completionTokens: number;
+        };
+        readonly data?: unknown;
+      };
     }
   | {
       readonly type: "agent_call";
       readonly ts: string;
       readonly record: ConversationRecord;
+      readonly childId?: string;
     }
   | {
       readonly type: "conversation_retention";
       readonly ts: string;
       readonly event: ConversationRetentionEvent;
+      readonly childId?: string;
     }
   | {
       readonly type: "user_input";
@@ -43,6 +60,8 @@ export type TimelineEvent =
       readonly agentName: string;
       readonly text: string;
       readonly source: "human" | "agent";
+      readonly requestId?: string;
+      readonly childId?: string;
     }
   | {
       readonly type: "tool_mutation";
@@ -66,6 +85,7 @@ export type TimelineEvent =
       readonly flowName?: string;
       readonly agentName?: string;
       readonly index?: number;
+      readonly childId?: string;
     }
   | {
       readonly type: "step_completed";
@@ -74,6 +94,7 @@ export type TimelineEvent =
       readonly flowName?: string;
       readonly agentName?: string;
       readonly index?: number;
+      readonly childId?: string;
     }
   | {
       readonly type: "permission_decision";
@@ -82,7 +103,8 @@ export type TimelineEvent =
       readonly agentName?: string;
       readonly toolName?: string;
       readonly resource?: string;
-    };
+    }
+);
 
 /** Filter parameters for querying events from a Timeline. */
 export interface TimelineFilter {

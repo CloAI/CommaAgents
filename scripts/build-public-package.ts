@@ -13,6 +13,10 @@ const PACKAGE_CONFIGS: ReadonlyArray<PublicPackageConfig> = [
       "src/index.ts",
       "src/hub/index.ts",
       "src/sandbox/index.ts",
+      "src/strategy/index.ts",
+      "src/skills/index.ts",
+      "src/mcp/index.ts",
+      "src/language/index.ts",
     ],
   },
   { directory: "daemon", entrypoints: ["src/index.ts", "src/cli.ts"] },
@@ -59,8 +63,7 @@ const buildResult = await Bun.build({
     join(packageDirectory, entrypoint),
   ),
   outdir: join(packageDirectory, "dist"),
-  naming:
-    packageConfig.directory === "core" ? "[dir]/[name].js" : "[name].js",
+  naming: packageConfig.directory === "core" ? "[dir]/[name].js" : "[name].js",
   target: "bun",
   external: externalDependencies,
   alias: workspaceAliases,
@@ -86,9 +89,13 @@ if (packageConfig.directory === "tui") {
 if (packageConfig.directory === "core") {
   const bundledStrategiesPath = join(packageDirectory, "strategies");
   if (existsSync(bundledStrategiesPath)) {
-    cpSync(bundledStrategiesPath, join(packageDirectory, "dist", "strategies"), {
-      recursive: true,
-    });
+    cpSync(
+      bundledStrategiesPath,
+      join(packageDirectory, "dist", "strategies"),
+      {
+        recursive: true,
+      },
+    );
   }
 
   const { zodToJsonSchema } = await import(
@@ -101,9 +108,8 @@ if (packageConfig.directory === "core") {
       "index.js",
     )
   );
-  const { CommaProjectManifestSchema } = await import(
-    "../packages/core/src/hub/hub.schema"
-  );
+  const { CommaProjectManifestSchema } =
+    await import("../packages/core/src/hub/hub.schema");
   const schema = zodToJsonSchema(CommaProjectManifestSchema, {
     name: "CommaProjectManifest",
     $refStrategy: "root",

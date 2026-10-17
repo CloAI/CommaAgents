@@ -3,10 +3,14 @@
   "pages": [
     "cli",
     "daemon",
+    "sandbox-plugin",
+    "questions-plugin",
+    "skills-plugin",
+    "mcp-plugin",
     "config",
     "server",
     "daemon-run-state",
-    "language",
+    "lsp",
     "logger",
     "state",
     "pid"

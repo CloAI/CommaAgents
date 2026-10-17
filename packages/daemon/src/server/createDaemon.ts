@@ -2,10 +2,6 @@ import { getLogger } from "@logtape/logtape";
 import { loadCatalog } from "@comma-agents/core";
 import { createHubManager } from "@comma-agents/core/hub";
 import type { Server, ServerWebSocket } from "bun";
-import {
-  createClientLifecycleEffect,
-  createDaemonEventDispatcher,
-} from "../daemon-effects";
 import { createDaemonRunState } from "../daemon-run-state/daemon-run-state";
 import {
   createCoreService,
@@ -60,15 +56,11 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
     daemonStore,
     clients: wsMap,
   });
-  const events = createDaemonEventDispatcher({
-    effects: [createClientLifecycleEffect()],
-  });
   const daemonRunState = createDaemonRunState({
     daemonStore,
     messageSender: dispatcher,
     runsDir: config.runsDir,
     hubManager,
-    events,
   });
   const serviceRegistry = createDaemonServiceRegistry({
     services: [
@@ -84,7 +76,6 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
       createCoreService(daemonRunState, daemonStore),
     ],
     messageSender: dispatcher,
-    events,
   });
 
   function handleFetch(
@@ -144,7 +135,7 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
             const { clientId } = websocket.data;
             daemonStore.addClient(clientId);
             wsMap.set(clientId, websocket);
-            events.publish({ type: "client.runtime.connected", clientId });
+            logger.info(`Client connected: ${clientId}`);
           },
           message(websocket, raw) {
             const { clientId } = websocket.data;
@@ -166,7 +157,7 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
             const { clientId } = websocket.data;
             daemonStore.removeClient(clientId);
             wsMap.delete(clientId);
-            events.publish({ type: "client.runtime.disconnected", clientId });
+            logger.info(`Client disconnected: ${clientId}`);
           },
         },
       });
@@ -193,8 +184,6 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
       if (!server) return;
 
       await daemonRunState.shutdown();
-      serviceRegistry.dispose();
-      events.dispose();
 
       // Close all WebSocket connections
       for (const [clientId, websocket] of wsMap) {

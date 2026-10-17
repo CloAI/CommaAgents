@@ -1,0 +1,71 @@
+---
+title: Skills Plugin
+description: Discover and inspect the skills available to prepared root and child executions.
+---
+
+# Skills Plugin
+
+The daemon kernel provides `daemon.plugins.skills`. Each preparation discovers global skills and project skills in the execution's working directory. Project skills take precedence when names match.
+
+```ts
+import { createDaemonKernel } from "@comma-agents/daemon";
+
+const daemon = await createDaemonKernel({ runs: { runsDir: "./runs" } });
+
+try {
+  const prepared = await daemon.plugins.runs.prepareRun({
+    strategyPath: "./strategy.json",
+    cwd: process.cwd(),
+  });
+
+  console.log(daemon.plugins.skills.listSkills(prepared.runId));
+} finally {
+  await daemon.dispose();
+}
+```
+
+## CreateSkillsPluginOptions
+
+Supply the runs plugin as a dependency when constructing the skills plugin individually.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/skills/skills.types.ts"
+  name="CreateSkillsPluginOptions"
+/>
+
+```ts
+import { createRunsPlugin, createSkillsPlugin } from "@comma-agents/daemon";
+
+const runs = createRunsPlugin({ runsDir: "./runs" });
+const skills = createSkillsPlugin({ dependencies: { runs } });
+
+try {
+  const prepared = await runs.prepareRun({ strategyPath: "./strategy.json" });
+  console.log(skills.listSkills(prepared.runId).map((skill) => skill.name));
+} finally {
+  await runs.dispose();
+  await skills.dispose();
+}
+```
+
+## SkillsPlugin
+
+List loaded skills by execution ID without exposing a mutable registry.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/skills/skills.types.ts"
+  name="SkillsPlugin"
+/>
+
+## Discovery and lifetime
+
+Missing skill directories are allowed. Malformed and oversized skill files are skipped with warnings so valid skills remain available. Each child execution loads its own registry, and continuations rediscover skills to pick up file changes.
+
+```ts
+await daemon.plugins.runs.prepareRun({ runId });
+const loadedSkills = daemon.plugins.skills.listSkills(runId);
+```
+
+Listings are available while the execution is prepared or running. Cleanup releases the retained registry. `listSkills` returns an empty list for a completed, cancelled, or unknown execution. Skill discovery that finishes after cancellation or plugin disposal does not restore retained state.
+
+See [Core skills](/docs/core/skills) for discovery locations and the `SKILL.md` format. The skill APIs are also available through `@comma-agents/core/skills`.

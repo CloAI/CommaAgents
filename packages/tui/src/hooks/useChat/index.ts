@@ -15,7 +15,7 @@ export type {
   PendingQuestionRequest,
   PersistedRunMeta,
   RunOverview,
-  RunStatus,
+  RunLifecycleStatus,
   RunSummary,
   UseChatState,
 } from "./useChat.types";

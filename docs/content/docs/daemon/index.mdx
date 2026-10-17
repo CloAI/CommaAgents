@@ -17,10 +17,17 @@ comma daemon status
 Embed the server when another application owns the process lifecycle:
 
 ```ts
-import { createDaemon, initializeLogging, loadDaemonConfig } from "@comma-agents/daemon";
+import {
+  createDaemon,
+  initializeLogging,
+  loadDaemonConfig,
+} from "@comma-agents/daemon";
 
 const config = loadDaemonConfig();
-const logging = initializeLogging({ level: config.logLevel, file: config.logFile });
+const logging = initializeLogging({
+  level: config.logLevel,
+  file: config.logFile,
+});
 const daemon = createDaemon({ config });
 
 await daemon.start();
@@ -47,7 +54,7 @@ The documentation follows the package's ownership tree:
   - [Run repository](/docs/daemon/daemon-run-state/run-repository) — persisted run timelines and configuration.
   - [MCP runtime](/docs/daemon/daemon-run-state/mcp) — per-run server selection and status.
   - [Execution systems and effects](/docs/daemon/daemon-run-state/systems) — input, permission, streaming, persistence, services, and effects.
-- [Language services](/docs/daemon/language) — workspace-aware TypeScript language operations.
+- [LSP plugin](/docs/daemon/lsp) — shared language subprocesses for TypeScript and JavaScript queries.
 - [Logging](/docs/daemon/logger) — structured loggers and output sinks.
 - [Run state](/docs/daemon/state) — shared run lifecycle statuses.
 - [PID files](/docs/daemon/pid) — process identity helpers.

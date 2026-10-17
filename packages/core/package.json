@@ -30,6 +30,22 @@
       "types": "./dist/sandbox/index.d.ts",
       "import": "./dist/sandbox/index.js"
     },
+    "./strategy": {
+      "types": "./dist/strategy/index.d.ts",
+      "import": "./dist/strategy/index.js"
+    },
+    "./skills": {
+      "types": "./dist/skills/index.d.ts",
+      "import": "./dist/skills/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js"
+    },
+    "./language": {
+      "types": "./dist/language/index.d.ts",
+      "import": "./dist/language/index.js"
+    },
     "./hub/comma-project.schema.json": "./dist/hub/comma-project.schema.json"
   },
   "publishConfig": {

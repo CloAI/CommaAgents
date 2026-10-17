@@ -1,7 +1,7 @@
-import type { RunStatus } from "./run-store.types";
+import type { RunLifecycleStatus } from "./run-store.types";
 
 export const ALLOWED_RUN_STATUS_TRANSITIONS: Readonly<
-  Record<RunStatus, ReadonlySet<RunStatus>>
+  Record<RunLifecycleStatus, ReadonlySet<RunLifecycleStatus>>
 > = {
   pending: new Set(["running", "cancelled", "error"]),
   running: new Set(["completed", "error", "cancelled"]),

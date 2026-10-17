@@ -16,7 +16,6 @@ import type {
   PolicyPatch,
   Sandbox,
 } from "@comma-agents/core/sandbox";
-import type { DaemonEventDispatcher } from "../../daemon-effects";
 import type { DaemonStore, RunSnapshot } from "../../server/daemon-store";
 import type { MessageSender } from "../../server/protocol/dispatcher/dispatcher.types";
 import type { RunOverview } from "../run-repository";
@@ -27,8 +26,6 @@ import type { QuestionRequester } from "./question/question.types";
 export interface CreateDaemonRunStateOptions {
   /** In-memory daemon state for active runs and client subscriptions. */
   readonly daemonStore: DaemonStore;
-  /** Internal runtime event publication. */
-  readonly events?: DaemonEventDispatcher;
   /** Destination for run events and client-specific requests. */
   readonly messageSender: MessageSender;
 

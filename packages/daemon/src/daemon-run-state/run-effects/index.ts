@@ -1,6 +1,7 @@
 export {
   createRunPersistenceEffect,
   createRunProtocolEffect,
+  createRunLifecycleEffect,
 } from "./run-effects";
 
 export type {

@@ -1,0 +1,176 @@
+---
+title: Sandbox Plugin
+description: Control sandbox policies and permission requests for runs without a server.
+---
+
+# Sandbox Plugin
+
+Use the sandbox plugin to receive permission requests, submit decisions, and update tool policies for prepared runs. The daemon kernel provides it as `daemon.plugins.sandbox`.
+
+```ts
+import { createDaemonKernel } from "@comma-agents/daemon";
+
+const daemon = await createDaemonKernel({ runs: { runsDir: "./runs" } });
+const runId = crypto.randomUUID();
+const unsubscribe = await daemon.plugins.sandbox.notifications.subscribe(
+  "run_permission_requested",
+  runId,
+  (request) => {
+    console.log(request.toolName, request.operation, request.resource);
+  },
+);
+
+try {
+  await daemon.plugins.runs.prepareRun({
+    runId,
+    strategyPath: "./strategy.json",
+    cwd: process.cwd(),
+  });
+  // Execute after connecting your permission decision interface.
+} finally {
+  unsubscribe();
+  await daemon.dispose();
+}
+```
+
+## CreateSandboxPluginOptions
+
+When constructing plugins individually, supply the runs plugin as a dependency.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/sandbox/sandbox.types.ts"
+  name="CreateSandboxPluginOptions"
+/>
+
+```ts
+import { createRunsPlugin, createSandboxPlugin } from "@comma-agents/daemon";
+
+const runs = createRunsPlugin({ runsDir: "./runs" });
+const sandbox = createSandboxPlugin({ dependencies: { runs } });
+
+try {
+  await runs.prepareRun({ strategyPath: "./strategy.json" });
+} finally {
+  await runs.dispose();
+  await sandbox.dispose();
+}
+```
+
+## SandboxPlugin
+
+The plugin exposes permission decisions, policy controls, and live notifications.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/sandbox/sandbox.types.ts"
+  name="SandboxPlugin"
+/>
+
+## Permission decisions
+
+Each request has a unique `requestId` and the `runId` of the execution asking for permission. Call `resolvePermission` with that execution ID and an `allow`, `deny`, `allow-session`, or `deny-session` decision. Session decisions apply to the current tool guard and execution; a continuation starts with a fresh sandbox.
+
+```ts
+const requests = daemon.plugins.sandbox.getPendingPermissions(runId);
+for (const request of requests) {
+  daemon.plugins.sandbox.resolvePermission(
+    request.runId,
+    request.requestId,
+    "deny",
+  );
+}
+```
+
+Subscribe to `run_permission_requested` to receive outstanding requests followed by future permission requests. Subscribe separately to `run_policy_updated` for policy changes. Subscription resolves to an unsubscribe function after registration and initial delivery.
+
+```ts
+const stopPolicyUpdates = await daemon.plugins.sandbox.notifications.subscribe(
+  "run_policy_updated",
+  runId,
+  (update) => console.log(update.tool, update.policies),
+);
+```
+
+Tool cancellation, run cancellation, and scope cleanup remove pending requests. Resolving a stale request or a request belonging to another run returns `false`.
+
+## Policy updates
+
+Default policies allow workspace reads and writes, ask for access outside the workspace, and block forbidden paths. Updates apply to one tool when you provide `toolName`, or to all tools in the selected sandbox when you omit it.
+
+```ts
+daemon.plugins.sandbox.updatePolicy(
+  runId,
+  { mode: "write", default: "ask" },
+  "write_file",
+);
+```
+
+Root and child executions have separate sandboxes, each addressed by its own `runId`. Notifications from children also include their immediate `parentRunId`. A root subscription receives requests from its descendants while each notification identifies the execution that needs approval.
+
+```ts
+const childRequest = daemon.plugins.sandbox
+  .getPendingPermissions(runId)
+  .find((request) => request.parentRunId);
+if (childRequest) {
+  daemon.plugins.sandbox.updatePolicy(
+    childRequest.runId,
+    { mode: "write", default: "deny" },
+    "write_file",
+  );
+}
+```
+
+Policy updates affect the current execution and are not saved across continuations. An update for a finished or unknown scope returns `false`. These APIs operate without a server; server route and channel integration is a separate phase.
+
+## Run ancestry and history
+
+Every child records its immediate parent. Runs resolves history ownership by following that chain to the root; all related executions share the root's timeline, with each event identifying its producing execution. Parent relationships remain available after resource cleanup and restarting the daemon. Preparing a continuation restores only the selected execution's conversation.
+
+```ts
+const executionId = childRequest?.runId ?? runId;
+const history = await daemon.plugins.runs.getHistory(executionId);
+const lineage = daemon.plugins.runs.getRunLineage(executionId);
+// lineage contains this execution followed by its ancestors.
+```
+
+`getRunLineage` is available after preparing the execution or reading its history or snapshot. Missing parent records and cycles produce errors instead of assigning history to an unrelated run.
+
+## Run notifications
+
+Subscribe to one event type at a time. TypeScript limits event names to the plugin's declared collection and gives the listener the selected event's payload.
+
+```ts
+const stopSnapshots = await daemon.plugins.runs.notifications.subscribe(
+  "run_snapshot",
+  runId,
+  (event) => console.log(event.snapshot.phase),
+);
+const stopOutput = await daemon.plugins.runs.notifications.subscribe(
+  "run_agent_output",
+  runId,
+  (event) => console.log(event.agentName, event.result.text),
+);
+```
+
+Snapshot subscriptions deliver the current snapshot initially. Agent output and stream subscriptions receive future events. Root subscriptions also receive matching descendant notifications.
+
+Notification delivery is synchronous; asynchronous listeners do not delay execution. Thrown errors and rejected Promises are reported without interrupting other listeners. Subscription changes during delivery affect subsequent notifications. New subscriptions are rejected when disposal begins, while existing subscribers can receive final cleanup notifications.
+
+### RunNotifications
+
+The collection of supported run event names and their payloads.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/runs/runs.notifications.ts"
+  name="RunNotifications"
+/>
+
+### SandboxNotifications
+
+The collection of supported sandbox event names and their payloads.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/sandbox/sandbox.notifications.ts"
+  name="SandboxNotifications"
+/>
+
+See [Core sandbox](/docs/core/sandbox) for guard behavior and policy evaluation.

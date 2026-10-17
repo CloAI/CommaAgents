@@ -1,9 +1,26 @@
 import type { McpServerStatus } from "@comma-agents/core";
+import { getLogger } from "@logtape/logtape";
 import type { RunTransitionEffect } from "../../server/daemon-store";
 import type {
   CreateRunPersistenceEffectOptions,
   CreateRunProtocolEffectOptions,
 } from "./run-effects.types";
+
+const logger = getLogger(["comma", "daemon", "run-effects"]);
+
+/**
+ * Log lifecycle transitions observed by one run store.
+ * @returns {RunTransitionEffect} A run lifecycle logging effect.
+ * @internal
+ */
+export function createRunLifecycleEffect(): RunTransitionEffect {
+  return {
+    name: "run-lifecycle-logging",
+    handle({ run, transition }): void {
+      logger.debug(`Daemon run.${transition.type}`, { runId: run.id });
+    },
+  };
+}
 
 /**
  * Create lifecycle persistence for one prepared execution.

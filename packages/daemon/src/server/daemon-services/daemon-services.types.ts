@@ -1,4 +1,3 @@
-import type { DaemonEffect, DaemonEventDispatcher } from "../../daemon-effects";
 import type {
   MessageSender,
   RequestResponseMap,
@@ -20,8 +19,6 @@ export interface DaemonRouteContext<
   readonly clientId: string;
   /** Optional protocol correlation identifier. */
   readonly requestId?: string;
-  /** Internal fact dispatcher available to the route. */
-  readonly events: DaemonEventDispatcher;
   /** Reply with the success type mapped to this request or an error. */
   reply(message: RequestResponseMap[MessageType] | ErrorMessage): void;
 }
@@ -37,22 +34,18 @@ export interface DaemonRoute {
   ): Promise<void> | void;
 }
 
-/** Trusted group of related daemon routes and effects. @internal */
+/** Trusted group of related daemon routes. @internal */
 export interface DaemonService {
   /** Diagnostic service name. */
   readonly name: string;
   /** Inbound routes owned by this service. */
   readonly routes: readonly DaemonRoute[];
-  /** Optional internal observers registered with the service. */
-  readonly effects?: readonly DaemonEffect[];
 }
 
 /** Central inbound protocol boundary for daemon services. @internal */
 export interface DaemonServiceRegistry {
   /** Parse, validate, and route one raw client frame. */
   handleMessage(clientId: string, rawMessage: string | Buffer): Promise<void>;
-  /** Unsubscribe every service-owned effect. */
-  dispose(): void;
 }
 
 /** Dependencies used to create the daemon service registry. @internal */
@@ -61,8 +54,6 @@ export interface DaemonServiceRegistryConfig {
   readonly services: readonly DaemonService[];
   /** Outbound protocol delivery boundary. */
   readonly messageSender: MessageSender;
-  /** Internal synchronous event dispatcher. */
-  readonly events: DaemonEventDispatcher;
 }
 
 export type DaemonRouteHandler<MessageType extends ClientMessageType> = (

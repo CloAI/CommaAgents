@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { rmSync } from "node:fs";
+import { appendFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createRunRepository } from "./run-repository";
 
@@ -17,6 +17,31 @@ afterEach(() => {
 });
 
 describe("createRunRepository", () => {
+  it("should persist execution identity separately and remove it when deleting the execution", async () => {
+    const store = createRunRepository({ runsDir: TEST_RUNS_DIR });
+    expect(await store.getRunIdentity("child")).toBeUndefined();
+    await store.saveRunIdentity({ runId: "child", parentRunId: "root" });
+    const reopened = createRunRepository({ runsDir: TEST_RUNS_DIR });
+    expect(await reopened.getRunIdentity("child")).toEqual({
+      runId: "child",
+      parentRunId: "root",
+    });
+    expect(await reopened.getEvents("child")).toEqual([]);
+    expect(await reopened.deleteRun("child")).toBe(true);
+    expect(await reopened.getRunIdentity("child")).toBeUndefined();
+  });
+
+  it("should reject malformed persisted identity", async () => {
+    const store = createRunRepository({ runsDir: TEST_RUNS_DIR });
+    await store.saveRunIdentity({ runId: "child", parentRunId: "root" });
+    writeFileSync(
+      join(TEST_RUNS_DIR, "child.identity.json"),
+      JSON.stringify({ runId: "other", parentRunId: 42 }),
+    );
+    await expect(store.getRunIdentity("child")).rejects.toThrow(
+      "Invalid run identity",
+    );
+  });
   it("should append events and load them back", async () => {
     const store = createRunRepository({ runsDir: TEST_RUNS_DIR });
     const runId = "test-run-1";
@@ -45,6 +70,22 @@ describe("createRunRepository", () => {
     const store = createRunRepository({ runsDir: TEST_RUNS_DIR });
     const events = await store.getEvents("non-existent");
     expect(events).toEqual([]);
+  });
+
+  it("should reject malformed history when strict reading is requested", async () => {
+    const store = createRunRepository({ runsDir: TEST_RUNS_DIR });
+    await store.appendEvent("corrupt", {
+      type: "run_started",
+      ts: "2026-05-23T10:00:00Z",
+      strategyPath: "/test.json",
+      strategyName: "Test",
+      cwd: "/test/cwd",
+    });
+    appendFileSync(join(TEST_RUNS_DIR, "corrupt.jsonl"), "{bad json}\n");
+
+    await expect(store.getEvents("corrupt", { strict: true })).rejects.toThrow(
+      "Malformed run timeline",
+    );
   });
 
   it("should list runs and synthesize RunOverview correctly", async () => {

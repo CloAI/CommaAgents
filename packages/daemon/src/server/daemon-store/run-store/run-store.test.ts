@@ -1,6 +1,8 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, spyOn } from "bun:test";
+import { getLogger } from "@logtape/logtape";
 import type { AgentCallResult } from "@comma-agents/core";
 import { createRunStore } from "./run-store";
+import { createRunLifecycleEffect } from "../../../daemon-run-state/run-effects";
 
 const result: AgentCallResult = {
   text: "done",
@@ -20,6 +22,26 @@ function createTestRunStore() {
 }
 
 describe("createRunStore", () => {
+  it("should log lifecycle transitions through its run logging effect", async () => {
+    const logger = getLogger(["comma", "daemon", "run-effects"]);
+    const debug = spyOn(logger, "debug").mockReturnValue(undefined);
+    try {
+      const runStore = createTestRunStore();
+      runStore.subscribeToTransitions(createRunLifecycleEffect());
+      await runStore.transition({ type: "running" });
+      await runStore.transition({ type: "completed", result });
+      expect(debug).toHaveBeenCalledTimes(2);
+      expect(debug).toHaveBeenCalledWith("Daemon run.running", {
+        runId: "run-1",
+      });
+      expect(debug).toHaveBeenCalledWith("Daemon run.completed", {
+        runId: "run-1",
+      });
+    } finally {
+      debug.mockRestore();
+    }
+  });
+
   it("should transition through valid discriminated lifecycle states", async () => {
     const runStore = createTestRunStore();
 

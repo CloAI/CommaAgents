@@ -9,6 +9,14 @@
     "noCheck": true,
     "noEmit": false
   },
-  "include": ["src/index.ts", "src/hub/index.ts", "src/sandbox/index.ts"],
+  "include": [
+    "src/index.ts",
+    "src/hub/index.ts",
+    "src/sandbox/index.ts",
+    "src/strategy/index.ts",
+    "src/skills/index.ts",
+    "src/mcp/index.ts",
+    "src/language/index.ts"
+  ],
   "exclude": ["src/**/*.test.ts", "src/**/test.utils.ts"]
 }

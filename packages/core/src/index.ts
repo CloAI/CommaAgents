@@ -38,6 +38,17 @@ export type {
   UserModelMessage,
 } from "./context/conversation-context.types";
 export type {
+  ConversationHistory,
+  ConversationRecord,
+  ConversationRetentionEvent,
+} from "./conversation-context";
+export type {
+  LaunchStrategyHandle,
+  LaunchStrategyRequest,
+  LaunchStrategyResult,
+} from "./tools/launch-strategy.types";
+export type { TimelineEvent } from "./timeline";
+export type {
   ContextStrategy,
   ConversationContext,
   ConversationContextConfig,

@@ -1,0 +1,105 @@
+---
+title: Questions Plugin
+description: Receive tool questions and submit user responses for root and child executions.
+---
+
+# Questions Plugin
+
+Use `daemon.plugins.questions` to handle questions that tools present to the user. Subscribe to `run_question_requested` and answer with the requesting execution's `runId` and unique `requestId`.
+
+```ts
+import { createDaemonKernel } from "@comma-agents/daemon";
+
+const daemon = await createDaemonKernel({ runs: { runsDir: "./runs" } });
+const runId = crypto.randomUUID();
+const unsubscribe = await daemon.plugins.questions.notifications.subscribe(
+  "run_question_requested",
+  runId,
+  (request) => {
+    console.log(request.question);
+    daemon.plugins.questions.resolveQuestion(
+      request.runId,
+      request.requestId,
+      "Use the existing configuration.",
+    );
+  },
+);
+
+try {
+  await daemon.plugins.runs.prepareRun({
+    runId,
+    strategyPath: "./strategy.json",
+    cwd: process.cwd(),
+  });
+  await daemon.plugins.runs.startRun(runId, "Review the configuration.")
+    .completion;
+} finally {
+  unsubscribe();
+  await daemon.dispose();
+}
+```
+
+## CreateQuestionsPluginOptions
+
+Supply the runs plugin as a dependency when constructing the questions plugin individually.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/questions/questions.types.ts"
+  name="CreateQuestionsPluginOptions"
+/>
+
+```ts
+import { createRunsPlugin, createQuestionsPlugin } from "@comma-agents/daemon";
+
+const runs = createRunsPlugin({ runsDir: "./runs" });
+const questions = createQuestionsPlugin({ dependencies: { runs } });
+
+try {
+  await runs.prepareRun({ strategyPath: "./strategy.json" });
+} finally {
+  await runs.dispose();
+  await questions.dispose();
+}
+```
+
+## QuestionsPlugin
+
+The plugin exposes typed subscriptions, outstanding questions, and response controls.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/questions/questions.types.ts"
+  name="QuestionsPlugin"
+/>
+
+## QuestionRequested
+
+A question identifies its requesting execution, immediate parent, agent, and tool.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/questions/questions.notifications.ts"
+  name="QuestionRequested"
+/>
+
+## Pending questions and responses
+
+Subscriptions deliver unresolved questions immediately, followed by future requests. You can also read pending questions directly, including those from descendant executions.
+
+```ts
+for (const request of daemon.plugins.questions.getPendingQuestions(runId)) {
+  console.log(request.agentName, request.toolName, request.question);
+}
+```
+
+Root subscriptions receive descendant questions. Respond using the notification's `runId`; passing the root ID for a child's request returns `false`.
+
+```ts
+daemon.plugins.questions.resolveQuestion(
+  request.runId,
+  request.requestId,
+  "Keep the current behavior.",
+);
+```
+
+Responses resolve one pending request. Tool cancellation, execution cleanup, and plugin disposal reject unanswered questions and remove them from pending state. An already answered or cancelled request returns `false` when you try to resolve it again. Continuations acquire a fresh question requester and cancellation handlers.
+
+Tool questions use `questions.resolveQuestion`. Input requests from user agents use `runs.resolveInput`. The questions plugin operates without a server; server routes and channels are a separate migration phase.

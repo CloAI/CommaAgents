@@ -1,6 +1,5 @@
 import { getLogger } from "@logtape/logtape";
 import type { AgentCallResult, LoadedStrategy } from "@comma-agents/core";
-import { createRunLifecycleEffect } from "../daemon-effects";
 import type { RunStore } from "../server/daemon-store";
 import {
   conversationHistoryFromEvents,
@@ -11,6 +10,7 @@ import { prepareStrategy } from "./prepare-strategy";
 import {
   createRunPersistenceEffect,
   createRunProtocolEffect,
+  createRunLifecycleEffect,
 } from "./run-effects";
 import { createRunRepository } from "./run-repository";
 import { createInputSystem } from "./systems/input";
@@ -63,7 +63,7 @@ const PREPARED_RUN_RUNTIME_KEY = "preparedRun";
 /**
  * Create the run lifecycle used by a daemon server.
  *
- * @param {CreateDaemonRunStateOptions} options - Daemon store, event delivery, logging, storage, and run defaults.
+ * @param {CreateDaemonRunStateOptions} options - Daemon store, protocol delivery, storage, and run defaults.
  * @returns {DaemonRunState} Lifecycle API for preparing and managing daemon runs.
  * @example
  * ```ts
@@ -74,7 +74,6 @@ const PREPARED_RUN_RUNTIME_KEY = "preparedRun";
  */
 export function createDaemonRunState({
   daemonStore,
-  events,
   messageSender,
   runsDir,
   hubManager,
@@ -228,7 +227,6 @@ export function createDaemonRunState({
       await invokeOnStrategyLoaded(systems, { ...context, strategy });
       const preparedRun: PreparedRun = { runStore, context, strategy, mode };
       runStore.setRuntimeValue(PREPARED_RUN_RUNTIME_KEY, preparedRun);
-      events?.publish({ type: "run.runtime.prepared", runId: run.id });
 
       return {
         runId: run.id,
@@ -330,7 +328,6 @@ export function createDaemonRunState({
     try {
       await invokeOnBeforeExecute(systems, context);
       await prepared.runStore.transition({ type: "running" });
-      events?.publish({ type: "run.runtime.started", runId: run.id });
 
       const flowCall = strategy.flow.call(input);
       const abortFlow = (): void => flowCall.abort();
@@ -347,11 +344,6 @@ export function createDaemonRunState({
       }
 
       await prepared.runStore.transition({ type: "completed", result });
-      events?.publish({
-        type: "run.runtime.finished",
-        runId: run.id,
-        status: "completed",
-      });
 
       await invokeOnRunComplete(systems, { ...context, result });
     } catch (caughtError) {
@@ -391,12 +383,6 @@ export function createDaemonRunState({
             });
           }
         }
-
-        events?.publish({
-          type: "run.runtime.finished",
-          runId: run.id,
-          status: finalStatus,
-        });
 
         await invokeOnRunError(systems, {
           ...context,
@@ -505,13 +491,6 @@ export function createDaemonRunState({
         enabledMcpServerIds: [...enabledIds],
       });
     }
-
-    events?.publish({
-      type: "mcp.runtime.updated",
-      ...(options.runId ? { runId: options.runId } : {}),
-      serverId: options.serverId,
-      enabled: options.enabled,
-    });
 
     return listMcpServers({
       cwd,

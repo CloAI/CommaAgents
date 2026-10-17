@@ -1,6 +1,6 @@
 import type { AgentCallResult } from "@comma-agents/core";
 
-export type RunStatus =
+export type RunLifecycleStatus =
   | "pending"
   | "running"
   | "completed"
@@ -56,7 +56,7 @@ export interface RunTransitionEvent {
 
 export interface RunTransitionEffect {
   readonly name: string;
-  readonly statuses?: readonly RunStatus[];
+  readonly statuses?: readonly RunLifecycleStatus[];
   handle(event: RunTransitionEvent): Promise<void> | void;
 }
 

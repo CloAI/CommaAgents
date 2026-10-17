@@ -77,13 +77,19 @@ export function conversationHistoryFromEvents(
         if (pendingInput !== undefined) inputs.push({ text: pendingInput });
         pendingInput = text;
       }
+    } else if (event.type === "user_input") {
+      if (event.childId || event.source !== "human") continue;
+      if (pendingInput !== undefined) inputs.push({ text: pendingInput });
+      pendingInput = event.text;
     } else if (event.type === "agent_call") {
+      if (event.childId) continue;
       if (pendingInput !== undefined) {
         inputs.push({ text: pendingInput, beforeRecordId: event.record.id });
         pendingInput = undefined;
       }
       records.push(event.record);
     } else if (event.type === "conversation_retention") {
+      if (event.childId) continue;
       records = [...applyRetentionEvent(records, event.event)];
       retentionEvents.push(event.event);
     }

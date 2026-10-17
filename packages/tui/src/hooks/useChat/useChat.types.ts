@@ -8,7 +8,7 @@ import type {
   RequestPermissionMessage,
   RequestQuestionMessage,
   RunOverview,
-  RunStatus,
+  RunLifecycleStatus,
   RunSummary,
   Usage,
 } from "@comma-agents/daemon";
@@ -92,7 +92,7 @@ export interface ChatMessage {
 /**
  * UI lifecycle status for a chat run.
  *
- * Extends the daemon's `RunStatus` union (`pending | running | completed |
+ * Extends the daemon's `RunLifecycleStatus` union (`pending | running | completed |
  * error | cancelled`) with TUI-only states that the daemon does not model:
  * - `idle` — run exists but hasn't started a run yet.
  * - `waiting_input` — derived from an unanswered `request_input`.
@@ -100,7 +100,7 @@ export interface ChatMessage {
  * - `waiting_question` — derived from an unanswered `request_question`.
  */
 export type ChatStatus =
-  | RunStatus
+  | RunLifecycleStatus
   | "idle"
   | "waiting_input"
   | "waiting_permission"
@@ -134,8 +134,8 @@ export interface ChatRun {
   readonly strategyName: string | null;
   /** UI lifecycle status (see `ChatStatus`). */
   readonly status: ChatStatus;
-  /** Mirror of the daemon's `RunStatus` for this run, if known. */
-  readonly runStatus: RunStatus | null;
+  /** Mirror of the daemon's `RunLifecycleStatus` for this run, if known. */
+  readonly runStatus: RunLifecycleStatus | null;
   /** Latest error message, or null. */
   readonly error: string | null;
   /** Execution waiting for daemon preparation or execution. */
@@ -265,4 +265,4 @@ export interface UseChatState {
   readonly stop: () => void;
 }
 
-export type { RunOverview, RunStatus, RunSummary };
+export type { RunOverview, RunLifecycleStatus, RunSummary };

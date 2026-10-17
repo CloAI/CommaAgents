@@ -11,7 +11,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerModel, type TimelineEvent } from "@comma-agents/core";
 import type { LanguageModel } from "ai";
-import type { RunRepository } from "./daemon-run-state/run-repository";
+import type {
+  RunIdentity,
+  RunRepository,
+} from "./daemon-run-state/run-repository";
 import type { MessageSender } from "./server/protocol/dispatcher/dispatcher.types";
 import type { DaemonMessage } from "./server/protocol/messages";
 
@@ -105,6 +108,7 @@ export function mockRunRepository(): RunRepository & {
   runs: Map<string, TimelineEvent[]>;
 } {
   const runs = new Map<string, TimelineEvent[]>();
+  const identities = new Map<string, RunIdentity>();
   const runConfigs = new Map<
     string,
     { readonly enabledMcpServerIds: readonly string[] }
@@ -112,6 +116,12 @@ export function mockRunRepository(): RunRepository & {
 
   return {
     runs,
+    async getRunIdentity(runId) {
+      return identities.get(runId);
+    },
+    async saveRunIdentity(identity) {
+      identities.set(identity.runId, identity);
+    },
     async appendEvent(runId, event) {
       const events = runs.get(runId) ?? [];
       events.push(event);
@@ -126,7 +136,8 @@ export function mockRunRepository(): RunRepository & {
     async deleteRun(runId) {
       const deletedRun = runs.delete(runId);
       const deletedConfig = runConfigs.delete(runId);
-      return deletedRun || deletedConfig;
+      const deletedIdentity = identities.delete(runId);
+      return deletedRun || deletedConfig || deletedIdentity;
     },
     async getRunConfig(runId) {
       return runConfigs.get(runId);

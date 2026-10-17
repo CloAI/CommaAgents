@@ -1,5 +1,4 @@
 import {
-  appendFileSync,
   closeSync,
   existsSync,
   fsyncSync,
@@ -10,14 +9,16 @@ import {
   renameSync,
   rmSync,
   writeFileSync,
+  writeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import type { TimelineEvent } from "@comma-agents/core";
-import type { RunStatus } from "../../server/daemon-store";
 import type {
   CreateRunRepositoryOptions,
   RunConfig,
+  RunIdentity,
   RunOverview,
+  RunOverviewStatus,
   RunRepository,
 } from "./run-repository.types";
 import { readRunEventsFile } from "./run-repository.utils";
@@ -81,6 +82,46 @@ export function createRunRepository(
   }
 
   return {
+    async getRunIdentity(runId): Promise<RunIdentity | undefined> {
+      const filePath = join(runsDir, `${runId}.identity.json`);
+      if (!existsSync(filePath)) return undefined;
+      const parsed: unknown = JSON.parse(readFileSync(filePath, "utf8"));
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        !("runId" in parsed) ||
+        parsed.runId !== runId ||
+        ("parentRunId" in parsed &&
+          (typeof parsed.parentRunId !== "string" || !parsed.parentRunId))
+      )
+        throw new Error(`Invalid run identity: ${filePath}`);
+      return {
+        runId,
+        ...("parentRunId" in parsed
+          ? { parentRunId: parsed.parentRunId as string }
+          : {}),
+      };
+    },
+    async saveRunIdentity(identity): Promise<void> {
+      return runSerialized(identity.runId, async () => {
+        mkdirSync(runsDir, { recursive: true });
+        const filePath = join(runsDir, `${identity.runId}.identity.json`);
+        const temporaryPath = `${filePath}.${crypto.randomUUID()}.tmp`;
+        const fileDescriptor = openSync(temporaryPath, "w");
+        try {
+          writeSync(
+            fileDescriptor,
+            `${JSON.stringify(identity)}\n`,
+            undefined,
+            "utf8",
+          );
+          fsyncSync(fileDescriptor);
+        } finally {
+          closeSync(fileDescriptor);
+        }
+        renameSync(temporaryPath, filePath);
+      });
+    },
     async appendEvent(runId, event): Promise<void> {
       return runSerialized(runId, async () => {
         const filePath = runFilePath(runId);
@@ -90,22 +131,20 @@ export function createRunRepository(
         }
 
         const line = `${JSON.stringify(event)}\n`;
-        appendFileSync(filePath, line, "utf-8");
-
-        // fsync for crash durability
+        // Required run records are acknowledged only after the file is synced.
+        const fd = openSync(filePath, "a");
         try {
-          const fd = openSync(filePath, "a");
+          writeSync(fd, line, undefined, "utf-8");
           fsyncSync(fd);
+        } finally {
           closeSync(fd);
-        } catch {
-          // Fallback if fsync fails in constrained environments
         }
       });
     },
 
-    async getEvents(runId): Promise<readonly TimelineEvent[]> {
+    async getEvents(runId, options): Promise<readonly TimelineEvent[]> {
       const filePath = runFilePath(runId);
-      return readRunEventsFile(filePath);
+      return readRunEventsFile(filePath, options?.strict);
     },
 
     async listRuns(filter): Promise<readonly RunOverview[]> {
@@ -128,18 +167,24 @@ export function createRunRepository(
         // Use the latest lifecycle segment because continuations append another
         // run_started/run_completed pair to the same logical run timeline.
         const latestStartedIndex = events.findLastIndex(
-          (event) => event.type === "run_started",
+          (event) =>
+            event.type === "run_started" &&
+            (!event.runId || event.runId === entry.slice(0, -6)),
         );
         const started = events[latestStartedIndex];
         if (!started || started.type !== "run_started") continue;
 
         const completed = events
           .slice(latestStartedIndex + 1)
-          .findLast((event) => event.type === "run_completed");
+          .findLast(
+            (event) =>
+              event.type === "run_completed" &&
+              (!event.runId || event.runId === entry.slice(0, -6)),
+          );
 
         const runId = entry.slice(0, -6); // strip `.jsonl`
 
-        let status: RunStatus = "running";
+        let status: RunOverviewStatus = "running";
         let completedAt: string | null = null;
         if (completed && completed.type === "run_completed") {
           status = completed.status;
@@ -169,10 +214,17 @@ export function createRunRepository(
       const filePath = runFilePath(runId);
       return runSerialized(runId, async () => {
         const configPath = runConfigFilePath(runId);
-        if (!existsSync(filePath) && !existsSync(configPath)) return false;
+        const identityPath = join(runsDir, `${runId}.identity.json`);
+        if (
+          !existsSync(filePath) &&
+          !existsSync(configPath) &&
+          !existsSync(identityPath)
+        )
+          return false;
         try {
           rmSync(filePath, { force: true });
           rmSync(configPath, { force: true });
+          rmSync(identityPath, { force: true });
           return true;
         } catch {
           return false;

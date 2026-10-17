@@ -1,5 +1,15 @@
 import type { TimelineEvent } from "@comma-agents/core";
-import type { RunStatus } from "../../server/daemon-store";
+
+/** Identity of an execution and the execution that launched it. */
+export interface RunIdentity {
+  /** Identifier of this execution. */
+  readonly runId: string;
+  /** Immediate parent; omitted for a root run. */
+  readonly parentRunId?: string;
+}
+
+/** Status derived from the latest persisted execution segment. */
+export type RunOverviewStatus = "running" | "completed" | "error" | "cancelled";
 
 /**
  * Lightweight metadata for listing runs (no events included).
@@ -19,13 +29,17 @@ export interface RunOverview {
   /** ISO timestamp for completion, or `null` while unfinished. */
   readonly completedAt: string | null;
   /** Current or final run status. */
-  readonly status: RunStatus;
+  readonly status: RunOverviewStatus;
 }
 
 /**
  * Persistent run history and configuration store.
  */
 export interface RunRepository {
+  /** Read execution identity independently of its root-owned timeline. */
+  getRunIdentity(runId: string): Promise<RunIdentity | undefined>;
+  /** Persist execution identity so ancestry survives resource cleanup and restart. */
+  saveRunIdentity(identity: RunIdentity): Promise<void>;
   /**
    * Append a single event to a run's timeline.
    * Creates the run timeline when it does not exist.
@@ -35,8 +49,12 @@ export interface RunRepository {
   /**
    * Get all events for a specific run by ID.
    * Returns an empty array if the run timeline is not found or is empty.
+   * Pass `strict: true` when validating history for continuation.
    */
-  getEvents(runId: string): Promise<readonly TimelineEvent[]>;
+  getEvents(
+    runId: string,
+    options?: { readonly strict?: boolean },
+  ): Promise<readonly TimelineEvent[]>;
 
   /**
    * List runs, optionally filtered by cwd.
