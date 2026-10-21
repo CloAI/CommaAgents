@@ -1,7 +1,11 @@
-import { z } from "zod";
+import { z } from "zod/v4";
 import { createPlugin, defineCommand, defineChannel } from "../daemon-plugin";
 import type { Plugin, CommandContext, ChannelContext } from "../daemon-plugin";
 import type { PluginServerMessage } from "./messages";
+
+const countMessageSchema = z
+  .object({ type: z.literal("counter.updated"), data: z.number().finite() })
+  .strict();
 
 interface CounterPlugin extends Plugin<"counter"> {
   add(value: number): number;
@@ -68,7 +72,7 @@ export function counterPlugin() {
         defineChannel({
           name: "counter.watch",
           arguments: z.object({}).strict(),
-          message: z.number().finite(),
+          message: countMessageSchema,
           async open({
             context,
             channel,
@@ -76,13 +80,24 @@ export function counterPlugin() {
             CounterPlugin,
             CounterContext,
             Record<string, never>
-          > & { readonly channel: ChannelContext<number> }) {
-            context.listeners.add(channel.send);
+          > & {
+            readonly channel: ChannelContext<{
+              type: "counter.updated";
+              data: number;
+            }>;
+          }) {
+            function onCount(count: number): void {
+              channel.send({ type: "counter.updated", data: count });
+            }
+            context.listeners.add(onCount);
             return {
-              initial: context.count,
+              initial: {
+                type: "counter.updated" as const,
+                data: context.count,
+              },
               cleanup() {
                 context.cleanups++;
-                context.listeners.delete(channel.send);
+                context.listeners.delete(onCount);
               },
             };
           },
@@ -90,21 +105,26 @@ export function counterPlugin() {
         defineChannel({
           name: "counter.empty",
           arguments: z.object({}).strict(),
-          message: z.number(),
+          message: countMessageSchema,
           open() {},
         }),
         defineChannel({
           name: "counter.complete",
           arguments: z.object({}).strict(),
-          message: z.number(),
+          message: countMessageSchema,
           open({
             channel,
           }: CommandContext<
             CounterPlugin,
             CounterContext,
             Record<string, never>
-          > & { readonly channel: ChannelContext<number> }) {
-            channel.send(1);
+          > & {
+            readonly channel: ChannelContext<{
+              type: "counter.updated";
+              data: number;
+            }>;
+          }) {
+            channel.send({ type: "counter.updated", data: 1 });
             channel.end();
             channel.end();
             return {
@@ -117,15 +137,20 @@ export function counterPlugin() {
         defineChannel({
           name: "counter.invalid",
           arguments: z.object({}).strict(),
-          message: z.number().finite(),
+          message: countMessageSchema,
           open({
             channel,
           }: CommandContext<
             CounterPlugin,
             CounterContext,
             Record<string, never>
-          > & { readonly channel: ChannelContext<number> }) {
-            channel.send(Number.NaN);
+          > & {
+            readonly channel: ChannelContext<{
+              type: "counter.updated";
+              data: number;
+            }>;
+          }) {
+            channel.send({ type: "counter.updated", data: Number.NaN });
           },
         }),
       ],

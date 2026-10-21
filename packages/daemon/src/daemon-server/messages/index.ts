@@ -12,5 +12,4 @@ export {
 export type {
   PluginClientMessage,
   PluginServerMessage,
-  JsonValue,
 } from "./messages.types";

@@ -1,7 +1,7 @@
-import type { z } from "zod";
+import type { z } from "zod/v4";
 
 /** Validation schema accepted by a plugin binding. */
-export type BindingSchema = z.ZodType<unknown, z.ZodTypeDef, unknown>;
+export type BindingSchema = z.ZodType<unknown, unknown>;
 
 /** Transport-independent error returned to a command or channel subscriber. */
 export interface BindingError {
@@ -9,6 +9,14 @@ export interface BindingError {
   readonly code: string;
   /** Human-readable error description. */
   readonly message: string;
+}
+
+/** Plugin-defined message; the server adds correlation and timestamp metadata. */
+export interface ChannelMessage {
+  /** Domain message discriminator; transport message names are reserved. */
+  readonly type: string;
+  /** Domain payload, kept separate from transport metadata. */
+  readonly data: unknown;
 }
 
 /** Operations available to an open server-to-client channel. */
@@ -55,7 +63,10 @@ export interface CommandDefinition<
   /** Execute one domain operation and return its result. */
   readonly handle: (
     request: CommandContext<Owner, Context, z.output<Arguments>>,
-  ) => z.input<Output> | Promise<z.input<Output>>;
+  ) =>
+    | z.input<Output>
+    | z.output<Output>
+    | Promise<z.input<Output> | z.output<Output>>;
 }
 
 /** Channel definition with owning-plugin access and an optional setup result. */
@@ -74,12 +85,12 @@ export interface ChannelDefinition<
   /** Attach listeners and optionally return initial state and cleanup. */
   readonly open: (
     request: CommandContext<Owner, Context, z.output<Arguments>> & {
-      readonly channel: ChannelContext<z.input<Message>>;
+      readonly channel: ChannelContext<z.input<Message> | z.output<Message>>;
     },
   ) =>
     | void
-    | ChannelOpenResult<z.input<Message>>
-    | Promise<void | ChannelOpenResult<z.input<Message>>>;
+    | ChannelOpenResult<z.input<Message> | z.output<Message>>
+    | Promise<void | ChannelOpenResult<z.input<Message> | z.output<Message>>>;
 }
 
 /** @internal Schema-checked command awaiting its owning plugin and context. */
@@ -101,8 +112,8 @@ export interface PluginChannel<Owner, Context> {
     plugin: Owner,
     context: Context,
     channelArguments: unknown,
-    channel: ChannelContext<unknown>,
-  ): Promise<void | ChannelOpenResult<unknown>>;
+    channel: ChannelContext<ChannelMessage>,
+  ): Promise<void | ChannelOpenResult<ChannelMessage>>;
 }
 
 /** Optional transport bindings supplied when constructing a plugin. */
@@ -127,7 +138,7 @@ export interface PluginServer {
     readonly arguments: BindingSchema;
     readonly open: (
       channelArguments: unknown,
-      channel: ChannelContext<unknown>,
-    ) => Promise<void | ChannelOpenResult<unknown>>;
+      channel: ChannelContext<ChannelMessage>,
+    ) => Promise<void | ChannelOpenResult<ChannelMessage>>;
   }[];
 }

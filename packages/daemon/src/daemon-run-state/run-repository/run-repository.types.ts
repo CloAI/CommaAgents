@@ -50,6 +50,7 @@ export interface RunRepository {
    * Get all events for a specific run by ID.
    * Returns an empty array if the run timeline is not found or is empty.
    * Pass `strict: true` when validating history for continuation.
+   * //AI: we need to review what these options are really...
    */
   getEvents(
     runId: string,

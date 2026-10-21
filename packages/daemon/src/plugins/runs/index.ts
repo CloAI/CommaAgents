@@ -29,3 +29,11 @@ export type {
   RunStepStatus,
   RunSteerQueuedStatus,
 } from "./runs.notifications";
+export type { RunHistoryOptions, RunHistoryPage } from "./history";
+export type {
+  RunContent,
+  RunMessage,
+  RunHistoryEntry,
+  ChildRunEntry,
+} from "./messages";
+export type { RunsChannelMessage } from "./server/channels/runs";

@@ -1,3 +1,12 @@
+import { persistRunSnapshot } from "../history/persistence";
+import {
+  startAgentMessage,
+  streamAgentMessage,
+  completeAgentMessage,
+  interruptAgentMessages,
+  saveUserMessage,
+} from "../messages";
+import type { AgentCallIdentity, AgentCallFailure } from "@comma-agents/core";
 import { getLogger } from "@logtape/logtape";
 import type {
   AgentCallResult,
@@ -53,8 +62,11 @@ export function beginRunExecution(
   if (entry.snapshot.mode !== expectedMode) {
     throw new Error(`Run ${runId} was prepared for ${entry.snapshot.mode}`);
   }
-  if (entry.execution) throw new Error(`Run already started: ${runId}`);
+  if (entry.execution) {
+    throw new Error(`Run already started: ${runId}`);
+  }
   entry.lifecycle = { phase: "running", strategy: entry.lifecycle.strategy };
+  updateRunSnapshot(context, entry, { ...entry.snapshot, phase: "running" });
   entry.execution = executeRun(context, entry, input);
   return { runId, completion: entry.execution };
 }
@@ -71,7 +83,9 @@ export async function stopRun(
   runId: string,
 ): Promise<void> {
   const entry = context.runs.get(runId);
-  if (!entry || entry.snapshot.phase === "terminal") return;
+  if (!entry || entry.snapshot.phase === "terminal") {
+    return;
+  }
   entry.controller.abort();
   if (entry.preparation && entry.snapshot.phase === "preparing") {
     await entry.preparation;
@@ -79,7 +93,17 @@ export async function stopRun(
     await entry.execution;
   } else if (entry.snapshot.phase === "prepared") {
     await cleanupRunEntry(entry);
-    context.runs.delete(runId);
+    if (!entry.previous) {
+      entry.lifecycle = { phase: "terminal" };
+      updateRunSnapshot(context, entry, {
+        ...entry.snapshot,
+        phase: "terminal",
+        outcome: {
+          status: "cancelled",
+          error: { code: "CANCELLED", message: "Prepared run stopped" },
+        },
+      });
+    }
     context.notifications.notify(runId, {
       type: "run_preparation_cancelled",
       runId,
@@ -112,7 +136,9 @@ export function steerRun(
   text: string,
 ): boolean {
   const entry = context.runs.get(runId);
-  if (!entry || entry.snapshot.phase !== "running") return false;
+  if (!entry || entry.snapshot.phase !== "running") {
+    return false;
+  }
   entry.steering.push(text);
   context.notifications.notify(runId, {
     type: "run_steer_queued",
@@ -138,7 +164,9 @@ export async function resolveRunInput(
 ): Promise<boolean> {
   const entry = context.runs.get(runId);
   const pending = entry?.pendingInput.get(requestId);
-  if (!entry || !pending || pending.resolving) return false;
+  if (!entry || !pending || pending.resolving) {
+    return false;
+  }
   pending.resolving = true;
   try {
     await appendRunEvent(context, runId, {
@@ -149,6 +177,7 @@ export async function resolveRunInput(
       text,
       source: "human",
     });
+    await saveUserMessage(context, runId, text);
   } catch (error) {
     entry.persistenceFailure = {
       code: "PERSISTENCE_ERROR",
@@ -157,9 +186,16 @@ export async function resolveRunInput(
     entry.controller.abort();
     throw error;
   }
-  if (!entry.pendingInput.has(requestId)) return false;
+  if (!entry.pendingInput.has(requestId)) {
+    return false;
+  }
   entry.pendingInput.delete(requestId);
   pending.cleanup();
+  context.notifications.notify(runId, {
+    type: "run_input_resolved",
+    runId,
+    inputId: requestId,
+  });
   pending.resolve(text);
   return true;
 }
@@ -176,6 +212,13 @@ export async function disposeRuns(context: RunsContext): Promise<void> {
       .filter((entry) => entry.snapshot.phase !== "terminal")
       .map((entry) => stopRun(context, entry.snapshot.runId)),
   );
+  while (context.pendingWrites.size) {
+    await Promise.allSettled([...context.pendingWrites]);
+  }
+  context.activeMessages.clear();
+  context.childMarkers.clear();
+  context.historyHydration.clear();
+  context.commands.clear();
   context.runs.clear();
 }
 
@@ -243,12 +286,16 @@ export async function executeRun(
         : {}),
     });
     started = true;
+    if (input) {
+      await saveUserMessage(context, runId, input);
+    }
     throwIfRunAborted(entry.controller.signal);
-    updateRunSnapshot(context, entry, { ...entry.snapshot, phase: "running" });
     const flowCall = strategy.flow.call(input);
     const abort = (): void => flowCall.abort();
     entry.controller.signal.addEventListener("abort", abort, { once: true });
-    if (entry.controller.signal.aborted) abort();
+    if (entry.controller.signal.aborted) {
+      abort();
+    }
     let result: AgentCallResult;
     try {
       result = await flowCall;
@@ -314,6 +361,21 @@ export async function executeRun(
       };
     }
   } finally {
+    try {
+      await interruptAgentMessages(
+        context,
+        runId,
+        entry.controller.signal.aborted ? "cancelled" : "failed",
+      );
+    } catch {
+      outcome = {
+        status: "persistence_error",
+        error: entry.persistenceFailure ?? {
+          code: "PERSISTENCE_ERROR",
+          message: "Could not persist partial output",
+        },
+      };
+    }
     await Promise.allSettled(entry.children);
     await cleanupRunEntry(entry);
   }
@@ -345,6 +407,7 @@ function createRunInputCollector(
       });
       signal?.addEventListener("abort", onAbort, { once: true });
       entry.pendingInput.set(requestId, {
+        prompt,
         agentName,
         resolving: false,
         resolve,
@@ -408,9 +471,26 @@ function attachRunHooks(
   );
 
   for (const [agentName, agent] of Object.entries(strategy.agents)) {
-    if (!agent.appendHook) continue;
+    if (!agent.appendHook) {
+      continue;
+    }
+    agent.appendHook("onCallStarted", async (identity: AgentCallIdentity) => {
+      await startAgentMessage(context, entry, agentName, identity);
+    });
+    agent.appendHook("onCallFailed", async (failure: AgentCallFailure) => {
+      await interruptAgentMessages(
+        context,
+        runId,
+        failure.cancelled || entry.controller.signal.aborted
+          ? "cancelled"
+          : "failed",
+        failure.messageId,
+      );
+    });
     agent.appendHook("alterCallMessage", (message: string): string => {
-      if (entry.steering.length === 0) return message;
+      if (entry.steering.length === 0) {
+        return message;
+      }
       const block = entry.steering
         .splice(0)
         .map((text) => `<user_steering>\n${text}\n</user_steering>`)
@@ -418,6 +498,7 @@ function attachRunHooks(
       return message ? `${message}\n\n${block}` : block;
     });
     agent.appendHook("onStreamEvent", async (event: AgentStreamEvent) => {
+      await streamAgentMessage(context, entry, agentName, event);
       if (event.type === "retention") {
         await appendRunEvent(context, runId, {
           type: "conversation_retention",
@@ -434,8 +515,11 @@ function attachRunHooks(
         event,
       });
     });
-    agent.appendHook("afterCallResult", async (result: AgentCallResult) => {
-      const record = agent.getConversationContext?.().records().at(-1);
+    agent.appendHook("onCallCompleted", async (result: AgentCallResult) => {
+      const record = agent
+        .getConversationContext?.()
+        .records()
+        .find((record) => record.id === result.messageId);
       if (record) {
         await appendRunEvent(context, runId, {
           type: "agent_call",
@@ -444,6 +528,7 @@ function attachRunHooks(
           ...(scope.parentRunId ? { parentRunId: scope.parentRunId } : {}),
         });
       }
+      await completeAgentMessage(context, entry, agentName, result);
       context.notifications.notify(runId, {
         type: "run_agent_output",
         runId,
@@ -475,7 +560,9 @@ export async function loadRunForScope(
     for (const registration of context.preparations) {
       throwIfRunAborted(scope.signal);
       const prepared = await registration.prepare(scope);
-      if (prepared.dispose) disposers.push(prepared.dispose);
+      if (prepared.dispose) {
+        disposers.push(prepared.dispose);
+      }
       if (prepared.strategyInputs) {
         mergeStrategyInputs(
           strategyInputs,
@@ -501,7 +588,9 @@ export async function loadRunForScope(
     throwIfRunAborted(scope.signal);
     if (entry.snapshot.mode === "continuation") {
       const history = entry.snapshot.conversation;
-      if (history) restoreAgentContexts(strategy, history);
+      if (history) {
+        restoreAgentContexts(strategy, history);
+      }
     }
     attachRunHooks(context, entry, strategy, scope);
     for (const registration of context.hooks) {
@@ -531,6 +620,24 @@ async function executeChildRun(
   throwIfRunAborted(parentEntry.controller.signal);
   const runId = crypto.randomUUID();
   const parentRunId = parentEntry.snapshot.runId;
+  const marker = {
+    type: "child.run" as const,
+    messageId: runId,
+    runId: parentRunId,
+    childRunId: runId,
+    strategyName: request.strategyPath,
+    createdAt: new Date().toISOString(),
+    sourceMessageId: request.messageId,
+    toolCallId: request.toolCallId,
+    phase: "preparing" as const,
+  };
+  context.childMarkers.set(runId, marker);
+  await persistRunSnapshot(context, marker);
+  context.notifications.notify(parentRunId, {
+    type: "run_child",
+    runId: parentRunId,
+    entry: marker,
+  });
   const childEntry: RunEntry = {
     snapshot: {
       runId,
@@ -558,7 +665,9 @@ async function executeChildRun(
   parentEntry.controller.signal.addEventListener("abort", abort, {
     once: true,
   });
-  if (parentEntry.controller.signal.aborted) abort();
+  if (parentEntry.controller.signal.aborted) {
+    abort();
+  }
   const scope: RunPreparationContext = {
     runId,
     parentRunId,

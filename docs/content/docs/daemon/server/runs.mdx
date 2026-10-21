@@ -1,0 +1,142 @@
+---
+title: Runs API
+description: Prepare and control shared runs, subscribe to live output, and page through conversation history.
+---
+
+# Runs API
+
+Use commands to prepare and control a run. Subscribe to the `runs` channel to receive its current state and subsequent output. Commands and subscriptions operate independently: disconnecting a client leaves the run running, and any connected client can stop or continue it.
+
+## Prepare, subscribe, start
+
+Send each request over the [plugin server](/docs/daemon/server/plugin-server) WebSocket with a UUIDv4 `requestId`. Keep domain arguments inside `arguments`.
+
+```ts
+socket.send(JSON.stringify({
+  type: "command",
+  requestId: crypto.randomUUID(),
+  command: "runs.prepare",
+  arguments: { strategyPath: "/path/to/strategy.json" },
+}));
+```
+
+Preparation returns one successful response with `data: { runId }` once the strategy is ready. Use that identifier to subscribe, then start execution:
+
+```ts
+const subscriptionRequestId = crypto.randomUUID();
+socket.send(JSON.stringify({
+  type: "subscribe",
+  requestId: subscriptionRequestId,
+  channel: "runs",
+  arguments: { runId, history: { limit: 25 } },
+}));
+socket.send(JSON.stringify({
+  type: "command",
+  requestId: crypto.randomUUID(),
+  command: "runs.start",
+  arguments: { runId, input: "Review the project" },
+}));
+```
+
+The subscription first receives an acknowledgement, followed by `run.initial`. Its `data` contains `snapshot`, a bounded `history` page, and `pendingInputs`. A client joining during execution then receives the current partial content through `agent.stream`, followed by live changes.
+
+Action commands return `data: null` when accepted. Their response does not duplicate run state or output; those arrive on the channel. A failed command returns `ok: false` and `error: { code, message }`.
+
+## Commands
+
+| Command | Arguments | Successful response data |
+| --- | --- | --- |
+| `runs.prepare` | Optional `runId`, `strategyPath`, `cwd`, `manifestPath`, `modelOverride`; provide `runId` or `strategyPath` | `{ runId }` after preparation |
+| `runs.start` | `runId`, optional `input` | `null` |
+| `runs.stop` | `runId` | `null` when cancellation is requested |
+| `runs.continue` | `runId`, optional `input` | `null` when continuation is accepted |
+| `runs.steer` | `runId`, `text` | `null` |
+| `runs.resolveInput` | `runId`, `inputId`, `text` | `null` |
+| `runs.get` | `runId` | Current run snapshot |
+| `runs.history` | `runId`, optional `limit`, `before` | `{ entries, page }` |
+
+Invalid lifecycle operations return errors. Concurrent attempts to start or continue the same run accept the first operation; later conflicting requests fail. Use `inputId` from `input.requested` to answer a pending input request. It is distinct from the transport `requestId`.
+
+## Streaming messages
+
+Channel messages use their domain type at the root, alongside common transport metadata:
+
+```json
+{
+  "type": "agent.stream",
+  "requestId": "d66996b1-8837-45c0-9a16-c76dfdf01304",
+  "ts": "2026-10-18T12:00:00.000Z",
+  "data": {
+    "runId": "example-run",
+    "messageId": "db14e4ad-114d-439d-a9f2-d9860a2a7e05",
+    "agentName": "writer",
+    "createdAt": "2026-10-18T11:59:59.000Z",
+    "contentIndex": 0,
+    "content": { "type": "text", "text": "Hello so far" }
+  }
+}
+```
+
+Identify a message by `messageId`. Replace its block at `contentIndex` with `content` on every update. Text and reasoning contain the full text accumulated for that block; do not append the payload again. New blocks appear at increasing indexes. Tool results update their existing tool block, retaining its `toolCallId`.
+
+`agent.output` carries the complete message in `data`, with the same `messageId`, ordered `content`, and final `status`. Upsert this message to replace its partial representation. Cancelled and failed invocations retain their partial output with the corresponding status. Successful agent message IDs also identify their saved conversation records.
+
+| Message type | Data |
+| --- | --- |
+| `run.initial` | Snapshot, history page, pending inputs |
+| `run.state` | Current run snapshot |
+| `agent.stream` | One cumulative content block and its message identity |
+| `agent.output` | Completed, cancelled, or failed agent message |
+| `user.input` | Saved human prompt or answer |
+| `child.run` | Direct child launch reference and current child phase/outcome |
+| `input.requested` | `runId`, `inputId`, `agentName`, `prompt` |
+| `input.resolved` | `runId`, `inputId` |
+| `run.step` | `runId`, `stepName`, `phase` (`started` or `completed`) |
+| `run.steer.queued` | `runId`, `text` |
+| `run.error` | `runId`, `error` |
+| `run.preparation.cancelled` | `runId` |
+
+## History and pagination
+
+History contains display messages and child launch references, in chronological order. It retains ordered text, reasoning, and tool blocks. Lifecycle transitions and partial streaming updates do not consume history entries. The default server page contains up to 25 entries; `limit` accepts 1–200.
+
+```ts
+socket.send(JSON.stringify({
+  type: "command",
+  requestId: crypto.randomUUID(),
+  command: "runs.history",
+  arguments: { runId, limit: 25 },
+}));
+```
+
+A page returns `{ entries, page: { hasMore, before? } }`. Pass its `before` cursor unchanged to request an older page. Cursors remain stable as new messages arrive. Each page is ordered oldest to newest, although the first page selects the newest entries.
+
+The direct plugin API supports full history or optional pagination:
+
+```ts
+const all = await daemon.plugins.runs.getHistory(runId);
+const latest = await daemon.plugins.runs.getHistory(runId, { limit: 25 });
+if (latest.page.hasMore) {
+  const older = await daemon.plugins.runs.getHistory(runId, {
+    limit: 25,
+    before: latest.page.before,
+  });
+}
+```
+
+History and channel output belong to the selected run. A parent receives child launch references, including the child run ID and source message/tool identifiers when available. Request history or subscribe separately using the child run ID to view its conversation.
+
+## Stop and continue
+
+`runs.stop` stops shared execution for every client. Subscribers receive the final partial messages and terminal state, and remain subscribed. `runs.continue` prepares the saved conversation and starts another execution under the same run ID; all existing subscribers receive the new activity.
+
+Continuation currently restores conversation and starts the declared flow again. It does not resume an exact interrupted flow checkpoint or incomplete tool operation.
+
+Unsubscribe using the original subscription `requestId`. Unsubscribing does not stop or suspend execution:
+
+```ts
+socket.send(JSON.stringify({
+  type: "unsubscribe",
+  requestId: subscriptionRequestId,
+}));
+```

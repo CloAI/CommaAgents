@@ -1,16 +1,4 @@
-import { z } from "zod";
-import type { JsonValue } from "./messages.types";
-
-export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number().finite(),
-    z.boolean(),
-    z.null(),
-    z.array(JsonValueSchema),
-    z.record(JsonValueSchema),
-  ]),
-);
+import { z } from "zod/v4";
 
 export const RequestIdSchema = z
   .string()
@@ -29,12 +17,12 @@ const ServerEnvelopeSchema = ClientEnvelopeSchema.extend({
 export const CommandRequestSchema = ClientEnvelopeSchema.extend({
   type: z.literal("command"),
   command: z.string().min(1),
-  arguments: z.record(JsonValueSchema),
+  arguments: z.record(z.string(), z.json()),
 }).strict();
 export const SubscribeRequestSchema = ClientEnvelopeSchema.extend({
   type: z.literal("subscribe"),
   channel: z.string().min(1),
-  arguments: z.record(JsonValueSchema),
+  arguments: z.record(z.string(), z.json()),
 }).strict();
 export const UnsubscribeRequestSchema = ClientEnvelopeSchema.extend({
   type: z.literal("unsubscribe"),
@@ -49,7 +37,7 @@ export const ResponseSchema = z.discriminatedUnion("ok", [
   ServerEnvelopeSchema.extend({
     type: z.literal("response"),
     ok: z.literal(true),
-    data: JsonValueSchema,
+    data: z.json(),
   }).strict(),
   ServerEnvelopeSchema.extend({
     type: z.literal("response"),
@@ -58,8 +46,21 @@ export const ResponseSchema = z.discriminatedUnion("ok", [
   }).strict(),
 ]);
 export const ChannelEventSchema = ServerEnvelopeSchema.extend({
-  type: z.literal("event"),
-  data: JsonValueSchema,
+  type: z
+    .string()
+    .min(1)
+    .refine(
+      (type) =>
+        ![
+          "command",
+          "subscribe",
+          "unsubscribe",
+          "response",
+          "subscription_end",
+          "event",
+        ].includes(type),
+    ),
+  data: z.json(),
 }).strict();
 export const SubscriptionEndSchema = z.discriminatedUnion("reason", [
   ServerEnvelopeSchema.extend({

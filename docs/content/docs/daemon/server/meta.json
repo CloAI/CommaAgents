@@ -1,4 +1,8 @@
 {
   "title": "Server",
-  "pages": ["plugin-server", "protocol"]
+  "pages": [
+    "plugin-server",
+    "runs",
+    "protocol"
+  ]
 }

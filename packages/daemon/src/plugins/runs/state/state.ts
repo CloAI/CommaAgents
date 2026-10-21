@@ -1,3 +1,5 @@
+import { createRunHistoryStorage } from "../history/storage";
+import { persistRunSnapshot } from "../history/persistence";
 import { createRunRepository } from "../../../daemon-run-state/run-repository";
 import type { CreateRunsPluginOptions, RunSnapshot } from "../runs.types";
 import { allowedTransitions } from "./state.constants";
@@ -16,16 +18,56 @@ export function createRunsContext(
   { runsDir, hubManager }: CreateRunsPluginOptions,
   notifications: PluginNotifications<RunNotifications>,
 ): RunsContext {
-  if (!runsDir) throw new Error("runsDir is required");
-  return {
+  if (!runsDir) {
+    throw new Error("runsDir is required");
+  }
+  const context: RunsContext = {
+    history: createRunHistoryStorage(runsDir),
+    activeMessages: new Map(),
+    childMarkers: new Map(),
+    pendingWrites: new Set(),
+    historyHydration: new Map(),
+    commands: new Map(),
+    revision: 0,
     identities: new Map(),
     runs: new Map(),
-    notifications,
+    notifications: {
+      ...notifications,
+      notify(runId, message) {
+        context.revision++;
+        if (message.type === "run_snapshot") {
+          void persistRunSnapshot(context, message.snapshot).catch(
+            () => undefined,
+          );
+        }
+        notifications.notify(runId, message);
+        if (message.type === "run_snapshot" && message.snapshot.parentRunId) {
+          const marker = context.childMarkers.get(message.snapshot.runId);
+          if (marker) {
+            const updated = {
+              ...marker,
+              phase: message.snapshot.phase,
+              outcome: message.snapshot.outcome?.status,
+              strategyName:
+                message.snapshot.strategyName ?? marker.strategyName,
+            };
+            context.childMarkers.set(message.snapshot.runId, updated);
+            void persistRunSnapshot(context, updated).catch(() => undefined);
+            notifications.notify(updated.runId, {
+              type: "run_child",
+              runId: updated.runId,
+              entry: updated,
+            });
+          }
+        }
+      },
+    },
     repository: createRunRepository({ runsDir }),
     ...(hubManager ? { hubManager } : {}),
     preparations: [],
     hooks: [],
   };
+  return context;
 }
 
 /**

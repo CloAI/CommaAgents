@@ -1,3 +1,6 @@
+import type { ActiveRunMessage } from "../messages/messages.types";
+import type { ChildRunEntry } from "../messages";
+import type { RunHistoryStorage } from "../history/history.types";
 import type { PluginNotifications } from "../../../daemon-plugin";
 import type { LoadedStrategy } from "@comma-agents/core";
 import type { HubManager } from "@comma-agents/core/hub";
@@ -51,6 +54,7 @@ export type PluginRunsState = Map<string, RunEntry>;
 
 /** @internal Human-input request awaiting an answer. */
 export interface PendingInput {
+  readonly prompt: string;
   readonly agentName: string;
   resolving: boolean;
   readonly resolve: (text: string) => void;
@@ -60,6 +64,13 @@ export interface PendingInput {
 
 /** @internal State and resources owned exclusively by the runs plugin. */
 export interface RunsContext {
+  readonly history: RunHistoryStorage;
+  readonly activeMessages: Map<string, ActiveRunMessage>;
+  readonly childMarkers: Map<string, ChildRunEntry>;
+  readonly pendingWrites: Set<Promise<void>>;
+  readonly historyHydration: Map<string, Promise<void>>;
+  readonly commands: Map<string, Promise<unknown>>;
+  revision: number;
   readonly identities: Map<string, RunIdentity>;
   readonly runs: PluginRunsState;
   readonly notifications: PluginNotifications<RunNotifications>;

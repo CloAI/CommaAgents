@@ -57,13 +57,19 @@ describe("run identity", () => {
         .map((update) => update.runId),
     ).toEqual([grandchild!.runId, child!.runId, "root"]);
     const history = await runs.getHistory("root");
+    expect(history.entries.every((entry) => entry.runId === "root")).toBe(true);
     expect(
-      history
-        .filter((event) => event.type === "agent_call")
-        .map((event) => event.runId),
-    ).toEqual([grandchild!.runId, child!.runId, "root"]);
-    expect(history.some((event) => "childId" in event)).toBe(false);
-    expect(await runs.getHistory(grandchild!.runId)).toEqual(history);
+      history.entries.some(
+        (entry) =>
+          entry.type === "child.run" && entry.childRunId === child!.runId,
+      ),
+    ).toBe(true);
+    const grandchildHistory = await runs.getHistory(grandchild!.runId);
+    expect(
+      grandchildHistory.entries.every(
+        (entry) => entry.runId === grandchild!.runId,
+      ),
+    ).toBe(true);
     expect(await storage.getEvents(child!.runId)).toEqual([]);
     expect((await storage.listRuns()).map((run) => run.runId)).toEqual([
       "root",
@@ -71,7 +77,9 @@ describe("run identity", () => {
     await runs.dispose();
 
     const restarted = createRunsPlugin({ runsDir: directories.at(-1)! });
-    expect(await restarted.getHistory(grandchild!.runId)).toEqual(history);
+    expect(await restarted.getHistory(grandchild!.runId)).toEqual(
+      grandchildHistory,
+    );
     expect(restarted.getRunLineage(grandchild!.runId)).toEqual([
       grandchild!,
       child!,
@@ -87,12 +95,14 @@ describe("run identity", () => {
     expect(prepared.phase).toBe("prepared");
     if (prepared.phase !== "cancelled") {
       expect(prepared.conversation?.records).toHaveLength(1);
-      const childRecord = history.find(
-        (event) => event.type === "agent_call" && event.runId === child!.runId,
+      const childRecord = (
+        await restarted.getHistory(child!.runId)
+      ).entries.find(
+        (entry) => entry.type === "message" && entry.role === "agent",
       );
-      if (childRecord?.type !== "agent_call")
-        throw new Error("Expected child conversation record");
-      expect(prepared.conversation?.records[0]?.id).toBe(childRecord.record.id);
+      expect(prepared.conversation?.records[0]?.id).toBe(
+        childRecord?.messageId,
+      );
     }
     expect(
       (await restarted.continueRun(child!.runId, "continued child").completion)

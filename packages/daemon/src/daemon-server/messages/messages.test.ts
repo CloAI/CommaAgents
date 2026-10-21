@@ -53,7 +53,7 @@ describe("plugin message schemas", () => {
         ok: false,
         error: { code: "NOT_FOUND", message: "Missing" },
       },
-      { ...envelope, type: "event", data: { phase: "running" } },
+      { ...envelope, type: "run.state", data: { phase: "running" } },
       { ...envelope, type: "subscription_end", reason: "completed" },
       { ...envelope, type: "subscription_end", reason: "unsubscribed" },
       {

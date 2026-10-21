@@ -1,5 +1,6 @@
 import type {
   BindingError,
+  ChannelMessage,
   ChannelOpenResult,
 } from "../../daemon-plugin/server";
 import { bindingError } from "../messages/messages.utils";
@@ -22,9 +23,9 @@ export function createSubscription({
   onClose,
 }: CreateSubscriptionOptions): Subscription {
   const controller = new AbortController();
-  const buffered: unknown[] = [];
+  const buffered: ChannelMessage[] = [];
   let phase: "opening" | "live" | "closed" = "opening";
-  let result: void | ChannelOpenResult<unknown>;
+  let result: void | ChannelOpenResult<ChannelMessage>;
   let ending: { readonly error?: BindingError } | undefined;
   let cleanup: Promise<void> | undefined;
   let closing = false;
@@ -75,7 +76,7 @@ export function createSubscription({
           if (phase === "opening") {
             buffered.push(message);
           } else if (phase === "live") {
-            send({ type: "event", requestId, data: message });
+            send({ ...message, requestId });
           }
         },
         end(error) {
@@ -99,10 +100,10 @@ export function createSubscription({
         return;
       }
       if (result?.initial !== undefined) {
-        send({ type: "event", requestId, data: result.initial });
+        send({ ...result.initial, requestId });
       }
       for (const message of buffered.splice(0)) {
-        send({ type: "event", requestId, data: message });
+        send({ ...message, requestId });
       }
       if (ending) {
         await finish(ending.error ? "failed" : "completed", ending.error);

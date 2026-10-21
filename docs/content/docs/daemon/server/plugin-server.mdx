@@ -25,7 +25,7 @@ await server.stop();
 await daemon.dispose();
 ```
 
-This server currently exposes only the status plugin. Other feature bindings and the CLI migration will follow separately. The existing `createDaemon` API continues to use its existing protocol.
+This server exposes status and [runs](/docs/daemon/server/runs). Other feature bindings and the CLI migration will follow separately. The existing `createDaemon` API continues to use its existing protocol.
 
 ## CreateDaemonServerOptions
 
@@ -84,16 +84,13 @@ The server sends a successful response before any channel events:
 
 ```json
 {
-  "type": "event",
+  "type": "status.updated",
   "requestId": "d66996b1-8837-45c0-9a16-c76dfdf01304",
   "ts": "2026-10-17T12:00:00.001Z",
   "data": {
-    "type": "status_updated",
-    "status": {
-      "phase": "running",
-      "version": "2.0.0-rc.1",
-      "startedAt": "2026-10-17T11:59:00.000Z"
-    }
+    "phase": "running",
+    "version": "2.0.0-rc.1",
+    "startedAt": "2026-10-17T11:59:00.000Z"
   }
 }
 ```
@@ -115,7 +112,9 @@ Channels send messages from the server to the client. Send commands for changes 
 
 A plugin may supply `server: { commands, channels }` to `createPlugin`. The entire `server` object and each array are optional. Commands and channels receive their owning plugin, its private context, and validated arguments. A channel also receives `send`, `end`, and a subscription abort signal.
 
-Use `defineCommand` and `defineChannel` to declare schemas and behavior. Keep each command or channel in its own folder, with its schemas in a colocated `*.schemas.ts` file. Extend the instance returned by `createPlugin` with `Object.assign` so handlers receive the same public instance.
+Use `defineCommand` and `defineChannel` to declare schemas and behavior. Import `z` from `"zod/v4"` for binding schemas; use `z.json()` for arbitrary JSON values. Keep each command or channel in its own folder, with its schemas in a colocated `*.schemas.ts` file. Extend the instance returned by `createPlugin` with `Object.assign` so handlers receive the same public instance.
+
+Channel messages have the shape `{ type, data }`. The plugin defines the root `type`; the server adds `requestId` and `ts`. Keep domain payloads inside `data`.
 
 Channel setup may return nothing, or an object containing an optional `initial` message and optional `cleanup` function. Setup emissions are buffered until acknowledgement and the optional initial message have been sent. Setup code must release partially acquired resources if it throws; the subscription signal is aborted on failure, unsubscribe, completion, or disconnect. Returned cleanup runs once, including when setup finishes after a disconnect.
 

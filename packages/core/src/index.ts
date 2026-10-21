@@ -11,6 +11,8 @@ export { createAgent } from "./agents/agent/agent";
 // -- Agent types (the core contracts) --
 export type {
   Agent,
+  AgentCallIdentity,
+  AgentCallFailure,
   AgentCallResult,
   AgentConfig,
   AgentStreamEvent,

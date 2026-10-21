@@ -51,6 +51,8 @@ Events emitted while an agent call is streaming.
 
 <AutoTypeTable path="../packages/core/src/agents/agent/agent.types.ts" name="AgentStreamEvent" />
 
+Agents created with `createAgent` attach the same `messageId` and `createdAt` to stream events and the final result. The message ID also identifies the saved conversation record. Use it to correlate one invocation across concurrent streams.
+
 ## Cancellation
 
 `call()` returns an abortable promise, and `stream()` returns an abortable async generator.

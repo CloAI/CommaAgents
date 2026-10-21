@@ -3,6 +3,7 @@ export { createPlugin, defineCommand, defineChannel } from "../daemon-plugin";
 export type {
   CreatePluginOptions,
   CommandContext,
+  ChannelMessage,
   ChannelContext,
   ChannelOpenResult,
   BindingError,
@@ -21,6 +22,13 @@ export type {
 } from "./daemon-kernel.types";
 export { createRunsPlugin } from "../plugins/runs";
 export type {
+  RunHistoryOptions,
+  RunHistoryPage,
+  RunContent,
+  RunMessage,
+  RunHistoryEntry,
+  ChildRunEntry,
+  RunsChannelMessage,
   CreateRunsPluginOptions,
   PrepareRunOptions as PluginPrepareRunOptions,
   PrepareRunResult as PluginPrepareRunResult,

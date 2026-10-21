@@ -1,0 +1,1 @@
+export const HISTORY_INDEX_CHUNK_BYTES = 64 * 1024;

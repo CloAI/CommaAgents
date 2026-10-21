@@ -28,6 +28,10 @@ export type QuestionRequester = (request: QuestionRequest) => Promise<string>;
  * and optional session/audit/skill state.
  */
 export interface ToolContext {
+  /** Agent message that issued this invocation. */
+  readonly messageId?: string;
+  /** Model tool invocation that issued this operation. */
+  readonly toolCallId?: string;
   /** Name of the agent that invoked this tool. */
   readonly agentName: string;
   /** Name of the flow currently executing, when invoked within one. */

@@ -1,10 +1,10 @@
+import type { z } from "zod/v4";
 import { defineChannel } from "../../../../../daemon-plugin";
-import type { ChannelContext, CommandContext } from "../../../../../daemon-plugin";
 import type {
-  StatusContext,
-  StatusNotifications,
-  StatusPlugin,
-} from "../../../status.types";
+  ChannelContext,
+  CommandContext,
+} from "../../../../../daemon-plugin";
+import type { StatusContext, StatusPlugin } from "../../../status.types";
 import {
   WatchStatusArgumentsSchema,
   WatchStatusMessageSchema,
@@ -17,12 +17,14 @@ export const watchStatusChannel = defineChannel({
     plugin,
     channel,
   }: CommandContext<StatusPlugin, StatusContext, Record<string, never>> & {
-    readonly channel: ChannelContext<StatusNotifications["status_updated"]>;
+    readonly channel: ChannelContext<z.input<typeof WatchStatusMessageSchema>>;
   }) {
     const cleanup = await plugin.notifications.subscribe(
       "status_updated",
       "daemon",
-      channel.send,
+      ({ status }) => {
+        channel.send({ type: "status.updated", data: status });
+      },
     );
     return { cleanup };
   },

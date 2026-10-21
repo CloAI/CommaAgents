@@ -33,12 +33,12 @@ describe("run execution", () => {
     expect(outcome.status).toBe("completed");
     if (outcome.status === "completed") expect(outcome.result.text).toBe("A,B");
     expect(
-      (await runs.getHistory("input-1")).flatMap((event) =>
-        event.type === "run_started"
-          ? [event.initialInput]
-          : event.type === "user_input"
-            ? [event.text]
-            : [],
+      (await runs.getHistory("input-1")).entries.flatMap((entry) =>
+        entry.type === "message" && entry.role === "user"
+          ? entry.content.flatMap((block) =>
+              block.type === "text" ? [block.text] : [],
+            )
+          : [],
       ),
     ).toEqual(["needs-input", "A", "B"]);
   });
@@ -128,8 +128,12 @@ describe("run execution", () => {
     expect(
       records.filter((event) => event.parentRunId === "parent-1"),
     ).toHaveLength(1);
-    expect(await runs.getHistory("parent-1")).toEqual(
-      await storage.getEvents("parent-1"),
+    const history = await runs.getHistory("parent-1");
+    expect(history.entries.every((entry) => entry.runId === "parent-1")).toBe(
+      true,
+    );
+    expect(history.entries.some((entry) => entry.type === "child.run")).toBe(
+      true,
     );
 
     const prepared = await runs.prepareRun({ runId: "parent-1" });

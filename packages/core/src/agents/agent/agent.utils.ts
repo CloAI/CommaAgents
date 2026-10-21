@@ -32,7 +32,7 @@ import type {
   ToolDefinition,
   ToolError,
 } from "../../tools/tool.types";
-import type { ToolHooks } from "../hooks";
+import type { AgentHooks, ToolHooks } from "../hooks";
 import { resolveHook } from "../hooks";
 import { DEFAULT_MAX_STEPS } from "./agent.constants";
 import type {
@@ -55,6 +55,9 @@ export interface BuildAgentToolSetOptions {
 }
 
 export type AgentHookStore = {
+  onCallCompleted?: AgentHooks["onCallCompleted"];
+  onCallStarted?: AgentHooks["onCallStarted"];
+  onCallFailed?: AgentHooks["onCallFailed"];
   alterFirstCallMessage: Array<TransformHook<string>> | undefined;
   beforeFirstCall: Array<SideEffectHook<string>> | undefined;
   afterFirstCallResult: Array<SideEffectHook<AgentCallResult>> | undefined;
@@ -177,12 +180,14 @@ export function buildAgentToolSet({
       inputSchema: definition.parameters,
       execute: async (
         toolArguments: unknown,
-        options: { abortSignal?: AbortSignal },
+        options: { abortSignal?: AbortSignal; toolCallId?: string },
       ) => {
         const argsString = JSON.stringify(toolArguments);
 
         const toolContext: ToolContext = {
           agentName,
+          messageId: runtime.messageId,
+          toolCallId: options.toolCallId,
           guard,
           abort: options.abortSignal ?? AbortSignal.timeout(30_000),
           ...(sessionId !== undefined ? { sessionId } : {}),

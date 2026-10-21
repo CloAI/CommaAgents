@@ -1,6 +1,8 @@
 export { createAgent } from "./agent/agent";
 export type {
   Agent,
+  AgentCallIdentity,
+  AgentCallFailure,
   AgentCallResult,
   AgentConfig,
   AgentOutputSchema,

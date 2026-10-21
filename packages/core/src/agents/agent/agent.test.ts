@@ -438,3 +438,94 @@ describe("Agent.updatePromptVariables", () => {
     expect(template.defaults).toEqual({ role: "updated" });
   });
 });
+
+describe("agent invocation identity", () => {
+  it("should retain one identity from startup through completion and the conversation record", async () => {
+    const agent = createAgent({
+      name: "identified",
+      execute: async () => "answer",
+    });
+    const started: string[] = [];
+    const completed: string[] = [];
+    hookIntoAgent(agent, {
+      onCallStarted: [
+        async ({ messageId }) => {
+          started.push(messageId);
+        },
+      ],
+      onCallCompleted: [
+        async (result) => {
+          completed.push(result.messageId!);
+        },
+      ],
+      afterFirstCallResult: [async () => {}],
+    });
+    const events = [];
+    for await (const event of agent.stream!("question")) {
+      events.push(event);
+    }
+    const record = agent.getConversationContext!().records()[0]!;
+    expect(started).toHaveLength(1);
+    expect(completed).toEqual(started);
+    expect(record.id).toBe(started[0]);
+    expect(events[0]).toMatchObject({
+      messageId: record.id,
+      createdAt: record.createdAt,
+    });
+    expect(events[0]).toMatchObject({
+      type: "done",
+      result: { messageId: record.id, createdAt: record.createdAt },
+    });
+  });
+
+  it("should isolate concurrent invocation identities", async () => {
+    const agent = createAgent({
+      name: "concurrent",
+      execute: async (text) => text,
+    });
+    const results = await Promise.all([agent.call("one"), agent.call("two")]);
+    expect(results[0]!.messageId).not.toBe(results[1]!.messageId);
+    expect(
+      new Set(
+        agent.getConversationContext!()
+          .records()
+          .map((record) => record.id),
+      ),
+    ).toEqual(new Set(results.map((result) => result.messageId)));
+  });
+
+  it("should identify a failed invocation without recording a successful response", async () => {
+    const failure = new Error("provider unavailable");
+    const agent = createAgent({
+      name: "failing",
+      execute: async () => {
+        throw failure;
+      },
+    });
+    const started: string[] = [];
+    const failed: unknown[] = [];
+    hookIntoAgent(agent, {
+      onCallStarted: [
+        async ({ messageId }) => {
+          started.push(messageId);
+        },
+      ],
+      onCallFailed: [
+        async (event) => {
+          failed.push(event);
+        },
+      ],
+    });
+    await expect(agent.call("question")).rejects.toThrow(
+      "provider unavailable",
+    );
+    expect(failed).toEqual([
+      expect.objectContaining({
+        messageId: started[0],
+        error: failure,
+        cancelled: false,
+      }),
+    ]);
+    expect(agent.getConversationContext!().records()).toHaveLength(0);
+  });
+});

@@ -14,8 +14,9 @@ export const directories: string[] = [];
 const dependencyMocks: Array<{ mockRestore(): void }> = [];
 
 export function cleanupRunFixtures(): void {
-  for (const dependencyMock of dependencyMocks.splice(0))
+  for (const dependencyMock of dependencyMocks.splice(0)) {
     dependencyMock.mockRestore();
+  }
   resetModelRegistry();
   for (const directory of directories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
@@ -87,6 +88,13 @@ export function fakeLoader(observed: {
           for (const hook of flowHooks.get("beforeStep") ?? []) {
             await hook({ stepName: "writer", message: input });
           }
+          const identity = {
+            messageId: crypto.randomUUID(),
+            createdAt: new Date().toISOString(),
+          };
+          for (const hook of agentHooks.get("onCallStarted") ?? []) {
+            await hook(identity);
+          }
           let output = input;
           if (input === "needs-input") {
             const answers = await Promise.all([
@@ -105,27 +113,30 @@ export function fakeLoader(observed: {
           if (controller.signal.aborted) {
             throw new DOMException("Stopped", "AbortError");
           }
-          const callResult = result(output);
+          const callResult = { ...result(output), ...identity };
           for (const text of ["first chunk", "second chunk"]) {
             for (const hook of agentHooks.get("onStreamEvent") ?? []) {
-              await hook({ type: "text", text });
+              await hook({ ...identity, type: "text", text });
             }
           }
           records.push({
-            id: crypto.randomUUID(),
+            id: identity.messageId,
             agentName: "writer",
-            createdAt: new Date().toISOString(),
+            createdAt: identity.createdAt,
             userMessage: { role: "user", content: input },
             responseMessages: [],
             text: output,
             usage: callResult.usage,
             finishReason: callResult.finishReason,
           });
-          for (const hook of agentHooks.get("afterCallResult") ?? []) {
+          for (const hook of [
+            ...(agentHooks.get("onCallCompleted") ?? []),
+            ...(agentHooks.get("afterCallResult") ?? []),
+          ]) {
             await hook(callResult);
           }
           for (const hook of agentHooks.get("onStreamEvent") ?? []) {
-            await hook({ type: "done", result: callResult });
+            await hook({ ...identity, type: "done", result: callResult });
           }
           for (const hook of flowHooks.get("afterStep") ?? []) {
             await hook({

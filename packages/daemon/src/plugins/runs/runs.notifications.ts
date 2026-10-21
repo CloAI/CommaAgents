@@ -1,3 +1,4 @@
+import type { RunContent, RunMessage, ChildRunEntry } from "./messages";
 import type { AgentCallResult, AgentStreamEvent } from "@comma-agents/core";
 import type { RunError, RunSnapshot } from "./runs.types";
 
@@ -92,7 +93,36 @@ export interface RunSteerQueuedStatus {
 }
 
 /** Status and live output delivered to a run watcher. */
+export interface RunMessageStreamStatus {
+  readonly type: "run_message_stream";
+  readonly runId: string;
+  readonly messageId: string;
+  readonly agentName: string;
+  readonly createdAt: string;
+  readonly contentIndex: number;
+  readonly content: RunContent;
+}
+export interface RunMessageOutputStatus {
+  readonly type: "run_message_output";
+  readonly runId: string;
+  readonly message: RunMessage;
+}
+export interface RunChildStatus {
+  readonly type: "run_child";
+  readonly runId: string;
+  readonly entry: ChildRunEntry;
+}
+export interface RunInputResolvedStatus {
+  readonly type: "run_input_resolved";
+  readonly runId: string;
+  readonly inputId: string;
+}
+
 export type RunStatus =
+  | RunMessageStreamStatus
+  | RunMessageOutputStatus
+  | RunChildStatus
+  | RunInputResolvedStatus
   | RunSnapshotStatus
   | RunPreparationCancelledStatus
   | RunPreparationFailedStatus

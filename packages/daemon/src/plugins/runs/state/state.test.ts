@@ -12,7 +12,7 @@ import {
 afterEach(cleanupRunFixtures);
 
 describe("run observation", () => {
-  test("should hydrate an initial snapshot for a notification subscription after restart", async () => {
+  test("should require explicit snapshot hydration after restart and notify only future changes", async () => {
     const runs = createMockRunsPlugin({
       repository: repository(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
@@ -29,15 +29,15 @@ describe("run observation", () => {
         snapshots.push(event);
       },
     );
-    expect(snapshots).toMatchObject([
-      {
-        type: "run_snapshot",
-        snapshot: {
-          phase: "terminal",
-          outcome: { status: "completed", summary: { text: "saved answer" } },
-        },
-      },
-    ]);
+    expect(snapshots).toEqual([]);
+    expect(() => restarted.getRunLineage("persisted")).toThrow(
+      "Missing run identity",
+    );
+    expect(await restarted.getRun("persisted")).toMatchObject({
+      phase: "terminal",
+      outcome: { status: "completed", summary: { text: "saved answer" } },
+    });
+    expect(snapshots).toEqual([]);
     await restarted.dispose();
   });
 
@@ -66,7 +66,7 @@ describe("run observation", () => {
     ).rejects.toThrow("disposed");
   });
 
-  test("should deliver an immediate snapshot and isolate throwing listeners", async () => {
+  test("should deliver future snapshots and isolate throwing listeners", async () => {
     const runs = createMockRunsPlugin({
       repository: repository(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
@@ -90,11 +90,7 @@ describe("run observation", () => {
         updates.push(update);
       },
     );
-    expect(updates).toHaveLength(1);
-    expect(updates[0]).toMatchObject({
-      type: "run_snapshot",
-      snapshot: { phase: "prepared" },
-    });
+    expect(updates).toEqual([]);
     expect((await runs.startRun("listeners", "answer").completion).status).toBe(
       "completed",
     );
@@ -200,11 +196,7 @@ describe("run observation", () => {
         lateUpdates.push(update);
       },
     );
-    expect(lateUpdates).toHaveLength(1);
-    expect(lateUpdates[0]).toMatchObject({
-      type: "run_snapshot",
-      snapshot: { phase: "running" },
-    });
+    expect(lateUpdates).toEqual([]);
     allowRecordWrite.resolve();
     await execution.completion;
     const historyAtOutput = await observedHistoryReads[0];

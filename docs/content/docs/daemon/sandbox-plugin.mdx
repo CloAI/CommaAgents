@@ -123,11 +123,12 @@ Policy updates affect the current execution and are not saved across continuatio
 
 ## Run ancestry and history
 
-Every child records its immediate parent. Runs resolves history ownership by following that chain to the root; all related executions share the root's timeline, with each event identifying its producing execution. Parent relationships remain available after resource cleanup and restarting the daemon. Preparing a continuation restores only the selected execution's conversation.
+Every child records its immediate parent. Parent relationships remain available after resource cleanup and restarting the daemon. Display history contains only the selected execution’s messages and direct child launch references; request a child’s history separately. Preparing a continuation restores only the selected execution’s conversation.
 
 ```ts
 const executionId = childRequest?.runId ?? runId;
-const history = await daemon.plugins.runs.getHistory(executionId);
+const history = await daemon.plugins.runs.getHistory(executionId, { limit: 25 });
+console.log(history.entries, history.page);
 const lineage = daemon.plugins.runs.getRunLineage(executionId);
 // lineage contains this execution followed by its ancestors.
 ```
@@ -151,7 +152,7 @@ const stopOutput = await daemon.plugins.runs.notifications.subscribe(
 );
 ```
 
-Snapshot subscriptions deliver the current snapshot initially. Agent output and stream subscriptions receive future events. Root subscriptions also receive matching descendant notifications.
+Run notification subscriptions receive future changes only; subscribing does not load persisted state or deliver an initial snapshot. Read `getRun(runId)` explicitly when you need the current snapshot. Use the [runs channel](/docs/daemon/server/runs) for coordinated initial state and live updates. Root notification subscriptions also receive matching descendant notifications.
 
 Notification delivery is synchronous; asynchronous listeners do not delay execution. Thrown errors and rejected Promises are reported without interrupting other listeners. Subscription changes during delivery affect subsequent notifications. New subscriptions are rejected when disposal begins, while existing subscribers can receive final cleanup notifications.
 

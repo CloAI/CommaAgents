@@ -1,3 +1,4 @@
+import { parseChannelMessage } from "./server.utils";
 import type {
   BindingSchema,
   ChannelDefinition,
@@ -70,22 +71,28 @@ export function defineChannel<
           end: channel.end,
           send(message) {
             const parsedMessage = definition.message.safeParse(message);
-            if (!parsedMessage.success) {
+            const outgoing = parsedMessage.success
+              ? parseChannelMessage(parsedMessage.data)
+              : undefined;
+            if (!outgoing) {
               channel.end({
                 code: "INVALID_OUTPUT",
                 message: "Channel produced an invalid message",
               });
               return;
             }
-            channel.send(parsedMessage.data);
+            channel.send(outgoing);
           },
         },
       });
       if (!result || result.initial === undefined) {
-        return result;
+        return result ? { cleanup: result.cleanup } : undefined;
       }
       const initial = definition.message.safeParse(result.initial);
-      if (!initial.success) {
+      const outgoing = initial.success
+        ? parseChannelMessage(initial.data)
+        : undefined;
+      if (!outgoing) {
         channel.end({
           code: "INVALID_OUTPUT",
           message: "Channel produced an invalid initial message",
@@ -96,7 +103,7 @@ export function defineChannel<
           { code: "INVALID_OUTPUT" },
         );
       }
-      return { ...result, initial: initial.data };
+      return { ...result, initial: outgoing };
     },
   };
 }

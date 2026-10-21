@@ -48,7 +48,7 @@ describe("createStatusPlugin", () => {
       },
     );
     expect(messages).toEqual([
-      { type: "status_updated", status: plugin.getStatus() },
+      { type: "status.updated", data: plugin.getStatus() },
     ]);
     await subscription?.cleanup?.();
     setPhase("stopping");

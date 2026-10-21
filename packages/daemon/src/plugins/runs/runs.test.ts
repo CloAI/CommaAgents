@@ -70,8 +70,8 @@ describe("runs plugin", () => {
       "completed",
     );
     expect(
-      (await runs.getHistory("model-1")).filter(
-        (event) => event.type === "agent_call",
+      (await runs.getHistory("model-1")).entries.filter(
+        (event) => event.type === "message" && event.role === "agent",
       ),
     ).toHaveLength(1);
     const prepared = await runs.prepareRun({ runId: "model-1" });
@@ -80,8 +80,8 @@ describe("runs plugin", () => {
       (await runs.continueRun("model-1", "second").completion).status,
     ).toBe("completed");
     expect(
-      (await runs.getHistory("model-1")).filter(
-        (event) => event.type === "agent_call",
+      (await runs.getHistory("model-1")).entries.filter(
+        (event) => event.type === "message" && event.role === "agent",
       ),
     ).toHaveLength(2);
   });

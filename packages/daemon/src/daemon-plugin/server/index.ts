@@ -2,6 +2,7 @@ export { defineCommand, defineChannel } from "./server";
 export type {
   BindingError,
   BindingSchema,
+  ChannelMessage,
   ChannelContext,
   ChannelOpenResult,
   CommandContext,

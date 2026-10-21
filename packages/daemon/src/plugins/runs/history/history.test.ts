@@ -10,7 +10,7 @@ import {
 afterEach(cleanupRunFixtures);
 
 describe("run timeline reads", () => {
-  test("should return the original timeline while restoring retained conversation separately", async () => {
+  test("should project own display history while preserving the timeline and restoring retained model context", async () => {
     const storage = repository();
     const originalRecord = {
       id: "original",
@@ -80,7 +80,12 @@ describe("run timeline reads", () => {
       repository: storage,
       loadStrategy: fakeLoader(observed),
     });
-    expect(await runs.getHistory("retained")).toEqual(events);
+    expect(
+      (await runs.getHistory("retained")).entries.map(
+        (entry) => entry.messageId,
+      ),
+    ).toEqual([expect.any(String), "original", "recent"]);
+    expect(await storage.getEvents("retained")).toEqual(events);
     const prepared = await runs.prepareRun({ runId: "retained" });
     expect(observed.restored).toEqual([["original", "summary", "recent"]]);
     if (prepared.phase !== "cancelled") {
@@ -90,7 +95,12 @@ describe("run timeline reads", () => {
       });
       expect(prepared.conversation).not.toHaveProperty("inputs");
     }
-    expect(await runs.getHistory("retained")).toEqual(events);
+    expect(
+      (await runs.getHistory("retained")).entries.map(
+        (entry) => entry.messageId,
+      ),
+    ).toEqual([expect.any(String), "original", "recent"]);
+    expect(await storage.getEvents("retained")).toEqual(events);
     expect(originalRecord).not.toHaveProperty("status");
     await runs.stopRun("retained");
   });

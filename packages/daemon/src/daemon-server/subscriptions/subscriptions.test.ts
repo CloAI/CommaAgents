@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { createPlugin, defineChannel } from "../../daemon-plugin";
 import type { ChannelContext, CommandContext } from "../../daemon-plugin";
 import { createSubscription } from "./subscriptions";
@@ -123,7 +123,7 @@ describe("createSubscription", () => {
           channel.signal.addEventListener("abort", () => {
             aborted = true;
           });
-          channel.send("buffered");
+          channel.send({ type: "test.buffered", data: "buffered" });
           throw Object.assign(new Error("Setup failed"), {
             code: "SETUP_FAILED",
           });

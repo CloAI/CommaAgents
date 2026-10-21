@@ -1,3 +1,4 @@
+import type { RunHistoryOptions, RunHistoryPage } from "./history";
 import type { RunNotifications } from "./runs.notifications";
 import type { RunIdentity } from "../../daemon-run-state/run-repository/run-repository.types";
 export type { RunIdentity } from "../../daemon-run-state/run-repository/run-repository.types";
@@ -5,7 +6,6 @@ import type { NotifyingPlugin } from "../../daemon-plugin";
 import type {
   AgentCallResult,
   ConversationHistory,
-  TimelineEvent,
   LoadedStrategy,
   LoadStrategyOptions,
 } from "@comma-agents/core";
@@ -156,7 +156,10 @@ export interface RunSnapshot extends RunIdentity {
     | { readonly status: "completed"; readonly summary: RunResultSummary }
     | {
         readonly status:
-          "failed" | "cancelled" | "persistence_error" | "interrupted";
+          | "failed"
+          | "cancelled"
+          | "persistence_error"
+          | "interrupted";
         readonly error?: RunError;
         readonly summary?: RunResultSummary;
       };
@@ -172,7 +175,8 @@ export interface RunExecutionHandle {
 
 /** Prepared snapshot or a preparation cancelled before execution. */
 export type PrepareRunResult =
-  RunSnapshot | { readonly phase: "cancelled"; readonly runId: string };
+  | RunSnapshot
+  | { readonly phase: "cancelled"; readonly runId: string };
 
 /** Storage and feature dependencies for the serverless runs plugin. */
 export interface CreateRunsPluginOptions {
@@ -208,6 +212,9 @@ export interface RunsPlugin extends NotifyingPlugin<"runs", RunNotifications> {
   ): Promise<boolean>;
   /** Read the current or persisted terminal snapshot. */
   getRun(runId: string): Promise<RunSnapshot | undefined>;
-  /** Read the root-owned timeline containing this execution and its related executions. */
-  getHistory(runId: string): Promise<readonly TimelineEvent[]>;
+  /** Read this conversation's display history; omit options for all finished entries. */
+  getHistory(
+    runId: string,
+    options?: RunHistoryOptions,
+  ): Promise<RunHistoryPage>;
 }

@@ -17,7 +17,7 @@ import {
 } from "../history/history.utils";
 import { preparationKey } from "./preparation.utils";
 import { hydrateRunLineage, registerRunIdentity } from "../identity";
-import { getRunHistory } from "../history";
+import { getRunHistory, hydrateDisplayHistory } from "../history";
 
 async function prepareEntry(
   runsContext: RunsContext,
@@ -31,6 +31,7 @@ async function prepareEntry(
     await registerRunIdentity(runsContext, identity);
     updateRunSnapshot(runsContext, entry, { ...entry.snapshot, ...identity });
     const events = await getRunHistory(runsContext, runId);
+    await hydrateDisplayHistory(runsContext, runId);
     const latestStart = findLatestRunStart(
       events.filter((event) => !event.runId || event.runId === runId),
     );

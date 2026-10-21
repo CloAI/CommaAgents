@@ -62,6 +62,8 @@ export type AgentOutputSchema = FlexibleSchema<unknown>;
  * ```
  */
 export interface AgentRuntime {
+  /** Current invocation identity supplied to tools by the agent. */
+  readonly messageId?: string;
   /** Access controls applied to tools invoked by this agent. */
   readonly sandbox?: Sandbox;
   /** Skills available to the `list_skills` and `load_skill` tools. */
@@ -290,6 +292,22 @@ export interface Agent {
   appendHook?(hookName: string, callback: unknown): void;
 }
 
+/** Stable identity shared by streaming, persisted conversation, and display history. */
+export interface AgentCallIdentity {
+  /** Identifier allocated before execution begins. */
+  readonly messageId: string;
+  /** ISO timestamp at call start. */
+  readonly createdAt: string;
+}
+
+/** Failure of an identified agent invocation. */
+export interface AgentCallFailure extends AgentCallIdentity {
+  /** Failure raised while processing this invocation. */
+  readonly error: unknown;
+  /** Whether cancellation was requested when the failure was observed. */
+  readonly cancelled: boolean;
+}
+
 /**
  * Result from any agent call.
  *
@@ -307,6 +325,10 @@ export interface Agent {
  * ```
  */
 export interface AgentCallResult {
+  /** Conversation-record identity, when supplied by the agent implementation. */
+  readonly messageId?: string;
+  /** Invocation start time, when supplied by the agent implementation. */
+  readonly createdAt?: string;
   /** The final text response from the agent. */
   readonly text: string;
   /** Total token usage across all steps. Zero for non-LLM agents. */
@@ -344,45 +366,47 @@ export interface AgentCallResult {
  */
 export type ToolCallStatus = "completed" | "error";
 
-export type AgentStreamEvent =
-  | { readonly type: "retention"; readonly event: ConversationRetentionEvent }
-  | { readonly type: "text"; readonly text: string }
-  | {
-      readonly type: "tool-call";
-      /**
-       * Correlation id assigned by the model. Pairs this call with its eventual
-       * `tool-result` event so consumers can render a single row per call
-       * even when calls run concurrently or interleave with text/thinking.
-       */
-      readonly toolCallId: string;
-      readonly toolName: string;
-      readonly args: string;
-      /** MCP origin when this is a namespaced MCP tool. */
-      readonly mcp?: McpToolOrigin;
-    }
-  | {
-      readonly type: "tool-result";
-      /** Correlates with the `tool-call` event that started this invocation. */
-      readonly toolCallId: string;
-      readonly toolName: string;
-      /**
-       * Raw tool output. For `status: "error"` results this is an empty
-       * string by default — the human-readable failure message lives on
-       * `error`.
-       */
-      readonly output: string;
-      /** Outcome of the tool invocation. */
-      readonly status: ToolCallStatus;
-      /** Failure message when `status === "error"`. */
-      readonly error?: string;
-      /** MCP origin when this is a namespaced MCP tool. */
-      readonly mcp?: McpToolOrigin;
-    }
-  | { readonly type: "thinking-start"; readonly id: string }
-  | { readonly type: "thinking"; readonly id: string; readonly text: string }
-  | { readonly type: "thinking-end"; readonly id: string }
-  | { readonly type: "step-start" }
-  | { readonly type: "done"; readonly result: AgentCallResult };
+export type AgentStreamEvent = Partial<AgentCallIdentity> &
+  (
+    | { readonly type: "retention"; readonly event: ConversationRetentionEvent }
+    | { readonly type: "text"; readonly text: string }
+    | {
+        readonly type: "tool-call";
+        /**
+         * Correlation id assigned by the model. Pairs this call with its eventual
+         * `tool-result` event so consumers can render a single row per call
+         * even when calls run concurrently or interleave with text/thinking.
+         */
+        readonly toolCallId: string;
+        readonly toolName: string;
+        readonly args: string;
+        /** MCP origin when this is a namespaced MCP tool. */
+        readonly mcp?: McpToolOrigin;
+      }
+    | {
+        readonly type: "tool-result";
+        /** Correlates with the `tool-call` event that started this invocation. */
+        readonly toolCallId: string;
+        readonly toolName: string;
+        /**
+         * Raw tool output. For `status: "error"` results this is an empty
+         * string by default — the human-readable failure message lives on
+         * `error`.
+         */
+        readonly output: string;
+        /** Outcome of the tool invocation. */
+        readonly status: ToolCallStatus;
+        /** Failure message when `status === "error"`. */
+        readonly error?: string;
+        /** MCP origin when this is a namespaced MCP tool. */
+        readonly mcp?: McpToolOrigin;
+      }
+    | { readonly type: "thinking-start"; readonly id: string }
+    | { readonly type: "thinking"; readonly id: string; readonly text: string }
+    | { readonly type: "thinking-end"; readonly id: string }
+    | { readonly type: "step-start" }
+    | { readonly type: "done"; readonly result: AgentCallResult }
+  );
 
 /** Common options passed to generateText / streamText. */
 export interface CallOptions {

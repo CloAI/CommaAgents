@@ -55,14 +55,17 @@ import {
  * console.log(result.text);
  * ```
  *
- * @param config - Authored model, prompt, tool, and conversation behavior.
- * @param runtime - Optional services supplied by the current execution environment.
+ * @param {AgentConfig} config - Authored model, prompt, tool, and conversation behavior.
+ * @param {AgentRuntime} runtime - Optional services supplied by the current execution environment.
+ * @returns {Agent} Agent methods and conversation context.
  */
 export function createAgent(
   config: AgentConfig,
   runtime: AgentRuntime = {},
 ): Agent {
-  const conversationContext = createConversationContext(resolveContextOptions(config));
+  const conversationContext = createConversationContext(
+    resolveContextOptions(config),
+  );
   let firstCall = true;
 
   // Mutable hooks store — starts empty, populated via appendHook (hookIntoAgent).
@@ -71,6 +74,9 @@ export function createAgent(
   // Fields start as undefined (preserving resolveHook fallback semantics)
   // and become arrays when hooks are appended via hookIntoAgent.
   const hooks: AgentHookStore = {
+    onCallStarted: undefined,
+    onCallCompleted: undefined,
+    onCallFailed: undefined,
     alterFirstCallMessage: undefined,
     beforeFirstCall: undefined,
     afterFirstCallResult: undefined,
@@ -123,10 +129,15 @@ export function createAgent(
         void,
         undefined
       > {
+        const identity = {
+          messageId: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+        };
         const isFirst = consumeFirstCall();
         const streamEventHooks = hooks.onStreamEvent;
 
         try {
+          await runSideEffectHooks(hooks.onCallStarted, identity);
           // 1-2. Pre-call hooks
           const alteredMessage = await runPreCallHooks(hooks, message, isFirst);
 
@@ -152,7 +163,7 @@ export function createAgent(
             // LLM path: stream via streamText, yield events as they arrive.
             const { callOptions, retentionEvents } = await buildCallOptions(
               config,
-              runtime,
+              { ...runtime, messageId: identity.messageId },
               alteredMessage,
               conversationContext,
               getToolHooks(hooks),
@@ -160,6 +171,7 @@ export function createAgent(
             );
             for (const retentionEvent of retentionEvents) {
               const event: AgentStreamEvent = {
+                ...identity,
                 type: "retention",
                 event: retentionEvent,
               };
@@ -173,7 +185,10 @@ export function createAgent(
             );
 
             for await (const part of streamResult.fullStream) {
-              const event = mapStreamPart(part);
+              const mappedEvent = mapStreamPart(part);
+              const event = mappedEvent
+                ? { ...mappedEvent, ...identity }
+                : undefined;
               if (event) {
                 if (streamEventHooks && streamEventHooks.length > 0) {
                   await runSideEffectHooks(streamEventHooks, event);
@@ -191,7 +206,10 @@ export function createAgent(
             );
           }
 
+          result = { ...result, ...identity };
           const conversationRecord = createConversationRecord({
+            id: identity.messageId,
+            createdAt: identity.createdAt,
             agentName: config.name,
             userMessage: alteredMessage,
             responseMessages: result.responseMessages,
@@ -203,12 +221,14 @@ export function createAgent(
             finishReason: result.finishReason,
           });
           conversationContext.appendRecord(conversationRecord);
+          await runSideEffectHooks(hooks.onCallCompleted, result);
 
           // 4-5. Post-call hooks
           const finalResult = await runPostCallHooks(hooks, result, isFirst);
 
           // Yield done event
           const doneEvent: AgentStreamEvent = {
+            ...identity,
             type: "done",
             result: finalResult,
           };
@@ -219,6 +239,11 @@ export function createAgent(
 
           yield doneEvent;
         } catch (error) {
+          await runSideEffectHooks(hooks.onCallFailed, {
+            ...identity,
+            error,
+            cancelled: signal.aborted,
+          });
           throw new AgentCallError(
             config.name,
             `LLM call failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -232,7 +257,12 @@ export function createAgent(
       return conversationContext;
     },
 
-    /** Append a hook callback to this agent's lifecycle. */
+    /**
+     * Append a hook callback to this agent's lifecycle.
+     * @param {string} hookName - Supported lifecycle hook.
+     * @param {unknown} callback - Callback for that hook's contract.
+     * @returns {void} Nothing; updates the hook collection.
+     */
     appendHook(hookName: string, callback: unknown): void {
       if (!(hookName in hooks)) {
         throw new Error(`Unknown hook name: "${hookName}"`);
@@ -267,13 +297,17 @@ function resolveContextOptions(
   config: AgentConfig,
 ): ConversationContextOptions {
   const options = config.context ?? {};
-  if (!config.model || options.compaction === false) return options;
+  if (!config.model || options.compaction === false) {
+    return options;
+  }
 
   const compaction =
     options.compaction === undefined || options.compaction === true
       ? {}
       : { ...options.compaction };
-  if (compaction.summarize !== undefined) return options;
+  if (compaction.summarize !== undefined) {
+    return options;
+  }
 
   return {
     ...options,

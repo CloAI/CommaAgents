@@ -73,17 +73,17 @@ export function createPlugin<
       server: bindPluginServer(
         options.server,
         plugin as unknown as Owner,
-        options.context as Context,
+        options,
       ),
     });
   }
-  if (!notifications) {
-    return plugin;
+  if (notifications) {
+    return {
+      plugin: Object.assign(plugin, {
+        notifications: { subscribe: notifications.subscribe },
+      }),
+      notifications,
+    };
   }
-  return {
-    plugin: Object.assign(plugin, {
-      notifications: { subscribe: notifications.subscribe },
-    }),
-    notifications,
-  };
+  return plugin;
 }

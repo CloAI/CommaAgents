@@ -136,6 +136,8 @@ export function createLaunchStrategyTool(): ToolDefinition<
       if (toolContext.launchStrategy) {
         try {
           const result = await toolContext.launchStrategy({
+            messageId: toolContext.messageId,
+            toolCallId: toolContext.toolCallId,
             strategyPath: match.path,
             ...(match.manifestPath ? { manifestPath: match.manifestPath } : {}),
             input,

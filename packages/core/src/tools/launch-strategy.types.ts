@@ -12,6 +12,9 @@
 
 /** Input to a {@link LaunchStrategyHandle}. */
 export interface LaunchStrategyRequest {
+  /** Parent message and tool invocation that launched the child. */
+  readonly messageId?: string;
+  readonly toolCallId?: string;
   /** Absolute path to the strategy file. */
   readonly strategyPath: string;
   /**

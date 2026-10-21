@@ -95,6 +95,7 @@ export {
 export type {
   CreatePluginOptions,
   CommandContext,
+  ChannelMessage,
   ChannelContext,
   ChannelOpenResult,
   BindingError,
@@ -114,6 +115,13 @@ export {
 export type { PluginClientMessage, PluginServerMessage } from "./daemon-server";
 export type {
   CreateDaemonKernelOptions,
+  RunHistoryOptions,
+  RunHistoryPage,
+  RunContent,
+  RunMessage,
+  RunHistoryEntry,
+  ChildRunEntry,
+  RunsChannelMessage,
   CreateRunsPluginOptions,
   CreateSandboxPluginOptions,
   CreateQuestionsPluginOptions,

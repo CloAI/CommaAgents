@@ -1,3 +1,14 @@
+import {
+  prepareRunCommand,
+  startRunCommand,
+  stopRunCommand,
+  continueRunCommand,
+  steerRunCommand,
+  resolveInputCommand,
+  getRunCommand,
+  getHistoryCommand,
+  runsChannel,
+} from "./server";
 import { createPlugin } from "../../daemon-plugin";
 import type { CreateRunsPluginOptions, RunsPlugin } from "./runs.types";
 import type { RunNotifications } from "./runs.notifications";
@@ -10,7 +21,7 @@ import {
   steerRun,
   stopRun,
 } from "./execution";
-import { getRunHistory, getRunSnapshot } from "./history";
+import { getDisplayHistory, getRunSnapshot } from "./history";
 import { prepareRun } from "./preparation";
 import { getRunLineage } from "./identity";
 
@@ -29,28 +40,40 @@ import { getRunLineage } from "./identity";
  * ```
  */
 export function createRunsPlugin(options: CreateRunsPluginOptions): RunsPlugin {
-  const { plugin, notifications } = createPlugin<"runs", RunNotifications>({
+  const { plugin, notifications } = createPlugin<
+    "runs",
+    RunNotifications,
+    RunsPlugin,
+    RunsContext
+  >({
     name: "runs",
     notifications: true,
+    get context() {
+      return context;
+    },
+    server: {
+      commands: [
+        prepareRunCommand,
+        startRunCommand,
+        stopRunCommand,
+        continueRunCommand,
+        steerRunCommand,
+        resolveInputCommand,
+        getRunCommand,
+        getHistoryCommand,
+      ],
+      channels: [runsChannel],
+    },
     cleanup: () => disposeRuns(context),
     notificationHooks: {
       getRecipientKeys: (runId) =>
         context.identities.has(runId)
           ? getRunLineage(context, runId).map((identity) => identity.runId)
           : [runId],
-      beforeSubscribe: async (type, runId) => {
-        if (type === "run_snapshot") await getRunSnapshot(context, runId);
-      },
-      onSubscribe: (type, runId, deliver) => {
-        if (type !== "run_snapshot") return;
-        const snapshot = context.runs.get(runId)?.snapshot;
-        if (snapshot) deliver({ type: "run_snapshot", snapshot });
-      },
     },
   });
   const context: RunsContext = createRunsContext(options, notifications);
-  return {
-    ...plugin,
+  return Object.assign(plugin, {
     getRunLineage: (runId) => getRunLineage(context, runId),
     prepareRun: (options) => prepareRun(context, options),
     startRun: (runId, input = "") =>
@@ -62,7 +85,7 @@ export function createRunsPlugin(options: CreateRunsPluginOptions): RunsPlugin {
     resolveInput: (runId, requestId, text) =>
       resolveRunInput(context, runId, requestId, text),
     getRun: (runId) => getRunSnapshot(context, runId),
-    getHistory: (runId) => getRunHistory(context, runId),
+    getHistory: (runId, options) => getDisplayHistory(context, runId, options),
     registerRunPreparation: (registration): void => {
       if (
         context.preparations.some(
@@ -81,5 +104,5 @@ export function createRunsPlugin(options: CreateRunsPluginOptions): RunsPlugin {
       }
       context.hooks.push(registration);
     },
-  };
+  } satisfies Omit<RunsPlugin, keyof typeof plugin>);
 }

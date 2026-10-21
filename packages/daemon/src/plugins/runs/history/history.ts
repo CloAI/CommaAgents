@@ -1,3 +1,5 @@
+import { legacyDisplayEntries } from "../messages/messages.utils";
+import type { RunHistoryOptions, RunHistoryPage } from "./history.types";
 import type { TimelineEvent } from "@comma-agents/core";
 import type { RunSnapshot } from "../runs.types";
 import { snapshotFromEvents } from "./history.utils";
@@ -51,7 +53,9 @@ export async function getRunHistory(
   runId: string,
 ): Promise<readonly TimelineEvent[]> {
   const lineage = await hydrateRunLineage(context, runId);
-  if (!lineage) return [];
+  if (!lineage) {
+    return [];
+  }
   const events = await context.repository.getEvents(lineage.at(-1)!.runId, {
     strict: true,
   });
@@ -71,12 +75,19 @@ export async function getRunSnapshot(
   runId: string,
 ): Promise<RunSnapshot | undefined> {
   const current = context.runs.get(runId);
-  if (current) return current.snapshot;
-  const snapshot = snapshotFromEvents(
-    runId,
-    await getRunHistory(context, runId),
-  );
-  if (!snapshot) return undefined;
+  if (current) {
+    return current.snapshot;
+  }
+  const stored = await context.history.snapshot(runId);
+  const snapshot: RunSnapshot | undefined = stored
+    ? stored.phase === "terminal"
+      ? stored
+      : { ...stored, phase: "terminal", outcome: { status: "interrupted" } }
+    : snapshotFromEvents(runId, await getRunHistory(context, runId));
+  await hydrateRunLineage(context, runId);
+  if (!snapshot) {
+    return undefined;
+  }
   if (!context.runs.has(runId)) {
     context.runs.set(runId, {
       snapshot,
@@ -90,4 +101,50 @@ export async function getRunSnapshot(
     });
   }
   return context.runs.get(runId)?.snapshot;
+}
+
+/**
+ * Hydrate display history once, preserving the raw timeline for execution restoration.
+ * @param {RunsContext} context - Private storage and hydration state.
+ * @param {string} runId - Requested conversation, excluding descendants.
+ * @returns {Promise<void>} Existing display history is available.
+ * @internal
+ */
+export function hydrateDisplayHistory(
+  context: RunsContext,
+  runId: string,
+): Promise<void> {
+  const existing = context.historyHydration.get(runId);
+  if (existing) {
+    return existing;
+  }
+  const hydration = (async () => {
+    if (!context.history.has(runId)) {
+      const timeline = await getRunHistory(context, runId);
+      for (const entry of legacyDisplayEntries(timeline, runId)) {
+        await context.history.save(entry);
+      }
+    }
+  })();
+  context.historyHydration.set(runId, hydration);
+  void hydration.catch(() => context.historyHydration.delete(runId));
+  return hydration;
+}
+
+/**
+ * Read chronological display history with optional backward cursor pagination.
+ * @param {RunsContext} context - Feature-owned history storage.
+ * @param {string} runId - Conversation whose own entries are requested.
+ * @param {RunHistoryOptions} options - Optional limit and older-page cursor.
+ * @returns {Promise<RunHistoryPage>} Finished messages and child references with page metadata.
+ * @internal
+ */
+export async function getDisplayHistory(
+  context: RunsContext,
+  runId: string,
+  options?: RunHistoryOptions,
+): Promise<RunHistoryPage> {
+  await hydrateRunLineage(context, runId);
+  await hydrateDisplayHistory(context, runId);
+  return context.history.read(runId, options);
 }

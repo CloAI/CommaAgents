@@ -3,6 +3,7 @@ export { defineCommand, defineChannel } from "./server";
 export type { CreatePluginOptions } from "./plugin.types";
 export type {
   BindingError,
+  ChannelMessage,
   ChannelContext,
   ChannelOpenResult,
   CommandContext,

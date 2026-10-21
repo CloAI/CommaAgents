@@ -3,7 +3,7 @@ import { createDaemonServer } from "./daemon-server";
 import type { DaemonServer } from "./daemon-server.types";
 import { connectSocket, counterPlugin } from "./test.utils";
 import { createPlugin, defineChannel } from "../daemon-plugin";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { createDaemonKernel } from "../daemon-kernel/daemon-kernel";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -86,9 +86,9 @@ describe("createDaemonServer", () => {
         ok: true,
       });
       expect(await client.next()).toMatchObject({
-        type: "event",
+        type: "status.updated",
         requestId,
-        data: { type: "status_updated", status: { phase: "running" } },
+        data: { phase: "running" },
       });
       client.send({
         type: "command",
@@ -104,7 +104,7 @@ describe("createDaemonServer", () => {
       await server.stop();
       await client.closed;
       expect(daemon.plugins.status.getStatus().phase).toBe("running");
-      expect(daemon.plugins.runs.server).toBeUndefined();
+      expect(daemon.plugins.runs.server?.channels?.[0]?.name).toBe("runs");
       await daemon.dispose();
       expect(daemon.plugins.status.getStatus().phase).toBe("stopped");
     } finally {
@@ -182,13 +182,13 @@ describe("createDaemonServer", () => {
       data: null,
     });
     expect(await client.next()).toMatchObject({
-      type: "event",
+      type: "counter.updated",
       requestId,
       data: 0,
     });
     plugin.add(2);
     expect(await client.next()).toMatchObject({
-      type: "event",
+      type: "counter.updated",
       requestId,
       data: 2,
     });
@@ -241,7 +241,7 @@ describe("createDaemonServer", () => {
       arguments: { value: 8 },
     });
     expect(await second.next()).toMatchObject({
-      type: "event",
+      type: "counter.updated",
       requestId,
       data: 8,
     });
@@ -289,7 +289,10 @@ describe("createDaemonServer", () => {
       arguments: {},
     });
     expect(await client.next()).toMatchObject({ type: "response", ok: true });
-    expect(await client.next()).toMatchObject({ type: "event", data: 1 });
+    expect(await client.next()).toMatchObject({
+      type: "counter.updated",
+      data: 1,
+    });
     expect(await client.next()).toMatchObject({
       type: "subscription_end",
       reason: "completed",
