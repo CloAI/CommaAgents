@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { ContinueRunMessage } from "./requests/continue-run/continue-run.schema";
-import { GetAvailableModelsMessage } from "./requests/get-available-models/get-available-models.schema";
 import {
   HubInstallMessage,
   HubListMessage,
@@ -8,23 +7,19 @@ import {
   HubUpdateMessage,
 } from "./requests/hub-packages/hub-packages.schema";
 import { ListMcpServersMessage } from "./requests/list-mcp-servers/list-mcp-servers.schema";
-import { ListProvidersMessage } from "./requests/list-providers/list-providers.schema";
 import { ListRunsMessage } from "./requests/list-runs/list-runs.schema";
 import { ListStrategiesMessage } from "./requests/list-strategies/list-strategies.schema";
 import { PermissionDecisionMessage } from "./requests/permission-decision/permission-decision.schema";
 import { PingMessage } from "./requests/ping/ping.schema";
 import { PrepareRunMessage } from "./requests/prepare-run/prepare-run.schema";
 import { QuestionResponseMessage } from "./requests/question-response/question-response.schema";
-import { RegisterProviderMessage } from "./requests/register-provider/register-provider.schema";
-import { SetCredentialMessage } from "./requests/set-credential/set-credential.schema";
 import { StartRunMessage } from "./requests/start-run/start-run.schema";
 import { SteerRunMessage } from "./requests/steer-run/steer-run.schema";
 import { StopRunMessage } from "./requests/stop-run/stop-run.schema";
-import { SubscribeMessage } from "./requests/subscribe/subscribe.schema";
+import { SubscribeMessage } from "../daemon-services/subscription/subscribe/subscribe.schema";
 import { TrashClearMessage } from "./requests/trash-clear/trash-clear.schema";
 import { TrashListMessage } from "./requests/trash-list/trash-list.schema";
 import { TrashRestoreMessage } from "./requests/trash-restore/trash-restore.schema";
-import { UnregisterProviderMessage } from "./requests/unregister-provider/unregister-provider.schema";
 import { UnsubscribeMessage } from "../daemon-services/subscription/unsubscribe/unsubscribe.schema";
 import { UpdateMcpServerMessage } from "./requests/update-mcp-server/update-mcp-server.schema";
 import { UpdatePolicyMessage } from "./requests/update-policy/update-policy.schema";
@@ -33,16 +28,11 @@ import { UserInputMessage } from "./requests/user-input/user-input.schema";
 import {
   AgentOutputMessage,
   AgentStreamingMessage,
-  AvailableModelsMessage,
-  CredentialSetMessage,
   ErrorMessage,
   HubPackagesMessage,
   McpServerListMessage,
   PolicyUpdatedMessage,
   PongMessage,
-  ProviderListMessage,
-  ProviderRegisteredMessage,
-  ProviderUnregisteredMessage,
   RequestInputMessage,
   RequestPermissionMessage,
   RequestQuestionMessage,
@@ -72,13 +62,8 @@ export const ClientMessage = z
     UpdatePolicyMessage,
     SteerRunMessage,
     ListStrategiesMessage,
-    GetAvailableModelsMessage,
-    ListProvidersMessage,
     ListMcpServersMessage,
     UpdateMcpServerMessage,
-    RegisterProviderMessage,
-    UnregisterProviderMessage,
-    SetCredentialMessage,
     ListRunsMessage,
     SubscribeMessage,
     UnsubscribeMessage,
@@ -122,11 +107,6 @@ export const DaemonMessage = z.discriminatedUnion("type", [
   RunPreparedMessage,
   PolicyUpdatedMessage,
   StrategyListMessage,
-  AvailableModelsMessage,
-  ProviderListMessage,
-  ProviderRegisteredMessage,
-  ProviderUnregisteredMessage,
-  CredentialSetMessage,
   RunListMessage,
   TrashListResultMessage,
   TrashRestoreResultMessage,

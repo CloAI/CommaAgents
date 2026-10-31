@@ -1,0 +1,185 @@
+---
+title: Web UI
+description: Run the browser interface prototype and explore its design system in Storybook.
+---
+
+# Web UI
+
+`@comma-agents/ui` provides a browser prototype with the animated Comma Agents logo and a prompt composer. Run this private workspace package from a repository checkout:
+
+```bash
+bun install
+bun run ui
+```
+
+Requires Bun 1.3 or newer. Open the development server URL, normally `http://localhost:5173`.
+
+## Enter a prompt
+
+Type a prompt and select Send or press Enter. The selected strategy starts in a conversation pane with surrounding whitespace removed from your prompt. Successful submissions clear the composer; failed submissions preserve your draft. Shift+Enter inserts a newline. Whitespace-only prompts cannot be sent, and Enter does not submit while you are composing text with an input method editor.
+
+The composer starts at one line and expands to three visible lines as you type or paste. Longer prompts scroll inside the field. Removing text or widening the window lets it shrink again. Select the up-arrow icon inside the bottom-right corner to send.
+
+The app connects to the configured daemon and streams each agent’s output. Continue a finished conversation with another message, answer a pending question, or steer an active agent. Conversations retain their history when reopened.
+
+While a model-backed agent is running, select the square **Stop** button beside Send to cancel the run. Stop and its keyboard shortcut are unavailable when only a user-input step is waiting. You can also press **Escape twice within 1.5 seconds** in the active conversation pane, including when focus is on its header or the page body. The first press shows “Press Escape again to stop this chat” above Stop; the hint disappears when the shortcut expires, you type, click, or switch panes. A single Escape, a held key, or Escape used to dismiss a picker or dialog does not stop the run. Stopping keeps your unsent draft and the output received so far.
+
+## Read conversation content
+
+Conversation text uses a system sans-serif font; inline code, code blocks, and tool arguments/output use Geist Mono at the same 1rem size. Headings, lists, and tables retain their hierarchy. Long code lines scroll horizontally. Message cards and the composer share aligned edges, with stable spacing when the conversation begins or stops scrolling.
+
+Consecutive tool calls appear as one collapsed group with progress and failure counts. Expand the group to inspect individual calls and their arguments/output. Your expansion choices stay in place as updates arrive. Running and failed delegated jobs remain visible with an Open action even when the group is collapsed; successfully completed jobs appear inside the expanded group.
+
+## Switch strategies in a conversation
+
+Use the strategy picker below the chat input to change from Plan to Build or any other installed strategy. Your selection is saved immediately and synchronized across panes following the same conversation. Work begins when you send your next message. The new strategy receives earlier user and agent text with speaker labels; raw tool output is excluded from the handoff. The picker opens above or below its button depending on the available space, stays within the window, and follows the button when panes scroll or resize.
+
+While work is active or waiting for a reply, choose **Stop and switch** to interrupt it and apply your selection. **Wait** dismisses the dialog, keeps the current strategy, and queues nothing. Successful switches appear in the conversation timeline. A failed switch preserves the previous selection and your draft. If you already stopped work, it stays stopped. An unavailable saved strategy requires another selection before sending.
+
+Model controls edit only this conversation. Each strategy remembers its settings when you switch away and back. New conversations start from your saved per-strategy preferences.
+
+Before sending context estimated to exceed the target model’s budget, choose **Compact**, **Send recent messages**, or **Continue with full history**. Compact summarizes older discussion using the selected strategy’s model and retains recent messages. Recent sends up to eight prior whole messages that fit; the dialog shows the count. Full attempts the entire history unchanged. Execution errors preserve your draft and appear as errors rather than opening the context-choice dialog. These options preserve the full visible chat history.
+
+## Sidebar
+
+The compact icon rail stays visible on the left. New Chat is at the top; Settings is at the bottom. New Chat currently displays a placeholder alert. Settings opens a dialog. Both leave your prompt unchanged. Hover an icon to see its action name, or use Tab and Enter to activate it.
+
+## Daemon connection indicator
+
+A compact half capsule sits flush with the bottom-right corner, with only the top-left corner rounded. The dot is centered with internal spacing and a subtle 1px shaded border. Its dot is green while connected to the daemon and red while connecting or reconnecting. Hover over it or focus it with the keyboard to slide out the Daemon label. Connection changes are also announced to screen readers. Reduced-motion preferences disable the transition.
+
+The design-system component includes a yellow warning state for future latency or connection-health checks. Ping monitoring is not enabled yet.
+
+## Daemon logs
+
+Click the connection capsule, or focus it and press Enter or Space, to open Daemon logs. The dialog updates live with connection activity and daemon-related errors. Search messages and details, or select a severity to narrow the display. The count shows matching and total retained entries.
+
+Logs use ISO timestamps. Adjacent identical messages display a repeat count and the most recent occurrence time. Long lines scroll horizontally. Opening the dialog shows the newest matching entry; new messages follow while you are at the bottom. Scroll up to inspect history without jumping back down. Changing search or severity shows the newest matching result.
+
+Copy all copies the entire retained history, including entries hidden by filters. Clear removes the entire history. Closing the dialog keeps history; reopening resets search and severity. If copying is unavailable, select the text to copy it manually.
+
+The daemon retains up to 100 entries in memory for the current tab, dropping the oldest. History survives reconnects and endpoint changes but clears on reload. Entry text has no size limit. Logs include operation names, request IDs, error codes and messages; request arguments, response payloads, error metadata, and endpoint query values are omitted. Browser developer tools also receive each logged occurrence. Connection errors do not change the dot's status policy; yellow health monitoring remains reserved for later.
+
+## Settings
+
+Open Settings to configure the daemon WebSocket URL under General Settings. The default is `ws://127.0.0.1:7422/ws`. Appearance, Hub, and Privacy are placeholders for future settings.
+
+Enter a URL using `ws:` or `wss:` with a hostname, then select Save. Custom paths and query strings are supported, for example:
+
+```text
+wss://agents.example.com/custom/ws?workspace=demo
+```
+
+Save trims surrounding whitespace and rejects URLs with fragments or embedded credentials. A successful save briefly shows Saved for three seconds; the dialog remains open. Saving activates the new connection URL. Saving confirms local persistence rather than daemon availability. Authentication settings are not available yet.
+
+Switching sections keeps your unsaved draft. Cancel, the close button, or Escape discards unsaved changes; clicking outside the dialog does not close it. Reopening Settings returns to General Settings with your saved value.
+
+Settings belong to the current browser origin and load when you start the app. Reload to see changes made in another tab. If no settings have been saved, defaults are used. If saved settings cannot be read or use an unsupported format, a notice explains that defaults are in use; the existing stored value is preserved until you explicitly save. If saving fails, your draft remains available to retry, and the previously active settings stay in effect.
+
+The settings dialog has a fixed height of 34rem, capped to fit shorter screens. Long sections scroll inside the dialog while navigation and actions remain visible.
+
+## Providers
+
+Open Settings and select Providers to browse the daemon's provider and model catalog. Discovery runs when you enter the panel, using the saved daemon connection and `core.providers.list` with `live: false`. Loading and request failures appear in the panel.
+
+Search provider names/IDs or model names/IDs/families, search and choose providers in the provider picker, and toggle model capability filters: Tools, Reasoning, Vision, Attachments, and Structured output. Text matching is case-insensitive. Multiple capability filters require every selected capability; missing capability metadata does not count as support. Filters combine locally without additional daemon requests.
+
+Providers start collapsed, with the matching model count beside each provider name. Expand a provider to see all matching models with their existing name, qualified ID, provider, and capability icons. Pagination is temporarily disabled; its component and commented call site are retained for future use. Search and capability changes return provider sections to their collapsed state. Literal, case-insensitive matches are highlighted in provider names, model names, IDs, and picker options.
+
+Each provider row shows Connected when effective credentials exist or authentication is not required. A successful supported credential check shows Verified for the current provider-settings view. A failed check shows a warning; providers requiring an absent key show Needs credentials. These labels describe configuration or an authenticated model-list check, not a persistent provider connection or guaranteed generation access.
+
+Connect and Configure open one workflow dialog above Settings. Enter a new key and select Save to persist it, verify automatically where supported, and reload providers. Existing keys are never returned or prefilled. Environment credentials take precedence over saved global keys. If verification fails, Continue retains the saved configuration or Edit returns to the populated form. Providers without a verification endpoint remain Connected without a check. A failed reload offers Retry reload without repeating the save or verification.
+
+For OpenAI, choose **ChatGPT subscription** in the connection dialog, then **Continue with ChatGPT**. Complete authorization in the browser; a fallback link is shown if a new tab is blocked. The browser and daemon must run on the same computer. Sign-in checks identity and plan permission without a test generation, then reloads providers. Tokens stay on the daemon and renew when needed. Environment API keys retain precedence. **Manage ChatGPT usage** opens the account's usage controls. Removing a saved sign-in is local credential removal; remote access can be revoked through those controls. This first version reconnects one saved ChatGPT registration; account switching and Anthropic subscription sign-in are deferred.
+
+Select Add model to choose a provider and enter one provider-local model ID. All metadata is optional: display name, capabilities, token limits, modalities, dates, status, and pricing. Click capability buttons to enable support; unselected capabilities remain unspecified. The selected provider supplies the provider prefix automatically, and pasted redundant provider prefixes are removed. Provider-specific model namespaces are preserved. Advanced metadata is collapsible. Manual metadata fills missing catalog/live values; it does not override known information. Existing manual IDs cannot be added again to silently replace metadata.
+
+Select + Provider to create a custom compatible endpoint with an immutable ID, display name, complete HTTP(S) API prefix, and API-key or unauthenticated mode. The API key is optional and can be configured later. Enter optional initial model IDs one per line; each is saved with a separate command after the provider is created. Duplicate IDs are ignored, and a retry resumes model additions without repeating completed entries. An endpoint saved without its required key remains visible, including when it has no models. If creation succeeds but a later key or model save fails, retry edits the saved provider rather than creating it again.
+
+User-owned endpoint definitions can be edited or removed. Removing one also removes its saved global key and manual models; environment and strategy credentials are unchanged. Custom model removal deletes only the manual entry, so a catalog/discovered model may remain visible. Manual entries, including duplicates of catalog IDs, can be removed from Configure. Confirmations and failure steps stay inside the same workflow dialog.
+
+Changes reload the provider list while preserving its current search, filters, and expanded rows. Input drafts and errors stay within their workflow. Provider settings and credentials are stored by core on the daemon; the browser stores only its existing UI settings. Search and verification display reset when the provider section is unmounted. No background provider checks, live discovery, or verification history are introduced.
+
+## Daemon hooks
+
+Use `useDaemonMutation(command)` for explicit form submissions. Its typed `mutate(args)` sends an ordinary daemon command and returns the correlated result. It does not run on mount, queue saves while disconnected, or replay a sent command after reconnecting. Its `data`, `errors`, `clientError`, and `isLoading` fields describe the current submission. Automatic reads and subscriptions continue using `useCommaAgentsDaemon`.
+
+`App` nests `CommaAgentsDaemonProvider` inside `SettingsProvider`. Components under that provider share one connection using the saved daemon URL. A successful settings save switches the endpoint; an unsuccessful save leaves the active connection unchanged.
+
+Commands run automatically when the hook mounts and when its arguments change. The selector determines argument and response types from the daemon's registered plugin contracts:
+
+```tsx
+import { useCommaAgentsDaemon } from "./hooks/useCommaAgentsDaemon";
+
+function RunDetails({ runId }: { runId: string }) {
+  const { data, errors, clientError, isLoading } = useCommaAgentsDaemon(
+    { command: "runs.get" },
+    { runId },
+  );
+
+  return (
+    <pre>
+      {JSON.stringify({ data, errors, clientError, isLoading }, null, 2)}
+    </pre>
+  );
+}
+```
+
+Commands wait for the shared connection before their first send. Changing arguments or the saved endpoint starts a new operation and clears the previous result. Equivalent argument values keep the existing operation. Only responses for the current operation update the hook. Unmounting stops local delivery; an already-sent command may still complete on the daemon. The hook exposes no manual execution control.
+
+Channels subscribe automatically:
+
+```tsx
+import { useCommaAgentsDaemon } from "./hooks/useCommaAgentsDaemon";
+
+function RunEvents({ runId }: { runId: string }) {
+  const { data, errors, clientError, isLoading } = useCommaAgentsDaemon(
+    { channel: "runs" },
+    { runId },
+  );
+
+  return (
+    <pre>
+      {JSON.stringify({ data, errors, clientError, isLoading }, null, 2)}
+    </pre>
+  );
+}
+```
+
+Channel `data` contains the latest complete `{ type, data }` domain event. It replaces the previous event; consumers can maintain their own history if needed. A subscription acknowledgement clears `isLoading` without becoming `data`. Each hook has an independent request ID and result. Unmounting unsubscribes with the original ID. Equivalent JSON arguments, including objects with different key order, keep a subscription; meaningful argument changes replace it and clear its result. Unsupported values and cycles produce `clientError`.
+
+`errors` preserves the daemon error object, including metadata. `clientError` reports connection, timeout, invalid-argument, or malformed-message failures separately. Unsent commands remain pending until the connection opens; commands already sent fail if the connection closes and are never replayed on reconnect. Responses and subscription acknowledgements time out after ten seconds; a quiet acknowledged channel has no event timeout.
+
+The connection retries after 2, 4, 8, 16, then 30 seconds, capped at 30 seconds. Opening successfully resets the delay. Active channels resubscribe with fresh IDs after reconnecting to the same endpoint and retain their last event. Completed or server-rejected channels stay stopped. Changing the endpoint clears results. Invalid frames fail active operations locally.
+
+For other transports, `useWebSocket({ url, onMessage, onStatus })` exposes raw messages, connection status, and an immediate `send` callback that returns whether the message was sent. It has no outgoing queue. Daemon envelope schemas and inferred operation maps are available from the browser-safe `@comma-agents/daemon/protocol` export.
+
+## Animation and accessibility
+
+The ASCII logo animates automatically at 16 frames per second without playback controls. If your device requests reduced motion, the logo starts on a static frame. The layout fits narrow screens and supports keyboard navigation. Buttons show keyboard focus indicators. Inputs, text areas, and selects keep their normal borders on focus without an outline.
+
+## Explore the design system
+
+Start Storybook to browse the visual foundations, primitive controls, composed components, and home screen:
+
+```bash
+bun run ui:storybook
+```
+
+Open `http://localhost:6007`. Stories include controls, component documentation, accessibility checks, and composer interaction examples. The dark theme uses black and purple surfaces, lavender accents, locally bundled Geist Mono typography, Lucide icons, and minimally rounded controls.
+
+## Build
+
+Build the app and a standalone Storybook from the repository root:
+
+```bash
+bun run ui:build
+bun run ui:storybook:build
+```
+
+The app output is in `packages/ui/dist`; Storybook output is in `packages/ui/storybook-static`. Preview the app build from the package directory:
+
+```bash
+cd packages/ui
+bun run preview
+```

@@ -66,8 +66,8 @@ function checkPath(pathValue: string | undefined): DoctorCheck {
 
 function checkProviderFiles(dataDir: string): DoctorCheck {
   const credentialsPath = join(dataDir, "credentials.json");
-  const providerRegistryPath = join(dataDir, "provider-registry.json");
-  if (existsSync(credentialsPath) || existsSync(providerRegistryPath)) {
+  const providerSettingsPath = join(dataDir, "provider-settings.json");
+  if (existsSync(credentialsPath) || existsSync(providerSettingsPath)) {
     return {
       id: "providers",
       label: "Providers",
@@ -79,7 +79,7 @@ function checkProviderFiles(dataDir: string): DoctorCheck {
     id: "providers",
     label: "Providers",
     status: "warn",
-    message: "No provider credentials or registry file found yet",
+    message: "No provider credentials or settings file found yet",
   };
 }
 

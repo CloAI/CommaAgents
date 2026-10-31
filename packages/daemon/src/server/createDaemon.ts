@@ -9,7 +9,6 @@ import {
   createHistoryService,
   createHubService,
   createMcpService,
-  createProviderService,
   createRunService,
   createSubscriptionService,
 } from "./daemon-services";
@@ -70,7 +69,6 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
       }),
       createSubscriptionService(daemonRunState, daemonStore),
       createMcpService(daemonRunState, daemonStore),
-      createProviderService(daemonRunState, daemonStore),
       createHistoryService(daemonRunState, daemonStore),
       createHubService(daemonRunState, daemonStore, hubManager),
       createCoreService(daemonRunState, daemonStore),

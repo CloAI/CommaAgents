@@ -14,11 +14,10 @@ export type {
 export {
   extractProviderIds,
   hookIntoAgent,
-  loadProject,
-  loadSkills,
   loadStrategyFromString,
-  readStrategyFile,
 } from "@comma-agents/core";
+export { loadProject, readStrategyFile } from "@comma-agents/core/strategy";
+export { loadSkills } from "@comma-agents/core/skills";
 export type {
   PermissionDecision,
   PolicyPatch,
@@ -28,11 +27,7 @@ export { pathPolicy } from "@comma-agents/core/sandbox";
 export { createDaemonRunState } from "./daemon-run-state";
 export type { PrepareStrategyOptions } from "./prepare-strategy";
 export { prepareStrategy } from "./prepare-strategy";
-export type {
-  RunConfig,
-  RunOverview,
-  RunRepository,
-} from "./run-repository";
+export type { RunConfig, RunOverview, RunRepository } from "./run-repository";
 export { createRunRepository } from "./run-repository";
 export * from "./systems";
 export type {

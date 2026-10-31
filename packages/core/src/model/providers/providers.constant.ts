@@ -1,4 +1,11 @@
-import { listCopilotModels, listOllamaModels } from "./listers/index";
+import {
+  listOpenAIModels,
+  listAnthropicModels,
+  listGoogleModels,
+  listCopilotModels,
+  listOllamaModels,
+  listVeniceModels,
+} from "./listers/index";
 import type { ProviderDefinition } from "./providers.types";
 
 /**
@@ -10,6 +17,30 @@ import type { ProviderDefinition } from "./providers.types";
  *   we prefer the dedicated `@ai-sdk/deepseek` package.
  */
 export const BUILT_IN_OVERRIDES: readonly ProviderDefinition[] = [
+  {
+    id: "openai",
+    name: "OpenAI",
+    credentialType: "api",
+    listModels: listOpenAIModels,
+  },
+  {
+    id: "anthropic",
+    name: "Anthropic",
+    credentialType: "api",
+    listModels: listAnthropicModels,
+  },
+  {
+    id: "google",
+    name: "Google",
+    credentialType: "api",
+    listModels: listGoogleModels,
+  },
+  {
+    id: "venice",
+    name: "Venice AI",
+    credentialType: "api",
+    listModels: listVeniceModels,
+  },
   {
     id: "ollama",
     name: "Ollama",

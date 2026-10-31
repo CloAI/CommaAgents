@@ -1,4 +1,4 @@
-import { parseMcpToolName } from "@comma-agents/core";
+import { parseMcpToolName } from "@comma-agents/core/mcp";
 import type {
   ChatMessage,
   ChatRun,

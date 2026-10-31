@@ -1,4 +1,4 @@
-import type { DiscoveredStrategy } from "@comma-agents/core";
+import type { DiscoveredStrategy } from "@comma-agents/core/strategy";
 import { Box, Text, useFocusManager } from "ink";
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router";

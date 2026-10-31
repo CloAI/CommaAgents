@@ -1,3 +1,10 @@
+import { listOpenAISubscriptionModels } from "./authentication/openai";
+import { getProviderSettingsPath } from "../../defaults/defaults";
+import {
+  getProviderSettings,
+  providerSettingsError,
+} from "./settings/settings";
+import type { ProviderSettings } from "./settings/settings.types";
 import type {
   Credential,
   CredentialStore,
@@ -15,6 +22,7 @@ import type {
 } from "./providers.types";
 import {
   createDefaultProviderDefinition,
+  mergeModelInfo,
   mergeCatalogWithLive,
   sortModels,
 } from "./providers.utils";
@@ -23,32 +31,94 @@ import {
 const LIVE_LIST_TIMEOUT_MS = 5_000;
 
 let providerRegistry = new Map<string, ProviderDefinition>();
-let initialized = false;
+let initializedPath: string | undefined;
+let initialization: Promise<void> | undefined;
 
 async function ensureInitialized(): Promise<void> {
-  if (initialized) return;
-  initialized = true;
-  await registerCatalogProviders();
-  for (const override of BUILT_IN_OVERRIDES) {
-    const existing = providerRegistry.get(override.id);
-    // Override wins on packageName/listModels; catalog wins on display name when present.
-    providerRegistry.set(override.id, {
-      ...(existing ?? {}),
-      ...override,
-      name: existing?.name ?? override.name,
+  const path = getProviderSettingsPath();
+  if (initializedPath === path) return;
+  if (initialization) return initialization;
+  initialization = (async () => {
+    await registerCatalogProviders();
+    for (const override of BUILT_IN_OVERRIDES) {
+      const existing = providerRegistry.get(override.id);
+      if (existing?.origin === "registered" || existing?.origin === "user")
+        continue;
+      providerRegistry.set(override.id, {
+        ...existing,
+        ...override,
+        name: existing?.name ?? override.name,
+        origin: "builtin",
+      });
+    }
+    synchronizeProviderSettings(getProviderSettings());
+    initializedPath = path;
+  })();
+  try {
+    await initialization;
+  } finally {
+    initialization = undefined;
+  }
+}
+
+/** @internal Validate ownership before replacing the persisted-provider runtime view.
+ * @param {ProviderSettings} settings - Validated declarative configuration.
+ * @returns {void} Nothing; throws before changing state on ownership conflicts.
+ */
+export function synchronizeProviderSettings(settings: ProviderSettings): void {
+  providerRegistry = prepareProviderSettings(settings);
+}
+
+/** @internal Prepare a registry update without mutating the active registry.
+ * @param {ProviderSettings} settings - Replacement declarative settings.
+ * @returns {Map<string, ProviderDefinition>} Validated next provider registry.
+ */
+export function prepareProviderSettings(
+  settings: ProviderSettings,
+): Map<string, ProviderDefinition> {
+  const next = new Map(
+    [...providerRegistry].filter(
+      ([, definition]) => definition.origin !== "user",
+    ),
+  );
+  for (const provider of settings.providers) {
+    if (provider.kind !== "custom") continue;
+    if (next.has(provider.id))
+      throw providerSettingsError(
+        "CONFLICT",
+        "Custom provider ID conflicts with an existing provider.",
+      );
+    next.set(provider.id, {
+      id: provider.id,
+      name: provider.definition.name,
+      baseURL: provider.definition.baseURL,
+      credentialType: provider.definition.credentialType,
+      origin: "user",
+      packageName: "@ai-sdk/openai-compatible",
+      factoryName: "createOpenAICompatible",
     });
   }
+  for (const provider of settings.providers) {
+    if (provider.kind === "existing" && !next.has(provider.id))
+      throw providerSettingsError(
+        "NOT_FOUND",
+        "Model settings reference an unknown provider.",
+      );
+  }
+  return next;
 }
 
 async function registerCatalogProviders(): Promise<void> {
   const providers = await listCatalogProviders();
   for (const catalogProvider of providers) {
-    if (providerRegistry.has(catalogProvider.id)) continue;
-    providerRegistry.set(catalogProvider.id, {
-      id: catalogProvider.id,
-      name: catalogProvider.name,
-      packageName: catalogProvider.npm,
-    });
+    if (
+      ["registered", "user"].includes(
+        providerRegistry.get(catalogProvider.id)?.origin ?? "",
+      )
+    )
+      continue;
+    const definition = createDefaultProviderDefinition(catalogProvider.id);
+    if (definition) providerRegistry.set(catalogProvider.id, definition);
   }
 }
 
@@ -62,14 +132,14 @@ async function registerCatalogProviders(): Promise<void> {
  *   id: "acme",
  *   name: "Acme Labs",
  *   packageName: "@acme/ai-sdk",
- *   listModels: async () => [{ id: "acme-1" }],
+ *   listModels: async () => [{ id: "acme-1", sources: ["provider"], metadata: {} }],
  * });
  * ```
  */
 export function registerProviderDefinition(
   definition: ProviderDefinition,
 ): void {
-  providerRegistry.set(definition.id, { ...definition, isCustom: true });
+  providerRegistry.set(definition.id, { ...definition, origin: "registered" });
 }
 
 /** Remove a previously registered provider, restoring catalog metadata when available. */
@@ -89,10 +159,10 @@ export function unregisterProviderDefinition(providerId: string): boolean {
 /** Reset all provider registrations. Primarily for tests. */
 export function resetProviderRegistry(): void {
   providerRegistry = new Map();
-  initialized = false;
+  initializedPath = undefined;
+  initialization = undefined;
 }
 
-// TODO: Review this Initialized stuff
 /** Look up a single provider definition by id. */
 export async function getProviderDefinition(
   providerId: string,
@@ -106,6 +176,7 @@ export async function listProviderDefinitions(): Promise<
   readonly ProviderDefinition[]
 > {
   await ensureInitialized();
+  await registerCatalogProviders();
   return [...providerRegistry.values()].sort((left, right) =>
     left.id.localeCompare(right.id),
   );
@@ -114,10 +185,10 @@ export async function listProviderDefinitions(): Promise<
 /**
  * Resolve the model list for a single provider.
  *
- * When `options.live` is false, only catalog data is returned. When `live`
+ * When `options.live` is false, catalog and manual models are returned. When `live`
  * is true and the provider defines `listModels`, the live response is
  * merged with the catalog baseline. Live errors fall back to catalog
- * (if any) and are reported via `result.error`.
+ * (if any) and are reported via `result.discovery.error`.
  */
 export async function listProviderModels(
   providerId: string,
@@ -127,12 +198,39 @@ export async function listProviderModels(
   const definition = await getProviderDefinition(providerId);
   const catalogModels = await getCatalogModels(providerId);
   const live = options?.live ?? true;
+  const finish = (result: ListModelsResult): ListModelsResult => {
+    const byId = new Map(result.models.map((model) => [model.id, model]));
+    const manual =
+      getProviderSettings().providers.find((entry) => entry.id === providerId)
+        ?.models ?? [];
+    for (const model of manual) {
+      const known = byId.get(model.id);
+      const manualModel = {
+        id: model.id,
+        sources: ["user"] as const,
+        metadata: model.metadata ?? {},
+      };
+      byId.set(
+        model.id,
+        known ? mergeModelInfo(manualModel, known) : manualModel,
+      );
+    }
+    return { ...result, models: sortModels([...byId.values()]) };
+  };
 
-  if (!live || !definition?.listModels) {
-    return {
+  const listModels =
+    providerId === "openai" &&
+    credential?.type === "oauth" &&
+    definition?.origin !== "registered" &&
+    definition?.origin !== "user"
+      ? ({ signal }: ListModelsContext) =>
+          listOpenAISubscriptionModels(credential, signal)
+      : definition?.listModels;
+  if (!live || !listModels) {
+    return finish({
       models: sortModels(catalogModels),
-      source: "catalog",
-    };
+      discovery: { status: !live ? "catalog_only" : "unsupported" },
+    });
   }
 
   const context: ListModelsContext = {
@@ -141,33 +239,21 @@ export async function listProviderModels(
   };
 
   try {
-    const liveModels = await definition.listModels(context);
-    const merged =
-      catalogModels.length > 0
-        ? mergeCatalogWithLive(catalogModels, liveModels)
-        : liveModels;
-    const source =
-      catalogModels.length > 0 && liveModels.length > 0 ? "merged" : "live";
-    return {
-      models: sortModels(merged),
-      source,
-      fetchedAt: new Date().toISOString(),
-    };
-  } catch (caughtError) {
-    const message =
-      caughtError instanceof Error ? caughtError.message : String(caughtError);
-    if (catalogModels.length > 0) {
-      return {
-        models: sortModels(catalogModels),
-        source: "catalog",
-        error: message,
-      };
-    }
-    return {
-      models: [],
-      source: "error",
-      error: message,
-    };
+    const liveModels = await listModels(context);
+    if (liveModels.length === 0)
+      return finish({
+        models: catalogModels,
+        discovery: { status: "empty", fetchedAt: new Date().toISOString() },
+      });
+    return finish({
+      models: mergeCatalogWithLive(catalogModels, liveModels),
+      discovery: { status: "live", fetchedAt: new Date().toISOString() },
+    });
+  } catch {
+    return finish({
+      models: catalogModels,
+      discovery: { status: "error", error: "Live model discovery failed." },
+    });
   }
 }
 
@@ -236,7 +322,10 @@ export function getRegisteredProviderSync(
 /** IDs of providers explicitly registered via `registerProviderDefinition()`, sorted. */
 export function getCustomProviderIdsSync(): readonly string[] {
   return [...providerRegistry.entries()]
-    .filter(([, definition]) => definition.isCustom === true)
+    .filter(
+      ([, definition]) =>
+        definition.origin === "registered" || definition.origin === "user",
+    )
     .map(([id]) => id)
     .sort();
 }

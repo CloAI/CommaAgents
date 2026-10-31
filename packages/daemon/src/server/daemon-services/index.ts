@@ -15,6 +15,5 @@ export type {
 export { createHistoryService } from "./history";
 export { createHubService } from "./hub";
 export { createMcpService } from "./mcp";
-export { createProviderService } from "./provider";
 export { createRunService } from "./run";
 export { createSubscriptionService } from "./subscription";

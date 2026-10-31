@@ -1,3 +1,4 @@
+import { DEFAULT_HISTORY_MESSAGE_LIMIT } from "../../../history/history.constants";
 import { z } from "zod/v4";
 import {
   RunSnapshotSchema,
@@ -6,17 +7,25 @@ import {
 } from "../../server.schemas";
 import {
   RunContentSchema,
-  RunMessageSchema,
+  UserMessageSchema,
+  FinishedAgentMessageSchema,
   ChildRunEntrySchema,
 } from "../../../messages/messages.schemas";
 import { RunHistoryPageSchema } from "../../../history/history.schemas";
 export const RunsArgumentsSchema = z
   .object({
     runId: z.string().min(1),
-    history: HistoryOptionsSchema.pick({ limit: true }).optional(),
+    history: HistoryOptionsSchema.pick({ limit: true }).default({
+      limit: DEFAULT_HISTORY_MESSAGE_LIMIT,
+    }),
   })
   .strict();
 const ExecutionSchema = z.object({ runId: z.string() });
+export const ActiveRunAgentSchema = ExecutionSchema.extend({
+  messageId: z.string(),
+  agentName: z.string(),
+  createdAt: z.string(),
+}).strict();
 export const PendingRunInputSchema = ExecutionSchema.extend({
   inputId: z.string(),
   agentName: z.string(),
@@ -31,11 +40,15 @@ export const RunsMessageSchema = z.discriminatedUnion("type", [
           snapshot: RunSnapshotSchema,
           history: RunHistoryPageSchema,
           pendingInputs: z.array(PendingRunInputSchema),
+          activeAgents: z.array(ActiveRunAgentSchema).optional(),
         })
         .strict(),
     })
     .strict(),
   z.object({ type: z.literal("run.state"), data: RunSnapshotSchema }).strict(),
+  z
+    .object({ type: z.literal("agent.started"), data: ActiveRunAgentSchema })
+    .strict(),
   z
     .object({
       type: z.literal("agent.stream"),
@@ -43,15 +56,20 @@ export const RunsMessageSchema = z.discriminatedUnion("type", [
         messageId: z.string(),
         agentName: z.string(),
         createdAt: z.string(),
+        model: z.string().optional(),
+        contextWindow: z.number().optional(),
         contentIndex: z.number().int().nonnegative(),
         content: RunContentSchema,
       }).strict(),
     })
     .strict(),
   z
-    .object({ type: z.literal("agent.output"), data: RunMessageSchema })
+    .object({
+      type: z.literal("agent.output"),
+      data: FinishedAgentMessageSchema,
+    })
     .strict(),
-  z.object({ type: z.literal("user.input"), data: RunMessageSchema }).strict(),
+  z.object({ type: z.literal("user.input"), data: UserMessageSchema }).strict(),
   z
     .object({ type: z.literal("child.run"), data: ChildRunEntrySchema })
     .strict(),
@@ -83,12 +101,6 @@ export const RunsMessageSchema = z.discriminatedUnion("type", [
     .object({
       type: z.literal("run.error"),
       data: ExecutionSchema.extend({ error: RunErrorSchema }).strict(),
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal("run.preparation.cancelled"),
-      data: ExecutionSchema.strict(),
     })
     .strict(),
 ]);

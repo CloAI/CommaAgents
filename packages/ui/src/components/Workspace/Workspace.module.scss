@@ -1,0 +1,14 @@
+.workspace {
+  --separator-border: var(--color-border);
+  --focus-border: var(--color-primary);
+  --sash-size: 8px;
+  --sash-hover-size: 4px;
+  position: relative;
+  height: 100svh;
+  min-width: 0;
+}
+// Allotment sizes its views itself, so nested splits fill them by position.
+.fill {
+  position: absolute;
+  inset: 0;
+}

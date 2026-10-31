@@ -1,3 +1,4 @@
+import { RunOutcomeStatus } from "../runs/state/state.schemas";
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { realpathSync } from "node:fs";
 import {
@@ -45,7 +46,13 @@ const request = {
 describe("questions plugin", () => {
   test("should assign distinct IDs and answer only the matching execution's question", async () => {
     const { runs, questions, requesters, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const notifications: QuestionRequested[] = [];
     await questions.notifications.subscribe(
       "run_question_requested",
@@ -95,7 +102,13 @@ describe("questions plugin", () => {
 
   test("should replay outstanding questions and allow an immediate subscription response", async () => {
     const { runs, questions, requesters, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const response = requesters.get("root")!(request);
     const pending = questions.getPendingQuestions("root");
     expect(pending).toHaveLength(1);
@@ -121,7 +134,13 @@ describe("questions plugin", () => {
 
   test("should honor tool cancellation and reject questions with a pre-aborted signal", async () => {
     const { runs, questions, requesters, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const controller = new AbortController();
     const requester = requesters.get("root")!;
     const response = requester({ ...request, signal: controller.signal });
@@ -148,7 +167,13 @@ describe("questions plugin", () => {
 
   test("should reject pending and future questions when a prepared run stops", async () => {
     const { runs, questions, requesters, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const requester = requesters.get("root")!;
     const response = requester(request);
     await runs.stopRun("root");
@@ -160,7 +185,13 @@ describe("questions plugin", () => {
 
   test("should replace run question resources on continuation and clean up on failed preparation", async () => {
     const { runs, questions, requesters, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const previous = requesters.get("root")!;
     await runs.startRun("root", "first").completion;
     await expect(previous(request)).rejects.toThrow("stopped");
@@ -182,11 +213,23 @@ describe("questions plugin", () => {
       },
     });
     await expect(
-      runs.prepareRun({ runId: "failed", strategyPath: "example.json", cwd }),
-    ).rejects.toThrow("provider failed");
+      runs.prepareRun({
+        runId: "failed",
+        configuration: {
+          strategyPath: "example.json",
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     await expect(
-      runs.prepareRun({ runId: "failed", strategyPath: "example.json", cwd }),
-    ).rejects.toThrow("provider failed");
+      runs.prepareRun({
+        runId: "failed",
+        configuration: {
+          strategyPath: "example.json",
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     await runs.dispose();
     await questions.dispose();
   });
@@ -217,7 +260,13 @@ describe("questions plugin", () => {
         });
       },
     });
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     let receiveQuestion: (question: QuestionRequested) => void = () => {};
     const question = new Promise<QuestionRequested>((resolve) => {
       receiveQuestion = resolve;
@@ -254,7 +303,7 @@ describe("questions plugin", () => {
       "nested answer",
     );
     const outcome = await completion;
-    expect(outcome.status).toBe("completed");
+    expect(outcome.status).toBe(RunOutcomeStatus.completed);
     if (outcome.status === "completed") {
       expect(outcome.result.text).toBe("nested answer");
     }
@@ -285,7 +334,13 @@ describe("questions plugin", () => {
         });
       },
     });
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     let receiveQuestion: (question: QuestionRequested) => void = () => {};
     const question = new Promise<QuestionRequested>((resolve) => {
       receiveQuestion = resolve;
@@ -298,7 +353,7 @@ describe("questions plugin", () => {
     const completion = runs.startRun("root", "child").completion;
     const notification = await question;
     await runs.stopRun("root");
-    expect((await completion).status).toBe("cancelled");
+    expect((await completion).status).toBe(RunOutcomeStatus.stopped);
     expect(questions.getPendingQuestions("root")).toEqual([]);
     expect(
       questions.resolveQuestion(
@@ -313,7 +368,13 @@ describe("questions plugin", () => {
 
   test("should reject pending requests on disposal and prevent new subscriptions and run preparation", async () => {
     const { runs, questions, requesters, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const response = requesters.get("root")!(request);
     const first = questions.dispose();
     expect(questions.dispose()).toBe(first);
@@ -328,8 +389,70 @@ describe("questions plugin", () => {
       ),
     ).rejects.toThrow("disposed");
     await expect(
-      runs.prepareRun({ runId: "later", strategyPath: "example.json", cwd }),
-    ).rejects.toThrow("disposed");
+      runs.prepareRun({
+        runId: "later",
+        configuration: {
+          strategyPath: "example.json",
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     await runs.dispose();
+  });
+
+  test("should stream pending and new questions over the watch channel and answer them by command", async () => {
+    const { runs, questions, requesters, cwd } = fixture();
+    await runs.prepareRun({
+      runId: "root",
+      configuration: { strategyPath: "example.json", cwd },
+    });
+    const earlier = requesters.get("root")!(request);
+    const messages: unknown[] = [];
+    const controller = new AbortController();
+    const channel = await questions.server.channels[0]!.open(
+      { runId: "root" },
+      {
+        signal: controller.signal,
+        send(message) {
+          messages.push(message);
+        },
+        end() {},
+      },
+    );
+    try {
+      const later = requesters.get("root")!({
+        ...request,
+        question: "Second?",
+      });
+      expect(messages).toMatchObject([
+        {
+          type: "question.requested",
+          data: { runId: "root", question: request.question },
+        },
+        { type: "question.requested", data: { question: "Second?" } },
+      ]);
+      const [first] = questions.getPendingQuestions("root");
+      const answered = await questions.server.commands[0]!.invoke({
+        runId: "root",
+        requestId: first!.requestId,
+        response: "yes",
+      });
+      expect(answered).toEqual({ answered: true });
+      expect(await earlier).toBe("yes");
+      expect(messages.at(-1)).toEqual({
+        type: "question.resolved",
+        data: { runId: "root", requestId: first!.requestId },
+      });
+      questions.resolveQuestion(
+        "root",
+        questions.getPendingQuestions("root")[0]!.requestId,
+        "no",
+      );
+      expect(await later).toBe("no");
+    } finally {
+      controller.abort();
+      await channel?.cleanup?.();
+      await runs.dispose();
+    }
   });
 });

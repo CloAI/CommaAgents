@@ -24,6 +24,10 @@ import {
   createTodoRemoveTool,
 } from "./built-in/todo/todo";
 import { createWebFetchTool } from "./built-in/webfetch/webfetch";
+import { createDelegateTool } from "./built-in/delegate";
+import { createWebSearchTool } from "./built-in/web-search";
+import { createNotesAddTool, createNotesGetTool } from "./built-in/notes";
+import { createRequestStrategySwitchTool } from "./built-in/request-strategy-switch";
 import { createWriteFileTool } from "./built-in/write-file";
 import type { ToolDefinition } from "./tool.types";
 
@@ -44,10 +48,15 @@ export const BUILT_IN_TOOL_NAMES = [
   // "apply_patch",
   "run_command",
   "webfetch",
+  "web_search",
+  "notes_add",
+  "notes_get",
   "load_skill",
   "list_skills",
   "list_strategy",
   "launch_strategy",
+  "delegate",
+  "request_strategy_switch",
   "todo_add",
   "todo_complete",
   "todo_get",
@@ -75,10 +84,15 @@ export const BUILT_IN_TOOL_FACTORIES: Readonly<
   // apply_patch: () => createApplyPatchTool(),
   run_command: () => createRunCommandTool(),
   webfetch: () => createWebFetchTool(),
+  web_search: () => createWebSearchTool(),
+  notes_add: () => createNotesAddTool(),
+  notes_get: () => createNotesGetTool(),
   load_skill: () => createLoadSkillTool(),
   list_skills: () => createListSkillsTool(),
   list_strategy: () => createListStrategyTool(),
   launch_strategy: () => createLaunchStrategyTool(),
+  delegate: () => createDelegateTool(),
+  request_strategy_switch: () => createRequestStrategySwitchTool(),
   todo_add: () => createTodoAddTool(),
   todo_complete: () => createTodoCompleteTool(),
   todo_get: () => createTodoGetTool(),

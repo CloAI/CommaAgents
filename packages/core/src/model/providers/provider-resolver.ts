@@ -1,3 +1,4 @@
+import { createOpenAISubscriptionProvider } from "./authentication/openai";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -168,6 +169,17 @@ async function resolveViaRegistration(
   credential: Credential,
   registration: ProviderDefinition,
 ): Promise<ProviderFactory> {
+  if (registration.origin === "user" && registration.baseURL) {
+    const { createOpenAICompatible } =
+      await import("@ai-sdk/openai-compatible");
+    return createOpenAICompatible({
+      name: registration.id,
+      baseURL: registration.baseURL,
+      ...(registration.credentialType === "api"
+        ? { apiKey: extractApiKey(credential) }
+        : {}),
+    });
+  }
   // 1. Direct factory takes precedence
   if (registration.factory) {
     return await registration.factory(credential);
@@ -326,8 +338,16 @@ export function getGlobalProviderResolver(): ProviderResolver {
     providerId: string,
     credential: Credential,
   ): Promise<ProviderFactory> => {
-    // 1. Check registered provider definitions (sync, no catalog fetch)
+    // Explicit programmatic registrations retain precedence over built-in adapters.
     const registration = getRegisteredProviderSync(providerId);
+    if (
+      providerId === "openai" &&
+      credential.type === "oauth" &&
+      registration?.origin !== "registered" &&
+      registration?.origin !== "user"
+    )
+      return createOpenAISubscriptionProvider(credential);
+    // 1. Check registered provider definitions (sync, no catalog fetch)
     if (registration) {
       return await resolveViaRegistration(providerId, credential, registration);
     }

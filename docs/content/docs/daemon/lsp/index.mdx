@@ -14,8 +14,10 @@ const daemon = await createDaemonKernel({ runs: { runsDir: "./runs" } });
 
 try {
   const prepared = await daemon.plugins.runs.prepareRun({
-    strategyPath: "./strategy.json",
-    cwd: process.cwd(),
+    configuration: {
+      strategyPath: "./strategy.json",
+      cwd: process.cwd(),
+    },
   });
   const result = await daemon.plugins.lsp.request(prepared.runId, {
     method: "textDocument/diagnostic",

@@ -1,12 +1,12 @@
 import { version } from "../../../package.json";
 import { createPlugin } from "../../daemon-plugin";
+import type { CreateNotifyingPluginOptions } from "../../daemon-plugin/notifications/notifications.types";
 import { getStatusCommand, watchStatusChannel } from "./server";
 import type {
   DaemonStatus,
   StatusContext,
   StatusNotifications,
   StatusPlugin,
-  CreatedStatusPlugin,
 } from "./status.types";
 
 /**
@@ -16,7 +16,7 @@ import type {
  * const { plugin, setPhase } = createStatusPlugin();
  * setPhase("running");
  */
-export function createStatusPlugin(): CreatedStatusPlugin {
+export function createStatusPlugin() {
   const context: StatusContext = {
     snapshot: {
       phase: "starting",
@@ -24,12 +24,7 @@ export function createStatusPlugin(): CreatedStatusPlugin {
       startedAt: new Date().toISOString(),
     },
   };
-  const { plugin, notifications } = createPlugin<
-    "status",
-    StatusNotifications,
-    StatusPlugin,
-    StatusContext
-  >({
+  const { plugin, notifications } = createPlugin({
     name: "status",
     notifications: true,
     context,
@@ -40,7 +35,12 @@ export function createStatusPlugin(): CreatedStatusPlugin {
         deliver({ type: "status_updated", status: context.snapshot });
       },
     },
-  });
+  } satisfies CreateNotifyingPluginOptions<
+    "status",
+    StatusNotifications,
+    StatusPlugin,
+    StatusContext
+  >);
   return {
     plugin: Object.assign(plugin, {
       getStatus(): DaemonStatus {

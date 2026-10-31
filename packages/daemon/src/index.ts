@@ -13,7 +13,6 @@ export type {
   DaemonProcessStartResult,
   DaemonProcessStatus,
   DaemonProcessStopResult,
-  DaemonProcessWaitOptions,
 } from "./daemon-cli";
 export {
   daemonStartOptions,
@@ -25,7 +24,6 @@ export {
   startDaemonProcess,
   startDaemonRuntime,
   stopDaemonProcess,
-  waitForDaemonProcessReady,
 } from "./daemon-cli";
 export {
   isRunning,
@@ -63,7 +61,7 @@ export { createDaemonStore, createRunStore } from "./server/daemon-store";
 export type { DaemonDefaultOverrides } from "./defaults";
 export {
   getDaemonConfigFile,
-  getDaemonDefaults,
+  getDaemonConfig,
   getDaemonHost,
   getDaemonLogFile,
   getDaemonLogLevel,
@@ -166,11 +164,7 @@ export type {
   RunStatus,
   RunNotifications,
   RunSnapshotStatus,
-  RunPreparationCancelledStatus,
-  RunPreparationFailedStatus,
   RunInputRequestStatus,
-  RunAgentStreamStatus,
-  RunAgentOutputStatus,
   RunStepStatus,
   RunSteerQueuedStatus,
   StrategyHookContext,
@@ -201,3 +195,25 @@ export type {
   Usage,
 } from "./server/protocol";
 export { parseClientMessage, parseDaemonMessage } from "./server/protocol";
+
+export {
+  RunPhase,
+  RunOutcomeStatus,
+  RunErrorCode,
+  RunMessageStatus,
+  RunToolStatus,
+} from "./plugins/runs";
+export type {
+  RunConfiguration,
+  NewRunConfiguration,
+  RunConfigurationOverrides,
+  RunStrategyDescription,
+  RunPreparingSnapshot,
+  RunPreparedSnapshot,
+  RunRunningSnapshot,
+  RunTerminalSnapshot,
+  RunTerminalOutcome,
+} from "./plugins/runs";
+
+export { createCorePlugin } from "./plugins/core";
+export type { CorePlugin, CoreProviderListOptions } from "./plugins/core";

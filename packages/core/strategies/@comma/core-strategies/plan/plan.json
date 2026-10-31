@@ -1,66 +1,54 @@
 {
   "name": "Plan",
-  "version": "2.1",
-  "description": "Planning strategy. The user describes a goal; the planner investigates the codebase, produces a concrete implementation plan and todo list, and a reviewer observes each iteration until the plan is approved. The final output is the approved planner response, not the review verdict.",
+  "version": "3.0",
+  "description": "Explore the codebase, settle open decisions with you, and produce a decision-complete plan to hand to Build.",
+  "modelRoles": {
+    "primary": "openrouter/google/gemini-3.5-flash",
+    "subagent": "openrouter/google/gemini-3.5-flash",
+    "fast": "openrouter/google/gemma-4-26b-a4b-it"
+  },
   "agents": {
     "user": {
       "type": "user",
-      "description": "Collects the user's planning goal.",
-      "config": {
-        "requireInput": true
-      }
+      "description": "Your goal, answers, and feedback on the plan.",
+      "config": { "requireInput": true }
     },
     "planner": {
-      "description": "Produces and revises a detailed, file-aware implementation plan and a synchronized todo list.",
-      "model": "openrouter/google/gemini-3.5-flash",
+      "description": "Investigates read-only and writes the plan.",
+      "model": "@primary",
       "maxSteps": 80,
-      "systemPrompt": "./prompts/planner.md",
+      "systemPromptTemplate": { "template": "./prompts/planner.md" },
+      "context": {
+        "instructions": true,
+        "environment": true,
+        "compaction": {
+          "keepRecentTokens": 20000,
+          "model": "@compaction",
+          "extraSections": ["Plan status"]
+        }
+      },
+      "subagents": {
+        "explore": "../subagents/explore/explore.json",
+        "plan-critic": "../subagents/plan-critic/plan-critic.json"
+      },
       "tools": [
         "read_file",
         "list_directory",
         "search_files",
+        "glob",
+        "lsp_request",
         "load_skill",
-        "todo_add",
-        "todo_complete",
-        "todo_get",
-        "todo_remove",
-        "todo_clear",
-        "lsp_request"
-      ]
-    },
-    "reviewer": {
-      "description": "Cycle observer. Critiques the plan for feasibility, completeness, todo consistency, and adherence to project conventions; approves only when it is ready for Build.",
-      "model": "openrouter/google/gemini-3.5-flash",
-      "maxSteps": 40,
-      "systemPrompt": "./prompts/reviewer.md",
-      "tools": [
-        "read_file",
-        "list_directory",
-        "search_files",
-        "load_skill",
-        "todo_get",
-        "lsp_request"
+        "ask_question",
+        "delegate",
+        "request_strategy_switch"
       ]
     }
   },
   "flow": {
-    "name": "Plan Flow",
-    "type": "sequential",
-    "description": "User states a goal; planner revises under reviewer observation until the reviewer approves. The cycle returns the approved planner output.",
-    "steps": [
-      { "agent": "user" },
-      {
-        "name": "Plan Approval Loop",
-        "type": "cycle",
-        "description": "Planner drafts and revises; reviewer observes and either approves with a first-line token or sends one concrete revision directive.",
-        "steps": [
-          { "agent": "planner" }
-        ],
-        "cycles": "Infinity",
-        "observer": "reviewer",
-        "breakCycleSignals": ["==PLAN_APPROVED=="],
-        "breakCycleSignalMatch": "first-line"
-      }
-    ]
+    "name": "Plan Loop",
+    "type": "cycle",
+    "description": "You describe the goal or answer questions; the planner investigates and replies; repeat.",
+    "cycles": "Infinity",
+    "steps": [{ "agent": "user" }, { "agent": "planner" }]
   }
 }

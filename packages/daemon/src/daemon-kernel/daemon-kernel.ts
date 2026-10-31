@@ -1,3 +1,4 @@
+import { createCorePlugin } from "../plugins/core";
 import { createRunsPlugin } from "../plugins/runs/runs";
 import { createSandboxPlugin } from "../plugins/sandbox";
 import { createQuestionsPlugin } from "../plugins/questions";
@@ -6,10 +7,7 @@ import { createMcpPlugin } from "../plugins/mcp";
 import { createStatusPlugin } from "../plugins/status";
 import { createLspPlugin } from "../plugins/lsp";
 import { createRunRepository } from "../daemon-run-state/run-repository";
-import type {
-  CreateDaemonKernelOptions,
-  DaemonKernel,
-} from "./daemon-kernel.types";
+import type { CreateDaemonKernelOptions } from "./daemon-kernel.types";
 
 /**
  * Construct daemon-owned plugins and initialize feature registrations.
@@ -25,8 +23,9 @@ import type {
 export async function createDaemonKernel({
   runs,
   initialize,
-}: CreateDaemonKernelOptions): Promise<DaemonKernel> {
+}: CreateDaemonKernelOptions) {
   const status = createStatusPlugin();
+  const corePlugin = createCorePlugin({ modelRoles: runs.harness?.modelRoles });
   const runsPlugin = createRunsPlugin(runs);
   const sandboxPlugin = createSandboxPlugin({
     dependencies: { runs: runsPlugin },
@@ -45,6 +44,7 @@ export async function createDaemonKernel({
   });
   const lspPlugin = createLspPlugin({ dependencies: { runs: runsPlugin } });
   const plugins = {
+    core: corePlugin,
     status: status.plugin,
     runs: runsPlugin,
     sandbox: sandboxPlugin,
@@ -64,6 +64,7 @@ export async function createDaemonKernel({
       skillsPlugin,
       questionsPlugin,
       sandboxPlugin,
+      corePlugin,
     ]) {
       try {
         await plugin.dispose();

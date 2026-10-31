@@ -21,7 +21,8 @@ export function disposeQuestionRunResources(
   runResources.disposed = true;
   runResources.detachAbort();
   cleanupRunQuestions(context, runResources);
-  context.runResources.delete(runResources.runId);
+  if (context.runResources.get(runResources.runId) === runResources)
+    context.runResources.delete(runResources.runId);
 }
 
 /**
@@ -43,7 +44,7 @@ export function prepareQuestionRunResources(
     throw new DOMException("Run aborted", "AbortError");
   }
 
-  if (context.runResources.has(preparation.runId)) {
+  if (context.runResources.has(preparation.runId) && !preparation.staged) {
     throw new Error(
       `Question resources already prepared for run: ${preparation.runId}`,
     );
@@ -62,11 +63,15 @@ export function prepareQuestionRunResources(
     detachAbort: () => preparation.signal.removeEventListener("abort", onAbort),
     disposed: false,
   };
-  context.runResources.set(runResources.runId, runResources);
+  const activate = (): void => {
+    context.runResources.set(runResources.runId, runResources);
+  };
+  if (!preparation.staged) activate();
   runResources.signal.addEventListener("abort", runResources.onAbort, {
     once: true,
   });
   return {
+    ...(preparation.staged ? { activate } : {}),
     strategyInputs: {
       questionRequester: (request) =>
         requestQuestion(context, runResources, request),

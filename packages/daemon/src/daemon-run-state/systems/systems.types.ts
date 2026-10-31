@@ -2,13 +2,15 @@ import type {
   AgentCallResult,
   ConversationHistory,
   InputCollector,
-  LanguageService,
   LaunchStrategyHandle,
   LoadedStrategy,
+} from "@comma-agents/core";
+import type { LanguageService } from "@comma-agents/core/language";
+import type {
   McpAgentToolSet,
   McpConnectionManager,
-  SkillRegistry,
-} from "@comma-agents/core";
+} from "@comma-agents/core/mcp";
+import type { SkillRegistry } from "@comma-agents/core/skills";
 import type { HubManager } from "@comma-agents/core/hub";
 import type {
   PermissionDecision,

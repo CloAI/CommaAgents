@@ -1,215 +1,196 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import type { RunStatus } from "../runs.notifications";
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { createPlugin } from "../../../daemon-plugin";
+import type { RunNotifications } from "../runs.notifications";
+import type { PrepareRunResult } from "../runs.types";
+import { RunPhase, RunOutcomeStatus } from "./state.schemas";
+import { createRunEntry, createRunsContext, getRunSnapshot } from "./state";
+import { getDisplayHistory } from "../history/history";
+import { stopRun } from "../execution/execution";
 import { createRunsPlugin } from "../runs";
 import {
   cleanupRunFixtures,
   createMockRunsPlugin,
+  directories,
   fakeLoader,
   repository,
-  directories,
 } from "../test.utils";
-
 afterEach(cleanupRunFixtures);
-
 describe("run observation", () => {
-  test("should require explicit snapshot hydration after restart and notify only future changes", async () => {
-    const runs = createMockRunsPlugin({
-      repository: repository(),
-      loadStrategy: fakeLoader({ loads: [], restored: [] }),
-    });
-    await runs.prepareRun({ runId: "persisted", strategyPath: "example.json" });
-    await runs.startRun("persisted", "saved answer").completion;
-    await runs.dispose();
-    const restarted = createRunsPlugin({ runsDir: directories.at(-1)! });
-    const snapshots: RunStatus[] = [];
-    await restarted.notifications.subscribe(
-      "run_snapshot",
-      "persisted",
-      (event) => {
-        snapshots.push(event);
-      },
-    );
-    expect(snapshots).toEqual([]);
-    expect(() => restarted.getRunLineage("persisted")).toThrow(
-      "Missing run identity",
-    );
-    expect(await restarted.getRun("persisted")).toMatchObject({
-      phase: "terminal",
-      outcome: { status: "completed", summary: { text: "saved answer" } },
-    });
-    expect(snapshots).toEqual([]);
-    await restarted.dispose();
-  });
-
-  test("should deliver cleanup notifications and reject new subscriptions when disposal begins", async () => {
-    const runs = createMockRunsPlugin({
-      repository: repository(),
-      loadStrategy: fakeLoader({ loads: [], restored: [] }),
-    });
-    await runs.prepareRun({ runId: "dispose", strategyPath: "example.json" });
-    const cancelled: string[] = [];
-    await runs.notifications.subscribe(
-      "run_preparation_cancelled",
-      "dispose",
-      (event) => {
-        cancelled.push(event.runId);
-      },
-    );
-    const disposal = runs.dispose();
-    await expect(
-      runs.notifications.subscribe("run_snapshot", "dispose", () => {}),
-    ).rejects.toThrow("disposing");
-    await disposal;
-    expect(cancelled).toEqual(["dispose"]);
-    await expect(
-      runs.notifications.subscribe("run_snapshot", "dispose", () => {}),
-    ).rejects.toThrow("disposed");
-  });
-
-  test("should deliver future snapshots and isolate throwing listeners", async () => {
-    const runs = createMockRunsPlugin({
-      repository: repository(),
-      loadStrategy: fakeLoader({ loads: [], restored: [] }),
-    });
-    await runs.prepareRun({ runId: "listeners", strategyPath: "example.json" });
-    await runs.notifications.subscribe("run_snapshot", "listeners", () => {
-      throw new Error("listener failed");
-    });
-    const updates: RunStatus[] = [];
-    await runs.notifications.subscribe(
-      "run_snapshot",
-      "listeners",
-      (update) => {
-        updates.push(update);
-      },
-    );
-    await runs.notifications.subscribe(
-      "run_agent_output",
-      "listeners",
-      (update) => {
-        updates.push(update);
-      },
-    );
-    expect(updates).toEqual([]);
-    expect((await runs.startRun("listeners", "answer").completion).status).toBe(
-      "completed",
-    );
-    expect(
-      updates.filter((update) => update.type === "run_agent_output"),
-    ).toHaveLength(1);
-    expect(updates.at(-1)).toMatchObject({
-      type: "run_snapshot",
-      snapshot: { phase: "terminal" },
-    });
-  });
-
-  test("should stop delivering to an unsubscribed listener", async () => {
+  it("should keep direct notification subscriptions future-only across restart", async () => {
     const runs = createMockRunsPlugin({
       repository: repository(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     await runs.prepareRun({
-      runId: "unsubscribe",
-      strategyPath: "example.json",
+      runId: "saved",
+      configuration: { strategyPath: "example.json" },
     });
-    const removedUpdates: RunStatus[] = [];
-    const activeUpdates: RunStatus[] = [];
-    const unsubscribe = await runs.notifications.subscribe(
-      "run_agent_stream",
-      "unsubscribe",
-      (update) => {
-        removedUpdates.push(update);
+    await runs.startRun("saved", "answer").completion;
+    await runs.dispose();
+    const restarted = createRunsPlugin({ runsDir: directories.at(-1)! });
+    const snapshots: unknown[] = [];
+    await restarted.notifications.subscribe(
+      "run_snapshot",
+      "saved",
+      (event) => {
+        snapshots.push(event);
       },
     );
-    await runs.notifications.subscribe(
-      "run_agent_stream",
-      "unsubscribe",
-      (update) => {
-        activeUpdates.push(update);
-      },
-    );
-    unsubscribe();
-    unsubscribe();
-    await runs.startRun("unsubscribe", "answer").completion;
-    expect(removedUpdates).toHaveLength(0);
-    expect(
-      activeUpdates.filter((update) => update.type === "run_agent_stream"),
-    ).toHaveLength(3);
+    expect(snapshots).toEqual([]);
+    expect(await restarted.getRun("saved")).toMatchObject({
+      phase: "terminal",
+      outcome: { status: "completed" },
+    });
+    expect(snapshots).toEqual([]);
+    await restarted.dispose();
   });
-
-  test("should stream live deltas and wait for persistence before notifying completed output", async () => {
-    const storage = repository();
-    const recordWriteStarted = Promise.withResolvers<void>();
-    const allowRecordWrite = Promise.withResolvers<void>();
+  it("should isolate throwing listeners and stop delivery after unsubscribe", async () => {
     const runs = createMockRunsPlugin({
-      repository: {
-        ...storage,
-        async appendEvent(runId, event) {
-          if (event.type === "agent_call") {
-            recordWriteStarted.resolve();
-            await allowRecordWrite.promise;
-          }
-          await storage.appendEvent(runId, event);
-        },
-      },
+      repository: repository(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
-    await runs.prepareRun({ runId: "ordering", strategyPath: "example.json" });
-    const updates: RunStatus[] = [];
-    const observedHistoryReads: Array<ReturnType<typeof storage.getEvents>> =
-      [];
-    await runs.notifications.subscribe("run_snapshot", "ordering", (update) => {
-      updates.push(update);
+    await runs.prepareRun({
+      runId: "listeners",
+      configuration: { strategyPath: "example.json" },
     });
-    await runs.notifications.subscribe(
-      "run_agent_stream",
-      "ordering",
-      (update) => {
-        updates.push(update);
-      },
-    );
-    await runs.notifications.subscribe(
-      "run_agent_output",
-      "ordering",
-      (update) => {
-        updates.push(update);
-        if (update.type === "run_agent_output")
-          observedHistoryReads.push(storage.getEvents("ordering"));
-      },
-    );
-    const execution = runs.startRun("ordering", "answer");
-    await recordWriteStarted.promise;
-    expect(
-      updates.filter((update) => update.type === "run_agent_stream"),
-    ).toHaveLength(2);
-    expect(updates.some((update) => update.type === "run_agent_output")).toBe(
-      false,
-    );
-    const lateUpdates: RunStatus[] = [];
-    await runs.notifications.subscribe("run_snapshot", "ordering", (update) => {
-      lateUpdates.push(update);
+    await runs.notifications.subscribe("run_snapshot", "listeners", () => {
+      throw new Error("Listener failure");
     });
-    await runs.notifications.subscribe(
-      "run_agent_stream",
-      "ordering",
-      (update) => {
-        lateUpdates.push(update);
+    const removed: unknown[] = [];
+    const unsubscribe = await runs.notifications.subscribe(
+      "run_snapshot",
+      "listeners",
+      (event) => {
+        removed.push(event);
       },
     );
-    expect(lateUpdates).toEqual([]);
-    allowRecordWrite.resolve();
-    await execution.completion;
-    const historyAtOutput = await observedHistoryReads[0];
-    expect(historyAtOutput?.at(-1)?.type).toBe("agent_call");
-    expect(
-      lateUpdates.filter((update) => update.type === "run_agent_stream"),
-    ).toMatchObject([{ event: { type: "done" } }]);
-    expect(updates.at(-1)).toMatchObject({
-      type: "run_snapshot",
-      snapshot: {
-        phase: "terminal",
-        outcome: { status: "completed", summary: { text: "answer" } },
-      },
+    unsubscribe();
+    await runs.startRun("listeners", "answer").completion;
+    expect(removed).toEqual([]);
+    await runs.dispose();
+  });
+  it("should deliver final stopped state during disposal and reject new subscriptions", async () => {
+    const runs = createMockRunsPlugin({
+      repository: repository(),
+      loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
+    await runs.prepareRun({
+      runId: "dispose",
+      configuration: { strategyPath: "example.json" },
+    });
+    const snapshots: unknown[] = [];
+    await runs.notifications.subscribe("run_snapshot", "dispose", (event) => {
+      snapshots.push(event.snapshot);
+    });
+    const disposal = runs.dispose();
+    await expect(
+      runs.notifications.subscribe("run_snapshot", "dispose", () => {}),
+    ).rejects.toThrow("disposing");
+    await disposal;
+    expect(snapshots).toMatchObject([
+      { phase: "terminal", outcome: { status: "stopped" } },
+    ]);
+  });
+});
+
+describe("saved run reads", () => {
+  it("should allow concurrent reads without allocating a runtime, restoring conversation, or rewriting saved state", async () => {
+    repository();
+    const { notifications } = createPlugin<"runs", RunNotifications>({
+      name: "runs",
+      notifications: true,
+      cleanup: async () => {},
+    });
+    const context = createRunsContext(
+      { runsDir: directories.at(-1)! },
+      notifications,
+    );
+    await context.storage.save({
+      runId: "archived",
+      configuration: { strategyPath: "example.json", cwd: "/workspace" },
+      strategy: null,
+      phase: RunPhase.preparing,
+    });
+    const path = join(directories.at(-1)!, "archived", "run.json");
+    const original = readFileSync(path, "utf8");
+    const saving = spyOn(context.storage, "save");
+    const restoring = spyOn(context.storage, "conversation");
+    try {
+      const snapshots = await Promise.all([
+        getRunSnapshot(context, "archived"),
+        getRunSnapshot(context, "archived"),
+      ]);
+      for (const snapshot of snapshots) {
+        expect(snapshot).toMatchObject({
+          runId: "archived",
+          phase: "terminal",
+          outcome: { status: "interrupted" },
+        });
+      }
+      expect(await getDisplayHistory(context, "archived")).toMatchObject({
+        entries: [],
+      });
+      await stopRun(context, "archived");
+      expect(context.runs.size).toBe(0);
+      expect(saving).not.toHaveBeenCalled();
+      expect(restoring).not.toHaveBeenCalled();
+      expect(readFileSync(path, "utf8")).toBe(original);
+    } finally {
+      saving.mockRestore();
+      restoring.mockRestore();
+    }
+  });
+
+  it("should return a runtime created while an older saved snapshot was loading", async () => {
+    repository();
+    const { notifications } = createPlugin<"runs", RunNotifications>({
+      name: "runs",
+      notifications: true,
+      cleanup: async () => {},
+    });
+    const context = createRunsContext(
+      { runsDir: directories.at(-1)! },
+      notifications,
+    );
+    const saved = {
+      runId: "loading",
+      configuration: { strategyPath: "example.json", cwd: "/workspace" },
+      strategy: null,
+      phase: RunPhase.terminal as const,
+      outcome: { status: RunOutcomeStatus.stopped as const },
+    };
+    await context.storage.save(saved);
+    const read = context.storage.read;
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const reading = spyOn(context.storage, "read").mockImplementationOnce(
+      async (runId) => {
+        const snapshot = await read(runId);
+        entered.resolve();
+        await release.promise;
+        return snapshot;
+      },
+    );
+    try {
+      const snapshot = getRunSnapshot(context, saved.runId);
+      await entered.promise;
+      const preparation = Promise.withResolvers<PrepareRunResult>();
+      const entry = createRunEntry(saved, saved.configuration, {
+        phase: RunPhase.preparing,
+        preparation: preparation.promise,
+      });
+      context.runs.set(saved.runId, entry);
+      release.resolve();
+      expect(await snapshot).toMatchObject({
+        runId: saved.runId,
+        phase: "preparing",
+      });
+      expect(context.runs.get(saved.runId)).toBe(entry);
+    } finally {
+      release.resolve();
+      reading.mockRestore();
+    }
   });
 });

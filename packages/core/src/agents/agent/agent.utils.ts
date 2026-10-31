@@ -1,20 +1,26 @@
 import type { StepResult, TextStreamPart, ToolSet } from "ai";
 import { tool as aiTool, generateText, Output, stepCountIs } from "ai";
 import type {
+  CompactionOptions,
   ConversationContext,
   ModelMessage,
   ResponseMessage,
   SummarizeRecords,
 } from "../../conversation-context";
 import {
+  buildCompactionInstruction,
+  CompactionSummaryRejectedError,
   contextUsageFromSteps,
   recordsToMessages,
 } from "../../conversation-context";
+import { COMPACTION_SYSTEM_PROMPT } from "../../conversation-context/retention/compaction/compaction.constants";
 import { SandboxViolationError } from "../../errors/index";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
 import type { SideEffectHook, TransformHook } from "../../hooks/hooks.types";
 import { parseMcpToolName } from "../../mcp";
 import { resolveModel } from "../../model/model";
+import type { ModelResolutionOptions } from "../../model/model.types";
+import type { PrivacyReport } from "../../model/privacy";
 import { getQualifiedModelMetadata } from "../../model/model.utils";
 import {
   buildMessages,
@@ -210,6 +216,12 @@ export function buildAgentToolSet({
           ...(runtime.questionRequester !== undefined
             ? { requestQuestion: runtime.questionRequester }
             : {}),
+          ...(runtime.subagents !== undefined
+            ? { subagents: runtime.subagents }
+            : {}),
+          ...(runtime.requestStrategySwitch !== undefined
+            ? { requestStrategySwitch: runtime.requestStrategySwitch }
+            : {}),
         };
 
         // AI SDK v6's `tool()` wrapper does NOT validate the
@@ -292,6 +304,7 @@ export function buildAgentToolSet({
 
           return llmOutput;
         } catch (caught) {
+          if (toolContext.abort.aborted) throw caught;
           // Convert thrown errors into structured tool results so the
           // LLM always sees a useful message instead of an empty
           // string. Without this, AI SDK v6 surfaces uncaught throws
@@ -351,6 +364,7 @@ export async function buildCallOptions(
   context: ConversationContext,
   toolHooks?: ToolHooks,
   abortSignal?: AbortSignal,
+  onPrivacyReport?: (report: PrivacyReport) => void,
 ): Promise<BuildCallOptionsResult> {
   if (!config.model) {
     throw new Error(
@@ -367,19 +381,38 @@ export async function buildCallOptions(
   const retentionEvents = await context.prepareForCall({
     agentName: config.name,
     model: config.model,
+    ...(config.privacy?.tee || config.privacy?.e2ee
+      ? {
+          summarize: createModelSummarizer(
+            compactionOptionsOf(config)?.model ?? config.model,
+            {
+              privacy: config.privacy,
+              privacyRuntime: runtime.privacyRuntime,
+              signal: abortSignal,
+              onPrivacyReport,
+            },
+            compactionOptionsOf(config)?.extraSections,
+          ),
+        }
+      : {}),
     ...(lastActiveRecord?.contextUsage !== undefined
       ? { contextUsage: lastActiveRecord.contextUsage }
       : {}),
-    ...(modelMetadata?.contextWindow !== undefined
-      ? { contextWindow: modelMetadata.contextWindow }
+    ...(modelMetadata?.metadata.contextWindow !== undefined
+      ? { contextWindow: modelMetadata.metadata.contextWindow }
       : {}),
-    ...(modelMetadata?.maxInputTokens !== undefined
-      ? { maxInputTokens: modelMetadata.maxInputTokens }
+    ...(modelMetadata?.metadata.maxInputTokens !== undefined
+      ? { maxInputTokens: modelMetadata.metadata.maxInputTokens }
       : {}),
   });
 
   // Resolve model string → LanguageModel
-  const languageModel = await resolveModel(config.model);
+  const languageModel = await resolveModel(config.model, {
+    privacy: config.privacy,
+    privacyRuntime: runtime.privacyRuntime,
+    signal: abortSignal,
+    onPrivacyReport,
+  });
 
   // Resolve tool names → ToolDefinition map, then build AI SDK tool set
   const resolvedToolDefinitions = config.tools
@@ -419,31 +452,49 @@ export async function buildCallOptions(
   };
 }
 
-const SUMMARIZER_SYSTEM_PROMPT =
-  "You compress conversation history. Produce a concise summary that preserves " +
-  "key facts, decisions, open questions, and any state later turns depend on. " +
-  "Write in plain prose; do not add commentary or address the user.";
-
-const SUMMARIZER_INSTRUCTION =
-  "Summarize the conversation above for use as compacted context.";
+/**
+ * The agent's compaction settings when they are given as an options object.
+ * @param {AgentConfig} config - Agent configuration.
+ * @returns {CompactionOptions | undefined} Compaction options, if set as an object.
+ */
+export function compactionOptionsOf(
+  config: AgentConfig,
+): CompactionOptions | undefined {
+  const compaction = config.context?.compaction;
+  return typeof compaction === "object" ? compaction : undefined;
+}
 
 /**
  * Build the default summarizer used by context compaction. Resolves the model
- * lazily so unused summarizers cost nothing.
+ * lazily so unused summarizers cost nothing. A summary cut off by the output
+ * limit is rejected, so compaction keeps the original records.
  *
- * @param model - Model identifier in "providerID/modelID" format.
+ * @param {string} model - Model identifier in "providerID/modelID" format.
+ * @param {ModelResolutionOptions} [options] - Inherited privacy requirements, request cancellation, and report collector.
+ * @param {readonly string[]} [extraSections] - Section headings added to the standard summary template.
+ * @returns {SummarizeRecords} Invocation-bound summarizer.
  */
-export function createModelSummarizer(model: string): SummarizeRecords {
+export function createModelSummarizer(
+  model: string,
+  options?: ModelResolutionOptions,
+  extraSections?: readonly string[],
+): SummarizeRecords {
   return async (records) => {
-    const languageModel = await resolveModel(model);
+    const languageModel = await resolveModel(model, options);
     const result = await generateText({
       model: languageModel,
-      system: SUMMARIZER_SYSTEM_PROMPT,
+      abortSignal: options?.signal,
+      system: COMPACTION_SYSTEM_PROMPT,
       messages: [
         ...recordsToMessages(records),
-        { role: "user", content: SUMMARIZER_INSTRUCTION },
+        { role: "user", content: buildCompactionInstruction(extraSections) },
       ],
     });
+    if (result.finishReason === "length") {
+      throw new CompactionSummaryRejectedError(
+        "The compaction summary hit the output limit and was discarded.",
+      );
+    }
     return result.text;
   };
 }
@@ -554,5 +605,85 @@ export function buildStreamCallResult(
     },
     ...(contextUsage !== undefined ? { contextUsage } : {}),
     finishReason: finishReason ?? "stop",
+  };
+}
+
+/**
+ * Build valid partial context, pairing every issued tool call with its settled outcome.
+ * @param {readonly AgentStreamEvent[]} events - Delivered generation and settled tool events.
+ * @returns {AgentCallResult} Interrupted response usable as conversation context.
+ * @internal
+ */
+export function interruptedCallResult(
+  events: readonly AgentStreamEvent[],
+): AgentCallResult {
+  const responseMessages: ResponseMessage[] = [];
+  let assistantContent: Extract<
+    ResponseMessage,
+    { role: "assistant" }
+  >["content"] = [];
+  let partialText = "";
+  const toolResults = new Map<
+    string,
+    Extract<AgentStreamEvent, { type: "tool-result" }>
+  >();
+  for (const event of events) {
+    if (event.type === "tool-result") toolResults.set(event.toolCallId, event);
+  }
+  const emittedTools = new Set<string>();
+  for (const event of events) {
+    if (event.type === "text") {
+      partialText += event.text;
+      if (Array.isArray(assistantContent))
+        assistantContent.push({ type: "text", text: event.text });
+    } else if (
+      event.type === "tool-call" &&
+      !emittedTools.has(event.toolCallId)
+    ) {
+      emittedTools.add(event.toolCallId);
+      let toolInput: unknown;
+      try {
+        toolInput = JSON.parse(event.args);
+      } catch {
+        toolInput = event.args;
+      }
+      if (Array.isArray(assistantContent))
+        assistantContent.push({
+          type: "tool-call",
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          input: toolInput,
+        });
+      responseMessages.push({ role: "assistant", content: assistantContent });
+      assistantContent = [];
+      const outcome = toolResults.get(event.toolCallId);
+      responseMessages.push({
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: event.toolCallId,
+            toolName: event.toolName,
+            output: {
+              type: outcome?.status === "completed" ? "text" : "error-text",
+              value:
+                outcome?.status === "completed"
+                  ? outcome.output
+                  : (outcome?.error ??
+                    "Tool cancelled by user steering; its effects may be incomplete. Do not automatically replay it."),
+            },
+          },
+        ],
+      });
+    }
+  }
+  if (assistantContent.length)
+    responseMessages.push({ role: "assistant", content: assistantContent });
+  return {
+    text: partialText,
+    responseMessages,
+    steps: [],
+    usage: { promptTokens: 0, completionTokens: 0 },
+    finishReason: "user_steering",
   };
 }

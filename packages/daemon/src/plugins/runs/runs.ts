@@ -1,8 +1,9 @@
 import {
   prepareRunCommand,
+  switchStrategyCommand,
+  sendRunCommand,
   startRunCommand,
   stopRunCommand,
-  continueRunCommand,
   steerRunCommand,
   resolveInputCommand,
   getRunCommand,
@@ -10,18 +11,16 @@ import {
   runsChannel,
 } from "./server";
 import { createPlugin } from "../../daemon-plugin";
+import type { CreateNotifyingPluginOptions } from "../../daemon-plugin/notifications/notifications.types";
 import type { CreateRunsPluginOptions, RunsPlugin } from "./runs.types";
 import type { RunNotifications } from "./runs.notifications";
 import type { RunsContext } from "./state/state.types";
 import { createRunsContext } from "./state";
-import {
-  beginRunExecution,
-  disposeRuns,
-  resolveRunInput,
-  steerRun,
-  stopRun,
-} from "./execution";
-import { getDisplayHistory, getRunSnapshot } from "./history";
+import { beginRunExecution, disposeRuns, steerRun, stopRun } from "./execution";
+import { getDisplayHistory } from "./history";
+import { getRunSnapshot } from "./state/state";
+import { resolveRunInput } from "./input/input";
+import { switchStrategy, sendRun } from "./switching";
 import { prepareRun } from "./preparation";
 import { getRunLineage } from "./identity";
 
@@ -33,30 +32,26 @@ import { getRunLineage } from "./identity";
  * @example
  * ```ts
  * const runs = createRunsPlugin({ runsDir });
- * const prepared = await runs.prepareRun({ strategyPath });
+ * const prepared = await runs.prepareRun({ configuration: { strategyPath } });
  * if (prepared.phase === "prepared") {
  *   const outcome = await runs.startRun(prepared.runId, "Hello").completion;
  * }
  * ```
  */
-export function createRunsPlugin(options: CreateRunsPluginOptions): RunsPlugin {
-  const { plugin, notifications } = createPlugin<
-    "runs",
-    RunNotifications,
-    RunsPlugin,
-    RunsContext
-  >({
+export function createRunsPlugin(options: CreateRunsPluginOptions) {
+  const { plugin, notifications } = createPlugin({
     name: "runs",
     notifications: true,
-    get context() {
+    get context(): RunsContext {
       return context;
     },
     server: {
       commands: [
         prepareRunCommand,
+        switchStrategyCommand,
+        sendRunCommand,
         startRunCommand,
         stopRunCommand,
-        continueRunCommand,
         steerRunCommand,
         resolveInputCommand,
         getRunCommand,
@@ -71,19 +66,24 @@ export function createRunsPlugin(options: CreateRunsPluginOptions): RunsPlugin {
           ? getRunLineage(context, runId).map((identity) => identity.runId)
           : [runId],
     },
-  });
+  } satisfies CreateNotifyingPluginOptions<
+    "runs",
+    RunNotifications,
+    RunsPlugin,
+    RunsContext
+  >);
   const context: RunsContext = createRunsContext(options, notifications);
-  return Object.assign(plugin, {
+  const methods: Omit<RunsPlugin, keyof typeof plugin> = {
     getRunLineage: (runId) => getRunLineage(context, runId),
     prepareRun: (options) => prepareRun(context, options),
-    startRun: (runId, input = "") =>
-      beginRunExecution(context, runId, input, "new"),
+    switchStrategy: (options) => switchStrategy(context, options),
+    sendRun: (options) => sendRun(context, options),
+    startRun: (runId, input = "") => beginRunExecution(context, runId, input),
     stopRun: (runId) => stopRun(context, runId),
-    continueRun: (runId, input) =>
-      beginRunExecution(context, runId, input, "continuation"),
-    steerRun: (runId, text) => steerRun(context, runId, text),
-    resolveInput: (runId, requestId, text) =>
-      resolveRunInput(context, runId, requestId, text),
+    steerRun: (runId, text, messageId) =>
+      steerRun(context, runId, text, messageId),
+    resolveInput: (runId, inputId, text) =>
+      resolveRunInput(context, runId, inputId, text),
     getRun: (runId) => getRunSnapshot(context, runId),
     getHistory: (runId, options) => getDisplayHistory(context, runId, options),
     registerRunPreparation: (registration): void => {
@@ -104,5 +104,6 @@ export function createRunsPlugin(options: CreateRunsPluginOptions): RunsPlugin {
       }
       context.hooks.push(registration);
     },
-  } satisfies Omit<RunsPlugin, keyof typeof plugin>);
+  };
+  return Object.assign(plugin, methods);
 }

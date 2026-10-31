@@ -1,4 +1,4 @@
-import type { DiscoveredStrategy } from "@comma-agents/core";
+import type { DiscoveredStrategy } from "@comma-agents/core/strategy";
 import { useCallback } from "react";
 
 import { useDaemonCommand } from "../../useDaemon/useDaemonCommand/useDaemonCommand";

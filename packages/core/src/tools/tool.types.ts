@@ -4,6 +4,8 @@ import type { Guard, Policy } from "../guard/guard.types";
 import type { LanguageService } from "../language";
 import type { SkillRegistry } from "../skills/skills.types";
 import type { AuditSink } from "./io/audit.types";
+import type { SubagentTarget } from "./built-in/delegate/delegate.types";
+import type { StrategySwitchHandle } from "./built-in/request-strategy-switch/request-strategy-switch.types";
 import type { LaunchStrategyHandle } from "./launch-strategy.types";
 
 /** User question emitted by a tool during an agent call. */
@@ -102,6 +104,10 @@ export interface ToolContext {
    * adapters later).
    */
   readonly languageService?: LanguageService;
+  /** Subagent strategies the invoking agent may use through `delegate`. */
+  readonly subagents?: readonly SubagentTarget[];
+  /** Queue a user-approved strategy switch; present only in runs that can switch. */
+  readonly requestStrategySwitch?: StrategySwitchHandle;
 }
 
 /**

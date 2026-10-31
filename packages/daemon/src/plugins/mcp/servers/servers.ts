@@ -30,8 +30,8 @@ export async function listMcpServers(
     ? await context.runs.getRun(options.runId)
     : undefined;
   const configuration = await resolveMcpConfiguration({
-    cwd: options.cwd ?? run?.cwd ?? process.cwd(),
-    strategyPath: options.strategyPath ?? run?.strategyPath,
+    cwd: options.cwd ?? run?.configuration.cwd ?? process.cwd(),
+    strategyPath: options.strategyPath ?? run?.configuration.strategyPath,
     runId: options.runId,
     runRepository: context.repository,
   });
@@ -63,8 +63,8 @@ async function persistMcpUpdate(
     ? await context.runs.getRun(options.runId)
     : undefined;
   const configuration = await resolveMcpConfiguration({
-    cwd: options.cwd ?? run?.cwd ?? process.cwd(),
-    strategyPath: options.strategyPath ?? run?.strategyPath,
+    cwd: options.cwd ?? run?.configuration.cwd ?? process.cwd(),
+    strategyPath: options.strategyPath ?? run?.configuration.strategyPath,
     runId: options.runId,
     runRepository: context.repository,
   });

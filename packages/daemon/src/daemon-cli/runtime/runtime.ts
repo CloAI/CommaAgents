@@ -1,18 +1,17 @@
 import { getLogger } from "@logtape/logtape";
 import type { DaemonConfig } from "../../config";
+import { createDaemonKernel } from "../../daemon-kernel";
+import type { DaemonKernel } from "../../daemon-kernel";
+import { createDaemonServer } from "../../daemon-server";
+import type { DaemonServer } from "../../daemon-server";
 import { initializeLogging } from "../../logger";
-import { createDaemon } from "../../server/createDaemon";
 import { removePid, writePid } from "../process/pid/pid";
-import { hydrateRegisteredProviders } from "./runtime.utils";
+import type { DaemonRuntime } from "./runtime.types";
 
 const logger = getLogger(["comma", "daemon", "runtime"]);
 
-interface DaemonRuntime {
-  stop(): Promise<void>;
-}
-
 /**
- * Start the daemon and own application logging and process handlers.
+ * Start the kernel and WebSocket server with application-owned process resources.
  * @param {DaemonConfig} config - Resolved daemon configuration.
  * @returns {Promise<DaemonRuntime>} The running daemon's shutdown handle.
  */
@@ -23,61 +22,39 @@ export async function startDaemonRuntime(
     level: config.logLevel,
     file: config.logFile,
   });
-  let initializeDaemon: ReturnType<typeof createDaemon> | undefined;
-  
-  // Start the daemon, and determine any issues with the startup.
-  try {
-    // AI: Can we remove the "hydrateRegisteredProviders" here and include it more in the 
-    // daemon itself, as it adds noise here, and the createDaemon should have a "hydrate" phase.
-    await hydrateRegisteredProviders();
-    initializeDaemon = createDaemon({ config });
-    await initializeDaemon.start();
-    writePid(config.pidFile);
-  } catch (error) {
-    logger.error("Failed to start daemon", { error });
-    try {
-      await initializeDaemon?.stop();
-    } catch (cleanupError) {
-      logger.error("Failed to clean up daemon after startup failure", {
-        error: cleanupError,
-      });
-    } finally {
-      logging.close();
-    }
-    throw error;
-  }
-
-  const runningDaemon = initializeDaemon;
-  // AI: This seems like an awkward code, empty "stopping" variable...
-  // Not sure if we really should be "defining a runtime" adhoc here.
-  // Ideally the Daemon can just have this built into it its definition, removing this
-  // dangling wrapup code and the need to having a "temp" initializeDaemon just to reuse 
-  // it here...
+  let daemon: DaemonKernel | undefined;
+  let server: DaemonServer | undefined;
+  let ownsPid = false;
   let stopping: Promise<void> | undefined;
-  const runtime: DaemonRuntime = {
-    stop() {
-      stopping ??= (async () => {
+
+  function stop(): Promise<void> {
+    stopping ??= (async () => {
+      try {
+        await server?.stop();
+      } finally {
         try {
-          await runningDaemon.stop();
+          await daemon?.dispose();
         } finally {
           process.off("uncaughtException", onUncaughtException);
           process.off("unhandledRejection", onUnhandledRejection);
           process.off("SIGINT", shutdown);
           process.off("SIGTERM", shutdown);
           try {
-            removePid(config.pidFile);
+            if (ownsPid) {
+              removePid(config.pidFile);
+            }
           } finally {
             logging.close();
           }
         }
-      })();
-      return stopping;
-    },
-  };
+      }
+    })();
+    return stopping;
+  }
 
   function onUncaughtException(error: Error): void {
     logger.fatal("Uncaught exception", { error });
-    void runtime.stop().then(
+    void stop().then(
       () => process.exit(1),
       () => process.exit(1),
     );
@@ -88,15 +65,46 @@ export async function startDaemonRuntime(
   }
 
   function shutdown(): void {
-    void runtime.stop().then(
+    void stop().then(
       () => process.exit(0),
       () => process.exit(1),
     );
   }
 
-  process.on("uncaughtException", onUncaughtException);
-  process.on("unhandledRejection", onUnhandledRejection);
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
-  return runtime;
+  try {
+    daemon = await createDaemonKernel({
+      runs: {
+        runsDir: config.runsDir,
+        harness: {
+          modelRoles: config.modelRoles,
+          instructionFiles: config.instructionFiles,
+        },
+      },
+    });
+    server = createDaemonServer({
+      daemon,
+      host: config.host,
+      port: config.port,
+    });
+    await server.start();
+    process.on("uncaughtException", onUncaughtException);
+    process.on("unhandledRejection", onUnhandledRejection);
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+    logger.info(`Daemon listening at ${server.url}`);
+    writePid(config.pidFile);
+    ownsPid = true;
+    return { stop };
+  } catch (error) {
+    logger.error("Failed to start daemon", { error });
+    try {
+      await stop();
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        "Daemon startup and cleanup failed",
+      );
+    }
+    throw error;
+  }
 }

@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRunHistoryStorage } from "./storage";
 import { readHistoryIndex } from "./storage.utils";
-import type { RunMessage } from "../../messages";
+import type { CompletedAgentMessage } from "../../messages/messages.types";
+import { RunMessageStatus } from "../../messages/messages.schemas";
 
 const directories: string[] = [];
 afterEach(() => {
@@ -19,7 +20,10 @@ function directory(): string {
   return path;
 }
 
-function message(messageId: string, runId = "conversation"): RunMessage {
+function message(
+  messageId: string,
+  runId = "conversation",
+): CompletedAgentMessage {
   return {
     type: "message",
     messageId,
@@ -27,7 +31,7 @@ function message(messageId: string, runId = "conversation"): RunMessage {
     role: "agent",
     agentName: "writer",
     createdAt: new Date().toISOString(),
-    status: "completed",
+    status: RunMessageStatus.completed,
     content: [{ type: "text", text: messageId }],
   };
 }
@@ -66,14 +70,17 @@ describe("createRunHistoryStorage", () => {
   it("should retain creation positions while active messages finish and survive restart", async () => {
     const path = directory();
     const storage = createRunHistoryStorage(path);
-    await storage.save({ ...message("first"), status: "streaming" });
+    await storage.reserve("conversation", "first");
     await storage.save(message("second"));
     expect(
       (await storage.read("conversation")).entries.map(
         (entry) => entry.messageId,
       ),
     ).toEqual(["second"]);
-    await storage.save({ ...message("first"), status: "cancelled" });
+    await storage.save({
+      ...message("first"),
+      status: RunMessageStatus.stopped,
+    });
     const reopened = createRunHistoryStorage(path);
     expect(
       (await reopened.read("conversation")).entries.map(

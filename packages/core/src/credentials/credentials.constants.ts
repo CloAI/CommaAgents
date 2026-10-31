@@ -24,4 +24,6 @@ export const WELL_KNOWN_ENV_VARS: EnvVarMap = {
   deepseek: ["DEEPSEEK_API_KEY"],
   xai: ["XAI_API_KEY"],
   openrouter: ["OPENROUTER_API_KEY"],
+  "brave-search": ["BRAVE_SEARCH_API_KEY", "BRAVE_API_KEY"],
+  searxng: ["SEARXNG_URL"],
 };

@@ -12,6 +12,7 @@ export {
   getProjectSkillsDirectory,
   getProjectStrategiesDirectory,
   getProviderInstallDirectory,
+  getProviderSettingsPath,
   getStrategiesDirectory,
   getTrashDirectory,
   resetCoreLocationOverrides,
@@ -20,6 +21,7 @@ export {
   setCredentialsPath,
   setGlobalSkillsDirectory,
   setProviderInstallDirectory as setProviderInstallDirectoryPath,
+  setProviderSettingsPath,
 } from "./defaults";
 export {
   DEFAULT_APPLICATION_DATA_DIRECTORY_NAME,

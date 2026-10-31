@@ -78,6 +78,8 @@ async function startDaemon(): Promise<Daemon> {
       pidFile: join(tmpdir(), "test.pid"),
       configFile: join(tmpdir(), "test.json"),
       runsDir: join(tmpdir(), `runs-${crypto.randomUUID()}`),
+      modelRoles: {},
+      instructionFiles: ["AGENTS.md"],
     },
   });
 

@@ -3,6 +3,8 @@ import {
   getDaemonConfig,
   setDaemonConfigFile,
   setDaemonHost,
+  setDaemonInstructionFiles,
+  setDaemonModelRoles,
   setDaemonLogFile,
   setDaemonLogLevel,
   setDaemonPidFile,
@@ -52,6 +54,10 @@ export function loadDaemonConfig(options?: LoadConfigOptions): DaemonConfig {
     setDaemonPidFile(fileOverrides.pidFile);
   if (fileOverrides.runsDir !== undefined)
     setDaemonRunsDirectory(fileOverrides.runsDir);
+  if (fileOverrides.modelRoles !== undefined)
+    setDaemonModelRoles(fileOverrides.modelRoles);
+  if (fileOverrides.instructionFiles !== undefined)
+    setDaemonInstructionFiles(fileOverrides.instructionFiles);
 
   // If env variables were defined override the defaults and files, as env take priority.
   const env = options?.env;

@@ -1,1 +1,0 @@
-export { acceptRunCommand } from "./control";

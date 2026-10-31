@@ -7,7 +7,64 @@ description: Model registry, provider resolution, model metadata lookup, and mod
 
 The model module handles parsing model identifiers (e.g. `openai/gpt-4o`), auto-resolving bare model IDs, maintaining a global model registry, resolving model strings into live `LanguageModel` instances, and listing providers and their available models.
 
+## Required TEE and E2EE protection
+
+Use separate requirements to request verified TEE protection and end-to-end encryption together:
+
+```ts
+import { createAgent, createPrivacyRuntime } from "@comma-agents/core";
+
+const privacyRuntime = createPrivacyRuntime();
+const agent = createAgent(
+  {
+    name: "private-researcher",
+    model: "venice/your-model-id",
+    privacy: { tee: "required", e2ee: "required" },
+  },
+  { privacyRuntime },
+);
+```
+
+Omitting both requirements retains ordinary inference. `tee: "required"` requests independently verified hardware evidence and authenticated completion binding. Adding `e2ee: "required"` also requires encrypted conversation content; E2EE without required TEE is invalid. Requirements are checked before directly registered models or provider overrides can run. Protected inference requires an explicit provider/model ID, an application-owned runtime, and a code-owned protected provider implementation. UI-added custom endpoints cannot enable it.
+
+**Venice protected inference is currently unavailable.** Independent CPU and GPU evidence verification is implemented, but no supported evidence format establishes the required cryptographic CPU/GPU association. The adapter rejects with `PRIVACY_BINDING_UNAVAILABLE` rather than transmitting prompt content or claiming verified protection. Independently validating two fresh hardware reports does not prove that the GPU belongs to the attested encryption endpoint. Completion formats must also establish locally reproducible request/response binding before output can be released. Capability badges indicate provider-reported support, not a successful protected connection.
+
+Text and tool calling are the supported core input categories. Each protected provider must establish coverage for the requested combination. Venice encrypted tools, assistant/tool history replay, and structured output currently reject because their encrypted protocol coverage is unverified. Multimedia is outside this API. There is no automatic downgrade to ordinary inference.
+
+For direct model callers, use the same runtime and requirements:
+
+```ts
+import { createPrivacyRuntime, resolveModel } from "@comma-agents/core";
+
+const privacyRuntime = createPrivacyRuntime({
+  onEvent(event) {
+    console.log(event.phase, event.report?.errorCode);
+  },
+});
+const model = await resolveModel("venice/your-model-id", {
+  privacy: { tee: "required", e2ee: "required" },
+  privacyRuntime,
+  onPrivacyReport(report) {
+    console.log(report.status, report.checks);
+  },
+});
+```
+
+The trusted endpoint is the process running core. Local hooks, tool execution, and conversation history retain plaintext behavior. This feature does not encrypt browser-to-daemon traffic, local history, or independent network calls made by tools. Built-in summarization inherits the agent's requirements; custom summarizer callbacks and custom execution overrides are rejected for protected agents.
+
+Each upstream request has independent attestation, challenge, cancellation, and key ownership, including tool steps. No automatic retry runs for protected requests. Output is buffered until required authentication passes, including tool calls before execution. Cancellation, truncated streams, failed checks, or conflicting provider options discard unreleased output. Observer callbacks are synchronous; callback exceptions reject the request.
+
+Runtime defaults are a 120-second request deadline, 15 seconds per verification operation within that deadline, a 2 MiB evidence-response limit, 64 MiB of buffered inference wire data, and 16 MiB of decrypted completion data. Override them through `limits`; verification endpoints must be trusted HTTPS addresses supplied by the application. Endpoint addresses from attestation payloads are never followed.
+
+Content-free reports contain request identity, requirements, check outcomes, timestamps, and safe failure codes. Agent results retain per-request `privacyReports`, including summarization. Direct model results expose successful report metadata under `commaPrivacy`. No report includes prompts, raw evidence, keys, or underlying provider exception bodies. Hardware verification does not imply an approved application measurement or a verified model's behavior.
+
+<AutoTypeTable path="../packages/core/src/model/privacy/privacy.types.ts" name="PrivacyRequirements" />
+<AutoTypeTable path="../packages/core/src/model/privacy/privacy.types.ts" name="PrivacyRuntimeOptions" />
+<AutoTypeTable path="../packages/core/src/model/privacy/privacy.types.ts" name="PrivacyReport" />
+
 ## How Model Resolution Works
+
+The ordinary resolution order below applies when no privacy requirements are supplied. Protected requests enforce their requirements before consulting directly registered models or the global provider resolver.
 
 When `createAgent()` receives a model string, `resolveModel()` resolves it into a live `LanguageModel`. Two formats are supported:
 
@@ -114,22 +171,27 @@ The model module also exposes APIs to list known providers and their models. Dat
 
 - **Catalog** — a bundled snapshot of the [models.dev](https://models.dev) catalog, covering 50+ providers and their models. The snapshot is shipped with the package and refreshed on disk every 24 hours.
 - **Built-in overrides** — hardcoded entries for providers that need custom package resolution or live discovery (Ollama, Deepseek, GitHub Copilot).
-- **Live listers** — optional runtime discovery for Ollama (via the local `/api/tags` endpoint) and GitHub Copilot (via the Copilot API). Enabled by passing `{ live: true }`.
+- **Provider discovery** — optional model lists from supported providers, enabled by passing `{ live: true }`.
+- **User settings** — manually declared models are always included.
+
+Models are identified within their provider. Results include the union of provider, models.dev, and user IDs, sorted alphabetically. Each model has `id`, contributing `sources`, and nested `metadata`. Fields resolve with priority provider > models.dev > user, including individual capability and pricing fields. Explicit `false`, zero, and empty modality arrays retain their meaning. Providers expose definition `origin` and a `discovery` object containing status, optional response timestamp, and safe failure diagnostics.
+
+All existing capabilities are supported: tools, reasoning, vision, attachment, structured output, TEE attestation support, and E2EE support. Privacy support flags describe advertised capabilities; request requirements and verification reports remain separate.
 
 ### listProviders
 
 Return every known provider enriched with its model list.
 
 ```ts
-import { listProviders } from "@comma-agents/core";
+import { getGlobalCredentialStore, listProviders } from "@comma-agents/core";
 
-const providers = await listProviders();
+const providers = await listProviders(getGlobalCredentialStore());
 for (const provider of providers) {
   console.log(provider.id, provider.models.length);
 }
 
-// Include live discovery (Ollama + Copilot)
-const liveProviders = await listProviders({ live: true });
+// Explicitly query supported provider endpoints
+const liveProviders = await listProviders(getGlobalCredentialStore(), { live: true });
 ```
 
 ### getProviderInfo
@@ -137,9 +199,9 @@ const liveProviders = await listProviders({ live: true });
 Fetch information for a single provider by id.
 
 ```ts
-import { getProviderInfo } from "@comma-agents/core";
+import { getGlobalCredentialStore, getProviderInfo } from "@comma-agents/core";
 
-const info = await getProviderInfo("openai");
+const info = await getProviderInfo("openai", getGlobalCredentialStore());
 console.log(info?.name, info?.models[0]?.id);
 ```
 
@@ -147,7 +209,7 @@ console.log(info?.name, info?.models[0]?.id);
 
 The shape returned by `listProviders` and `getProviderInfo`.
 
-<AutoTypeTable path="../packages/core/src/model/model.types.ts" name="ProviderInfo" />
+<AutoTypeTable path="../packages/core/src/model/providers/providers.types.ts" name="ProviderInfo" />
 
 ### ModelInfo
 

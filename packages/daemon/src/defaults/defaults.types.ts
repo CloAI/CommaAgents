@@ -9,4 +9,6 @@ export interface DaemonDefaultOverrides {
   readonly pidFile?: string;
   readonly configFile?: string;
   readonly runsDir?: string;
+  readonly modelRoles?: Readonly<Record<string, string>>;
+  readonly instructionFiles?: readonly string[];
 }

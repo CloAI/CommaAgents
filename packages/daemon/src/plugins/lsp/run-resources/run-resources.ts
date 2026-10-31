@@ -21,7 +21,8 @@ export function disposeRunLsp(
     resources.disposed = true;
     resources.controller.abort();
     resources.detachAbort();
-    context.runs.delete(resources.runId);
+    if (context.runs.get(resources.runId) === resources)
+      context.runs.delete(resources.runId);
     const entry = resources.process;
     entry?.runIds.delete(resources.runId);
     resources.disposal =
@@ -49,7 +50,7 @@ export function prepareRunLsp(
   if (preparation.signal.aborted) {
     throw new DOMException("Run aborted", "AbortError");
   }
-  if (context.runs.has(preparation.runId)) {
+  if (context.runs.has(preparation.runId) && !preparation.staged) {
     throw new Error(`LSP resources already prepared: ${preparation.runId}`);
   }
   const onAbort = (): void => {
@@ -63,9 +64,13 @@ export function prepareRunLsp(
     detachAbort: () => preparation.signal.removeEventListener("abort", onAbort),
     disposed: false,
   };
-  context.runs.set(resources.runId, resources);
+  const activate = (): void => {
+    context.runs.set(resources.runId, resources);
+  };
+  if (!preparation.staged) activate();
   preparation.signal.addEventListener("abort", onAbort, { once: true });
   return {
+    ...(preparation.staged ? { activate } : {}),
     strategyInputs: {
       languageService: {
         languageIds: ["typescript", "javascript"],

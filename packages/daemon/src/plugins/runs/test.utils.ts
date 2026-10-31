@@ -7,7 +7,7 @@ import { resetModelRegistry } from "../../../../core/src/model/model";
 import { createRunRepository } from "../../daemon-run-state/run-repository";
 import type { RunRepository } from "../../daemon-run-state/run-repository";
 import * as repositoryModule from "../../daemon-run-state/run-repository/run-repository";
-import * as runLoader from "./execution/execution.utils";
+import * as runLoader from "./preparation/loading/strategy-loader";
 import { createRunsPlugin } from "./runs";
 
 export const directories: string[] = [];
@@ -58,7 +58,12 @@ export function fakeLoader(observed: {
   loads: string[];
   restored: string[][];
 }): typeof runLoader.loadRunStrategy {
-  return async ({ runId, inputCollector, launchStrategy }) => {
+  return async ({
+    runId,
+    inputCollector,
+    launchStrategy,
+    requestStrategySwitch,
+  }) => {
     observed.loads.push(runId);
     const agentHooks = new Map<string, Array<(value: unknown) => unknown>>();
     const flowHooks = new Map<string, Array<(value: unknown) => unknown>>();
@@ -71,6 +76,9 @@ export function fakeLoader(observed: {
       getConversationContext() {
         return {
           records: () => records,
+          clear() {
+            records.length = 0;
+          },
           importRecords(imported: Array<Record<string, unknown>>) {
             observed.restored.push(imported.map((item) => String(item.id)));
             records.push(...imported);
@@ -109,6 +117,23 @@ export function fakeLoader(observed: {
               input: input === "nested" ? "child" : "child message",
             });
             output = child.text;
+          }
+          if (input === "switch-me" && requestStrategySwitch) {
+            await requestStrategySwitch({ strategyPath: "/work/build.json" });
+            output = await inputCollector({
+              agentName: "user",
+              prompt: "Next?",
+            });
+          }
+          if (input === "limited") {
+            output = await launchStrategy({
+              strategyPath: "child.json",
+              input: "limited",
+              maxDepth: 1,
+            }).then(
+              (child) => child.text,
+              (launchError: Error) => launchError.message,
+            );
           }
           if (controller.signal.aborted) {
             throw new DOMException("Stopped", "AbortError");
@@ -153,7 +178,14 @@ export function fakeLoader(observed: {
     return {
       name: "example",
       version: "1",
-      raw: { flow: {}, agents: { writer: {} } },
+      raw: {
+        flow: {
+          name: "example",
+          type: "sequential",
+          steps: [{ agent: "writer" }],
+        },
+        agents: { writer: {} },
+      },
       flow,
       agents: { writer: agent },
     } as unknown as LoadedStrategy;

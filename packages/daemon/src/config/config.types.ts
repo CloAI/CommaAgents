@@ -21,4 +21,8 @@ export interface DaemonConfig {
   readonly configFile: string;
   /** Directory where run timelines and run configuration are persisted. */
   readonly runsDir: string;
+  /** Models for `@role` references in strategies; unset roles use strategy defaults. */
+  readonly modelRoles: Readonly<Record<string, string>>;
+  /** Instruction file names checked per directory. @default ["AGENTS.md", "CLAUDE.md"] */
+  readonly instructionFiles: readonly string[];
 }

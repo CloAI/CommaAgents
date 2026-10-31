@@ -19,7 +19,8 @@ export function disposeSandboxScope(
   sandboxScope.disposed = true;
   sandboxScope.detachAbort();
   cleanupScopePermissions(context, sandboxScope);
-  context.scopes.delete(sandboxScope.runId);
+  if (context.scopes.get(sandboxScope.runId) === sandboxScope)
+    context.scopes.delete(sandboxScope.runId);
 }
 
 /**
@@ -39,16 +40,20 @@ export function prepareSandboxScope(
   if (preparation.signal.aborted) {
     throw new DOMException("Run aborted", "AbortError");
   }
-  if (context.scopes.has(preparation.runId)) {
+  if (context.scopes.has(preparation.runId) && !preparation.staged) {
     throw new Error(`Sandbox scope already prepared: ${preparation.runId}`);
   }
   const sandboxScope = createSandboxScope(context, preparation);
-  context.scopes.set(preparation.runId, sandboxScope);
+  const activate = (): void => {
+    context.scopes.set(preparation.runId, sandboxScope);
+  };
+  if (!preparation.staged) activate();
   preparation.signal.addEventListener("abort", sandboxScope.onAbort, {
     once: true,
   });
   return {
     strategyInputs: { sandbox: sandboxScope.sandbox },
+    ...(preparation.staged ? { activate } : {}),
     dispose: () => disposeSandboxScope(context, sandboxScope),
   };
 }

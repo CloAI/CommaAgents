@@ -2,6 +2,7 @@
 export interface CoreDefaultOverrides {
   readonly applicationDataDirectory?: string;
   readonly credentialsPath?: string;
+  readonly providerSettingsPath?: string;
   readonly providerInstallDirectory?: string;
   readonly catalogCachePath?: string;
   readonly globalSkillsDirectory?: string;

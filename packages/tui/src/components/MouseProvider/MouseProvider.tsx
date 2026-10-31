@@ -1,4 +1,4 @@
-import { useInput, useStdout } from "ink";
+import { useStdin, useStdout } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { parseMouseEvents } from "../../hooks/useMouse/useMouse.utils";
@@ -15,19 +15,20 @@ export interface MouseProviderProps {
  *
  * Mount this component once, high in the tree (e.g. inside `Frame`).
  * It:
- * - Subscribes a single `useInput` listener that parses all SGR mouse
+ * - Subscribes a single stdin listener that parses all SGR mouse
  *   chunks and fans them out to registered listeners.
  * - Ref-counts hover consumers: the first call to `registerHoverConsumer`
  *   writes `\x1b[?1003h` (any-event motion tracking); the last cleanup
  *   writes `\x1b[?1003l` to restore the previous mode.
  *
  * Consumer hooks ({@link useMouseHover}, {@link useMouseClick}) use the
- * context provided here rather than subscribing to `useInput` individually.
+ * context provided here rather than subscribing to stdin individually.
  */
 export function MouseProvider({
   children,
 }: MouseProviderProps): React.ReactElement {
   const { stdout } = useStdout();
+  const { stdin, setRawMode } = useStdin();
 
   // Stable set of listeners — mutated via ref so subscribe/unsubscribe
   // doesn't cause any re-renders.
@@ -47,18 +48,27 @@ export function MouseProvider({
     out.write("\x1b[?1003l");
   }, [stdout]);
 
-  // Single useInput subscription — parses every SGR mouse chunk and
-  // dispatches to all registered listeners.
-  useInput((input) => {
-    const events = parseMouseEvents(input);
-    if (events.length === 0) return;
-    const listeners = listenersRef.current;
-    for (const event of events) {
-      for (const listener of listeners) {
-        listener(event);
+  // Ink 8 filters mouse reports out of useInput, so read the raw stream.
+  useEffect(() => {
+    let pending = "";
+    const handleData = (input: string | Buffer) => {
+      const chunk = pending + input.toString();
+      const events = parseMouseEvents(chunk);
+      // oxlint-disable-next-line no-control-regex -- SGR mouse reports begin with ESC.
+      pending = chunk.match(/\x1b(?:\[(?:<[\d;]*)?)?$/)?.[0] ?? "";
+      for (const event of events) {
+        for (const listener of listenersRef.current) {
+          listener(event);
+        }
       }
-    }
-  });
+    };
+    setRawMode(true);
+    stdin.on("data", handleData);
+    return () => {
+      stdin.off("data", handleData);
+      setRawMode(false);
+    };
+  }, [stdin, setRawMode]);
 
   const subscribe = useCallback((listener: MouseListener): (() => void) => {
     listenersRef.current.add(listener);

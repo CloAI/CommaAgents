@@ -39,7 +39,11 @@
     "tui:docs:build": "bun run --cwd packages/tui/docs build",
     "tui:e2e": "COMMA_TUI_E2E=1 bun test examples/e2e/tui --max-concurrency=1",
     "tui:storybook": "bun run --cwd packages/tui-storybook storybook",
-    "tui:storybook:build": "bun run --cwd packages/tui-storybook build"
+    "tui:storybook:build": "bun run --cwd packages/tui-storybook build",
+    "ui": "bun run --cwd packages/core build && bun run --cwd packages/daemon build && bun run --cwd packages/ui dev",
+    "ui:build": "bun run --cwd packages/core build && bun run --cwd packages/daemon build && bun run --cwd packages/ui build",
+    "ui:storybook": "bun run --cwd packages/core build && bun run --cwd packages/daemon build && bun run --cwd packages/ui storybook",
+    "ui:storybook:build": "bun run --cwd packages/core build && bun run --cwd packages/daemon build && bun run --cwd packages/ui storybook:build"
   },
   "devDependencies": {
     "bun-types": "1.3.9",
@@ -49,6 +53,6 @@
     "typescript": "6.0.2"
   },
   "patchedDependencies": {
-    "ink@7.0.1": "patches/ink@7.0.1.patch"
+    "ink@8.0.0": "patches/ink@8.0.0.patch"
   }
 }

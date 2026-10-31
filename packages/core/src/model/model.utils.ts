@@ -10,7 +10,7 @@ import {
   getProviderPackageNameSync,
   getProvidersForModel,
   isKnownProviderSync,
-  listAllProviderModels,
+  listProviderDefinitions,
   listProviderModels,
   resolveCredentialForProvider,
   toModelInfo,
@@ -145,7 +145,7 @@ export function extractProviderIds(raw: Record<string, unknown>): Set<string> {
  * @example
  * ```ts
  * const info = await getProviderInfo("openai", credentialStore, { live: true });
- * // => { id: "openai", name: "OpenAI", authStatus: "configured", models: [...], modelsSource: "merged", isCustom: false }
+ * // => { id: "openai", name: "OpenAI", authStatus: "configured", models: [...], origin: "builtin", discovery: { status: "live" } }
  * ```
  */
 export async function getProviderInfo(
@@ -177,10 +177,8 @@ export async function getProviderInfo(
     credentialType: definition?.credentialType ?? "api",
     authStatus,
     models: result.models,
-    modelsSource: result.source,
-    ...(result.fetchedAt ? { fetchedAt: result.fetchedAt } : {}),
-    ...(result.error ? { error: result.error } : {}),
-    isCustom: definition?.isCustom === true,
+    origin: definition?.origin ?? "catalog",
+    discovery: result.discovery,
   };
 }
 
@@ -200,7 +198,7 @@ export async function getProviderInfo(
  * ```ts
  * const providers = await listProviders(credentialStore, { live: true });
  * for (const provider of providers) {
- *   console.log(`${provider.name}: ${provider.authStatus} (${provider.models.length} models, ${provider.modelsSource})`);
+ *   console.log(`${provider.name}: ${provider.authStatus} (${provider.models.length} models, ${provider.discovery.status})`);
  * }
  * ```
  */
@@ -208,29 +206,9 @@ export async function listProviders(
   credentialStore: CredentialStore,
   options?: { readonly scope?: string; readonly live?: boolean },
 ): Promise<readonly ProviderInfo[]> {
-  const entries = await listAllProviderModels(credentialStore, {
-    live: options?.live ?? false,
-    ...(options?.scope ? { scope: options.scope } : {}),
-  });
-
-  return await Promise.all(
-    entries.map(async ({ definition, result }): Promise<ProviderInfo> => {
-      const authStatus: AuthStatus = await credentialStore.getAuthStatus(
-        definition.id,
-        options?.scope,
-      );
-      return {
-        id: definition.id,
-        name: definition.name,
-        credentialType: definition.credentialType ?? "api",
-        authStatus,
-        models: result.models,
-        modelsSource: result.source,
-        ...(result.fetchedAt ? { fetchedAt: result.fetchedAt } : {}),
-        ...(result.error ? { error: result.error } : {}),
-        isCustom: definition.isCustom === true,
-      };
-    }),
+  const definitions = await listProviderDefinitions();
+  return Promise.all(
+    definitions.map(({ id }) => getProviderInfo(id, credentialStore, options)),
   );
 }
 
@@ -245,8 +223,8 @@ export async function listProviders(
  * @example
  * ```ts
  * const info = getModelMetadata("gpt-4o");
- * console.log(info?.capabilities?.reasoning); // true
- * console.log(info?.contextWindow);           // 128000
+ * console.log(info?.metadata.capabilities?.reasoning); // true
+ * console.log(info?.metadata.contextWindow);           // 128000
  * ```
  */
 export function getModelMetadata(modelId: string): ModelInfo | undefined {
@@ -266,7 +244,7 @@ export function getModelMetadata(modelId: string): ModelInfo | undefined {
  * @example
  * ```ts
  * const info = getQualifiedModelMetadata("openai/gpt-4o");
- * console.log(info?.contextWindow);
+ * console.log(info?.metadata.contextWindow);
  * ```
  */
 export function getQualifiedModelMetadata(
@@ -303,7 +281,7 @@ export function getQualifiedModelMetadata(
 export function getModelCapabilities(
   modelId: string,
 ): ModelCapabilities | undefined {
-  return getModelMetadata(modelId)?.capabilities;
+  return getModelMetadata(modelId)?.metadata.capabilities;
 }
 
 /**

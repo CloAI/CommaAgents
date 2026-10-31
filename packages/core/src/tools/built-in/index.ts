@@ -23,6 +23,37 @@ export type {
   GlobToolConfig,
 } from "./glob";
 export { createGlobTool, globParams } from "./glob";
+export type {
+  DelegateData,
+  DelegateJsonValue,
+  DelegateTaskResult,
+  SubagentTarget,
+} from "./delegate";
+export { createDelegateTool, delegateParams } from "./delegate";
+export type {
+  RequestStrategySwitchData,
+  StrategySwitchHandle,
+  StrategySwitchRequest,
+} from "./request-strategy-switch";
+export {
+  createRequestStrategySwitchTool,
+  requestStrategySwitchParams,
+} from "./request-strategy-switch";
+export type {
+  WebSearchData,
+  WebSearchProvider,
+  WebSearchRequest,
+  WebSearchResult,
+  WebSearchToolConfig,
+} from "./web-search";
+export {
+  createBraveSearchProvider,
+  createSearxngSearchProvider,
+  createWebSearchTool,
+  webSearchParams,
+} from "./web-search";
+export type { NotesData, ResearchNote } from "./notes";
+export { createNotesAddTool, createNotesGetTool, resetAllNotes } from "./notes";
 export type { LaunchStrategyData } from "./launch-strategy";
 export { createLaunchStrategyTool } from "./launch-strategy";
 export type {

@@ -21,10 +21,10 @@ export interface ModalProps {
   readonly width?: ModalSize;
   /** Override the theme's content height. */
   readonly height?: ModalSize;
-  /** Override the theme's minimum content width. */
-  readonly minWidth?: ModalSize;
-  /** Override the theme's maximum content width. */
-  readonly maxWidth?: ModalSize;
+  /** Minimum content width in terminal columns. */
+  readonly minWidth?: number;
+  /** Maximum content width in terminal columns. */
+  readonly maxWidth?: number;
   /** Override the theme's default minHeight on the content box. */
   readonly minHeight?: ModalSize;
   /** Override the theme's default maxHeight on the content box. */
@@ -108,10 +108,10 @@ export interface ModalRenderProps {
   readonly width?: ModalSize;
   /** Override the theme's content height. */
   readonly height?: ModalSize;
-  /** Override the theme's minimum content width. */
-  readonly minWidth?: ModalSize;
-  /** Override the theme's maximum content width. */
-  readonly maxWidth?: ModalSize;
+  /** Minimum content width in terminal columns. */
+  readonly minWidth?: number;
+  /** Maximum content width in terminal columns. */
+  readonly maxWidth?: number;
   /** Override the theme's default minHeight on the content box. */
   readonly minHeight?: ModalSize;
   /** Override the theme's default maxHeight on the content box. */
@@ -132,8 +132,7 @@ export function ModalRender({
 }: ModalRenderProps): React.ReactElement {
   const contentStyle: BoxProps = {
     ...theme.content,
-    maxWidth:
-      maxWidth ?? (width !== undefined ? width : theme.content.maxWidth),
+    maxWidth: maxWidth ?? (typeof width === "number" ? width : undefined),
     maxHeight:
       maxHeight ?? (height !== undefined ? height : theme.content.maxHeight),
     ...(width !== undefined ? { width } : {}),
@@ -142,9 +141,9 @@ export function ModalRender({
     ...(minHeight !== undefined ? { minHeight } : {}),
   };
   return (
-      <Box {...contentStyle}>
-        {title !== undefined ? <Text {...theme.title}>{title}</Text> : null}
-        {children}
-      </Box>
+    <Box {...contentStyle}>
+      {title !== undefined ? <Text {...theme.title}>{title}</Text> : null}
+      {children}
+    </Box>
   );
 }

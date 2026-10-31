@@ -46,7 +46,11 @@
       "types": "./dist/language/index.d.ts",
       "import": "./dist/language/index.js"
     },
-    "./hub/comma-project.schema.json": "./dist/hub/comma-project.schema.json"
+    "./hub/comma-project.schema.json": "./dist/hub/comma-project.schema.json",
+    "./conversation-context": {
+      "types": "./dist/conversation-context/index.d.ts",
+      "import": "./dist/conversation-context/index.js"
+    }
   },
   "publishConfig": {
     "access": "public",
@@ -63,10 +67,15 @@
   },
   "dependencies": {
     "@ai-sdk/mcp": "1.0.52",
+    "@ai-sdk/openai": "3.0.39",
     "@ai-sdk/openai-compatible": "2.0.30",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@phala/dcap-qvl": "0.7.0",
     "@types/diff": "8.0.0",
     "ai": "6.0.91",
     "diff": "9.0.0",
+    "jose": "6.2.13",
     "liquidjs": "10.27.0",
     "strip-json-comments": "5.0.3",
     "tar-stream": "3.2.0",

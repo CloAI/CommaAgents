@@ -8,8 +8,14 @@ export type SummarizeRecords = (
 
 /** Configuration for compacting older records into one summary record. */
 export interface CompactionOptions {
-  /** Number of most-recent active records kept verbatim. @default 8 */
+  /** Number of most-recent active records kept verbatim. Ignored when `keepRecentTokens` is set. @default 8 */
   readonly keepRecent?: number;
+  /** Estimated token budget for the newest records kept verbatim; at least one record is always kept. */
+  readonly keepRecentTokens?: number;
+  /** Model that writes summaries, e.g. a cheaper one; defaults to the agent's own model. */
+  readonly model?: string;
+  /** Section headings added after the standard summary sections. */
+  readonly extraSections?: readonly string[];
   /** Active-record count that triggers compaction. @default keepRecent * 2 */
   readonly threshold?: number;
   /** Context usage ratio that triggers compaction. @default 0.85 */

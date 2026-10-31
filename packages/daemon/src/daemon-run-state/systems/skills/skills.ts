@@ -1,5 +1,5 @@
 import { getLogger } from "@logtape/logtape";
-import { loadSkills } from "@comma-agents/core";
+import { loadSkills } from "@comma-agents/core/skills";
 import type { DaemonSystem, SystemRunContext } from "../systems.types";
 
 const logger = getLogger(["comma", "daemon", "skills"]);

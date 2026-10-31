@@ -11,7 +11,8 @@ export function resolveAgentModelDetails(
 ): AgentModelDetails {
   if (model === undefined) return {};
 
-  const contextWindow = getQualifiedModelMetadata(model)?.contextWindow;
+  const contextWindow =
+    getQualifiedModelMetadata(model)?.metadata.contextWindow;
   return {
     model,
     ...(contextWindow !== undefined ? { contextWindow } : {}),

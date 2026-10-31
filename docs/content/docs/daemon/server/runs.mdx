@@ -1,61 +1,171 @@
 ---
 title: Runs API
-description: Prepare and control shared runs, subscribe to live output, and page through conversation history.
+description: Prepare shared conversations, control execution, subscribe to live output, and page through display history.
 ---
 
 # Runs API
 
-Use commands to prepare and control a run. Subscribe to the `runs` channel to receive its current state and subsequent output. Commands and subscriptions operate independently: disconnecting a client leaves the run running, and any connected client can stop or continue it.
+Prepare a run, subscribe to its state and output, then start execution. Commands and subscriptions operate independently: disconnecting leaves the run running, and any connected client can stop it. All clients observe the same run state.
 
 ## Prepare, subscribe, start
 
-Send each request over the [plugin server](/docs/daemon/server/plugin-server) WebSocket with a UUIDv4 `requestId`. Keep domain arguments inside `arguments`.
+Send requests over the [plugin server](/docs/daemon/server/plugin-server) WebSocket. Generate a UUIDv4 `requestId` for each command or new subscription. Configuration belongs inside `arguments.configuration`:
 
-```ts
-socket.send(JSON.stringify({
-  type: "command",
-  requestId: crypto.randomUUID(),
-  command: "runs.prepare",
-  arguments: { strategyPath: "/path/to/strategy.json" },
-}));
+```json
+{
+  "type": "command",
+  "requestId": "7e6e901e-aa8a-44cc-901e-065f7ea677fb",
+  "command": "runs.prepare",
+  "arguments": {
+    "configuration": {
+      "strategyPath": "/path/to/strategy.json",
+      "cwd": "/path/to/workspace"
+    }
+  }
+}
 ```
 
-Preparation returns one successful response with `data: { runId }` once the strategy is ready. Use that identifier to subscribe, then start execution:
+For a new run, `strategyPath` is required; `cwd` defaults to the daemon's working directory. You can also supply `manifestPath`, `modelOverride`, `modelOverrides`, and a caller-generated `runId`. `modelOverride` replaces every LLM agent's model. `modelOverrides` maps agent names to `providerID/modelID` and replaces only those agents' models, taking precedence over `modelOverride`; names the strategy does not define are ignored. Preparation returns `data: { runId }` after loading and saving the effective configuration. If preparation is stopped, it returns the run ID with a terminal stopped run instead.
 
-```ts
-const subscriptionRequestId = crypto.randomUUID();
-socket.send(JSON.stringify({
-  type: "subscribe",
-  requestId: subscriptionRequestId,
-  channel: "runs",
-  arguments: { runId, history: { limit: 25 } },
-}));
-socket.send(JSON.stringify({
-  type: "command",
-  requestId: crypto.randomUUID(),
-  command: "runs.start",
-  arguments: { runId, input: "Review the project" },
-}));
+Subscribe using the returned run ID:
+
+```json
+{
+  "type": "subscribe",
+  "requestId": "d66996b1-8837-45c0-9a16-c76dfdf01304",
+  "channel": "runs",
+  "arguments": {
+    "runId": "example-run",
+    "history": { "limit": 25 }
+  }
+}
 ```
 
-The subscription first receives an acknowledgement, followed by `run.initial`. Its `data` contains `snapshot`, a bounded `history` page, and `pendingInputs`. A client joining during execution then receives the current partial content through `agent.stream`, followed by live changes.
+The subscription receives an acknowledgement, followed by `run.initial`. Its `data` contains a `snapshot`, bounded `history` page, and `pendingInputs`. A client joining during execution then receives the current partial content through `agent.stream`, followed by live changes. Opening reads one history page and retains updates received during setup; it does not wait for agent execution to finish or repeatedly reload history. Final messages already included in the page are not replayed, and older partial text cannot overwrite a finalized message.
 
-Action commands return `data: null` when accepted. Their response does not duplicate run state or output; those arrive on the channel. A failed command returns `ok: false` and `error: { code, message }`.
+Start the prepared run:
+
+```json
+{
+  "type": "command",
+  "requestId": "fd43fb1a-b151-4297-bde1-d7035b655249",
+  "command": "runs.start",
+  "arguments": { "runId": "example-run", "input": "Review the project" }
+}
+```
+
+Start, stop, steering, and input-resolution commands return `data: null` when accepted. Their response does not duplicate run state or output; those arrive on the channel. A failed command returns `ok: false` and `error: { code, message, metadata? }`.
+
+## Run state
+
+Configuration is separate from the loaded strategy description. Before a strategy has loaded, `strategy` is `null`. Prepared and running states always contain a strategy description, including the full declared flow. Prepared state also contains `unmatchedAgents`, even when empty:
+
+```json
+{
+  "runId": "example-run",
+  "configuration": {
+    "strategyPath": "/path/to/strategy.json",
+    "cwd": "/path/to/workspace"
+  },
+  "strategy": {
+    "name": "review",
+    "agents": ["writer"],
+    "flow": {
+      "type": "sequential",
+      "name": "review-flow",
+      "steps": [{ "agent": "writer" }]
+    }
+  },
+  "phase": "prepared",
+  "unmatchedAgents": []
+}
+```
+
+The phases are `preparing`, `prepared`, `running`, and `terminal`. Only terminal state has an `outcome`, whose `status` is `completed`, `stopped`, `failed`, or `interrupted`. Completed outcomes contain a versioned `summary` with text, finish reason, token usage, and optional JSON data. Failed outcomes contain a stable error code and structured metadata:
+
+```json
+{
+  "status": "failed",
+  "error": {
+    "code": "PREPARATION_ERROR",
+    "metadata": { "runId": "example-run" }
+  }
+}
+```
+
+Snapshots do not contain model conversation records. `parentRunId` is present for a child run. If restored records refer to agent names absent from the new strategy, preparation lists them in `unmatchedAgents`. Missing agent instrumentation is logged as a warning rather than blocking execution; unsupported agents cannot provide the corresponding per-agent streaming or context restoration.
 
 ## Commands
 
 | Command | Arguments | Successful response data |
 | --- | --- | --- |
-| `runs.prepare` | Optional `runId`, `strategyPath`, `cwd`, `manifestPath`, `modelOverride`; provide `runId` or `strategyPath` | `{ runId }` after preparation |
+| `runs.prepare` | New configuration, or `runId` with optional configuration overrides | `{ runId }` after preparation |
+| `runs.switchStrategy` | `runId`, `strategyPath`, optional `manifestPath`, `modelOverrides`, `stop`, `expectedRevision` | Prepared snapshot; execution waits for another message |
+| `runs.send` | `runId`, `input`, optional `contextChoice`, `expectedRevision` | `{ type: "started" }` or a context decision request |
 | `runs.start` | `runId`, optional `input` | `null` |
-| `runs.stop` | `runId` | `null` when cancellation is requested |
-| `runs.continue` | `runId`, optional `input` | `null` when continuation is accepted |
+| `runs.stop` | `runId` | `null` when stop is requested |
 | `runs.steer` | `runId`, `text` | `null` |
 | `runs.resolveInput` | `runId`, `inputId`, `text` | `null` |
 | `runs.get` | `runId` | Current run snapshot |
 | `runs.history` | `runId`, optional `limit`, `before` | `{ entries, page }` |
 
-Invalid lifecycle operations return errors. Concurrent attempts to start or continue the same run accept the first operation; later conflicting requests fail. Use `inputId` from `input.requested` to answer a pending input request. It is distinct from the transport `requestId`.
+Lifecycle rules apply equally to direct plugin calls and server commands. The first conflicting operation wins; later requests fail with a stable code such as `RUN_BUSY` or `INVALID_RUN_STATE`. Stopping an already terminal run is a no-op. Unknown runs return `RUN_NOT_FOUND`.
+
+Use `inputId` from `input.requested` to answer a pending user-agent input request. It is distinct from the transport `requestId`. Missing or already answered inputs return `INPUT_NOT_FOUND` with both identifiers in metadata.
+
+## Switching strategies and sending continuations
+
+Use `runs.switchStrategy` to select another strategy in the same conversation without starting work:
+
+```json
+{
+  "type": "command",
+  "requestId": "ec7abb34-5b86-4c47-a0cb-cd4f36d91a11",
+  "command": "runs.switchStrategy",
+  "arguments": {
+    "runId": "example-run",
+    "strategyPath": "/path/to/build.json",
+    "manifestPath": null,
+    "expectedRevision": 0
+  }
+}
+```
+
+The command returns a prepared snapshot and publishes `run.state`. Supply the target project's `manifestPath`, or omit it for a standalone strategy. Active work requires `stop: true`; otherwise the command returns `RUN_BUSY`. Waiting or dismissing a client dialog requires no command. A failed replacement retains the previous selection. Stopped execution is not resumed automatically.
+
+Snapshots include `strategyState` after a strategy selection or explicit context choice. Its `revision` changes when the strategy changes. Pass that revision as `expectedRevision` to reject selections or submissions based on an older strategy. The selected strategy receives prior user and agent text with speaker attribution. Tool output is excluded from the shared handoff. Model overrides are remembered separately for each strategy within the conversation; supplied overrides seed a strategy's first selection. Supplying overrides for the current strategy updates its conversation settings.
+
+Successful strategy changes appear as `strategy.changed` history entries with `messageId`, `createdAt`, `revision`, `previousName`, `nextName`, `previousStrategyPath`, and `nextStrategyPath`. They also appear in snapshot `strategyState.changes` so connected clients can update their timelines immediately.
+
+Use `runs.send` for a continuation that checks the selected model's context budget:
+
+```json
+{
+  "type": "command",
+  "requestId": "a9f18fb1-5ee6-49ba-9bb6-9b4f28fc1a8a",
+  "command": "runs.send",
+  "arguments": {
+    "runId": "example-run",
+    "input": "Implement the agreed plan",
+    "expectedRevision": 1
+  }
+}
+```
+
+A successful submission returns `{ "type": "started" }` once output begins, a human-input request is pending, or execution completes. An oversized estimate returns a decision request without starting execution:
+
+```json
+{
+  "type": "context_required",
+  "estimatedTokens": 150000,
+  "tokenLimit": 128000,
+  "recentCount": 8
+}
+```
+
+Keep the draft and repeat `runs.send` with the user's `contextChoice`: `compact`, `recent`, or `full`. Compact summarizes older discussion using the selected strategy's model and retains recent messages. Recent sends up to eight prior whole messages that fit, plus the new input. Full attempts the complete history without trimming. Choices retain the full display history. Compacted context is saved for subsequent continuations and strategy changes.
+
+Estimates include an allowance for instructions, tools, and output. When model limits are unknown, the check uses a conservative 32,768-token budget. The provider's actual count can differ. Execution failures return a failed command response, including `EXECUTION_ERROR`, rather than `context_required`. Preserve the draft and display the error without opening the context-choice dialog, including after the user has already chosen a context option. Transport failures should also preserve the draft. Pending input and active-agent steering continue to use `runs.resolveInput` and `runs.steer`.
 
 ## Streaming messages
 
@@ -65,28 +175,32 @@ Channel messages use their domain type at the root, alongside common transport m
 {
   "type": "agent.stream",
   "requestId": "d66996b1-8837-45c0-9a16-c76dfdf01304",
-  "ts": "2026-10-18T12:00:00.000Z",
+  "ts": "2026-10-20T12:00:00.000Z",
   "data": {
     "runId": "example-run",
     "messageId": "db14e4ad-114d-439d-a9f2-d9860a2a7e05",
     "agentName": "writer",
-    "createdAt": "2026-10-18T11:59:59.000Z",
+    "createdAt": "2026-10-20T11:59:59.000Z",
+    "model": "openai/gpt-4o",
+    "contextWindow": 128000,
     "contentIndex": 0,
     "content": { "type": "text", "text": "Hello so far" }
   }
 }
 ```
 
-Identify a message by `messageId`. Replace its block at `contentIndex` with `content` on every update. Text and reasoning contain the full text accumulated for that block; do not append the payload again. New blocks appear at increasing indexes. Tool results update their existing tool block, retaining its `toolCallId`.
+Identify a message by `messageId`. Replace its block at `contentIndex` with `content` on every update. Text and reasoning contain the full text accumulated for that block; do not append the payload again. New blocks appear at increasing indexes. Tool results update their existing tool block, retaining its `toolCallId`. `model` and `contextWindow` are present for model-backed agents whose context window is known.
 
-`agent.output` carries the complete message in `data`, with the same `messageId`, ordered `content`, and final `status`. Upsert this message to replace its partial representation. Cancelled and failed invocations retain their partial output with the corresponding status. Successful agent message IDs also identify their saved conversation records.
+`agent.output` carries the finalized message in `data`, with the same `messageId`, ordered `content`, and `status`: `completed`, `stopped`, or `failed`. Upsert it to replace the partial representation. Stopped and failed invocations retain their available partial output. Successful message IDs also identify their saved conversation records. Agent messages carry `model` and `contextWindow` when known and a `completedAt` timestamp once finished; completed messages also carry `usage` (prompt and completion tokens across every step) and `contextUsage` (the final model step). Token counts are reported by the provider after the call, so they are absent while streaming.
+
+Incremental text is live data. Only the finalized message is saved in display history; intermediate text chunks are not recorded as separate entries or repeatedly saved versions.
 
 | Message type | Data |
 | --- | --- |
 | `run.initial` | Snapshot, history page, pending inputs |
 | `run.state` | Current run snapshot |
 | `agent.stream` | One cumulative content block and its message identity |
-| `agent.output` | Completed, cancelled, or failed agent message |
+| `agent.output` | Finalized agent message |
 | `user.input` | Saved human prompt or answer |
 | `child.run` | Direct child launch reference and current child phase/outcome |
 | `input.requested` | `runId`, `inputId`, `agentName`, `prompt` |
@@ -94,24 +208,23 @@ Identify a message by `messageId`. Replace its block at `contentIndex` with `con
 | `run.step` | `runId`, `stepName`, `phase` (`started` or `completed`) |
 | `run.steer.queued` | `runId`, `text` |
 | `run.error` | `runId`, `error` |
-| `run.preparation.cancelled` | `runId` |
 
 ## History and pagination
 
-History contains display messages and child launch references, in chronological order. It retains ordered text, reasoning, and tool blocks. Lifecycle transitions and partial streaming updates do not consume history entries. The default server page contains up to 25 entries; `limit` accepts 1–200.
+History contains display messages, child launch references, and `strategy.changed` entries in creation order. It retains ordered text, reasoning, and tool blocks. Lifecycle transitions and partial streaming updates do not consume history entries. The default server page contains up to 25 finalized entries; `limit` accepts 1–200.
 
-```ts
-socket.send(JSON.stringify({
-  type: "command",
-  requestId: crypto.randomUUID(),
-  command: "runs.history",
-  arguments: { runId, limit: 25 },
-}));
+```json
+{
+  "type": "command",
+  "requestId": "355c5185-0705-4607-865a-762190b0a351",
+  "command": "runs.history",
+  "arguments": { "runId": "example-run", "limit": 25 }
+}
 ```
 
-A page returns `{ entries, page: { hasMore, before? } }`. Pass its `before` cursor unchanged to request an older page. Cursors remain stable as new messages arrive. Each page is ordered oldest to newest, although the first page selects the newest entries.
+A page returns `{ entries, page: { hasMore, before? } }`. Pass its `before` cursor unchanged to request an older page. Cursors remain stable as new messages arrive. Each page is oldest to newest, although the first page selects the newest entries. Active messages are delivered through `agent.stream` and enter history when finalized.
 
-The direct plugin API supports full history or optional pagination:
+The direct plugin API returns full history when pagination is omitted:
 
 ```ts
 const all = await daemon.plugins.runs.getHistory(runId);
@@ -124,19 +237,52 @@ if (latest.page.hasMore) {
 }
 ```
 
-History and channel output belong to the selected run. A parent receives child launch references, including the child run ID and source message/tool identifiers when available. Request history or subscribe separately using the child run ID to view its conversation.
+History and channel output belong to the selected run. A parent receives child launch references with the child run ID and available source message/tool identifiers. Request history or subscribe separately using the child ID to view its conversation.
 
-## Stop and continue
+## Stop and restart execution
 
-`runs.stop` stops shared execution for every client. Subscribers receive the final partial messages and terminal state, and remain subscribed. `runs.continue` prepares the saved conversation and starts another execution under the same run ID; all existing subscribers receive the new activity.
+`runs.stop` stops shared execution for every client. Subscribers receive final partial messages and terminal state, and remain subscribed. To execute again, prepare the saved run and then start it. Existing subscriptions receive the new activity:
 
-Continuation currently restores conversation and starts the declared flow again. It does not resume an exact interrupted flow checkpoint or incomplete tool operation.
-
-Unsubscribe using the original subscription `requestId`. Unsubscribing does not stop or suspend execution:
-
-```ts
-socket.send(JSON.stringify({
-  type: "unsubscribe",
-  requestId: subscriptionRequestId,
-}));
+```json
+{
+  "type": "command",
+  "requestId": "25ef4031-dcdc-4e8e-ac14-b2bd07187d70",
+  "command": "runs.prepare",
+  "arguments": {
+    "runId": "example-run",
+    "configuration": { "modelOverride": null }
+  }
+}
 ```
+
+Omitted configuration fields retain their last successfully prepared values. Explicit `null` clears `manifestPath`, `modelOverride`, or `modelOverrides`; strategy path and working directory cannot be cleared. Failed replacement preparation keeps the last successful configuration and strategy description.
+
+After preparation succeeds, send `runs.start` with the same run ID and optional new input. This restores the model conversation and starts the declared flow again. It does not resume an exact interrupted flow checkpoint or incomplete tool operation.
+
+After a daemon restart, a saved nonterminal run with no live execution is reported as terminal with `status: "interrupted"`. Reading a snapshot, history, or subscription does not rewrite the saved run or prepare execution resources. Use `runs.prepare` before starting it again; it does not automatically execute. A persistence failure is reported as a failed outcome with `PERSISTENCE_ERROR`; preparing a run saved with that failure remains blocked to avoid restoring incomplete context.
+
+Unsubscribe using the original subscription `requestId`. Unsubscribing does not stop execution:
+
+```json
+{
+  "type": "unsubscribe",
+  "requestId": "d66996b1-8837-45c0-9a16-c76dfdf01304"
+}
+```
+
+## Conversation records and display history
+
+Each run has independent storage:
+
+```text
+<runsDir>/<encodedRunId>/
+  run.json
+  conversation.jsonl
+  history/
+    index.jsonl
+    <messageId>.json
+```
+
+`run.json` stores the configuration, strategy description, phase, and terminal outcome. `conversation.jsonl` stores completed agent conversation records and retention events used to restore model context. Display history stores finalized UI messages and child references for pagination. These serve different consumers: UI history is not replayed into the model, and retained model context is not sent as the initial UI snapshot.
+
+Children own their own files and restored context. There is no fallback to the retired run timeline format.

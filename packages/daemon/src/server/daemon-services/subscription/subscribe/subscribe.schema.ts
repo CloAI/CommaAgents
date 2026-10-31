@@ -2,7 +2,7 @@
 // Subscribe to events from a specific run.
 
 import { z } from "zod";
-import { ClientBase } from "../../shared";
+import { ClientBase } from "../../../protocol/shared";
 
 export const SubscribeMessage = ClientBase.extend({
   type: z.literal("subscribe"),

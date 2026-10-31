@@ -1,5 +1,4 @@
 import type { RunContent, RunMessage, ChildRunEntry } from "./messages";
-import type { AgentCallResult, AgentStreamEvent } from "@comma-agents/core";
 import type { RunError, RunSnapshot } from "./runs.types";
 
 /** Watcher event for snapshot. */
@@ -9,18 +8,10 @@ export interface RunSnapshotStatus {
   readonly snapshot: RunSnapshot;
 }
 
-/** Watcher event for preparation cancelled. */
-export interface RunPreparationCancelledStatus {
-  readonly type: "run_preparation_cancelled" /** Stable run identifier. */;
+/** Unexpected asynchronous operation failure. */
+export interface RunErrorStatus {
+  readonly type: "run_error";
   readonly runId: string;
-}
-
-/** Watcher event for preparation failed. */
-export interface RunPreparationFailedStatus {
-  readonly type: "run_preparation_failed";
-  /** Stable run identifier. */
-  readonly runId: string;
-  /** Failure details. */
   readonly error: RunError;
 }
 
@@ -31,41 +22,13 @@ export interface RunInputRequestStatus {
   /** Stable run identifier. */
   readonly runId: string;
   /** Unique pending input request identifier. */
-  readonly requestId: string;
+  readonly inputId: string;
   /** Immediate parent execution, when applicable. */
   readonly parentRunId?: string;
   /** Agent that emitted or requested this event. */
   readonly agentName: string;
   /** Question presented to the user. */
   readonly prompt: string;
-}
-
-/** Watcher event for agent stream. */
-export interface RunAgentStreamStatus {
-  /** Event discriminator. */
-  readonly type: "run_agent_stream";
-  /** Stable run identifier. */
-  readonly runId: string;
-  /** Immediate parent execution, when applicable. */
-  readonly parentRunId?: string;
-  /** Agent that emitted or requested this event. */
-  readonly agentName: string;
-  /** Live agent stream event. */
-  readonly event: AgentStreamEvent;
-}
-
-/** Watcher event for agent output. */
-export interface RunAgentOutputStatus {
-  /** Event discriminator. */
-  readonly type: "run_agent_output";
-  /** Stable run identifier. */
-  readonly runId: string;
-  /** Immediate parent execution, when applicable. */
-  readonly parentRunId?: string;
-  /** Agent that emitted or requested this event. */
-  readonly agentName: string;
-  /** Completed agent result. */
-  readonly result: AgentCallResult;
 }
 
 /** Watcher event for step. */
@@ -99,8 +62,18 @@ export interface RunMessageStreamStatus {
   readonly messageId: string;
   readonly agentName: string;
   readonly createdAt: string;
+  readonly model?: string;
+  readonly contextWindow?: number;
   readonly contentIndex: number;
   readonly content: RunContent;
+}
+/** A model invocation available as a steering recipient. */
+export interface RunAgentStartedStatus {
+  readonly type: "run_agent_started";
+  readonly runId: string;
+  readonly messageId: string;
+  readonly agentName: string;
+  readonly createdAt: string;
 }
 export interface RunMessageOutputStatus {
   readonly type: "run_message_output";
@@ -119,16 +92,14 @@ export interface RunInputResolvedStatus {
 }
 
 export type RunStatus =
+  | RunAgentStartedStatus
   | RunMessageStreamStatus
   | RunMessageOutputStatus
   | RunChildStatus
   | RunInputResolvedStatus
   | RunSnapshotStatus
-  | RunPreparationCancelledStatus
-  | RunPreparationFailedStatus
+  | RunErrorStatus
   | RunInputRequestStatus
-  | RunAgentStreamStatus
-  | RunAgentOutputStatus
   | RunStepStatus
   | RunSteerQueuedStatus;
 

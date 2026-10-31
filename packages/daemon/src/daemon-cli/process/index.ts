@@ -9,8 +9,4 @@ export { getDaemonProcessStatus } from "./actions/status";
 export type { DaemonProcessStopResult } from "./actions/stop";
 export { stopDaemonProcess } from "./actions/stop";
 export { processDaemonCommand } from "./process";
-export type {
-  DaemonProcessRunState,
-  DaemonProcessWaitOptions,
-} from "./process.types";
-export { waitForDaemonProcessReady } from "./process.utils";
+export type { DaemonProcessRunState } from "./process.types";

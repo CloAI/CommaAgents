@@ -1,5 +1,6 @@
 import type { DaemonConfig } from "../config/config.types";
 import {
+  DEFAULT_INSTRUCTION_FILES,
   PROCESS_ENV_COMMA_DAEMON_CONFIG_FILE,
   PROCESS_ENV_COMMA_DAEMON_HOST,
   PROCESS_ENV_COMMA_DAEMON_LOG_FILE,
@@ -80,6 +81,26 @@ export function setDaemonRunsDirectory(runsDir: string | undefined): void {
   daemonDefaultOverrides = { ...daemonDefaultOverrides, runsDir };
 }
 
+export function getDaemonModelRoles(): Readonly<Record<string, string>> {
+  return daemonDefaultOverrides.modelRoles ?? {};
+}
+
+export function setDaemonModelRoles(
+  modelRoles: Readonly<Record<string, string>> | undefined,
+): void {
+  daemonDefaultOverrides = { ...daemonDefaultOverrides, modelRoles };
+}
+
+export function getDaemonInstructionFiles(): readonly string[] {
+  return daemonDefaultOverrides.instructionFiles ?? DEFAULT_INSTRUCTION_FILES;
+}
+
+export function setDaemonInstructionFiles(
+  instructionFiles: readonly string[] | undefined,
+): void {
+  daemonDefaultOverrides = { ...daemonDefaultOverrides, instructionFiles };
+}
+
 export function getDaemonConfig(): DaemonConfig {
   return {
     port: getDaemonPort(),
@@ -89,6 +110,8 @@ export function getDaemonConfig(): DaemonConfig {
     pidFile: getDaemonPidFile(),
     configFile: getDaemonConfigFile(),
     runsDir: getDaemonRunsDirectory(),
+    modelRoles: getDaemonModelRoles(),
+    instructionFiles: getDaemonInstructionFiles(),
   };
 }
 

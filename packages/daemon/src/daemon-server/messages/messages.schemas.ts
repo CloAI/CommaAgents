@@ -7,22 +7,29 @@ export const RequestIdSchema = z
     "Expected a UUIDv4 requestId",
   );
 export const BindingErrorSchema = z
-  .object({ code: z.string().min(1), message: z.string() })
+  .object({
+    code: z.string().min(1),
+    message: z.string(),
+    metadata: z.record(z.string(), z.json()).optional(),
+  })
   .strict();
 const ClientEnvelopeSchema = z.object({ requestId: RequestIdSchema });
 const ServerEnvelopeSchema = ClientEnvelopeSchema.extend({
   ts: z.string().datetime(),
 });
 
+/** JSON argument object shared by commands and subscriptions. */
+export const ArgumentsSchema = z.record(z.string(), z.json());
+
 export const CommandRequestSchema = ClientEnvelopeSchema.extend({
   type: z.literal("command"),
   command: z.string().min(1),
-  arguments: z.record(z.string(), z.json()),
+  arguments: ArgumentsSchema,
 }).strict();
 export const SubscribeRequestSchema = ClientEnvelopeSchema.extend({
   type: z.literal("subscribe"),
   channel: z.string().min(1),
-  arguments: z.record(z.string(), z.json()),
+  arguments: ArgumentsSchema,
 }).strict();
 export const UnsubscribeRequestSchema = ClientEnvelopeSchema.extend({
   type: z.literal("unsubscribe"),

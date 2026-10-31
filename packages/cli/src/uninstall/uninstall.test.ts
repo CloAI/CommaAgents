@@ -37,10 +37,6 @@ async function createDataDirectory(): Promise<string> {
     await mkdir(join(dataDirectory, entry), { recursive: true });
     await writeFile(join(dataDirectory, entry, "entry.txt"), entry);
   }
-  await writeFile(
-    join(dataDirectory, "provider-registry.json"),
-    JSON.stringify(["openai"]),
-  );
   await writeFile(join(dataDirectory, "credentials.json"), "{}");
   return dataDirectory;
 }
@@ -170,9 +166,6 @@ describe("removeSelectedData", () => {
     ).toBe(true);
     expect(
       await Bun.file(join(dataDirectory, "packages", "entry.txt")).exists(),
-    ).toBe(true);
-    expect(
-      await Bun.file(join(dataDirectory, "provider-registry.json")).exists(),
     ).toBe(true);
     expect(
       await Bun.file(join(dataDirectory, "credentials.json")).exists(),

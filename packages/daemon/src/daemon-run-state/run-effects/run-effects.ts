@@ -1,4 +1,4 @@
-import type { McpServerStatus } from "@comma-agents/core";
+import type { McpServerStatus } from "@comma-agents/core/mcp";
 import { getLogger } from "@logtape/logtape";
 import type { RunTransitionEffect } from "../../server/daemon-store";
 import type {

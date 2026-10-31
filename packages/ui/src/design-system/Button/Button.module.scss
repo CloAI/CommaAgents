@@ -1,0 +1,27 @@
+.button {
+  min-height: 1.75rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-small);
+  line-height: 1.2;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration),
+    border-color var(--motion-duration);
+  &:hover:not(:disabled) {
+    background: var(--color-text);
+  }
+  &:active:not(:disabled) {
+    border-color: var(--color-on-primary);
+  }
+  &:disabled {
+    background: var(--color-surface-raised);
+    color: var(--color-muted);
+    border-color: var(--color-border);
+    cursor: not-allowed;
+  }
+}

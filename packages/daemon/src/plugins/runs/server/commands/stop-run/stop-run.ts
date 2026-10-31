@@ -2,6 +2,7 @@ import { defineCommand } from "../../../../../daemon-plugin";
 import type { CommandContext } from "../../../../../daemon-plugin";
 import type { RunsPlugin } from "../../../runs.types";
 import type { RunsContext } from "../../../state/state.types";
+import { runError, RunErrorCode, operationError } from "../../../errors";
 import {
   StopRunArgumentsSchema,
   StopRunOutputSchema,
@@ -15,19 +16,14 @@ export const stopRunCommand = defineCommand({
     context,
     arguments: { runId },
   }: CommandContext<RunsPlugin, RunsContext, { runId: string }>) {
-    if (!(await plugin.getRun(runId))) {
-      throw Object.assign(new Error(`Run not found: ${runId}`), {
-        code: "RUN_NOT_FOUND",
-      });
+    if ((await plugin.getRun(runId)) === undefined) {
+      throw runError({ code: RunErrorCode.RUN_NOT_FOUND, metadata: { runId } });
     }
-    void plugin.stopRun(runId).catch((error: unknown) => {
+    void plugin.stopRun(runId).catch((cause: unknown) => {
       context.notifications.notify(runId, {
-        type: "run_preparation_failed",
+        type: "run_error",
         runId,
-        error: {
-          code: "STOP_FAILED",
-          message: error instanceof Error ? error.message : String(error),
-        },
+        error: operationError(RunErrorCode.EXECUTION_ERROR, runId, cause),
       });
     });
     return null;

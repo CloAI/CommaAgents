@@ -50,7 +50,9 @@ export type {
   ModelInfo,
   ModelModalities,
   ModelStatus,
-  ModelsSource,
+  ModelSource,
+  ModelDiscovery,
+  ProviderOrigin,
   ProviderDefinition,
 } from "./providers.types";
 export {
@@ -58,3 +60,13 @@ export {
   mergeModelInfo,
   sortModels,
 } from "./providers.utils";
+
+export {
+  ModelInfoSchema,
+  ProviderInfoSchema,
+  ModelDiscoverySchema,
+  ModelSourceSchema,
+  ProviderOriginSchema,
+  ModelMetadataSchema,
+} from "./providers.schemas";
+export type { ProviderModelMetadata } from "./providers.types";

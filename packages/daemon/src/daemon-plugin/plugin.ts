@@ -1,11 +1,28 @@
 import { bindPluginServer } from "./server/server.utils";
 import { createPluginNotifications } from "./notifications";
 import type { NotificationCollection } from "./notifications";
-import type { CreatePluginOptions, Plugin } from "./plugin.types";
+import type {
+  CreatePluginOptions,
+  Plugin,
+  InferredPluginOptions,
+  InferredPluginHooks,
+  InferredPluginResult,
+} from "./plugin.types";
 import type {
   CreateNotifyingPluginOptions,
   CreatedNotifyingPlugin,
 } from "./notifications/notifications.types";
+
+/**
+ * Create a plugin in one call, retaining the concrete schemas registered inline.
+ * @param {Options} options - Identity, lifecycle, and optional transport bindings.
+ * @returns {InferredPluginResult<Options>} Plugin and optional private notification controller.
+ * @example
+ * const plugin = createPlugin({ name: "example", cleanup, server: { commands: [getCommand] } });
+ */
+export function createPlugin<const Options extends InferredPluginOptions>(
+  options: Options & InferredPluginHooks<Options>,
+): InferredPluginResult<Options>;
 
 /**
  * Create a plugin opting into typed notifications with notifications: true.

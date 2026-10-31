@@ -32,7 +32,18 @@ export function getTurndown(): TurndownService {
       codeBlockStyle: "fenced",
       bulletListMarker: "-",
     });
-    turndownService.remove(["script", "style", "noscript", "iframe"]);
+    turndownService.remove([
+      "script",
+      "style",
+      "noscript",
+      "iframe",
+      "nav",
+      "header",
+      "footer",
+      "aside",
+      "form",
+      "svg",
+    ]);
   }
   return turndownService;
 }

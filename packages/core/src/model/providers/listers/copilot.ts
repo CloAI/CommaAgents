@@ -141,20 +141,23 @@ export const listCopilotModels: ListModelsFn = async (
 
     return {
       id: entry.id,
-      ...(entry.name ? { name: entry.name } : {}),
-      ...(entry.capabilities?.family
-        ? { family: entry.capabilities.family }
-        : {}),
-      ...(limits?.max_context_window_tokens !== undefined
-        ? { contextWindow: limits.max_context_window_tokens }
-        : {}),
-      ...(limits?.max_prompt_tokens !== undefined
-        ? { maxInputTokens: limits.max_prompt_tokens }
-        : {}),
-      ...(limits?.max_output_tokens !== undefined
-        ? { maxOutputTokens: limits.max_output_tokens }
-        : {}),
-      capabilities,
+      sources: ["provider"],
+      metadata: {
+        ...(entry.name ? { name: entry.name } : {}),
+        ...(entry.capabilities?.family
+          ? { family: entry.capabilities.family }
+          : {}),
+        ...(limits?.max_context_window_tokens !== undefined
+          ? { contextWindow: limits.max_context_window_tokens }
+          : {}),
+        ...(limits?.max_prompt_tokens !== undefined
+          ? { maxInputTokens: limits.max_prompt_tokens }
+          : {}),
+        ...(limits?.max_output_tokens !== undefined
+          ? { maxOutputTokens: limits.max_output_tokens }
+          : {}),
+        capabilities,
+      },
     };
   });
 };

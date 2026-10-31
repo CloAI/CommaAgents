@@ -27,7 +27,10 @@ export async function prepareContextRecords(
   if (options.compaction) {
     const result = await applyCompaction({
       records,
-      options: resolveCompactionOptions(options.compaction),
+      options: {
+        ...resolveCompactionOptions(options.compaction),
+        ...(input.summarize ? { summarize: input.summarize } : {}),
+      },
       agentName: input.agentName,
       trigger: {
         ...(input.model !== undefined ? { model: input.model } : {}),

@@ -12,6 +12,7 @@ import { hideBin } from "yargs/helpers";
 import { disableAutostart, enableAutostart } from "./autostart";
 import { runDoctor } from "./doctor";
 import { runInstaller } from "./install";
+import { runHeadless } from "./run";
 import { launchTui } from "./tui";
 import { resolveSelfDaemonCommand } from "./tui/tui.utils";
 import { runUninstaller } from "./uninstall";
@@ -200,6 +201,73 @@ yargs(hideBin(process.argv))
         default:
           throw new Error(`Unknown daemon action: ${commandArguments.action}`);
       }
+    },
+  )
+  .command(
+    "run",
+    "Run a strategy headlessly, without the TUI",
+    (commandArguments) =>
+      commandArguments
+        .option("strategy", {
+          alias: "s",
+          type: "string",
+          demandOption: true,
+          describe: "Strategy file path, name, or label",
+        })
+        .option("input", {
+          alias: "i",
+          type: "string",
+          demandOption: true,
+          describe: "First user message",
+        })
+        .option("cwd", {
+          type: "string",
+          describe: "Working directory for the run",
+        })
+        .option("model", {
+          alias: "m",
+          type: "string",
+          describe: "provider/model applied to every agent",
+        })
+        .option("max-user-turns", {
+          type: "number",
+          default: 1,
+          describe: "User turns accepted before the run stops",
+        })
+        .option("approve", {
+          type: "string",
+          choices: ["allow", "deny"] as const,
+          default: "deny",
+          describe: "Answer for every sandbox permission request",
+        })
+        .option("then", {
+          type: "string",
+          array: true,
+          describe:
+            "Strategies to switch to in order after the first finishes, in the same conversation",
+        })
+        .option("then-input", {
+          type: "string",
+          describe: "Message sent to each --then strategy",
+        })
+        .option("json", {
+          type: "boolean",
+          default: false,
+          describe: "Print a JSON summary instead of streaming text",
+        }),
+    async (commandArguments) => {
+      const result = await runHeadless({
+        strategy: commandArguments.strategy,
+        input: commandArguments.input,
+        cwd: optionalString(commandArguments.cwd),
+        model: optionalString(commandArguments.model),
+        maxUserTurns: commandArguments.maxUserTurns,
+        approve: commandArguments.approve === "allow" ? "allow" : "deny",
+        then: commandArguments.then,
+        thenInput: optionalString(commandArguments.thenInput),
+        json: booleanValue(commandArguments.json),
+      });
+      process.exit(result.status === "failed" ? 1 : 0);
     },
   )
   .command("install", "Open the terminal installer", {}, async () => {

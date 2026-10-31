@@ -21,11 +21,7 @@ export type {
   RunStatus,
   RunNotifications,
   RunSnapshotStatus,
-  RunPreparationCancelledStatus,
-  RunPreparationFailedStatus,
   RunInputRequestStatus,
-  RunAgentStreamStatus,
-  RunAgentOutputStatus,
   RunStepStatus,
   RunSteerQueuedStatus,
 } from "./runs.notifications";
@@ -37,3 +33,23 @@ export type {
   ChildRunEntry,
 } from "./messages";
 export type { RunsChannelMessage } from "./server/channels/runs";
+
+export { RunPhase, RunOutcomeStatus, RunErrorCode } from "./runs.types";
+export { RunMessageStatus, RunToolStatus } from "./messages/messages.schemas";
+export type {
+  RunConfiguration,
+  NewRunConfiguration,
+  RunConfigurationOverrides,
+  RunStrategyDescription,
+  RunPreparingSnapshot,
+  RunPreparedSnapshot,
+  RunRunningSnapshot,
+  RunTerminalSnapshot,
+  RunTerminalOutcome,
+} from "./runs.types";
+
+export type {
+  SwitchStrategyOptions,
+  SendRunOptions,
+  SendRunResult,
+} from "./switching";

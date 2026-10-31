@@ -1,10 +1,23 @@
 import type { LanguageModel } from "ai";
-import type { Credential } from "../credentials/credentials.types";
 import type {
-  CredentialType,
-  ModelInfo,
-  ModelsSource,
-} from "./providers/providers.types";
+  PrivacyRequirements,
+  PrivacyRuntime,
+  PrivacyReport,
+} from "./privacy";
+import type { Credential } from "../credentials/credentials.types";
+export type { ProviderInfo } from "./providers/providers.types";
+
+/** Per-resolution privacy requirements and the trusted verification runtime. */
+export interface ModelResolutionOptions {
+  /** Explicit required protections; omitted requirements leave ordinary inference unchanged. */
+  readonly privacy?: PrivacyRequirements;
+  /** Runtime that verifies and enforces the required protections. */
+  readonly privacyRuntime?: PrivacyRuntime;
+  /** Cancellation covering verification and inference setup. */
+  readonly signal?: AbortSignal;
+  /** Receive content-free evidence reports for protected requests. */
+  readonly onPrivacyReport?: (report: PrivacyReport) => void;
+}
 
 /** Result of parsing a model string like "openai/gpt-4o". */
 export interface ParsedModel {
@@ -49,48 +62,3 @@ export type ProviderResolver = (
   providerId: string,
   credential: Credential,
 ) => ProviderFactory | Promise<ProviderFactory>;
-
-/**
- * Aggregate metadata for a single provider.
- *
- * Emitted by `listProviders()` and the daemon's `list_providers` protocol
- * message. Consumers (like the TUI) use this to present provider/model
- * pickers and auth status indicators.
- *
- * Models are returned as rich `ModelInfo[]` entries with cost, context
- * window, capabilities, and modality metadata merged from the models.dev
- * catalog and (optionally) the provider's live API.
- */
-export interface ProviderInfo {
-  /** Canonical provider id (matches models.dev keys, e.g., `"github-copilot"`). */
-  readonly id: string;
-  /** Human-friendly display name (catalog `name` when available). */
-  readonly name: string;
-  /**
-   * Expected credential type for this provider.
-   * Defaults to `"api"` for catalog-derived providers.
-   */
-  readonly credentialType: CredentialType;
-  /**
-   * Configuration-level auth status. `"configured"` means a credential
-   * was found via env var, strategy scope, or global scope. Not validated
-   * against the provider's API.
-   */
-  readonly authStatus: "none" | "configured";
-  /**
-   * Normalized model metadata. Combines the catalog baseline with live
-   * data (when `live === true` and credentials are available).
-   */
-  readonly models: readonly ModelInfo[];
-  /** Provenance of the model list for this provider. */
-  readonly modelsSource: ModelsSource;
-  /** ISO timestamp when live data was fetched, if any. */
-  readonly fetchedAt?: string;
-  /** Error message when live discovery failed and we fell back to catalog. */
-  readonly error?: string;
-  /**
-   * `true` if this provider was added via `registerProviderDefinition()` rather
-   * than being derived from the models.dev catalog or built-in overrides.
-   */
-  readonly isCustom: boolean;
-}

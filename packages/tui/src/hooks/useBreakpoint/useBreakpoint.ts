@@ -1,5 +1,5 @@
-import { useStdout } from "ink";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useWindowSize } from "ink";
+import { useCallback, useMemo } from "react";
 
 import type { BreakpointName, ThemeBreakpoints } from "../../Theme";
 import { useTheme } from "../../Theme";
@@ -31,7 +31,7 @@ function resolveBreakpoint(
 /**
  * Track terminal dimensions and provide breakpoint query helpers.
  *
- * Uses Ink's `useStdout()` to listen for resize events and resolves the
+ * Tracks terminal resize events and resolves the
  * active breakpoint from the theme's `breakpoints` tokens (mobile-first).
  *
  * @example
@@ -42,27 +42,8 @@ function resolveBreakpoint(
  * ```
  */
 export function useBreakpoint(): BreakpointState {
-  const { stdout } = useStdout();
+  const { columns, rows } = useWindowSize();
   const { breakpoints, containerWidths } = useTheme();
-
-  const [columns, setColumns] = useState(
-    () => stdout?.columns ?? process.stdout.columns,
-  );
-  const [rows, setRows] = useState(() => stdout?.rows ?? process.stdout.rows);
-
-  useEffect(() => {
-    if (!stdout) return;
-
-    const handleResize = () => {
-      setColumns(stdout.columns);
-      setRows(stdout.rows);
-    };
-
-    stdout.on("resize", handleResize);
-    return () => {
-      stdout.off("resize", handleResize);
-    };
-  }, [stdout]);
 
   const breakpoint = useMemo(
     () => resolveBreakpoint(columns, breakpoints),

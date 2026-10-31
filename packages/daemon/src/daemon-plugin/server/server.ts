@@ -3,8 +3,8 @@ import type {
   BindingSchema,
   ChannelDefinition,
   CommandDefinition,
-  PluginChannel,
-  PluginCommand,
+  TypedPluginChannel,
+  TypedPluginCommand,
 } from "./server.types";
 
 /**
@@ -19,12 +19,14 @@ export function defineCommand<
   Context,
   Arguments extends BindingSchema,
   Output extends BindingSchema,
+  const Name extends string = string,
 >(
-  definition: CommandDefinition<Owner, Context, Arguments, Output>,
-): PluginCommand<Owner, Context> {
+  definition: CommandDefinition<Owner, Context, Arguments, Output, Name>,
+): TypedPluginCommand<Owner, Context, Name, Arguments, Output> {
   return {
     name: definition.name,
     arguments: definition.arguments,
+    output: definition.output,
     async invoke(plugin, context, commandArguments) {
       const parsedArguments = definition.arguments.parse(commandArguments);
       const output = await definition.handle({
@@ -55,12 +57,14 @@ export function defineChannel<
   Context,
   Arguments extends BindingSchema,
   Message extends BindingSchema,
+  const Name extends string = string,
 >(
-  definition: ChannelDefinition<Owner, Context, Arguments, Message>,
-): PluginChannel<Owner, Context> {
+  definition: ChannelDefinition<Owner, Context, Arguments, Message, Name>,
+): TypedPluginChannel<Owner, Context, Name, Arguments, Message> {
   return {
     name: definition.name,
     arguments: definition.arguments,
+    message: definition.message,
     async open(plugin, context, channelArguments, channel) {
       const result = await definition.open({
         plugin,

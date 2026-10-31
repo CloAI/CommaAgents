@@ -1,3 +1,4 @@
+import { RunOutcomeStatus } from "../runs/state/state.schemas";
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { join } from "node:path";
 import { realpathSync } from "node:fs";
@@ -66,7 +67,13 @@ function requestApproval(
 describe("sandbox plugin", () => {
   test("should ask for workspace escapes and replay unresolved requests to new listeners", async () => {
     const { runs, sandbox, sandboxes, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     let receivePermission: (
       request: SandboxPermissionRequest,
     ) => void = () => {};
@@ -111,7 +118,13 @@ describe("sandbox plugin", () => {
 
   test("should inject a sandbox and resolve unique requests only for their owning run", async () => {
     const { runs, sandbox, sandboxes, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     expect(
       sandbox.updatePolicy(
         "root",
@@ -148,7 +161,13 @@ describe("sandbox plugin", () => {
 
   test("should enforce deny and keep session decisions in the current execution", async () => {
     const { runs, sandbox, sandboxes, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     sandbox.updatePolicy(
       "root",
       { mode: "write", default: "ask" },
@@ -185,7 +204,13 @@ describe("sandbox plugin", () => {
 
   test("should remove tool-aborted permissions without ending the run sandbox", async () => {
     const { runs, sandbox, sandboxes, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     sandbox.updatePolicy(
       "root",
       { mode: "write", default: "ask" },
@@ -214,7 +239,13 @@ describe("sandbox plugin", () => {
 
   test("should reject pending requests and remove scopes when a prepared run stops", async () => {
     const { runs, sandbox, sandboxes, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     sandbox.updatePolicy(
       "root",
       { mode: "write", default: "ask" },
@@ -263,7 +294,13 @@ describe("sandbox plugin", () => {
         });
       },
     });
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     let receivePermission: (
       request: SandboxPermissionRequest,
     ) => void = () => {};
@@ -299,7 +336,7 @@ describe("sandbox plugin", () => {
         .canAccess({ type: "fs.write", resource: "child.ts" }),
     ).toBe(true);
     sandbox.resolvePermission(childRunId, request.requestId, "allow");
-    expect((await completion).status).toBe("completed");
+    expect((await completion).status).toBe(RunOutcomeStatus.completed);
     expect(
       sandbox.updatePolicy(
         childRunId,
@@ -354,9 +391,15 @@ describe("sandbox plugin", () => {
         });
       },
     });
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     expect((await runs.startRun("root", "nested").completion).status).toBe(
-      "completed",
+      RunOutcomeStatus.completed,
     );
     expect(requests).toHaveLength(2);
     const child = requests.find((request) => request.parentRunId === "root")!;
@@ -420,16 +463,22 @@ describe("sandbox plugin", () => {
           receivePermission(status);
       },
     );
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const completion = runs.startRun("root", "nested").completion;
     const request = await permission;
     await runs.stopRun("root");
-    expect((await completion).status).toBe("cancelled");
+    expect((await completion).status).toBe(RunOutcomeStatus.stopped);
     expect(await runs.getRun(request.runId)).toMatchObject({
-      outcome: { status: "cancelled" },
+      outcome: { status: "stopped" },
     });
     expect(await runs.getRun(request.parentRunId!)).toMatchObject({
-      outcome: { status: "cancelled" },
+      outcome: { status: "stopped" },
     });
     expect(sandbox.getPendingPermissions("root")).toEqual([]);
     expect(
@@ -471,7 +520,13 @@ describe("sandbox plugin", () => {
         });
       },
     });
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     let receivePermission: (
       request: SandboxPermissionRequest,
     ) => void = () => {};
@@ -489,7 +544,7 @@ describe("sandbox plugin", () => {
     const completion = runs.startRun("root").completion;
     const request = await permission;
     await runs.stopRun("root");
-    expect((await completion).status).toBe("cancelled");
+    expect((await completion).status).toBe(RunOutcomeStatus.stopped);
     expect(sandbox.getPendingPermissions("root")).toEqual([]);
     expect(sandbox.resolvePermission("root", request.requestId, "allow")).toBe(
       false,
@@ -502,7 +557,13 @@ describe("sandbox plugin", () => {
 
   test("should deliver policy changes, isolate listeners, and honor unsubscribe", async () => {
     const { runs, sandbox, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     await sandbox.notifications.subscribe("run_policy_updated", "root", () => {
       throw new Error("listener failed");
     });
@@ -538,7 +599,13 @@ describe("sandbox plugin", () => {
 
   test("should clean up once and reject future scope preparation after disposal", async () => {
     const { runs, sandbox, sandboxes, cwd } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     sandbox.updatePolicy(
       "root",
       { mode: "write", default: "ask" },
@@ -559,8 +626,14 @@ describe("sandbox plugin", () => {
       ),
     ).rejects.toThrow("disposed");
     await expect(
-      runs.prepareRun({ runId: "later", strategyPath: "example.json", cwd }),
-    ).rejects.toThrow("disposed");
+      runs.prepareRun({
+        runId: "later",
+        configuration: {
+          strategyPath: "example.json",
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     await runs.dispose();
   });
 
@@ -573,8 +646,14 @@ describe("sandbox plugin", () => {
       },
     });
     await expect(
-      runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd }),
-    ).rejects.toThrow("provider failed");
+      runs.prepareRun({
+        runId: "root",
+        configuration: {
+          strategyPath: "example.json",
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     expect(
       sandbox.updatePolicy("root", { mode: "write", default: "allow" }),
     ).toBe(false);

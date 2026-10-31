@@ -1,11 +1,20 @@
-import { persistRunSnapshot } from "../history/persistence";
+import { RunErrorCode } from "../errors";
+import { persistRunWrite } from "../history/persistence";
+import { RunPhase } from "../state/state.schemas";
+import { RunMessageStatus, RunToolStatus } from "./messages.schemas";
+import { getQualifiedModelMetadata } from "@comma-agents/core";
 import type {
   AgentCallIdentity,
   AgentStreamEvent,
   AgentCallResult,
+  ConversationRecord,
 } from "@comma-agents/core";
 import type { RunEntry, RunsContext } from "../state/state.types";
-import type { RunContent, RunMessage } from "./messages.types";
+import type {
+  RunContent,
+  RunMessage,
+  StreamingAgentMessage,
+} from "./messages.types";
 import { messageJson, responseContent } from "./messages.utils";
 
 /**
@@ -23,26 +32,39 @@ export async function startAgentMessage(
   agentName: string,
   identity: AgentCallIdentity,
 ): Promise<void> {
-  if (context.activeMessages.has(identity.messageId)) {
+  if (entry.activeMessages.has(identity.messageId)) {
     return;
   }
-  const message: RunMessage = {
+  const model =
+    entry.state.phase === RunPhase.running ||
+    entry.state.phase === RunPhase.prepared
+      ? entry.state.strategy.agents[agentName]?.config?.model
+      : undefined;
+  const contextWindow =
+    model === undefined
+      ? undefined
+      : getQualifiedModelMetadata(model)?.metadata.contextWindow;
+  const message: StreamingAgentMessage = {
     type: "message",
     ...identity,
-    runId: entry.snapshot.runId,
-    parentRunId: entry.snapshot.parentRunId,
+    runId: entry.runId,
+    parentRunId: entry.parentRunId,
     role: "agent",
     agentName,
-    status: "streaming",
+    ...(model !== undefined ? { model } : {}),
+    ...(contextWindow !== undefined ? { contextWindow } : {}),
+    status: RunMessageStatus.streaming,
     content: [],
   };
-  context.activeMessages.set(identity.messageId, {
+  entry.activeMessages.set(identity.messageId, {
     message,
     reasoning: new Map(),
     tools: new Map(),
   });
-  context.revision++;
-  await persistRunSnapshot(context, message);
+  await persistRunWrite(
+    entry,
+    context.history.reserve(entry.runId, message.messageId),
+  );
 }
 
 /**
@@ -61,7 +83,7 @@ export async function streamAgentMessage(
   event: AgentStreamEvent,
 ): Promise<void> {
   if (
-    !event.messageId ||
+    event.messageId === undefined ||
     event.type === "done" ||
     event.type === "retention" ||
     event.type === "step-start"
@@ -72,7 +94,7 @@ export async function streamAgentMessage(
     messageId: event.messageId,
     createdAt: event.createdAt ?? new Date().toISOString(),
   });
-  const active = context.activeMessages.get(event.messageId)!;
+  const active = entry.activeMessages.get(event.messageId)!;
   const content = [...active.message.content];
   let contentIndex: number;
   let block: RunContent;
@@ -114,31 +136,58 @@ export async function streamAgentMessage(
         toolCallId: event.toolCallId,
         toolName: event.toolName,
         arguments: messageJson(toolArguments),
-        status: "running",
+        status: RunToolStatus.running,
         mcp: event.mcp,
       };
     } else {
-      block = {
-        type: "tool",
+      const base = {
+        type: "tool" as const,
         toolCallId: event.toolCallId,
         toolName: event.toolName,
         arguments: previous?.type === "tool" ? previous.arguments : null,
-        status: event.status,
         output: event.output,
-        error: event.error,
         mcp: event.mcp,
+        ...("cancellationRequestedBy" in event &&
+        event.cancellationRequestedBy === "user_steering"
+          ? { cancellationRequestedBy: "user_steering" as const }
+          : {}),
+        ...(previous?.type === "tool" &&
+        previous.cancellationRequestedBy !== undefined
+          ? { cancellationRequestedBy: previous.cancellationRequestedBy }
+          : {}),
       };
+      block =
+        event.status === "completed"
+          ? { ...base, status: RunToolStatus.completed }
+          : "cancellationReason" in event &&
+              event.cancellationReason === "user_steering"
+            ? {
+                ...base,
+                status: RunToolStatus.stopped,
+                cancellationReason: "user_steering",
+              }
+            : {
+                ...base,
+                status: RunToolStatus.failed,
+                output: event.error ?? event.output,
+                error: { code: RunErrorCode.TOOL_EXECUTION_ERROR },
+              };
     }
   }
   content[contentIndex] = block;
   active.message = { ...active.message, content };
-  context.revision++;
-  context.notifications.notify(entry.snapshot.runId, {
+  context.notifications.notify(entry.runId, {
     type: "run_message_stream",
-    runId: entry.snapshot.runId,
+    runId: entry.runId,
     messageId: active.message.messageId,
     agentName,
     createdAt: active.message.createdAt,
+    ...(active.message.model !== undefined
+      ? { model: active.message.model }
+      : {}),
+    ...(active.message.contextWindow !== undefined
+      ? { contextWindow: active.message.contextWindow }
+      : {}),
     contentIndex,
     content: block,
   });
@@ -146,20 +195,22 @@ export async function streamAgentMessage(
 
 /**
  * Finalize a displayed agent invocation after its conversation record is durable.
- * @param {RunsContext} context - Feature message state.
- * @param {RunEntry} entry - Owning execution.
- * @param {string} agentName - Originating agent.
- * @param {AgentCallResult} result - Identified completed result.
- * @returns {Promise<void>} Durable message completion and notification.
  * @internal
+ * @param {RunsContext} context - Private runs state.
+ * @param {RunEntry} entry - Run that owns the operation.
+ * @param {string} agentName - Agent that owns this invocation.
+ * @param {AgentCallResult} result - Completed agent invocation.
+ * @param {ConversationRecord} record - Canonical conversation record when supported.
+ * @returns {Promise<void>} Operation result.
  */
 export async function completeAgentMessage(
   context: RunsContext,
   entry: RunEntry,
   agentName: string,
   result: AgentCallResult,
+  record?: ConversationRecord,
 ): Promise<void> {
-  if (!result.messageId) {
+  if (result.messageId === undefined) {
     throw new Error(
       `Agent ${agentName} did not provide a conversation message identity`,
     );
@@ -168,18 +219,33 @@ export async function completeAgentMessage(
     messageId: result.messageId,
     createdAt: result.createdAt ?? new Date().toISOString(),
   });
-  const active = context.activeMessages.get(result.messageId)!;
-  const completedContent = responseContent(result);
+  const active = entry.activeMessages.get(result.messageId)!;
+  const completedContent = responseContent(record ?? result).map(
+    (block): RunContent => {
+      if (block.type !== "tool" || block.mcp !== undefined) {
+        return block;
+      }
+      const index = active.tools.get(block.toolCallId);
+      const streamed =
+        index === undefined ? undefined : active.message.content[index];
+      return streamed?.type === "tool" && streamed.mcp !== undefined
+        ? { ...block, mcp: streamed.mcp }
+        : block;
+    },
+  );
   const message: RunMessage = {
     ...active.message,
-    status: "completed",
-    content: completedContent.length
-      ? completedContent
-      : active.message.content,
+    status: RunMessageStatus.completed,
+    completedAt: new Date().toISOString(),
+    usage: result.usage,
+    ...(result.contextUsage !== undefined
+      ? { contextUsage: result.contextUsage }
+      : {}),
+    content:
+      completedContent.length !== 0 ? completedContent : active.message.content,
   };
-  await persistRunSnapshot(context, message);
-  context.activeMessages.delete(message.messageId);
-  context.revision++;
+  await persistRunWrite(entry, context.history.save(message));
+  entry.activeMessages.delete(message.messageId);
   context.notifications.notify(message.runId, {
     type: "run_message_output",
     runId: message.runId,
@@ -189,41 +255,57 @@ export async function completeAgentMessage(
 
 /**
  * Persist partial messages without admitting them as successful model-context records.
- * @param {RunsContext} context - Feature-owned message state.
- * @param {string} runId - Stopped or failed execution.
- * @param {"cancelled" | "failed"} status - Display outcome for unfinished invocations.
- * @param {string} messageId - Restrict an individual failed invocation, when supplied.
- * @returns {Promise<void>} Partial messages finalized durably.
  * @internal
+ * @param {RunsContext} context - Private runs state.
+ * @param {RunEntry} entry - Run that owns the operation.
+ * @param {"stopped" | "failed"} status - Final display outcome.
+ * @param {string} messageId - Invocation identity when restricting finalization.
+ * @param {"user_steering"} cancellationReason - User-requested interruption, when applicable.
+ * @returns {Promise<void>} Operation result.
  */
 export async function interruptAgentMessages(
   context: RunsContext,
-  runId: string,
-  status: "cancelled" | "failed",
+  entry: RunEntry,
+  status: "stopped" | "failed",
   messageId?: string,
+  cancellationReason?: "user_steering",
 ): Promise<void> {
-  for (const [activeMessageId, active] of context.activeMessages) {
-    if (
-      active.message.runId !== runId ||
-      (messageId !== undefined && activeMessageId !== messageId)
-    ) {
+  for (const [activeMessageId, active] of entry.activeMessages) {
+    if (messageId !== undefined && activeMessageId !== messageId) {
       continue;
     }
+    const content: RunContent[] = active.message.content.map((block) => {
+      if (block.type !== "tool" || block.status !== RunToolStatus.running) {
+        return block;
+      }
+      return status === "stopped"
+        ? {
+            ...block,
+            status: RunToolStatus.stopped,
+            ...(cancellationReason ? { cancellationReason } : {}),
+          }
+        : {
+            ...block,
+            status: RunToolStatus.failed,
+            output: null,
+            error: { code: RunErrorCode.TOOL_EXECUTION_ERROR },
+          };
+    });
     const message: RunMessage = {
       ...active.message,
-      status,
-      content: active.message.content.map((block) =>
-        block.type === "tool" && block.status === "running"
-          ? { ...block, status: status === "cancelled" ? "cancelled" : "error" }
-          : block,
-      ),
+      ...(cancellationReason ? { cancellationReason } : {}),
+      status:
+        status === "stopped"
+          ? RunMessageStatus.stopped
+          : RunMessageStatus.failed,
+      completedAt: new Date().toISOString(),
+      content,
     };
-    await persistRunSnapshot(context, message);
-    context.activeMessages.delete(activeMessageId);
-    context.revision++;
-    context.notifications.notify(runId, {
+    await persistRunWrite(entry, context.history.save(message));
+    entry.activeMessages.delete(activeMessageId);
+    context.notifications.notify(entry.runId, {
       type: "run_message_output",
-      runId,
+      runId: entry.runId,
       message,
     });
   }
@@ -242,6 +324,10 @@ export async function saveUserMessage(
   runId: string,
   text: string,
 ): Promise<void> {
+  const entry = context.runs.get(runId);
+  if (entry === undefined) {
+    throw new Error(`Run not loaded: ${runId}`);
+  }
   const message: RunMessage = {
     type: "message",
     messageId: crypto.randomUUID(),
@@ -249,10 +335,10 @@ export async function saveUserMessage(
     parentRunId: context.identities.get(runId)?.parentRunId,
     role: "user",
     createdAt: new Date().toISOString(),
-    status: "completed",
+    status: RunMessageStatus.completed,
     content: [{ type: "text", text }],
   };
-  await persistRunSnapshot(context, message);
+  await persistRunWrite(entry, context.history.save(message));
   context.notifications.notify(runId, {
     type: "run_message_output",
     runId,

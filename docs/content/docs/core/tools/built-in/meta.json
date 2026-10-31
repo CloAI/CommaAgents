@@ -5,6 +5,10 @@
     "todo-system",
     "skill-tools",
     "run_command",
-    "webfetch"
+    "webfetch",
+    "web_search",
+    "notes",
+    "delegate",
+    "request_strategy_switch"
   ]
 }

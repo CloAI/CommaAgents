@@ -1,11 +1,8 @@
-import { createHash } from "node:crypto";
-import type {
-  ConversationRecord,
-  AgentCallResult,
-  TimelineEvent,
-} from "@comma-agents/core";
+import { RunErrorCode } from "../errors";
+import { RunToolStatus } from "./messages.schemas";
+import type { ConversationRecord, AgentCallResult } from "@comma-agents/core";
 import type { z } from "zod/v4";
-import type { RunContent, RunHistoryEntry } from "./messages.types";
+import type { RunContent } from "./messages.types";
 
 /**
  * Preserve JSON values at the display boundary without retaining SDK objects.
@@ -32,7 +29,7 @@ export function responseContent(
   const tools = new Map<string, number>();
   for (const response of record.responseMessages) {
     if (typeof response.content === "string") {
-      if (response.content) {
+      if (response.content.length !== 0) {
         content.push({ type: "text", text: response.content });
       }
       continue;
@@ -49,7 +46,7 @@ export function responseContent(
           toolCallId: part.toolCallId,
           toolName: part.toolName,
           arguments: messageJson(part.input),
-          status: "running",
+          status: RunToolStatus.running,
         });
       } else if (part.type === "tool-result") {
         const index = tools.get(part.toolCallId);
@@ -58,82 +55,27 @@ export function responseContent(
           const output = part.output;
           const failed =
             output.type === "error-text" || output.type === "error-json";
-          content[index] = {
-            ...tool,
-            status: failed ? "error" : "completed",
+          const base = {
+            type: "tool" as const,
+            toolCallId: tool.toolCallId,
+            toolName: tool.toolName,
+            arguments: tool.arguments,
+            mcp: tool.mcp,
             output: messageJson("value" in output ? output.value : output),
-            ...(failed
-              ? {
-                  error:
-                    typeof output.value === "string"
-                      ? output.value
-                      : JSON.stringify(output.value),
-                }
-              : {}),
           };
+          content[index] = failed
+            ? {
+                ...base,
+                status: RunToolStatus.failed,
+                error: { code: RunErrorCode.TOOL_EXECUTION_ERROR },
+              }
+            : { ...base, status: RunToolStatus.completed };
         }
       }
     }
   }
-  if (!content.length && record.text) {
+  if (content.length === 0 && record.text.length !== 0) {
     content.push({ type: "text", text: record.text });
   }
   return content;
-}
-
-/**
- * Recover display messages from existing execution timelines without exposing transitions.
- * @param {readonly TimelineEvent[]} events - Root-owned persisted timeline.
- * @param {string} runId - Conversation whose own messages are requested.
- * @returns {RunHistoryEntry[]} Display messages with deterministic identities for older user inputs.
- * @internal
- */
-export function legacyDisplayEntries(
-  events: readonly TimelineEvent[],
-  runId: string,
-): RunHistoryEntry[] {
-  const entries: RunHistoryEntry[] = [];
-  const rootId =
-    events.find((event) => event.type === "run_started")?.runId ?? runId;
-  for (const [eventIndex, event] of events.entries()) {
-    if ((event.runId ?? rootId) !== runId) {
-      continue;
-    }
-    if (event.type === "agent_call") {
-      entries.push({
-        type: "message",
-        messageId: event.record.id,
-        runId,
-        parentRunId: event.parentRunId,
-        role: "agent",
-        agentName: event.record.agentName,
-        createdAt: event.record.createdAt,
-        status: "completed",
-        content: responseContent(event.record),
-      });
-    } else if (
-      (event.type === "run_started" && event.initialInput) ||
-      event.type === "user_input"
-    ) {
-      entries.push({
-        type: "message",
-        messageId: createHash("sha256")
-          .update(`${runId}:${eventIndex}:${event.ts}`)
-          .digest("hex"),
-        runId,
-        parentRunId: event.parentRunId,
-        role: "user",
-        createdAt: event.ts,
-        status: "completed",
-        content: [
-          {
-            type: "text",
-            text:
-              event.type === "run_started" ? event.initialInput! : event.text,
-          },
-        ],
-      });
-    }
-  }
-  return entries;
 }

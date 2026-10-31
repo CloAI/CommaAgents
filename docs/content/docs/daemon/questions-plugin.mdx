@@ -28,8 +28,10 @@ const unsubscribe = await daemon.plugins.questions.notifications.subscribe(
 try {
   await daemon.plugins.runs.prepareRun({
     runId,
-    strategyPath: "./strategy.json",
-    cwd: process.cwd(),
+    configuration: {
+      strategyPath: "./strategy.json",
+      cwd: process.cwd(),
+    },
   });
   await daemon.plugins.runs.startRun(runId, "Review the configuration.")
     .completion;
@@ -55,7 +57,7 @@ const runs = createRunsPlugin({ runsDir: "./runs" });
 const questions = createQuestionsPlugin({ dependencies: { runs } });
 
 try {
-  await runs.prepareRun({ strategyPath: "./strategy.json" });
+  await runs.prepareRun({ configuration: { strategyPath: "./strategy.json" } });
 } finally {
   await runs.dispose();
   await questions.dispose();
@@ -102,4 +104,15 @@ daemon.plugins.questions.resolveQuestion(
 
 Responses resolve one pending request. Tool cancellation, execution cleanup, and plugin disposal reject unanswered questions and remove them from pending state. An already answered or cancelled request returns `false` when you try to resolve it again. Continuations acquire a fresh question requester and cancellation handlers.
 
-Tool questions use `questions.resolveQuestion`. Input requests from user agents use `runs.resolveInput`. The questions plugin operates without a server; server routes and channels are a separate migration phase.
+Tool questions use `questions.resolveQuestion`. Input requests from user agents use `runs.resolveInput`. Each ended question, whether answered, cancelled, or released with its run, emits `run_question_resolved` with its `runId` and `requestId`.
+
+## Server channel and command
+
+Clients follow a run's questions, including those asked by its subagents, with the `questions.watch` channel, and answer with the `questions.answer` command.
+
+| Binding | Arguments | Messages or result |
+|---|---|---|
+| `questions.watch` channel | `runId` | `question.requested` with `{ runId, parentRunId?, requestId, agentName, toolName, question, ts }` for each pending and new question; `question.resolved` with `{ runId, requestId }` when one ends |
+| `questions.answer` command | `runId`, `requestId`, `response` | `{ answered }`; `false` when the question already ended or belongs to another run |
+
+Pending questions are delivered when the channel opens, so a client that reconnects sees everything still waiting. Answer with the question's own `runId`, which differs from the watched run's ID for subagent questions.

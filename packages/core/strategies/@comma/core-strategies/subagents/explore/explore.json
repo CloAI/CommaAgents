@@ -1,0 +1,23 @@
+{
+  "name": "Explore",
+  "version": "1.0",
+  "description": "Read-only codebase search. Give it a question; it returns the answer with path:line evidence, without filling your context with file contents.",
+  "modelRoles": {
+    "primary": "openrouter/google/gemini-3.5-flash",
+    "fast": "openrouter/google/gemma-4-26b-a4b-it"
+  },
+  "agents": {
+    "explorer": {
+      "model": "@fast",
+      "maxSteps": 40,
+      "systemPrompt": "./prompts/explore.md",
+      "context": { "instructions": true, "environment": true },
+      "tools": ["read_file", "list_directory", "search_files", "glob", "lsp_request"]
+    }
+  },
+  "flow": {
+    "name": "Explore",
+    "type": "sequential",
+    "steps": [{ "agent": "explorer" }]
+  }
+}

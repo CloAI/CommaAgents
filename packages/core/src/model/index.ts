@@ -5,6 +5,7 @@ export {
   unregisterModel,
 } from "./model";
 export type {
+  ModelResolutionOptions,
   ParsedModel,
   ProviderFactory,
   ProviderInfo,
@@ -35,7 +36,9 @@ export type {
   ModelInfo,
   ModelModalities,
   ModelStatus,
-  ModelsSource,
+  ModelSource,
+  ModelDiscovery,
+  ProviderOrigin,
   ProviderDefinition,
   ProviderWithModels,
 } from "./providers/index";
@@ -69,3 +72,13 @@ export {
   toModelInfo,
   unregisterProviderDefinition,
 } from "./providers/index";
+
+export {
+  ModelInfoSchema,
+  ProviderInfoSchema,
+  ModelDiscoverySchema,
+  ModelSourceSchema,
+  ProviderOriginSchema,
+} from "./providers/providers.schemas";
+export { getModelFamily, resolveModelReference } from "./roles";
+export type { ModelFamily, ModelRoleSources, ModelRoles } from "./roles";

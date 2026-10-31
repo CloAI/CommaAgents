@@ -20,10 +20,6 @@ export {
 } from "./messages";
 export { ContinueRunMessage, handleContinueRun } from "./requests/continue-run";
 export {
-  GetAvailableModelsMessage,
-  handleGetAvailableModels,
-} from "./requests/get-available-models";
-export {
   handleListMcpServers,
   ListMcpServersMessage,
 } from "./requests/list-mcp-servers";
@@ -41,7 +37,10 @@ export { handlePrepareRun, PrepareRunMessage } from "./requests/prepare-run";
 export { handleStartRun, StartRunMessage } from "./requests/start-run";
 export { handleSteerRun, SteerRunMessage } from "./requests/steer-run";
 export { handleStopRun, StopRunMessage } from "./requests/stop-run";
-export { handleSubscribe, SubscribeMessage } from "./requests/subscribe";
+export {
+  handleSubscribe,
+  SubscribeMessage,
+} from "../daemon-services/subscription/subscribe";
 export { handleTrashClear, TrashClearMessage } from "./requests/trash-clear";
 export { handleTrashList, TrashListMessage } from "./requests/trash-list";
 export {
@@ -67,8 +66,6 @@ export { AgentOutputMessage } from "./responses/agent-output";
 export { AgentStreamingMessage } from "./responses/agent-streaming";
 export type { AgentStreamEventWire } from "./responses/agent-streaming/agent-streaming.schema";
 export { AgentStreamEventSchema } from "./responses/agent-streaming/agent-streaming.schema";
-export type { AvailableModelWire } from "./responses/available-models";
-export { AvailableModelsMessage } from "./responses/available-models";
 export { ErrorMessage } from "./responses/error";
 export type { McpServerStatusWire } from "./responses/mcp-server-list";
 export {

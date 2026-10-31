@@ -1,3 +1,4 @@
+import { RunErrorCode, runError } from "../../../errors";
 import { defineCommand } from "../../../../../daemon-plugin";
 import type { CommandContext } from "../../../../../daemon-plugin";
 import type { RunsPlugin } from "../../../runs.types";
@@ -12,10 +13,8 @@ export const getRunCommand = defineCommand({
     arguments: { runId },
   }: CommandContext<RunsPlugin, RunsContext, { runId: string }>) {
     const snapshot = await plugin.getRun(runId);
-    if (!snapshot) {
-      throw Object.assign(new Error(`Run not found: ${runId}`), {
-        code: "RUN_NOT_FOUND",
-      });
+    if (snapshot === undefined) {
+      throw runError({ code: RunErrorCode.RUN_NOT_FOUND, metadata: { runId } });
     }
     return snapshot;
   },

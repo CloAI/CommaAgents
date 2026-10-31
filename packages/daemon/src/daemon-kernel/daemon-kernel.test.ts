@@ -32,6 +32,7 @@ describe("daemon kernel", () => {
         "skills",
         "questions",
         "sandbox",
+        "core",
         "status",
       ]);
     } finally {
@@ -45,9 +46,13 @@ describe("daemon kernel", () => {
       const kernel = await createDaemonKernel({
         runs: { runsDir },
         initialize({ runs }) {
-          runs.registerRunPreparation({ name: "feature", prepare: () => ({}) });
+          runs.registerRunPreparation({
+            name: "feature",
+            prepare: () => ({ strategyInputs: {} }),
+          });
         },
       });
+      expect(kernel.plugins.core.name).toBe("core");
       expect(kernel.plugins.runs.name).toBe("runs");
       expect(kernel.plugins.sandbox.name).toBe("sandbox");
       expect(kernel.plugins.questions.name).toBe("questions");

@@ -1,4 +1,4 @@
-import type { DiscoveredStrategy } from "@comma-agents/core";
+import type { DiscoveredStrategy } from "@comma-agents/core/strategy";
 import type { ChatRunId, PersistedRunMeta } from "../useChat.types";
 
 export interface ChatRunLifecycle {

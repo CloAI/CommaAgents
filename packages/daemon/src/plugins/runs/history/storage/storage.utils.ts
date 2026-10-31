@@ -1,3 +1,4 @@
+import { RunErrorCode, runError } from "../../errors";
 import { openSync, closeSync, readSync } from "node:fs";
 import { HISTORY_INDEX_CHUNK_BYTES } from "./storage.constants";
 
@@ -33,7 +34,7 @@ export function* readHistoryIndex(
         }
         const line = combined.subarray(boundary + 1, end).toString("utf8");
         const parsed: unknown = JSON.parse(line);
-        if (typeof parsed !== "string" || !parsed) {
+        if (typeof parsed !== "string" || parsed.length === 0) {
           throw new Error("Invalid history index entry");
         }
         yield { position: start + boundary + 1, messageId: parsed };
@@ -60,7 +61,7 @@ export function historyBoundary(
   runId: string,
   size: number,
 ): number {
-  if (!cursor) {
+  if (cursor === undefined) {
     return size;
   }
   try {
@@ -85,7 +86,5 @@ export function historyBoundary(
   } catch {
     // Malformed and cross-run cursors have the same domain error contract.
   }
-  throw Object.assign(new Error("Invalid history cursor for this run"), {
-    code: "INVALID_CURSOR",
-  });
+  throw runError({ code: RunErrorCode.INVALID_CURSOR });
 }

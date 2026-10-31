@@ -19,6 +19,7 @@ export function bindPluginServer<Owner, Context>(
     ...(definitions.commands
       ? {
           commands: definitions.commands.map((command) => ({
+            ...command,
             name: command.name,
             arguments: command.arguments,
             get invoke() {
@@ -34,6 +35,7 @@ export function bindPluginServer<Owner, Context>(
     ...(definitions.channels
       ? {
           channels: definitions.channels.map((channel) => ({
+            ...channel,
             name: channel.name,
             arguments: channel.arguments,
             get open() {

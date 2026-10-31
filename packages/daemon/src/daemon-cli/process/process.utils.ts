@@ -1,15 +1,9 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { sleep } from "bun";
-import { DEFAULT_DAEMON_POLL_INTERVAL_MS } from "../../defaults";
-import {
-  type DaemonCommandArguments,
-  type DaemonCommandOptions,
-  type DaemonProcessStartOptions,
-  getDaemonProcessStatus,
-} from "..";
-import type { DaemonProcessWaitOptions } from "./process.types";
+import type { DaemonCommandArguments, DaemonCommandOptions } from "../command";
+import type { DaemonProcessStartOptions } from "./actions/start";
+import { getDaemonProcessStatus } from "./actions/status";
 
 export function buildDaemonProcessEnvOverrides({
   port,
@@ -53,9 +47,13 @@ export function buildDaemonProcessForegroundArgs({
     ? [...foregroundCommand, "start", "--foreground"]
     : [
         process.execPath,
-        "-i",
         "run",
-        fileURLToPath(new URL("../daemon-cli.ts", import.meta.url)),
+        fileURLToPath(
+          new URL(
+            import.meta.url.endsWith(".ts") ? "../../cli.ts" : "./cli.js",
+            import.meta.url,
+          ),
+        ),
         "start",
         "--foreground",
       ];
@@ -66,32 +64,6 @@ export function buildDaemonProcessForegroundArgs({
     spawnArguments.push("--verbose");
   }
   return spawnArguments;
-}
-
-export async function waitForDaemonProcessReady({
-  config,
-  timeoutMs,
-}: DaemonProcessWaitOptions): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const remainingMs = deadline - Date.now();
-      const response = await fetch(
-        `http://${config.host}:${config.port}/health`,
-        {
-          signal: AbortSignal.timeout(
-            Math.max(1, Math.min(DEFAULT_DAEMON_POLL_INTERVAL_MS, remainingMs)),
-          ),
-        },
-      );
-      if (response.ok) {
-        return true;
-      }
-    } catch {
-      await sleep(DEFAULT_DAEMON_POLL_INTERVAL_MS);
-    }
-  }
-  return false;
 }
 
 export function buildStartOptions(

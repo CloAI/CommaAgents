@@ -1,5 +1,1 @@
-export {
-  getRunLineage,
-  hydrateRunLineage,
-  registerRunIdentity,
-} from "./identity";
+export { getRunLineage, loadRunLineage } from "./identity";

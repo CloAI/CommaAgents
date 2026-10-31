@@ -56,7 +56,7 @@ export function labelLineVisibleWidth(
  * box-drawing characters so existing content inside is preserved.
  */
 export function paintHighlight(
-  stdout: NodeJS.WriteStream,
+  stdout: NodeJS.WritableStream,
   node: DOMElement,
   reasons: readonly RenderReason[],
   labelLine: string,
@@ -100,7 +100,7 @@ export function paintHighlight(
 
 /** Clear just the label text on the first row. */
 export function clearLabelLine(
-  stdout: NodeJS.WriteStream,
+  stdout: NodeJS.WritableStream,
   node: DOMElement,
   visibleWidth: number,
 ): void {
@@ -113,7 +113,7 @@ export function clearLabelLine(
 
 /** Clear the border outline by overwriting border cells with spaces. */
 export function clearHighlight(
-  stdout: NodeJS.WriteStream,
+  stdout: NodeJS.WritableStream,
   node: DOMElement,
 ): void {
   const { top, left, width, height } = getBoundingBox(node);

@@ -1,3 +1,6 @@
+import { getRunSnapshot } from "../../../state/state";
+import { runSnapshot } from "../../../state/state.utils";
+import { runError, RunErrorCode } from "../../../errors";
 import { defineChannel } from "../../../../../daemon-plugin";
 import type { ChannelOpenResult } from "../../../../../daemon-plugin";
 import { runsChannelMessage } from "./runs.utils";
@@ -5,7 +8,7 @@ import type { OpenRunsChannelOptions, RunsChannelMessage } from "./runs.types";
 import { RunsArgumentsSchema, RunsMessageSchema } from "./runs.schemas";
 
 /**
- * Hydrate a bounded view and replay cumulative blocks before enabling subsequent live updates.
+ * Read one initial history page and hand buffered updates over to live delivery.
  * @param {OpenRunsChannelOptions} options - Owning service, private state, and subscription operations.
  * @returns {Promise<ChannelOpenResult<RunsChannelMessage>>} Initial state and exactly-once listener cleanup.
  * @internal
@@ -18,21 +21,31 @@ async function openRunsChannel({
 }: OpenRunsChannelOptions): Promise<ChannelOpenResult<RunsChannelMessage>> {
   const unsubscribers: Array<() => void> = [];
   let initializing = true;
+  const buffered: RunsChannelMessage[] = [];
+
   function cleanup(): void {
     for (const unsubscribe of unsubscribers.splice(0)) {
       unsubscribe();
     }
+    buffered.length = 0;
     channel.signal.removeEventListener("abort", cleanup);
   }
+
   channel.signal.addEventListener("abort", cleanup, { once: true });
+
   try {
-    if (!(await plugin.getRun(runId))) {
-      throw Object.assign(new Error(`Run not found: ${runId}`), {
-        code: "RUN_NOT_FOUND",
-      });
+    const saved = await getRunSnapshot(context, runId);
+
+    if (saved === undefined) {
+      throw runError({ code: RunErrorCode.RUN_NOT_FOUND, metadata: { runId } });
     }
+
+    channel.signal.throwIfAborted();
+
+    // Buffer notifications while loading history; execution never needs to become idle.
     for (const type of [
       "run_snapshot",
+      "run_agent_started",
       "run_message_stream",
       "run_message_output",
       "run_child",
@@ -40,10 +53,8 @@ async function openRunsChannel({
       "run_input_resolved",
       "run_step",
       "run_steer_queued",
-      "run_preparation_failed",
-      "run_preparation_cancelled",
+      "run_error",
     ] as const) {
-      channel.signal.throwIfAborted();
       const unsubscribe = await plugin.notifications.subscribe(
         type,
         runId,
@@ -52,54 +63,87 @@ async function openRunsChannel({
             notification.type === "run_snapshot"
               ? notification.snapshot.runId
               : notification.runId;
-          if (origin !== runId || initializing || channel.signal.aborted) {
+          if (origin !== runId || channel.signal.aborted) {
             return;
           }
           const message = runsChannelMessage(notification);
-          if (message) {
+
+          if (!initializing) {
             channel.send(message);
+            return;
+          }
+          // Current state and partial text are captured after the read; only retain other events.
+          switch (message.type) {
+            case "run.state":
+            case "agent.stream":
+            case "agent.started":
+            case "input.requested":
+            case "input.resolved":
+              break;
+            default:
+              buffered.push(message);
           }
         },
       );
+
       unsubscribers.push(unsubscribe);
-      if (channel.signal.aborted) {
-        cleanup();
-        channel.signal.throwIfAborted();
+      // A disconnect during registration must also release this newly acquired listener.
+      channel.signal.throwIfAborted();
+    }
+
+    let historyPage = await plugin.getHistory(runId, {
+      limit: history.limit,
+    });
+    channel.signal.throwIfAborted();
+
+    // Capture current state and partial output after the read, without another asynchronous gap.
+    const runtime = context.runs.get(runId);
+    const snapshot = runtime === undefined ? saved : runSnapshot(runtime);
+
+    // A switch can commit after the history page was read but before this snapshot.
+    for (const change of snapshot.strategyState?.changes ?? []) {
+      if (
+        change.revision > (saved.strategyState?.revision ?? 0) &&
+        !historyPage.entries.some(
+          (entry) => entry.messageId === change.messageId,
+        )
+      ) {
+        historyPage = {
+          ...historyPage,
+          entries: [...historyPage.entries, change],
+        };
       }
     }
-    while (true) {
-      channel.signal.throwIfAborted();
-      await Promise.all([...context.pendingWrites]);
-      const revision = context.revision;
-      const page = await plugin.getHistory(runId, {
-        limit: history?.limit ?? 25,
-      });
-      if (revision !== context.revision || context.pendingWrites.size) {
-        continue;
-      }
-      const snapshot = context.runs.get(runId)?.snapshot;
-      if (!snapshot) {
-        throw Object.assign(new Error(`Run not found: ${runId}`), {
-          code: "RUN_NOT_FOUND",
-        });
-      }
-      const pendingInputs = [...context.runs.get(runId)!.pendingInput].map(
-        ([inputId, pending]) => ({
-          runId,
-          inputId,
-          agentName: pending.agentName,
-          prompt: pending.prompt,
-        }),
-      );
-      channel.signal.throwIfAborted();
-      const represented = new Set(page.entries.map((entry) => entry.messageId));
-      for (const active of context.activeMessages.values()) {
-        if (
-          active.message.runId !== runId ||
-          represented.has(active.message.messageId)
-        ) {
-          continue;
-        }
+
+    const pendingInputs =
+      runtime === undefined
+        ? []
+        : [...runtime.pendingInput].map(([inputId, pending]) => ({
+            runId,
+            inputId,
+            agentName: pending.agentName,
+            prompt: pending.prompt,
+          }));
+
+    const represented = new Set(
+      historyPage.entries.map((entry) => entry.messageId),
+    );
+    const activeAgents = [...(runtime?.activeMessages.values() ?? [])]
+      .filter(
+        ({ message }) =>
+          runtime?.state.phase === "running" &&
+          runtime.state.strategy.agents[message.agentName]?.config?.model !==
+            undefined,
+      )
+      .map(({ message }) => ({
+        runId,
+        messageId: message.messageId,
+        agentName: message.agentName,
+        createdAt: message.createdAt,
+      }));
+
+    for (const active of runtime?.activeMessages.values() ?? []) {
+      if (!represented.has(active.message.messageId)) {
         for (const [
           contentIndex,
           content,
@@ -109,23 +153,62 @@ async function openRunsChannel({
             data: {
               runId,
               messageId: active.message.messageId,
-              agentName: active.message.agentName!,
+              agentName: active.message.agentName,
               createdAt: active.message.createdAt,
+              ...(active.message.model !== undefined
+                ? { model: active.message.model }
+                : {}),
+              ...(active.message.contextWindow !== undefined
+                ? { contextWindow: active.message.contextWindow }
+                : {}),
               contentIndex,
               content,
             },
           });
         }
       }
-      initializing = false;
-      return {
-        initial: {
-          type: "run.initial",
-          data: { snapshot, history: page, pendingInputs },
-        },
-        cleanup,
-      };
     }
+
+    // Deliver missing final messages and transient events; coalesce child references to their latest state.
+    const latestChildren = new Map<string, RunsChannelMessage>();
+    for (const message of buffered) {
+      if (message.type === "child.run") {
+        latestChildren.set(message.data.messageId, message);
+      }
+    }
+
+    for (const message of buffered.splice(0)) {
+      switch (message.type) {
+        case "agent.output":
+        case "user.input":
+          if (!represented.has(message.data.messageId)) {
+            channel.send(message);
+          }
+          break;
+        case "child.run":
+          if (latestChildren.get(message.data.messageId) === message) {
+            channel.send(message);
+          }
+          break;
+        default:
+          channel.send(message);
+      }
+    }
+
+    initializing = false;
+
+    return {
+      initial: {
+        type: "run.initial",
+        data: {
+          snapshot,
+          history: historyPage,
+          pendingInputs,
+          activeAgents,
+        },
+      },
+      cleanup,
+    };
   } catch (error) {
     cleanup();
     throw error;

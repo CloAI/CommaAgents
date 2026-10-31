@@ -1,4 +1,8 @@
-import { StoredRunSnapshotSchema } from "../../state/state.schemas";
+import { operationError, runError, RunErrorCode } from "../../errors";
+import {
+  runDirectory,
+  writeRunDocument,
+} from "../../state/storage/storage.utils";
 import {
   closeSync,
   existsSync,
@@ -6,12 +10,12 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
-  renameSync,
   statSync,
   readSync,
   writeSync,
 } from "node:fs";
 import { join } from "node:path";
+import { RunSnapshotSchema } from "../../state/state.schemas";
 import { RunHistoryEntrySchema } from "../../messages/messages.schemas";
 import type { RunHistoryEntry } from "../../messages";
 import type { RunHistoryStorage } from "../history.types";
@@ -30,7 +34,22 @@ export function createRunHistoryStorage(runsDir: string): RunHistoryStorage {
     operation: () => Result,
   ): Promise<Result> {
     const previous = queues.get(runId) ?? Promise.resolve();
-    const pending = previous.catch(() => undefined).then(operation);
+    const pending = previous
+      .catch(() => undefined)
+      .then(operation)
+      .catch((cause: unknown) => {
+        if (
+          cause instanceof Error &&
+          "code" in cause &&
+          (cause.code === RunErrorCode.INVALID_CURSOR ||
+            cause.code === RunErrorCode.INVALID_ARGUMENTS)
+        ) {
+          throw cause;
+        }
+        throw runError(
+          operationError(RunErrorCode.PERSISTENCE_ERROR, runId, cause),
+        );
+      });
     const tail = pending.then(
       () => undefined,
       () => undefined,
@@ -43,89 +62,61 @@ export function createRunHistoryStorage(runsDir: string): RunHistoryStorage {
     });
     return pending;
   }
+  const reserved = new Map<string, Set<string>>();
+  function reserve(runId: string, messageId: string): void {
+    const identities = reserved.get(runId) ?? new Set<string>();
+    const directory = join(runDirectory(runsDir, runId), "history");
+    if (
+      identities.has(messageId) ||
+      existsSync(join(directory, `${encodeURIComponent(messageId)}.json`))
+    ) {
+      return;
+    }
+    mkdirSync(directory, { recursive: true });
+    const descriptor = openSync(join(directory, "index.jsonl"), "a");
+    try {
+      writeSync(
+        descriptor,
+        `${JSON.stringify(messageId)}\n`,
+        undefined,
+        "utf8",
+      );
+      fsyncSync(descriptor);
+    } finally {
+      closeSync(descriptor);
+    }
+    identities.add(messageId);
+    reserved.set(runId, identities);
+  }
   return {
-    saveSnapshot(snapshot) {
-      return serialized(snapshot.runId, () => {
-        const directory = join(
-          runsDir,
-          "history",
-          encodeURIComponent(snapshot.runId),
-        );
-        mkdirSync(directory, { recursive: true });
-        const path = join(directory, "snapshot.json");
-        const temporary = `${path}.${crypto.randomUUID()}.tmp`;
-        const descriptor = openSync(temporary, "w");
-        try {
-          writeSync(
-            descriptor,
-            JSON.stringify(StoredRunSnapshotSchema.parse(snapshot)),
-            undefined,
-            "utf8",
-          );
-          fsyncSync(descriptor);
-        } finally {
-          closeSync(descriptor);
-        }
-        renameSync(temporary, path);
-      });
+    reserve(runId, messageId) {
+      return serialized(runId, () => reserve(runId, messageId));
     },
-    snapshot(runId) {
+    entry(runId, messageId) {
       return serialized(runId, () => {
         const path = join(
-          runsDir,
+          runDirectory(runsDir, runId),
           "history",
-          encodeURIComponent(runId),
-          "snapshot.json",
+          `${encodeURIComponent(messageId)}.json`,
         );
         return existsSync(path)
-          ? StoredRunSnapshotSchema.parse(
-              JSON.parse(readFileSync(path, "utf8")),
-            )
+          ? RunHistoryEntrySchema.parse(JSON.parse(readFileSync(path, "utf8")))
           : undefined;
       });
-    },
-    has(runId) {
-      return existsSync(
-        join(runsDir, "history", encodeURIComponent(runId), "index.jsonl"),
-      );
     },
     save(entry) {
       return serialized(entry.runId, () => {
         RunHistoryEntrySchema.parse(entry);
-        const directory = join(
-          runsDir,
-          "history",
-          encodeURIComponent(entry.runId),
+        const directory = join(runDirectory(runsDir, entry.runId), "history");
+        reserve(entry.runId, entry.messageId);
+        writeRunDocument(
+          join(directory, `${encodeURIComponent(entry.messageId)}.json`),
+          entry,
         );
-        mkdirSync(directory, { recursive: true });
-        const path = join(
-          directory,
-          `${encodeURIComponent(entry.messageId)}.json`,
-        );
-        const indexPath = join(directory, "index.jsonl");
-        const isNew = !existsSync(path);
-        const temporary = `${path}.${crypto.randomUUID()}.tmp`;
-        const descriptor = openSync(temporary, "w");
-        try {
-          writeSync(descriptor, JSON.stringify(entry), undefined, "utf8");
-          fsyncSync(descriptor);
-        } finally {
-          closeSync(descriptor);
-        }
-        renameSync(temporary, path);
-        if (isNew) {
-          const indexDescriptor = openSync(indexPath, "a");
-          try {
-            writeSync(
-              indexDescriptor,
-              `${JSON.stringify(entry.messageId)}\n`,
-              undefined,
-              "utf8",
-            );
-            fsyncSync(indexDescriptor);
-          } finally {
-            closeSync(indexDescriptor);
-          }
+        const identities = reserved.get(entry.runId);
+        identities?.delete(entry.messageId);
+        if (identities?.size === 0) {
+          reserved.delete(entry.runId);
         }
       });
     },
@@ -135,16 +126,13 @@ export function createRunHistoryStorage(runsDir: string): RunHistoryStorage {
           options.limit !== undefined &&
           (!Number.isSafeInteger(options.limit) || options.limit < 1)
         ) {
-          throw Object.assign(
-            new Error("History limit must be a positive integer"),
-            { code: "INVALID_ARGUMENTS" },
-          );
+          throw runError({ code: RunErrorCode.INVALID_ARGUMENTS });
         }
-        const directory = join(runsDir, "history", encodeURIComponent(runId));
+        const directory = join(runDirectory(runsDir, runId), "history");
         const indexPath = join(directory, "index.jsonl");
         const size = existsSync(indexPath) ? statSync(indexPath).size : 0;
         const before = historyBoundary(options.before, runId, size);
-        if (!size) {
+        if (size === 0) {
           return { entries: [], page: { hasMore: false } };
         }
         if (before > 0 && before < size) {
@@ -153,33 +141,32 @@ export function createRunHistoryStorage(runsDir: string): RunHistoryStorage {
             const boundary = Buffer.alloc(1);
             readSync(descriptor, boundary, 0, 1, before - 1);
             if (boundary[0] !== 10) {
-              throw Object.assign(
-                new Error("Invalid history cursor boundary"),
-                { code: "INVALID_CURSOR" },
-              );
+              throw runError({ code: RunErrorCode.INVALID_CURSOR });
             }
           } finally {
             closeSync(descriptor);
           }
         }
+        const metadataPath = join(runDirectory(runsDir, runId), "run.json");
+        const changes = existsSync(metadataPath)
+          ? (RunSnapshotSchema.parse(
+              JSON.parse(readFileSync(metadataPath, "utf8")),
+            ).strategyState?.changes ?? [])
+          : [];
         const entries: RunHistoryEntry[] = [];
         let oldestPosition = before;
         let hasMore = false;
         for (const indexed of readHistoryIndex(indexPath, before)) {
-          const entry = RunHistoryEntrySchema.parse(
-            JSON.parse(
-              readFileSync(
-                join(
-                  directory,
-                  `${encodeURIComponent(indexed.messageId)}.json`,
-                ),
-                "utf8",
-              ),
-            ),
+          const entryPath = join(
+            directory,
+            `${encodeURIComponent(indexed.messageId)}.json`,
           );
-          if (entry.type === "message" && entry.status === "streaming") {
-            continue;
-          }
+          const entry = existsSync(entryPath)
+            ? RunHistoryEntrySchema.parse(
+                JSON.parse(readFileSync(entryPath, "utf8")),
+              )
+            : changes.find((change) => change.messageId === indexed.messageId);
+          if (entry === undefined) continue;
           if (options.limit !== undefined && entries.length === options.limit) {
             hasMore = true;
             break;

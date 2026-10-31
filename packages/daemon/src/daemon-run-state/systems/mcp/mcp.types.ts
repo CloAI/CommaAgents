@@ -3,7 +3,7 @@ import type {
   McpConnectionManager,
   McpServerEntry,
   McpServerSource,
-} from "@comma-agents/core";
+} from "@comma-agents/core/mcp";
 import type { RunRepository } from "../../run-repository";
 
 /** MCP server state exposed by run preparation and management protocol messages. */

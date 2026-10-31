@@ -2,6 +2,21 @@
   "name": "@comma-agents/daemon",
   "version": "2.0.0-rc.1",
   "description": "Agent daemon that executes flows and exposes a WebSocket API",
+  "license": "MIT",
+  "author": "CloAI",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CloAI/CommaAgents.git",
+    "directory": "packages/daemon"
+  },
+  "bin": {
+    "comma-agents-daemon": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,11 +24,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./protocol": {
+      "types": "./dist/daemon-server/protocol.d.ts",
+      "import": "./dist/protocol.js"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
-  "bin": {
-    "comma-agents-daemon": "dist/cli.js"
+  "publishConfig": {
+    "access": "public",
+    "tag": "next"
   },
   "scripts": {
     "start": "bun run src/cli.ts start --foreground",
@@ -39,16 +58,5 @@
   },
   "engines": {
     "bun": ">=1.3.0"
-  },
-  "publishConfig": {
-    "access": "public",
-    "tag": "next"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/CloAI/CommaAgents.git",
-    "directory": "packages/daemon"
-  },
-  "author": "CloAI",
-  "license": "MIT"
+  }
 }

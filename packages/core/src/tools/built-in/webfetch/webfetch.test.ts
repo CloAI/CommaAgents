@@ -92,6 +92,22 @@ describe("createWebFetchTool", () => {
     expect(result.output).toContain("[Content truncated");
   });
 
+  it("should continue from the offset given in the truncation notice", async () => {
+    const tool = createWebFetchTool({ maxContentLength: 200 });
+    const first = await tool.execute(
+      { url: `${baseUrl}/large`, format: "text" },
+      toolContext,
+    );
+    const nextOffset = first.metadata?.nextOffset;
+    expect(nextOffset).toBe(200);
+    expect(first.output).toContain("offset=200");
+    const second = await tool.execute(
+      { url: `${baseUrl}/large`, format: "text", offset: 200 },
+      toolContext,
+    );
+    expect(second.metadata?.offset).toBe(200);
+  });
+
   it("should include HTTP status header for non-OK responses", async () => {
     const tool = createWebFetchTool();
     const result = await tool.execute(

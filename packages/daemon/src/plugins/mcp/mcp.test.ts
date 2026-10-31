@@ -1,3 +1,4 @@
+import { RunPhase, RunOutcomeStatus } from "../runs/state/state.schemas";
 import { afterEach, describe, expect } from "bun:test";
 import { test, spyOn } from "bun:test";
 import { readFile, writeFile } from "node:fs/promises";
@@ -24,7 +25,13 @@ describe("MCP plugin", () => {
       toolsByRun,
       managers,
     } = fixture;
-    await runs.prepareRun({ runId: "root", strategyPath, cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath,
+        cwd,
+      },
+    });
     expect([...configurations[0]!.servers.keys()].sort()).toEqual([
       "disabled",
       "private",
@@ -77,7 +84,13 @@ describe("MCP plugin", () => {
     );
     expect(managerFactory).not.toHaveBeenCalled();
     await runRepository.saveRunConfig("root", { enabledMcpServerIds: [] });
-    await runs.prepareRun({ runId: "root", strategyPath, cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath,
+        cwd,
+      },
+    });
     expect(configurations[0]!.enabledServerIds).toEqual([]);
     expect(
       Object.keys((await mcp.listServers({ runId: "root" }))[0]!),
@@ -120,7 +133,13 @@ describe("MCP plugin", () => {
       toolsByRun,
       runRepository,
     } = await createMcpFixture();
-    await runs.prepareRun({ runId: "root", strategyPath, cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath,
+        cwd,
+      },
+    });
     const tools = toolsByRun.get("root");
     await Promise.all([
       mcp.updateServer({
@@ -223,8 +242,14 @@ describe("MCP plugin", () => {
       }),
     );
     await expect(
-      runs.prepareRun({ runId: "unknown", strategyPath, cwd }),
-    ).rejects.toThrow("references unknown MCP server");
+      runs.prepareRun({
+        runId: "unknown",
+        configuration: {
+          strategyPath,
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     expect(managerFactory).not.toHaveBeenCalled();
     await writeFile(strategyPath, JSON.stringify(strategy));
     runs.registerRunPreparation({
@@ -234,8 +259,14 @@ describe("MCP plugin", () => {
       },
     });
     await expect(
-      runs.prepareRun({ runId: "root", strategyPath, cwd }),
-    ).rejects.toThrow("provider failed");
+      runs.prepareRun({
+        runId: "root",
+        configuration: {
+          strategyPath,
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     expect(managers[0]!.close).toHaveBeenCalledTimes(1);
     await runs.dispose();
     await mcp.dispose();
@@ -252,7 +283,13 @@ describe("MCP plugin", () => {
         notifications.push(event);
       },
     );
-    await runs.prepareRun({ runId: "root", strategyPath, cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath,
+        cwd,
+      },
+    });
     const replayed: McpServersUpdated[] = [];
     await mcp.notifications.subscribe(
       "run_mcp_servers_updated",
@@ -264,7 +301,7 @@ describe("MCP plugin", () => {
     expect(replayed).toHaveLength(1);
     expect(replayed[0]!.servers.some((server) => server.connected)).toBe(true);
     expect((await runs.startRun("root", "child").completion).status).toBe(
-      "completed",
+      RunOutcomeStatus.completed,
     );
     expect(managers).toHaveLength(2);
     const child = notifications.find((event) => event.parentRunId === "root");
@@ -293,11 +330,20 @@ describe("MCP plugin", () => {
       await gate.promise;
       return originalFactory(options);
     });
-    const prepared = runs.prepareRun({ runId: "root", strategyPath, cwd });
+    const prepared = runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath,
+        cwd,
+      },
+    });
     await entered.promise;
     const stopped = runs.stopRun("root");
     gate.resolve();
-    expect((await prepared).phase).toBe("cancelled");
+    expect(await prepared).toMatchObject({
+      phase: "terminal",
+      outcome: { status: "stopped" },
+    });
     await stopped;
     expect(managers[0]!.close).toHaveBeenCalledTimes(1);
     await mcp.dispose();
@@ -314,13 +360,19 @@ describe("MCP plugin", () => {
       await gate.promise;
       return originalFactory(options);
     });
-    const prepared = runs.prepareRun({ runId: "root", strategyPath, cwd });
+    const prepared = runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath,
+        cwd,
+      },
+    });
     await entered.promise;
     const disposal = mcp.dispose();
     expect(mcp.dispose()).toBe(disposal);
     await Promise.resolve();
     gate.resolve();
-    await expect(prepared).rejects.toThrow("stopped");
+    await expect(prepared).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     await disposal;
     expect(managers[0]!.close).toHaveBeenCalledTimes(1);
     await expect(mcp.listServers({ runId: "root" })).rejects.toThrow(
@@ -344,8 +396,14 @@ describe("MCP plugin", () => {
       return manager;
     });
     await expect(
-      runs.prepareRun({ runId: "root", strategyPath, cwd }),
-    ).rejects.toThrow("tool mapping failed");
+      runs.prepareRun({
+        runId: "root",
+        configuration: {
+          strategyPath,
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     expect(managers[0]!.close).toHaveBeenCalledTimes(1);
     await mcp.dispose();
   });
@@ -375,8 +433,16 @@ describe("MCP plugin", () => {
       };
     });
     expect(
-      (await runs.prepareRun({ runId: "root", strategyPath, cwd })).phase,
-    ).toBe("prepared");
+      (
+        await runs.prepareRun({
+          runId: "root",
+          configuration: {
+            strategyPath,
+            cwd,
+          },
+        })
+      ).phase,
+    ).toBe(RunPhase.prepared);
     expect(
       (await mcp.listServers({ runId: "root" })).find(
         (server) => server.id === "shared",

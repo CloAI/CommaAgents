@@ -1,0 +1,95 @@
+.codeBlock {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-chat);
+  line-height: var(--line-height-code);
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 0 var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-muted);
+  }
+
+  .language {
+    font-size: var(--font-size-small);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .copy {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 0 var(--space-1);
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: inherit;
+    font-size: var(--font-size-small);
+    cursor: pointer;
+    transition: color var(--motion-duration);
+
+    &:hover {
+      color: var(--color-text);
+    }
+  }
+
+  .body {
+    margin: 0;
+    padding: var(--space-2);
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+    color: var(--color-text);
+    font: inherit;
+
+    :global(code) {
+      font: inherit;
+    }
+    :global(.hljs-comment),
+    :global(.hljs-quote) {
+      color: var(--syntax-comment);
+      font-style: italic;
+    }
+    :global(.hljs-keyword),
+    :global(.hljs-selector-tag),
+    :global(.hljs-doctag) {
+      color: var(--syntax-keyword);
+    }
+    :global(.hljs-string),
+    :global(.hljs-regexp),
+    :global(.hljs-addition) {
+      color: var(--syntax-string);
+    }
+    :global(.hljs-number),
+    :global(.hljs-literal),
+    :global(.hljs-symbol) {
+      color: var(--syntax-number);
+    }
+    :global(.hljs-title),
+    :global(.hljs-section),
+    :global(.hljs-built_in) {
+      color: var(--syntax-function);
+    }
+    :global(.hljs-attr),
+    :global(.hljs-attribute),
+    :global(.hljs-variable),
+    :global(.hljs-property) {
+      color: var(--syntax-attribute);
+    }
+    :global(.hljs-type),
+    :global(.hljs-class) {
+      color: var(--syntax-type);
+    }
+    :global(.hljs-deletion) {
+      color: var(--color-error);
+    }
+  }
+}

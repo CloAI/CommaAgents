@@ -1,18 +1,48 @@
 {
   "name": "@comma/core-strategies",
-  "version": "1.0.0",
-  "description": "Official Build, Plan, QA, maintenance, and conversation strategies for CommaAgents.",
+  "version": "2.0.0",
+  "description": "Official Build, Plan, and Chat harnesses for CommaAgents, with their subagents, plus legacy QA, maintenance, and conversation strategies.",
   "license": "MIT",
   "strategies": {
     "build": {
       "path": "build/build.json",
       "expose": true,
-      "description": "Plan, implement, and verify a requested code change."
+      "description": "Implement code changes, verify them, and hand back to you after each turn."
     },
     "plan": {
       "path": "plan/plan.json",
       "expose": true,
-      "description": "Investigate a task and produce a reviewed implementation plan."
+      "description": "Explore the codebase, settle decisions with you, and produce a decision-complete plan for Build."
+    },
+    "chat": {
+      "path": "chat/chat.json",
+      "expose": true,
+      "description": "Talk things through, with codebase and web research handled by subagents."
+    },
+    "explore": {
+      "path": "subagents/explore/explore.json",
+      "expose": false,
+      "description": "Subagent: read-only codebase search."
+    },
+    "verify": {
+      "path": "subagents/verify/verify.json",
+      "expose": false,
+      "description": "Subagent: independent review of a finished change."
+    },
+    "plan-critic": {
+      "path": "subagents/plan-critic/plan-critic.json",
+      "expose": false,
+      "description": "Subagent: checks a plan against the codebase."
+    },
+    "research": {
+      "path": "subagents/research/research.json",
+      "expose": false,
+      "description": "Subagent: web research lead."
+    },
+    "research-worker": {
+      "path": "subagents/research-worker/research-worker.json",
+      "expose": false,
+      "description": "Subagent: establishes one fact from the web."
     },
     "qa": {
       "path": "qa.json",

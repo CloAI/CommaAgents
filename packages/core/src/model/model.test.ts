@@ -106,7 +106,7 @@ describe("listProviders", () => {
     const providers = await listProviders(store);
     const custom = providers.find((provider) => provider.id === "my-custom");
     expect(custom).toBeDefined();
-    expect(custom?.isCustom).toBe(true);
+    expect(custom?.origin).toBe("registered");
     expect(custom?.models).toEqual([]);
   });
 
@@ -118,7 +118,7 @@ describe("listProviders", () => {
     const providers = await listProviders(store);
     const openai = providers.find((provider) => provider.id === "openai");
     expect(openai?.models.length).toBeGreaterThan(0);
-    expect(openai?.modelsSource).toBe("catalog");
+    expect(openai?.discovery.status).toBe("catalog_only");
     const modelIds = openai?.models.map((model) => model.id) ?? [];
     expect(modelIds.length).toBeGreaterThan(0);
     // Every model should have a string id
@@ -140,9 +140,9 @@ describe("getProviderInfo", () => {
     const info = await getProviderInfo("anthropic", store);
     expect(info.id).toBe("anthropic");
     expect(info.authStatus).toBe("configured");
-    expect(info.isCustom).toBe(false);
+    expect(info.origin).toBe("builtin");
     expect(info.models.length).toBeGreaterThan(0);
-    expect(info.modelsSource).toBe("catalog");
+    expect(info.discovery.status).toBe("catalog_only");
   });
 
   test("uses catalog display name when available", async () => {
@@ -199,8 +199,8 @@ describe("getModelMetadata", () => {
     const info = getModelMetadata("gpt-4o");
     expect(info).toBeDefined();
     expect(info?.id).toBe("gpt-4o");
-    expect(info?.capabilities).toBeDefined();
-    expect(info?.contextWindow).toBeGreaterThan(0);
+    expect(info?.metadata.capabilities).toBeDefined();
+    expect(info?.metadata.contextWindow).toBeGreaterThan(0);
   });
 });
 

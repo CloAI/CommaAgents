@@ -87,11 +87,24 @@ export async function loadCatalog(options?: {
     const fetchedAt = Date.now();
     writeCache(cachePath, { fetchedAt, data: networkData });
     loadedCatalog = { data: networkData, source: "network", fetchedAt };
+    reverseModelIndex = undefined;
     return networkData;
   }
 
+  if (loadedCatalog) return loadedCatalog.data;
+  const cached = readCache(cachePath);
+  if (cached) {
+    loadedCatalog = {
+      data: cached.data,
+      source: "cache",
+      fetchedAt: cached.fetchedAt,
+    };
+    reverseModelIndex = undefined;
+    return cached.data;
+  }
   const fallback = bundledSnapshot as CatalogData;
   loadedCatalog = { data: fallback, source: "bundled" };
+  reverseModelIndex = undefined;
   return fallback;
 }
 

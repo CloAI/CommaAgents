@@ -1,1 +1,1 @@
-export { persistRunSnapshot } from "./persistence";
+export { persistRunWrite } from "./persistence";

@@ -25,9 +25,16 @@ import type { McpToolOrigin } from "../../mcp";
 import type { PromptTemplate, TemplateVariables } from "../../prompts";
 import type { Sandbox } from "../../sandbox/sandbox.types";
 import type { SkillRegistry } from "../../skills/skills.types";
+import type { SubagentTarget } from "../../tools/built-in/delegate/delegate.types";
+import type { StrategySwitchHandle } from "../../tools/built-in/request-strategy-switch/request-strategy-switch.types";
 import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
 import type { QuestionRequester } from "../../tools/tool.types";
 import type { InputCollector } from "../built-in/user/user-agent.types";
+import type {
+  PrivacyRequirements,
+  PrivacyRuntime,
+  PrivacyReport,
+} from "../../model/privacy";
 
 /**
  * Provider-independent generation settings for an agent.
@@ -62,6 +69,8 @@ export type AgentOutputSchema = FlexibleSchema<unknown>;
  * ```
  */
 export interface AgentRuntime {
+  /** Trusted runtime used to enforce protected model inference. */
+  readonly privacyRuntime?: PrivacyRuntime;
   /** Current invocation identity supplied to tools by the agent. */
   readonly messageId?: string;
   /** Access controls applied to tools invoked by this agent. */
@@ -80,10 +89,16 @@ export interface AgentRuntime {
   readonly questionRequester?: QuestionRequester;
   /** Connected MCP tools available to this agent for the current run. */
   readonly mcpTools?: Readonly<ToolSet>;
+  /** Subagent strategies this agent may use through the `delegate` tool. */
+  readonly subagents?: readonly SubagentTarget[];
+  /** Runtime handle that queues a user-approved strategy switch for this conversation. */
+  readonly requestStrategySwitch?: StrategySwitchHandle;
 }
 
 /** Configuration for creating a model-backed agent or a custom executable agent. */
 export interface AgentConfig {
+  /** Required inference protections, also inherited by automatic summarization. */
+  readonly privacy?: PrivacyRequirements;
   /** Unique name for this agent. */
   readonly name: string;
   /**
@@ -161,7 +176,7 @@ export interface AgentConfig {
   /**
    * Maximum number of LLM round-trips (steps) per call.
    * Each tool-call + response counts as one step.
-   * @default 10
+   * @default 100
    */
   readonly maxSteps?: number;
   /**
@@ -241,6 +256,17 @@ export interface Agent {
    * Returns an AbortablePromise — call `.abort()` to cancel the in-flight operation.
    */
   call(message: string): AbortablePromise<AgentCallResult>;
+
+  /**
+   * Interrupt the selected active response and resume the same agent with a correction.
+   * Returns false for a stale identity, empty correction, or a non-model agent.
+   * The optional callback saves accepted input before the agent resumes; write failures fail the call.
+   */
+  steer?(
+    messageId: string,
+    text: string,
+    beforeResume?: () => Promise<void>,
+  ): boolean;
 
   // -- Optional LLM-specific fields (present on createAgent results) --
 
@@ -325,6 +351,8 @@ export interface AgentCallFailure extends AgentCallIdentity {
  * ```
  */
 export interface AgentCallResult {
+  /** Content-free verification reports from every model request in this invocation. */
+  readonly privacyReports?: readonly PrivacyReport[];
   /** Conversation-record identity, when supplied by the agent implementation. */
   readonly messageId?: string;
   /** Invocation start time, when supplied by the agent implementation. */
@@ -396,6 +424,10 @@ export type AgentStreamEvent = Partial<AgentCallIdentity> &
         readonly output: string;
         /** Outcome of the tool invocation. */
         readonly status: ToolCallStatus;
+        /** User steering requested cancellation of this running tool. */
+        readonly cancellationRequestedBy?: "user_steering";
+        /** The tool stopped because of user steering. */
+        readonly cancellationReason?: "user_steering";
         /** Failure message when `status === "error"`. */
         readonly error?: string;
         /** MCP origin when this is a namespaced MCP tool. */
@@ -436,4 +468,22 @@ export interface BuildCallOptionsResult {
   readonly callOptions: CallOptions;
   /** Retention events emitted while preparing conversation context. */
   readonly retentionEvents: readonly ConversationRetentionEvent[];
+}
+
+/** One queued correction and the durable write that must precede resumption. @internal */
+export interface PendingAgentSteering {
+  /** Correction supplied by the user. */
+  readonly text: string;
+  /** Accepted input must be durable before resumption. */
+  readonly persisted: Promise<void>;
+}
+
+/** A model generation segment that can be interrupted independently of its flow. @internal */
+export interface ActiveAgentGeneration {
+  /** Cancellation of this response, independent of the owning call. */
+  readonly controller: AbortController;
+  /** Corrections in acceptance order. */
+  readonly steering: PendingAgentSteering[];
+  /** Whether this identity still accepts corrections. */
+  accepting: boolean;
 }

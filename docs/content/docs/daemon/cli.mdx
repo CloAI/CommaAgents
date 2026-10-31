@@ -47,6 +47,16 @@ comma-agents-daemon start --port 9090
 comma-agents-daemon start --foreground --verbose
 ```
 
+The CLI starts the plugin kernel and exposes its commands and channels over the [plugin server](/docs/daemon/server/plugin-server) WebSocket at `/ws`. Background startup waits for the launched daemon to publish its PID after the listener starts and verifies that process is still running. Configuration flags, environment variables, and configuration-file precedence remain the same.
+
+For repository debugging, run the shared foreground runtime with:
+
+```bash
+bun run scripts/debug-daemon.ts
+```
+
+Both entry points write the configured PID file and release it on shutdown.
+
 If the daemon is already running, `start` exits with an error message and exit code 1.
 
 ## restart

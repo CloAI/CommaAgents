@@ -3,6 +3,7 @@
   "pages": [
     "cli",
     "daemon",
+    "core-plugin",
     "sandbox-plugin",
     "questions-plugin",
     "skills-plugin",

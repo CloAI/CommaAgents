@@ -1,0 +1,9 @@
+.addButton {
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+}
+.workflowModal {
+  max-width: 32rem;
+  max-height: calc(100svh - 24px);
+  min-height: 0;
+}

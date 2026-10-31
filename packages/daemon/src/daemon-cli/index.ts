@@ -15,13 +15,11 @@ export type {
   DaemonProcessStartResult,
   DaemonProcessStatus,
   DaemonProcessStopResult,
-  DaemonProcessWaitOptions,
 } from "./process";
 export {
   getDaemonProcessStatus,
   restartDaemonProcess,
   startDaemonProcess,
   stopDaemonProcess,
-  waitForDaemonProcessReady,
 } from "./process";
 export { startDaemonRuntime } from "./runtime";

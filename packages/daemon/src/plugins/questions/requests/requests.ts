@@ -16,6 +16,11 @@ function removeQuestion(
   }
   context.pending.delete(requestId);
   pending.detachAbort();
+  context.notifications.notify(pending.request.runId, {
+    type: "run_question_resolved",
+    runId: pending.request.runId,
+    requestId,
+  });
   return pending;
 }
 

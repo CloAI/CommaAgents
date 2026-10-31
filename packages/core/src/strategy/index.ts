@@ -14,6 +14,8 @@ export {
   readStrategyFile,
   resolveInstalledStrategyReference,
 } from "./discover/index";
+// Model roles referenced by agent definitions
+export { resolveModelReference } from "../model/roles";
 // Factories
 export { exportStrategy } from "./exporter/exporter";
 // Config types
@@ -47,6 +49,7 @@ export type {
 export {
   CustomAgentDefSchema,
   CustomFlowDefSchema,
+  FlowDefSchema,
   isAgentStep,
   isCustomAgentDef,
   isFlowDef,

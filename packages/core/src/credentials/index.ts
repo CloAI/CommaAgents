@@ -17,6 +17,7 @@ export type {
   CreateCredentialStoreOptions,
   CredentialBackend,
   CredentialStore,
+  CredentialSource,
   CredentialStoreData,
   EnvVarMap,
 } from "./credentials.types";

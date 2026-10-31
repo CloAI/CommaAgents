@@ -9,6 +9,8 @@ export interface BindingError {
   readonly code: string;
   /** Human-readable error description. */
   readonly message: string;
+  /** Structured domain context, when supplied by a binding. */
+  readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
 /** Plugin-defined message; the server adds correlation and timestamp metadata. */
@@ -53,9 +55,10 @@ export interface CommandDefinition<
   Context,
   Arguments extends BindingSchema,
   Output extends BindingSchema,
+  Name extends string = string,
 > {
   /** Command name used in incoming requests. */
-  readonly name: string;
+  readonly name: Name;
   /** Incoming argument validation. */
   readonly arguments: Arguments;
   /** Outgoing result validation. */
@@ -75,9 +78,10 @@ export interface ChannelDefinition<
   Context,
   Arguments extends BindingSchema,
   Message extends BindingSchema,
+  Name extends string = string,
 > {
   /** Channel name used in subscription requests. */
-  readonly name: string;
+  readonly name: Name;
   /** Incoming subscription argument validation. */
   readonly arguments: Arguments;
   /** Validation shared by initial and live messages. */
@@ -142,3 +146,49 @@ export interface PluginServer {
     ) => Promise<void | ChannelOpenResult<ChannelMessage>>;
   }[];
 }
+
+/** Validated command retaining its public argument and result schemas. */
+export type TypedPluginCommand<
+  Owner,
+  Context,
+  Name extends string,
+  Arguments extends BindingSchema,
+  Output extends BindingSchema,
+> = Omit<PluginCommand<Owner, Context>, "name" | "arguments"> & {
+  /** Exact wire command name. */
+  readonly name: Name;
+  /** Incoming arguments before defaults and transforms. */
+  readonly arguments: Arguments;
+  /** Result schema after command execution. */
+  readonly output: Output;
+};
+
+/** Validated channel retaining its public argument and message schemas. */
+export type TypedPluginChannel<
+  Owner,
+  Context,
+  Name extends string,
+  Arguments extends BindingSchema,
+  Message extends BindingSchema,
+> = Omit<PluginChannel<Owner, Context>, "name" | "arguments"> & {
+  /** Exact wire channel name. */
+  readonly name: Name;
+  /** Incoming arguments before defaults and transforms. */
+  readonly arguments: Arguments;
+  /** Schema shared by initial and live domain messages. */
+  readonly message: Message;
+};
+
+/** Bound transport definitions preserving each binding's name and schemas. */
+export type BoundPluginServer<Definitions> = {
+  readonly [
+    Section in keyof Definitions
+  ]: Definitions[Section] extends readonly (infer Binding)[]
+    ? readonly (Binding extends unknown
+        ? Omit<Binding, "invoke" | "open"> &
+            (Section extends "commands"
+              ? NonNullable<PluginServer["commands"]>[number]
+              : NonNullable<PluginServer["channels"]>[number])
+        : never)[]
+    : never;
+};

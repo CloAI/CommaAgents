@@ -1,0 +1,25 @@
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: var(--space-1);
+  background: transparent;
+  color: var(--color-muted);
+  &:hover:not(:disabled) {
+    background: var(--color-surface-raised);
+    color: var(--color-primary);
+  }
+  &:active:not(:disabled) {
+    border-color: var(--color-border);
+  }
+}
+.icon {
+  display: inline-flex;
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}

@@ -19,11 +19,7 @@ export const resolveInputCommand = defineCommand({
     RunsContext,
     z.output<typeof ResolveInputArgumentsSchema>
   >) {
-    if (!(await plugin.resolveInput(runId, inputId, text))) {
-      throw Object.assign(new Error("Input request is no longer pending"), {
-        code: "INPUT_NOT_FOUND",
-      });
-    }
+    await plugin.resolveInput(runId, inputId, text);
     return null;
   },
 });

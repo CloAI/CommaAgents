@@ -8,8 +8,16 @@
 // TODO: KeychainBackend — use the OS keychain (macOS Keychain, GNOME Keyring,
 //       Windows Credential Locker) via a native binding or CLI.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname } from "node:path";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { CredentialSchema } from "../credentials.schema";
 import type {
@@ -39,9 +47,11 @@ export interface JsonFileBackendOptions {
  * - Creates parent directories on first write.
  * - Sets file permissions to 0o600 (owner read/write only).
  * - Returns empty data when the file doesn't exist.
- * - Returns empty data when the file contains invalid JSON or fails
- *   schema validation (logs a warning but doesn't throw).
+ * - Rejects unreadable, empty, malformed, or invalid files with a safe storage error.
+ *   Callers must repair the file before attempting credential mutations.
  *
+ * @param {JsonFileBackendOptions} options - Credential file location.
+ * @returns {CredentialBackend} A JSON backend that rejects invalid storage without exposing secrets.
  * @example
  * ```ts
  * const backend = createJsonFileCredentialBackend({ filePath: "/home/user/.comma/credentials.json" });
@@ -55,53 +65,69 @@ export function createJsonFileCredentialBackend(
 
   return {
     async readAll(): Promise<CredentialStoreData> {
-      if (!existsSync(filePath)) {
-        return {};
-      }
-
       let raw: string;
       try {
         raw = readFileSync(filePath, "utf-8");
-      } catch {
-        // File exists but can't be read (permissions, race condition, etc.)
-        return {};
-      }
-
-      // Empty file → empty data
-      if (raw.trim() === "") {
-        return {};
+      } catch (readError) {
+        if (
+          readError instanceof Error &&
+          "code" in readError &&
+          readError.code === "ENOENT"
+        ) {
+          return {};
+        }
+        throw Object.assign(new Error("Unable to read credential storage."), {
+          code: "CREDENTIAL_STORAGE_ERROR",
+        });
       }
 
       let json: unknown;
       try {
         json = JSON.parse(raw);
       } catch {
-        // Corrupt JSON — return empty rather than crash.
-        // The next writeAll() will overwrite with valid data.
-        return {};
+        throw Object.assign(
+          new Error("Credential storage contains invalid data."),
+          {
+            code: "CREDENTIAL_STORAGE_ERROR",
+          },
+        );
       }
 
       const result = CredentialFileSchema.safeParse(json);
       if (!result.success) {
-        // Schema mismatch — return empty. Data will be overwritten on next set().
-        return {};
+        throw Object.assign(
+          new Error("Credential storage contains invalid data."),
+          {
+            code: "CREDENTIAL_STORAGE_ERROR",
+          },
+        );
       }
 
       return result.data;
     },
 
     async writeAll(data: CredentialStoreData): Promise<void> {
-      // Validate before writing (defense in depth).
-      CredentialFileSchema.parse(data);
-
-      // Ensure parent directory exists.
-      const dir = dirname(filePath);
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
+      try {
+        // Never forward validation or filesystem errors containing secret values or paths.
+        CredentialFileSchema.parse(data);
+        mkdirSync(dirname(filePath), { recursive: true });
+        const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
+        try {
+          writeFileSync(temporaryPath, JSON.stringify(data, null, 2), {
+            encoding: "utf-8",
+            mode: 0o600,
+            flag: "wx",
+          });
+          chmodSync(temporaryPath, 0o600);
+          renameSync(temporaryPath, filePath);
+        } finally {
+          rmSync(temporaryPath, { force: true });
+        }
+      } catch {
+        throw Object.assign(new Error("Unable to write credential storage."), {
+          code: "CREDENTIAL_STORAGE_ERROR",
+        });
       }
-
-      const json = JSON.stringify(data, null, 2);
-      writeFileSync(filePath, json, { encoding: "utf-8", mode: 0o600 });
     },
   };
 }

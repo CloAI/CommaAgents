@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 interface PublicPackageConfig {
   readonly directory: "core" | "daemon" | "tui";
   readonly entrypoints: ReadonlyArray<string>;
+  readonly browserEntrypoints?: ReadonlyArray<string>;
 }
 
 const PACKAGE_CONFIGS: ReadonlyArray<PublicPackageConfig> = [
@@ -14,12 +15,17 @@ const PACKAGE_CONFIGS: ReadonlyArray<PublicPackageConfig> = [
       "src/hub/index.ts",
       "src/sandbox/index.ts",
       "src/strategy/index.ts",
+      "src/conversation-context/index.ts",
       "src/skills/index.ts",
       "src/mcp/index.ts",
       "src/language/index.ts",
     ],
   },
-  { directory: "daemon", entrypoints: ["src/index.ts", "src/cli.ts"] },
+  {
+    directory: "daemon",
+    entrypoints: ["src/index.ts", "src/cli.ts"],
+    browserEntrypoints: ["src/daemon-server/protocol.ts"],
+  },
   { directory: "tui", entrypoints: ["src/index.ts", "src/main.tsx"] },
 ];
 
@@ -77,6 +83,24 @@ if (!buildResult.success) {
     buildResult.logs,
     `Failed to build @comma-agents/${packageConfig.directory}`,
   );
+}
+
+if (packageConfig.browserEntrypoints) {
+  const browserBuildResult = await Bun.build({
+    entrypoints: packageConfig.browserEntrypoints.map((entrypoint) =>
+      join(packageDirectory, entrypoint),
+    ),
+    outdir: join(packageDirectory, "dist"),
+    naming: "[name].js",
+    target: "browser",
+    external: externalDependencies,
+  });
+  if (!browserBuildResult.success) {
+    throw new AggregateError(
+      browserBuildResult.logs,
+      `Failed to build browser exports for @comma-agents/${packageConfig.directory}`,
+    );
+  }
 }
 
 if (packageConfig.directory === "daemon") {

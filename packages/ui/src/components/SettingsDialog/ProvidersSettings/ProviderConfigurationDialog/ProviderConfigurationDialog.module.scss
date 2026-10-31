@@ -1,0 +1,100 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-width: 0;
+  font-size: var(--font-size-small);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.secondaryActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-right: auto;
+}
+.notice,
+.error,
+.message {
+  margin: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.notice {
+  color: var(--color-muted);
+}
+.error {
+  color: var(--color-error);
+}
+.danger {
+  color: var(--color-error);
+  border-color: var(--color-border);
+  background: transparent;
+}
+.select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font: inherit;
+}
+.identity {
+  color: var(--color-muted);
+}
+
+.manualModels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0;
+  margin: var(--space-1) 0 0;
+  list-style: none;
+}
+.manualModel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  code {
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+}
+
+.authenticationMethods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+
+  button[aria-pressed="false"] {
+    color: var(--color-text);
+    background: var(--color-surface-raised);
+    border-color: var(--color-border);
+  }
+}
+.subscription {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+
+  a {
+    color: var(--color-primary);
+  }
+}

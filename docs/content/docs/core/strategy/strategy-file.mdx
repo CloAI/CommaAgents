@@ -73,6 +73,65 @@ agents:
 
 `outputSchema` accepts a JSON Schema object for [Structured Output](/docs/core/agents/create-agent/structured-output). `context` controls rolling-window and compaction behavior described in [Conversation Context](/docs/core/agents/create-agent/conversation-context).
 
+### Model roles
+
+An agent's `model` can name a role instead of a model, such as `@primary` or `@fast`. The strategy's top-level `modelRoles` gives each role a default, and the daemon's `modelRoles` setting overrides it for every strategy. A role with no model falls back along `compaction` → `fast` → `subagent` → `primary`; any other role falls back to `primary`. A run's model override still replaces every agent's model.
+
+```json
+{
+  "modelRoles": { "primary": "openai/gpt-5", "fast": "openai/gpt-5-mini" },
+  "agents": {
+    "builder": { "model": "@primary" },
+    "scout": { "model": "@fast" }
+  }
+}
+```
+
+### Subagents
+
+`subagents` names the strategies an agent can hand work to with the [`delegate`](/docs/core/tools/built-in/delegate) tool. Each value is a strategy file path relative to this strategy, or the name of a discoverable strategy. The target's `description` tells the agent when to use it.
+
+```json
+{
+  "builder": {
+    "model": "@primary",
+    "tools": ["read_file", "edit_file", "delegate"],
+    "subagents": {
+      "explore": "../subagents/explore/explore.json",
+      "verify": "../subagents/verify/verify.json"
+    }
+  }
+}
+```
+
+### Project instructions and environment
+
+Set `context.instructions` to add the project's instruction files to the agent's system prompt. One file per directory is read, from the repository root down to the working directory, so deeper files override outer ones. Set `context.environment` to add the working directory, date, platform, and git branch and change counts. Both are read when the strategy loads for a run.
+
+```json
+{
+  "context": {
+    "instructions": true,
+    "environment": true,
+    "compaction": {
+      "keepRecentTokens": 20000,
+      "model": "@compaction",
+      "extraSections": ["Verification status"]
+    }
+  }
+}
+```
+
+`compaction.keepRecentTokens` keeps the newest calls that fit in the budget verbatim when older ones are summarized. `compaction.model` writes summaries with a different, usually cheaper, model. `compaction.extraSections` adds headings to the standard summary.
+
+In templated prompts (`systemPromptTemplate`), the `model_family` variable is `claude`, `gpt`, `gemini`, or `other`, so a prompt can add a short note for one family:
+
+```md
+{%- if model_family != "claude" %}
+- Every response either calls tools or delivers your final message.
+{%- endif %}
+```
+
 ### UserAgentDef
 
 A user agent collects input from a human. Set `requireInput: true` to block until input is provided, or use `presetMessage` for a fixed message.

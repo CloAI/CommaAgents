@@ -42,7 +42,11 @@ const customCred: Credential = {
   data: { token: "abc", region: "us-east-1" },
 };
 
-/** In-memory backend for store tests (avoids filesystem coupling). */
+/**
+ * In-memory backend for store tests (avoids filesystem coupling).
+ * @param {CredentialStoreData} initial - Initial credential data copied into memory.
+ * @returns {CredentialBackend} A backend that copies data on reads and writes.
+ */
 function createMemoryBackend(
   initial: CredentialStoreData = {},
 ): CredentialBackend {
@@ -100,21 +104,25 @@ describe("JsonFileBackend", () => {
     expect(perms).toBe(0o600);
   });
 
-  test("readAll returns empty for empty file", async () => {
+  test("readAll rejects empty files", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
     writeFileSync(TEST_FILE, "", "utf-8");
     const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
-    expect(await backend.readAll()).toEqual({});
+    await expect(backend.readAll()).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+    });
   });
 
-  test("readAll returns empty for invalid JSON", async () => {
+  test("readAll rejects invalid JSON", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
     writeFileSync(TEST_FILE, "not-json{{{", "utf-8");
     const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
-    expect(await backend.readAll()).toEqual({});
+    await expect(backend.readAll()).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+    });
   });
 
-  test("readAll returns empty for valid JSON but invalid schema", async () => {
+  test("readAll rejects valid JSON with invalid credential schema", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
     // Valid JSON but wrong shape — credentials should have a type field
     writeFileSync(
@@ -123,7 +131,55 @@ describe("JsonFileBackend", () => {
       "utf-8",
     );
     const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
-    expect(await backend.readAll()).toEqual({});
+    await expect(backend.readAll()).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+    });
+  });
+
+  test("unreadable storage fails safely instead of returning empty data", async () => {
+    mkdirSync(TEST_FILE, { recursive: true });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
+    await expect(backend.readAll()).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+      message: "Unable to read credential storage.",
+    });
+  });
+
+  test.each(["", "not-json-secret-key", '{"$global":{"openai":"secret-key"}}'])(
+    "failed mutation preserves invalid storage: %s",
+    async (contents) => {
+      mkdirSync(TEST_DIR, { recursive: true });
+      writeFileSync(TEST_FILE, contents);
+      const store = createCredentialStore({
+        backend: createJsonFileCredentialBackend({ filePath: TEST_FILE }),
+        env: {},
+      });
+      await expect(
+        store.set("openai", "$global", apiKey),
+      ).rejects.toMatchObject({
+        code: "CREDENTIAL_STORAGE_ERROR",
+        message: "Unable to read credential storage.",
+      });
+      await expect(store.remove("openai", "$global")).rejects.toMatchObject({
+        code: "CREDENTIAL_STORAGE_ERROR",
+      });
+      expect(readFileSync(TEST_FILE, "utf8")).toBe(contents);
+    },
+  );
+
+  test("invalid writes preserve existing storage and do not expose credential data", async () => {
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
+    await backend.writeAll({ $global: { openai: apiKey } });
+    const previousContents = readFileSync(TEST_FILE, "utf8");
+    await expect(
+      backend.writeAll({
+        $global: { openai: { type: "secret-key" } },
+      } as unknown as CredentialStoreData),
+    ).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+      message: "Unable to write credential storage.",
+    });
+    expect(readFileSync(TEST_FILE, "utf8")).toBe(previousContents);
   });
 
   test("writeAll validates data before writing", async () => {
@@ -462,5 +518,125 @@ describe("getAuthStatus", () => {
     );
     // Without scope, still 'none' because strategy-scoped requires scope match.
     expect(await store.getAuthStatus("openai")).toBe("none");
+  });
+});
+
+describe("global credential source", () => {
+  test("reports effective source without exposing credentials and respects env overrides", async () => {
+    const environment: Record<string, string | undefined> = {
+      CUSTOM_KEY: "environment-secret",
+    };
+    const store = createCredentialStore({
+      backend: createMemoryBackend({
+        $global: { openai: apiKey },
+        strategy: { anthropic: oauthCred },
+      }),
+      env: environment,
+      envVarOverrides: { openai: ["CUSTOM_KEY"] },
+    });
+    expect(await store.getSource("openai")).toBe("environment");
+    expect(await store.getSource("anthropic")).toBe("none");
+    expect(await store.resolve("anthropic", "strategy")).toEqual(oauthCred);
+    environment.CUSTOM_KEY = "";
+    expect(await store.getSource("openai")).toBe("global");
+    await store.remove("openai", "$global");
+    expect(await store.getSource("openai")).toBe("none");
+  });
+
+  test("recognizes environment aliases", async () => {
+    const store = createCredentialStore({
+      backend: createMemoryBackend(),
+      env: { GOOGLE_API_KEY: "alias-key" },
+    });
+    expect(await store.getSource("google")).toBe("environment");
+  });
+});
+
+describe("credential mutation ordering", () => {
+  test("concurrent mutations retain unrelated credentials in invocation order", async () => {
+    const store = createCredentialStore({
+      backend: createMemoryBackend(),
+      env: {},
+    });
+    await Promise.all([
+      store.set("openai", "$global", apiKey),
+      store.set("anthropic", "$global", oauthCred),
+      store.remove("openai", "$global"),
+      store.set("groq", "strategy", apiKey),
+      store.set("openai", "$global", customCred),
+    ]);
+    expect(await store.get("openai", "$global")).toEqual(customCred);
+    expect(await store.get("anthropic", "$global")).toEqual(oauthCred);
+    expect(await store.get("groq", "strategy")).toEqual(apiKey);
+  });
+
+  test("failed writes are safe and do not poison subsequent queued mutations", async () => {
+    const memory = createMemoryBackend({ $global: { openai: apiKey } });
+    let failWrite = true;
+    const store = createCredentialStore({
+      backend: {
+        readAll: memory.readAll,
+        async writeAll(data) {
+          if (failWrite) {
+            failWrite = false;
+            throw new Error("secret-key-in-backend-error");
+          }
+          await memory.writeAll(data);
+        },
+      },
+      env: {},
+    });
+    const removal = store.remove("openai", "$global");
+    const save = store.set("anthropic", "$global", oauthCred);
+    await expect(removal).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+      message: "Unable to write credential storage.",
+    });
+    await save;
+    expect(await store.get("openai", "$global")).toEqual(apiKey);
+    expect(await store.get("anthropic", "$global")).toEqual(oauthCred);
+  });
+
+  test("failed reads cannot leak backend errors and the queue recovers", async () => {
+    const memory = createMemoryBackend();
+    let failRead = true;
+    const store = createCredentialStore({
+      backend: {
+        async readAll() {
+          if (failRead) {
+            failRead = false;
+            throw new Error("secret-key-in-read-error");
+          }
+          return memory.readAll();
+        },
+        writeAll: memory.writeAll,
+      },
+    });
+    const failure = store.set("openai", "$global", apiKey);
+    const success = store.set("anthropic", "$global", oauthCred);
+    await expect(failure).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+      message: "Unable to read credential storage.",
+    });
+    await success;
+    expect(await store.get("anthropic", "$global")).toEqual(oauthCred);
+  });
+});
+
+describe("conditional credential replacement", () => {
+  test("should never restore credentials removed while a refresh was pending", async () => {
+    const store = createCredentialStore({
+      backend: createMemoryBackend(),
+      env: {},
+    });
+    await store.set("openai", "$global", apiKey);
+    const previous = await store.get("openai", "$global");
+    await store.remove("openai", "$global");
+    await expect(
+      store.set("openai", "$global", oauthCred, previous!),
+    ).rejects.toMatchObject({ code: "CREDENTIAL_CHANGED" });
+    expect(await store.get("openai", "$global")).toBeUndefined();
+    await store.set("openai", "$global", oauthCred, null);
+    expect(await store.get("openai", "$global")).toEqual(oauthCred);
   });
 });

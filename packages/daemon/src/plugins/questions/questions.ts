@@ -1,4 +1,6 @@
 import { createPlugin } from "../../daemon-plugin";
+import type { CreateNotifyingPluginOptions } from "../../daemon-plugin/notifications/notifications.types";
+import { answerQuestionCommand, watchQuestionsChannel } from "./server";
 import { createQuestionsContext, getPendingQuestions } from "./state";
 import { resolveQuestion } from "./requests";
 import { prepareQuestionRunResources, disposeQuestions } from "./run-resources";
@@ -23,20 +25,22 @@ import type {
  */
 export function createQuestionsPlugin({
   dependencies,
-}: CreateQuestionsPluginOptions): QuestionsPlugin {
-  const { plugin, notifications } = createPlugin<
-    "questions",
-    QuestionsNotifications
-  >({
+}: CreateQuestionsPluginOptions) {
+  const { plugin, notifications } = createPlugin({
     name: "questions",
     notifications: true,
+    server: {
+      commands: [answerQuestionCommand],
+      channels: [watchQuestionsChannel],
+    },
     cleanup: async () => disposeQuestions(context),
     notificationHooks: {
       getRecipientKeys: (runId) =>
         dependencies.runs
           .getRunLineage(runId)
           .map((identity) => identity.runId),
-      onSubscribe: (_type, runId, deliver) => {
+      onSubscribe: (type, runId, deliver) => {
+        if (type !== "run_question_requested") return;
         for (const request of getPendingQuestions(context, runId)) {
           if (context.pending.has(request.requestId)) {
             deliver(request);
@@ -44,7 +48,11 @@ export function createQuestionsPlugin({
         }
       },
     },
-  });
+  } satisfies CreateNotifyingPluginOptions<
+    "questions",
+    QuestionsNotifications,
+    QuestionsPlugin
+  >);
   const context: QuestionsContext = createQuestionsContext(
     dependencies.runs,
     notifications,
@@ -53,10 +61,10 @@ export function createQuestionsPlugin({
     name: "questions",
     prepare: (preparation) => prepareQuestionRunResources(context, preparation),
   });
-  return {
-    ...plugin,
+  const methods: Omit<QuestionsPlugin, keyof typeof plugin> = {
     resolveQuestion: (runId, requestId, response) =>
       resolveQuestion(context, runId, requestId, response),
     getPendingQuestions: (runId) => getPendingQuestions(context, runId),
   };
+  return Object.assign(plugin, methods);
 }

@@ -21,16 +21,19 @@ export function disposeRunMcpResources(
       try {
         await resources.manager.close();
       } finally {
-        context.resources.delete(resources.runId);
-        const servers = (
-          context.snapshots.get(resources.runId)?.servers ?? resources.statuses
-        ).map((status) => ({ ...status, connected: false, toolCount: 0 }));
-        setMcpSnapshot(
-          context,
-          resources.runId,
-          servers,
-          resources.parentRunId,
-        );
+        if (context.resources.get(resources.runId) === resources) {
+          context.resources.delete(resources.runId);
+          const servers = (
+            context.snapshots.get(resources.runId)?.servers ??
+            resources.statuses
+          ).map((status) => ({ ...status, connected: false, toolCount: 0 }));
+          setMcpSnapshot(
+            context,
+            resources.runId,
+            servers,
+            resources.parentRunId,
+          );
+        }
       }
     })();
   }
@@ -53,7 +56,7 @@ async function connectRunMcp(
       cwd: preparation.cwd,
       runId: preparation.runId,
       runRepository: context.repository,
-      persistDefaults: true,
+      persistDefaults: !preparation.staged,
     }),
   );
   if (context.disposed || preparation.signal.aborted) {
@@ -104,11 +107,20 @@ async function connectRunMcp(
       manager,
       statuses,
     };
-    context.resources.set(preparation.runId, resources);
-    setMcpSnapshot(context, resources.runId, statuses, resources.parentRunId);
     const acquiredResources = resources;
+    const activate = (): void => {
+      context.resources.set(preparation.runId, acquiredResources);
+      setMcpSnapshot(
+        context,
+        acquiredResources.runId,
+        statuses,
+        acquiredResources.parentRunId,
+      );
+    };
+    if (!preparation.staged) activate();
     return {
       strategyInputs: { mcpToolsByAgent: toolsByAgent },
+      ...(preparation.staged ? { activate } : {}),
       dispose: () => disposeRunMcpResources(context, acquiredResources),
     };
   } catch (error) {

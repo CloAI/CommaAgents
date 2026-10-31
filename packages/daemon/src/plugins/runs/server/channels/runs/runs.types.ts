@@ -13,4 +13,8 @@ export type OpenRunsChannelOptions = CommandContext<
   RunsPlugin,
   RunsContext,
   z.output<typeof RunsArgumentsSchema>
-> & { readonly channel: ChannelContext<z.input<typeof RunsMessageSchema>> };
+> & {
+  readonly channel: ChannelContext<
+    z.input<typeof RunsMessageSchema> | z.output<typeof RunsMessageSchema>
+  >;
+};

@@ -36,6 +36,9 @@ function createMockCredentialStore(
     async resolve(providerId: string) {
       return credentials[providerId];
     },
+    async getSource(providerId: string) {
+      return credentials[providerId] ? "global" : "none";
+    },
     async get(providerId: string, _scope: string) {
       return credentials[providerId];
     },

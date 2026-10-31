@@ -1,0 +1,23 @@
+{
+  "name": "Plan Critic",
+  "version": "1.0",
+  "description": "Checks a plan against the codebase: citations, missed callers and tests, real verification commands, and open decisions. Answers PLAN: ready or revise.",
+  "modelRoles": {
+    "primary": "openrouter/google/gemini-3.5-flash",
+    "subagent": "openrouter/google/gemini-3.5-flash"
+  },
+  "agents": {
+    "critic": {
+      "model": "@subagent",
+      "maxSteps": 30,
+      "systemPrompt": "./prompts/plan-critic.md",
+      "context": { "instructions": true, "environment": true },
+      "tools": ["read_file", "list_directory", "search_files", "glob", "lsp_request", "load_skill"]
+    }
+  },
+  "flow": {
+    "name": "Plan Critic",
+    "type": "sequential",
+    "steps": [{ "agent": "critic" }]
+  }
+}

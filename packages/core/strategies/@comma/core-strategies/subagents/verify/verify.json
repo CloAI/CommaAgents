@@ -1,0 +1,31 @@
+{
+  "name": "Verify",
+  "version": "1.0",
+  "description": "Independent check of a finished change: intent, correctness, tests, and the project's own checks. Answers VERDICT: pass or fail with findings.",
+  "modelRoles": {
+    "primary": "openrouter/google/gemini-3.5-flash",
+    "subagent": "openrouter/google/gemini-3.5-flash"
+  },
+  "agents": {
+    "verifier": {
+      "model": "@subagent",
+      "maxSteps": 60,
+      "systemPrompt": "./prompts/verify.md",
+      "context": { "instructions": true, "environment": true },
+      "tools": [
+        "read_file",
+        "list_directory",
+        "search_files",
+        "glob",
+        "lsp_request",
+        "run_command",
+        "load_skill"
+      ]
+    }
+  },
+  "flow": {
+    "name": "Verify",
+    "type": "sequential",
+    "steps": [{ "agent": "verifier" }]
+  }
+}

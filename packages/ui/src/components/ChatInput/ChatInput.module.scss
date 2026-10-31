@@ -1,0 +1,71 @@
+.composer {
+  --scrollbar-offset: 0px;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+.input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2);
+  padding-right: calc(1.75rem + var(--space-3) + var(--scrollbar-offset));
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  line-height: 1.25;
+  resize: none;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    background-clip: padding-box;
+    border-inline: 2px solid transparent;
+    border-radius: var(--radius-control);
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+  }
+  &::placeholder {
+    color: var(--color-muted);
+    opacity: 1;
+  }
+  &:focus-visible {
+    outline: none;
+  }
+}
+.actions {
+  position: absolute;
+  right: calc(var(--space-1) + var(--scrollbar-offset));
+  bottom: var(--space-1);
+  display: flex;
+  gap: var(--space-1);
+}
+.send,
+.stop {
+  border-color: var(--color-border);
+  color: var(--color-primary);
+}
+.composer[data-cancellable] .input {
+  padding-right: calc(3.75rem + var(--space-3) + var(--scrollbar-offset));
+}
+
+@supports selector(::-webkit-scrollbar) {
+  .input {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+}

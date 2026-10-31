@@ -4,10 +4,9 @@ import type { AgentHooks, FlowHooks, LoadedStrategy } from "@comma-agents/core";
 import {
   hookIntoAgent,
   isUserAgentDef,
-  loadProject,
   loadStrategyFromString,
-  readStrategyFile,
 } from "@comma-agents/core";
+import { loadProject, readStrategyFile } from "@comma-agents/core/strategy";
 import {
   CommaProjectManifestSchema,
   type HubManager,

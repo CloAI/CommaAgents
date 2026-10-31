@@ -30,6 +30,11 @@ export interface LaunchStrategyRequest {
    * sub-strategy. Format: `"providerID/modelID"`.
    */
   readonly modelOverride?: string;
+  /**
+   * Refuse the launch when the parent is already this many levels below the root run.
+   * Omitted means no limit.
+   */
+  readonly maxDepth?: number;
 }
 
 /** Output of a successful sub-strategy run. */

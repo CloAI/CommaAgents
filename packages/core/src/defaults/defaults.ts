@@ -59,6 +59,27 @@ export function setCredentialsPath(path: string | undefined): void {
 
 // Provider
 
+/** Return the file containing declarative custom providers and model IDs.
+ * @returns {string} Effective provider settings file path.
+ */
+export function getProviderSettingsPath(): string {
+  return (
+    coreDefaultOverrides.providerSettingsPath ??
+    join(getApplicationDataDirectory(), "provider-settings.json")
+  );
+}
+
+/** Override the provider settings path for this process.
+ * @param {string | undefined} path - Override, or undefined to restore the default.
+ * @returns {void} Nothing.
+ */
+export function setProviderSettingsPath(path: string | undefined): void {
+  coreDefaultOverrides = {
+    ...coreDefaultOverrides,
+    providerSettingsPath: path,
+  };
+}
+
 /** Return the effective provider package installation directory. */
 export function getProviderInstallDirectory(): string {
   return (
@@ -96,7 +117,7 @@ export function setCatalogCachePath(path: string | undefined): void {
   coreDefaultOverrides = { ...coreDefaultOverrides, catalogCachePath: path };
 }
 
-// Skills 
+// Skills
 
 /** Return the effective global skills directory. */
 export function getGlobalSkillsDirectory(): string {

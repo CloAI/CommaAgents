@@ -1,0 +1,16 @@
+.app {
+  display: flex;
+  min-height: 100svh;
+}
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.connectionStatus {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+}

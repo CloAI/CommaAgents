@@ -44,11 +44,7 @@ export type {
   RunStatus,
   RunNotifications,
   RunSnapshotStatus,
-  RunPreparationCancelledStatus,
-  RunPreparationFailedStatus,
   RunInputRequestStatus,
-  RunAgentStreamStatus,
-  RunAgentOutputStatus,
   RunStepStatus,
   RunSteerQueuedStatus,
   StrategyHookContext,
@@ -99,3 +95,25 @@ export type {
   SandboxPermissionRequest,
   SandboxPolicyUpdate,
 } from "../plugins/sandbox";
+
+export {
+  RunPhase,
+  RunOutcomeStatus,
+  RunErrorCode,
+  RunMessageStatus,
+  RunToolStatus,
+} from "../plugins/runs";
+export type {
+  RunConfiguration,
+  NewRunConfiguration,
+  RunConfigurationOverrides,
+  RunStrategyDescription,
+  RunPreparingSnapshot,
+  RunPreparedSnapshot,
+  RunRunningSnapshot,
+  RunTerminalSnapshot,
+  RunTerminalOutcome,
+} from "../plugins/runs";
+
+export { createCorePlugin } from "../plugins/core";
+export type { CorePlugin, CoreProviderListOptions } from "../plugins/core";

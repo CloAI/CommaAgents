@@ -1,14 +1,19 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import type { AgentStreamEvent } from "@comma-agents/core";
 import { createDaemonServer } from "../../../daemon-server";
 import type { DaemonServer, PluginServerMessage } from "../../../daemon-server";
 import { connectSocket } from "../../../daemon-server/test.utils";
 import {
   cleanupRunFixtures,
+  directories,
   createMockRunsPlugin,
   fakeLoader,
   repository,
 } from "../test.utils";
+import * as storageModule from "../state/storage/storage";
+import { RunOutcomeStatus, RunPhase } from "../state/state.schemas";
 import { RunsMessageSchema } from "./channels/runs/runs.schemas";
 import { GetHistoryArgumentsSchema } from "./commands/get-history/get-history.schemas";
 
@@ -31,6 +36,184 @@ async function nextMatching(
 }
 
 describe("runs WebSocket API", () => {
+  it("should persist a strategy selection over the wire and start it only on the next send", async () => {
+    const observed = { loads: [] as string[], restored: [] as string[][] };
+    const runs = createMockRunsPlugin({
+      repository: repository(),
+      loadStrategy: fakeLoader(observed),
+    });
+    await runs.prepareRun({
+      runId: "switching",
+      configuration: { strategyPath: "/work/plan.json" },
+    });
+    const server = createDaemonServer({
+      daemon: { plugins: { runs } },
+      port: 0,
+    });
+    servers.push(server);
+    await server.start();
+    const client = await connectSocket(server.url);
+    const switchId = crypto.randomUUID();
+    const followId = crypto.randomUUID();
+    const sendId = crypto.randomUUID();
+    try {
+      client.send({
+        type: "command",
+        requestId: switchId,
+        command: "runs.switchStrategy",
+        arguments: {
+          runId: "switching",
+          strategyPath: "/work/build.json",
+          expectedRevision: 0,
+        },
+      });
+      expect(await client.next()).toMatchObject({
+        type: "response",
+        ok: true,
+        data: {
+          runId: "switching",
+          phase: "prepared",
+          configuration: { strategyPath: "/work/build.json" },
+          strategyState: { revision: 1 },
+        },
+      });
+      expect(
+        (await runs.getHistory("switching")).entries.map((entry) => entry.type),
+      ).toEqual(["strategy.changed"]);
+      client.send({
+        type: "subscribe",
+        requestId: followId,
+        channel: "runs",
+        arguments: { runId: "switching" },
+      });
+      expect(await client.next()).toMatchObject({ type: "response", ok: true });
+      expect(await client.next()).toMatchObject({
+        type: "run.initial",
+        data: { history: { entries: [{ type: "strategy.changed" }] } },
+      });
+      client.send({
+        type: "command",
+        requestId: sendId,
+        command: "runs.send",
+        arguments: {
+          runId: "switching",
+          input: "Implement the plan",
+          expectedRevision: 1,
+        },
+      });
+      expect(
+        await nextMatching(
+          client,
+          (message) =>
+            message.type === "response" && message.requestId === sendId,
+        ),
+      ).toMatchObject({
+        type: "response",
+        ok: true,
+        data: { type: "started" },
+      });
+    } finally {
+      client.socket.close();
+      await runs.dispose();
+    }
+  });
+  it("should accept per-agent model overrides when preparing a run and report them in its snapshot", async () => {
+    const runs = createMockRunsPlugin({
+      repository: repository(),
+      loadStrategy: fakeLoader({ loads: [], restored: [] }),
+    });
+    const server = createDaemonServer({
+      daemon: { plugins: { runs } },
+      port: 0,
+    });
+    servers.push(server);
+    await server.start();
+    const client = await connectSocket(server.url);
+    try {
+      const prepareId = crypto.randomUUID();
+      client.send({
+        type: "command",
+        requestId: prepareId,
+        command: "runs.prepare",
+        arguments: {
+          runId: "overrides",
+          configuration: {
+            strategyPath: "example.json",
+            modelOverrides: { writer: "openai/gpt-4o" },
+          },
+        },
+      });
+      expect(await client.next()).toMatchObject({
+        type: "response",
+        ok: true,
+        data: { runId: "overrides" },
+      });
+      client.send({
+        type: "subscribe",
+        requestId: crypto.randomUUID(),
+        channel: "runs",
+        arguments: { runId: "overrides" },
+      });
+      expect(await client.next()).toMatchObject({ type: "response", ok: true });
+      expect(await client.next()).toMatchObject({
+        type: "run.initial",
+        data: {
+          snapshot: {
+            configuration: { modelOverrides: { writer: "openai/gpt-4o" } },
+          },
+        },
+      });
+    } finally {
+      client.socket.close();
+    }
+  });
+  it("should hydrate one run without waiting for another run's pending writes", async () => {
+    const legacy = repository();
+    const backing = storageModule.createRunStorage(directories.at(-1)!);
+    const saving = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const mock = spyOn(storageModule, "createRunStorage").mockReturnValue({
+      ...backing,
+      async save(snapshot) {
+        if (snapshot.runId === "other" && snapshot.phase === "preparing") {
+          saving.resolve();
+          await release.promise;
+        }
+        await backing.save(snapshot);
+      },
+    });
+    const runs = createMockRunsPlugin({
+      repository: legacy,
+      loadStrategy: fakeLoader({ loads: [], restored: [] }),
+    });
+    let preparing: ReturnType<typeof runs.prepareRun> | undefined;
+    try {
+      await runs.prepareRun({
+        runId: "ready",
+        configuration: { strategyPath: "example.json" },
+      });
+      preparing = runs.prepareRun({
+        runId: "other",
+        configuration: { strategyPath: "example.json" },
+      });
+      await saving.promise;
+      const subscription = await runs.server!.channels![0]!.open(
+        { runId: "ready" },
+        { signal: new AbortController().signal, send() {}, end() {} },
+      );
+      expect(subscription?.initial).toMatchObject({
+        type: "run.initial",
+        data: { snapshot: { runId: "ready", phase: "prepared" } },
+      });
+      await subscription?.cleanup?.();
+    } finally {
+      release.resolve();
+      await preparing;
+      await runs.dispose();
+      mock.mockRestore();
+    }
+  });
+
   it("should hydrate midway, stream cumulative blocks, finalize the same message and continue on the existing subscription", async () => {
     const runs = createMockRunsPlugin({
       repository: repository(),
@@ -65,7 +248,12 @@ describe("runs WebSocket API", () => {
         type: "command",
         requestId: prepareId,
         command: "runs.prepare",
-        arguments: { runId: "shared", strategyPath: "example.json" },
+        arguments: {
+          runId: "shared",
+          configuration: {
+            strategyPath: "example.json",
+          },
+        },
       });
       expect(await first.next()).toMatchObject({
         type: "response",
@@ -136,6 +324,13 @@ describe("runs WebSocket API", () => {
         throw new Error("Expected replayed text");
       }
       const messageId = replayed.data.messageId;
+      const savedMessage = join(
+        directories.at(-1)!,
+        "shared",
+        "history",
+        `${messageId}.json`,
+      );
+      expect(existsSync(savedMessage)).toBe(false);
       release.resolve();
       const growing = await nextMatching(
         second,
@@ -153,6 +348,7 @@ describe("runs WebSocket API", () => {
         second,
         (message) => message.type === "agent.output",
       );
+      expect(existsSync(savedMessage)).toBe(true);
       expect(completed).toMatchObject({
         requestId: secondSubscription,
         data: {
@@ -171,11 +367,12 @@ describe("runs WebSocket API", () => {
           "phase" in message.data &&
           message.data.phase === "terminal",
       );
+      await runs.prepareRun({ runId: "shared" });
       const continuationId = crypto.randomUUID();
       second.send({
         type: "command",
         requestId: continuationId,
-        command: "runs.continue",
+        command: "runs.start",
         arguments: { runId: "shared", input: "again" },
       });
       expect(
@@ -250,7 +447,9 @@ describe("runs WebSocket API", () => {
     try {
       await runs.prepareRun({
         runId: "stoppable",
-        strategyPath: "example.json",
+        configuration: {
+          strategyPath: "example.json",
+        },
       });
       const client = await connectSocket(server.url);
       const subscriptionId = crypto.randomUUID();
@@ -284,15 +483,15 @@ describe("runs WebSocket API", () => {
           (message) => message.type === "agent.output",
         ),
       ).toMatchObject({
-        data: { status: "cancelled", content: [{ text: "first chunk" }] },
+        data: { status: "stopped", content: [{ text: "first chunk" }] },
       });
       expect(
         await nextMatching(client, (message) => message.type === "run.state"),
       ).toMatchObject({
-        data: { phase: "terminal", outcome: { status: "cancelled" } },
+        data: { phase: "terminal", outcome: { status: "stopped" } },
       });
       expect((await runs.getHistory("stoppable")).entries.at(-1)).toMatchObject(
-        { status: "cancelled", content: [{ text: "first chunk" }] },
+        { status: "stopped", content: [{ text: "first chunk" }] },
       );
       client.send({ type: "unsubscribe", requestId: subscriptionId });
       expect(await client.next()).toMatchObject({ type: "response", ok: true });
@@ -313,7 +512,9 @@ describe("runs WebSocket API", () => {
     });
     const parent = await runs.prepareRun({
       runId: "parent",
-      strategyPath: "example.json",
+      configuration: {
+        strategyPath: "example.json",
+      },
     });
     const messages: unknown[] = [];
     const controller = new AbortController();
@@ -360,6 +561,60 @@ describe("runs WebSocket API", () => {
     }
   });
 
+  it("should refuse a launch below the requested maximum depth", async () => {
+    const runs = createMockRunsPlugin({
+      repository: repository(),
+      loadStrategy: fakeLoader({ loads: [], restored: [] }),
+    });
+    const parent = await runs.prepareRun({
+      runId: "depth",
+      configuration: { strategyPath: "example.json" },
+    });
+    try {
+      const outcome = await runs.startRun(parent.runId, "limited").completion;
+      if (outcome.status !== "completed")
+        throw new Error("Expected completion");
+      expect(outcome.summary.text).toContain("Subagent depth limit reached");
+    } finally {
+      await runs.dispose();
+    }
+  });
+
+  it("should apply an agent-requested switch when the run next waits for the user", async () => {
+    const runs = createMockRunsPlugin({
+      repository: repository(),
+      loadStrategy: fakeLoader({ loads: [], restored: [] }),
+    });
+    await runs.prepareRun({
+      runId: "agent-switch",
+      configuration: { strategyPath: "/work/plan.json" },
+    });
+    try {
+      const switched = new Promise<void>((resolve) => {
+        void runs.notifications.subscribe(
+          "run_snapshot",
+          "agent-switch",
+          ({ snapshot }) => {
+            if (
+              snapshot.phase === RunPhase.prepared &&
+              snapshot.strategyState?.revision === 1
+            )
+              resolve();
+          },
+        );
+      });
+      expect(
+        (await runs.startRun("agent-switch", "switch-me").completion).status,
+      ).toBe(RunOutcomeStatus.stopped);
+      await switched;
+      const snapshot = await runs.getRun("agent-switch");
+      expect(snapshot?.configuration.strategyPath).toBe("/work/build.json");
+      expect(snapshot?.phase).toBe(RunPhase.prepared);
+    } finally {
+      await runs.dispose();
+    }
+  });
+
   it("should bound server pages while leaving direct plugin history unbounded", () => {
     expect(GetHistoryArgumentsSchema.parse({ runId: "run" }).limit).toBe(25);
     expect(
@@ -381,14 +636,15 @@ describe("runs WebSocket API", () => {
     const inputReady = Promise.withResolvers<void>();
     const finished = Promise.withResolvers<void>();
     try {
-      await commands
-        .get("runs.prepare")!
-        .invoke({ runId: "interactive", strategyPath: "example.json" });
+      await commands.get("runs.prepare")!.invoke({
+        runId: "interactive",
+        configuration: { strategyPath: "example.json" },
+      });
       await runs.notifications.subscribe(
         "run_input_requested",
         "interactive",
         (message) => {
-          pending.push(message.requestId);
+          pending.push(message.inputId);
           if (pending.length === 2) {
             inputReady.resolve();
           }
@@ -422,11 +678,13 @@ describe("runs WebSocket API", () => {
       expect(
         await commands.get("runs.get")!.invoke({ runId: "interactive" }),
       ).not.toHaveProperty("conversation");
-      expect(
-        await commands
-          .get("runs.steer")!
-          .invoke({ runId: "interactive", text: "Review carefully" }),
-      ).toBeNull();
+      await expect(
+        commands.get("runs.steer")!.invoke({
+          runId: "interactive",
+          text: "Review carefully",
+          messageId: "stale",
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_ARGUMENTS" });
       expect(
         await commands.get("runs.resolveInput")!.invoke({
           runId: "interactive",

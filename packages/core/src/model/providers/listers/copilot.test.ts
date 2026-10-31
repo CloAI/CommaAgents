@@ -87,9 +87,9 @@ describe("listCopilotModels", () => {
 
       expect(models).toHaveLength(1);
       expect(models[0]?.id).toBe("gpt-5");
-      expect(models[0]?.contextWindow).toBe(200000);
-      expect(models[0]?.capabilities?.tools).toBe(true);
-      expect(models[0]?.capabilities?.vision).toBe(true);
+      expect(models[0]?.metadata.contextWindow).toBe(200000);
+      expect(models[0]?.metadata.capabilities?.tools).toBe(true);
+      expect(models[0]?.metadata.capabilities?.vision).toBe(true);
     } finally {
       restore();
     }

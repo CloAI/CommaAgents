@@ -1,15 +1,22 @@
 import { z } from "zod/v4";
-export const PrepareRunArgumentsSchema = z
+import {
+  NewRunConfigurationSchema,
+  RunConfigurationOverridesSchema,
+} from "../../../preparation/preparation.schemas";
+export const PrepareNewRunArgumentsSchema = z
   .object({
     runId: z.string().min(1).optional(),
-    strategyPath: z.string().min(1).optional(),
-    cwd: z.string().min(1).optional(),
-    manifestPath: z.string().min(1).optional(),
-    modelOverride: z.string().min(1).optional(),
+    configuration: NewRunConfigurationSchema,
   })
-  .strict()
-  .refine(
-    (value) => Boolean(value.runId || value.strategyPath),
-    "runId or strategyPath is required",
-  );
+  .strict();
+export const PrepareExistingRunArgumentsSchema = z
+  .object({
+    runId: z.string().min(1),
+    configuration: RunConfigurationOverridesSchema.optional(),
+  })
+  .strict();
+export const PrepareRunArgumentsSchema = z.union([
+  PrepareExistingRunArgumentsSchema,
+  PrepareNewRunArgumentsSchema,
+]);
 export const PrepareRunOutputSchema = z.object({ runId: z.string() }).strict();

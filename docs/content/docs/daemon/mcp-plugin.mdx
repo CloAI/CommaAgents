@@ -21,8 +21,10 @@ const unsubscribe = await daemon.plugins.mcp.notifications.subscribe(
 try {
   await daemon.plugins.runs.prepareRun({
     runId,
-    strategyPath: "./strategy.json",
-    cwd: process.cwd(),
+    configuration: {
+      strategyPath: "./strategy.json",
+      cwd: process.cwd(),
+    },
   });
   console.log(await daemon.plugins.mcp.listServers({ runId }));
 } finally {

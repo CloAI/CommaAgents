@@ -1,0 +1,29 @@
+dialog.subagentRunDialog {
+  max-height: calc(100svh - var(--space-12) * 2);
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-12) var(--space-3);
+  }
+
+  .back {
+    align-self: flex-start;
+  }
+
+  .status {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--font-size-compact);
+
+    &[data-status="failed"] {
+      color: var(--color-error);
+    }
+  }
+}
+
+@media (min-width: 40rem) {
+  dialog.subagentRunDialog {
+    max-height: calc(100svh - var(--space-12) * 3);
+  }
+}

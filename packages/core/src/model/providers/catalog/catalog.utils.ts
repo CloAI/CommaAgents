@@ -84,29 +84,32 @@ export function toModelInfo(catalogModel: CatalogModel): ModelInfo {
 
   return {
     id: catalogModel.id,
-    name: catalogModel.name,
-    ...(catalogModel.family ? { family: catalogModel.family } : {}),
-    ...(catalogModel.limit?.context !== undefined
-      ? { contextWindow: catalogModel.limit.context }
-      : {}),
-    ...(catalogModel.limit?.input !== undefined
-      ? { maxInputTokens: catalogModel.limit.input }
-      : {}),
-    ...(catalogModel.limit?.output !== undefined
-      ? { maxOutputTokens: catalogModel.limit.output }
-      : {}),
-    ...(catalogModel.knowledge
-      ? { knowledgeCutoff: catalogModel.knowledge }
-      : {}),
-    ...(catalogModel.release_date
-      ? { releaseDate: catalogModel.release_date }
-      : {}),
-    ...(catalogModel.last_updated
-      ? { lastUpdated: catalogModel.last_updated }
-      : {}),
-    ...(status ? { status } : {}),
-    ...(modalities ? { modalities } : {}),
-    capabilities,
-    ...(cost ? { cost } : {}),
+    sources: ["models.dev"],
+    metadata: {
+      name: catalogModel.name,
+      ...(catalogModel.family ? { family: catalogModel.family } : {}),
+      ...(catalogModel.limit?.context !== undefined
+        ? { contextWindow: catalogModel.limit.context }
+        : {}),
+      ...(catalogModel.limit?.input !== undefined
+        ? { maxInputTokens: catalogModel.limit.input }
+        : {}),
+      ...(catalogModel.limit?.output !== undefined
+        ? { maxOutputTokens: catalogModel.limit.output }
+        : {}),
+      ...(catalogModel.knowledge
+        ? { knowledgeCutoff: catalogModel.knowledge }
+        : {}),
+      ...(catalogModel.release_date
+        ? { releaseDate: catalogModel.release_date }
+        : {}),
+      ...(catalogModel.last_updated
+        ? { lastUpdated: catalogModel.last_updated }
+        : {}),
+      ...(status ? { status } : {}),
+      ...(modalities ? { modalities } : {}),
+      capabilities,
+      ...(cost ? { cost } : {}),
+    },
   };
 }

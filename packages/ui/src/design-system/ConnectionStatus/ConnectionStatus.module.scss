@@ -1,0 +1,72 @@
+.capsule {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: none;
+  padding: 0px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: var(--space-2) 0 0 0;
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+  line-height: inherit;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+
+  &:hover .label,
+  &:focus .label {
+    max-width: 12rem;
+    margin-right: var(--space-2);
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  &[data-status="connected"] .dot {
+    color: var(--color-success);
+  }
+
+  &[data-status="disconnected"] .dot {
+    color: var(--color-error);
+  }
+
+  &[data-status="warning"] .dot {
+    color: var(--color-warning);
+  }
+}
+
+.label {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(var(--space-1));
+  transition:
+    max-width var(--motion-duration) ease,
+    margin-right var(--motion-duration) ease,
+    opacity var(--motion-duration) ease,
+    transform var(--motion-duration) ease;
+}
+
+.dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1px solid color-mix(in srgb, currentColor 80%, var(--color-canvas));
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

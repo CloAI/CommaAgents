@@ -25,7 +25,7 @@ await server.stop();
 await daemon.dispose();
 ```
 
-This server exposes status and [runs](/docs/daemon/server/runs). Other feature bindings and the CLI migration will follow separately. The existing `createDaemon` API continues to use its existing protocol.
+This server exposes status and [runs](/docs/daemon/server/runs). The daemon CLI starts this kernel and server. Other feature bindings will follow separately. The existing `createDaemon` API continues to use its existing protocol.
 
 ## CreateDaemonServerOptions
 
@@ -55,7 +55,7 @@ socket.addEventListener("open", () => {
 });
 ```
 
-A command produces one `response`, containing either `{ ok: true, data }` or `{ ok: false, error: { code, message } }` alongside its `type`, `requestId`, and `ts`.
+A command produces one `response`, containing either `{ ok: true, data }` or `{ ok: false, error: { code, message, metadata? } }` alongside its `type`, `requestId`, and `ts`.
 
 ## Channels
 

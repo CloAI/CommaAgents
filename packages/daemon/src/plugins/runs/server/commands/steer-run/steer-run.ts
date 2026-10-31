@@ -11,19 +11,15 @@ export const steerRunCommand = defineCommand({
   name: "runs.steer",
   arguments: SteerRunArgumentsSchema,
   output: SteerRunOutputSchema,
-  handle({
+  async handle({
     plugin,
-    arguments: { runId, text },
+    arguments: { runId, text, messageId },
   }: CommandContext<
     RunsPlugin,
     RunsContext,
     z.output<typeof SteerRunArgumentsSchema>
   >) {
-    if (!plugin.steerRun(runId, text)) {
-      throw Object.assign(new Error("Run is not running"), {
-        code: "RUN_NOT_RUNNING",
-      });
-    }
+    await plugin.steerRun(runId, text, messageId);
     return null;
   },
 });

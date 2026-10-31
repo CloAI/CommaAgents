@@ -15,7 +15,6 @@ import type {
   RequestResponseMap,
 } from "../dispatcher/dispatcher.types";
 import type { DaemonMessage } from "../messages";
-import { handleGetAvailableModels } from "./get-available-models";
 import {
   handleHubInstall,
   handleHubList,
@@ -23,7 +22,6 @@ import {
   handleHubUpdate,
 } from "./hub-packages";
 import { handleListMcpServers } from "./list-mcp-servers";
-import { handleListProviders } from "./list-providers";
 import { handlePermissionDecision } from "./permission-decision";
 import { handleQuestionResponse } from "./question-response";
 import { handleSteerRun } from "./steer-run";
@@ -325,59 +323,6 @@ describe("MCP request handlers", () => {
         message: "update failed",
       }),
     ]);
-  });
-});
-
-describe("provider discovery request handlers", () => {
-  it("lists catalog models through the available-model wire contract", async () => {
-    const daemonRunState = await createTestDaemonRunState();
-    const replies: DaemonMessage[] = [];
-
-    await handleGetAvailableModels(
-      {
-        type: "get_available_models",
-        modelId: "gpt-4o",
-        scope: "$global",
-        requestId: "models-1",
-      },
-      createContext(daemonRunState, replies),
-    );
-
-    expect(replies[0]?.type).toBe("available_models");
-    if (replies[0]?.type !== "available_models") return;
-    expect(replies[0].requestId).toBe("models-1");
-    expect(replies[0].models.length).toBeGreaterThan(0);
-    expect(
-      replies[0].models.every((model) => model.id.includes("gpt-4o")),
-    ).toBe(true);
-    expect(replies[0].models.map((model) => model.id)).toEqual(
-      replies[0].models.map((model) => model.id).sort(),
-    );
-  });
-
-  it("lists providers using the daemon's canonical model mapper", async () => {
-    const daemonRunState = await createTestDaemonRunState();
-    const replies: DaemonMessage[] = [];
-
-    await handleListProviders(
-      {
-        type: "list_providers",
-        live: false,
-        scope: "$global",
-        requestId: "providers-1",
-      },
-      createContext(daemonRunState, replies),
-    );
-
-    expect(replies[0]?.type).toBe("provider_list");
-    if (replies[0]?.type !== "provider_list") return;
-    expect(replies[0].requestId).toBe("providers-1");
-    expect(replies[0].providers.length).toBeGreaterThan(0);
-    expect(
-      replies[0].providers.every((provider) =>
-        provider.models.every((model) => typeof model.id === "string"),
-      ),
-    ).toBe(true);
   });
 });
 

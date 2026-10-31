@@ -8,7 +8,7 @@ import { PingMessage } from "./requests/ping/ping.schema";
 import { PrepareRunMessage } from "./requests/prepare-run/prepare-run.schema";
 import { StartRunMessage } from "./requests/start-run/start-run.schema";
 import { StopRunMessage } from "./requests/stop-run/stop-run.schema";
-import { SubscribeMessage } from "./requests/subscribe/subscribe.schema";
+import { SubscribeMessage } from "../daemon-services/subscription/subscribe/subscribe.schema";
 import { UnsubscribeMessage } from "../daemon-services/subscription/unsubscribe/unsubscribe.schema";
 import { UserInputMessage } from "./requests/user-input/user-input.schema";
 
@@ -374,5 +374,18 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage("not json").success).toBe(false);
     expect(parseClientMessage(null).success).toBe(false);
     expect(parseClientMessage(42).success).toBe(false);
+  });
+});
+
+describe("retired provider protocol", () => {
+  test("should reject legacy provider and model requests", () => {
+    for (const type of [
+      "get_available_models",
+      "list_providers",
+      "register_provider",
+      "unregister_provider",
+      "set_credential",
+    ])
+      expect(parseClientMessage({ type }).success).toBe(false);
   });
 });

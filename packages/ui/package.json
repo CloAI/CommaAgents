@@ -1,0 +1,53 @@
+{
+  "name": "@comma-agents/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Web UI and design system for Comma Agents",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "bun run typecheck && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src .storybook vite.config.ts vitest.config.ts",
+    "lint:fix": "bun run lint --fix",
+    "format": "oxfmt src .storybook *.ts *.json index.html README.md",
+    "format:check": "bun run format --check",
+    "storybook": "storybook dev -p 6007 --host 127.0.0.1 --no-open",
+    "storybook:build": "storybook build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@comma-agents/daemon": "workspace:*",
+    "@floating-ui/react-dom": "2.1.9",
+    "@fontsource-variable/geist-mono": "5.3.0",
+    "allotment": "1.20.6",
+    "highlight.js": "11.12.0",
+    "katex": "0.19.1",
+    "lucide-react": "1.61.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "10.1.0",
+    "react-router": "8.5.0",
+    "rehype-highlight": "7.0.2",
+    "rehype-katex": "7.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-math": "6.0.0"
+  },
+  "devDependencies": {
+    "@storybook/addon-a11y": "10.4.6",
+    "@storybook/addon-docs": "10.4.6",
+    "@storybook/addon-vitest": "10.4.6",
+    "@storybook/react-vite": "10.4.6",
+    "@types/node": "^24",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitest/browser": "3.2.7",
+    "playwright": "^1.58.2",
+    "sass": "^1.106.1",
+    "storybook": "10.4.6",
+    "typescript": "6.0.2",
+    "vite": "6.4.3",
+    "vitest": "3.2.7"
+  }
+}

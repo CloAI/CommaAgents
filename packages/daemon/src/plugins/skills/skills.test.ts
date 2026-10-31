@@ -1,3 +1,4 @@
+import { RunOutcomeStatus } from "../runs/state/state.schemas";
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -56,7 +57,13 @@ describe("skills plugin", () => {
   test("should discover project skills and supply the same registry to the strategy loader", async () => {
     const { runs, skills, registries, cwd } = fixture();
     await writeSkill(cwd, "project-checks", "Run the project checks.");
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const loaded = skills
       .listSkills("root")
       .find((skill) => skill.name === "project-checks");
@@ -77,8 +84,10 @@ describe("skills plugin", () => {
     const { runs, skills, registries, cwd } = fixture();
     await runs.prepareRun({
       runId: "empty",
-      strategyPath: "example.json",
-      cwd,
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
     });
     expect(registries.has("empty")).toBe(true);
     await runs.stopRun("empty");
@@ -86,7 +95,13 @@ describe("skills plugin", () => {
     const invalidDirectory = join(cwd, ".comma", "skills", "invalid-skill");
     await mkdir(invalidDirectory, { recursive: true });
     await writeFile(join(invalidDirectory, "SKILL.md"), "Missing frontmatter.");
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const names = skills.listSkills("root").map((skill) => skill.name);
     expect(names).toContain("valid-skill");
     expect(names).not.toContain("invalid-skill");
@@ -97,7 +112,13 @@ describe("skills plugin", () => {
   test("should reload changed skills on continuation and release completed registries", async () => {
     const { runs, skills, registries, cwd } = fixture();
     await writeSkill(cwd, "project-checks", "First instructions.");
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const first = registries.get("root")!;
     await runs.startRun("root", "first").completion;
     expect(skills.listSkills("root")).toEqual([]);
@@ -137,9 +158,15 @@ describe("skills plugin", () => {
         ).toBe(true);
       },
     });
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     expect((await runs.startRun("root", "child").completion).status).toBe(
-      "completed",
+      RunOutcomeStatus.completed,
     );
     expect(childId).not.toBe("");
     expect(skills.listSkills(childId)).toEqual([]);
@@ -157,8 +184,14 @@ describe("skills plugin", () => {
       },
     });
     await expect(
-      runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd }),
-    ).rejects.toThrow("provider failed");
+      runs.prepareRun({
+        runId: "root",
+        configuration: {
+          strategyPath: "example.json",
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     expect(skills.listSkills("root")).toEqual([]);
     await runs.dispose();
     await skills.dispose();
@@ -180,13 +213,18 @@ describe("skills plugin", () => {
     );
     const preparation = runs.prepareRun({
       runId: "root",
-      strategyPath: "example.json",
-      cwd,
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
     });
     await entered.promise;
     const stopped = runs.stopRun("root");
     gate.resolve();
-    expect((await preparation).phase).toBe("cancelled");
+    expect(await preparation).toMatchObject({
+      phase: "terminal",
+      outcome: { status: "stopped" },
+    });
     await stopped;
     expect(registries.has("root")).toBe(false);
     expect(skills.listSkills("root")).toEqual([]);
@@ -209,20 +247,30 @@ describe("skills plugin", () => {
     );
     const preparation = runs.prepareRun({
       runId: "root",
-      strategyPath: "example.json",
-      cwd,
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
     });
     await entered.promise;
     const disposal = skills.dispose();
     expect(skills.dispose()).toBe(disposal);
     await disposal;
     gate.resolve();
-    await expect(preparation).rejects.toThrow("disposed");
+    await expect(preparation).rejects.toMatchObject({
+      code: "PREPARATION_ERROR",
+    });
     expect(registries.has("root")).toBe(false);
     expect(skills.listSkills("root")).toEqual([]);
     await expect(
-      runs.prepareRun({ runId: "later", strategyPath: "example.json", cwd }),
-    ).rejects.toThrow("disposed");
+      runs.prepareRun({
+        runId: "later",
+        configuration: {
+          strategyPath: "example.json",
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     await runs.dispose();
   });
 });

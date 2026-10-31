@@ -1,11 +1,14 @@
+import { sleep } from "bun";
 import { loadDaemonConfig } from "../../../config";
-import { DEFAULT_DAEMON_READY_TIMEOUT_MS } from "../../../defaults";
+import {
+  DEFAULT_DAEMON_READY_TIMEOUT_MS,
+  DEFAULT_DAEMON_POLL_INTERVAL_MS,
+} from "../../../defaults";
 import { startDaemonRuntime } from "../../runtime";
 import { isRunning, readPid, removePid } from "../pid/pid";
 import {
   buildDaemonProcessEnvOverrides,
   buildDaemonProcessForegroundArgs,
-  waitForDaemonProcessReady,
 } from "../process.utils";
 import { type DaemonProcessStatus, getDaemonProcessStatus } from "./status";
 
@@ -46,7 +49,7 @@ export async function startDaemonProcess(
     env: buildDaemonProcessEnvOverrides(options),
   });
   const existingPid = readPid(config.pidFile);
-  
+
   if (existingPid !== undefined && isRunning(existingPid)) {
     const status = getDaemonProcessStatus(options);
     if (options.allowExisting === true) {
@@ -70,7 +73,7 @@ export async function startDaemonProcess(
       status: getDaemonProcessStatus(options),
       started: true,
       foreground: true,
-      message: "Daemon exited",
+      message: "Daemon started in foreground",
     };
   }
 
@@ -82,13 +85,33 @@ export async function startDaemonProcess(
   const child = Bun.spawn([command, ...spawnArguments], {
     stdio: ["ignore", "ignore", "ignore"],
     detached: true,
+    env: { ...process.env, ...buildDaemonProcessEnvOverrides(options) },
   });
   child.unref();
 
-  const ready = await waitForDaemonProcessReady({
-    config,
-    timeoutMs: options.readinessTimeoutMs ?? DEFAULT_DAEMON_READY_TIMEOUT_MS,
-  });
+  const deadline =
+    Date.now() +
+    (options.readinessTimeoutMs ?? DEFAULT_DAEMON_READY_TIMEOUT_MS);
+  let ready = false;
+  while (Date.now() < deadline) {
+    if (!isRunning(child.pid)) {
+      break;
+    }
+    if (readPid(config.pidFile) === child.pid) {
+      ready = true;
+      break;
+    }
+    const remainingMs = deadline - Date.now();
+    if (remainingMs > 0) {
+      await sleep(Math.min(DEFAULT_DAEMON_POLL_INTERVAL_MS, remainingMs));
+    }
+  }
+
+  if (!ready && !isRunning(child.pid)) {
+    throw new Error(
+      `Daemon process exited before startup completed${config.logFile ? `. Check ${config.logFile}` : ""}`,
+    );
+  }
 
   const status = getDaemonProcessStatus(options);
   return {

@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createPlugin } from "../../../daemon-plugin";
 import { createRunsContext } from "../state";
-import type { RunEntry } from "../state/state.types";
+import { createRunEntry } from "../state/state";
+import { RunPhase, RunOutcomeStatus } from "../state/state.schemas";
 import type { RunNotifications, RunStatus } from "../runs.notifications";
 import {
   completeAgentMessage,
@@ -30,22 +31,14 @@ describe("run display messages", () => {
       cleanup: async () => {},
     });
     const context = createRunsContext({ runsDir: directory }, notifications);
-    const entry: RunEntry = {
-      snapshot: {
-        runId: "run",
-        phase: "preparing",
-        strategyPath: "example.json",
-        cwd: directory,
-        mode: "new",
+    const entry = createRunEntry(
+      { runId: "run" },
+      { strategyPath: "example.json", cwd: directory },
+      {
+        phase: RunPhase.terminal,
+        outcome: { status: RunOutcomeStatus.interrupted },
       },
-      lifecycle: { phase: "preparing" },
-      controller: new AbortController(),
-      optionsKey: "",
-      disposers: [],
-      pendingInput: new Map(),
-      steering: [],
-      children: new Set(),
-    };
+    );
     context.runs.set("run", entry);
     const messages: RunStatus[] = [];
     await notifications.subscribe("run_message_stream", "run", (message) => {
@@ -105,16 +98,20 @@ describe("run display messages", () => {
       responseMessages: [],
       steps: [],
       usage: { promptTokens: 1, completionTokens: 2 },
+      contextUsage: { totalTokens: 3 },
       finishReason: "stop",
     });
     expect((await context.history.read("run")).entries).toMatchObject([
       {
         messageId: identity.messageId,
         status: "completed",
+        completedAt: expect.any(String),
+        usage: { promptTokens: 1, completionTokens: 2 },
+        contextUsage: { totalTokens: 3 },
         content: [{ type: "text", text: "final text" }],
       },
     ]);
-    expect(context.activeMessages.size).toBe(0);
+    expect(entry.activeMessages.size).toBe(0);
   });
 
   it("should finalize only the failed invocation when another agent invocation remains active", async () => {
@@ -126,22 +123,14 @@ describe("run display messages", () => {
       cleanup: async () => {},
     });
     const context = createRunsContext({ runsDir: directory }, notifications);
-    const entry: RunEntry = {
-      snapshot: {
-        runId: "run",
-        phase: "preparing",
-        strategyPath: "example.json",
-        cwd: directory,
-        mode: "new",
+    const entry = createRunEntry(
+      { runId: "run" },
+      { strategyPath: "example.json", cwd: directory },
+      {
+        phase: RunPhase.terminal,
+        outcome: { status: RunOutcomeStatus.interrupted },
       },
-      lifecycle: { phase: "preparing" },
-      controller: new AbortController(),
-      optionsKey: "",
-      disposers: [],
-      pendingInput: new Map(),
-      steering: [],
-      children: new Set(),
-    };
+    );
     for (const messageId of ["failed", "active"]) {
       await streamAgentMessage(context, entry, "writer", {
         type: "text",
@@ -149,11 +138,89 @@ describe("run display messages", () => {
         messageId,
       });
     }
-    await interruptAgentMessages(context, "run", "failed", "failed");
-    expect(context.activeMessages.has("active")).toBe(true);
+    await interruptAgentMessages(context, entry, "failed", "failed");
+    expect(entry.activeMessages.has("active")).toBe(true);
     expect((await context.history.read("run")).entries).toMatchObject([
-      { messageId: "failed", status: "failed", content: [{ text: "failed" }] },
+      {
+        messageId: "failed",
+        status: "failed",
+        completedAt: expect.any(String),
+        content: [{ text: "failed" }],
+      },
     ]);
-    await interruptAgentMessages(context, "run", "cancelled");
+    await interruptAgentMessages(context, entry, "stopped");
+  });
+  it("should retain partial output and distinguish user-cancelled tools from completed tool results", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "run-steering-"));
+    directories.push(directory);
+    const { notifications } = createPlugin<"runs", RunNotifications>({
+      name: "runs",
+      notifications: true,
+      cleanup: async () => {},
+    });
+    const context = createRunsContext({ runsDir: directory }, notifications);
+    const entry = createRunEntry(
+      { runId: "run" },
+      { strategyPath: "example.json", cwd: directory },
+      {
+        phase: RunPhase.terminal,
+        outcome: { status: RunOutcomeStatus.interrupted },
+      },
+    );
+    const identity = {
+      messageId: "interrupted",
+      createdAt: new Date().toISOString(),
+    };
+    await streamAgentMessage(context, entry, "writer", {
+      ...identity,
+      type: "text",
+      text: "partial",
+    });
+    for (const toolCallId of ["finished", "cancelled"]) {
+      await streamAgentMessage(context, entry, "writer", {
+        ...identity,
+        type: "tool-call",
+        toolName: "read",
+        toolCallId,
+        args: "{}",
+      });
+    }
+    await streamAgentMessage(context, entry, "writer", {
+      ...identity,
+      type: "tool-result",
+      toolName: "read",
+      toolCallId: "finished",
+      status: "completed",
+      output: "retained result",
+    });
+    await interruptAgentMessages(
+      context,
+      entry,
+      "stopped",
+      identity.messageId,
+      "user_steering",
+    );
+    expect((await context.history.read("run")).entries).toMatchObject([
+      {
+        messageId: "interrupted",
+        status: "stopped",
+        cancellationReason: "user_steering",
+        content: [
+          { type: "text", text: "partial" },
+          {
+            type: "tool",
+            toolCallId: "finished",
+            status: "completed",
+            output: "retained result",
+          },
+          {
+            type: "tool",
+            toolCallId: "cancelled",
+            status: "stopped",
+            cancellationReason: "user_steering",
+          },
+        ],
+      },
+    ]);
   });
 });

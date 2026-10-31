@@ -51,8 +51,8 @@ describe("listOllamaModels", () => {
       expect(seenUrl).toBe("http://localhost:11434/api/tags");
       expect(models).toHaveLength(2);
       expect(models[0]?.id).toBe("llama3.3:latest");
-      expect(models[0]?.family).toBe("llama");
-      expect(models[0]?.lastUpdated).toBe("2025-02-10");
+      expect(models[0]?.metadata.family).toBe("llama");
+      expect(models[0]?.metadata.lastUpdated).toBe("2025-02-10");
       expect(models[1]?.id).toBe("qwen2.5-coder:7b");
     } finally {
       restore();

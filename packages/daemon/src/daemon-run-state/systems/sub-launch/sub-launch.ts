@@ -5,12 +5,8 @@ import type {
   LaunchStrategyHandle,
   LaunchStrategyRequest,
 } from "@comma-agents/core";
-import {
-  isUserAgentDef,
-  loadProject,
-  loadStrategyFromString,
-  readStrategyFile,
-} from "@comma-agents/core";
+import { isUserAgentDef, loadStrategyFromString } from "@comma-agents/core";
+import { loadProject, readStrategyFile } from "@comma-agents/core/strategy";
 import type { HubManager } from "@comma-agents/core/hub";
 import { toAgentStreamEventWire } from "../../../server/protocol/responses/from-core";
 import { resolveAgentModelDetails } from "../../agent-model-details";

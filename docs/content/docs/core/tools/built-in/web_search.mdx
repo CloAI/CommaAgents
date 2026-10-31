@@ -1,0 +1,61 @@
+---
+title: web_search
+description: Search the web through a configured backend and return ranked results with titles, URLs, dates, and snippets.
+---
+
+The `web_search` tool queries the first configured search backend and returns ranked results. Pair it with [`webfetch`](/docs/core/tools/built-in/webfetch): search results are previews, so agents should read a page before relying on it.
+
+```json
+{
+  "worker": {
+    "model": "@fast",
+    "tools": ["web_search", "webfetch"]
+  }
+}
+```
+
+## Backends
+
+Backends are configured through the [credential store](/docs/core/credentials), so an environment variable or a stored credential works. The first backend with a credential is used.
+
+| Backend | Credential ID | Environment variable | Value |
+|---|---|---|---|
+| Brave Search | `brave-search` | `BRAVE_SEARCH_API_KEY` or `BRAVE_API_KEY` | API key |
+| SearXNG | `searxng` | `SEARXNG_URL` | Instance URL; the instance must allow the `json` format |
+
+To use another backend, pass your own providers:
+
+```ts
+import { createWebSearchTool, registerTool } from "@comma-agents/core";
+
+registerTool(
+  "web_search",
+  createWebSearchTool({
+    providers: [
+      {
+        name: "internal",
+        credentialId: "internal-search",
+        async search({ query, count, signal, credential }) {
+          const response = await fetch(`https://search.example.com/?q=${encodeURIComponent(query)}&n=${count}`, {
+            signal,
+            headers: { Authorization: `Bearer ${credential}` },
+          });
+          const body: { hits: { title: string; link: string; summary: string }[] } = await response.json();
+          return body.hits.map((hit) => ({ title: hit.title, url: hit.link, snippet: hit.summary }));
+        },
+      },
+    ],
+  }),
+);
+```
+
+## Parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `query` | `string` | Search query. |
+| `count` | `number?` | Number of results, 1–20. Defaults to 8. |
+
+## Results
+
+The output lists numbered results with title, URL, date when known, and snippet. Structured data has the shape `{ provider, query, results }`. When no backend is configured, the tool returns an error naming the credential IDs to set.

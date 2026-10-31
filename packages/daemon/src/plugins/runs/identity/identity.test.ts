@@ -1,7 +1,6 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { createRunsPlugin } from "../runs";
-import type { RunIdentity } from "../runs.types";
-import type { RunStatus } from "../runs.notifications";
+import { afterEach, describe, expect, it } from "bun:test";
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   cleanupRunFixtures,
   createMockRunsPlugin,
@@ -9,128 +8,54 @@ import {
   fakeLoader,
   repository,
 } from "../test.utils";
-
 afterEach(cleanupRunFixtures);
-
-describe("run identity", () => {
-  test("should retain immediate parents, group nested output, and recover history ownership after restart", async () => {
-    const storage = repository();
-    const observed = { loads: [] as string[], restored: [] as string[][] };
+describe("run ancestry", () => {
+  it("should store each descendant independently and load parent links after restart", async () => {
+    const legacy = repository();
     const runs = createMockRunsPlugin({
-      repository: storage,
-      loadStrategy: fakeLoader(observed),
-    });
-    const preparations: RunIdentity[] = [];
-    runs.registerRunPreparation({
-      name: "identity-check",
-      prepare(scope) {
-        preparations.push({
-          runId: scope.runId,
-          ...(scope.parentRunId ? { parentRunId: scope.parentRunId } : {}),
-        });
-        return {};
-      },
-    });
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json" });
-    const updates: RunStatus[] = [];
-    await runs.notifications.subscribe("run_agent_output", "root", (update) => {
-      updates.push(update);
-    });
-    expect((await runs.startRun("root", "nested").completion).status).toBe(
-      "completed",
-    );
-    const [root, child, grandchild] = preparations;
-    expect(root).toEqual({ runId: "root" });
-    expect(child?.parentRunId).toBe("root");
-    expect(grandchild?.parentRunId).toBe(child?.runId);
-    expect(new Set(preparations.map((identity) => identity.runId)).size).toBe(
-      3,
-    );
-    expect(runs.getRunLineage(grandchild!.runId)).toEqual([
-      grandchild!,
-      child!,
-      root!,
-    ]);
-    expect(
-      updates
-        .filter((update) => update.type === "run_agent_output")
-        .map((update) => update.runId),
-    ).toEqual([grandchild!.runId, child!.runId, "root"]);
-    const history = await runs.getHistory("root");
-    expect(history.entries.every((entry) => entry.runId === "root")).toBe(true);
-    expect(
-      history.entries.some(
-        (entry) =>
-          entry.type === "child.run" && entry.childRunId === child!.runId,
-      ),
-    ).toBe(true);
-    const grandchildHistory = await runs.getHistory(grandchild!.runId);
-    expect(
-      grandchildHistory.entries.every(
-        (entry) => entry.runId === grandchild!.runId,
-      ),
-    ).toBe(true);
-    expect(await storage.getEvents(child!.runId)).toEqual([]);
-    expect((await storage.listRuns()).map((run) => run.runId)).toEqual([
-      "root",
-    ]);
-    await runs.dispose();
-
-    const restarted = createRunsPlugin({ runsDir: directories.at(-1)! });
-    expect(await restarted.getHistory(grandchild!.runId)).toEqual(
-      grandchildHistory,
-    );
-    expect(restarted.getRunLineage(grandchild!.runId)).toEqual([
-      grandchild!,
-      child!,
-      root!,
-    ]);
-    expect(await restarted.getRun(child!.runId)).toMatchObject({
-      runId: child!.runId,
-      parentRunId: "root",
-      phase: "terminal",
-      strategyPath: "child.json",
-    });
-    const prepared = await restarted.prepareRun({ runId: child!.runId });
-    expect(prepared.phase).toBe("prepared");
-    if (prepared.phase !== "cancelled") {
-      expect(prepared.conversation?.records).toHaveLength(1);
-      const childRecord = (
-        await restarted.getHistory(child!.runId)
-      ).entries.find(
-        (entry) => entry.type === "message" && entry.role === "agent",
-      );
-      expect(prepared.conversation?.records[0]?.id).toBe(
-        childRecord?.messageId,
-      );
-    }
-    expect(
-      (await restarted.continueRun(child!.runId, "continued child").completion)
-        .status,
-    ).toBe("completed");
-    expect(await restarted.getRun("root")).toMatchObject({
-      runId: "root",
-      strategyPath: "example.json",
-    });
-    await restarted.dispose();
-  });
-
-  test("should reject missing parents and cycles rather than inventing history ownership", async () => {
-    const storage = repository();
-    await storage.saveRunIdentity({ runId: "orphan", parentRunId: "missing" });
-    await storage.saveRunIdentity({ runId: "cycle-a", parentRunId: "cycle-b" });
-    await storage.saveRunIdentity({ runId: "cycle-b", parentRunId: "cycle-a" });
-    const runs = createMockRunsPlugin({
-      repository: storage,
+      repository: legacy,
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
-    await expect(runs.getHistory("orphan")).rejects.toThrow(
-      "Missing parent run",
+    await runs.prepareRun({
+      runId: "parent",
+      configuration: { strategyPath: "example.json" },
+    });
+    await runs.startRun("parent", "nested").completion;
+    const parent = await runs.getHistory("parent");
+    const child = parent.entries.find((entry) => entry.type === "child.run");
+    if (child?.type !== "child.run") {
+      throw new Error("Missing child reference");
+    }
+    const children = await runs.getHistory(child.childRunId);
+    const grandchild = children.entries.find(
+      (entry) => entry.type === "child.run",
     );
-    await expect(runs.getHistory("cycle-a")).rejects.toThrow(
-      "Cyclic run ancestry",
+    if (grandchild?.type !== "child.run") {
+      throw new Error("Missing grandchild reference");
+    }
+    expect(parent.entries.every((entry) => entry.runId === "parent")).toBe(
+      true,
     );
-    expect(() => runs.getRunLineage("unknown")).toThrow("Missing run identity");
+    const cwd = directories.at(-1)!;
+    for (const runId of ["parent", child.childRunId, grandchild.childRunId]) {
+      expect(existsSync(join(cwd, runId, "run.json"))).toBe(true);
+      const events = readFileSync(
+        join(cwd, runId, "conversation.jsonl"),
+        "utf8",
+      );
+      expect(events.trim().split("\n")).toHaveLength(1);
+    }
     await runs.dispose();
+    const restarted = createMockRunsPlugin({
+      repository: legacy,
+      loadStrategy: fakeLoader({ loads: [], restored: [] }),
+    });
+    await restarted.getHistory(grandchild.childRunId);
+    expect(
+      restarted
+        .getRunLineage(grandchild.childRunId)
+        .map((identity) => identity.runId),
+    ).toEqual([grandchild.childRunId, child.childRunId, "parent"]);
+    await restarted.dispose();
   });
 });

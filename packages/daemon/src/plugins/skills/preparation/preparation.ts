@@ -43,9 +43,13 @@ export async function prepareRunSkills(
   logger.debug(
     `Loaded ${registry.list().length} skills for ${preparation.cwd}`,
   );
-  context.registries.set(preparation.runId, registry);
+  const activate = (): void => {
+    context.registries.set(preparation.runId, registry);
+  };
+  if (!preparation.staged) activate();
 
   return {
+    ...(preparation.staged ? { activate } : {}),
     strategyInputs: { skillRegistry: registry },
     dispose: (): void => {
       if (context.registries.get(preparation.runId) === registry) {

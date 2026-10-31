@@ -18,7 +18,18 @@ export interface QuestionRequested {
   readonly ts: string;
 }
 
+/** A question that no longer awaits a response: answered, cancelled, or released with its run. */
+export interface QuestionResolved {
+  /** Notification discriminator. */
+  readonly type: "run_question_resolved";
+  /** Identifier of the requesting execution. */
+  readonly runId: string;
+  /** Identifier of the question that ended. */
+  readonly requestId: string;
+}
+
 /** Declared question notifications, indexed by event discriminator. */
 export type QuestionsNotifications = {
   readonly run_question_requested: QuestionRequested;
+  readonly run_question_resolved: QuestionResolved;
 };

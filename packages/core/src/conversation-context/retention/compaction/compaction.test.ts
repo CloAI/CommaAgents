@@ -2,7 +2,8 @@ import { describe, expect, it } from "bun:test";
 import type { ConversationRecord } from "../../conversation-context.types";
 import { activeRecords } from "../retention.utils";
 import { countingSummarizer, makeRecord } from "../test.utils";
-import { applyCompaction } from "./compaction";
+import { applyCompaction, CompactionSummaryRejectedError } from "./compaction";
+import { buildCompactionInstruction } from "./compaction.utils";
 
 describe("applyCompaction", () => {
   it("should fold older records into one summary once over the threshold", async () => {
@@ -112,5 +113,54 @@ describe("applyCompaction", () => {
       ratio: 0.85,
       thresholdRatio: 0.85,
     });
+  });
+});
+
+describe("applyCompaction token tail", () => {
+  it("should keep only the newest records that fit the token budget", async () => {
+    const { calls, summarize } = countingSummarizer();
+    const records = [1, 2, 3, 4, 5].map((index) => makeRecord(String(index)));
+
+    await applyCompaction({
+      records,
+      // Each fixture record is about 30 estimated tokens, so 70 keeps the two newest.
+      options: { keepRecentTokens: 70, threshold: 4, summarize },
+      agentName: "writer",
+      trigger: {},
+    });
+
+    expect(calls[0]?.map((record) => record.id)).toEqual(["1", "2", "3"]);
+  });
+
+  it("should keep history unchanged when the summarizer rejects its summary", async () => {
+    const records = [1, 2, 3, 4, 5].map((index) => makeRecord(String(index)));
+    const result = await applyCompaction({
+      records,
+      options: {
+        keepRecent: 2,
+        threshold: 4,
+        summarize: async () => {
+          throw new CompactionSummaryRejectedError("truncated");
+        },
+      },
+      agentName: "writer",
+      trigger: {},
+    });
+
+    expect(result.records).toBe(records);
+    expect(result.event).toBeUndefined();
+  });
+});
+
+describe("buildCompactionInstruction", () => {
+  it("should list standard sections followed by extra sections", () => {
+    const instruction = buildCompactionInstruction(["Plan status"]);
+    expect(instruction).toContain("## Goal\n## Constraints and preferences");
+    expect(instruction).toContain(
+      "## Unanswered user questions\n## Plan status",
+    );
+    expect(instruction).toContain(
+      "If it begins with an earlier summary, update that summary",
+    );
   });
 });

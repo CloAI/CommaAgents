@@ -23,8 +23,10 @@ const unsubscribe = await daemon.plugins.sandbox.notifications.subscribe(
 try {
   await daemon.plugins.runs.prepareRun({
     runId,
-    strategyPath: "./strategy.json",
-    cwd: process.cwd(),
+    configuration: {
+      strategyPath: "./strategy.json",
+      cwd: process.cwd(),
+    },
   });
   // Execute after connecting your permission decision interface.
 } finally {
@@ -49,7 +51,7 @@ const runs = createRunsPlugin({ runsDir: "./runs" });
 const sandbox = createSandboxPlugin({ dependencies: { runs } });
 
 try {
-  await runs.prepareRun({ strategyPath: "./strategy.json" });
+  await runs.prepareRun({ configuration: { strategyPath: "./strategy.json" } });
 } finally {
   await runs.dispose();
   await sandbox.dispose();
@@ -146,9 +148,9 @@ const stopSnapshots = await daemon.plugins.runs.notifications.subscribe(
   (event) => console.log(event.snapshot.phase),
 );
 const stopOutput = await daemon.plugins.runs.notifications.subscribe(
-  "run_agent_output",
+  "run_message_output",
   runId,
-  (event) => console.log(event.agentName, event.result.text),
+  (event) => console.log(event.message.content),
 );
 ```
 

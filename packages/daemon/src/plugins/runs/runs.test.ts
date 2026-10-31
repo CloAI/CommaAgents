@@ -1,3 +1,4 @@
+import { RunPhase, RunOutcomeStatus } from "./state/state.schemas";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -5,13 +6,7 @@ import { join } from "node:path";
 import { registerModel } from "../../../../core/src/model/model";
 import { createRunsPlugin } from "./runs";
 
-import {
-  cleanupRunFixtures,
-  createMockRunsPlugin,
-  directories,
-  fakeLoader,
-  repository,
-} from "./test.utils";
+import { cleanupRunFixtures, directories } from "./test.utils";
 
 afterEach(cleanupRunFixtures);
 
@@ -43,6 +38,31 @@ describe("runs plugin", () => {
       doStream: async () => ({
         stream: new ReadableStream({
           start(controller) {
+            controller.enqueue({ type: "stream-start", warnings: [] });
+            controller.enqueue({ type: "text-start", id: "text" });
+            controller.enqueue({
+              type: "text-delta",
+              id: "text",
+              delta: "model answer",
+            });
+            controller.enqueue({ type: "text-end", id: "text" });
+            controller.enqueue({
+              type: "finish",
+              finishReason: { unified: "stop", raw: undefined },
+              usage: {
+                inputTokens: {
+                  total: 1,
+                  noCache: undefined,
+                  cacheRead: undefined,
+                  cacheWrite: undefined,
+                },
+                outputTokens: {
+                  total: 2,
+                  text: undefined,
+                  reasoning: undefined,
+                },
+              },
+            });
             controller.close();
           },
         }),
@@ -65,9 +85,14 @@ describe("runs plugin", () => {
       }),
     );
     const runs = createRunsPlugin({ runsDir: join(directory, "runs") });
-    await runs.prepareRun({ runId: "model-1", strategyPath });
+    await runs.prepareRun({
+      runId: "model-1",
+      configuration: {
+        strategyPath,
+      },
+    });
     expect((await runs.startRun("model-1", "first").completion).status).toBe(
-      "completed",
+      RunOutcomeStatus.completed,
     );
     expect(
       (await runs.getHistory("model-1")).entries.filter(
@@ -75,10 +100,10 @@ describe("runs plugin", () => {
       ),
     ).toHaveLength(1);
     const prepared = await runs.prepareRun({ runId: "model-1" });
-    expect(prepared.phase).toBe("prepared");
-    expect(
-      (await runs.continueRun("model-1", "second").completion).status,
-    ).toBe("completed");
+    expect(prepared.phase).toBe(RunPhase.prepared);
+    expect((await runs.startRun("model-1", "second").completion).status).toBe(
+      RunOutcomeStatus.completed,
+    );
     expect(
       (await runs.getHistory("model-1")).entries.filter(
         (event) => event.type === "message" && event.role === "agent",
@@ -109,66 +134,16 @@ describe("runs plugin", () => {
       }),
     );
     const runs = createRunsPlugin({ runsDir: join(directory, "runs") });
-    const prepared = await runs.prepareRun({ strategyPath, runId: "real-1" });
-    expect(prepared.phase).toBe("prepared");
-    const outcome = await runs.startRun("real-1", "hello").completion;
-    expect(outcome.status).toBe("completed");
-    if (outcome.status === "completed")
-      expect(outcome.result.text).toBe("hello");
-  });
-
-  test("prepares, executes durably, and continues with restored history", async () => {
-    const storage = repository();
-    const observed = { loads: [] as string[], restored: [] as string[][] };
-    const runs = createMockRunsPlugin({
-      repository: storage,
-      loadStrategy: fakeLoader(observed),
-    });
-    const cleanup: string[] = [];
-    runs.registerRunPreparation({
-      name: "feature",
-      prepare() {
-        return {
-          dispose: () => {
-            cleanup.push("feature");
-          },
-        };
+    const prepared = await runs.prepareRun({
+      runId: "real-1",
+      configuration: {
+        strategyPath,
       },
     });
-    runs.registerStrategyHooks({ name: "feature", attach() {} });
-
-    const prepared = await runs.prepareRun({
-      runId: "run-1",
-      strategyPath: "example.json",
-    });
-    expect(prepared.phase).toBe("prepared");
-    const first = await runs.startRun("run-1", "first").completion;
-    expect(first.status).toBe("completed");
-    expect(cleanup).toEqual(["feature"]);
-
-    const continued = await runs.prepareRun({ runId: "run-1" });
-    expect(continued.phase).toBe("prepared");
-    expect(observed.loads).toEqual(["run-1", "run-1"]);
-    expect(observed.restored).toHaveLength(1);
-    expect(observed.restored[0]).toHaveLength(1);
-    const second = await runs.continueRun("run-1", "second").completion;
-    expect(second.status).toBe("completed");
-    expect(cleanup).toEqual(["feature", "feature"]);
-
-    const events = await storage.getEvents("run-1");
-    expect(events.filter((event) => event.type === "run_started")).toHaveLength(
-      2,
-    );
-    expect(
-      events.filter((event) => event.type === "run_completed"),
-    ).toHaveLength(2);
-    expect(events.filter((event) => event.type === "agent_call")).toHaveLength(
-      2,
-    );
-    const completed = events.at(-1);
-    expect(completed?.type).toBe("run_completed");
-    if (completed?.type === "run_completed") {
-      expect(completed.result?.text).toBe("second");
-    }
+    expect(prepared.phase).toBe(RunPhase.prepared);
+    const outcome = await runs.startRun("real-1", "hello").completion;
+    expect(outcome.status).toBe(RunOutcomeStatus.completed);
+    if (outcome.status === "completed")
+      expect(outcome.result.text).toBe("hello");
   });
 });

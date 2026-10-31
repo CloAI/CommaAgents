@@ -23,5 +23,9 @@ export const DaemonConfigFileSchema = z
     pidFile: z.string().optional(),
     configFile: z.string().optional(),
     runsDir: z.string().optional(),
+    /** Models for `@role` references in strategies, e.g. `{ "primary": "openai/gpt-5" }`. */
+    modelRoles: z.record(z.string().min(1), z.string().min(1)).optional(),
+    /** Instruction file names checked per directory, first match wins. */
+    instructionFiles: z.array(z.string().min(1)).optional(),
   })
   .strict();

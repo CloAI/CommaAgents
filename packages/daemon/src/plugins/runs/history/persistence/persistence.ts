@@ -1,37 +1,28 @@
-import type { RunsContext } from "../../state/state.types";
-import type { RunSnapshot } from "../../runs.types";
-import type { RunHistoryEntry } from "../../messages";
-
+import type { RunEntry } from "../../state/state.types";
+import { operationError, runError, RunErrorCode } from "../../errors";
 /**
- * Persist display state and track writes for a coherent subscription handoff.
- * @param {RunsContext} context - Private feature state.
- * @param {RunHistoryEntry | RunSnapshot} message - Display entry or lifecycle snapshot to persist.
- * @returns {Promise<void>} Durable snapshot completion.
+ *  Track one run's required write and retain a typed failure if storage rejects it.
+ * @param {RunEntry} entry - Run that owns the operation.
+ * @param {Promise<Result>} writing - Required storage operation.
+ * @returns {Promise<Result>} Result after the tracked operation completes.
  * @internal
  */
-export async function persistRunSnapshot(
-  context: RunsContext,
-  message: RunHistoryEntry | RunSnapshot,
-): Promise<void> {
-  const writing =
-    "messageId" in message
-      ? context.history.save(message)
-      : context.history.saveSnapshot(message);
-  context.pendingWrites.add(writing);
+export async function persistRunWrite<Result>(
+  entry: RunEntry,
+  writing: Promise<Result>,
+): Promise<Result> {
+  entry.pendingWrites.add(writing);
   try {
-    await writing;
-    context.revision++;
-  } catch (error) {
-    const entry = context.runs.get(message.runId);
-    if (entry && "messageId" in message) {
-      entry.persistenceFailure = {
-        code: "PERSISTENCE_ERROR",
-        message: error instanceof Error ? error.message : String(error),
-      };
-      entry.controller.abort();
-    }
-    throw error;
+    return await writing;
+  } catch (cause) {
+    entry.failure = operationError(
+      RunErrorCode.PERSISTENCE_ERROR,
+      entry.runId,
+      cause,
+    );
+    entry.controller.abort();
+    throw runError(entry.failure);
   } finally {
-    context.pendingWrites.delete(writing);
+    entry.pendingWrites.delete(writing);
   }
 }

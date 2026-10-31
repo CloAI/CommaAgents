@@ -1,3 +1,4 @@
+import { z } from "zod/v4";
 import type { BindingError } from "../../daemon-plugin/server";
 
 /**
@@ -7,6 +8,10 @@ import type { BindingError } from "../../daemon-plugin/server";
  * @internal
  */
 export function bindingError(error: unknown): BindingError {
+  const metadata =
+    typeof error === "object" && error !== null && "metadata" in error
+      ? z.record(z.string(), z.json()).safeParse(error.metadata)
+      : undefined;
   return {
     code:
       typeof error === "object" &&
@@ -16,5 +21,6 @@ export function bindingError(error: unknown): BindingError {
         ? error.code
         : "INTERNAL_ERROR",
     message: error instanceof Error ? error.message : String(error),
+    ...(metadata?.success === true ? { metadata: metadata.data } : {}),
   };
 }

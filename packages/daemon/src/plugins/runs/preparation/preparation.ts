@@ -1,202 +1,189 @@
-import { findLatestRunStart } from "../../../daemon-run-state/daemon-run-state.utils";
 import type {
   PrepareRunOptions,
   PrepareRunResult,
   RunPreparationContext,
 } from "../runs.types";
-import type { RunEntry, RunsContext } from "../state/state.types";
-import { updateRunSnapshot } from "../state";
-import { loadRunForScope } from "../execution";
+import type {
+  RunIdentity,
+  RunPreparedSnapshot,
+  RunsContext,
+} from "../state/state.types";
 import {
-  cleanupRunEntry,
-  throwIfRunAborted,
-} from "../execution/execution.utils";
+  RunPhase,
+  RunOutcomeStatus,
+  RunStrategyDescriptionSchema,
+} from "../state/state.schemas";
 import {
-  conversationFromEvents,
-  snapshotFromEvents,
-} from "../history/history.utils";
-import { preparationKey } from "./preparation.utils";
-import { hydrateRunLineage, registerRunIdentity } from "../identity";
-import { getRunHistory, hydrateDisplayHistory } from "../history";
-
-async function prepareEntry(
-  runsContext: RunsContext,
-  entry: RunEntry,
-  options: PrepareRunOptions,
-): Promise<PrepareRunResult> {
-  const runId = entry.snapshot.runId;
-  try {
-    const lineage = await hydrateRunLineage(runsContext, runId);
-    const identity = lineage?.[0] ?? { runId };
-    await registerRunIdentity(runsContext, identity);
-    updateRunSnapshot(runsContext, entry, { ...entry.snapshot, ...identity });
-    const events = await getRunHistory(runsContext, runId);
-    await hydrateDisplayHistory(runsContext, runId);
-    const latestStart = findLatestRunStart(
-      events.filter((event) => !event.runId || event.runId === runId),
-    );
-    const previous = snapshotFromEvents(runId, events);
-    if (previous?.outcome?.status === "persistence_error") {
-      throw new Error(`Run ${runId} has an unreliable persisted history`);
-    }
-    if (options.runId && !latestStart && !options.strategyPath) {
-      throw new Error(`Run not found: ${runId}`);
-    }
-    const strategyPath = options.strategyPath ?? latestStart?.strategyPath;
-    if (!strategyPath) {
-      throw new Error("strategyPath is required for a new run");
-    }
-    const cwd = options.cwd ?? latestStart?.cwd ?? process.cwd();
-    const mode = latestStart ? "continuation" : "new";
-    const context: RunPreparationContext = {
-      runId,
-      ...(identity.parentRunId ? { parentRunId: identity.parentRunId } : {}),
-      kind: identity.parentRunId ? "child" : "root",
-      strategyPath,
-      cwd,
-      ...((options.manifestPath ?? latestStart?.manifestPath)
-        ? { manifestPath: options.manifestPath ?? latestStart?.manifestPath }
-        : {}),
-      ...((options.modelOverride ?? latestStart?.modelOverride)
-        ? {
-            modelOverride: options.modelOverride ?? latestStart?.modelOverride,
-          }
-        : {}),
-      signal: entry.controller.signal,
-    };
-    entry.settings = {
-      ...(context.manifestPath ? { manifestPath: context.manifestPath } : {}),
-      ...(context.modelOverride
-        ? { modelOverride: context.modelOverride }
-        : {}),
-    };
-    const conversation = conversationFromEvents(events, runId);
-    updateRunSnapshot(runsContext, entry, {
-      runId,
-      ...(identity.parentRunId ? { parentRunId: identity.parentRunId } : {}),
-      phase: "preparing",
-      strategyPath,
-      cwd,
-      mode,
-      conversation,
-    });
-    const prepared = await loadRunForScope(runsContext, entry, context);
-    entry.disposers.push(...prepared.disposers);
-    entry.lifecycle = { phase: "prepared", strategy: prepared.strategy };
-    const unmatchedAgents = [
-      ...new Set(conversation.records.map((record) => record.agentName)),
-    ].filter((name) => !(name in prepared.strategy.agents));
-    throwIfRunAborted(entry.controller.signal);
-    updateRunSnapshot(runsContext, entry, {
-      runId,
-      ...(identity.parentRunId ? { parentRunId: identity.parentRunId } : {}),
-      phase: "prepared",
-      strategyPath,
-      strategyName: prepared.strategy.name,
-      cwd,
-      mode,
-      agents: Object.keys(prepared.strategy.agents),
-      flowTree: prepared.strategy.raw.flow,
-      conversation,
-      unmatchedAgents,
-    });
-    return entry.snapshot;
-  } catch (error) {
-    await cleanupRunEntry(entry);
-    runsContext.runs.delete(runId);
-    if (entry.controller.signal.aborted) {
-      runsContext.notifications.notify(runId, {
-        type: "run_preparation_cancelled",
-        runId,
-      });
-    } else {
-      runsContext.notifications.notify(runId, {
-        type: "run_preparation_failed",
-        runId,
-        error: {
-          code: "PREPARATION_ERROR",
-          message: error instanceof Error ? error.message : String(error),
-        },
-      });
-    }
-    if (entry.previous) {
-      runsContext.runs.set(runId, {
-        ...entry,
-        snapshot: entry.previous,
-        lifecycle: { phase: "terminal" },
-        preparation: undefined,
-        execution: undefined,
-      });
-      runsContext.notifications.notify(runId, {
-        type: "run_snapshot",
-        snapshot: entry.previous,
-      });
-    }
-    if (entry.controller.signal.aborted) {
-      return { phase: "cancelled", runId };
-    }
-    throw error;
-  }
-}
-
+  createRunEntry,
+  getRunSnapshot,
+  publishRunState,
+} from "../state/state";
+import { runSnapshot } from "../state/state.utils";
+import { RunConfigurationSchema } from "./preparation.schemas";
+import { loadRunPreparation } from "./loading/loading";
+import { cleanupRunEntry } from "./resources/resources";
+import { restoredConversation } from "../conversation/conversation";
+import { operationError, runError, RunErrorCode } from "../errors";
+import { persistRunWrite } from "../history/persistence";
+import { updateChildReference } from "../execution/children/children";
 /**
- * Prepare a new run or continuation, coalescing matching requests.
- * @param {RunsContext} runsContext - Private runs state and registrations.
- * @param {PrepareRunOptions} options - Run identity and strategy settings.
- * @returns {Promise<PrepareRunResult>} Prepared snapshot or cancellation result.
+ *  Prepare a new or saved conversation under the same domain rules for every caller.
+ * @param {RunsContext} context - Private runs state.
+ * @param {PrepareRunOptions} options - Operation settings.
+ * @param {RunIdentity} identity - Run identity and parent linkage.
+ * @returns {Promise<PrepareRunResult>} Prepared or stopped terminal state.
  * @internal
  */
-export function prepareRun(
-  runsContext: RunsContext,
+export async function prepareRun(
+  context: RunsContext,
   options: PrepareRunOptions,
+  identity?: RunIdentity,
 ): Promise<PrepareRunResult> {
-  const runId = options.runId ?? crypto.randomUUID();
-  const key = preparationKey({ ...options, runId });
-  const existing = runsContext.runs.get(runId);
-  if (existing?.snapshot.phase === "preparing") {
-    if (existing.optionsKey !== key) {
-      throw new Error(`Conflicting preparation for run ${runId}`);
-    }
-    return existing.preparation!;
+  const runId = identity?.runId ?? options.runId ?? crypto.randomUUID();
+  if (context.operations.has(runId)) {
+    throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+  }
+  const current = context.runs.get(runId);
+  if (current !== undefined && current.state.phase !== RunPhase.terminal) {
+    throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+  }
+  const previous =
+    options.runId !== undefined
+      ? await getRunSnapshot(context, runId)
+      : undefined;
+  if (
+    options.runId !== undefined &&
+    previous === undefined &&
+    options.configuration?.strategyPath === undefined
+  ) {
+    throw runError({ code: RunErrorCode.RUN_NOT_FOUND, metadata: { runId } });
   }
   if (
-    existing?.snapshot.phase === "prepared" ||
-    existing?.snapshot.phase === "running"
+    previous?.phase === RunPhase.terminal &&
+    previous.outcome.status === RunOutcomeStatus.failed &&
+    previous.outcome.error.code === RunErrorCode.PERSISTENCE_ERROR
   ) {
-    if (
-      options.strategyPath ||
-      options.cwd ||
-      options.manifestPath ||
-      options.modelOverride
-    ) {
-      if (existing.optionsKey !== key) {
-        throw new Error(`Conflicting preparation for run ${runId}`);
+    throw runError(previous.outcome.error);
+  }
+  if (context.operations.has(runId))
+    throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+  const raced = context.runs.get(runId);
+  if (raced !== undefined && raced.state.phase !== RunPhase.terminal) {
+    throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+  }
+  const overrides = options.configuration ?? {};
+  const candidate = RunConfigurationSchema.parse({
+    ...previous?.configuration,
+    ...overrides,
+    cwd: overrides.cwd ?? previous?.configuration.cwd ?? process.cwd(),
+    manifestPath:
+      overrides.manifestPath === null
+        ? undefined
+        : (overrides.manifestPath ?? previous?.configuration.manifestPath),
+    modelOverride:
+      overrides.modelOverride === null
+        ? undefined
+        : (overrides.modelOverride ?? previous?.configuration.modelOverride),
+    modelOverrides:
+      overrides.modelOverrides === null
+        ? undefined
+        : (overrides.modelOverrides ?? previous?.configuration.modelOverrides),
+  });
+  const pending = Promise.withResolvers<PrepareRunResult>();
+  const entry = createRunEntry(
+    { runId, parentRunId: identity?.parentRunId ?? previous?.parentRunId },
+    previous?.configuration ?? candidate,
+    { phase: RunPhase.preparing, preparation: pending.promise },
+  );
+  entry.retryInput = current?.retryInput;
+  entry.strategyState = previous?.strategyState;
+  entry.description = previous?.strategy ?? null;
+  context.runs.set(runId, entry);
+  context.identities.set(runId, { runId, parentRunId: entry.parentRunId });
+  void prepareEntry();
+  return pending.promise;
+  async function prepareEntry(): Promise<void> {
+    try {
+      await publishRunState(context, entry);
+      const conversation = await restoredConversation(context, entry);
+      const common = { runId, ...candidate, signal: entry.controller.signal };
+      const scope: RunPreparationContext =
+        entry.parentRunId === undefined
+          ? { ...common, kind: "root" }
+          : { ...common, kind: "child", parentRunId: entry.parentRunId };
+      const strategy = await loadRunPreparation(
+        context,
+        entry,
+        scope,
+        conversation,
+      );
+      entry.controller.signal.throwIfAborted();
+      const description = RunStrategyDescriptionSchema.parse({
+        name: strategy.name,
+        agents: Object.keys(strategy.agents),
+        flow: strategy.raw.flow,
+      });
+      const unmatchedAgents = [
+        ...new Set(conversation.records.map((record) => record.agentName)),
+      ].filter((agentName) => strategy.agents[agentName] === undefined);
+      const snapshot: RunPreparedSnapshot = {
+        runId,
+        parentRunId: entry.parentRunId,
+        configuration: candidate,
+        ...(entry.strategyState ? { strategyState: entry.strategyState } : {}),
+        strategy: description,
+        phase: RunPhase.prepared,
+        unmatchedAgents,
+      };
+      // Keep preparation reserved until its configuration and parent reference are durable.
+      await persistRunWrite(entry, context.storage.save(snapshot));
+      await updateChildReference(context, snapshot);
+      entry.controller.signal.throwIfAborted();
+      entry.configuration = candidate;
+      entry.description = description;
+      entry.state = { phase: RunPhase.prepared, strategy, unmatchedAgents };
+      context.notifications.notify(runId, { type: "run_snapshot", snapshot });
+      pending.resolve(snapshot);
+    } catch (cause) {
+      await cleanupRunEntry(entry);
+      const stopped = entry.controller.signal.aborted && entry.failure === null;
+      let error = stopped
+        ? null
+        : (entry.failure ??
+          operationError(RunErrorCode.PREPARATION_ERROR, runId, cause));
+      entry.configuration = previous?.configuration ?? candidate;
+      entry.description = previous?.strategy ?? null;
+      entry.state = {
+        phase: RunPhase.terminal,
+        outcome:
+          error === null
+            ? { status: RunOutcomeStatus.stopped }
+            : { status: RunOutcomeStatus.failed, error },
+      };
+      try {
+        await publishRunState(context, entry);
+      } catch (cause) {
+        error =
+          entry.failure ??
+          operationError(RunErrorCode.PERSISTENCE_ERROR, runId, cause);
+        entry.state = {
+          phase: RunPhase.terminal,
+          outcome: { status: RunOutcomeStatus.failed, error },
+        };
+        context.notifications.notify(runId, {
+          type: "run_snapshot",
+          snapshot: runSnapshot(entry),
+        });
+      }
+      const snapshot = runSnapshot(entry);
+      if (snapshot.phase !== RunPhase.terminal) {
+        throw new Error("Preparation did not finish");
+      }
+      if (error === null) {
+        pending.resolve(snapshot);
+      } else {
+        pending.reject(runError(error));
       }
     }
-    return Promise.resolve(existing.snapshot);
   }
-  if (existing?.snapshot.outcome?.status === "persistence_error") {
-    throw new Error(`Run ${runId} has an unreliable persisted history`);
-  }
-  const entry: RunEntry = {
-    snapshot: {
-      runId,
-      phase: "preparing",
-      strategyPath:
-        options.strategyPath ?? existing?.snapshot.strategyPath ?? "",
-      cwd: options.cwd ?? existing?.snapshot.cwd ?? process.cwd(),
-      mode: existing ? "continuation" : "new",
-    },
-    lifecycle: { phase: "preparing" },
-    controller: new AbortController(),
-    optionsKey: key,
-    ...(existing ? { previous: existing.snapshot } : {}),
-    disposers: [],
-    pendingInput: new Map(),
-    steering: [],
-    children: new Set(),
-  };
-  runsContext.runs.set(runId, entry);
-  entry.preparation = prepareEntry(runsContext, entry, { ...options, runId });
-  return entry.preparation;
 }

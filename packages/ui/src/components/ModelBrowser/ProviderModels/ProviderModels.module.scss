@@ -1,0 +1,180 @@
+.group {
+  min-width: 0;
+}
+.providerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.providerHeading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.providerName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+.count {
+  white-space: nowrap;
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+.chevron {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  transition: transform var(--motion-duration);
+}
+.providerHeading[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.models {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.model {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border);
+}
+.modelHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+  overflow-wrap: anywhere;
+  strong {
+    font-size: inherit;
+    font-weight: 500;
+  }
+  span {
+    color: var(--color-muted);
+  }
+}
+.modelId {
+  color: var(--color-muted);
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+.capabilityIcon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+}
+.badges span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: var(--color-primary);
+  font-size: 0.75rem;
+}
+
+.models[hidden] {
+  display: none;
+}
+
+.status {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1px solid color-mix(in srgb, currentColor 80%, var(--color-canvas));
+  border-radius: 50%;
+  background: currentColor;
+  color: var(--color-muted);
+  &[data-status="configured"] {
+    color: var(--color-success);
+  }
+  &[data-status="unconfigured"] {
+    color: var(--color-error);
+  }
+  &[data-status="warning"] {
+    color: var(--color-warning);
+  }
+}
+
+.action {
+  flex: none;
+  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--font-size-small);
+  font-weight: 400;
+  &:hover:not(:disabled) {
+    background: var(--color-surface-raised);
+    color: var(--color-text);
+  }
+}
+
+.connectionLabel {
+  font-size: 0.65rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.removeModel {
+  align-self: flex-end;
+  font-size: 0.7rem;
+  background: transparent;
+  color: var(--color-muted);
+  padding: 2px 4px;
+}
+.empty {
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+  margin: var(--space-2);
+}
+.pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  &:hover:not(:disabled) {
+    background: var(--color-surface-raised);
+  }
+  &[aria-current="true"] {
+    border-color: var(--color-primary);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+.note {
+  padding: 0 var(--space-2);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}

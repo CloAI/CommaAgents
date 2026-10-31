@@ -274,6 +274,55 @@ describe("agent instantiation", () => {
     expect(result.agents.assistant?.name).toBe("assistant");
   });
 
+  it("applies per-agent model overrides only to the named agent", async () => {
+    setupMockModels();
+    const json = JSON.stringify({
+      name: "Test",
+      version: "1.0",
+      agents: {
+        first: { model: "openai/gpt-4o" },
+        second: { model: "openai/gpt-4o" },
+      },
+      flow: {
+        name: "Main",
+        type: "sequential",
+        steps: [{ agent: "first" }, { agent: "second" }],
+      },
+    });
+    // Record which model each call reaches.
+    const used: string[] = [];
+    for (const id of ["openai/gpt-3.5-turbo", "anthropic/claude-sonnet-4-5"]) {
+      registerModel(id, {
+        modelId: id,
+        specificationVersion: "v3",
+        provider: "mock",
+        doStream: async () => {
+          used.push(id);
+          return {
+            stream: new ReadableStream({
+              start(controller) {
+                controller.close();
+              },
+            }),
+          };
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock doesn't need full LanguageModel interface
+      } as any);
+    }
+    const result = await loadStrategyFromString(json, "json", {
+      modelOverride: "openai/gpt-3.5-turbo",
+      modelOverrides: { first: "anthropic/claude-sonnet-4-5" },
+    });
+    await result.agents.first!.call("hi");
+    await result.agents.second!.call("hi");
+
+    // The per-agent entry wins; the other agent falls back to the global override.
+    expect(used).toEqual([
+      "anthropic/claude-sonnet-4-5",
+      "openai/gpt-3.5-turbo",
+    ]);
+  });
+
   it("creates user agents", async () => {
     setupMockModels();
     const json = JSON.stringify({
@@ -324,6 +373,7 @@ describe("agent instantiation", () => {
             model: "openai/gpt-4o",
             systemPromptTemplate: { template: "You are {{ role }}." },
             skills: ["required-skill"],
+            tools: ["load_skill"],
           },
         },
         flow: {
@@ -342,6 +392,118 @@ describe("agent instantiation", () => {
     expect(JSON.stringify(prompt)).toContain(
       "Always follow the required convention.",
     );
+  });
+
+  it("does not advertise skills to an agent without skill tools", async () => {
+    setupMockModels();
+    const skillRegistry = createSkillRegistry();
+    skillRegistry.register({
+      name: "optional-skill",
+      description: "Optional conventions.",
+      content: "Optional details.",
+      sourcePath: "/skills/optional-skill/SKILL.md",
+      origin: "global",
+    });
+
+    const result = await loadStrategyFromString(
+      JSON.stringify({
+        name: "Skills",
+        version: "1.0",
+        agents: {
+          assistant: {
+            model: "openai/gpt-4o",
+            systemPrompt: "Answer briefly.",
+          },
+        },
+        flow: {
+          name: "Main",
+          type: "sequential",
+          steps: [{ agent: "assistant" }],
+        },
+      }),
+      "json",
+      { skillRegistry },
+    );
+
+    expect(result.agents.assistant?.config?.systemPrompt).toBe(
+      "Answer briefly.",
+    );
+  });
+
+  it("keeps tool guidance when the agent has no base prompt", async () => {
+    setupMockModels();
+    const result = await loadStrategyFromString(
+      JSON.stringify({
+        name: "Tools",
+        version: "1.0",
+        agents: { assistant: { model: "openai/gpt-4o", tools: ["edit_file"] } },
+        flow: {
+          name: "Main",
+          type: "sequential",
+          steps: [{ agent: "assistant" }],
+        },
+      }),
+      "json",
+    );
+
+    expect(String(result.agents.assistant?.config?.systemPrompt)).toContain(
+      "edit_file",
+    );
+  });
+
+  it("resolves model roles from configured roles before strategy defaults", async () => {
+    setupMockModels();
+    const result = await loadStrategyFromString(
+      JSON.stringify({
+        name: "Roles",
+        version: "1.0",
+        modelRoles: { primary: "openai/gpt-4o", fast: "openai/gpt-4o-mini" },
+        agents: {
+          lead: { model: "@primary" },
+          scout: { model: "@fast" },
+        },
+        flow: {
+          name: "Main",
+          type: "sequential",
+          steps: [{ agent: "lead" }, { agent: "scout" }],
+        },
+      }),
+      "json",
+      { modelRoles: { primary: "anthropic/claude-sonnet-4-5" } },
+    );
+
+    expect(result.agents.lead?.config?.model).toBe(
+      "anthropic/claude-sonnet-4-5",
+    );
+    expect(result.agents.scout?.config?.model).toBe("openai/gpt-4o-mini");
+  });
+
+  it("adds environment blocks and passes instruction text to templates as data", async () => {
+    setupMockModels();
+    const result = await loadStrategyFromString(
+      JSON.stringify({
+        name: "Context",
+        version: "1.0",
+        agents: {
+          assistant: {
+            model: "openai/gpt-4o",
+            systemPromptTemplate: { template: "You are {{ role }}." },
+            context: { environment: true },
+          },
+        },
+        flow: {
+          name: "Main",
+          type: "sequential",
+          steps: [{ agent: "assistant" }],
+        },
+      }),
+      "json",
+      { cwd: "/tmp" },
+    );
+
+    const prompt = result.agents.assistant?.config?.systemPrompt;
+    expect(JSON.stringify(prompt)).toContain("{{ comma_context_blocks }}");
+    expect(JSON.stringify(prompt)).toContain("<environment>\\ncwd: /tmp");
   });
 
   it("rejects an agent that requires an unknown skill", async () => {

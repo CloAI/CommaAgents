@@ -27,6 +27,14 @@ const webFetchParams = z.object({
     .positive()
     .optional()
     .describe("Optional request timeout in seconds. Defaults to 30."),
+  offset: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe(
+      "Character offset into the converted content. Use the value from a truncation notice to read the next part. Defaults to 0.",
+    ),
 });
 
 /**
@@ -78,6 +86,14 @@ export function createWebFetchTool(
           defaultValue: `${defaultTimeout}`,
           description: "Request timeout in seconds.",
         },
+        {
+          name: "offset",
+          type: "number",
+          required: false,
+          defaultValue: "0",
+          description:
+            "Character offset into the converted content, for reading long pages in parts.",
+        },
       ],
       outputs:
         "The converted content as a string. `metadata` includes `{ url, finalUrl, statusCode, contentType, format, durationMs, truncated, originalLength }`.",
@@ -85,7 +101,8 @@ export function createWebFetchTool(
       notes: [
         "The default 'markdown' format converts HTML to Markdown for readable, LLM-friendly output.",
         "Use 'text' for plain text (useful for content extraction) or 'html' for the raw response.",
-        `Content is truncated to ${maxContentLength} characters when exceeded.`,
+        `At most ${maxContentLength} characters are returned per call; a truncation notice gives the offset of the next part.`,
+        "Markdown output drops navigation, headers, footers, and forms so the page's main content comes first.",
       ],
     }),
     parameters: webFetchParams,
@@ -106,10 +123,13 @@ export function createWebFetchTool(
       const contentType = response.headers.get("content-type") ?? "";
       const rawBody = await response.text();
       const transformed = transformContent(rawBody, format);
-      const truncated = transformed.length > maxContentLength;
-      const output = truncated
-        ? transformed.slice(0, maxContentLength)
-        : transformed;
+      const offset = Math.min(
+        validatedArguments.offset ?? 0,
+        transformed.length,
+      );
+      const end = Math.min(offset + maxContentLength, transformed.length);
+      const truncated = end < transformed.length;
+      const output = transformed.slice(offset, end);
 
       const durationMs = Date.now() - startTime;
 
@@ -117,7 +137,7 @@ export function createWebFetchTool(
         ? ""
         : `[HTTP ${response.status} ${response.statusText}]\n\n`;
       const footer = truncated
-        ? `\n\n[Content truncated to ${maxContentLength} characters]`
+        ? `\n\n[Content truncated: showing characters ${offset}–${end} of ${transformed.length}. Call webfetch again with offset=${end} for more.]`
         : "";
 
       return okResult(`${header}${output}${footer}`, {
@@ -129,6 +149,8 @@ export function createWebFetchTool(
           format,
           durationMs,
           truncated,
+          offset,
+          nextOffset: truncated ? end : undefined,
           originalLength: transformed.length,
         },
       });

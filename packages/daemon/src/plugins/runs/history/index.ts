@@ -1,9 +1,2 @@
-export {
-  appendRunEvent,
-  getDisplayHistory,
-  hydrateDisplayHistory,
-  getRunHistory,
-  getRunSnapshot,
-  PersistenceFailure,
-} from "./history";
+export { getDisplayHistory } from "./history";
 export type { RunHistoryOptions, RunHistoryPage } from "./history.types";

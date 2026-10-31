@@ -4,10 +4,12 @@ import { dirname } from "node:path";
 import {
   createMcpConnectionManager,
   discoverMcpConfig,
-  isLLMAgentDef,
+} from "@comma-agents/core/mcp";
+import { isLLMAgentDef } from "@comma-agents/core";
+import {
   parseStrategyFromString,
   readStrategyFile,
-} from "@comma-agents/core";
+} from "@comma-agents/core/strategy";
 import type { RunRepository } from "../../run-repository";
 import type { DaemonSystem, SystemRunContext } from "../systems.types";
 import type {
@@ -125,14 +127,12 @@ export async function createRunMcpRuntime(
     toolsByAgent[agentName] = manager.toolsFor(serverIds);
   }
 
-  const statuses = manager.statuses.map(
-    (status): RunMcpServerStatus => ({
-      ...status,
-      enabledByDefault:
-        config.servers.get(status.id)?.definition.enabledByDefault === true,
-      assignedAgents: config.assignments.get(status.id) ?? [],
-    }),
-  );
+  const statuses = manager.statuses.map((status): RunMcpServerStatus => ({
+    ...status,
+    enabledByDefault:
+      config.servers.get(status.id)?.definition.enabledByDefault === true,
+    assignedAgents: config.assignments.get(status.id) ?? [],
+  }));
 
   return { manager, toolsByAgent, statuses };
 }

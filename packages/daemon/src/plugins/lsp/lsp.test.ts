@@ -1,3 +1,4 @@
+import { RunPhase, RunOutcomeStatus } from "../runs/state/state.schemas";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
@@ -45,12 +46,26 @@ describe("LSP plugin", () => {
   test("should start lazily once for concurrent requests and close after the last run reference", async () => {
     const { runs, lsp, cwd, writeSource, services } = fixture();
     await writeSource("index.ts", "export const value: number = 1;\n");
-    await runs.prepareRun({ runId: "one", strategyPath: "example.json", cwd });
-    await runs.prepareRun({ runId: "two", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "one",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
+    await runs.prepareRun({
+      runId: "two",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     await runs.prepareRun({
       runId: "unused",
-      strategyPath: "example.json",
-      cwd,
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
     });
     expect(lsp.getStatus(cwd)).toMatchObject({ phase: "stopped", runIds: [] });
     await Promise.all([
@@ -64,7 +79,7 @@ describe("LSP plugin", () => {
       }),
     ]);
     const status = lsp.getStatus(cwd);
-    expect(status.phase).toBe("running");
+    expect(status.phase).toBe(RunPhase.running);
     expect([...status.runIds].sort()).toEqual(["one", "two"]);
     expect(status.pid).toBeDefined();
     await runs.stopRun("one");
@@ -88,11 +103,19 @@ describe("LSP plugin", () => {
       "different/index.ts",
       "export const value = 'separate';\n",
     );
-    await runs.prepareRun({ runId: "one", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "one",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     await runs.prepareRun({
       runId: "two",
-      strategyPath: "example.json",
-      cwd: childCwd,
+      configuration: {
+        strategyPath: "example.json",
+        cwd: childCwd,
+      },
     });
     const results = await Promise.all([
       lsp.request("one", {
@@ -110,7 +133,7 @@ describe("LSP plugin", () => {
     expect(results[1]!.hover?.contents).toContain("separate");
     expect(lsp.getStatus(cwd).pid).not.toBe(lsp.getStatus(childCwd).pid);
     await runs.stopRun("one");
-    expect(lsp.getStatus(childCwd).phase).toBe("running");
+    expect(lsp.getStatus(childCwd).phase).toBe(RunPhase.running);
   });
 
   test("should observe saved edits, new files, renames, deletions, and root config changes", async () => {
@@ -124,7 +147,13 @@ describe("LSP plugin", () => {
       "src/index.ts",
       "export const value: number = 'bad';\nexport function read(input) { return input; }\n",
     );
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const initial = await lsp.request("root", {
       method: "textDocument/diagnostic",
       path: "src/index.ts",
@@ -187,8 +216,14 @@ describe("LSP plugin", () => {
 
   test("should honor root jsconfig and support files created after preparation", async () => {
     const { runs, lsp, cwd, writeSource } = fixture();
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
-    expect(lsp.getStatus(cwd).phase).toBe("stopped");
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
+    expect(lsp.getStatus(cwd).phase).toBe(RunOutcomeStatus.stopped);
     await writeSource(
       "jsconfig.json",
       JSON.stringify({
@@ -223,7 +258,13 @@ describe("LSP plugin", () => {
     const source =
       "export interface Shape { size: number }\nexport class Box implements Shape { size = 1 }\nexport const box: Shape = new Box();\nexport const value = box.size;\nexport function read(input) { return input; }\n";
     await writeSource("src/index.ts", source);
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const atBox = {
       path: "src/index.ts",
       position: { line: 4, character: 22 },
@@ -282,8 +323,20 @@ describe("LSP plugin", () => {
   test("should isolate cancellation and retain the process for another run", async () => {
     const { runs, lsp, cwd, writeSource } = fixture();
     await writeSource("index.ts", "export const value = 1;\n");
-    await runs.prepareRun({ runId: "one", strategyPath: "example.json", cwd });
-    await runs.prepareRun({ runId: "two", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "one",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
+    await runs.prepareRun({
+      runId: "two",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const cancelled = lsp.request("one", {
       method: "textDocument/diagnostic",
       path: "index.ts",
@@ -308,18 +361,24 @@ describe("LSP plugin", () => {
     await expect(
       lsp.request("two", { method: "workspace/symbol" }, controller.signal),
     ).rejects.toThrow("aborted");
-    expect(lsp.getStatus(cwd).phase).toBe("running");
+    expect(lsp.getStatus(cwd).phase).toBe(RunPhase.running);
   });
 
   test("should automatically replace a crashed process without ending its run", async () => {
     const { runs, lsp, cwd, writeSource } = fixture();
     await writeSource("index.ts", "export const value = 1;\n");
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     await lsp.request("root", { method: "workspace/symbol", query: "value" });
     const pid = lsp.getStatus(cwd).pid!;
     process.kill(pid, "SIGKILL");
     await waitForProcess(lsp, cwd, "running", pid);
-    expect((await runs.getRun("root"))?.phase).toBe("prepared");
+    expect((await runs.getRun("root"))?.phase).toBe(RunPhase.prepared);
     expect(lsp.getStatus(cwd).runIds).toEqual(["root"]);
     expect(
       (
@@ -334,7 +393,13 @@ describe("LSP plugin", () => {
   test("should release last references, reject stale facades, and rediscover on continuation", async () => {
     const { runs, lsp, cwd, writeSource, services } = fixture();
     await writeSource("index.ts", "export const value = 1;\n");
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     const previous = services.get("root")!;
     await previous.request({
       method: "textDocument/diagnostic",
@@ -342,7 +407,7 @@ describe("LSP plugin", () => {
     });
     const pid = lsp.getStatus(cwd).pid;
     await runs.startRun("root", "done").completion;
-    expect(lsp.getStatus(cwd).phase).toBe("stopped");
+    expect(lsp.getStatus(cwd).phase).toBe(RunOutcomeStatus.stopped);
     await runs.prepareRun({ runId: "root" });
     await expect(
       previous.request({ method: "workspace/symbol" }),
@@ -352,7 +417,7 @@ describe("LSP plugin", () => {
     const disposal = lsp.dispose();
     expect(lsp.dispose()).toBe(disposal);
     await disposal;
-    expect(lsp.getStatus(cwd).phase).toBe("stopped");
+    expect(lsp.getStatus(cwd).phase).toBe(RunOutcomeStatus.stopped);
     await expect(
       lsp.request("root", { method: "workspace/symbol" }),
     ).rejects.toThrow("unavailable");
@@ -379,18 +444,24 @@ describe("LSP plugin", () => {
         expect(lsp.getStatus(cwd).runIds).toContain(childRunId);
       },
     });
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     await lsp.request("root", {
       method: "textDocument/diagnostic",
       path: "index.ts",
     });
     const parentPid = lsp.getStatus(cwd).pid;
     expect((await runs.startRun("root", "child").completion).status).toBe(
-      "completed",
+      RunOutcomeStatus.completed,
     );
     expect(childPid).toBe(parentPid);
     expect(childRunId).not.toBe("");
-    expect(lsp.getStatus(cwd).phase).toBe("stopped");
+    expect(lsp.getStatus(cwd).phase).toBe(RunOutcomeStatus.stopped);
   });
 
   test("should release acquired resources when a later strategy hook fails", async () => {
@@ -409,16 +480,28 @@ describe("LSP plugin", () => {
       },
     });
     await expect(
-      runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd }),
-    ).rejects.toThrow("strategy hook failed");
-    expect(lsp.getStatus(cwd).phase).toBe("stopped");
+      runs.prepareRun({
+        runId: "root",
+        configuration: {
+          strategyPath: "example.json",
+          cwd,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
+    expect(lsp.getStatus(cwd).phase).toBe(RunOutcomeStatus.stopped);
     expect(() => process.kill(pid!, 0)).toThrow();
   });
 
   test("should treat invalid project configuration as a request error without restarting", async () => {
     const { runs, lsp, cwd, writeSource } = fixture();
     await writeSource("index.ts", "export const value = 1;\n");
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     await lsp.request("root", { method: "workspace/symbol", query: "value" });
     const pid = lsp.getStatus(cwd).pid;
     await writeSource("tsconfig.json", "{ invalid json");
@@ -443,7 +526,13 @@ describe("LSP plugin", () => {
   test("should report repeated replacement crashes as failed without an endless restart loop", async () => {
     const { runs, lsp, cwd, writeSource } = fixture();
     await writeSource("index.ts", "export const value = 1;\n");
-    await runs.prepareRun({ runId: "root", strategyPath: "example.json", cwd });
+    await runs.prepareRun({
+      runId: "root",
+      configuration: {
+        strategyPath: "example.json",
+        cwd,
+      },
+    });
     await lsp.request("root", { method: "workspace/symbol", query: "value" });
     const firstPid = lsp.getStatus(cwd).pid!;
     process.kill(firstPid, "SIGKILL");
@@ -454,6 +543,6 @@ describe("LSP plugin", () => {
     await expect(
       lsp.request("root", { method: "workspace/symbol" }),
     ).rejects.toThrow("exited");
-    expect((await runs.getRun("root"))?.phase).toBe("prepared");
+    expect((await runs.getRun("root"))?.phase).toBe(RunPhase.prepared);
   });
 });

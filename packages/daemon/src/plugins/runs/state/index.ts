@@ -1,1 +1,1 @@
-export { createRunsContext, updateRunSnapshot } from "./state";
+export { createRunsContext, getRunSnapshot } from "./state";

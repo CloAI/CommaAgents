@@ -1,22 +1,48 @@
 import type { z } from "zod/v4";
 import type {
-  ChildRunEntrySchema,
   RunContentSchema,
-  RunHistoryEntrySchema,
   RunMessageSchema,
+  ChildRunEntrySchema,
+  RunHistoryEntrySchema,
+  StreamingAgentMessageSchema,
+  UserMessageSchema,
+  CompletedAgentMessageSchema,
+  StoppedAgentMessageSchema,
+  FailedAgentMessageSchema,
+  RunningToolContentSchema,
+  CompletedToolContentSchema,
+  FailedToolContentSchema,
+  StoppedToolContentSchema,
 } from "./messages.schemas";
-
-/** Ordered text, reasoning, or tool content within a displayed message. */
+/** Ordered text, reasoning, and tools. */
 export type RunContent = z.infer<typeof RunContentSchema>;
-/** One agent invocation or user message with stable identity across streaming and history. */
+/** Final user or agent content included in display history. */
 export type RunMessage = z.infer<typeof RunMessageSchema>;
-/** Parent-owned reference to a separately observable child conversation. */
+/** Accepted human text. */
+export type UserMessage = z.infer<typeof UserMessageSchema>;
+/** A successful finalized agent invocation. */
+export type CompletedAgentMessage = z.infer<typeof CompletedAgentMessageSchema>;
+/** Partial output finalized by an explicit stop. */
+export type StoppedAgentMessage = z.infer<typeof StoppedAgentMessageSchema>;
+/** Partial output finalized by a failure. */
+export type FailedAgentMessage = z.infer<typeof FailedAgentMessageSchema>;
+/** Client-visible invocation that is still accumulating content. */
+export type StreamingAgentMessage = z.infer<typeof StreamingAgentMessageSchema>;
+/** Tool arguments before a result exists. */
+export type RunningToolContent = z.infer<typeof RunningToolContentSchema>;
+/** Tool result with an explicit output value. */
+export type CompletedToolContent = z.infer<typeof CompletedToolContentSchema>;
+/** Tool failure content, also retained in the model conversation. */
+export type FailedToolContent = z.infer<typeof FailedToolContentSchema>;
+/** Tool invocation interrupted without a result. */
+export type StoppedToolContent = z.infer<typeof StoppedToolContentSchema>;
+/** Parent-owned reference to an independent child run. */
 export type ChildRunEntry = z.infer<typeof ChildRunEntrySchema>;
-/** Display history excludes execution transitions and descendant conversation contents. */
+/** Finished display messages and child references. */
 export type RunHistoryEntry = z.infer<typeof RunHistoryEntrySchema>;
-/** @internal In-progress invocation and the positions of its reasoning/tool blocks. */
+/** @internal Accumulation is memory-only; history receives final content once. */
 export interface ActiveRunMessage {
-  message: RunMessage;
+  message: StreamingAgentMessage;
   readonly reasoning: Map<string, number>;
   readonly tools: Map<string, number>;
 }

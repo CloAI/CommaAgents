@@ -11,6 +11,26 @@ const releasePackageEntrypoints: Readonly<Record<string, string>> = {
     import.meta.dir,
     "../../core/dist/sandbox/index.js",
   ),
+  "@comma-agents/core/strategy": resolve(
+    import.meta.dir,
+    "../../core/dist/strategy/index.js",
+  ),
+  "@comma-agents/core/conversation-context": resolve(
+    import.meta.dir,
+    "../../core/dist/conversation-context/index.js",
+  ),
+  "@comma-agents/core/skills": resolve(
+    import.meta.dir,
+    "../../core/dist/skills/index.js",
+  ),
+  "@comma-agents/core/mcp": resolve(
+    import.meta.dir,
+    "../../core/dist/mcp/index.js",
+  ),
+  "@comma-agents/core/language": resolve(
+    import.meta.dir,
+    "../../core/dist/language/index.js",
+  ),
   "@comma-agents/core": resolve(import.meta.dir, "../../core/dist/index.js"),
   "@comma-agents/daemon": resolve(
     import.meta.dir,

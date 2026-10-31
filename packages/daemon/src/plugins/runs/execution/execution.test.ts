@@ -1,238 +1,500 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import type { RunStorage } from "../state/storage/storage.types";
+import * as storageModule from "../state/storage/storage";
 import {
   cleanupRunFixtures,
   createMockRunsPlugin,
+  directories,
   fakeLoader,
   repository,
 } from "../test.utils";
-
+import { RunErrorCode } from "../errors";
+import { createAgent } from "../../../../../core/src/agents/agent/agent";
+import { createUserAgent } from "../../../../../core/src/agents/built-in/user/user-agent";
+import { createCycleFlow } from "../../../../../core/src/flows/built-in/cycle/cycle-flow";
+import { createSequentialFlow } from "../../../../../core/src/flows/built-in/sequential/sequential-flow";
+import { registerModel } from "../../../../../core/src/model/model";
+import type { LanguageModel } from "ai";
+import type { LoadedStrategy } from "@comma-agents/core";
+import { initialInputAgent } from "./execution.utils";
 afterEach(cleanupRunFixtures);
-
 describe("run execution", () => {
-  test("assigns a distinct request ID to each pending input", async () => {
+  it("should seed only a starting interactive user step through sequential or cycle flows", () => {
+    const userAgent = createUserAgent({
+      name: "user",
+      inputCollector: async () => "answer",
+    });
+    const base: LoadedStrategy = {
+      name: "Input",
+      version: "1",
+      agents: { user: userAgent },
+      flow: createSequentialFlow({ name: "Main", steps: [userAgent] }),
+      raw: {
+        name: "Input",
+        version: "1",
+        agents: {
+          user: { type: "user" },
+          preset: { type: "user", config: { requireInput: false } },
+          expert: { model: "mock/model" },
+        },
+        flow: { name: "Main", type: "sequential", steps: [{ agent: "user" }] },
+      },
+    };
+    const cases: Array<{
+      flow: LoadedStrategy["raw"]["flow"];
+      expected: string | undefined;
+    }> = [
+      { flow: base.raw.flow, expected: "user" },
+      {
+        flow: {
+          name: "Outer",
+          type: "sequential",
+          steps: [
+            {
+              name: "Loop",
+              type: "cycle",
+              cycles: "Infinity",
+              steps: [{ agent: "user" }, { agent: "expert" }],
+            },
+          ],
+        },
+        expected: "user",
+      },
+      {
+        flow: {
+          name: "Later",
+          type: "sequential",
+          steps: [{ agent: "expert" }, { agent: "user" }],
+        },
+        expected: undefined,
+      },
+      {
+        flow: {
+          name: "Preset",
+          type: "sequential",
+          steps: [{ agent: "preset" }, { agent: "user" }],
+        },
+        expected: undefined,
+      },
+      {
+        flow: { name: "Fanout", type: "broadcast", steps: [{ agent: "user" }] },
+        expected: undefined,
+      },
+      {
+        flow: {
+          name: "Nested fanout",
+          type: "cycle",
+          steps: [
+            { name: "Fanout", type: "broadcast", steps: [{ agent: "user" }] },
+          ],
+        },
+        expected: undefined,
+      },
+    ];
+    for (const { flow, expected } of cases) {
+      expect(initialInputAgent({ ...base, raw: { ...base.raw, flow } })).toBe(
+        expected,
+      );
+    }
+  });
+  it("should reject a start during prepared cleanup and make concurrent stops await the same resources", async () => {
     const runs = createMockRunsPlugin({
       repository: repository(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
-    await runs.prepareRun({ runId: "input-1", strategyPath: "example.json" });
-    const requests: string[] = [];
-    await runs.notifications.subscribe(
-      "run_input_requested",
-      "input-1",
-      (update) => {
-        if (update.type === "run_input_requested")
-          requests.push(update.requestId);
-      },
-    );
-    const handle = runs.startRun("input-1", "needs-input");
-    while (requests.length < 2) await Bun.sleep(1);
-    expect(new Set(requests).size).toBe(2);
-    expect(await runs.resolveInput("input-1", requests[0]!, "A")).toBe(true);
-    expect(await runs.resolveInput("input-1", requests[1]!, "B")).toBe(true);
-    const outcome = await handle.completion;
-    expect(outcome.status).toBe("completed");
-    if (outcome.status === "completed") expect(outcome.result.text).toBe("A,B");
-    expect(
-      (await runs.getHistory("input-1")).entries.flatMap((entry) =>
-        entry.type === "message" && entry.role === "user"
-          ? entry.content.flatMap((block) =>
-              block.type === "text" ? [block.text] : [],
-            )
-          : [],
-      ),
-    ).toEqual(["needs-input", "A", "B"]);
-  });
-
-  test("stops a running flow and its pending input requests", async () => {
-    const storage = repository();
-    const runs = createMockRunsPlugin({
-      repository: storage,
-      loadStrategy: fakeLoader({ loads: [], restored: [] }),
-    });
-    await runs.prepareRun({ runId: "stop-1", strategyPath: "example.json" });
-    const requests: string[] = [];
-    await runs.notifications.subscribe(
-      "run_input_requested",
-      "stop-1",
-      (update) => {
-        if (update.type === "run_input_requested")
-          requests.push(update.requestId);
-      },
-    );
-    const handle = runs.startRun("stop-1", "needs-input");
-    while (requests.length < 2) await Bun.sleep(1);
-    await runs.stopRun("stop-1");
-    expect((await handle.completion).status).toBe("cancelled");
-    expect(await runs.resolveInput("stop-1", requests[0]!, "late")).toBe(false);
-    const completed = (await storage.getEvents("stop-1")).at(-1);
-    expect(completed?.type).toBe("run_completed");
-    if (completed?.type === "run_completed") {
-      expect(completed.status).toBe("cancelled");
-    }
-  });
-
-  test("fails the run when a human answer cannot be persisted", async () => {
-    const storage = repository();
-    const runs = createMockRunsPlugin({
-      repository: {
-        ...storage,
-        appendEvent(runId, event) {
-          if (event.type === "user_input")
-            throw new Error("answer write failed");
-          return storage.appendEvent(runId, event);
-        },
-      },
-      loadStrategy: fakeLoader({ loads: [], restored: [] }),
-    });
-    await runs.prepareRun({ runId: "answer-1", strategyPath: "example.json" });
-    const requests: string[] = [];
-    await runs.notifications.subscribe(
-      "run_input_requested",
-      "answer-1",
-      (update) => {
-        if (update.type === "run_input_requested")
-          requests.push(update.requestId);
-      },
-    );
-    const handle = runs.startRun("answer-1", "needs-input");
-    while (requests.length < 2) await Bun.sleep(1);
-    await expect(
-      runs.resolveInput("answer-1", requests[0]!, "A"),
-    ).rejects.toThrow("answer write failed");
-    expect((await handle.completion).status).toBe("persistence_error");
-  });
-
-  test("history includes child records while continuation restores only parent records", async () => {
-    const storage = repository();
-    const observed = { loads: [] as string[], restored: [] as string[][] };
-    const runs = createMockRunsPlugin({
-      repository: storage,
-      loadStrategy: fakeLoader(observed),
-    });
-    const scopes: string[] = [];
-    runs.registerRunPreparation({
-      name: "scope",
-      prepare(context) {
-        scopes.push(context.kind);
-        return {};
-      },
-    });
-    await runs.prepareRun({ runId: "parent-1", strategyPath: "example.json" });
-    const outcome = await runs.startRun("parent-1", "child").completion;
-    expect(outcome.status).toBe("completed");
-    expect(scopes).toEqual(["root", "child"]);
-    const records = (await storage.getEvents("parent-1")).filter(
-      (event) => event.type === "agent_call",
-    );
-    expect(records).toHaveLength(2);
-    expect(
-      records.filter((event) => event.parentRunId === "parent-1"),
-    ).toHaveLength(1);
-    const history = await runs.getHistory("parent-1");
-    expect(history.entries.every((entry) => entry.runId === "parent-1")).toBe(
-      true,
-    );
-    expect(history.entries.some((entry) => entry.type === "child.run")).toBe(
-      true,
-    );
-
-    const prepared = await runs.prepareRun({ runId: "parent-1" });
-    expect(prepared.phase).toBe("prepared");
-    expect(observed.restored.at(-1)).toHaveLength(1);
-    await runs.stopRun("parent-1");
-  });
-
-  test("retains the live result when durable completion fails", async () => {
-    const storage = repository();
-    let failCompletion = true;
-    const runs = createMockRunsPlugin({
-      repository: {
-        ...storage,
-        appendEvent(runId, event) {
-          if (event.type === "run_completed" && failCompletion) {
-            failCompletion = false;
-            throw new Error("completion write failed");
-          }
-          return storage.appendEvent(runId, event);
-        },
-      },
-      loadStrategy: fakeLoader({ loads: [], restored: [] }),
-    });
-    await runs.prepareRun({
-      runId: "completion-1",
-      strategyPath: "example.json",
-    });
-    const outcome = await runs.startRun("completion-1", "answer").completion;
-    expect(outcome.status).toBe("persistence_error");
-    if (outcome.status === "persistence_error") {
-      expect(outcome.result?.text).toBe("answer");
-      expect(outcome.summary?.text).toBe("answer");
-    }
-    const snapshot = await runs.getRun("completion-1");
-    expect(snapshot?.outcome?.status).toBe("persistence_error");
-    const reloaded = createMockRunsPlugin({
-      repository: storage,
-      loadStrategy: fakeLoader({ loads: [], restored: [] }),
-    });
-    expect((await reloaded.getRun("completion-1"))?.outcome?.status).toBe(
-      "persistence_error",
-    );
-  });
-
-  test("rejects required-write failures and blocks continuation", async () => {
-    const storage = repository();
-    const runs = createMockRunsPlugin({
-      repository: {
-        ...storage,
-        appendEvent(runId, event) {
-          if (event.type === "agent_call") throw new Error("disk full");
-          return storage.appendEvent(runId, event);
-        },
-      },
-      loadStrategy: fakeLoader({ loads: [], restored: [] }),
-    });
-    await runs.prepareRun({ runId: "broken-1", strategyPath: "example.json" });
-    const outcome = await runs.startRun("broken-1", "hello").completion;
-    expect(outcome.status).toBe("persistence_error");
-    expect(() => runs.prepareRun({ runId: "broken-1" })).toThrow();
-    const events = await storage.getEvents("broken-1");
-    const completed = events.at(-1);
-    expect(completed?.type).toBe("run_completed");
-    if (completed?.type === "run_completed") {
-      expect(completed.error?.code).toBe("PERSISTENCE_ERROR");
-    }
-  });
-  test("should cancel active preparation and clean up once", async () => {
-    const runs = createMockRunsPlugin({
-      repository: repository(),
-      loadStrategy: fakeLoader({ loads: [], restored: [] }),
-    });
-    const preparationEntered = Promise.withResolvers<void>();
-    const allowPreparation = Promise.withResolvers<void>();
-    const cleanup: string[] = [];
+    const cleaning = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let cleanups = 0;
     runs.registerRunPreparation({
       name: "resource",
-      async prepare() {
-        preparationEntered.resolve();
-        await allowPreparation.promise;
+      prepare() {
         return {
-          dispose: () => {
-            cleanup.push("resource");
+          strategyInputs: {},
+          async dispose() {
+            cleanups++;
+            cleaning.resolve();
+            await release.promise;
           },
         };
       },
     });
-    const preparation = runs.prepareRun({
-      runId: "shutdown",
-      strategyPath: "example.json",
+    try {
+      await runs.prepareRun({
+        runId: "stopping",
+        configuration: { strategyPath: "example.json" },
+      });
+      const stopping = runs.stopRun("stopping");
+      await cleaning.promise;
+      let secondFinished = false;
+      const second = runs.stopRun("stopping").then(() => {
+        secondFinished = true;
+      });
+      expect(() => runs.startRun("stopping")).toThrow("Run is busy");
+      await Promise.resolve();
+      expect(secondFinished).toBe(false);
+      release.resolve();
+      await Promise.all([stopping, second]);
+      expect(cleanups).toBe(1);
+      expect(await runs.getRun("stopping")).toMatchObject({
+        phase: "terminal",
+        outcome: { status: "stopped" },
+      });
+    } finally {
+      release.resolve();
+      await runs.dispose();
+    }
+  });
+
+  it("should enforce the same lifecycle and input rules without the server", async () => {
+    const runs = createMockRunsPlugin({
+      repository: repository(),
+      loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
-    await preparationEntered.promise;
-    const disposal = runs.dispose();
-    expect(runs.dispose()).toBe(disposal);
-    allowPreparation.resolve();
-    await disposal;
-    expect((await preparation).phase).toBe("cancelled");
-    expect(cleanup).toEqual(["resource"]);
-    expect(runs.dispose()).toBe(disposal);
+    await runs.prepareRun({
+      runId: "interactive",
+      configuration: { strategyPath: "example.json" },
+    });
+    const inputs: string[] = [];
+    const ready = Promise.withResolvers<void>();
+    await runs.notifications.subscribe(
+      "run_input_requested",
+      "interactive",
+      ({ inputId }) => {
+        inputs.push(inputId);
+        if (inputs.length === 2) {
+          ready.resolve();
+        }
+      },
+    );
+    const execution = runs.startRun("interactive", "needs-input");
+    expect(() => runs.startRun("interactive")).toThrow("Run is busy");
+    await ready.promise;
+    await expect(
+      runs.steerRun("interactive", "steering", "stale"),
+    ).rejects.toMatchObject({ code: RunErrorCode.INVALID_ARGUMENTS });
+    await runs.resolveInput("interactive", inputs[0]!, "one");
+    await expect(
+      runs.resolveInput("interactive", inputs[0]!, "duplicate"),
+    ).rejects.toMatchObject({ code: RunErrorCode.INPUT_NOT_FOUND });
+    await runs.resolveInput("interactive", inputs[1]!, "two");
+    expect(await execution.completion).toMatchObject({
+      status: "completed",
+      summary: { text: "one,two" },
+    });
+    await expect(
+      runs.steerRun("interactive", "late", "stale"),
+    ).rejects.toMatchObject({ code: RunErrorCode.INVALID_RUN_STATE });
+    await runs.stopRun("interactive");
+    await expect(runs.stopRun("missing")).rejects.toMatchObject({
+      code: RunErrorCode.RUN_NOT_FOUND,
+    });
+    await runs.dispose();
+  });
+  it("should consume the first prompt once, wait for the next human answer and display each submission once", async () => {
+    const expertInputs: string[] = [];
+    const runs = createMockRunsPlugin({
+      repository: repository(),
+      async loadStrategy({ inputCollector }) {
+        const userAgent = createUserAgent({
+          name: "user",
+          requireInput: true,
+          inputCollector,
+        });
+        const expertAgent = createAgent({
+          name: "expert",
+          execute: async (message) => {
+            expertInputs.push(message);
+            return `answer:${message}`;
+          },
+        });
+        return {
+          name: "Chat",
+          version: "1",
+          agents: { user: userAgent, expert: expertAgent },
+          raw: {
+            name: "Chat",
+            version: "1",
+            agents: {
+              user: { type: "user", config: { requireInput: true } },
+              expert: { model: "mock/model" },
+            },
+            flow: {
+              name: "Chat",
+              type: "cycle",
+              cycles: 2,
+              steps: [{ agent: "user" }, { agent: "expert" }],
+            },
+          },
+          flow: createCycleFlow({
+            name: "Chat",
+            cycles: 2,
+            steps: [userAgent, expertAgent],
+          }),
+        };
+      },
+    });
+    try {
+      await runs.prepareRun({
+        runId: "two-turns",
+        configuration: { strategyPath: "chat.json" },
+      });
+      const waiting = Promise.withResolvers<string>();
+      const requests: string[] = [];
+      await runs.notifications.subscribe(
+        "run_input_requested",
+        "two-turns",
+        ({ inputId }) => {
+          requests.push(inputId);
+          waiting.resolve(inputId);
+        },
+      );
+      const execution = runs.startRun("two-turns", "hello");
+      const inputId = await waiting.promise;
+      expect(expertInputs).toEqual(["hello"]);
+      expect(requests).toHaveLength(1);
+      await runs.resolveInput("two-turns", inputId, "second question");
+      expect(await execution.completion).toMatchObject({ status: "completed" });
+      expect(expertInputs).toEqual(["hello", "second question"]);
+      const history = await runs.getHistory("two-turns");
+      expect(
+        history.entries
+          .filter((item) => item.type === "message")
+          .map((item) =>
+            item.type === "message" ? [item.role, item.content] : null,
+          ),
+      ).toEqual([
+        ["user", [{ type: "text", text: "hello" }]],
+        ["agent", [{ type: "text", text: "answer:hello" }]],
+        ["user", [{ type: "text", text: "second question" }]],
+        ["agent", [{ type: "text", text: "answer:second question" }]],
+      ]);
+    } finally {
+      await runs.dispose();
+    }
+  });
+  it("should persist targeted steering and partial output while the same agent resumes without failing the run", async () => {
+    const requests: string[] = [];
+    const model: LanguageModel = {
+      specificationVersion: "v3",
+      provider: "steering-test",
+      modelId: "writer",
+      supportedUrls: {},
+      async doGenerate() {
+        throw new Error("Streaming required");
+      },
+      async doStream(options) {
+        requests.push(JSON.stringify(options.prompt));
+        const initial = requests.length === 1;
+        return {
+          stream: new ReadableStream({
+            start(controller) {
+              controller.enqueue({ type: "text-start", id: "answer" });
+              controller.enqueue({
+                type: "text-delta",
+                id: "answer",
+                delta: initial ? "partial answer" : "steered answer",
+              });
+              if (initial) {
+                const stop = () =>
+                  controller.error(new DOMException("Steered", "AbortError"));
+                if (options.abortSignal?.aborted) stop();
+                else
+                  options.abortSignal?.addEventListener("abort", stop, {
+                    once: true,
+                  });
+              } else {
+                controller.enqueue({ type: "text-end", id: "answer" });
+                controller.enqueue({
+                  type: "finish",
+                  finishReason: { unified: "stop", raw: undefined },
+                  usage: {
+                    inputTokens: {
+                      total: 2,
+                      noCache: undefined,
+                      cacheRead: undefined,
+                      cacheWrite: undefined,
+                    },
+                    outputTokens: {
+                      total: 1,
+                      text: undefined,
+                      reasoning: undefined,
+                    },
+                  },
+                });
+                controller.close();
+              }
+            },
+          }),
+        };
+      },
+    };
+    registerModel("mock/steered-run", model);
+    const runs = createMockRunsPlugin({
+      repository: repository(),
+      async loadStrategy() {
+        const writerAgent = createAgent({
+          name: "writer",
+          model: "mock/steered-run",
+        });
+        return {
+          name: "Steering",
+          version: "1",
+          agents: { writer: writerAgent },
+          raw: {
+            name: "Steering",
+            version: "1",
+            agents: { writer: { model: "mock/steered-run" } },
+            flow: {
+              name: "Main",
+              type: "sequential",
+              steps: [{ agent: "writer" }],
+            },
+          },
+          flow: createSequentialFlow({ name: "Main", steps: [writerAgent] }),
+        };
+      },
+    });
+    try {
+      await runs.prepareRun({
+        runId: "steered",
+        configuration: { strategyPath: "writer.json" },
+      });
+      const streaming = Promise.withResolvers<string>();
+      const started: string[] = [];
+      await runs.notifications.subscribe(
+        "run_agent_started",
+        "steered",
+        ({ messageId }) => {
+          started.push(messageId);
+        },
+      );
+      await runs.notifications.subscribe(
+        "run_message_stream",
+        "steered",
+        ({ messageId }) => {
+          streaming.resolve(messageId);
+        },
+      );
+      const execution = runs.startRun("steered", "original task");
+      const messageId = await streaming.promise;
+      await runs.steerRun("steered", "focus on the correction", messageId);
+      expect(await execution.completion).toMatchObject({
+        status: "completed",
+        summary: { text: "steered answer" },
+      });
+      expect(started).toHaveLength(2);
+      expect(requests[1]).toContain("partial answer");
+      expect(requests[1]).toContain("focus on the correction");
+      expect((await runs.getHistory("steered")).entries).toMatchObject([
+        { role: "user", content: [{ text: "original task" }] },
+        {
+          role: "agent",
+          status: "stopped",
+          cancellationReason: "user_steering",
+          content: [{ text: "partial answer" }],
+        },
+        { role: "user", content: [{ text: "focus on the correction" }] },
+        {
+          role: "agent",
+          status: "completed",
+          content: [{ text: "steered answer" }],
+        },
+      ]);
+      await expect(
+        runs.steerRun("steered", "late", messageId),
+      ).rejects.toMatchObject({ code: "INVALID_RUN_STATE" });
+    } finally {
+      await runs.dispose();
+    }
+  });
+  it("should fail visibly and refuse restoration when canonical persistence fails", async () => {
+    const legacy = repository();
+    const backing = storageModule.createRunStorage(directories.at(-1)!);
+    const failing: RunStorage = {
+      ...backing,
+      async append() {
+        throw new Error("Private filesystem diagnosis");
+      },
+    };
+    const mock = spyOn(storageModule, "createRunStorage").mockReturnValue(
+      failing,
+    );
+    const runs = createMockRunsPlugin({
+      repository: legacy,
+      loadStrategy: fakeLoader({ loads: [], restored: [] }),
+    });
+    try {
+      await runs.prepareRun({
+        runId: "broken",
+        configuration: { strategyPath: "example.json" },
+      });
+      expect(await runs.startRun("broken", "input").completion).toMatchObject({
+        status: "failed",
+        error: { code: RunErrorCode.PERSISTENCE_ERROR },
+      });
+      const snapshot = await runs.getRun("broken");
+      expect(JSON.stringify(snapshot)).not.toContain(
+        "Private filesystem diagnosis",
+      );
+      await expect(runs.prepareRun({ runId: "broken" })).rejects.toMatchObject({
+        code: RunErrorCode.PERSISTENCE_ERROR,
+      });
+    } finally {
+      await runs.dispose();
+      mock.mockRestore();
+    }
+  });
+  it("should wait for canonical persistence before final display delivery", async () => {
+    const legacy = repository();
+    const backing = storageModule.createRunStorage(directories.at(-1)!);
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const mock = spyOn(storageModule, "createRunStorage").mockReturnValue({
+      ...backing,
+      async append(runId, event) {
+        entered.resolve();
+        await release.promise;
+        await backing.append(runId, event);
+      },
+    });
+    const runs = createMockRunsPlugin({
+      repository: legacy,
+      loadStrategy: fakeLoader({ loads: [], restored: [] }),
+    });
+    try {
+      await runs.prepareRun({
+        runId: "durable",
+        configuration: { strategyPath: "example.json" },
+      });
+      const finished: string[] = [];
+      await runs.notifications.subscribe(
+        "run_message_output",
+        "durable",
+        ({ message }) => {
+          if (message.role === "agent") {
+            finished.push(message.messageId);
+          }
+        },
+      );
+      const execution = runs.startRun("durable", "answer");
+      await entered.promise;
+      expect(finished).toEqual([]);
+      release.resolve();
+      await execution.completion;
+      expect(finished).toEqual([
+        (await backing.conversation("durable"))[0]?.type === "agent_call"
+          ? (
+              (await backing.conversation("durable"))[0] as Extract<
+                Awaited<ReturnType<typeof backing.conversation>>[number],
+                { type: "agent_call" }
+              >
+            ).record.id
+          : "missing",
+      ]);
+    } finally {
+      release.resolve();
+      await runs.dispose();
+      mock.mockRestore();
+    }
   });
 });
