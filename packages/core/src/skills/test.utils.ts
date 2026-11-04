@@ -28,9 +28,12 @@ export async function writeSkillFile(
   const skillDir = join(parentDir, skillName);
   await mkdir(skillDir, { recursive: true });
   const lines: string[] = ["---"];
-  if (frontmatter.name !== undefined) lines.push(`name: ${frontmatter.name}`);
-  if (frontmatter.description !== undefined)
+  if (frontmatter.name !== undefined) {
+    lines.push(`name: ${frontmatter.name}`);
+  }
+  if (frontmatter.description !== undefined) {
     lines.push(`description: ${frontmatter.description}`);
+  }
   lines.push("---", "", body);
   const filePath = join(skillDir, "SKILL.md");
   await writeFile(filePath, lines.join("\n"), "utf8");

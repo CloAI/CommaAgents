@@ -167,7 +167,9 @@ export async function loadProject(
     }
     for (const agent of Object.values(strategy.data.agents)) {
       if ("tools" in agent && Array.isArray(agent.tools)) {
-        for (const tool of agent.tools) usedTools.add(tool);
+        for (const tool of agent.tools) {
+          usedTools.add(tool);
+        }
       }
     }
   }

@@ -60,8 +60,9 @@ export function createHubManager(
       return packageInstaller.install(project, snapshot, installOptions, false);
     },
     async update(name, installOptions = {}) {
-      if (!(await installedPackages.get(name)))
+      if (!(await installedPackages.get(name))) {
         throw new Error(`Package ${name} is not installed`);
+      }
 
       const snapshot = await registryClient.refresh();
       const project = findAvailableHubPackage(snapshot, name);

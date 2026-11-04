@@ -75,7 +75,9 @@ export async function extractHubPackageArchive(
 
       void mkdir(dirname(outputPath), { recursive: true })
         .then(() => {
-          if (relativePath === "comma-project.json") foundManifest = true;
+          if (relativePath === "comma-project.json") {
+            foundManifest = true;
+          }
           const output = createWriteStream(outputPath, { flags: "wx" });
           output.once("error", rejectExtraction);
           output.once("finish", next);

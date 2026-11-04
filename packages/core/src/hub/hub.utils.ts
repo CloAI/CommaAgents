@@ -8,6 +8,8 @@ export function findAvailableHubPackage(
   const project = snapshot.registry.packages.find(
     (availablePackage) => availablePackage.name === name,
   );
-  if (!project) throw new Error(`Hub package not found: ${name}`);
+  if (!project) {
+    throw new Error(`Hub package not found: ${name}`);
+  }
   return project;
 }

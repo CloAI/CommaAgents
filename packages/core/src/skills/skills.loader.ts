@@ -84,12 +84,16 @@ async function scanDirectoryInto(
     entries = await readdir(skillsDirectory, { withFileTypes: true });
   } catch (readError) {
     const code = (readError as NodeJS.ErrnoException).code;
-    if (code === "ENOENT" || code === "ENOTDIR") return;
+    if (code === "ENOENT" || code === "ENOTDIR") {
+      return;
+    }
     throw readError;
   }
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory()) {
+      continue;
+    }
     const skillDir = join(skillsDirectory, entry.name);
     const skillFile = join(skillDir, SKILL_FILENAME);
 
@@ -99,10 +103,14 @@ async function scanDirectoryInto(
     } catch (statError) {
       const code = (statError as NodeJS.ErrnoException).code;
       // Subdirectory without a SKILL.md — silently skip.
-      if (code === "ENOENT" || code === "ENOTDIR") continue;
+      if (code === "ENOENT" || code === "ENOTDIR") {
+        continue;
+      }
       throw statError;
     }
-    if (!fileStat.isFile()) continue;
+    if (!fileStat.isFile()) {
+      continue;
+    }
     if (fileStat.size > SKILL_MAX_BYTES) {
       warnings.push({
         sourcePath: skillFile,
@@ -159,7 +167,9 @@ async function scanDirectoryInto(
  * ```
  */
 export function buildSkillsPromptHeader(registry: SkillRegistry): string {
-  if (registry.isEmpty()) return "";
+  if (registry.isEmpty()) {
+    return "";
+  }
   const lines = registry
     .list()
     .map((skill) => `- ${skill.name}: ${skill.description}`)

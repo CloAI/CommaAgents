@@ -79,7 +79,9 @@ export async function discoverStrategies(
     origin: DiscoveredStrategyOrigin,
   ): Promise<void> {
     for (const path of listStrategyFiles(dir)) {
-      if (seenPaths.has(path)) continue;
+      if (seenPaths.has(path)) {
+        continue;
+      }
       const header = await parseStrategyHeader(path);
       if (!header.ok) {
         warnings.push({ path, reason: header.reason });
@@ -100,7 +102,9 @@ export async function discoverStrategies(
       return;
     }
     for (const strategyPath of manifest.strategyPaths) {
-      if (seenPaths.has(strategyPath)) continue;
+      if (seenPaths.has(strategyPath)) {
+        continue;
+      }
       const header = await parseStrategyHeader(strategyPath);
       if (!header.ok) {
         warnings.push({ path: strategyPath, reason: header.reason });
@@ -154,7 +158,9 @@ export async function discoverStrategies(
   // strategies can intentionally shadow default strategy names.
   if (includeBundled) {
     for (const manifestPath of getBundledProjectManifestCandidates()) {
-      if (!existsSync(manifestPath)) continue;
+      if (!existsSync(manifestPath)) {
+        continue;
+      }
       await collectProjectManifest(manifestPath, "bundled");
       break;
     }
@@ -175,9 +181,13 @@ export async function resolveInstalledStrategyReference(
   dataDir = safeResolveDataDir(),
 ): Promise<DiscoveredStrategy | undefined> {
   const match = /^(@[^/]+\/[^/]+)\/strategies\/([^/]+)$/.exec(reference);
-  if (!match) return undefined;
+  if (!match) {
+    return undefined;
+  }
   const [, packageName, artifactId] = match;
-  if (!packageName || !artifactId) return undefined;
+  if (!packageName || !artifactId) {
+    return undefined;
+  }
 
   if (dataDir) {
     const installedManifestPath = join(
@@ -191,7 +201,9 @@ export async function resolveInstalledStrategyReference(
       artifactId,
       "hub-package",
     );
-    if (installed) return installed;
+    if (installed) {
+      return installed;
+    }
   }
 
   for (const manifestPath of getBundledProjectManifestCandidates()) {
@@ -201,7 +213,9 @@ export async function resolveInstalledStrategyReference(
       artifactId,
       "bundled",
     );
-    if (bundled) return bundled;
+    if (bundled) {
+      return bundled;
+    }
   }
 
   return undefined;
@@ -259,22 +273,32 @@ async function resolveProjectStrategyReference(
   artifactId: string,
   origin: DiscoveredStrategyOrigin,
 ): Promise<DiscoveredStrategy | undefined> {
-  if (!existsSync(manifestPath)) return undefined;
+  if (!existsSync(manifestPath)) {
+    return undefined;
+  }
 
   try {
     const raw = JSON.parse(
       stripJsonComments(await Bun.file(manifestPath).text()),
     );
     const manifest = CommaProjectManifestSchema.parse(raw);
-    if (manifest.name !== packageName) return undefined;
+    if (manifest.name !== packageName) {
+      return undefined;
+    }
     const artifact = manifest.strategies?.[artifactId];
-    if (!artifact || isAbsolute(artifact.path)) return undefined;
+    if (!artifact || isAbsolute(artifact.path)) {
+      return undefined;
+    }
     const manifestDir = resolve(manifestPath, "..");
     const strategyPath = resolve(manifestDir, artifact.path);
     const rel = relative(manifestDir, strategyPath);
-    if (rel.startsWith("..") || isAbsolute(rel)) return undefined;
+    if (rel.startsWith("..") || isAbsolute(rel)) {
+      return undefined;
+    }
     const header = await parseStrategyHeader(strategyPath);
-    if (!header.ok) return undefined;
+    if (!header.ok) {
+      return undefined;
+    }
     return buildDiscoveredStrategy({
       header,
       path: strategyPath,

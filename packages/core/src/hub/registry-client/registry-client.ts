@@ -16,8 +16,9 @@ export function createHubRegistryClient({
     const response = await fetch(url, {
       headers: { Accept: "application/vnd.github+json" },
     });
-    if (!response.ok)
+    if (!response.ok) {
       throw new Error(`Hub request failed (${response.status}): ${url}`);
+    }
     return response;
   }
 
@@ -27,8 +28,9 @@ export function createHubRegistryClient({
       `${repositoryUrl}/commits/${repository.branch}`,
     );
     const commitJson = (await commitResponse.json()) as { sha?: unknown };
-    if (typeof commitJson.sha !== "string")
+    if (typeof commitJson.sha !== "string") {
       throw new Error("Hub commit response did not contain a SHA");
+    }
 
     const registryResponse = await fetchRequired(
       `https://raw.githubusercontent.com/${repository.owner}/${repository.repository}/${commitJson.sha}/registry.json`,

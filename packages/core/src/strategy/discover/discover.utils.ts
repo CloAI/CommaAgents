@@ -61,8 +61,12 @@ export function hasStrategyExtension(filePath: string): boolean {
  */
 export function formatForExtension(filePath: string): "json" | "yaml" {
   const lower = filePath.toLowerCase();
-  if (lower.endsWith(".json") || lower.endsWith(".jsonc")) return "json";
-  if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "yaml";
+  if (lower.endsWith(".json") || lower.endsWith(".jsonc")) {
+    return "json";
+  }
+  if (lower.endsWith(".yaml") || lower.endsWith(".yml")) {
+    return "yaml";
+  }
   throw new Error(`Unrecognized strategy extension: ${filePath}`);
 }
 
@@ -168,7 +172,9 @@ export async function parseProjectManifest(
   try {
     realManifestDir = await realpath(manifestDir);
     for (const entry of Object.values(result.data.strategies ?? {})) {
-      if (entry.expose !== true) continue;
+      if (entry.expose !== true) {
+        continue;
+      }
       if (isAbsolute(entry.path)) {
         return {
           ok: false,
@@ -215,7 +221,9 @@ export async function parseProjectManifest(
 
 /** List strategy files directly inside `dir` (non-recursive). */
 export function listStrategyFiles(dir: string): string[] {
-  if (!existsSync(dir)) return [];
+  if (!existsSync(dir)) {
+    return [];
+  }
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isFile() && hasStrategyExtension(entry.name))
@@ -230,7 +238,9 @@ export function listStrategyFiles(dir: string): string[] {
  * subdirectory of `dir` that contains one.
  */
 export function listProjectManifests(dir: string): string[] {
-  if (!existsSync(dir)) return [];
+  if (!existsSync(dir)) {
+    return [];
+  }
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter(
@@ -247,7 +257,9 @@ export function listProjectManifests(dir: string): string[] {
 /** List installed Hub manifests under `<dataDir>/packages/@scope/project`. */
 export function listInstalledProjectManifests(dataDir: string): string[] {
   const packagesDir = getPackagesDirectory(dataDir);
-  if (!existsSync(packagesDir)) return [];
+  if (!existsSync(packagesDir)) {
+    return [];
+  }
   try {
     return readdirSync(packagesDir, { withFileTypes: true })
       .filter((scope) => scope.isDirectory() && scope.name.startsWith("@"))

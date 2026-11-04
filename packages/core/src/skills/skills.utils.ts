@@ -83,7 +83,9 @@ function parseSimpleYaml(source: string): Record<string, string> {
   const lines = source.split(/\r?\n/);
   for (const rawLine of lines) {
     const line = rawLine.trim();
-    if (line.length === 0 || line.startsWith("#")) continue;
+    if (line.length === 0 || line.startsWith("#")) {
+      continue;
+    }
     if (line.startsWith("- ")) {
       throw new Error(
         "SKILL.md frontmatter does not support YAML lists; use a single string value.",

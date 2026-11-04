@@ -28,8 +28,9 @@ export function createHubPackageInstaller({
       }
 
       const existingPackage = await installedPackages.get(project.name);
-      if (existingPackage && !replace)
+      if (existingPackage && !replace) {
         throw new Error(`Package ${project.name} is already installed`);
+      }
 
       const stagingRoot = await mkdtemp(join(tmpdir(), "comma-hub-"));
       const stagedPackagePath = join(stagingRoot, "package");
@@ -80,7 +81,9 @@ export function createHubPackageInstaller({
         }
 
         await mkdir(dirname(destinationPath), { recursive: true });
-        if (existingPackage) await rename(destinationPath, backupPath);
+        if (existingPackage) {
+          await rename(destinationPath, backupPath);
+        }
         await rename(stagedPackagePath, destinationPath);
         destinationReplaced = true;
 

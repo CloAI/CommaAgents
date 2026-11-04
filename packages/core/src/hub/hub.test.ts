@@ -59,8 +59,12 @@ describe("createHubManager", () => {
     });
     const fetch = async (input: string | URL | Request): Promise<Response> => {
       const url = String(input);
-      if (url.includes("/commits/")) return Response.json({ sha: "sha" });
-      if (url.endsWith("registry.json")) return Response.json(registry);
+      if (url.includes("/commits/")) {
+        return Response.json({ sha: "sha" });
+      }
+      if (url.endsWith("registry.json")) {
+        return Response.json(registry);
+      }
       return new Response(archive);
     };
     const manager = createHubManager({ dataDir, fetch });
@@ -108,8 +112,12 @@ describe("createHubManager", () => {
       dataDir,
       fetch: async (input) => {
         const url = String(input);
-        if (url.includes("/commits/")) return Response.json({ sha: "sha" });
-        if (url.endsWith("registry.json")) return Response.json(registry);
+        if (url.includes("/commits/")) {
+          return Response.json({ sha: "sha" });
+        }
+        if (url.endsWith("registry.json")) {
+          return Response.json(registry);
+        }
         return new Response(archive);
       },
     });
@@ -156,8 +164,12 @@ describe("createHubManager", () => {
       dataDir,
       fetch: async (input) => {
         const url = String(input);
-        if (url.includes("/commits/")) return Response.json({ sha: "sha" });
-        if (url.endsWith("registry.json")) return Response.json(registry);
+        if (url.includes("/commits/")) {
+          return Response.json({ sha: "sha" });
+        }
+        if (url.endsWith("registry.json")) {
+          return Response.json(registry);
+        }
         return new Response(archive);
       },
     });
