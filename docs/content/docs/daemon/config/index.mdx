@@ -60,6 +60,29 @@ Set `COMMA_DAEMON_CONFIG_FILE` to choose the JSON file. The supported setting va
 COMMA_DAEMON_PORT=7423 COMMA_DAEMON_LOG_LEVEL=debug comma daemon start
 ```
 
+## Console and payload logging
+
+Set `COMMA_DAEMON_CONSOLE=true|false`, `COMMA_DAEMON_CONSOLE_FORMAT=text|json`, and `COMMA_DAEMON_LOG_PAYLOADS=true|false` to control console output and payload logging. Boolean variables accept only `true` or `false`; empty values use the configured default. Explicit CLI flags override environment values.
+
+The same settings are available in the JSON configuration file:
+
+```json
+{
+  "console": true,
+  "consoleFormat": "text",
+  "logLevel": "debug",
+  "logPayloads": false
+}
+```
+
+Console logging defaults to JSON on stderr. Explicit `console: true` defaults to text unless a format is configured. File output remains JSON. `logPayloads: true` enables debug logging while retaining trace level if already selected; payload records go to each enabled output. Payloads include agent input, available static system prompts, completed responses, and tool arguments/results. These describe agent activity rather than exact provider request bodies.
+
+```bash
+COMMA_DAEMON_CONSOLE=true COMMA_DAEMON_LOG_LEVEL=debug comma daemon start --foreground
+```
+
+Detached processes discard console output; their configured log file retains diagnostics.
+
 ## Harness settings
 
 Two settings shape how strategies build their agents:
@@ -78,3 +101,5 @@ Two settings shape how strategies build their agents:
 ```
 
 Invalid JSON, unknown configuration shapes, invalid ports, and unsupported log levels cause configuration loading to fail before the server starts.
+
+For Venice protected inference, `COMMA_VENICE_ALLOW_UNBOUND_RECEIPTS=true` permits authenticated receipts with mismatched body hashes. This explicitly trusts the provider path without verified conversation binding; accepted responses and tool calls carry a degraded privacy report and an error log. It defaults to `false`. See [privacy verification logging](/docs/daemon/logger) for the recorded checks.

@@ -14,10 +14,17 @@ The daemon uses [LogTape](https://logtape.org/). Application startup configures 
 An embedding application can use the supplied policy:
 
 ```ts
-import { initializeLogging, createDaemon, loadDaemonConfig } from "@comma-agents/daemon";
+import {
+  initializeLogging,
+  createDaemon,
+  loadDaemonConfig,
+} from "@comma-agents/daemon";
 
 const config = loadDaemonConfig();
-const logging = initializeLogging({ level: config.logLevel, file: config.logFile });
+const logging = initializeLogging({
+  level: config.logLevel,
+  file: config.logFile,
+});
 const daemon = createDaemon({ config });
 try {
   await daemon.start();
@@ -33,7 +40,34 @@ try {
 
 `initializeLogging` configures the `comma` category, so all `comma.*` loggers in the process share the policy. It refuses to replace an existing LogTape configuration. Applications already using LogTape should configure that category themselves and own disposal. Multiple daemon instances share this application policy.
 
-<AutoTypeTable path="../packages/daemon/src/logger/configure.ts" name="LoggingOptions" />
+<AutoTypeTable
+  path="../packages/daemon/src/logger/index.ts"
+  name="LoggingOptions"
+/>
+
+## Execution diagnostics
+
+Use foreground debug logging to see agent invocations and tool activity for root and child runs:
+
+```bash
+comma daemon start --foreground --console --verbose
+```
+
+Execution summaries use the `comma.daemon.execution` category. Records include run, parent run where applicable, agent, invocation message, and tool-call identifiers where available. Completed invocations include aggregate token usage and duration. Tool records include reported completion, error, or interruption status, duration when available, and MCP origin when supplied.
+
+Use `--log-payloads` to include agent input, available static system prompts, completed responses, and tool arguments/results under `comma.daemon.execution.payloads`. Payloads are excluded by default even at trace level. Agent invocation summaries aggregate multiple model requests; individual provider request timings are not traced. A tool that returns an error as ordinary output retains its reported completion status.
+
+Agents with required privacy protections log `Privacy protection enabled` at debug level. Protected requests, including automatic compaction, report verification progress and outcomes under `comma.daemon.execution.privacy`. Successful verification is logged at debug level; rejection and explicitly accepted degraded verification are logged at error level. Each outcome includes its request ID, provider, model, requirements, CPU/GPU checks, freshness, key and response binding, encryption status, and a safe failure code when available. These records are available without `--log-payloads` and contain no prompts, credentials, private keys, or raw attestation evidence.
+
+Individual network requests and hardware checks log `Privacy operation started`, `Privacy operation completed`, or `Privacy operation failed`. Each record includes the shared request ID, operation, and duration. HTTP operations include the endpoint origin/path, method, whether authentication was supplied, and response status when available. Failures distinguish HTTP rejection, network failure, timeout, cancellation, response-read failure, and verification failure. Request diagnostics also include every application-supplied header name and query parameter name. Public protocol values—including model, the full nonce, completion request ID, and E2EE public-key/signing headers—are visible; repeated query parameters retain every value. Authorization values appear as `Bearer [REDACTED]`. Cookies, API keys, and unknown header or query values are redacted. Headers added internally by the HTTP transport are not captured. Transport codes are restricted to known network/TLS errors; credentials, response bodies, and raw exceptions are excluded. Failed HTTP operations also include `providerError` with safe structured code/type/parameter fields, validation issue paths and codes, and a normalized message for recognized validation, encryption, authentication, and token-limit failures. `messageRedacted` indicates that the original text was changed or omitted. Arbitrary provider prose, echoed inputs, HTML, and raw bodies are excluded. Error-body inspection is limited to 16 KiB and two seconds within the request deadline; malformed or unreadable bodies do not replace the original HTTP failure. Look at the operation failure immediately before the final rejection to identify which service or check failed. Buffered response parsing reports a separate `response-decoding` operation. Tool-call decoding failures include a content-free `failureReason`, such as `invalid-tool-envelope`, `invalid-tool-json`, `invalid-tool-schema`, `unoffered-tool`, or `tool-selection-violation`; argument values and decrypted response text are excluded.
+
+Set `COMMA_PRIVACY_TRUSTED_WORKLOADS_FILE` to a locally maintained JSON file of independently approved profiles, keyed by provider/model with an array of accepted profiles per model. The daemon validates the file when preparing the run; unreadable or invalid approval files reject. Without a file, no serving-stack measurements are approved. See [software measurement profiles](/docs/core/model#veniceworkloadpolicy) for the reference fields. Do not generate this file from diagnostic output alone.
+
+Software-verification diagnostics include `workload-measurements`, `compose-manager-verification` when supplied, and `workload-verification`. Authenticated measurement hashes appear under `measurements` and in the final report's `workloadMeasurements`. When approval rejects, both the failed `workload-verification` operation and final report include `workloadMismatch`. It identifies missing approval (`reason: "no-approved-profiles"`) or differing measurements (`reason: "measurement-mismatch"`). Each candidate profile has its zero-based `profileIndex` and only the differing fields, with `field`, approved `expected`, and authenticated `actual` values. Missing optional values appear as `null`. Comparisons stay separate for each complete profile; matching values from different profiles cannot be combined into approval. They identify the supplied software; copying them into a trust profile does not establish that the software is safe. Successful CPU/GPU checks remain visible when a later workload or response check rejects. An approved stack reports `gpuAssociation: "approved-workload"`, which records reliance on approved software rather than physical co-location proof.
+
+Enabled protection describes the agent's requirements. Only a `verified` outcome confirms successful verification. When a receipt is available, `receiptChecks` separates signature authenticity, completion identity, signed model prefix, and exact request/response body binding. A passed signature alongside failed body hashes means content binding has not been established; it does not classify the instance as compromised. Malformed or missing evidence appears as unavailable. Individual passed checks in a rejected report do not imply overall success; TEE-only requests report encryption as `notApplicable`.
+
+Tinfoil V3 privacy events include `verificationSteps` for nonce, provenance, platform policy, quote, workload and key binding checks. Final reports include authenticated workload hashes and `freshnessExpiresAt`; expired evidence rejects inference or unreleased output. Failed verification logs a safe boundary such as `envelope`, `provenance`, `quote`, or `policy`. Raw evidence, keys, and upstream exceptions are excluded.
 
 ## Logging from any module
 
@@ -42,7 +76,10 @@ import { getLogger } from "@logtape/logtape";
 
 const logger = getLogger(["comma", "daemon", "providers"]);
 logger.info("Registered provider {providerId}", { providerId: "example" });
-logger.warning("Provider could not be loaded", { providerId: "example", error });
+logger.warning("Provider could not be loaded", {
+  providerId: "example",
+  error,
+});
 ```
 
 Logger handles can be created during module import, before configuration. Unconfigured application loggers are silent. Use stable component categories and put run IDs or client IDs in structured properties.
@@ -58,8 +95,10 @@ import { expect, spyOn, test } from "bun:test";
 import { getLogger } from "@logtape/logtape";
 
 test("reports a failed operation", () => {
-  const error = spyOn(getLogger(["comma", "daemon", "providers"]), "error")
-    .mockReturnValue(undefined);
+  const error = spyOn(
+    getLogger(["comma", "daemon", "providers"]),
+    "error",
+  ).mockReturnValue(undefined);
   try {
     // Exercise the service normally, without a logger argument.
     // expect(error).toHaveBeenCalledWith(...);
@@ -75,12 +114,21 @@ Instance spies mutate shared methods; use them in serial tests and restore them.
 import { withConfig, type LogRecord } from "@logtape/logtape";
 
 const records: LogRecord[] = [];
-await withConfig({
-  sinks: { capture: (record) => { records.push(record); } },
-  loggers: [{ category: ["comma"], lowestLevel: "debug", sinks: ["capture"] }],
-}, async () => {
-  // Exercise and await the service, then assert on records.
-});
+await withConfig(
+  {
+    sinks: {
+      capture: (record) => {
+        records.push(record);
+      },
+    },
+    loggers: [
+      { category: ["comma"], lowestLevel: "debug", sinks: ["capture"] },
+    ],
+  },
+  async () => {
+    // Exercise and await the service, then assert on records.
+  },
+);
 ```
 
 All background work under test must finish before its scope returns. Close the suite's logging owner after all scopes complete. Production initialization provides the async context storage used by these scopes.
@@ -92,3 +140,5 @@ All background work under test must finish before its scope returns. Close the s
 JSON output uses LogTape's native fields: `@timestamp`, `level`, `message`, `logger`, and nested `properties`. Levels are uppercase in JSON. Update consumers of the previous `ts`, `msg`, and `component` fields. Nested properties prevent metadata from overwriting record fields.
 
 See [log sinks](/docs/daemon/logger/sinks) for file rotation and output behavior.
+
+Set `COMMA_VENICE_ALLOW_UNBOUND_RECEIPTS=true` to continue on authenticated Venice receipts whose body hashes do not match the exchanged bytes. The daemon logs `Privacy verification degraded: continuing without verified conversation binding` at error level for every accepted mismatch. Reports retain failed binding checks and use `status: "degraded"`; exact conversation integrity remains unverified, including for accepted tool calls. All other checks remain required. Omit the variable or set it to `false` for strict binding verification.

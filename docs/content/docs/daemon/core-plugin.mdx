@@ -12,7 +12,8 @@ import { createCorePlugin } from "@comma-agents/daemon";
 
 const core = createCorePlugin();
 try {
-  const providers = await core.providers.list({ live: false });
+  await core.providers.load();
+  const { providers } = core.providers.snapshot();
   const configuration = await core.providers.getConfiguration({
     providerId: "openai",
   });
@@ -26,12 +27,11 @@ When using a daemon kernel, use `kernel.plugins.core.providers`.
 
 ## Provider operations
 
-Each operation is available as a plugin method and a WebSocket command with the `core.providers.` prefix.
+Each operation is available as a plugin method and a WebSocket command with the `core.providers.` prefix. The provider list is a channel, `core.providers.list`, rather than a command.
 
 | Method / command suffix     | Purpose                                                                     |
 | --------------------------- | --------------------------------------------------------------------------- |
-| `list`                      | Return `{ providers }` with configuration status and model metadata.        |
-| `refresh`                   | Refresh the shared catalog and return one provider with its live model list. |
+| `refresh`                   | Re-download models.dev and call every provider's API. Returns `{}`.         |
 | `getConfiguration`          | Read secret-free credential state and editable custom configuration.        |
 | `configure`                 | Save or replace a global API key without checking access.                   |
 | `beginSignIn`               | Begin local OpenAI subscription sign-in and return the browser URL.         |
@@ -76,24 +76,37 @@ Configuration reads, API-key writes, and credential removals return credential a
 }
 ```
 
-## Discovery and verification
+## Provider list
 
-Choose **Refresh** beside a provider in the UI's provider settings to refresh the catalog and fetch that provider's current models. Only that provider's display updates; other providers and filters are retained. While refreshing, the existing list remains visible; command failures appear beside the provider without clearing its models.
+Each provider's models combine three sources: models.dev, the provider's own API, and manual entries. The daemon keeps one list in memory and builds it in the background at startup. Listing never calls a provider API.
 
-The equivalent `core.providers.refresh` command requires `providerId`, accepts an optional `scope`, and returns the selected provider's metadata directly. It forces a shared catalog fetch, then runs live discovery only for that provider. If the catalog fetch fails, the most recently loaded catalog or disk cache is retained, with the bundled snapshot as the final fallback. Provider failures use the usual catalog fallback and `discovery.status` metadata.
+Subscribe to the `core.providers.list` channel to receive the list. It takes no arguments. The first message is the current list; another follows after every change. Each message carries the full list:
 
 ```ts
-const provider = await core.providers.refresh({ providerId: "openai", scope: "workspace" });
-console.log(provider.models.length);
+{ type: "providers.updated", data: { providers: ProviderInfo[]; refreshing: boolean } }
 ```
 
-`list` accepts optional `scope` and `live` arguments. `scope` selects credential resolution scope; `live` defaults to `false`, so `{}` is valid. Set `live: true` to request live discovery from providers that support it. There is no polling, live-result TTL, or live-result cache.
+`refreshing` is `true` while provider APIs are being called. The list is rebuilt:
 
-A failed or empty live discovery falls back to models.dev plus manual models, with the outcome recorded in `discovery.status`. Nonempty responses include the union of provider, models.dev, and manual model IDs. Metadata resolves per field with priority provider, then models.dev, then user settings; explicit `false`, zero, and empty arrays are retained. Unknown capabilities are omitted.
+| Trigger                                                         | Rebuild                                              |
+| --------------------------------------------------------------- | ---------------------------------------------------- |
+| Daemon startup                                                  | Call every configured provider's API.                |
+| `core.providers.refresh`                                        | Re-download models.dev, then call every provider's API. |
+| `configure`, `removeCredential`, completed sign-in              | Call that provider's API again.                      |
+| `addCustomProvider`, `updateCustomProvider`, `removeCustomProvider` | Call that provider's API again, or drop it.      |
+| `addCustomProviderModel`, `removeCustomProviderModel`           | Merge again without network requests.                |
 
-Resolved providers include `origin` (`builtin`, `catalog`, `registered`, or `user`), authentication status, `discovery`, and `models`. `discovery` contains its status, optional `fetchedAt`, and a safe `error` when discovery fails. Each model has `id`, contributing `sources` (`provider`, `models.dev`, `user`), and nested `metadata`. Manual-only models have `sources: ["user"]`. Metadata includes all capability flags, including advertised `teeAttestation` and `e2ee` support; those flags do not establish request verification.
+Providers are called only when they have a model lister and, unless they need no credential, a resolved global credential. A failed or empty response leaves that provider with its models.dev and manual models. If the models.dev download fails, the most recently loaded catalog or disk cache is kept, with the bundled snapshot as the final fallback.
 
-The provider list and Refresh use the same schema. The UI reads names, capabilities, pricing, and limits from model `metadata`; it uses provider `origin` for custom endpoint controls. Legacy provider messages have been removed; use `core.providers.*` commands.
+Daemon hosts can read the list with `kernel.plugins.core.providers.snapshot()`, wait for the first list with `ready()`, and start the startup build with `load()`.
+
+Metadata resolves per field with priority provider, then models.dev, then user settings; explicit `false`, zero, and empty arrays are retained. Unknown capabilities are omitted.
+
+Resolved providers include `origin` (`builtin`, `catalog`, `registered`, or `user`), authentication status, and `models`. Each model has `id`, contributing `sources` (`provider`, `models.dev`, `user`), and nested `metadata`. Manual-only models have `sources: ["user"]`. Metadata includes all capability flags, including advertised `teeAttestation` and `e2ee` support; those flags do not establish request verification.
+
+The UI reads names, capabilities, pricing, and limits from model `metadata`; it uses provider `origin` for custom endpoint controls. Legacy provider messages have been removed; use `core.providers.*` commands and the `core.providers.list` channel.
+
+## Verification
 
 `authStatus: "configured"` means credentials are available. To check access explicitly:
 
@@ -130,7 +143,7 @@ Through the daemon, use the corresponding `core.providers.beginSignIn`, `getSign
 
 Sign-in validates identity and the granted ChatGPT plan permission before replacing the saved global credential. Declined or invalid authorization preserves the previous credential. Tokens stay on the daemon, are saved with owner-only permissions, and renew when needed. Configuration reads include the effective `authenticationMethod` and an optional account email without returning tokens. Environment API keys still take precedence: remove an environment key separately to use the saved subscription credential.
 
-This version retains one ChatGPT registration per installation and reconnects that account; an account switcher is not included. Removing the saved credential clears its local tokens while retaining the installation identity and issued registration for reconnect. It does not revoke remote access; use **Manage ChatGPT usage** to disconnect the app remotely. API-key verification is separate from subscription sign-in, and no test generation is performed. Explicit live discovery uses the account's visible models; normal catalog-only listing is unchanged.
+This version retains one ChatGPT registration per installation and reconnects that account; an account switcher is not included. Removing the saved credential clears its local tokens while retaining the installation identity and issued registration for reconnect. It does not revoke remote access; use **Manage ChatGPT usage** to disconnect the app remotely. API-key verification is separate from subscription sign-in, and no test generation is performed. Provider listing uses the account's visible models.
 
 See [OpenAI's registration guide](https://developers.openai.com/siwc/token-sharing-open-source/sign-in) for eligibility and the local sign-in flow.
 
@@ -197,7 +210,7 @@ await core.providers.removeCustomProviderModel({
 });
 ```
 
-User models are additive. Adding an existing manual ID is a no-op and does not overwrite saved metadata. Removing an entry does not hide a model still supplied by the catalog or live discovery. Use provider-qualified model IDs for inference; user entries do not change bare-model automatic provider selection.
+User models are additive. Adding an existing manual ID is a no-op and does not overwrite saved metadata. Removing an entry does not hide a model still supplied by models.dev or the provider's API. Use provider-qualified model IDs for inference; user entries do not change bare-model automatic provider selection.
 
 The equivalent add-model command accepts `metadata` as an optional object:
 

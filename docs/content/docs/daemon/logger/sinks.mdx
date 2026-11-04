@@ -22,6 +22,16 @@ logging.close();
 
 All severities go to stderr. Set `stderr: false` for file-only application logs. LogTape's internal warnings and sink failures still go to stderr.
 
+Set `consoleFormat: "text"` for readable console messages with structured fields. File formatting remains JSON regardless of the console format:
+
+```ts
+const logging = initializeLogging({
+  level: "debug",
+  consoleFormat: "text",
+  file: "./logs/daemon.log",
+});
+```
+
 File output is enabled when `file` is supplied; the daemon supplies its configured `logFile` by default. Parent directories are created automatically. Existing logs are appended across restarts. The default rotation threshold is 10 MiB with five numbered backups (`daemon.log.1` through `daemon.log.5`). Rotation happens on writes; a buffered batch can exceed the threshold before the next rotation. File buffering and disposal are owned by LogTape, and `close()` flushes pending records.
 
 Detached daemon startup ignores stderr, so the rotating file is its retained diagnostic output. OS service managers can collect foreground stderr; there is no separate system sink or automatic syslog severity prefix.

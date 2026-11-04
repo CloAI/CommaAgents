@@ -38,6 +38,9 @@ comma-agents-daemon start --foreground
 | `--foreground` | `-f` | boolean | `false` | Run in the foreground (don't daemonize) |
 | `--port` | `-p` | number | from config | Override the listening port |
 | `--verbose` | `-v` | boolean | `false` | Enable debug-level logging |
+| `--console` / `--no-console` | | boolean | from config | Enable or disable stderr logging; requires `--foreground` |
+| `--console-format` | | `text` or `json` | from config | Select console formatting; requires `--foreground` |
+| `--log-payloads` | | boolean | `false` | Log agent input, completed responses, and tool payloads; enables debug logging |
 
 ```bash
 # Start on a custom port
@@ -45,7 +48,20 @@ comma-agents-daemon start --port 9090
 
 # Start in foreground with verbose logging
 comma-agents-daemon start --foreground --verbose
+
+# Readable invocation and tool logs
+comma-agents-daemon start --foreground --console --verbose
+
+# Include full agent and tool payloads
+comma-agents-daemon start --foreground --console --log-payloads
+
+# Keep application logs in the configured file only
+comma-agents-daemon start --foreground --no-console
 ```
+
+Without console flags, existing JSON stderr output is preserved. Explicit `--console` defaults to readable text; use `--console-format=json` for structured console output. File logs always use JSON. Console flags require foreground mode, and invalid restart options are rejected before the running daemon is stopped. `--no-log-payloads` disables payload logging when enabled by configuration.
+
+Debug logs summarize each agent invocation and tool execution, including duration, usage, errors, and cancellation. An agent invocation can include several model requests; individual provider requests and separate compaction requests are not traced.
 
 The CLI starts the plugin kernel and exposes its commands and channels over the [plugin server](/docs/daemon/server/plugin-server) WebSocket at `/ws`. Background startup waits for the launched daemon to publish its PID after the listener starts and verifies that process is still running. Configuration flags, environment variables, and configuration-file precedence remain the same.
 
@@ -53,6 +69,12 @@ For repository debugging, run the shared foreground runtime with:
 
 ```bash
 bun run scripts/debug-daemon.ts
+```
+
+The IDE's **Debug: Daemon** launch configuration enables readable debug logs with payloads disabled. For the same output from a terminal:
+
+```bash
+COMMA_DAEMON_CONSOLE=true COMMA_DAEMON_LOG_LEVEL=debug bun run scripts/debug-daemon.ts
 ```
 
 Both entry points write the configured PID file and release it on shutdown.

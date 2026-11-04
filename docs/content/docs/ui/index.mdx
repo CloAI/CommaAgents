@@ -42,7 +42,7 @@ Before sending context estimated to exceed the target model’s budget, choose *
 
 ## Sidebar
 
-The compact icon rail stays visible on the left. New Chat is at the top; Settings is at the bottom. New Chat currently displays a placeholder alert. Settings opens a dialog. Both leave your prompt unchanged. Hover an icon to see its action name, or use Tab and Enter to activate it.
+The compact icon rail stays visible on the left. New Chat is at the top; Settings is at the bottom. New Chat replaces the focused pane with an empty chat and clears its draft. Other panes keep their conversations and drafts. Settings opens a dialog and leaves your prompt unchanged. Hover an icon to see its action name, or use Tab and Enter to activate it.
 
 ## Daemon connection indicator
 
@@ -64,6 +64,8 @@ The daemon retains up to 100 entries in memory for the current tab, dropping the
 
 Open Settings to configure the daemon WebSocket URL under General Settings. The default is `ws://127.0.0.1:7422/ws`. Appearance, Hub, and Privacy are placeholders for future settings.
 
+The modal header shows the selected section, such as **Settings / Providers**, and updates as you choose items in the sidebar.
+
 Enter a URL using `ws:` or `wss:` with a hostname, then select Save. Custom paths and query strings are supported, for example:
 
 ```text
@@ -76,29 +78,33 @@ Switching sections keeps your unsaved draft. Cancel, the close button, or Escape
 
 Settings belong to the current browser origin and load when you start the app. Reload to see changes made in another tab. If no settings have been saved, defaults are used. If saved settings cannot be read or use an unsupported format, a notice explains that defaults are in use; the existing stored value is preserved until you explicitly save. If saving fails, your draft remains available to retry, and the previously active settings stay in effect.
 
+Settings and provider forms validate when you save and focus the first invalid field. After an invalid save, editing a field checks its value again.
+
 The settings dialog has a fixed height of 34rem, capped to fit shorter screens. Long sections scroll inside the dialog while navigation and actions remain visible.
 
 ## Providers
 
-Open Settings and select Providers to browse the daemon's provider and model catalog. Discovery runs when you enter the panel, using the saved daemon connection and `core.providers.list` with `live: false`. Loading and request failures appear in the panel.
+Open Settings and select Providers to browse the daemon's provider and model catalog. The panel subscribes to the `core.providers.list` channel on the saved daemon connection, so the list updates whenever the daemon rebuilds it. Each provider's models combine models.dev, the provider's own API, and manual entries. Loading and connection failures appear in the panel.
 
-Search provider names/IDs or model names/IDs/families, search and choose providers in the provider picker, and toggle model capability filters: Tools, Reasoning, Vision, Attachments, and Structured output. Text matching is case-insensitive. Multiple capability filters require every selected capability; missing capability metadata does not count as support. Filters combine locally without additional daemon requests.
+Select **Refresh** beside Add model to call `core.providers.refresh`, which re-downloads models.dev and calls every provider's API. The button shows Refreshing... while the daemon calls provider APIs, including during its startup build. The current list stays visible until the new one arrives.
+
+Search provider names/IDs or model names/IDs/families at the top of the panel, beside Add model and + Provider. The provider and capability dropdowns sit together below search. Choose multiple capabilities in the capability dropdown, or select All capabilities to clear them. Both provider and capability selectors support search, multiple selections, and removable pills inside the field. Their lists stay open after selection so you can keep adding choices. Choose All providers or All capabilities to clear that filter. Text matching is case-insensitive. Providers whose name or ID matches the search appear before providers that match only through their models; catalog order is preserved within each group. Multiple capability filters require every selected capability; missing capability metadata does not count as support. Filters combine locally without additional daemon requests.
 
 Providers start collapsed, with the matching model count beside each provider name. Expand a provider to see all matching models with their existing name, qualified ID, provider, and capability icons. Pagination is temporarily disabled; its component and commented call site are retained for future use. Search and capability changes return provider sections to their collapsed state. Literal, case-insensitive matches are highlighted in provider names, model names, IDs, and picker options.
 
 Each provider row shows Connected when effective credentials exist or authentication is not required. A successful supported credential check shows Verified for the current provider-settings view. A failed check shows a warning; providers requiring an absent key show Needs credentials. These labels describe configuration or an authenticated model-list check, not a persistent provider connection or guaranteed generation access.
 
-Connect and Configure open one workflow dialog above Settings. Enter a new key and select Save to persist it, verify automatically where supported, and reload providers. Existing keys are never returned or prefilled. Environment credentials take precedence over saved global keys. If verification fails, Continue retains the saved configuration or Edit returns to the populated form. Providers without a verification endpoint remain Connected without a check. A failed reload offers Retry reload without repeating the save or verification.
+Connect and Configure open one workflow dialog above Settings. Enter a new key and select Save to persist it, and verify automatically where supported; the daemon then updates the list. Existing keys are never returned or prefilled. Environment credentials take precedence over saved global keys. If verification fails, Continue retains the saved configuration or Edit returns to the populated form. Providers without a verification endpoint remain Connected without a check.
 
-For OpenAI, choose **ChatGPT subscription** in the connection dialog, then **Continue with ChatGPT**. Complete authorization in the browser; a fallback link is shown if a new tab is blocked. The browser and daemon must run on the same computer. Sign-in checks identity and plan permission without a test generation, then reloads providers. Tokens stay on the daemon and renew when needed. Environment API keys retain precedence. **Manage ChatGPT usage** opens the account's usage controls. Removing a saved sign-in is local credential removal; remote access can be revoked through those controls. This first version reconnects one saved ChatGPT registration; account switching and Anthropic subscription sign-in are deferred.
+For OpenAI, choose **ChatGPT subscription** in the connection dialog, then **Continue with ChatGPT**. Complete authorization in the browser; a fallback link is shown if a new tab is blocked. The browser and daemon must run on the same computer. Sign-in checks identity and plan permission without a test generation; the daemon then updates the list. Tokens stay on the daemon and renew when needed. Environment API keys retain precedence. **Manage ChatGPT usage** opens the account's usage controls. Removing a saved sign-in is local credential removal; remote access can be revoked through those controls. This first version reconnects one saved ChatGPT registration; account switching and Anthropic subscription sign-in are deferred.
 
-Select Add model to choose a provider and enter one provider-local model ID. All metadata is optional: display name, capabilities, token limits, modalities, dates, status, and pricing. Click capability buttons to enable support; unselected capabilities remain unspecified. The selected provider supplies the provider prefix automatically, and pasted redundant provider prefixes are removed. Provider-specific model namespaces are preserved. Advanced metadata is collapsible. Manual metadata fills missing catalog/live values; it does not override known information. Existing manual IDs cannot be added again to silently replace metadata.
+Select Add model to choose a provider and enter one provider-local model ID. All metadata is optional: display name, capabilities, token limits, modalities, dates, status, and pricing. Click capability buttons to enable support; unselected capabilities remain unspecified. The selected provider supplies the provider prefix automatically, and pasted redundant provider prefixes are removed. Provider-specific model namespaces are preserved. Advanced metadata is collapsible. Manual metadata fills values missing from models.dev and the provider's API; it does not override known information. Existing manual IDs cannot be added again to silently replace metadata.
 
 Select + Provider to create a custom compatible endpoint with an immutable ID, display name, complete HTTP(S) API prefix, and API-key or unauthenticated mode. The API key is optional and can be configured later. Enter optional initial model IDs one per line; each is saved with a separate command after the provider is created. Duplicate IDs are ignored, and a retry resumes model additions without repeating completed entries. An endpoint saved without its required key remains visible, including when it has no models. If creation succeeds but a later key or model save fails, retry edits the saved provider rather than creating it again.
 
-User-owned endpoint definitions can be edited or removed. Removing one also removes its saved global key and manual models; environment and strategy credentials are unchanged. Custom model removal deletes only the manual entry, so a catalog/discovered model may remain visible. Manual entries, including duplicates of catalog IDs, can be removed from Configure. Confirmations and failure steps stay inside the same workflow dialog.
+User-owned endpoint definitions can be edited or removed. Removing one also removes its saved global key and manual models; environment and strategy credentials are unchanged. Custom model removal deletes only the manual entry, so a model from models.dev or the provider's API may remain visible. Manual entries, including duplicates of catalog IDs, can be removed from Configure. Confirmations and failure steps stay inside the same workflow dialog.
 
-Changes reload the provider list while preserving its current search, filters, and expanded rows. Input drafts and errors stay within their workflow. Provider settings and credentials are stored by core on the daemon; the browser stores only its existing UI settings. Search and verification display reset when the provider section is unmounted. No background provider checks, live discovery, or verification history are introduced.
+Changes update the provider list through the channel while preserving its current search, filters, and expanded rows. Input drafts and errors stay within their workflow. Provider settings and credentials are stored by core on the daemon; the browser stores only its existing UI settings. Search and verification display reset when the provider section is unmounted. Verification is never run in the background, and its results are not kept.
 
 ## Daemon hooks
 

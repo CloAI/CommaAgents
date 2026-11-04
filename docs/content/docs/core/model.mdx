@@ -9,7 +9,9 @@ The model module handles parsing model identifiers (e.g. `openai/gpt-4o`), auto-
 
 ## Required TEE and E2EE protection
 
-Use separate requirements to request verified TEE protection and end-to-end encryption together:
+Selecting a model that advertises TEE or E2EE support automatically requires those protections, including when you override a strategy model. E2EE also requires TEE. You do not need to add privacy flags; a default verification runtime is supplied automatically. If protection cannot be verified, the request fails without falling back to ordinary inference.
+
+You can also declare minimum requirements explicitly:
 
 ```ts
 import { createAgent, createPrivacyRuntime } from "@comma-agents/core";
@@ -25,18 +27,28 @@ const agent = createAgent(
 );
 ```
 
-Omitting both requirements retains ordinary inference. `tee: "required"` requests independently verified hardware evidence and authenticated completion binding. Adding `e2ee: "required"` also requires encrypted conversation content; E2EE without required TEE is invalid. Requirements are checked before directly registered models or provider overrides can run. Protected inference requires an explicit provider/model ID, an application-owned runtime, and a code-owned protected provider implementation. UI-added custom endpoints cannot enable it.
+Tinfoil models always require TEE and E2EE, including model IDs that have not been discovered yet. Other models without advertised TEE/E2EE support use ordinary inference unless you declare requirements. Explicit requirements can strengthen protection but cannot disable advertised protections. `tee: "required"` requests independently verified hardware evidence and authenticated completion binding. Adding `e2ee: "required"` also requires encrypted conversation content; E2EE without required TEE is invalid. Requirements are checked before directly registered models or provider overrides can run. Protection is enforced for the selected provider/model identity using a trusted runtime and a supported protected provider implementation. When you request protection explicitly for a model without advertised capabilities, supply a provider/model ID and a privacy runtime. UI-added custom endpoints cannot enable it.
 
-**Venice protected inference is currently unavailable.** Independent CPU and GPU evidence verification is implemented, but no supported evidence format establishes the required cryptographic CPU/GPU association. The adapter rejects with `PRIVACY_BINDING_UNAVAILABLE` rather than transmitting prompt content or claiming verified protection. Independently validating two fresh hardware reports does not prove that the GPU belongs to the attested encryption endpoint. Completion formats must also establish locally reproducible request/response binding before output can be released. Capability badges indicate provider-reported support, not a successful protected connection.
+**Venice protected inference requires an approved serving-stack profile.** CPU and GPU evidence are independently verified. For the supported legacy dstack format, software verification replays the runtime measurement log against the authenticated RTMR3, hashes the exact application manifest, and checks its binding to MR_CONFIG_ID and the launch log. Application, OS, and key-provider identities come from that verified log. When a compose-manager attestation is present, its separate CPU quote, fresh nonce, measured guest identity, and canonical deployment-action hash must also verify.
 
-Text and tool calling are the supported core input categories. Each protected provider must establish coverage for the requested combination. Venice encrypted tools, assistant/tool history replay, and structured output currently reject because their encrypted protocol coverage is unverified. Multimedia is outside this API. There is no automatic downgrade to ordinary inference.
+An application supplies independently reviewed profiles through `providers.venice.trustedWorkloads`, keyed by the exact provider/model ID. Every required boot, application, key-provider, OS, and deployment measurement must match one profile. No profiles are trusted by default: missing or nonmatching approval rejects with `PRIVACY_WORKLOAD_UNTRUSTED` before inference. Missing software evidence rejects with `PRIVACY_MEASUREMENTS_UNAVAILABLE`; inconsistent evidence rejects with `PRIVACY_MEASUREMENTS_INVALID`. Do not populate approval from the response or diagnostic hashes alone.
 
-For direct model callers, use the same runtime and requirements:
+An approved profile explicitly trusts the reviewed serving stack and pinned key-provider identity to retain private keys and enforce the GPU channel. Reports label this `gpuAssociation: "approved-workload"`; they do not claim independently proven physical CPU/GPU co-location or model-weight provenance. Missing GPU evidence still rejects. The ACI gateway format requires additional keyset, custody, and upstream-session verification and is not supported by this legacy verifier. By default, completion signatures must authenticate the request and response before output is released.
+
+Text and tool calling are the supported core input categories. Each protected provider must establish coverage for the requested combination. Venice E2EE encrypts every normalized conversation message, including assistant history and local tool data. System instructions and tool definitions are combined before encryption so the request carries one encrypted system message. Tool definitions, assistant tool requests, and tool results stay inside encrypted message content. Decrypted tool requests are converted into local tool calls after response authentication. Tool selection and parallel-call settings are enforced locally. Flattened tool arguments are normalized only when every input field is declared by the offered tool; input schema validation still runs before execution. Malformed or unoffered calls reject. Structured output remains unsupported. Multimedia is outside this API. There is no automatic downgrade to ordinary inference.
+
+For direct model callers, use the same runtime and requirements. The example loads a locally maintained file of independently reviewed profiles; it must not be generated from the live attestation:
 
 ```ts
+import { readFile } from "node:fs/promises";
 import { createPrivacyRuntime, resolveModel } from "@comma-agents/core";
+import type { VeniceWorkloadPolicy } from "@comma-agents/core";
 
+const trustedWorkloads = JSON.parse(
+  await readFile("./reviewed-venice-profiles.json", "utf8"),
+) as Record<string, VeniceWorkloadPolicy[]>;
 const privacyRuntime = createPrivacyRuntime({
+  providers: { venice: { trustedWorkloads } },
   onEvent(event) {
     console.log(event.phase, event.report?.errorCode);
   },
@@ -52,19 +64,115 @@ const model = await resolveModel("venice/your-model-id", {
 
 The trusted endpoint is the process running core. Local hooks, tool execution, and conversation history retain plaintext behavior. This feature does not encrypt browser-to-daemon traffic, local history, or independent network calls made by tools. Built-in summarization inherits the agent's requirements; custom summarizer callbacks and custom execution overrides are rejected for protected agents.
 
-Each upstream request has independent attestation, challenge, cancellation, and key ownership, including tool steps. No automatic retry runs for protected requests. Output is buffered until required authentication passes, including tool calls before execution. Cancellation, truncated streams, failed checks, or conflicting provider options discard unreleased output. Observer callbacks are synchronous; callback exceptions reject the request.
+Each upstream request has independent verification, cancellation, and encryption context ownership, including tool steps. Venice and Tinfoil V3 use client-generated attestation challenges; Tinfoil also enforces authenticated freshness-witness expiry. The application does not retry protected inference automatically. Tinfoil can reverify and resend once after its transport reports a stale encryption key; ordinary inference failures are not retried. Output is buffered until required authentication passes, including tool calls before execution. Cancellation, truncated streams, failed checks, or conflicting provider options discard unreleased output. Observer callbacks are synchronous; callback exceptions reject the request.
 
-Runtime defaults are a 120-second request deadline, 15 seconds per verification operation within that deadline, a 2 MiB evidence-response limit, 64 MiB of buffered inference wire data, and 16 MiB of decrypted completion data. Override them through `limits`; verification endpoints must be trusted HTTPS addresses supplied by the application. Endpoint addresses from attestation payloads are never followed.
+Runtime defaults are a 120-second request deadline, 15 seconds per verification operation within that deadline, a 2 MiB evidence-response limit, 64 MiB of buffered inference wire data, and 16 MiB of decrypted completion data. Override them through `limits`; verification endpoints must be trusted HTTPS addresses supplied by the application. Venice never follows endpoint addresses from attestation payloads. Tinfoil verifies nonce-bound V3 evidence from its fixed inference endpoint and encrypts to the HPKE key endorsed by that evidence.
 
-Content-free reports contain request identity, requirements, check outcomes, timestamps, and safe failure codes. Agent results retain per-request `privacyReports`, including summarization. Direct model results expose successful report metadata under `commaPrivacy`. No report includes prompts, raw evidence, keys, or underlying provider exception bodies. Hardware verification does not imply an approved application measurement or a verified model's behavior.
+Content-free reports contain request identity, requirements, check outcomes, timestamps, and safe failure codes. Agent results retain per-request `privacyReports`, including summarization. Direct model results expose successful report metadata under `commaPrivacy`. No report includes prompts, raw evidence, keys, or underlying provider exception bodies. Hardware verification alone does not approve an application. `workloadMeasurements` reports authenticated software hashes, while `checks.workload` reports profile approval. Passed CPU/GPU, freshness, and key-binding checks remain visible after a later rejection. A workload approval rejection includes `workloadMismatch`, showing differing fields and their expected/actual values for each approved profile, or indicating that no profiles were configured. Profile approval does not verify model weights or the correctness of model output. Venice reports also include independent `receiptChecks` for the completion ID, signature under the attested key, signed model prefix when present, and exact request/response body hashes. A valid signature can coexist with failed body binding; missing or malformed receipt evidence is reported as unavailable. Required receipt failures reject by default; the explicit body-binding exception below allows degraded output.
 
-<AutoTypeTable path="../packages/core/src/model/privacy/privacy.types.ts" name="PrivacyRequirements" />
-<AutoTypeTable path="../packages/core/src/model/privacy/privacy.types.ts" name="PrivacyRuntimeOptions" />
-<AutoTypeTable path="../packages/core/src/model/privacy/privacy.types.ts" name="PrivacyReport" />
+<AutoTypeTable
+  path="../packages/core/src/model/privacy/privacy.types.ts"
+  name="PrivacyRequirements"
+/>
+<AutoTypeTable
+  path="../packages/core/src/model/privacy/privacy.types.ts"
+  name="PrivacyRuntimeOptions"
+/>
+<AutoTypeTable
+  path="../packages/core/src/model/privacy/privacy.types.ts"
+  name="PrivacyReport"
+/>
+
+## Tinfoil protected inference
+
+Set `TINFOIL_API_KEY` or save a Tinfoil credential in provider settings, refresh the model list, and select a `tinfoil/model-id`. Protection is automatic, including strategy overrides and summarization. An approved Venice workload file is not needed.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "private-assistant",
+  model: "tinfoil/glm-5-3",
+});
+const result = await agent.call("Hello");
+```
+
+Tinfoil V3 verifies AMD Genoa SEV-SNP CPU evidence, the request nonce, signed code and platform provenance, policy/measurement matches, certificate and revocation validity, and freshness witnesses. The attested HPKE key must be bound to those same authenticated measurements. Requests and responses use authenticated encryption tied to a separate request context. The complete request body is encrypted, including system instructions, chat history, native tool definitions, tool arguments, and tool results. Local tools execute after completion authentication; streaming output is buffered until authentication and parsing finish.
+
+**The first-party V3 verifier is experimental and has not had an independent security audit.** It supports the public router's release-based collateral profile on AMD Genoa, with pinned manufacturer and Sigstore trust roots. Intel TDX, AMD Turin, device/GPU evidence, registry-based collateral, and legacy V2 evidence are rejected. No unmerged verifier PR or Go runtime is required. A change to the supported evidence profile or pinned trust material requires a reviewed verifier update.
+
+Reports mark `cpu`, `workload`, `freshness`, `keyBinding`, `encryption`, and `responseBinding` as passed after successful verification and authenticated inference. `workloadMeasurements` includes the authenticated launch measurement and code/platform digests. `freshnessExpiresAt` records the authenticated authorization deadline. Nonces are fresh for each attestation; code/platform witnesses have a separate maximum age of seven days by default. Expired evidence prevents inference and output release. `verificationSteps` reports V3 success or the failing verification boundary without raw evidence or provider errors.
+
+Clients verify the router's published workload and trust that measured router to validate downstream model enclaves. This integration does not independently verify each GPU or exact model weights; `gpu` remains `unavailable`. No Venice receipt exception applies. Missing HPKE keys, failed V3 checks, plaintext responses, authentication failures, and resource-limit failures reject the request. One recognized stale-key rejection can trigger fresh V3 verification and resealing; ordinary inference failures are not retried. Header and routing metadata remain visible to the transport.
+
+Use application-owned policy to pin a reviewed repository/release, add a launch-measurement constraint, or require more recent witnesses. Default approval follows valid, currently witnessed releases from `tinfoilsh/confidential-model-router`; it does not automatically require the newest release. `reference` also accepts `owner/repo@tag`, `owner/repo@sha256:<digest>`, or both constraints. Additional measurement pins are checked alongside signed policy. Never approve measurements solely because the endpoint reports them.
+
+```ts
+import { createAgent, createPrivacyRuntime } from "@comma-agents/core";
+
+const privacyRuntime = createPrivacyRuntime({
+  providers: {
+    tinfoil: {
+      reference: "tinfoilsh/confidential-model-router",
+      freshnessMaxAgeMs: 24 * 60 * 60 * 1000,
+    },
+  },
+});
+const agent = createAgent(
+  { name: "private-assistant", model: "tinfoil/glm-5-3" },
+  { privacyRuntime },
+);
+```
+
+<AutoTypeTable
+  path="../packages/core/src/model/providers/tinfoil/tinfoil.types.ts"
+  name="TinfoilPrivacyOptions"
+/>
+<AutoTypeTable
+  path="../packages/core/src/model/providers/tinfoil/tinfoil.types.ts"
+  name="TinfoilMeasurementPins"
+/>
+
+## VenicePrivacyOptions
+
+Venice verification settings belong under `providers.venice`. Existing top-level `pccsURL`, `nrasURL`, and `trustedWorkloads` settings remain supported; specifying the same option at both levels rejects the configuration.
+
+<AutoTypeTable
+  path="../packages/core/src/model/providers/venice/venice.types.ts"
+  name="VenicePrivacyOptions"
+/>
+
+To continue when an authentic receipt covers body hashes that do not match the public API exchange, explicitly enable `allowUnboundReceipts`:
+
+```ts
+const privacyRuntime = createPrivacyRuntime({
+  providers: { venice: { trustedWorkloads, allowUnboundReceipts: true } },
+});
+```
+
+This trusts the provider path without establishing integrity of the exact conversation or encrypted-chunk ordering. It also permits local tool calls from those accepted responses. Reports use `status: "degraded"`, retain `responseBinding: "failed"`, and include `PRIVACY_BINDING_UNAVAILABLE`. Invalid signatures, completion IDs, signed model IDs, malformed receipt hashes, and hardware or workload failures still reject. The default is `false`; the exception applies only to body-hash mismatches.
+
+## VeniceWorkloadPolicy
+
+An independently approved software profile for one Venice model. `PrivacyWorkloadPolicy` remains an alias for compatibility.
+
+<AutoTypeTable
+  path="../packages/core/src/model/providers/venice/venice.types.ts"
+  name="VeniceWorkloadPolicy"
+/>
+
+## VeniceWorkloadMeasurements
+
+Venice software hashes authenticated by the CPU quote and measurement log; these are observations, not trust defaults. `PrivacyWorkloadMeasurements` remains an alias for compatibility. Shared privacy reports carry provider-defined measurement names and values.
+
+<AutoTypeTable
+  path="../packages/core/src/model/providers/venice/venice.types.ts"
+  name="VeniceWorkloadMeasurements"
+/>
 
 ## How Model Resolution Works
 
-The ordinary resolution order below applies when no privacy requirements are supplied. Protected requests enforce their requirements before consulting directly registered models or the global provider resolver.
+The ordinary resolution order below applies when neither advertised capabilities nor explicit requirements demand privacy protection. Protected requests enforce their requirements before consulting directly registered models or the global provider resolver.
 
 When `createAgent()` receives a model string, `resolveModel()` resolves it into a live `LanguageModel`. Two formats are supported:
 
@@ -78,7 +186,11 @@ Resolution order for both formats:
 3. **Auto-resolution** (no `/`) — queries the reverse model index for candidate providers (sorted alphabetically), checks credentials for each candidate, and resolves the first one with configured credentials.
 
 ```ts
-import { registerModel, registerProvider, createAgent } from "@comma-agents/core";
+import {
+  registerModel,
+  registerProvider,
+  createAgent,
+} from "@comma-agents/core";
 
 // Option 1: Register a model directly (great for tests)
 registerModel("mock/test", myMockLanguageModel);
@@ -86,7 +198,8 @@ const agent = createAgent({ name: "test", model: "mock/test" });
 
 // Option 2: Register a provider (for custom/non-standard providers)
 registerProvider("my-llm", {
-  factory: (credential) => (modelId) => myProvider({ apiKey: credential.key, model: modelId }),
+  factory: (credential) => (modelId) =>
+    myProvider({ apiKey: credential.key, model: modelId }),
 });
 const agent2 = createAgent({ name: "custom", model: "my-llm/latest" });
 
@@ -133,9 +246,9 @@ Returns full `ModelInfo` for a bare model ID — capabilities, modalities, cost,
 import { getModelMetadata } from "@comma-agents/core";
 
 const info = getModelMetadata("gpt-4o");
-console.log(info?.contextWindow);              // 128000
-console.log(info?.capabilities?.reasoning);    // true
-console.log(info?.cost?.input);                // 2.5 (USD per 1M tokens)
+console.log(info?.contextWindow); // 128000
+console.log(info?.capabilities?.reasoning); // true
+console.log(info?.cost?.input); // 2.5 (USD per 1M tokens)
 ```
 
 Returns `undefined` if the model is not found in any provider catalog.
@@ -170,29 +283,36 @@ Providers are resolved via `registerProvider()` in the [defaults](/docs/core/def
 The model module also exposes APIs to list known providers and their models. Data comes from three sources merged together:
 
 - **Catalog** — a bundled snapshot of the [models.dev](https://models.dev) catalog, covering 50+ providers and their models. The snapshot is shipped with the package and refreshed on disk every 24 hours.
-- **Built-in overrides** — hardcoded entries for providers that need custom package resolution or live discovery (Ollama, Deepseek, GitHub Copilot).
-- **Provider discovery** — optional model lists from supported providers, enabled by passing `{ live: true }`.
+- **Built-in overrides** — hardcoded entries for providers that need custom package resolution or their own model lister (Ollama, Deepseek, GitHub Copilot).
+- **Provider APIs** — model lists from supported providers, kept in memory after `refreshProviderModels()` calls them.
 - **User settings** — manually declared models are always included.
 
-Models are identified within their provider. Results include the union of provider, models.dev, and user IDs, sorted alphabetically. Each model has `id`, contributing `sources`, and nested `metadata`. Fields resolve with priority provider > models.dev > user, including individual capability and pricing fields. Explicit `false`, zero, and empty modality arrays retain their meaning. Providers expose definition `origin` and a `discovery` object containing status, optional response timestamp, and safe failure diagnostics.
+Models are identified within their provider. Results include the union of provider, models.dev, and user IDs, sorted alphabetically. Each model has `id`, contributing `sources`, and nested `metadata`. Fields resolve with priority provider > models.dev > user, including individual capability and pricing fields. Explicit `false`, zero, and empty modality arrays retain their meaning. Providers expose their definition `origin`.
 
 All existing capabilities are supported: tools, reasoning, vision, attachment, structured output, TEE attestation support, and E2EE support. Privacy support flags describe advertised capabilities; request requirements and verification reports remain separate.
 
 ### listProviders
 
-Return every known provider enriched with its model list.
+Return every known provider enriched with its model list. Listing never calls a provider API; it includes the provider-listed models from the last `refreshProviderModels()` call.
 
 ```ts
-import { getGlobalCredentialStore, listProviders } from "@comma-agents/core";
+import {
+  getGlobalCredentialStore,
+  listProviders,
+  refreshProviderModels,
+} from "@comma-agents/core";
 
+// Call every provider's own model listing, then read the merged list.
+await refreshProviderModels(getGlobalCredentialStore());
 const providers = await listProviders(getGlobalCredentialStore());
 for (const provider of providers) {
   console.log(provider.id, provider.models.length);
 }
-
-// Explicitly query supported provider endpoints
-const liveProviders = await listProviders(getGlobalCredentialStore(), { live: true });
 ```
+
+### refreshProviderModels
+
+Call provider APIs and keep their model lists in memory. Pass `{ providerId }` to refresh one provider. A provider is called only when it has a lister and, unless its `credentialType` is `"none"`, a resolved credential. A failed or empty response drops that provider's previous listing, leaving models.dev and manual models.
 
 ### getProviderInfo
 
@@ -209,13 +329,19 @@ console.log(info?.name, info?.models[0]?.id);
 
 The shape returned by `listProviders` and `getProviderInfo`.
 
-<AutoTypeTable path="../packages/core/src/model/providers/providers.types.ts" name="ProviderInfo" />
+<AutoTypeTable
+  path="../packages/core/src/model/providers/providers.types.ts"
+  name="ProviderInfo"
+/>
 
 ### ModelInfo
 
 A single model entry in `ProviderInfo.models`.
 
-<AutoTypeTable path="../packages/core/src/model/providers/providers.types.ts" name="ModelInfo" />
+<AutoTypeTable
+  path="../packages/core/src/model/providers/providers.types.ts"
+  name="ModelInfo"
+/>
 
 ## Types
 
@@ -223,17 +349,25 @@ A single model entry in `ProviderInfo.models`.
 
 The result of parsing a `provider/model` string.
 
-<AutoTypeTable path="../packages/core/src/model/model.types.ts" name="ParsedModel" />
+<AutoTypeTable
+  path="../packages/core/src/model/model.types.ts"
+  name="ParsedModel"
+/>
 
 ### ProviderFactory
 
 A function that creates a `LanguageModel` from a model ID.
 
-<AutoTypeTable path="../packages/core/src/model/model.types.ts" name="ProviderFactory" />
+<AutoTypeTable
+  path="../packages/core/src/model/model.types.ts"
+  name="ProviderFactory"
+/>
 
 ### ProviderResolver
 
 A function that translates a `(providerId, credential)` pair into a `ProviderFactory`.
 
-<AutoTypeTable path="../packages/core/src/model/model.types.ts" name="ProviderResolver" />
-
+<AutoTypeTable
+  path="../packages/core/src/model/model.types.ts"
+  name="ProviderResolver"
+/>
