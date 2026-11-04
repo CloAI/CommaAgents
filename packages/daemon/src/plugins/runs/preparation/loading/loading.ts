@@ -36,8 +36,9 @@ export async function loadRunPreparation(
   for (const registration of context.preparations) {
     scope.signal.throwIfAborted();
     const prepared = await registration.prepare(scope);
-    if (prepared.activate !== undefined)
+    if (prepared.activate !== undefined) {
       entry.activators.push(prepared.activate);
+    }
     if (prepared.dispose !== undefined) {
       entry.disposers.push(prepared.dispose);
     }

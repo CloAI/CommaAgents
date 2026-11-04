@@ -143,7 +143,8 @@ describe("runs plugin", () => {
     expect(prepared.phase).toBe(RunPhase.prepared);
     const outcome = await runs.startRun("real-1", "hello").completion;
     expect(outcome.status).toBe(RunOutcomeStatus.completed);
-    if (outcome.status === "completed")
+    if (outcome.status === "completed") {
       expect(outcome.result.text).toBe("hello");
+    }
   });
 });

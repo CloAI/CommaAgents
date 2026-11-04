@@ -26,12 +26,16 @@ export function contextMessages(
 ): ContextMessage[] {
   const seen = new Set<string>();
   return entries.flatMap((entry) => {
-    if (entry.type !== "message" || seen.has(entry.messageId)) return [];
+    if (entry.type !== "message" || seen.has(entry.messageId)) {
+      return [];
+    }
     seen.add(entry.messageId);
     const text = entry.content
       .flatMap((block) => (block.type === "text" ? [block.text] : []))
       .join("\n");
-    if (!text) return [];
+    if (!text) {
+      return [];
+    }
     return [
       {
         messageId: entry.messageId,
@@ -83,7 +87,9 @@ export function handoffContextRecords(
 ): ConversationRecord[] {
   const { messages } = state.handoff;
   const first = messages[0];
-  if (first === undefined) return [];
+  if (first === undefined) {
+    return [];
+  }
   const change = state.changes.at(-1);
   const transcript = messages
     .map((message) => `[${message.speaker}]\n${message.text}`)

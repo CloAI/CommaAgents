@@ -33,8 +33,9 @@ export async function sendRun(
 ): Promise<SendRunResult> {
   const { runId, input, contextChoice, expectedRevision } =
     SendRunArgumentsSchema.parse(options);
-  if (context.operations.has(runId))
+  if (context.operations.has(runId)) {
     throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+  }
   let entry = context.runs.get(runId);
   if (!entry || entry.state.phase === RunPhase.terminal) {
     await prepareRun(context, { runId });
@@ -82,8 +83,9 @@ export async function sendRun(
       entry.retryInput === input &&
       messages.at(-1)?.speaker === "user" &&
       messages.at(-1)?.text === input
-    )
+    ) {
       messages.pop();
+    }
     const overhead = Math.max(
       8192,
       ...agents.map(
@@ -101,15 +103,18 @@ export async function sendRun(
       recentCount: recent.length,
       ...(error ? { error } : {}),
     });
-    if (estimatedTokens > tokenLimit && !contextChoice) return required();
+    if (estimatedTokens > tokenLimit && !contextChoice) {
+      return required();
+    }
     if (contextChoice) {
       let retained = contextChoice === "full" ? messages : recent;
       if (contextChoice === "compact") {
         const target = agents[0];
-        if (!target?.config?.model)
+        if (!target?.config?.model) {
           return required(
             "No model is available to compact this conversation.",
           );
+        }
         const { applyCompaction } =
           await import("@comma-agents/core/conversation-context");
         // TODO: Decide how the UI should select among core's context-management methods. Use compaction for now.
@@ -182,8 +187,9 @@ export async function sendRun(
         strategyState: state,
       });
       entry.strategyState = state;
-      for (const agent of Object.values(strategy.agents))
+      for (const agent of Object.values(strategy.agents)) {
         agent.getConversationContext?.().clear();
+      }
       restoreAgentContexts(
         strategy,
         { records: [], retentionEvents: [] },
@@ -209,8 +215,9 @@ export async function sendRun(
               event.content.type === "reasoning"
                 ? event.content.text.length > 0
                 : true)
-            )
+            ) {
               accepted.resolve();
+            }
           },
         ),
       );
@@ -219,7 +226,9 @@ export async function sendRun(
           "run_input_requested",
           runId,
           (event) => {
-            if (event.runId === runId) accepted.resolve();
+            if (event.runId === runId) {
+              accepted.resolve();
+            }
           },
         ),
       );
@@ -232,8 +241,9 @@ export async function sendRun(
       ]);
       if (outcome && outcome.status !== RunOutcomeStatus.completed) {
         if (outcome.status === RunOutcomeStatus.failed) {
-          if (outcome.error.code !== RunErrorCode.PERSISTENCE_ERROR)
+          if (outcome.error.code !== RunErrorCode.PERSISTENCE_ERROR) {
             entry.retryInput = input;
+          }
           throw runError(outcome.error);
         }
         entry.retryInput = input;
@@ -243,9 +253,13 @@ export async function sendRun(
       }
       return { type: "started" };
     } finally {
-      for (const unsubscribe of unsubscribers) unsubscribe();
+      for (const unsubscribe of unsubscribers) {
+        unsubscribe();
+      }
     }
   } finally {
-    if (locked) context.operations.delete(runId);
+    if (locked) {
+      context.operations.delete(runId);
+    }
   }
 }

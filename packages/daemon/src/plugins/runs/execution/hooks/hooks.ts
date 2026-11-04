@@ -57,7 +57,9 @@ export function attachRunHooks(
     const interactive =
       definition?.type === "user" && definition.config?.requireInput !== false;
     agent.appendHook("onCallStarted", async (identity: AgentCallIdentity) => {
-      if (interactive) return;
+      if (interactive) {
+        return;
+      }
       await startAgentMessage(context, entry, agentName, identity);
       if (agent.config?.model !== undefined) {
         context.notifications.notify(runId, {
@@ -104,7 +106,9 @@ export function attachRunHooks(
           context.storage.append(runId, { type: "agent_call", record }),
         );
       }
-      if (interactive) return;
+      if (interactive) {
+        return;
+      }
       if (result.finishReason === "user_steering") {
         await interruptAgentMessages(
           context,

@@ -65,8 +65,9 @@ export async function prepareRun(
   ) {
     throw runError(previous.outcome.error);
   }
-  if (context.operations.has(runId))
+  if (context.operations.has(runId)) {
     throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+  }
   const raced = context.runs.get(runId);
   if (raced !== undefined && raced.state.phase !== RunPhase.terminal) {
     throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });

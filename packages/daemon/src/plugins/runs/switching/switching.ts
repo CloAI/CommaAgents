@@ -32,15 +32,17 @@ export async function switchStrategy(
 ): Promise<RunPreparedSnapshot> {
   const { runId, stop, expectedRevision, ...selection } =
     SwitchStrategyArgumentsSchema.parse(options);
-  if (context.operations.has(runId))
+  if (context.operations.has(runId)) {
     throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+  }
   context.operations.add(runId);
   const settled = Promise.withResolvers<void>();
   let candidate: ReturnType<typeof createRunEntry> | undefined;
   try {
     let previous = await getRunSnapshot(context, runId);
-    if (!previous)
+    if (!previous) {
       throw runError({ code: RunErrorCode.RUN_NOT_FOUND, metadata: { runId } });
+    }
     if (
       expectedRevision !== undefined &&
       expectedRevision !== (previous.strategyState?.revision ?? 0)
@@ -54,8 +56,9 @@ export async function switchStrategy(
       previous.phase === RunPhase.running ||
       previous.phase === RunPhase.preparing
     ) {
-      if (!stop)
+      if (!stop) {
         throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+      }
       await stopRun(context, runId);
       previous = (await getRunSnapshot(context, runId))!;
     }
@@ -182,27 +185,36 @@ export async function switchStrategy(
       await context.history.reserve(runId, change.messageId);
       candidate.strategyState.changes.push(change);
       // The switch notice names the loaded strategy, so contexts seeded during loading are rebuilt with it.
-      for (const agent of Object.values(strategy.agents))
+      for (const agent of Object.values(strategy.agents)) {
         agent.getConversationContext?.().clear();
+      }
       restoreAgentContexts(strategy, conversation, candidate);
     }
     candidate.controller.signal.throwIfAborted();
     const snapshot = runSnapshot(candidate) as RunPreparedSnapshot;
     await context.storage.save(snapshot);
     context.runs.set(runId, candidate);
-    for (const activate of candidate.activators) activate();
+    for (const activate of candidate.activators) {
+      activate();
+    }
     context.identities.set(runId, {
       runId,
       parentRunId: candidate.parentRunId,
     });
     candidate = undefined;
     // Old prepared resources are released only after the replacement is durable.
-    if (oldEntry) await cleanupRunEntry(oldEntry);
+    if (oldEntry) {
+      await cleanupRunEntry(oldEntry);
+    }
     context.notifications.notify(runId, { type: "run_snapshot", snapshot });
     return snapshot;
   } catch (cause) {
-    if (candidate) await cleanupRunEntry(candidate);
-    if (cause instanceof Error && "code" in cause) throw cause;
+    if (candidate) {
+      await cleanupRunEntry(candidate);
+    }
+    if (cause instanceof Error && "code" in cause) {
+      throw cause;
+    }
     throw runError(
       operationError(RunErrorCode.PREPARATION_ERROR, runId, cause),
     );

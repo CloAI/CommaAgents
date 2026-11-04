@@ -572,8 +572,9 @@ describe("runs WebSocket API", () => {
     });
     try {
       const outcome = await runs.startRun(parent.runId, "limited").completion;
-      if (outcome.status !== "completed")
+      if (outcome.status !== "completed") {
         throw new Error("Expected completion");
+      }
       expect(outcome.summary.text).toContain("Subagent depth limit reached");
     } finally {
       await runs.dispose();
@@ -598,8 +599,9 @@ describe("runs WebSocket API", () => {
             if (
               snapshot.phase === RunPhase.prepared &&
               snapshot.strategyState?.revision === 1
-            )
+            ) {
               resolve();
+            }
           },
         );
       });

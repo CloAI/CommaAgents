@@ -25,7 +25,9 @@ function fixture() {
     provider: "mock",
     doStream: async (options: unknown) => {
       prompts.push(JSON.stringify(options));
-      if (reject) throw new Error("Provider unavailable");
+      if (reject) {
+        throw new Error("Provider unavailable");
+      }
       return {
         stream: new ReadableStream({
           start(controller) {
@@ -96,7 +98,9 @@ function fixture() {
 async function finish(runs: ReturnType<typeof createRunsPlugin>) {
   for (let attempt = 0; attempt < 100; attempt++) {
     const snapshot = await runs.getRun("chat");
-    if (snapshot?.phase === "terminal") return snapshot;
+    if (snapshot?.phase === "terminal") {
+      return snapshot;
+    }
     await new Promise((resolve) => setTimeout(resolve, 1));
   }
   throw new Error("Run did not finish");
@@ -397,8 +401,9 @@ describe("strategy switching", () => {
           return {
             ...backing,
             save: async (snapshot) => {
-              if (snapshot.configuration.strategyPath === build)
+              if (snapshot.configuration.strategyPath === build) {
                 throw new Error("Disk full");
+              }
               await backing.save(snapshot);
             },
           };

@@ -23,6 +23,7 @@ export type StrategyLoaderInputs = Pick<
   | "questionRequester"
   | "languageService"
   | "mcpToolsByAgent"
+  | "privacyRuntime"
 >;
 
 export type {

@@ -19,7 +19,9 @@ export async function restoredConversation(
 ): Promise<ConversationHistory> {
   const events = await context.storage.conversation(entry.runId);
   const state = entry.strategyState;
-  if (!state) return conversationFromEvents(events);
+  if (!state) {
+    return conversationFromEvents(events);
+  }
   // Target agent names are supplied after loading; shared seeds are imported separately.
   return conversationFromEvents(events.slice(state.handoff.eventOffset));
 }
@@ -100,8 +102,9 @@ export function restoreAgentContexts(
           .filter((event) => event.agentName === agentName)
           .map((event) => ({ type: "conversation_retention" as const, event })),
       ]);
-      if (restored.records.length > 0)
+      if (restored.records.length > 0) {
         agent.getConversationContext().importRecords(restored.records);
+      }
     }
   }
 }

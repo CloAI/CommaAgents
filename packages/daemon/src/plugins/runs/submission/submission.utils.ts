@@ -44,8 +44,9 @@ export function recentMessages(
   while (
     recent.length &&
     estimateTokens(JSON.stringify(recent) + input) + overhead > tokenLimit
-  )
+  ) {
     recent = recent.slice(1);
+  }
   return recent;
 }
 
@@ -90,7 +91,9 @@ export async function summarizeHandoff(
       }
     }
     source = summaries.join("\n\n");
-    if (estimateTokens(source) < tokenLimit / 4) return source;
+    if (estimateTokens(source) < tokenLimit / 4) {
+      return source;
+    }
   }
   throw new Error(
     "Compaction did not reduce the conversation enough. Choose recent messages or continue with full history.",

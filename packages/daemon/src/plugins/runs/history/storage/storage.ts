@@ -166,7 +166,9 @@ export function createRunHistoryStorage(runsDir: string): RunHistoryStorage {
                 JSON.parse(readFileSync(entryPath, "utf8")),
               )
             : changes.find((change) => change.messageId === indexed.messageId);
-          if (entry === undefined) continue;
+          if (entry === undefined) {
+            continue;
+          }
           if (options.limit !== undefined && entries.length === options.limit) {
             hasMore = true;
             break;

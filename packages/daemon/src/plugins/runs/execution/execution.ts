@@ -19,8 +19,9 @@ export function beginRunExecution(
   runId: string,
   input: string,
 ): RunExecutionHandle {
-  if (context.operations.has(runId))
+  if (context.operations.has(runId)) {
     throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+  }
   const entry = context.runs.get(runId);
   if (entry === undefined) {
     throw runError({ code: RunErrorCode.RUN_NOT_FOUND, metadata: { runId } });

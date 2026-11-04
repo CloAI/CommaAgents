@@ -14,7 +14,9 @@ export function initialInputAgent(
   let firstStep = strategy.raw.flow;
   while (firstStep.type !== "broadcast") {
     const nextStep = firstStep.steps[0];
-    if (nextStep === undefined) return undefined;
+    if (nextStep === undefined) {
+      return undefined;
+    }
     if ("agent" in nextStep) {
       const agentDefinition = strategy.raw.agents[nextStep.agent];
       return agentDefinition?.type === "user" &&

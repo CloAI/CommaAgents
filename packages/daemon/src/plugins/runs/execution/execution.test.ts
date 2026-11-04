@@ -297,11 +297,13 @@ describe("run execution", () => {
               if (initial) {
                 const stop = () =>
                   controller.error(new DOMException("Steered", "AbortError"));
-                if (options.abortSignal?.aborted) stop();
-                else
+                if (options.abortSignal?.aborted) {
+                  stop();
+                } else {
                   options.abortSignal?.addEventListener("abort", stop, {
                     once: true,
                   });
+                }
               } else {
                 controller.enqueue({ type: "text-end", id: "answer" });
                 controller.enqueue({
