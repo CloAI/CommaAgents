@@ -58,12 +58,17 @@ export function SearchInput({
       }
       // Ignore control keys that the parent likely wants to handle
       // (arrows, Enter, Escape, Tab). Only accept printable input.
-      if (key.upArrow || key.downArrow || key.leftArrow || key.rightArrow)
+      if (key.upArrow || key.downArrow || key.leftArrow || key.rightArrow) {
         return;
-      if (key.return || key.escape || key.tab) return;
+      }
+      if (key.return || key.escape || key.tab) {
+        return;
+      }
       // Swallow SGR mouse escape sequences (scroll wheel, clicks) so they
       // don't get typed into the query.
-      if (input && isMouseEscape(input)) return;
+      if (input && isMouseEscape(input)) {
+        return;
+      }
       if (input && !key.ctrl && !key.meta) {
         onChange(value + input);
       }

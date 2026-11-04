@@ -184,7 +184,9 @@ function cellForIndex(
   index: number,
   indexCellMap: readonly CursorCell[],
 ): CursorCell {
-  if (indexCellMap.length === 0) return { x: 0, y: 0 };
+  if (indexCellMap.length === 0) {
+    return { x: 0, y: 0 };
+  }
   const clampedIndex = Math.max(0, Math.min(index, indexCellMap.length - 1));
   return indexCellMap[clampedIndex] ?? { x: 0, y: 0 };
 }
@@ -204,15 +206,21 @@ function indexForCell(
 
   for (let rawIndex = 0; rawIndex < indexCellMap.length; rawIndex++) {
     const candidate = indexCellMap[rawIndex];
-    if (!candidate || candidate.y !== cell.y) continue;
-    if (candidate.x === cell.x) return rawIndex;
+    if (!candidate || candidate.y !== cell.y) {
+      continue;
+    }
+    if (candidate.x === cell.x) {
+      return rawIndex;
+    }
     if (candidate.x < cell.x && candidate.x > bestX) {
       bestIndex = rawIndex;
       bestX = candidate.x;
     }
   }
 
-  if (bestIndex >= 0) return bestIndex;
+  if (bestIndex >= 0) {
+    return bestIndex;
+  }
   return valueLength;
 }
 
@@ -227,7 +235,9 @@ function computeTargetCell(
 
   switch (intent.kind) {
     case "left": {
-      if (currentX > 0) return { x: currentX - 1, y: currentY };
+      if (currentX > 0) {
+        return { x: currentX - 1, y: currentY };
+      }
       if (currentY > 0) {
         const previousRowWidth = measureWidth(rows[currentY - 1] ?? "");
         return { x: previousRowWidth, y: currentY - 1 };
@@ -236,16 +246,24 @@ function computeTargetCell(
     }
     case "right": {
       const currentRowWidth = measureWidth(rows[currentY] ?? "");
-      if (currentX < currentRowWidth) return { x: currentX + 1, y: currentY };
-      if (currentY < rows.length - 1) return { x: 0, y: currentY + 1 };
+      if (currentX < currentRowWidth) {
+        return { x: currentX + 1, y: currentY };
+      }
+      if (currentY < rows.length - 1) {
+        return { x: 0, y: currentY + 1 };
+      }
       return currentCell;
     }
     case "up": {
-      if (currentY > 0) return { x: currentX, y: currentY - 1 };
+      if (currentY > 0) {
+        return { x: currentX, y: currentY - 1 };
+      }
       return currentCell;
     }
     case "down": {
-      if (currentY < rows.length - 1) return { x: currentX, y: currentY + 1 };
+      if (currentY < rows.length - 1) {
+        return { x: currentX, y: currentY + 1 };
+      }
       return currentCell;
     }
     case "snapToCursor": {
@@ -260,7 +278,9 @@ function clampCellToRows(
   rows: readonly string[],
   measureWidth: (text: string) => number,
 ): CursorCell {
-  if (rows.length === 0) return { x: 0, y: 0 };
+  if (rows.length === 0) {
+    return { x: 0, y: 0 };
+  }
   const clampedY = Math.max(0, Math.min(cell.y, rows.length - 1));
   const rowWidth = measureWidth(rows[clampedY] ?? "");
   const clampedX = Math.max(0, Math.min(cell.x, rowWidth));
@@ -279,7 +299,9 @@ function computeRowDisplayOffset(params: {
 }): number {
   const { cellY, currentRowDisplayOffset, viewportHeight, totalRows } = params;
 
-  if (viewportHeight <= 0) return 0;
+  if (viewportHeight <= 0) {
+    return 0;
+  }
 
   const maxOffset = Math.max(0, totalRows - viewportHeight);
   let nextOffset = currentRowDisplayOffset;

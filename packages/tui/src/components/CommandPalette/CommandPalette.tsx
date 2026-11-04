@@ -109,7 +109,9 @@ function CommandPaletteContent({
   });
 
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible) {
+      return;
+    }
     const targetId = isHomeView ? id : subPageFocusId;
     if (activeId !== targetId) {
       focus(targetId);
@@ -117,7 +119,9 @@ function CommandPaletteContent({
   }, [activeId, focus, id, isHomeView, isVisible, subPageFocusId]);
 
   useEffect(() => {
-    if (!isVisible || !initialCommandId) return;
+    if (!isVisible || !initialCommandId) {
+      return;
+    }
     const initialCommand = commands.find(
       (command) => command.id === initialCommandId,
     );
@@ -128,7 +132,9 @@ function CommandPaletteContent({
   }, [commands, initialCommandId, isVisible]);
 
   useEffect(() => {
-    if (isVisible) return;
+    if (isVisible) {
+      return;
+    }
     setCommandListFilter("");
     setSelectedCommandIndex(0);
     setActiveCommand(null);
@@ -144,12 +150,18 @@ function CommandPaletteContent({
     (input, key) => {
       const isReturnInput = key.return || input === "\r" || input === "\n";
       if (key.escape) {
-        if (activeCommand === null) closePalette();
+        if (activeCommand === null) {
+          closePalette();
+        }
         return;
       }
 
-      if (activeCommand !== null) return;
-      if (input && isMouseEscape(input)) return;
+      if (activeCommand !== null) {
+        return;
+      }
+      if (input && isMouseEscape(input)) {
+        return;
+      }
 
       if (!isFocused && key.upArrow) {
         setSelectedCommandIndex((currentIndex) =>
@@ -168,7 +180,9 @@ function CommandPaletteContent({
       if (isReturnInput) {
         const selectedCommand =
           filteredCommands[selectedCommandIndex] ?? filteredCommands[0];
-        if (selectedCommand) activateCommand(selectedCommand);
+        if (selectedCommand) {
+          activateCommand(selectedCommand);
+        }
         return;
       }
 
@@ -200,7 +214,9 @@ function CommandPaletteContent({
     setActiveCommand(null);
   }, []);
 
-  if (!isVisible) return null;
+  if (!isVisible) {
+    return null;
+  }
 
   if (activeCommand !== null) {
     return (

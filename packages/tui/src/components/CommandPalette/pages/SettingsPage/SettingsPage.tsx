@@ -45,7 +45,9 @@ export function SettingsPage({
   const applySelection = React.useCallback(
     (index: number): void => {
       const option = THEME_OPTIONS[index];
-      if (option === undefined) return;
+      if (option === undefined) {
+        return;
+      }
       updateConfig({ themeName: option.name });
     },
     [updateConfig],
@@ -53,7 +55,9 @@ export function SettingsPage({
 
   useInput(
     (_input, key) => {
-      if (key.escape) onBack();
+      if (key.escape) {
+        onBack();
+      }
     },
     { isActive: isFocused },
   );

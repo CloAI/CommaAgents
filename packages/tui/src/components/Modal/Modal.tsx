@@ -69,7 +69,9 @@ export function Modal({
 
   const handleInput = React.useCallback(
     (_input: string, key: import("ink").Key): void => {
-      if (key.escape) close();
+      if (key.escape) {
+        close();
+      }
     },
     [close],
   );
@@ -77,7 +79,9 @@ export function Modal({
     isActive: isOpen && isTopmost && closeOnEsc,
   });
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <ModalRender

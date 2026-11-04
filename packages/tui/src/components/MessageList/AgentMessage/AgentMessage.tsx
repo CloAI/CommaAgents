@@ -166,7 +166,9 @@ export function AgentMessageRender({
   useMouseClick({
     ref: contextUsageRef,
     onClick: () => {
-      if (contextUsage === undefined) return;
+      if (contextUsage === undefined) {
+        return;
+      }
       const payload: ContextUsageModalPayload = {
         agentName: sender,
         contextUsage,
@@ -280,7 +282,9 @@ function SegmentView({
   useMouseClick({
     ref: toolCallRef,
     onClick: () => {
-      if (segment.type !== "tool-call") return;
+      if (segment.type !== "tool-call") {
+        return;
+      }
       const payload: OutputModalPayload = {
         kind: "tool-result",
         title: displayToolName(segment),
@@ -293,7 +297,9 @@ function SegmentView({
   useMouseClick({
     ref: thinkingRef,
     onClick: () => {
-      if (segment.type !== "thinking") return;
+      if (segment.type !== "thinking") {
+        return;
+      }
       const payload: OutputModalPayload = {
         kind: "thinking",
         title: "thinking",
@@ -538,7 +544,9 @@ function useElapsed(
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!streaming) return;
+    if (!streaming) {
+      return;
+    }
     const timer = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(timer);
   }, [streaming]);
@@ -558,7 +566,9 @@ function renderContextBar(fraction: number, units = 6): string {
   const fullCells = Math.min(units, Math.floor(totalEighths / 8));
   const remainder = totalEighths % 8;
   let bar = "█".repeat(fullCells);
-  if (remainder > 0 && fullCells < units) bar += PARTIAL_BLOCKS[remainder];
+  if (remainder > 0 && fullCells < units) {
+    bar += PARTIAL_BLOCKS[remainder];
+  }
   return bar.padEnd(units, " ");
 }
 
@@ -571,8 +581,12 @@ function contextBarColor(
     readonly high: string;
   },
 ): string {
-  if (fraction >= 0.85) return barColors.high;
-  if (fraction >= 0.6) return barColors.medium;
+  if (fraction >= 0.85) {
+    return barColors.high;
+  }
+  if (fraction >= 0.6) {
+    return barColors.medium;
+  }
   return barColors.low;
 }
 
@@ -592,9 +606,15 @@ function truncateModel(model: string, max = 40): string {
 }
 
 function formatTokens(tokens: number | undefined): string {
-  if (tokens === undefined) return "?";
-  if (tokens < 1_000) return String(tokens);
-  if (tokens < 1_000_000) return `${Math.round(tokens / 1_000)}k`;
+  if (tokens === undefined) {
+    return "?";
+  }
+  if (tokens < 1_000) {
+    return String(tokens);
+  }
+  if (tokens < 1_000_000) {
+    return `${Math.round(tokens / 1_000)}k`;
+  }
   return `${Math.round(tokens / 100_000) / 10}m`;
 }
 
@@ -627,7 +647,9 @@ function formatElapsed(elapsedMs: number): string {
  * exact same string the renderer will draw.
  */
 export function truncatePreview(value: string): string {
-  if (value.length <= MAX_TOOL_ARGS_PREVIEW_LENGTH) return value;
+  if (value.length <= MAX_TOOL_ARGS_PREVIEW_LENGTH) {
+    return value;
+  }
   return `${value.slice(0, MAX_TOOL_ARGS_PREVIEW_LENGTH)}\u2026`;
 }
 
@@ -646,10 +668,14 @@ function toolCallBody(
     | Extract<MessageSegment, { readonly type: "tool-result" }>
     | undefined,
 ): string {
-  if (pairedResult === undefined) return "(tool still running)";
+  if (pairedResult === undefined) {
+    return "(tool still running)";
+  }
   if (pairedResult.status === "error") {
     const error = pairedResult.error ?? "(no error message)";
-    if (pairedResult.output.length === 0) return error;
+    if (pairedResult.output.length === 0) {
+      return error;
+    }
     return `${error}\n\n--- output ---\n${pairedResult.output}`;
   }
   return pairedResult.output;

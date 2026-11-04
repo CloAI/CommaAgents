@@ -80,7 +80,9 @@ export function RegisteredProvidersPage({
 
   const registerProvider = useCallback(
     (provider: ProviderInfo): void => {
-      if (provider.isCustom || isPending) return;
+      if (provider.isCustom || isPending) {
+        return;
+      }
       setIsPending(true);
       send({ type: "register_provider", providerId: provider.id });
       setTimeout(() => {
@@ -93,7 +95,9 @@ export function RegisteredProvidersPage({
 
   const saveCredentialAndRegister = useCallback(
     (provider: ProviderInfo, key: string): void => {
-      if (isPending) return;
+      if (isPending) {
+        return;
+      }
       setIsPending(true);
       send({
         type: "set_credential",
@@ -112,7 +116,9 @@ export function RegisteredProvidersPage({
 
   const activateRegistration = useCallback(
     (provider: ProviderInfo): void => {
-      if (isPending) return;
+      if (isPending) {
+        return;
+      }
       if (provider.isCustom) {
         setIsPending(true);
         send({ type: "unregister_provider", providerId: provider.id });
@@ -155,7 +161,9 @@ export function RegisteredProvidersPage({
 
   useInput(
     (input, key) => {
-      if (input && isMouseEscape(input)) return;
+      if (input && isMouseEscape(input)) {
+        return;
+      }
 
       if (viewState.kind === "api-input") {
         if (key.escape) {
@@ -210,7 +218,9 @@ export function RegisteredProvidersPage({
         return;
       }
       if (key.downArrow) {
-        if (unifiedProviders.length === 0) return;
+        if (unifiedProviders.length === 0) {
+          return;
+        }
         setSelectedIndex((currentIndex) =>
           Math.min(unifiedProviders.length - 1, currentIndex + 1),
         );
@@ -218,7 +228,9 @@ export function RegisteredProvidersPage({
       }
       if (key.return) {
         const selectedProvider = unifiedProviders[selectedIndex];
-        if (selectedProvider) activateRegistration(selectedProvider);
+        if (selectedProvider) {
+          activateRegistration(selectedProvider);
+        }
         return;
       }
       if (key.backspace || key.delete) {
@@ -251,7 +263,9 @@ export function RegisteredProvidersPage({
 
   useEffect(() => {
     setSelectedIndex((currentIndex) => {
-      if (unifiedProviders.length === 0) return 0;
+      if (unifiedProviders.length === 0) {
+        return 0;
+      }
       return Math.min(currentIndex, unifiedProviders.length - 1);
     });
   }, [unifiedProviders.length]);

@@ -11,7 +11,9 @@ export function ContextUsageModal(): React.ReactElement | null {
   const { isOpen, data } = useModal(CONTEXT_USAGE_MODAL_ID);
   const payload = isPayload(data) ? data : null;
 
-  if (!isOpen || payload === null) return null;
+  if (!isOpen || payload === null) {
+    return null;
+  }
 
   return (
     <Modal
@@ -120,7 +122,9 @@ function contextUsageRows(
 }
 
 function isPayload(value: unknown): value is ContextUsageModalPayload {
-  if (typeof value !== "object" || value === null) return false;
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
   const payload = value as Partial<ContextUsageModalPayload>;
   return (
     typeof payload.agentName === "string" &&
@@ -134,7 +138,11 @@ function isPayload(value: unknown): value is ContextUsageModalPayload {
 }
 
 function formatTokens(tokens: number): string {
-  if (tokens < 1_000) return String(tokens);
-  if (tokens < 1_000_000) return `${Math.round(tokens / 1_000)}k`;
+  if (tokens < 1_000) {
+    return String(tokens);
+  }
+  if (tokens < 1_000_000) {
+    return `${Math.round(tokens / 1_000)}k`;
+  }
   return `${Math.round(tokens / 100_000) / 10}m`;
 }

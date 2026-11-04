@@ -47,7 +47,9 @@ function dotVec3(a: Vec3, b: Vec3): number {
 
 function normalizeVec3(v: Vec3): Vec3 {
   const len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-  if (len === 0) return [0, 0, 0];
+  if (len === 0) {
+    return [0, 0, 0];
+  }
   return [v[0] / len, v[1] / len, v[2] / len];
 }
 
@@ -97,7 +99,9 @@ function rasterise(triangles: ProjectedTriangle[]): string[] {
     const maxY = Math.min(HEIGHT - 1, Math.ceil(Math.max(v0[1], v1[1], v2[1])));
 
     const area = edgeFunction(v0, v1, v2);
-    if (Math.abs(area) < 1e-6) continue; // degenerate triangle
+    if (Math.abs(area) < 1e-6) {
+      continue;
+    } // degenerate triangle
 
     for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
@@ -109,9 +113,13 @@ function rasterise(triangles: ProjectedTriangle[]): string[] {
 
         // Check if point is inside triangle (consistent winding).
         if (area > 0) {
-          if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+          if (w0 < 0 || w1 < 0 || w2 < 0) {
+            continue;
+          }
         } else {
-          if (w0 > 0 || w1 > 0 || w2 > 0) continue;
+          if (w0 > 0 || w1 > 0 || w2 > 0) {
+            continue;
+          }
         }
 
         // Barycentric interpolation of depth.
@@ -187,10 +195,18 @@ function computeViewBounds(
     const vOut = vec4.create();
     vec4.transformMat4(vOut, vIn, modelView);
 
-    if (vOut[0] < bounds.minX) bounds.minX = vOut[0];
-    if (vOut[0] > bounds.maxX) bounds.maxX = vOut[0];
-    if (vOut[1] < bounds.minY) bounds.minY = vOut[1];
-    if (vOut[1] > bounds.maxY) bounds.maxY = vOut[1];
+    if (vOut[0] < bounds.minX) {
+      bounds.minX = vOut[0];
+    }
+    if (vOut[0] > bounds.maxX) {
+      bounds.maxX = vOut[0];
+    }
+    if (vOut[1] < bounds.minY) {
+      bounds.minY = vOut[1];
+    }
+    if (vOut[1] > bounds.maxY) {
+      bounds.maxY = vOut[1];
+    }
   }
 
   return bounds;
@@ -264,7 +280,9 @@ function renderFrame(
     const normal: Vec3 = [nOut[0], nOut[1], nOut[2]];
 
     // Back-face culling: if the face normal points away from the camera.
-    if (normal[2] < 0) continue;
+    if (normal[2] < 0) {
+      continue;
+    }
 
     // Diffuse lighting.
     const diffuse = Math.max(0, dotVec3(normal, lightDir));
@@ -338,14 +356,18 @@ function generate(): void {
     modelViews.push(mv);
 
     const frameBounds = computeViewBounds(vertices, mv);
-    if (frameBounds.minX < globalBounds.minX)
+    if (frameBounds.minX < globalBounds.minX) {
       globalBounds.minX = frameBounds.minX;
-    if (frameBounds.maxX > globalBounds.maxX)
+    }
+    if (frameBounds.maxX > globalBounds.maxX) {
       globalBounds.maxX = frameBounds.maxX;
-    if (frameBounds.minY < globalBounds.minY)
+    }
+    if (frameBounds.minY < globalBounds.minY) {
       globalBounds.minY = frameBounds.minY;
-    if (frameBounds.maxY > globalBounds.maxY)
+    }
+    if (frameBounds.maxY > globalBounds.maxY) {
       globalBounds.maxY = frameBounds.maxY;
+    }
   }
 
   // -----------------------------------------------------------------------

@@ -20,7 +20,9 @@ export function HelpPage({
 
   useInput(
     (_input, key) => {
-      if (key.escape) onBack();
+      if (key.escape) {
+        onBack();
+      }
     },
     { isActive: isFocused },
   );

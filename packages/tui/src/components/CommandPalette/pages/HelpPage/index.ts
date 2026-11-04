@@ -1,7 +1,4 @@
-export type {
-  HelpPageProps,
-  HelpPageRenderProps,
-} from "./HelpPage";
+export type { HelpPageProps, HelpPageRenderProps } from "./HelpPage";
 
 export { HelpPage, HelpPageRender } from "./HelpPage";
 

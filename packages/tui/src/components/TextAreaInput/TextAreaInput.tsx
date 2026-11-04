@@ -146,7 +146,9 @@ export function TextAreaInput({
   }
 
   function deleteBeforeCursor(): void {
-    if (cursorIndex === 0) return;
+    if (cursorIndex === 0) {
+      return;
+    }
     const nextValue =
       normalizedValue.slice(0, cursorIndex - 1) +
       normalizedValue.slice(cursorIndex);
@@ -156,22 +158,36 @@ export function TextAreaInput({
 
   useInput(
     (input, key) => {
-      if (isMouseEscape(input)) return;
-      if (key.escape) return;
+      if (isMouseEscape(input)) {
+        return;
+      }
+      if (key.escape) {
+        return;
+      }
 
       if (key.return && (key.ctrl || key.shift || key.meta)) {
         insertAtCursor("\n");
         return;
       }
       if (key.return) {
-        if (onSubmit) onSubmit(value.trim());
+        if (onSubmit) {
+          onSubmit(value.trim());
+        }
         return;
       }
 
-      if (key.leftArrow) return applyMove({ kind: "left" });
-      if (key.rightArrow) return applyMove({ kind: "right" });
-      if (key.upArrow) return applyMove({ kind: "up" });
-      if (key.downArrow) return applyMove({ kind: "down" });
+      if (key.leftArrow) {
+        return applyMove({ kind: "left" });
+      }
+      if (key.rightArrow) {
+        return applyMove({ kind: "right" });
+      }
+      if (key.upArrow) {
+        return applyMove({ kind: "up" });
+      }
+      if (key.downArrow) {
+        return applyMove({ kind: "down" });
+      }
 
       if (key.backspace || key.delete) {
         deleteBeforeCursor();

@@ -142,10 +142,7 @@ export { Separator, SeparatorRender, useSeparatorTheme } from "./Separator";
 
 export type { StatusBarProps, StatusBarRenderProps } from "./StatusBar";
 export { StatusBar, StatusBarRender } from "./StatusBar";
-export type {
-  StatusBarTheme,
-  StatusInfo,
-} from "./StatusBar/StatusBar.theme";
+export type { StatusBarTheme, StatusInfo } from "./StatusBar/StatusBar.theme";
 export { useStatusBarTheme } from "./StatusBar/StatusBar.theme";
 
 export type { TextAreaInputProps } from "./TextAreaInput";

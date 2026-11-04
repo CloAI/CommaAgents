@@ -72,18 +72,28 @@ export function OutputModal(): React.ReactElement | null {
   const mouseContextValue = useContext(MouseContext);
   const subscribe = mouseContextValue?.subscribe;
   useEffect(() => {
-    if (!isOpen || !subscribe) return;
+    if (!isOpen || !subscribe) {
+      return;
+    }
     return subscribe((event) => {
-      if (event.kind !== "press") return;
-      if (event.button !== 0) return;
-      if (isInsideRef(contentRef, event.column, event.row)) return;
+      if (event.kind !== "press") {
+        return;
+      }
+      if (event.button !== 0) {
+        return;
+      }
+      if (isInsideRef(contentRef, event.column, event.row)) {
+        return;
+      }
       close();
     });
   }, [isOpen, subscribe, close]);
 
   useInput(
     (_input, key) => {
-      if (!isOpen) return;
+      if (!isOpen) {
+        return;
+      }
       if (key.upArrow) {
         setScrollOffset((offset) => Math.max(0, offset - 3));
         return;
@@ -96,7 +106,9 @@ export function OutputModal(): React.ReactElement | null {
     { isActive: isOpen },
   );
 
-  if (!isOpen || payload === null) return null;
+  if (!isOpen || payload === null) {
+    return null;
+  }
 
   return (
     <Modal
@@ -211,7 +223,9 @@ function countMatches(lines: readonly OutputModalLine[]): number {
   let total = 0;
   for (const line of lines) {
     for (const segment of line.segments) {
-      if (segment.isMatch) total += 1;
+      if (segment.isMatch) {
+        total += 1;
+      }
     }
   }
   return total;
@@ -229,8 +243,12 @@ function statusText(
   rowCount: number,
   matchCount: number,
 ): string {
-  if (query.invalid) return "invalid regex";
-  if (query.regex === null) return `${rowCount} lines`;
+  if (query.invalid) {
+    return "invalid regex";
+  }
+  if (query.regex === null) {
+    return `${rowCount} lines`;
+  }
   return `${matchCount} matches in ${rowCount} lines`;
 }
 
@@ -242,7 +260,9 @@ function titleFor(payload: OutputModalPayload): string {
 
 /** Type-guard for the modal's `data` channel. */
 function isPayload(value: unknown): value is OutputModalPayload {
-  if (typeof value !== "object" || value === null) return false;
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
   const candidate = value as Record<string, unknown>;
   return (
     (candidate.kind === "tool-result" || candidate.kind === "thinking") &&

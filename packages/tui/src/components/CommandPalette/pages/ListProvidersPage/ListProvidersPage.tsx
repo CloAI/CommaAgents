@@ -55,7 +55,9 @@ export function ListProvidersPage({
 
   useInput(
     (input, key) => {
-      if (input && isMouseEscape(input)) return;
+      if (input && isMouseEscape(input)) {
+        return;
+      }
       if (key.escape) {
         onBack();
         return;

@@ -81,7 +81,9 @@ export function ChatTextArea({
   // 4. Callbacks
   const handleSubmit = useCallback(
     (text: string) => {
-      if (!currentStrategy) return;
+      if (!currentStrategy) {
+        return;
+      }
       setInputValue("");
       onSubmit(currentStrategy, text);
     },
@@ -108,7 +110,9 @@ export function ChatTextArea({
     const initialIndex = strategies.findIndex(
       (strategy) => strategy.path === initialStrategyPath,
     );
-    if (initialIndex < 0) return;
+    if (initialIndex < 0) {
+      return;
+    }
     appliedInitialStrategyPath.current = initialStrategyPath;
     setStrategyIndex(initialIndex);
   }, [initialStrategyPath, strategies]);

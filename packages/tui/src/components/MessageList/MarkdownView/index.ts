@@ -15,11 +15,7 @@ export {
 
 export type { MarkdownViewTheme } from "./MarkdownView.theme";
 export { useMarkdownViewTheme } from "./MarkdownView.theme";
-export type {
-  MdBlock,
-  MdInline,
-  MdListItem,
-} from "./MarkdownView.types";
+export type { MdBlock, MdInline, MdListItem } from "./MarkdownView.types";
 export {
   inlineSpansToPlainText,
   renderTableToText,

@@ -23,12 +23,22 @@ export function isPrintableCharacter(
   input: string,
   key: Record<string, unknown>,
 ): boolean {
-  if (!input) return false;
-  if (key.meta) return false;
-  if (key.ctrl) return false;
-  if (key.tab) return false;
+  if (!input) {
+    return false;
+  }
+  if (key.meta) {
+    return false;
+  }
+  if (key.ctrl) {
+    return false;
+  }
+  if (key.tab) {
+    return false;
+  }
   for (const printableKey of UNPRINTABLE_KEYS) {
-    if (key[printableKey] === true) return false;
+    if (key[printableKey] === true) {
+      return false;
+    }
   }
   return true;
 }

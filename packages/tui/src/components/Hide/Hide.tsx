@@ -44,10 +44,12 @@ export function Hide({ below, above, children }: HideProps): React.ReactNode {
   const { columns } = useBreakpoint();
   const { breakpoints } = useTheme();
 
-  if (below !== undefined && columns < resolveThreshold(below, breakpoints))
+  if (below !== undefined && columns < resolveThreshold(below, breakpoints)) {
     return null;
-  if (above !== undefined && columns >= resolveThreshold(above, breakpoints))
+  }
+  if (above !== undefined && columns >= resolveThreshold(above, breakpoints)) {
     return null;
+  }
 
   return children;
 }

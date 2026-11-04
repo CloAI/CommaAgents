@@ -6,7 +6,9 @@
  */
 export function tokenizeQuery(query: string): readonly string[] {
   const trimmed = query.trim().toLowerCase();
-  if (trimmed.length === 0) return [];
+  if (trimmed.length === 0) {
+    return [];
+  }
   return trimmed.split(/\s+/);
 }
 
@@ -20,7 +22,9 @@ export function tokenizeQuery(query: string): readonly string[] {
  */
 export function matchesQuery(haystack: string, query: string): boolean {
   const tokens = tokenizeQuery(query);
-  if (tokens.length === 0) return true;
+  if (tokens.length === 0) {
+    return true;
+  }
   const lowered = haystack.toLowerCase();
   return tokens.every((token) => lowered.includes(token));
 }
@@ -35,7 +39,9 @@ export function filterByQuery<ItemType>(
   query: string,
   getHaystack: (item: ItemType) => string,
 ): readonly ItemType[] {
-  if (tokenizeQuery(query).length === 0) return items;
+  if (tokenizeQuery(query).length === 0) {
+    return items;
+  }
   return items.filter((item) => matchesQuery(getHaystack(item), query));
 }
 

@@ -163,7 +163,9 @@ export function groupSubStrategyMessages(
   const rootMessages: MutableGroupedChatMessage[] = [];
   for (const message of messages) {
     const groupedMessage = groupedByMessageId.get(message.id);
-    if (!groupedMessage) continue;
+    if (!groupedMessage) {
+      continue;
+    }
 
     const parentMessageId = message.parentToolCallId
       ? launchToolCallToMessageId.get(message.parentToolCallId)
@@ -231,7 +233,9 @@ export function findSubStrategyName(
         const args = JSON.parse(segment.args) as unknown;
         if (typeof args === "object" && args !== null) {
           const name = (args as Record<string, unknown>).name;
-          if (typeof name === "string" && name.length > 0) return name;
+          if (typeof name === "string" && name.length > 0) {
+            return name;
+          }
         }
       } catch {
         return "strategy";
