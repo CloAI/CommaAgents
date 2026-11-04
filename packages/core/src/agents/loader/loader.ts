@@ -135,10 +135,11 @@ export async function loadAgentFromString(
 
   if (!("model" in description)) {
     const registered = resolveRegisteredAgent(description.type);
-    if (!registered)
+    if (!registered) {
       throw new StrategyValidationError(
         `Unknown registered agent type: ${description.type}`,
       );
+    }
     return registered.create({
       name: description.name,
       config: description.config ?? {},

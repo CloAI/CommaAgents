@@ -97,7 +97,7 @@ export interface AgentRuntime {
 
 /** Configuration for creating a model-backed agent or a custom executable agent. */
 export interface AgentConfig {
-  /** Required inference protections, also inherited by automatic summarization. */
+  /** Minimum inference protections, augmented by advertised model support and inherited by automatic summarization. */
   readonly privacy?: PrivacyRequirements;
   /** Unique name for this agent. */
   readonly name: string;

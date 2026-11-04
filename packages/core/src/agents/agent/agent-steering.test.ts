@@ -65,11 +65,13 @@ function createSteeringModel(firstToolNames: readonly string[] = []) {
                   new DOMException("Generation aborted", "AbortError"),
                 );
               };
-              if (options.abortSignal?.aborted) cancel();
-              else
+              if (options.abortSignal?.aborted) {
+                cancel();
+              } else {
                 options.abortSignal?.addEventListener("abort", cancel, {
                   once: true,
                 });
+              }
             } else {
               controller.enqueue({ type: "text-end", id: "answer" });
               controller.enqueue({
@@ -173,7 +175,9 @@ describe("agent steering", () => {
     hookIntoAgent(agent, {
       onCallCompleted: [
         (result) => {
-          if (result.finishReason === "user_steering") interrupted.resolve();
+          if (result.finishReason === "user_steering") {
+            interrupted.resolve();
+          }
         },
       ],
       onStreamEvent: [
@@ -375,7 +379,9 @@ describe("agent steering", () => {
     hookIntoAgent(agent, {
       onStreamEvent: [
         (event) => {
-          if (event.type === "tool-result") toolOutputs.push(event.output);
+          if (event.type === "tool-result") {
+            toolOutputs.push(event.output);
+          }
           if (event.type === "text" && !steeringAccepted) {
             steeringAccepted =
               agent.steer?.(

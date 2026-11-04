@@ -1,4 +1,6 @@
 import { streamText } from "ai";
+import { createPrivacyRuntime } from "../../model/privacy/privacy";
+import { getModelPrivacyRequirements } from "../../model/model.utils";
 import { PrivacyRequirementsSchema } from "../../model/privacy/privacy.schemas";
 import {
   privacyError,
@@ -75,15 +77,31 @@ export function createAgent(
   const privacy = PrivacyRequirementsSchema.safeParse(
     config.privacy === undefined ? {} : config.privacy,
   );
-  if (!privacy.success) throw privacyError("PRIVACY_CONFIGURATION_ERROR");
-  if (privacy.data.tee || privacy.data.e2ee) {
-    if (config.execute) throw privacyError("PRIVACY_CONFIGURATION_ERROR");
+  if (!privacy.success) {
+    throw privacyError("PRIVACY_CONFIGURATION_ERROR");
+  }
+  const automaticPrivacy = config.model
+    ? getModelPrivacyRequirements(config.model)
+    : undefined;
+  if (automaticPrivacy?.tee) {
+    config = { ...config, privacy: { ...privacy.data, ...automaticPrivacy } };
+    runtime = {
+      ...runtime,
+      privacyRuntime: runtime.privacyRuntime ?? createPrivacyRuntime(),
+    };
+  }
+  const protectedRequest = Boolean(config.privacy?.tee || config.privacy?.e2ee);
+  if (protectedRequest) {
+    if (config.execute) {
+      throw privacyError("PRIVACY_CONFIGURATION_ERROR");
+    }
     if (
       config.context?.compaction &&
       typeof config.context.compaction === "object" &&
       config.context.compaction.summarize
-    )
+    ) {
       throw privacyError("PRIVACY_CONFIGURATION_ERROR");
+    }
   }
   const conversationContext = createConversationContext(
     resolveContextOptions(config, runtime),
@@ -117,7 +135,9 @@ export function createAgent(
 
   function consumeFirstCall(): boolean {
     const wasFirstCall = firstCall;
-    if (wasFirstCall) firstCall = false;
+    if (wasFirstCall) {
+      firstCall = false;
+    }
     return wasFirstCall;
   }
 
@@ -148,7 +168,9 @@ export function createAgent(
 
     steer(messageId, text, beforeResume): boolean {
       const active = activeGenerations.get(messageId);
-      if (!active?.accepting || !text.trim()) return false;
+      if (!active?.accepting || !text.trim()) {
+        return false;
+      }
       const persisted = beforeResume?.() ?? Promise.resolve();
       // Observe write failures immediately; the segment awaits and propagates them.
       void persisted.catch(() => {});
@@ -183,9 +205,12 @@ export function createAgent(
           const stopGeneration = () =>
             generation.controller.abort(signal.reason);
           signal.addEventListener("abort", stopGeneration, { once: true });
-          if (signal.aborted) stopGeneration();
-          if (!config.execute)
+          if (signal.aborted) {
+            stopGeneration();
+          }
+          if (!config.execute) {
             activeGenerations.set(identity.messageId, generation);
+          }
           const segmentEvents: AgentStreamEvent[] = [];
           const pendingTools: Promise<unknown>[] = [];
           const settledToolEvents: AgentStreamEvent[] = [];
@@ -243,7 +268,9 @@ export function createAgent(
                   generationTools,
                 )) {
                   const executeTool = toolDefinition.execute;
-                  if (!executeTool) continue;
+                  if (!executeTool) {
+                    continue;
+                  }
                   const toolOrigin = parseMcpToolName(toolName);
                   const wrappedTool = { ...toolDefinition };
                   generationTools[toolName] = wrappedTool;
@@ -348,10 +375,13 @@ export function createAgent(
 
                 for await (const part of streamResult.fullStream) {
                   if (
-                    (privacy.data.tee || privacy.data.e2ee) &&
-                    part.type === "error"
-                  )
+                    part.type === "error" &&
+                    (protectedRequest ||
+                      (part.error instanceof Error &&
+                        part.error.name === "PrivacyError"))
+                  ) {
                     throw sanitizePrivacyError(part.error, signal);
+                  }
                   const mappedEvent = mapStreamPart(part);
                   const event = mappedEvent
                     ? { ...mappedEvent, ...identity }
@@ -373,7 +403,9 @@ export function createAgent(
                   await streamResult.finishReason,
                 );
               } catch (error) {
-                if (!generation.steering.length || signal.aborted) throw error;
+                if (!generation.steering.length || signal.aborted) {
+                  throw error;
+                }
                 result = interruptedCallResult(segmentEvents);
               }
               if (generation.steering.length) {
@@ -387,8 +419,9 @@ export function createAgent(
                   if (
                     event.type !== "tool-call" ||
                     streamedCalls.has(event.toolCallId)
-                  )
+                  ) {
                     continue;
+                  }
                   segmentEvents.push(event);
                   await runSideEffectHooks(streamEventHooks, event);
                   yield event;

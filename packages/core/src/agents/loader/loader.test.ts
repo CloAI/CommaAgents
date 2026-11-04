@@ -18,10 +18,17 @@ function registerMockModel(modelString: string): void {
     provider: "mock",
     defaultObjectGenerationMode: undefined,
     doGenerate: async () => ({
-      content: [{ type: "text" as const, text: `response from ${modelString}` }],
+      content: [
+        { type: "text" as const, text: `response from ${modelString}` },
+      ],
       finishReason: { unified: "stop" as const, raw: undefined },
       usage: {
-        inputTokens: { total: 10, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+        inputTokens: {
+          total: 10,
+          noCache: undefined,
+          cacheRead: undefined,
+          cacheWrite: undefined,
+        },
         outputTokens: { total: 20, text: undefined, reasoning: undefined },
       },
       warnings: [],
@@ -47,7 +54,11 @@ function registerMockModel(modelString: string): void {
                 cacheRead: undefined,
                 cacheWrite: undefined,
               },
-              outputTokens: { total: 20, text: undefined, reasoning: undefined },
+              outputTokens: {
+                total: 20,
+                text: undefined,
+                reasoning: undefined,
+              },
             },
           });
           controller.close();
@@ -251,21 +262,25 @@ describe("loadAgentFromString", () => {
     });
 
     it("should throw on invalid YAML", async () => {
-      await expect(loadAgentFromString(":\n  - :\n    :", "yaml")).rejects.toThrow(
-        StrategyValidationError,
-      );
+      await expect(
+        loadAgentFromString(":\n  - :\n    :", "yaml"),
+      ).rejects.toThrow(StrategyValidationError);
     });
   });
 
   describe("validation", () => {
     it("should throw on missing name", async () => {
       const json = JSON.stringify({ model: "openai/gpt-4o" });
-      await expect(loadAgentFromString(json, "json")).rejects.toThrow(StrategyValidationError);
+      await expect(loadAgentFromString(json, "json")).rejects.toThrow(
+        StrategyValidationError,
+      );
     });
 
     it("should throw on missing model", async () => {
       const json = JSON.stringify({ name: "test" });
-      await expect(loadAgentFromString(json, "json")).rejects.toThrow(StrategyValidationError);
+      await expect(loadAgentFromString(json, "json")).rejects.toThrow(
+        StrategyValidationError,
+      );
     });
 
     it("should throw on unknown fields", async () => {
@@ -274,7 +289,9 @@ describe("loadAgentFromString", () => {
         model: "openai/gpt-4o",
         useDefaults: true,
       });
-      await expect(loadAgentFromString(json, "json")).rejects.toThrow(StrategyValidationError);
+      await expect(loadAgentFromString(json, "json")).rejects.toThrow(
+        StrategyValidationError,
+      );
     });
 
     it("should include validation issue details in error message", async () => {
@@ -284,7 +301,9 @@ describe("loadAgentFromString", () => {
         expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(StrategyValidationError);
-        expect((error as StrategyValidationError).message).toContain("validation failed");
+        expect((error as StrategyValidationError).message).toContain(
+          "validation failed",
+        );
         expect((error as StrategyValidationError).message).toContain("name");
       }
     });
@@ -306,7 +325,10 @@ describe("loadAgentFromString", () => {
     });
 
     it("should throw at call time when model is not registered", async () => {
-      const json = JSON.stringify({ name: "test", model: "unknown-provider/model" });
+      const json = JSON.stringify({
+        name: "test",
+        model: "unknown-provider/model",
+      });
       const agent = await loadAgentFromString(json, "json");
       // Model resolution happens at call time, not creation time
       await expect(agent.call("hello")).rejects.toThrow();
@@ -329,7 +351,10 @@ describe("loadAgentFromString", () => {
       setupMockModels();
       const customTool: ToolDefinition = {
         description: "A custom tool",
-        parameters: { type: "object", properties: {} } as unknown as ToolDefinition["parameters"],
+        parameters: {
+          type: "object",
+          properties: {},
+        } as unknown as ToolDefinition["parameters"],
         execute: async () => ({ output: "done" }),
       };
       registerTool("my-tool", customTool);
@@ -371,7 +396,9 @@ describe("loadAgentFromString", () => {
       const rendered = await (
         agent.config!.systemPrompt as { render: () => Promise<string> }
       ).render();
-      expect(rendered).toBe("You are a senior engineer who writes TypeScript code.");
+      expect(rendered).toBe(
+        "You are a senior engineer who writes TypeScript code.",
+      );
     });
 
     it("should prefer systemPromptTemplate over static systemPrompt when both present", async () => {
@@ -439,11 +466,15 @@ describe("loadAgentFromString", () => {
 
 describe("loadAgent", () => {
   it("should throw on unsupported file extension", async () => {
-    await expect(loadAgent("test.txt")).rejects.toThrow(StrategyValidationError);
+    await expect(loadAgent("test.txt")).rejects.toThrow(
+      StrategyValidationError,
+    );
   });
 
   it("should throw on missing file", async () => {
-    await expect(loadAgent("nonexistent.yaml")).rejects.toThrow(StrategyValidationError);
+    await expect(loadAgent("nonexistent.yaml")).rejects.toThrow(
+      StrategyValidationError,
+    );
   });
 
   it("should include file extension in error message for unsupported types", async () => {
@@ -462,7 +493,9 @@ describe("loadAgent", () => {
       expect.unreachable("should have thrown");
     } catch (error) {
       expect(error).toBeInstanceOf(StrategyValidationError);
-      expect((error as StrategyValidationError).message).toContain("missing-agent.yaml");
+      expect((error as StrategyValidationError).message).toContain(
+        "missing-agent.yaml",
+      );
     }
   });
 });

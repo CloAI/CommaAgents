@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,6 +22,8 @@ import {
 } from "../../credentials/global-credential-store";
 import { createPrivacyRuntime } from "../../model/privacy";
 import {
+  registerProviderDefinition,
+  refreshProviderModels,
   resetProviderRegistry,
   getProviderDefinition,
 } from "../../model/providers/providers";
@@ -37,6 +39,8 @@ import { hookIntoAgent } from "../hook-into-agent/hook-into-agent";
 import { loadAgentFromString } from "../loader/loader";
 import { loadStrategyFromString } from "../../strategy/loader/loader";
 import { createAgent } from "./agent";
+import { createTestCredentialStore } from "../../model/providers/test.utils";
+import type { ModelCapabilities } from "../../model/providers/providers.types";
 
 const requirements = { tee: "required", e2ee: "required" } as const;
 
@@ -243,8 +247,9 @@ describe("agent privacy propagation", () => {
         return createTestModel(
           (signal) =>
             new Promise<void>((_resolve, reject) => {
-              if (!signal)
+              if (!signal) {
                 throw new Error("Expected summarizer cancellation signal");
+              }
               signal.addEventListener(
                 "abort",
                 () => reject(new Error("Cancelled summarization")),
@@ -433,5 +438,266 @@ describe("agent privacy propagation", () => {
       "answer",
     );
     expect(requested).toEqual([requirements, requirements]);
+  });
+});
+
+describe("automatic model privacy", () => {
+  let previousStore: ReturnType<typeof getGlobalCredentialStore>;
+
+  beforeEach(() => {
+    previousStore = getGlobalCredentialStore();
+    setGlobalCredentialStore(
+      createTestCredentialStore({
+        openai: { type: "api", key: "test-key" },
+      }),
+    );
+  });
+
+  afterEach(() => {
+    setGlobalCredentialStore(previousStore);
+    resetProviderRegistry();
+  });
+
+  async function advertisePrivacy(
+    capabilities: ModelCapabilities,
+    providerId = "venice",
+    modelId = "automatic-test",
+  ) {
+    registerProviderDefinition({
+      id: providerId,
+      name: "Privacy test provider",
+      credentialType: "none",
+      async listModels() {
+        return [
+          { id: modelId, sources: ["provider"], metadata: { capabilities } },
+        ];
+      },
+    });
+    await refreshProviderModels(getGlobalCredentialStore(), { providerId });
+    return `${providerId}/${modelId}`;
+  }
+
+  it.each([
+    [{ teeAttestation: true }, { tee: "required" }],
+    [{ e2ee: true }, requirements],
+    [{ teeAttestation: true, e2ee: true }, requirements],
+  ] as const)(
+    "should require advertised protections %j without authored privacy",
+    async (capabilities, expected) => {
+      const model = await advertisePrivacy(capabilities);
+      const requested: PrivacyRequirements[] = [];
+      const privacyRuntime: PrivacyRuntime = {
+        async resolveModel(_model, privacy) {
+          requested.push(privacy);
+          return createTestModel();
+        },
+      };
+      // Direct registrations must not bypass advertised protection.
+      registerModel(model, createTestModel());
+      await resolveModel(model, { privacyRuntime });
+      const config = { name: "writer", model };
+      const agent = createAgent(config, { privacyRuntime });
+      expect(agent.config?.privacy).toEqual(expected);
+      expect(config).not.toHaveProperty("privacy");
+      expect((await agent.call("question")).text).toBe("answer");
+      expect(requested).toEqual([expected, expected]);
+    },
+  );
+
+  it("should preserve stricter authored requirements", async () => {
+    const model = await advertisePrivacy({ teeAttestation: true, e2ee: false });
+    const agent = createAgent({ name: "writer", model, privacy: requirements });
+    expect(agent.config?.privacy).toEqual(requirements);
+  });
+
+  it("should leave false and unknown capabilities on ordinary inference", async () => {
+    for (const capabilities of [{}, { teeAttestation: false, e2ee: false }]) {
+      const model = await advertisePrivacy(capabilities);
+      const ordinaryModel = createTestModel();
+      registerModel(model, ordinaryModel);
+      expect(await resolveModel(model)).toBe(ordinaryModel);
+      expect(
+        createAgent({ name: "writer", model }).config?.privacy,
+      ).toBeUndefined();
+    }
+  });
+
+  it("should derive protection from global and per-agent strategy model overrides", async () => {
+    const model = await advertisePrivacy({ e2ee: true });
+    for (const overrides of [
+      { modelOverride: model },
+      { modelOverrides: { writer: model } },
+    ]) {
+      const strategy = await loadStrategyFromString(
+        JSON.stringify({
+          name: "automatic-privacy",
+          version: "1",
+          agents: { writer: { model: "mock/plain" } },
+          flow: {
+            name: "write",
+            type: "sequential",
+            steps: [{ agent: "writer" }],
+          },
+        }),
+        "json",
+        overrides,
+      );
+      expect(strategy.agents.writer?.config?.model).toBe(model);
+      expect(strategy.agents.writer?.config?.privacy).toEqual(requirements);
+    }
+  });
+
+  it("should inherit automatic protection when compacting with another model", async () => {
+    const model = await advertisePrivacy({ e2ee: true });
+    const requested: { model: string; privacy: PrivacyRequirements }[] = [];
+    const agent = createAgent(
+      {
+        name: "writer",
+        model,
+        context: {
+          compaction: { model: "mock/summary", threshold: 2, keepRecent: 1 },
+        },
+      },
+      {
+        privacyRuntime: {
+          async resolveModel(model, privacy) {
+            requested.push({ model, privacy });
+            return createTestModel();
+          },
+        },
+      },
+    );
+    agent.getConversationContext!().importRecords(
+      ["first", "second", "third"].map((text) =>
+        createConversationRecord({
+          agentName: "writer",
+          userMessage: text,
+          responseMessages: [],
+          text,
+          usage: { promptTokens: 1, completionTokens: 1 },
+          finishReason: "stop",
+        }),
+      ),
+    );
+    await agent.call("next");
+    expect(requested).toEqual([
+      { model: "mock/summary", privacy: requirements },
+      { model, privacy: requirements },
+    ]);
+  });
+
+  it("should inherit selected bare-ID protections during compaction", async () => {
+    const model = await advertisePrivacy({ e2ee: true }, "openai", "gpt-4o");
+    const requested: { model: string; privacy: PrivacyRequirements }[] = [];
+    const agent = createAgent(
+      {
+        name: "writer",
+        model: "gpt-4o",
+        context: {
+          compaction: { model: "mock/summary", threshold: 2, keepRecent: 1 },
+        },
+      },
+      {
+        privacyRuntime: {
+          async resolveModel(model, privacy) {
+            requested.push({ model, privacy });
+            return createTestModel();
+          },
+        },
+      },
+    );
+    agent.getConversationContext!().importRecords(
+      ["first", "second", "third"].map((text) =>
+        createConversationRecord({
+          agentName: "writer",
+          userMessage: text,
+          responseMessages: [],
+          text,
+          usage: { promptTokens: 1, completionTokens: 1 },
+          finishReason: "stop",
+        }),
+      ),
+    );
+    await agent.call("next");
+    expect(requested).toEqual([
+      { model, privacy: requirements },
+      { model: "mock/summary", privacy: requirements },
+    ]);
+    const custom = createAgent(
+      {
+        name: "custom",
+        model: "gpt-4o",
+        context: { compaction: { summarize: async () => "unsafe" } },
+      },
+      {
+        privacyRuntime: {
+          async resolveModel() {
+            return createTestModel();
+          },
+        },
+      },
+    );
+    await expect(custom.call("question")).rejects.toThrow(
+      "Invalid protection configuration",
+    );
+  });
+
+  it("should reject custom execution and summarizers for automatically protected agents", async () => {
+    const model = await advertisePrivacy({ e2ee: true });
+    expect(() =>
+      createAgent({ name: "writer", model, execute: async () => "unsafe" }),
+    ).toThrow("Invalid protection configuration");
+    expect(() =>
+      createAgent({
+        name: "writer",
+        model,
+        context: { compaction: { summarize: async () => "unsafe" } },
+      }),
+    ).toThrow("Invalid protection configuration");
+  });
+
+  it("should use the default runtime and reject unavailable protection without ordinary fallback", async () => {
+    const model = await advertisePrivacy({ e2ee: true }, "privacy-test");
+    registerModel(model, createTestModel());
+    await expect(resolveModel(model)).rejects.toMatchObject({
+      code: "PRIVACY_UNSUPPORTED_PROVIDER",
+    });
+    await expect(
+      createAgent({ name: "writer", model }).call("question"),
+    ).rejects.toThrow("no protected transport");
+  });
+
+  it("should propagate protection failure for bare IDs without trying ordinary providers", async () => {
+    await advertisePrivacy({ e2ee: true }, "openai", "gpt-4o");
+    const failure = Object.assign(new Error("Protection unavailable"), {
+      name: "PrivacyError",
+      code: "PRIVACY_BINDING_UNAVAILABLE",
+    });
+    const privacyRuntime: PrivacyRuntime = {
+      async resolveModel() {
+        throw failure;
+      },
+    };
+    await expect(resolveModel("gpt-4o", { privacyRuntime })).rejects.toBe(
+      failure,
+    );
+  });
+
+  it("should enforce protection after selecting a provider for a bare model ID", async () => {
+    const model = await advertisePrivacy({ e2ee: true }, "openai", "gpt-4o");
+    const requested: string[] = [];
+    const protectedModel = createTestModel();
+    expect(
+      await resolveModel("gpt-4o", {
+        privacyRuntime: {
+          async resolveModel(model, privacy) {
+            requested.push(model);
+            expect(privacy).toEqual(requirements);
+            return protectedModel;
+          },
+        },
+      }),
+    ).toBe(protectedModel);
+    expect(requested).toEqual([model]);
   });
 });

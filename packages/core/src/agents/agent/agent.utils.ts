@@ -18,8 +18,9 @@ import { SandboxViolationError } from "../../errors/index";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
 import type { SideEffectHook, TransformHook } from "../../hooks/hooks.types";
 import { parseMcpToolName } from "../../mcp";
-import { resolveModel } from "../../model/model";
+import { resolveModel, resolveModelWithPrivacy } from "../../model/model";
 import type { ModelResolutionOptions } from "../../model/model.types";
+import { privacyError } from "../../model/privacy/privacy.utils";
 import type { PrivacyReport } from "../../model/privacy";
 import { getQualifiedModelMetadata } from "../../model/model.utils";
 import {
@@ -304,7 +305,9 @@ export function buildAgentToolSet({
 
           return llmOutput;
         } catch (caught) {
-          if (toolContext.abort.aborted) throw caught;
+          if (toolContext.abort.aborted) {
+            throw caught;
+          }
           // Convert thrown errors into structured tool results so the
           // LLM always sees a useful message instead of an empty
           // string. Without this, AI SDK v6 surfaces uncaught throws
@@ -373,18 +376,37 @@ export async function buildCallOptions(
     );
   }
 
-  const modelMetadata = getQualifiedModelMetadata(config.model);
+  const configuredModel = config.model;
+
+  // Resolve before compaction so bare IDs inherit the selected provider's protection.
+  let resolvedModel = config.privacy?.tee
+    ? undefined
+    : await resolveModelWithPrivacy(configuredModel, {
+        privacy: config.privacy,
+        privacyRuntime: runtime.privacyRuntime,
+        signal: abortSignal,
+        onPrivacyReport,
+      });
+  if (resolvedModel?.privacy?.tee) {
+    if (compactionOptionsOf(config)?.summarize) {
+      throw privacyError("PRIVACY_CONFIGURATION_ERROR");
+    }
+    config = { ...config, privacy: resolvedModel.privacy };
+    runtime = { ...runtime, privacyRuntime: resolvedModel.privacyRuntime };
+  }
+
+  const modelMetadata = getQualifiedModelMetadata(configuredModel);
   const lastActiveRecord = context
     .records(config.name)
     .filter((record) => record.status !== "superseded")
     .at(-1);
   const retentionEvents = await context.prepareForCall({
     agentName: config.name,
-    model: config.model,
+    model: configuredModel,
     ...(config.privacy?.tee || config.privacy?.e2ee
       ? {
           summarize: createModelSummarizer(
-            compactionOptionsOf(config)?.model ?? config.model,
+            compactionOptionsOf(config)?.model ?? configuredModel,
             {
               privacy: config.privacy,
               privacyRuntime: runtime.privacyRuntime,
@@ -406,8 +428,7 @@ export async function buildCallOptions(
       : {}),
   });
 
-  // Resolve model string → LanguageModel
-  const languageModel = await resolveModel(config.model, {
+  resolvedModel ??= await resolveModelWithPrivacy(configuredModel, {
     privacy: config.privacy,
     privacyRuntime: runtime.privacyRuntime,
     signal: abortSignal,
@@ -435,7 +456,7 @@ export async function buildCallOptions(
   return {
     retentionEvents,
     callOptions: {
-      model: languageModel,
+      model: resolvedModel.model,
       system: resolvedSystemPrompt,
       messages: buildMessages({ message, context }) as ModelMessage[],
       tools,
@@ -628,14 +649,17 @@ export function interruptedCallResult(
     Extract<AgentStreamEvent, { type: "tool-result" }>
   >();
   for (const event of events) {
-    if (event.type === "tool-result") toolResults.set(event.toolCallId, event);
+    if (event.type === "tool-result") {
+      toolResults.set(event.toolCallId, event);
+    }
   }
   const emittedTools = new Set<string>();
   for (const event of events) {
     if (event.type === "text") {
       partialText += event.text;
-      if (Array.isArray(assistantContent))
+      if (Array.isArray(assistantContent)) {
         assistantContent.push({ type: "text", text: event.text });
+      }
     } else if (
       event.type === "tool-call" &&
       !emittedTools.has(event.toolCallId)
@@ -647,13 +671,14 @@ export function interruptedCallResult(
       } catch {
         toolInput = event.args;
       }
-      if (Array.isArray(assistantContent))
+      if (Array.isArray(assistantContent)) {
         assistantContent.push({
           type: "tool-call",
           toolCallId: event.toolCallId,
           toolName: event.toolName,
           input: toolInput,
         });
+      }
       responseMessages.push({ role: "assistant", content: assistantContent });
       assistantContent = [];
       const outcome = toolResults.get(event.toolCallId);
@@ -677,8 +702,9 @@ export function interruptedCallResult(
       });
     }
   }
-  if (assistantContent.length)
+  if (assistantContent.length) {
     responseMessages.push({ role: "assistant", content: assistantContent });
+  }
   return {
     text: partialText,
     responseMessages,
