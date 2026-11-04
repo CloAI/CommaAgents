@@ -8,11 +8,57 @@ import {
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { privacyError } from "../../privacy/privacy.utils";
+import type { VeniceToolRequest } from "./venice.types";
 
 const HKDF_INFO = new TextEncoder().encode("ecdsa_encryption");
 const PUBLIC_KEY_BYTES = 65;
 const NONCE_BYTES = 12;
 const TAG_BYTES = 16;
+
+/** Combine system instructions before encrypting every normalized conversation message.
+ * @param {VeniceToolRequest["messages"]} messages - Text messages with tool data already folded into content.
+ * @param {Uint8Array} modelPublicKey - Independently verified enclave key.
+ * @returns {VeniceToolRequest["messages"]} Encrypted messages with at most one system envelope.
+ */
+export function encryptVeniceMessages(
+  messages: VeniceToolRequest["messages"],
+  modelPublicKey: Uint8Array,
+): VeniceToolRequest["messages"] {
+  for (const message of messages) {
+    if (
+      !["system", "user", "assistant"].includes(message.role) ||
+      typeof message.content !== "string" ||
+      Object.keys(message).some(
+        (field) => field !== "role" && field !== "content",
+      )
+    ) {
+      throw privacyError("PRIVACY_UNSUPPORTED_FEATURE");
+    }
+  }
+  const systemMessages = messages.filter(
+    (message) => message.role === "system",
+  );
+  let emittedSystem = false;
+  return messages.flatMap((message) => {
+    if (message.role === "system" && emittedSystem) {
+      return [];
+    }
+    // Upstream system-message joining must not insert plaintext separators into ciphertext.
+    const content =
+      message.role === "system"
+        ? systemMessages.map((system) => system.content).join("\n\n")
+        : (message.content as string);
+    if (message.role === "system") {
+      emittedSystem = true;
+    }
+    return [
+      {
+        role: message.role,
+        content: encryptVeniceMessage(content, modelPublicKey),
+      },
+    ];
+  });
+}
 
 /** Generate an independently owned secp256k1 key pair for one protected request.
  * @returns {{privateKey: Uint8Array, publicKey: Uint8Array}} Owned request key pair.
@@ -39,8 +85,9 @@ export function encryptVeniceMessage(
   let aesKey: Buffer | undefined;
   const plaintext = Buffer.from(text, "utf8");
   try {
-    if (modelPublicKey.length !== PUBLIC_KEY_BYTES || modelPublicKey[0] !== 4)
+    if (modelPublicKey.length !== PUBLIC_KEY_BYTES || modelPublicKey[0] !== 4) {
       throw privacyError("PRIVACY_INVALID_RESPONSE");
+    }
     privateKey = secp256k1.utils.randomSecretKey();
     const publicKey = secp256k1.getPublicKey(privateKey, false);
     sharedPoint = secp256k1.getSharedSecret(privateKey, modelPublicKey, false);
@@ -94,12 +141,14 @@ export function decryptVeniceChunk(
       ciphertextHex.length < (PUBLIC_KEY_BYTES + NONCE_BYTES + TAG_BYTES) * 2 ||
       ciphertextHex.length % 2 !== 0 ||
       !/^[0-9a-f]+$/.test(ciphertextHex)
-    )
+    ) {
       throw privacyError("PRIVACY_RESPONSE_AUTHENTICATION_FAILED");
+    }
     const payload = Buffer.from(ciphertextHex, "hex");
     const publicKey = payload.subarray(0, PUBLIC_KEY_BYTES);
-    if (publicKey[0] !== 4)
+    if (publicKey[0] !== 4) {
       throw privacyError("PRIVACY_RESPONSE_AUTHENTICATION_FAILED");
+    }
     sharedPoint = secp256k1.getSharedSecret(privateKey, publicKey, false);
     aesKey = Buffer.from(
       hkdfSync(
@@ -155,13 +204,16 @@ export function verifyVeniceSignature(
       !/^[0-9a-fA-F]{130}$/.test(encodedSignature) ||
       signingPublicKey.length !== PUBLIC_KEY_BYTES ||
       signingPublicKey[0] !== 4
-    )
+    ) {
       return false;
+    }
     const signatureBytes = Buffer.from(encodedSignature, "hex");
     const encodedRecovery = signatureBytes[64]!;
     const recovery =
       encodedRecovery >= 27 ? encodedRecovery - 27 : encodedRecovery;
-    if (recovery !== 0 && recovery !== 1) return false;
+    if (recovery !== 0 && recovery !== 1) {
+      return false;
+    }
     const content = Buffer.from(signedText, "utf8");
     const prefix = Buffer.from(
       `\x19Ethereum Signed Message:\n${content.length}`,
@@ -174,8 +226,9 @@ export function verifyVeniceSignature(
         prehash: false,
         lowS: false,
       })
-    )
+    ) {
       return false;
+    }
     const recoveredKey = secp256k1.Signature.fromBytes(compactSignature)
       .addRecoveryBit(recovery)
       .recoverPublicKey(messageHash)
@@ -196,8 +249,9 @@ export function deriveVeniceAddress(publicKey: Uint8Array): Uint8Array {
       publicKey.length !== PUBLIC_KEY_BYTES ||
       publicKey[0] !== 4 ||
       !secp256k1.utils.isValidPublicKey(publicKey, false)
-    )
+    ) {
       throw privacyError("PRIVACY_INVALID_RESPONSE");
+    }
     return keccak_256(publicKey.subarray(1)).slice(-20);
   } catch {
     throw privacyError("PRIVACY_INVALID_RESPONSE");

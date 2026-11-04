@@ -19,6 +19,61 @@ function contentChunk(content: string, finishReason: "stop" | null = null) {
 }
 
 describe("parseVeniceStream", () => {
+  it("should accept validated stop and cost metadata without forwarding it or changing the signed wire bytes", () => {
+    const recipient = generateVeniceKeyPair();
+    for (const matchedStop of [null, 154827, "stop marker"]) {
+      const chunk = contentChunk(
+        encryptVeniceMessage("Hello", recipient.publicKey),
+        "stop",
+      );
+      const payload = streamBytes([
+        {
+          ...chunk,
+          choices: chunk.choices.map((choice) => ({
+            ...choice,
+            matched_stop: matchedStop,
+          })),
+        },
+        {
+          id: "completion",
+          model: "model",
+          choices: [],
+          cost: { usd: 0.0000368, diem: 0 },
+        },
+      ]);
+      const original = payload.slice();
+      const result = parseVeniceStream(payload, {
+        privateKey: recipient.privateKey,
+        maxPlaintextBytes: 1024,
+      });
+      expect(result.content).toBe("Hello");
+      expect(result.body).not.toContain("matched_stop");
+      expect(result.body).not.toContain("cost");
+      expect(payload).toEqual(original);
+    }
+    for (const cost of [
+      { usd: -1, diem: 0 },
+      { usd: "private", diem: 0 },
+      { usd: 0, diem: 0, content: "plaintext" },
+    ]) {
+      expect(() =>
+        parseVeniceStream(
+          streamBytes([
+            {
+              ...contentChunk(
+                encryptVeniceMessage("Hello", recipient.publicKey),
+                "stop",
+              ),
+              cost,
+            },
+          ]),
+          { privateKey: recipient.privateKey, maxPlaintextBytes: 1024 },
+        ),
+      ).toThrow();
+    }
+    recipient.privateKey.fill(0);
+  });
+
   it("should decrypt full SSE frames while retaining event framing and numeric usage", () => {
     const recipient = generateVeniceKeyPair();
     const payload = streamBytes([
@@ -205,8 +260,9 @@ describe("parseVeniceStream", () => {
         usage: { unencrypted_tokens: "plaintext" },
       },
     ];
-    for (const chunk of invalidChunks)
+    for (const chunk of invalidChunks) {
       expect(() => parseVeniceStream(streamBytes([chunk]), options)).toThrow();
+    }
   });
 
   it("should reject in-band errors, missing termination, changed identities, and extra choices", () => {
@@ -240,8 +296,9 @@ describe("parseVeniceStream", () => {
           .decode(streamBytes([contentChunk("a", "stop")]))
           .trim(),
       ),
-    ])
+    ]) {
       expect(() => parseVeniceStream(payload, options)).toThrow();
+    }
     try {
       parseVeniceStream(
         streamBytes([{ error: { message: "provider-secret" } }]),
@@ -308,7 +365,7 @@ describe("parseVeniceStream", () => {
         id: "call",
         function: { name: "tool", arguments: "{invalid}" },
       },
-    ])
+    ]) {
       expect(() =>
         parseVeniceStream(
           streamBytes([
@@ -327,5 +384,6 @@ describe("parseVeniceStream", () => {
           { maxPlaintextBytes: 1024 },
         ),
       ).toThrow();
+    }
   });
 });

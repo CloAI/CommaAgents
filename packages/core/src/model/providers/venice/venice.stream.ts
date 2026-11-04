@@ -1,3 +1,5 @@
+import { parseVeniceTools } from "./venice.tools";
+import type { VeniceToolPolicy, VeniceToolDecodeFailure } from "./venice.types";
 import { z } from "zod";
 import { privacyError } from "../../privacy/privacy.utils";
 import { decryptVeniceChunk } from "./venice.crypto";
@@ -39,11 +41,23 @@ const chunkSchema = z
               .nullable()
               .optional(),
             logprobs: z.unknown().optional(),
+            matched_stop: z
+              .union([z.number().int().nonnegative(), z.string().max(1024)])
+              .nullable()
+              .optional(),
           })
           .passthrough(),
       )
       .max(1),
     usage: z.record(z.unknown()).nullable().optional(),
+    cost: z
+      .object({
+        usd: z.number().finite().nonnegative(),
+        diem: z.number().finite().nonnegative(),
+      })
+      .strict()
+      .nullable()
+      .optional(),
   })
   .passthrough();
 
@@ -80,6 +94,8 @@ export interface VeniceBufferedCompletion {
 export interface VeniceStreamOptions {
   readonly privateKey?: Uint8Array;
   readonly maxPlaintextBytes: number;
+  readonly toolPolicy?: VeniceToolPolicy;
+  readonly onToolDecodeFailure?: (reason: VeniceToolDecodeFailure) => void;
 }
 
 /** Buffered stream representation; callers must authenticate it before releasing any field. */
@@ -99,10 +115,16 @@ export interface VeniceStreamResult {
  */
 export function parseVeniceStream(
   wire: Uint8Array,
-  { privateKey, maxPlaintextBytes }: VeniceStreamOptions,
+  {
+    privateKey,
+    maxPlaintextBytes,
+    toolPolicy,
+    onToolDecodeFailure,
+  }: VeniceStreamOptions,
 ): VeniceStreamResult {
-  if (!Number.isSafeInteger(maxPlaintextBytes) || maxPlaintextBytes <= 0)
+  if (!Number.isSafeInteger(maxPlaintextBytes) || maxPlaintextBytes <= 0) {
     throw privacyError("PRIVACY_CONFIGURATION_ERROR");
+  }
   let source: string;
   try {
     source = new TextDecoder("utf-8", { fatal: true }).decode(wire);
@@ -110,7 +132,9 @@ export function parseVeniceStream(
     throw privacyError("PRIVACY_INVALID_RESPONSE");
   }
   source = source.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  if (!source.endsWith("\n\n")) throw privacyError("PRIVACY_INVALID_RESPONSE");
+  if (!source.endsWith("\n\n")) {
+    throw privacyError("PRIVACY_INVALID_RESPONSE");
+  }
   let completionId = "";
   let modelId = "";
   let created = 0;
@@ -129,7 +153,9 @@ export function parseVeniceStream(
   const frames: string[] = [];
 
   for (const frame of source.split("\n\n")) {
-    if (!frame) continue;
+    if (!frame) {
+      continue;
+    }
     const lines = frame.split("\n");
     const dataLines = lines.filter(
       (line) => line === "data" || line.startsWith("data:"),
@@ -138,14 +164,19 @@ export function parseVeniceStream(
       frames.push(frame);
       continue;
     }
-    if (done) throw privacyError("PRIVACY_INVALID_RESPONSE");
-    if (lines.some((line) => /^event:\s*error\s*$/.test(line)))
+    if (done) {
+      throw privacyError("PRIVACY_INVALID_RESPONSE");
+    }
+    if (lines.some((line) => /^event:\s*error\s*$/.test(line))) {
       throw privacyError("PRIVACY_PROVIDER_ERROR");
+    }
     const data = dataLines
       .map((line) => line.slice(5).replace(/^ /, ""))
       .join("\n");
     if (data === "[DONE]") {
-      if (!finished) throw privacyError("PRIVACY_INVALID_RESPONSE");
+      if (!finished) {
+        throw privacyError("PRIVACY_INVALID_RESPONSE");
+      }
       done = true;
       frames.push(frame);
       continue;
@@ -156,22 +187,35 @@ export function parseVeniceStream(
     } catch {
       throw privacyError("PRIVACY_INVALID_RESPONSE");
     }
-    if (typeof value === "object" && value !== null && "error" in value)
+    if (typeof value === "object" && value !== null && "error" in value) {
       throw privacyError("PRIVACY_PROVIDER_ERROR");
+    }
     const parsed = chunkSchema.safeParse(value);
-    if (!parsed.success) throw privacyError("PRIVACY_INVALID_RESPONSE");
+    if (!parsed.success) {
+      throw privacyError("PRIVACY_INVALID_RESPONSE");
+    }
     const chunk = parsed.data;
+    // Transport accounting and stop markers are not completion content. Keep the
+    // original wire bytes for receipt verification, but omit these fields from output.
+    delete chunk.cost;
+    for (const choice of chunk.choices) {
+      delete choice.matched_stop;
+    }
     if (chunk.id) {
-      if (completionId && completionId !== chunk.id)
+      if (completionId && completionId !== chunk.id) {
         throw privacyError("PRIVACY_INVALID_RESPONSE");
+      }
       completionId = chunk.id;
     }
     if (chunk.model) {
-      if (modelId && modelId !== chunk.model)
+      if (modelId && modelId !== chunk.model) {
         throw privacyError("PRIVACY_INVALID_RESPONSE");
+      }
       modelId = chunk.model;
     }
-    if (chunk.created !== undefined) created = chunk.created;
+    if (chunk.created !== undefined) {
+      created = chunk.created;
+    }
     if (privateKey) {
       const rootFields = new Set([
         "id",
@@ -183,15 +227,21 @@ export function parseVeniceStream(
         "system_fingerprint",
         "service_tier",
       ]);
-      if (Object.keys(chunk).some((key) => !rootFields.has(key)))
+      if (Object.keys(chunk).some((key) => !rootFields.has(key))) {
         throw privacyError("PRIVACY_UNSUPPORTED_FEATURE");
-      if (chunk.usage && !validUsage(chunk.usage))
+      }
+      if (chunk.usage && !validUsage(chunk.usage)) {
         throw privacyError("PRIVACY_UNSUPPORTED_FEATURE");
-      for (const key of ["system_fingerprint", "service_tier"])
-        if (chunk[key] != null && typeof chunk[key] !== "string")
+      }
+      for (const key of ["system_fingerprint", "service_tier"]) {
+        if (chunk[key] != null && typeof chunk[key] !== "string") {
           throw privacyError("PRIVACY_INVALID_RESPONSE");
+        }
+      }
     }
-    if (chunk.usage) usage = chunk.usage;
+    if (chunk.usage) {
+      usage = chunk.usage;
+    }
     for (const choice of chunk.choices) {
       const delta = choice.delta;
       const supportedDeltaFields = new Set([
@@ -201,8 +251,9 @@ export function parseVeniceStream(
         "refusal",
         "tool_calls",
       ]);
-      if (Object.keys(delta).some((key) => !supportedDeltaFields.has(key)))
+      if (Object.keys(delta).some((key) => !supportedDeltaFields.has(key))) {
         throw privacyError("PRIVACY_UNSUPPORTED_FEATURE");
+      }
       if (privateKey) {
         const choiceFields = new Set([
           "index",
@@ -215,35 +266,45 @@ export function parseVeniceStream(
           Object.keys(choice).some((key) => !choiceFields.has(key)) ||
           Object.keys(delta).some((key) => !deltaFields.has(key)) ||
           choice.logprobs != null
-        )
+        ) {
           throw privacyError("PRIVACY_UNSUPPORTED_FEATURE");
+        }
       }
       if (
         finished &&
         (choice.finish_reason != null ||
           Object.values(delta).some((value) => value != null && value !== ""))
-      )
+      ) {
         throw privacyError("PRIVACY_INVALID_RESPONSE");
+      }
       for (const field of [
         "content",
         "reasoning_content",
         "refusal",
       ] as const) {
         const rawContent = delta[field];
-        if (!rawContent) continue;
+        if (!rawContent) {
+          continue;
+        }
         const decoded = privateKey
           ? decryptVeniceChunk(rawContent, privateKey)
           : rawContent;
         plaintextBytes += Buffer.byteLength(decoded, "utf8");
-        if (plaintextBytes > maxPlaintextBytes)
+        if (plaintextBytes > maxPlaintextBytes) {
           throw privacyError("PRIVACY_LIMIT_EXCEEDED");
+        }
         delta[field] = decoded;
-        if (field === "content") content += decoded;
-        else if (field === "reasoning_content") reasoning += decoded;
-        else refusal += decoded;
+        if (field === "content") {
+          content += decoded;
+        } else if (field === "reasoning_content") {
+          reasoning += decoded;
+        } else {
+          refusal += decoded;
+        }
       }
-      if ("function_call" in delta)
+      if ("function_call" in delta) {
         throw privacyError("PRIVACY_UNSUPPORTED_FEATURE");
+      }
       for (const tool of delta.tool_calls ?? []) {
         const current = tools.get(tool.index) ?? {
           id: "",
@@ -251,8 +312,9 @@ export function parseVeniceStream(
           arguments: "",
         };
         if (tool.id) {
-          if (current.id && current.id !== tool.id)
+          if (current.id && current.id !== tool.id) {
             throw privacyError("PRIVACY_INVALID_RESPONSE");
+          }
           current.id = tool.id;
         }
         current.name += tool.function?.name ?? "";
@@ -261,8 +323,9 @@ export function parseVeniceStream(
           (tool.function?.name ?? "") + (tool.function?.arguments ?? ""),
           "utf8",
         );
-        if (plaintextBytes > maxPlaintextBytes)
+        if (plaintextBytes > maxPlaintextBytes) {
           throw privacyError("PRIVACY_LIMIT_EXCEEDED");
+        }
         tools.set(tool.index, current);
       }
       if (choice.finish_reason != null) {
@@ -274,22 +337,28 @@ export function parseVeniceStream(
     frames.push(
       lines
         .flatMap((line) => {
-          if (line !== "data" && !line.startsWith("data:")) return [line];
-          if (replaced) return [];
+          if (line !== "data" && !line.startsWith("data:")) {
+            return [line];
+          }
+          if (replaced) {
+            return [];
+          }
           replaced = true;
           return [`data: ${JSON.stringify(chunk)}`];
         })
         .join("\n"),
     );
   }
-  if (!done || !finished || !completionId || !modelId)
+  if (!done || !finished || !completionId || !modelId) {
     throw privacyError("PRIVACY_INVALID_RESPONSE");
+  }
   const toolCalls: VeniceCompletionToolCall[] = [];
   for (const [toolIndex, tool] of [...tools].sort(
     ([left], [right]) => left - right,
   )) {
-    if (toolIndex !== toolCalls.length || !tool.id || !tool.name)
+    if (toolIndex !== toolCalls.length || !tool.id || !tool.name) {
       throw privacyError("PRIVACY_INVALID_RESPONSE");
+    }
     try {
       JSON.parse(tool.arguments);
     } catch {
@@ -301,30 +370,71 @@ export function parseVeniceStream(
       function: { name: tool.name, arguments: tool.arguments },
     });
   }
-  if ((finishReason === "tool_calls") !== toolCalls.length > 0)
+  if (privateKey && toolPolicy) {
+    const parsed = parseVeniceTools(
+      content,
+      finishReason,
+      toolPolicy,
+      onToolDecodeFailure,
+    );
+    content = parsed.content;
+    toolCalls.push(...parsed.calls);
+    if (parsed.calls.length) {
+      finishReason = "tool_calls";
+    }
+  }
+  if ((finishReason === "tool_calls") !== toolCalls.length > 0) {
     throw privacyError("PRIVACY_INVALID_RESPONSE");
-  return {
-    body: `${frames.join("\n\n")}\n\n`,
-    completion: {
+  }
+  const completion: VeniceBufferedCompletion = {
+    id: completionId,
+    object: "chat.completion",
+    created,
+    model: modelId,
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: "assistant",
+          content: content || (toolCalls.length ? null : ""),
+          ...(reasoning ? { reasoning_content: reasoning } : {}),
+          ...(refusal ? { refusal } : {}),
+          ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
+        },
+        finish_reason: finishReason,
+      },
+    ],
+    ...(usage ? { usage } : {}),
+  };
+  if (privateKey && toolPolicy && toolCalls.length) {
+    // Convert buffered encrypted text into the standard local tool-call stream.
+    const toolFrame = {
       id: completionId,
-      object: "chat.completion",
-      created,
       model: modelId,
+      created,
+      object: "chat.completion.chunk",
       choices: [
         {
           index: 0,
-          message: {
-            role: "assistant",
-            content: content || (toolCalls.length ? null : ""),
-            ...(reasoning ? { reasoning_content: reasoning } : {}),
-            ...(refusal ? { refusal } : {}),
-            ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
+          delta: {
+            ...completion.choices[0].message,
+            tool_calls: toolCalls.map((call, index) => ({ index, ...call })),
           },
-          finish_reason: finishReason,
+          finish_reason: "tool_calls",
         },
       ],
-      ...(usage ? { usage } : {}),
-    },
+    };
+    frames.splice(0, frames.length, `data: ${JSON.stringify(toolFrame)}`);
+    if (usage) {
+      frames.push(
+        `data: ${JSON.stringify({ id: completionId, model: modelId, object: "chat.completion.chunk", choices: [], usage })}`,
+      );
+    }
+    frames.push("data: [DONE]");
+  }
+  return {
+    body: `${frames.join("\n\n")}\n\n`,
+    completion,
     content,
     reasoning,
     completionId,

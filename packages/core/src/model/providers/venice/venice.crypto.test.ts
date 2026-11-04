@@ -6,11 +6,61 @@ import {
   decryptVeniceChunk,
   deriveVeniceAddress,
   encryptVeniceMessage,
+  encryptVeniceMessages,
   generateVeniceKeyPair,
   verifyVeniceSignature,
 } from "./venice.crypto";
 
 describe("Venice cryptography", () => {
+  it("should combine system instructions before encrypting every message including empty assistant history", () => {
+    const recipient = generateVeniceKeyPair();
+    const messages = [
+      { role: "system", content: "Private tool instructions" },
+      { role: "system", content: "Private agent instructions" },
+      { role: "user", content: "Private question" },
+      { role: "assistant", content: "" },
+      { role: "user", content: "Private result" },
+    ];
+    const encrypted = encryptVeniceMessages(messages, recipient.publicKey);
+    expect(encrypted.map((message) => message.role)).toEqual([
+      "system",
+      "user",
+      "assistant",
+      "user",
+    ]);
+    expect(
+      encrypted.map((message) =>
+        decryptVeniceChunk(message.content as string, recipient.privateKey),
+      ),
+    ).toEqual([
+      "Private tool instructions\n\nPrivate agent instructions",
+      "Private question",
+      "",
+      "Private result",
+    ]);
+    for (const message of encrypted) {
+      expect(message.content).toMatch(/^[a-f0-9]+$/);
+    }
+    expect(JSON.stringify(encrypted)).not.toContain("Private");
+    expect(messages).toHaveLength(5);
+    recipient.privateKey.fill(0);
+  });
+
+  it("should reject unnormalized message content and plaintext side fields before encryption", () => {
+    const recipient = generateVeniceKeyPair();
+    for (const message of [
+      { role: "user", content: undefined },
+      { role: "user", content: { text: "private" } },
+      { role: "assistant", content: "private", tool_calls: [] },
+      { role: "tool", content: "private" },
+    ]) {
+      expect(() =>
+        encryptVeniceMessages([message], recipient.publicKey),
+      ).toThrow();
+    }
+    recipient.privateKey.fill(0);
+  });
+
   it("should derive the established Ethereum address for the generator public key", () => {
     const privateKey = new Uint8Array(32);
     privateKey[31] = 1;
