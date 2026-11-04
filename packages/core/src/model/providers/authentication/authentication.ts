@@ -1,3 +1,4 @@
+import { beginCopilotSignIn } from "./copilot";
 import { createServer } from "node:http";
 import { randomBytes, createHash, randomUUID } from "node:crypto";
 import { getGlobalCredentialStore } from "../../../credentials";
@@ -25,7 +26,7 @@ import {
 
 /**
  * Own one interactive subscription sign-in at a time. Core handles OAuth and
- * credentials; callers open the URL and read progress. No polling of OpenAI.
+ * credentials; callers open the URL and read progress. GitHub uses device polling.
  * The loopback callback requires the browser and core process on the same host.
  * @returns {ProviderAuthentication} A bounded sign-in lifetime owned by the caller.
  */
@@ -37,6 +38,7 @@ export function createProviderAuthentication(): ProviderAuthentication {
         isCommitting: () => boolean;
       }
     | undefined;
+  const lifetime = new AbortController();
   let disposed = false;
   let starting = false;
   function findAttempt(options: { readonly attemptId: string }) {
@@ -45,25 +47,33 @@ export function createProviderAuthentication(): ProviderAuthentication {
       !parsed.success ||
       !attempt ||
       parsed.data.attemptId !== attempt.progress.attemptId
-    )
+    ) {
       throw authenticationError(
         "Sign-in attempt was not found. Start sign-in again.",
       );
+    }
     return attempt;
   }
   return {
     async beginSignIn(options) {
-      if (!ProviderSignInArgumentsSchema.safeParse(options).success)
+      if (!ProviderSignInArgumentsSchema.safeParse(options).success) {
         throw authenticationError(
           "Subscription sign-in is not supported for this provider.",
         );
-      if (disposed || starting || attempt?.progress.status === "pending")
+      }
+      if (disposed || starting || attempt?.progress.status === "pending") {
         throw authenticationError(
           "A sign-in is already pending or authentication has been closed.",
         );
+      }
       starting = true;
       const store = getGlobalCredentialStore();
       try {
+        if (options.providerId === "github-copilot") {
+          const copilot = await beginCopilotSignIn(lifetime.signal);
+          attempt = copilot;
+          return copilot.start;
+        }
         const initialCredential = await store.get("openai", "$global");
         const saved = await store.get("openai", OPENAI_AUTH_SCOPE);
         const registration =
@@ -76,7 +86,9 @@ export function createProviderAuthentication(): ProviderAuthentication {
           type: "custom",
           data: registration,
         });
-        if (disposed) throw authenticationError();
+        if (disposed) {
+          throw authenticationError();
+        }
         const state = randomBytes(32).toString("base64url");
         const nonce = randomBytes(32).toString("base64url");
         const verifier = randomBytes(48).toString("base64url");
@@ -116,10 +128,11 @@ export function createProviderAuthentication(): ProviderAuthentication {
           exchanging = true;
           void (async () => {
             try {
-              if (callback.searchParams.has("error"))
+              if (callback.searchParams.has("error")) {
                 throw authenticationError(
                   "ChatGPT sign-in was declined. Your existing credentials were kept.",
                 );
+              }
               const clientId =
                 callback.searchParams.get("client_id") ?? registration.clientId;
               const code = callback.searchParams.get("code");
@@ -128,8 +141,9 @@ export function createProviderAuthentication(): ProviderAuthentication {
                 !clientId ||
                 clientId === "dynamic_agent_client" ||
                 (registration.clientId && clientId !== registration.clientId)
-              )
+              ) {
                 throw authenticationError();
+              }
               // Retain the issued client even if exchange fails, avoiding duplicate registration.
               await store.set("openai", OPENAI_AUTH_SCOPE, {
                 type: "custom",
@@ -145,8 +159,9 @@ export function createProviderAuthentication(): ProviderAuthentication {
                 }),
                 controller.signal,
               );
-              if (!tokens.id_token || tokens.scope === undefined)
+              if (!tokens.id_token || tokens.scope === undefined) {
                 throw authenticationError();
+              }
               const identity = await validateOpenAIIdentity(
                 tokens.id_token,
                 clientId,
@@ -155,22 +170,27 @@ export function createProviderAuthentication(): ProviderAuthentication {
               if (
                 registration.subject &&
                 identity.subject !== registration.subject
-              )
+              ) {
                 throw authenticationError(
                   "The signed-in account does not match this registration.",
                 );
+              }
               const credential = createOpenAICredential(tokens, {
                 clientId,
                 ...identity,
                 scopes: [],
                 idToken: tokens.id_token,
               });
-              if (controller.signal.aborted) throw authenticationError();
+              if (controller.signal.aborted) {
+                throw authenticationError();
+              }
               await store.set("openai", OPENAI_AUTH_SCOPE, {
                 type: "custom",
                 data: { ...registration, clientId, ...identity },
               });
-              if (controller.signal.aborted) throw authenticationError();
+              if (controller.signal.aborted) {
+                throw authenticationError();
+              }
               committing = true;
               await store.set(
                 "openai",
@@ -252,7 +272,11 @@ export function createProviderAuthentication(): ProviderAuthentication {
           authorizationURL: authorization.href,
         };
       } catch {
-        throw authenticationError();
+        throw authenticationError(
+          options.providerId === "github-copilot"
+            ? "GitHub Copilot sign-in failed. Please try again."
+            : undefined,
+        );
       } finally {
         starting = false;
       }
@@ -270,8 +294,11 @@ export function createProviderAuthentication(): ProviderAuthentication {
     },
     dispose() {
       disposed = true;
+      lifetime.abort();
       if (attempt?.progress.status === "pending") {
-        if (!attempt.isCommitting()) attempt.progress.status = "cancelled";
+        if (!attempt.isCommitting()) {
+          attempt.progress.status = "cancelled";
+        }
         attempt.stop();
       }
     },

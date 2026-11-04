@@ -32,22 +32,29 @@ export async function refreshOpenAICredential(
   store: CredentialStore = getGlobalCredentialStore(),
 ): Promise<OAuthCredential> {
   const metadata = sessionMetadataSchema.safeParse(credential.metadata);
-  if (!metadata.success || !metadata.data.scopes.includes(OPENAI_PLAN_SCOPE))
+  if (!metadata.success || !metadata.data.scopes.includes(OPENAI_PLAN_SCOPE)) {
     throw authenticationError(
       "Reconnect ChatGPT to enable subscription usage.",
     );
-  if (!credential.expiresAt)
+  }
+  if (!credential.expiresAt) {
     throw authenticationError("Reconnect ChatGPT to renew its credentials.");
-  if (Date.parse(credential.expiresAt) > Date.now() + 60_000) return credential;
-  if (!credential.refreshToken)
+  }
+  if (Date.parse(credential.expiresAt) > Date.now() + 60_000) {
+    return credential;
+  }
+  if (!credential.refreshToken) {
     throw authenticationError("Your ChatGPT session expired. Sign in again.");
+  }
   let active = refreshes.get(store);
   if (!active) {
     active = new Map();
     refreshes.set(store, active);
   }
   const existing = active.get(metadata.data.clientId);
-  if (existing) return existing;
+  if (existing) {
+    return existing;
+  }
   const refresh = (async () => {
     try {
       const current = await store.get("openai", "$global");
@@ -58,8 +65,9 @@ export async function refreshOpenAICredential(
         if (
           current?.type === "oauth" &&
           current.metadata?.clientId === metadata.data.clientId
-        )
+        ) {
           return current;
+        }
         throw authenticationError(
           "ChatGPT configuration changed. Retry your request.",
         );
@@ -76,8 +84,9 @@ export async function refreshOpenAICredential(
           tokens.id_token,
           metadata.data.clientId,
         );
-        if (identity.subject !== metadata.data.subject)
+        if (identity.subject !== metadata.data.subject) {
           throw authenticationError();
+        }
       }
       const updated = createOpenAICredential(tokens, metadata.data);
       updated.refreshToken ??= credential.refreshToken;
@@ -114,10 +123,11 @@ export async function listOpenAISubscriptionModels(
     redirect: "error",
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
-  if (!response.ok)
+  if (!response.ok) {
     throw authenticationError(
       "ChatGPT model discovery failed. Check access or reconnect.",
     );
+  }
   const payload: unknown = await response.json();
   const parsed = z
     .object({
@@ -130,8 +140,9 @@ export async function listOpenAISubscriptionModels(
       ),
     })
     .safeParse(payload);
-  if (!parsed.success)
+  if (!parsed.success) {
     throw authenticationError("ChatGPT returned an invalid model list.");
+  }
   return parsed.data.models
     .filter((model) => model.visibility === "list")
     .map((model) => ({
@@ -150,8 +161,9 @@ async function subscriptionResponse(
   response: Response,
   streaming: boolean,
 ): Promise<Response> {
-  if (!response.body)
+  if (!response.body) {
     throw authenticationError("ChatGPT returned no response stream.");
+  }
   const decoder = new TextDecoder();
   let buffer = "";
   let completedPayload: unknown;
@@ -171,37 +183,44 @@ async function subscriptionResponse(
             .filter((line) => line.startsWith("data:"))
             .map((line) => line.slice(5).trimStart())
             .join("\n");
-          if (!data || data === "[DONE]") continue;
-          const parsed: unknown = JSON.parse(data);
-          if (!parsed || typeof parsed !== "object" || !("type" in parsed))
+          if (!data || data === "[DONE]") {
             continue;
-          if (parsed.type === "response.completed" && "response" in parsed)
+          }
+          const parsed: unknown = JSON.parse(data);
+          if (!parsed || typeof parsed !== "object" || !("type" in parsed)) {
+            continue;
+          }
+          if (parsed.type === "response.completed" && "response" in parsed) {
             completedPayload = parsed.response;
+          }
           if (
             ["response.failed", "response.incomplete", "error"].includes(
               String(parsed.type),
             )
-          )
+          ) {
             throw authenticationError(
               "ChatGPT did not complete this response. Check your plan usage or reconnect.",
             );
+          }
         }
         controller.enqueue(chunk);
       },
       flush() {
-        if (!completedPayload)
+        if (!completedPayload) {
           throw authenticationError(
             "ChatGPT response ended before completion.",
           );
+        }
       },
     }),
   );
-  if (streaming)
+  if (streaming) {
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
     });
+  }
   // Drain the validated stream without buffering deltas; only the completed payload is retained.
   await body.pipeTo(new WritableStream({ write() {} }));
   return Response.json(completedPayload);
@@ -214,7 +233,9 @@ async function subscriptionResponse(
 export function createOpenAISubscriptionProvider(
   credential: Credential,
 ): ProviderFactory {
-  if (credential.type !== "oauth") throw authenticationError();
+  if (credential.type !== "oauth") {
+    throw authenticationError();
+  }
   const store = getGlobalCredentialStore();
   const clientId = sessionMetadataSchema.parse(credential.metadata).clientId;
   const provider = createOpenAI({
@@ -225,18 +246,20 @@ export function createOpenAISubscriptionProvider(
         input: Parameters<typeof fetch>[0],
         options?: Parameters<typeof fetch>[1],
       ) => {
-        if (String(input) !== `${OPENAI_RESOURCE}/responses`)
+        if (String(input) !== `${OPENAI_RESOURCE}/responses`) {
           throw authenticationError(
             "ChatGPT subscription usage requires the Responses API.",
           );
+        }
         const effective = await store.resolve("openai");
         if (
           effective?.type !== "oauth" ||
           effective.metadata?.clientId !== clientId
-        )
+        ) {
           throw authenticationError(
             "ChatGPT configuration changed. Resolve the model again.",
           );
+        }
         const current = await refreshOpenAICredential(effective, store);
         const body: Record<string, unknown> = JSON.parse(String(options?.body));
         const streaming = body.stream === true;

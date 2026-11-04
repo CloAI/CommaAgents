@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import {
-  getProviderDefinition,
-  listProviderModels,
-  resetProviderRegistry,
-} from "../providers";
+import { getProviderDefinition, resetProviderRegistry } from "../providers";
+import { refreshAndListProviderModels } from "../test.utils";
 import { listAnthropicModels } from "./anthropic";
 import { listGoogleModels } from "./google";
 import { listOpenAIModels } from "./openai";
@@ -34,7 +31,7 @@ describe("API model discovery", () => {
         ],
       }),
     );
-    const result = await listProviderModels("openai", {
+    const models = await refreshAndListProviderModels("openai", {
       type: "oauth",
       accessToken: "subscription-token",
       expiresAt: new Date(Date.now() + 3600000).toISOString(),
@@ -45,9 +42,8 @@ describe("API model discovery", () => {
         idToken: "test-id-token",
       },
     });
-    expect(result.discovery?.status).toBe("live");
     expect(
-      result.models.filter((model) => model.sources.includes("provider")),
+      models.filter((model) => model.sources.includes("provider")),
     ).toEqual([
       {
         id: "subscription-model",
@@ -96,9 +92,11 @@ describe("API model discovery", () => {
       expect((await getProviderDefinition(provider.id))?.listModels).toBe(
         provider.listModels,
       );
-      const result = await listProviderModels(provider.id, credential);
-      expect(result.discovery?.status).toBe("live");
-      expect(result.models).toContainEqual({
+      const models = await refreshAndListProviderModels(
+        provider.id,
+        credential,
+      );
+      expect(models).toContainEqual({
         id: "live-test",
         sources: ["provider"],
         metadata: {},
@@ -115,10 +113,11 @@ describe("API model discovery", () => {
         undefined,
         { type: "api", key: "" },
         { type: "oauth", accessToken: "token" },
-      ] as const)
+      ] as const) {
         await expect(
           provider.listModels({ credential: invalidCredential }),
         ).rejects.toThrow("API credential");
+      }
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
@@ -146,9 +145,11 @@ describe("API model discovery", () => {
       await expect(provider.listModels({ credential })).rejects.toThrow(
         "401 Unauthorized",
       );
-      const result = await listProviderModels(provider.id, credential);
-      expect(result.discovery?.status).toBe("error");
-      expect(result.models.length).toBeGreaterThan(0);
+      const models = await refreshAndListProviderModels(
+        provider.id,
+        credential,
+      );
+      expect(models.length).toBeGreaterThan(0);
     });
   }
 

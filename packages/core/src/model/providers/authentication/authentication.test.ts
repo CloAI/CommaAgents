@@ -62,15 +62,17 @@ beforeEach(() => {
         options?: Parameters<typeof fetch>[1],
       ) => {
         const url = String(input);
-        if (url.includes("/.well-known/jwks.json"))
+        if (url.includes("/.well-known/jwks.json")) {
           return Response.json({ keys: [publicKey] });
+        }
         if (url.endsWith("/oauth/token")) {
           const parameters = new URLSearchParams(String(options?.body));
           tokenRequests.push(parameters);
-          if (tokenStatus !== 200)
+          if (tokenStatus !== 200) {
             return new Response("secret body must not escape", {
               status: tokenStatus,
             });
+          }
           const idToken = invalidSignature
             ? "bad.signature.token"
             : await new SignJWT({ nonce, email: "tester@example.com" })
@@ -201,10 +203,18 @@ describe("subscription sign-in", () => {
   for (const failure of ["signature", "scope", "nonce", "exchange"] as const) {
     it(`should reject invalid ${failure} without activating a credential`, async () => {
       const { result, callback } = await begin();
-      if (failure === "signature") invalidSignature = true;
-      if (failure === "scope") tokenScope = "openid email";
-      if (failure === "nonce") nonce = "another-attempt";
-      if (failure === "exchange") tokenStatus = 401;
+      if (failure === "signature") {
+        invalidSignature = true;
+      }
+      if (failure === "scope") {
+        tokenScope = "openid email";
+      }
+      if (failure === "nonce") {
+        nonce = "another-attempt";
+      }
+      if (failure === "exchange") {
+        tokenStatus = 401;
+      }
       expect((await originalFetch(callback)).status).toBe(400);
       expect(data.$global?.openai).toBeUndefined();
       expect(
@@ -323,8 +333,9 @@ describe("subscription sign-in", () => {
       const model = createOpenAISubscriptionProvider(data.$global!.openai!)(
         "test-model",
       );
-      if (typeof model === "string" || model.specificationVersion !== "v3")
+      if (typeof model === "string" || model.specificationVersion !== "v3") {
         throw new Error("Expected a current Responses model.");
+      }
       const parameters = {
         prompt: [
           {
@@ -429,8 +440,9 @@ describe("subscription sign-in", () => {
     const model = createOpenAISubscriptionProvider(data.$global!.openai!)(
       "test-model",
     );
-    if (typeof model === "string" || model.specificationVersion !== "v3")
+    if (typeof model === "string" || model.specificationVersion !== "v3") {
       throw new Error("Expected a current Responses model.");
+    }
     const result = await model.doStream({
       prompt: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
     });

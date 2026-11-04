@@ -4,3 +4,4 @@ export { listVeniceModels } from "./venice";
 export { listOpenAIModels } from "./openai";
 export { listAnthropicModels } from "./anthropic";
 export { listGoogleModels } from "./google";
+export { listTinfoilModels } from "./tinfoil";

@@ -18,8 +18,9 @@ interface GoogleModelsResponse {
  * @returns {Promise<readonly ModelInfo[]>} Provider-local model IDs and available token limits.
  */
 export const listGoogleModels: ListModelsFn = async (context) => {
-  if (context.credential?.type !== "api" || !context.credential.key)
+  if (context.credential?.type !== "api" || !context.credential.key) {
     throw new Error("Google listing requires an API credential");
+  }
 
   const baseURL =
     context.baseURL ?? "https://generativelanguage.googleapis.com/v1beta";
@@ -31,15 +32,18 @@ export const listGoogleModels: ListModelsFn = async (context) => {
   do {
     const url = new URL(`${baseURL.replace(/\/$/, "")}/models`);
     url.searchParams.set("pageSize", "1000");
-    if (pageToken) url.searchParams.set("pageToken", pageToken);
+    if (pageToken) {
+      url.searchParams.set("pageToken", pageToken);
+    }
     const response = await fetch(url.toString(), {
       signal,
       headers: { "x-goog-api-key": context.credential.key },
     });
-    if (!response.ok)
+    if (!response.ok) {
       throw new Error(
         `Google ${response.status} ${response.statusText} at ${url}`,
       );
+    }
 
     const payload = (await response.json()) as GoogleModelsResponse;
     models.push(
@@ -65,9 +69,12 @@ export const listGoogleModels: ListModelsFn = async (context) => {
         })),
     );
     pageToken = payload.nextPageToken;
-    if (pageToken && pageTokens.has(pageToken))
+    if (pageToken && pageTokens.has(pageToken)) {
       throw new Error("Google returned a repeated model pagination token");
-    if (pageToken) pageTokens.add(pageToken);
+    }
+    if (pageToken) {
+      pageTokens.add(pageToken);
+    }
   } while (pageToken);
 
   return models;

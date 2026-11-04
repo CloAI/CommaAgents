@@ -10,7 +10,7 @@ export type ProviderSignInStatus = z.output<typeof ProviderSignInStatusSchema>;
 export interface ProviderAuthentication {
   /** Start a local browser sign-in and return its authorization URL. */
   readonly beginSignIn: (options: {
-    readonly providerId: "openai";
+    readonly providerId: "openai" | "github-copilot";
   }) => Promise<z.output<typeof ProviderSignInStartSchema>>;
   /** Read progress without making another provider request. */
   readonly getSignInStatus: (options: {

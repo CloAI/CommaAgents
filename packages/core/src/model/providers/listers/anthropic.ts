@@ -17,8 +17,9 @@ interface AnthropicModelsResponse {
  * @returns {Promise<readonly ModelInfo[]>} Models with available names and token limits.
  */
 export const listAnthropicModels: ListModelsFn = async (context) => {
-  if (context.credential?.type !== "api" || !context.credential.key)
+  if (context.credential?.type !== "api" || !context.credential.key) {
     throw new Error("Anthropic listing requires an API credential");
+  }
 
   const baseURL = context.baseURL ?? "https://api.anthropic.com/v1";
   const signal = context.signal ?? AbortSignal.timeout(5_000);
@@ -29,7 +30,9 @@ export const listAnthropicModels: ListModelsFn = async (context) => {
   do {
     const url = new URL(`${baseURL.replace(/\/$/, "")}/models`);
     url.searchParams.set("limit", "1000");
-    if (afterId) url.searchParams.set("after_id", afterId);
+    if (afterId) {
+      url.searchParams.set("after_id", afterId);
+    }
     const response = await fetch(url.toString(), {
       signal,
       headers: {
@@ -37,10 +40,11 @@ export const listAnthropicModels: ListModelsFn = async (context) => {
         "anthropic-version": "2023-06-01",
       },
     });
-    if (!response.ok)
+    if (!response.ok) {
       throw new Error(
         `Anthropic ${response.status} ${response.statusText} at ${url}`,
       );
+    }
 
     const payload = (await response.json()) as AnthropicModelsResponse;
     models.push(
@@ -58,9 +62,12 @@ export const listAnthropicModels: ListModelsFn = async (context) => {
         },
       })),
     );
-    if (!payload.has_more) break;
-    if (!payload.last_id || cursors.has(payload.last_id))
+    if (!payload.has_more) {
+      break;
+    }
+    if (!payload.last_id || cursors.has(payload.last_id)) {
       throw new Error("Anthropic returned an invalid model pagination cursor");
+    }
     afterId = payload.last_id;
     cursors.add(afterId);
   } while (afterId);

@@ -63,12 +63,15 @@ export async function requestOpenAITokens(
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: parameters,
   });
-  if (!response.ok)
+  if (!response.ok) {
     throw authenticationError(
       "ChatGPT authorization expired or was rejected. Sign in again.",
     );
+  }
   const parsed = tokenSchema.safeParse(await response.json());
-  if (!parsed.success) throw authenticationError();
+  if (!parsed.success) {
+    throw authenticationError();
+  }
   return parsed.data;
 }
 
@@ -88,8 +91,9 @@ export async function validateOpenAIIdentity(
     audience: clientId,
     requiredClaims: ["exp", "sub", "iat", ...(nonce ? ["nonce"] : [])],
   });
-  if ((nonce && payload.nonce !== nonce) || !payload.sub)
+  if ((nonce && payload.nonce !== nonce) || !payload.sub) {
     throw authenticationError();
+  }
   return {
     subject: payload.sub,
     ...(typeof payload.email === "string" ? { email: payload.email } : {}),
@@ -109,10 +113,11 @@ export function createOpenAICredential(
     tokens.scope === undefined
       ? metadata.scopes
       : tokens.scope.split(/\s+/).filter(Boolean);
-  if (!scopes.includes(OPENAI_PLAN_SCOPE))
+  if (!scopes.includes(OPENAI_PLAN_SCOPE)) {
     throw authenticationError(
       "ChatGPT plan usage was not enabled. Sign in again and grant plan access.",
     );
+  }
   return {
     type: "oauth",
     accessToken: tokens.access_token,

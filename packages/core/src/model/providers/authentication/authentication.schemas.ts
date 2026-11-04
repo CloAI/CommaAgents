@@ -2,7 +2,7 @@ import { z } from "zod/v4";
 
 /** Providers implementing browser subscription sign-in. */
 export const ProviderSignInArgumentsSchema = z
-  .object({ providerId: z.literal("openai") })
+  .object({ providerId: z.enum(["openai", "github-copilot"]) })
   .strict();
 /** Opaque handle for a pending sign-in; never contains credentials. */
 export const ProviderSignInAttemptArgumentsSchema = z
@@ -18,4 +18,6 @@ export const ProviderSignInStatusSchema = z.object({
 export const ProviderSignInStartSchema = z.object({
   attemptId: z.string().uuid(),
   authorizationURL: z.string().url(),
+  /** One-time code to enter on a device authorization page. */
+  userCode: z.string().optional(),
 });

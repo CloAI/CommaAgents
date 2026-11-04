@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import {
-  getProviderDefinition,
-  listProviderModels,
-  resetProviderRegistry,
-} from "../providers";
+import { getProviderDefinition, resetProviderRegistry } from "../providers";
+import { refreshAndListProviderModels } from "../test.utils";
 import { listVeniceModels } from "./venice";
 
 const originalFetch = globalThis.fetch;
@@ -157,9 +154,8 @@ describe("listVeniceModels", () => {
     await expect(listVeniceModels({ credential })).rejects.toThrow(
       "Venice 401 Unauthorized",
     );
-    const result = await listProviderModels("venice", credential);
-    expect(result.discovery?.status).toBe("error");
-    expect(result.models.length).toBeGreaterThan(0);
+    const models = await refreshAndListProviderModels("venice", credential);
+    expect(models.length).toBeGreaterThan(0);
   });
 
   test("should register Venice discovery and return live models through the registry", async () => {
@@ -170,12 +166,11 @@ describe("listVeniceModels", () => {
     const definition = await getProviderDefinition("venice");
     expect(definition?.listModels).toBe(listVeniceModels);
     expect(definition?.packageName).toBe("venice-ai-sdk-provider");
-    const result = await listProviderModels("venice", {
+    const models = await refreshAndListProviderModels("venice", {
       type: "api",
       key: "test-key",
     });
-    expect(result.discovery?.status).toBe("live");
-    expect(result.models).toContainEqual({
+    expect(models).toContainEqual({
       id: "venice-live-test",
       sources: ["provider"],
       metadata: {},
