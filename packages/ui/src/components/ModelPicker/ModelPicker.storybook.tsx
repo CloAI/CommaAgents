@@ -1,41 +1,27 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { exampleProviders } from "../SettingsDialog/ProvidersSettings/test.utils";
-import { ModelBrowser } from "./ModelBrowser";
+import { ModelPicker } from "./ModelPicker";
 
 const meta = {
-  title: "Components/ModelBrowser",
-  component: ModelBrowser,
-  args: { providers: exampleProviders, isLoading: false },
+  title: "Components/ModelPicker",
+  component: ModelPicker,
+  args: { providers: exampleProviders, isLoading: false, onPick: fn() },
   parameters: {
     docs: {
       description: {
         component:
-          "Filterable provider and model catalog. In manage mode it offers provider actions; with `onPick` it becomes a model chooser that can mark the current choice and disable models with a reason.",
+          "Filterable model catalog for choosing one model. It marks the current choice, expands its provider, and disables models with a reason.",
       },
     },
   },
-} satisfies Meta<typeof ModelBrowser>;
+} satisfies Meta<typeof ModelPicker>;
 
 // oxlint-disable-next-line import/no-default-export -- Colocated Storybook stories require a default metadata export.
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Manage: Story = {
-  args: { onAddModel: fn(), onConfigure: fn(), onRefresh: fn() },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.getByRole("button", { name: "Add model" }),
-    ).toBeVisible();
-    await expect(
-      canvas.getByRole("button", { name: "Configure Alpha" }),
-    ).toBeVisible();
-  },
-};
-
-export const PickHidesManagementActions: Story = {
-  args: { onPick: fn() },
+export const HidesManagementActions: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -48,8 +34,7 @@ export const PickHidesManagementActions: Story = {
   },
 };
 
-export const PickChoosesModel: Story = {
-  args: { onPick: fn() },
+export const ChoosesModel: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: /Alpha/ }));
@@ -64,11 +49,8 @@ export const PickChoosesModel: Story = {
   },
 };
 
-export const PickMarksCurrentChoiceAndExpandsItsProvider: Story = {
-  args: {
-    onPick: fn(),
-    selected: { providerId: "alpha", modelId: "reasoner" },
-  },
+export const MarksCurrentChoiceAndExpandsItsProvider: Story = {
+  args: { selected: { providerId: "alpha", modelId: "reasoner" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const current = canvas.getByRole("button", {
@@ -83,9 +65,8 @@ export const PickMarksCurrentChoiceAndExpandsItsProvider: Story = {
   },
 };
 
-export const PickDisablesModelsWithAReason: Story = {
+export const DisablesModelsWithAReason: Story = {
   args: {
-    onPick: fn(),
     isDisabled: (_provider, model) =>
       model.id === "vision-tools" ? "Not for this step" : undefined,
   },
@@ -101,8 +82,7 @@ export const PickDisablesModelsWithAReason: Story = {
   },
 };
 
-export const PickSearchRevealsMatches: Story = {
-  args: { onPick: fn() },
+export const SearchRevealsMatches: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.type(
@@ -111,6 +91,24 @@ export const PickSearchRevealsMatches: Story = {
     );
     await expect(
       canvas.getByRole("button", { name: /^Reasoner Alpha/ }),
+    ).toBeVisible();
+  },
+};
+
+export const ExplainsAProviderWithoutModels: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("combobox", { name: "Filter by provider" }),
+    );
+    await userEvent.click(canvas.getByRole("option", { name: /^Empty/ }));
+    await userEvent.click(
+      canvas.getByRole("combobox", { name: "Filter by capabilities" }),
+    );
+    await userEvent.click(canvas.getByRole("option", { name: "Reasoning" }));
+    await userEvent.keyboard("{Escape}");
+    await expect(
+      canvas.getByText("This provider has no models in the catalog."),
     ).toBeVisible();
   },
 };
