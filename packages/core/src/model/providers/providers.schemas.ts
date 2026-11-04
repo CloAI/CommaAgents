@@ -64,21 +64,6 @@ export const ModelInfoSchema = z
     metadata: ModelMetadataSchema,
   })
   .strict();
-/** Live discovery outcome, independent of fallback model membership. */
-export const ModelDiscoverySchema = z
-  .object({
-    status: z.enum([
-      "catalog_only",
-      "live",
-      "unsupported",
-      "unconfigured",
-      "empty",
-      "error",
-    ]),
-    fetchedAt: z.iso.datetime().optional(),
-    error: z.string().optional(),
-  })
-  .strict();
 /** Ownership of the effective provider definition. */
 export const ProviderOriginSchema = z.enum([
   "builtin",
@@ -94,7 +79,6 @@ export const ProviderInfoSchema = z
     origin: ProviderOriginSchema,
     credentialType: z.enum(["api", "oauth", "custom", "none"]),
     authStatus: z.enum(["none", "configured"]),
-    discovery: ModelDiscoverySchema,
     models: z.array(ModelInfoSchema).readonly(),
   })
   .strict();

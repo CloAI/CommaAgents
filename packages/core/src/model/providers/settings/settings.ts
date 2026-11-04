@@ -26,8 +26,9 @@ export function readProviderSettings(): ProviderSettings {
   try {
     raw = readFileSync(getProviderSettingsPath(), "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return { version: 3, providers: [] };
+    }
     throw providerSettingsError(
       "PROVIDER_STORAGE_ERROR",
       "Provider settings could not be read.",
@@ -49,8 +50,9 @@ export function readProviderSettings(): ProviderSettings {
  */
 export function getProviderSettings(): ProviderSettings {
   const path = getProviderSettingsPath();
-  if (!snapshot || snapshot.path !== path)
+  if (!snapshot || snapshot.path !== path) {
     snapshot = { path, settings: readProviderSettings() };
+  }
   return structuredClone(snapshot.settings);
 }
 

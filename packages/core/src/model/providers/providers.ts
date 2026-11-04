@@ -10,25 +10,29 @@ import type {
   CredentialStore,
 } from "../../credentials/credentials.types";
 import {
-  getCatalogModels,
+  loadCatalog,
+  toModelInfo,
   getCatalogProviderSync,
   listCatalogProviders,
 } from "./catalog/index";
 import { BUILT_IN_OVERRIDES } from "./providers.constant";
 import type {
   ListModelsContext,
-  ListModelsResult,
+  ModelInfo,
   ProviderDefinition,
 } from "./providers.types";
 import {
   createDefaultProviderDefinition,
   mergeModelInfo,
-  mergeCatalogWithLive,
+  mergeCatalogWithProvider,
   sortModels,
 } from "./providers.utils";
 
-/** Per-lister timeout. Callers may override via the passed AbortSignal. */
-const LIVE_LIST_TIMEOUT_MS = 5_000;
+/** Per-provider timeout for its own model listing. */
+const PROVIDER_LIST_TIMEOUT_MS = 5_000;
+
+/** Models last returned by each provider's own listing, keyed by provider ID. */
+let providerModels = new Map<string, readonly ModelInfo[]>();
 
 let providerRegistry = new Map<string, ProviderDefinition>();
 let initializedPath: string | undefined;
@@ -36,14 +40,19 @@ let initialization: Promise<void> | undefined;
 
 async function ensureInitialized(): Promise<void> {
   const path = getProviderSettingsPath();
-  if (initializedPath === path) return;
-  if (initialization) return initialization;
+  if (initializedPath === path) {
+    return;
+  }
+  if (initialization) {
+    return initialization;
+  }
   initialization = (async () => {
     await registerCatalogProviders();
     for (const override of BUILT_IN_OVERRIDES) {
       const existing = providerRegistry.get(override.id);
-      if (existing?.origin === "registered" || existing?.origin === "user")
+      if (existing?.origin === "registered" || existing?.origin === "user") {
         continue;
+      }
       providerRegistry.set(override.id, {
         ...existing,
         ...override,
@@ -82,12 +91,15 @@ export function prepareProviderSettings(
     ),
   );
   for (const provider of settings.providers) {
-    if (provider.kind !== "custom") continue;
-    if (next.has(provider.id))
+    if (provider.kind !== "custom") {
+      continue;
+    }
+    if (next.has(provider.id)) {
       throw providerSettingsError(
         "CONFLICT",
         "Custom provider ID conflicts with an existing provider.",
       );
+    }
     next.set(provider.id, {
       id: provider.id,
       name: provider.definition.name,
@@ -99,11 +111,12 @@ export function prepareProviderSettings(
     });
   }
   for (const provider of settings.providers) {
-    if (provider.kind === "existing" && !next.has(provider.id))
+    if (provider.kind === "existing" && !next.has(provider.id)) {
       throw providerSettingsError(
         "NOT_FOUND",
         "Model settings reference an unknown provider.",
       );
+    }
   }
   return next;
 }
@@ -115,10 +128,13 @@ async function registerCatalogProviders(): Promise<void> {
       ["registered", "user"].includes(
         providerRegistry.get(catalogProvider.id)?.origin ?? "",
       )
-    )
+    ) {
       continue;
+    }
     const definition = createDefaultProviderDefinition(catalogProvider.id);
-    if (definition) providerRegistry.set(catalogProvider.id, definition);
+    if (definition) {
+      providerRegistry.set(catalogProvider.id, definition);
+    }
   }
 }
 
@@ -144,7 +160,9 @@ export function registerProviderDefinition(
 
 /** Remove a previously registered provider, restoring catalog metadata when available. */
 export function unregisterProviderDefinition(providerId: string): boolean {
-  if (!providerRegistry.has(providerId)) return false;
+  if (!providerRegistry.has(providerId)) {
+    return false;
+  }
 
   const defaultDefinition = createDefaultProviderDefinition(providerId);
   if (defaultDefinition === undefined) {
@@ -159,6 +177,7 @@ export function unregisterProviderDefinition(providerId: string): boolean {
 /** Reset all provider registrations. Primarily for tests. */
 export function resetProviderRegistry(): void {
   providerRegistry = new Map();
+  providerModels = new Map();
   initializedPath = undefined;
   initialization = undefined;
 }
@@ -183,77 +202,112 @@ export async function listProviderDefinitions(): Promise<
 }
 
 /**
- * Resolve the model list for a single provider.
- *
- * When `options.live` is false, catalog and manual models are returned. When `live`
- * is true and the provider defines `listModels`, the live response is
- * merged with the catalog baseline. Live errors fall back to catalog
- * (if any) and are reported via `result.discovery.error`.
+ * Resolve one provider's models from models.dev, its last provider listing, and manual entries.
+ * Never makes a network request; `refreshProviderModels()` updates the provider listing.
+ * @param {string} providerId - Exact provider identity.
+ * @returns {Promise<readonly ModelInfo[]>} Merged models, sorted by ID.
  */
 export async function listProviderModels(
   providerId: string,
-  credential: Credential | undefined,
-  options?: { readonly live?: boolean; readonly signal?: AbortSignal },
-): Promise<ListModelsResult> {
-  const definition = await getProviderDefinition(providerId);
-  const catalogModels = await getCatalogModels(providerId);
-  const live = options?.live ?? true;
-  const finish = (result: ListModelsResult): ListModelsResult => {
-    const byId = new Map(result.models.map((model) => [model.id, model]));
-    const manual =
-      getProviderSettings().providers.find((entry) => entry.id === providerId)
-        ?.models ?? [];
-    for (const model of manual) {
-      const known = byId.get(model.id);
-      const manualModel = {
-        id: model.id,
-        sources: ["user"] as const,
-        metadata: model.metadata ?? {},
-      };
-      byId.set(
-        model.id,
-        known ? mergeModelInfo(manualModel, known) : manualModel,
-      );
-    }
-    return { ...result, models: sortModels([...byId.values()]) };
-  };
+): Promise<readonly ModelInfo[]> {
+  await loadCatalog();
+  return listProviderModelsSync(providerId);
+}
 
+/**
+ * Read merged model metadata already available to the runtime without I/O.
+ * @param {string} providerId - Exact provider identity.
+ * @returns {readonly ModelInfo[]} Cached catalog, provider, and manual models.
+ * @internal
+ */
+export function listProviderModelsSync(
+  providerId: string,
+): readonly ModelInfo[] {
+  const byId = new Map(
+    mergeCatalogWithProvider(
+      Object.values(getCatalogProviderSync(providerId)?.models ?? {}).map(
+        toModelInfo,
+      ),
+      providerModels.get(providerId) ?? [],
+    ).map((model) => [model.id, model]),
+  );
+  const manual =
+    getProviderSettings().providers.find((entry) => entry.id === providerId)
+      ?.models ?? [];
+  for (const model of manual) {
+    const known = byId.get(model.id);
+    const manualModel = {
+      id: model.id,
+      sources: ["user"] as const,
+      metadata: model.metadata ?? {},
+    };
+    byId.set(
+      model.id,
+      known ? mergeModelInfo(manualModel, known) : manualModel,
+    );
+  }
+  return sortModels([...byId.values()]);
+}
+
+/**
+ * Ask providers for their model lists and keep the results for `listProviderModels()`.
+ * A provider without a lister, a required credential, or a successful response keeps
+ * only its models.dev and manual models.
+ * @param {CredentialStore} credentialStore - Resolves each provider's credential.
+ * @param {{providerId?: string}} [options] - One provider, or every registered provider.
+ * @returns {Promise<void>} Resolves once every listing has settled.
+ */
+export async function refreshProviderModels(
+  credentialStore: CredentialStore,
+  options?: { readonly providerId?: string },
+): Promise<void> {
+  const providerIds = options?.providerId
+    ? [options.providerId]
+    : (await listProviderDefinitions()).map(({ id }) => id);
+  await Promise.all(
+    providerIds.map(async (providerId) => {
+      const models = await fetchProviderModels(
+        providerId,
+        await resolveCredentialForProvider(credentialStore, providerId),
+      );
+      if (models?.length) {
+        providerModels.set(providerId, models);
+      } else {
+        providerModels.delete(providerId);
+      }
+    }),
+  );
+}
+
+/**
+ * Call a provider's own model listing, when it has one and can be authenticated.
+ * @param {string} providerId - Exact provider identity.
+ * @param {Credential | undefined} credential - Resolved credential, if any.
+ * @returns {Promise<readonly ModelInfo[] | undefined>} Listed models, or undefined when unavailable or failed.
+ */
+async function fetchProviderModels(
+  providerId: string,
+  credential: Credential | undefined,
+): Promise<readonly ModelInfo[] | undefined> {
+  const definition = await getProviderDefinition(providerId);
+  if (!definition || (!credential && definition.credentialType !== "none")) {
+    return undefined;
+  }
   const listModels =
     providerId === "openai" &&
     credential?.type === "oauth" &&
-    definition?.origin !== "registered" &&
-    definition?.origin !== "user"
+    definition.origin !== "registered" &&
+    definition.origin !== "user"
       ? ({ signal }: ListModelsContext) =>
           listOpenAISubscriptionModels(credential, signal)
-      : definition?.listModels;
-  if (!live || !listModels) {
-    return finish({
-      models: sortModels(catalogModels),
-      discovery: { status: !live ? "catalog_only" : "unsupported" },
-    });
-  }
-
-  const context: ListModelsContext = {
-    ...(credential ? { credential } : {}),
-    signal: options?.signal ?? AbortSignal.timeout(LIVE_LIST_TIMEOUT_MS),
-  };
-
+      : definition.listModels;
   try {
-    const liveModels = await listModels(context);
-    if (liveModels.length === 0)
-      return finish({
-        models: catalogModels,
-        discovery: { status: "empty", fetchedAt: new Date().toISOString() },
-      });
-    return finish({
-      models: mergeCatalogWithLive(catalogModels, liveModels),
-      discovery: { status: "live", fetchedAt: new Date().toISOString() },
+    return await listModels?.({
+      ...(credential ? { credential } : {}),
+      signal: AbortSignal.timeout(PROVIDER_LIST_TIMEOUT_MS),
     });
   } catch {
-    return finish({
-      models: catalogModels,
-      discovery: { status: "error", error: "Live model discovery failed." },
-    });
+    return undefined;
   }
 }
 
@@ -268,34 +322,6 @@ export async function resolveCredentialForProvider(
   scope?: string,
 ): Promise<Credential | undefined> {
   return await credentialStore.resolve(providerId, scope);
-}
-
-/** Convenience re-export: every provider definition paired with its models. */
-export interface ProviderWithModels {
-  readonly definition: ProviderDefinition;
-  readonly result: ListModelsResult;
-}
-
-/** Resolve models for every registered provider in parallel. */
-export async function listAllProviderModels(
-  credentialStore: CredentialStore,
-  options?: { readonly live?: boolean; readonly scope?: string },
-): Promise<readonly ProviderWithModels[]> {
-  const definitions = await listProviderDefinitions();
-
-  return await Promise.all(
-    definitions.map(async (definition): Promise<ProviderWithModels> => {
-      const credential = await resolveCredentialForProvider(
-        credentialStore,
-        definition.id,
-        options?.scope,
-      );
-      const result = await listProviderModels(definition.id, credential, {
-        live: options?.live ?? true,
-      });
-      return { definition, result };
-    }),
-  );
 }
 
 /** Expose a snapshot of the current registry for inspection (test helper). */
@@ -344,13 +370,17 @@ export function getProviderPackageNameSync(
   providerId: string,
 ): string | undefined {
   const override = BUILT_IN_OVERRIDES.find((entry) => entry.id === providerId);
-  if (override?.packageName) return override.packageName;
+  if (override?.packageName) {
+    return override.packageName;
+  }
   return getCatalogProviderSync(providerId)?.npm;
 }
 
 /** Check whether a provider is known to the runtime (catalog or built-in). */
 export function isKnownProviderSync(providerId: string): boolean {
-  if (BUILT_IN_OVERRIDES.some((entry) => entry.id === providerId)) return true;
+  if (BUILT_IN_OVERRIDES.some((entry) => entry.id === providerId)) {
+    return true;
+  }
   return getCatalogProviderSync(providerId) !== undefined;
 }
 

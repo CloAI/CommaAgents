@@ -75,14 +75,16 @@ export const ProviderSettingsSchema = z
   .superRefine((settings, context) => {
     const ids = new Set<string>();
     for (const provider of settings.providers) {
-      if (ids.has(provider.id))
+      if (ids.has(provider.id)) {
         context.addIssue({ code: "custom", message: "Duplicate provider ID" });
+      }
       ids.add(provider.id);
       if (
         new Set(provider.models.map((model) => model.id)).size !==
         provider.models.length
-      )
+      ) {
         context.addIssue({ code: "custom", message: "Duplicate model ID" });
+      }
     }
   });
 

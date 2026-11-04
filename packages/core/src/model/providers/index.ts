@@ -24,7 +24,6 @@ export {
   resetGlobalProviderResolver,
   setProviderInstallDirectory,
 } from "./provider-resolver";
-export type { ProviderWithModels } from "./providers";
 export {
   getCustomProviderIdsSync,
   getProviderDefinition,
@@ -32,7 +31,7 @@ export {
   getRegisteredProviderIds,
   getRegisteredProviderSync,
   isKnownProviderSync,
-  listAllProviderModels,
+  refreshProviderModels,
   listProviderDefinitions,
   listProviderModels,
   registerProviderDefinition,
@@ -43,7 +42,6 @@ export {
 export type {
   ListModelsContext,
   ListModelsFn,
-  ListModelsResult,
   Modality,
   ModelCapabilities,
   ModelCost,
@@ -51,12 +49,11 @@ export type {
   ModelModalities,
   ModelStatus,
   ModelSource,
-  ModelDiscovery,
   ProviderOrigin,
   ProviderDefinition,
 } from "./providers.types";
 export {
-  mergeCatalogWithLive,
+  mergeCatalogWithProvider,
   mergeModelInfo,
   sortModels,
 } from "./providers.utils";
@@ -64,7 +61,6 @@ export {
 export {
   ModelInfoSchema,
   ProviderInfoSchema,
-  ModelDiscoverySchema,
   ModelSourceSchema,
   ProviderOriginSchema,
   ModelMetadataSchema,

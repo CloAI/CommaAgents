@@ -5,6 +5,7 @@ import {
   listCopilotModels,
   listOllamaModels,
   listVeniceModels,
+  listTinfoilModels,
 } from "./listers/index";
 import type { ProviderDefinition } from "./providers.types";
 
@@ -17,6 +18,12 @@ import type { ProviderDefinition } from "./providers.types";
  *   we prefer the dedicated `@ai-sdk/deepseek` package.
  */
 export const BUILT_IN_OVERRIDES: readonly ProviderDefinition[] = [
+  {
+    id: "tinfoil",
+    name: "Tinfoil",
+    credentialType: "api",
+    listModels: listTinfoilModels,
+  },
   {
     id: "openai",
     name: "OpenAI",

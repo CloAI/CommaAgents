@@ -20,6 +20,7 @@ import {
   registerProviderDefinition,
   resetProviderRegistry,
 } from "../providers";
+import { refreshAndListProviderModels } from "../test.utils";
 import { addCustomProviderModel } from "./settings.api";
 
 const originalFetch = globalThis.fetch;
@@ -67,10 +68,8 @@ afterEach(() => {
 });
 
 describe("provider discovery results", () => {
-  test("successful empty live discovery falls back to catalog with an explicit empty status", async () => {
-    const baseline = await listProviderModels("openai", undefined, {
-      live: false,
-    });
+  test("an empty provider listing falls back to the catalog", async () => {
+    const baseline = await listProviderModels("openai");
     const listModels = mock(async () => []);
     registerProviderDefinition({
       id: "openai",
@@ -78,24 +77,18 @@ describe("provider discovery results", () => {
       credentialType: "none",
       listModels,
     });
-    const result = await listProviderModels("openai", undefined, {
-      live: true,
-    });
+    const result = await refreshAndListProviderModels("openai");
     expect(listModels).toHaveBeenCalledTimes(1);
-    expect(result.models).toEqual(baseline.models);
-    expect(
-      result.models.every((model) => model.sources.includes("models.dev")),
-    ).toBe(true);
-    expect(result.discovery?.status).toBe("empty");
-    expect(result.discovery.fetchedAt).toBeString();
+    expect(result).toEqual(baseline);
+    expect(result.every((model) => model.sources.includes("models.dev"))).toBe(
+      true,
+    );
   });
 
-  test("manual and catalog-only IDs survive nonempty live discovery", async () => {
-    const baseline = await listProviderModels("openai", undefined, {
-      live: false,
-    });
-    const included = baseline.models[0]!;
-    const excluded = baseline.models[1]!;
+  test("manual and catalog-only IDs survive a nonempty provider listing", async () => {
+    const baseline = await listProviderModels("openai");
+    const included = baseline[0]!;
+    const excluded = baseline[1]!;
     await addCustomProviderModel({
       providerId: "openai",
       modelId: "manual-only",
@@ -108,26 +101,21 @@ describe("provider discovery results", () => {
         { id: included.id, sources: ["provider"], metadata: {} },
       ],
     });
-    const result = await listProviderModels("openai", undefined, {
-      live: true,
-    });
-    expect(result.models.map((model) => model.id).sort()).toEqual(
-      [...baseline.models.map((model) => model.id), "manual-only"].sort(),
+    const result = await refreshAndListProviderModels("openai");
+    expect(result.map((model) => model.id).sort()).toEqual(
+      [...baseline.map((model) => model.id), "manual-only"].sort(),
     );
-    expect(result.models.find((model) => model.id === included.id)).toEqual({
+    expect(result.find((model) => model.id === included.id)).toEqual({
       ...included,
       sources: ["provider", "models.dev"],
     });
-    expect(result.models.find((model) => model.id === excluded.id)).toEqual(
-      excluded,
-    );
-    expect(
-      result.models.find((model) => model.id === "manual-only"),
-    ).toMatchObject({ sources: ["user"] });
-    expect(result.discovery?.status).toBe("live");
+    expect(result.find((model) => model.id === excluded.id)).toEqual(excluded);
+    expect(result.find((model) => model.id === "manual-only")).toMatchObject({
+      sources: ["user"],
+    });
   });
 
-  test("live discovery failures return safe errors without raw exception details", async () => {
+  test("provider listing failures fall back to the catalog without leaking details", async () => {
     registerProviderDefinition({
       id: "openai",
       name: "OpenAI",
@@ -138,12 +126,8 @@ describe("provider discovery results", () => {
         );
       },
     });
-    const result = await listProviderModels("openai", undefined, {
-      live: true,
-    });
-    expect(result.discovery.error).toBe("Live model discovery failed.");
-    expect(result.discovery?.status).toBe("error");
-    expect(result.models.length).toBeGreaterThan(0);
+    const result = await refreshAndListProviderModels("openai");
+    expect(result.length).toBeGreaterThan(0);
     expect(JSON.stringify(result)).not.toContain("secret-key");
     expect(JSON.stringify(result)).not.toContain("raw provider payload");
   });
@@ -180,10 +164,8 @@ describe("provider discovery results", () => {
         cost: { input: 10, output: 20, cacheRead: 9, cacheWrite: 5 },
       },
     });
-    const result = await listProviderModels("runtime-metadata", undefined, {
-      live: true,
-    });
-    expect(result.models).toEqual([
+    const result = await refreshAndListProviderModels("runtime-metadata");
+    expect(result).toEqual([
       {
         id: "known",
         sources: ["provider", "user"],
@@ -198,10 +180,10 @@ describe("provider discovery results", () => {
         },
       },
     ]);
-    expect(result.models[0]?.sources).toEqual(["provider", "user"]);
+    expect(result[0]?.sources).toEqual(["provider", "user"]);
   });
 
-  test("default discovery makes no provider live requests", async () => {
+  test("listing providers makes no provider requests", async () => {
     const listModels = mock(async () => [
       { id: "must-not-run", sources: ["provider"] as const, metadata: {} },
     ]);
@@ -213,10 +195,10 @@ describe("provider discovery results", () => {
     });
     const single = await getProviderInfo("openai", store);
     const providers = await listProviders(store);
-    expect(single.discovery?.status).toBe("catalog_only");
-    expect(
-      providers.find((provider) => provider.id === "openai")?.discovery?.status,
-    ).toBe("catalog_only");
+    expect(single.models.map((model) => model.id)).not.toContain(
+      "must-not-run",
+    );
+    expect(providers.some((provider) => provider.id === "openai")).toBe(true);
     expect(listModels).not.toHaveBeenCalled();
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });

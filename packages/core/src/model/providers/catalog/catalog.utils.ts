@@ -25,7 +25,9 @@ const KNOWN_STATUSES: ReadonlySet<ModelStatus> = new Set([
 function filterModalities(
   raw: readonly string[] | undefined,
 ): readonly Modality[] | undefined {
-  if (!raw || raw.length === 0) return undefined;
+  if (!raw || raw.length === 0) {
+    return undefined;
+  }
   const filtered = raw.filter((modality): modality is Modality =>
     KNOWN_MODALITIES.has(modality as Modality),
   );
@@ -34,7 +36,9 @@ function filterModalities(
 
 /** Convert models.dev status strings to our ModelStatus enum, dropping unknown values. */
 function normalizeStatus(raw: string | undefined): ModelStatus | undefined {
-  if (!raw) return undefined;
+  if (!raw) {
+    return undefined;
+  }
   return KNOWN_STATUSES.has(raw as ModelStatus)
     ? (raw as ModelStatus)
     : undefined;

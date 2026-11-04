@@ -9,9 +9,9 @@ export type { ProviderInfo } from "./providers/providers.types";
 
 /** Per-resolution privacy requirements and the trusted verification runtime. */
 export interface ModelResolutionOptions {
-  /** Explicit required protections; omitted requirements leave ordinary inference unchanged. */
+  /** Minimum required protections; advertised TEE/E2EE capabilities are always required. */
   readonly privacy?: PrivacyRequirements;
-  /** Runtime that verifies and enforces the required protections. */
+  /** Runtime that verifies protection; advertised capabilities use the default runtime when omitted. */
   readonly privacyRuntime?: PrivacyRuntime;
   /** Cancellation covering verification and inference setup. */
   readonly signal?: AbortSignal;
@@ -62,3 +62,13 @@ export type ProviderResolver = (
   providerId: string,
   credential: Credential,
 ) => ProviderFactory | Promise<ProviderFactory>;
+
+/** Model and effective privacy services selected for one invocation. @internal */
+export interface ResolvedModel {
+  /** Model ready for invocation. */
+  readonly model: LanguageModel;
+  /** Effective requirements, including automatically advertised protection. */
+  readonly privacy?: PrivacyRequirements;
+  /** Runtime inherited by related requests such as compaction. */
+  readonly privacyRuntime?: PrivacyRuntime;
+}

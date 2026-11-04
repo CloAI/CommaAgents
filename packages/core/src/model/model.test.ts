@@ -30,7 +30,9 @@ const TEST_DIR = join(import.meta.dir, "__test_providers__");
 const TEST_FILE = join(TEST_DIR, "credentials.json");
 
 function cleanup() {
-  if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true });
+  if (existsSync(TEST_DIR)) {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+  }
 }
 
 afterEach(() => {
@@ -118,7 +120,6 @@ describe("listProviders", () => {
     const providers = await listProviders(store);
     const openai = providers.find((provider) => provider.id === "openai");
     expect(openai?.models.length).toBeGreaterThan(0);
-    expect(openai?.discovery.status).toBe("catalog_only");
     const modelIds = openai?.models.map((model) => model.id) ?? [];
     expect(modelIds.length).toBeGreaterThan(0);
     // Every model should have a string id
@@ -142,7 +143,6 @@ describe("getProviderInfo", () => {
     expect(info.authStatus).toBe("configured");
     expect(info.origin).toBe("builtin");
     expect(info.models.length).toBeGreaterThan(0);
-    expect(info.discovery.status).toBe("catalog_only");
   });
 
   test("uses catalog display name when available", async () => {

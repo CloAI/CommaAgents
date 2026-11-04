@@ -1,3 +1,9 @@
+import { refreshCopilotCredential } from "./authentication/copilot";
+import {
+  COPILOT_CLIENT_ID,
+  COPILOT_HEADERS,
+} from "./authentication/copilot.constants";
+import { getGlobalCredentialStore } from "../../credentials";
 import { createOpenAISubscriptionProvider } from "./authentication/openai";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -80,7 +86,9 @@ async function ensurePackageInCache(
   const promise = (async () => {
     ensureCacheDir(directory);
 
-    if (isPackageCached(directory, packageName)) return;
+    if (isPackageCached(directory, packageName)) {
+      return;
+    }
 
     const result = Bun.spawnSync(["bun", "add", packageName], {
       cwd: directory,
@@ -108,7 +116,9 @@ async function tryImportFromCache(
   importError: unknown,
 ): Promise<Record<string, unknown>> {
   const providerInstallDirectory = getProviderInstallDirectory();
-  if (!providerInstallDirectory) throw importError;
+  if (!providerInstallDirectory) {
+    throw importError;
+  }
 
   await ensurePackageInCache(providerInstallDirectory, packageName);
   return requireFromCache(providerInstallDirectory, packageName);
@@ -140,8 +150,12 @@ function findCreateExport(module: Record<string, unknown>): unknown {
  * - `custom` -> `undefined`
  */
 function extractApiKey(credential: Credential): string | undefined {
-  if (credential.type === "api") return credential.key;
-  if (credential.type === "oauth") return credential.accessToken;
+  if (credential.type === "api") {
+    return credential.key;
+  }
+  if (credential.type === "oauth") {
+    return credential.accessToken;
+  }
   return undefined;
 }
 
@@ -296,9 +310,34 @@ async function resolveCopilotProvider(
 
   const provider = createOpenAICompatible({
     name: "github-copilot",
+    ...(credential.type === "oauth" &&
+    credential.metadata?.clientId === COPILOT_CLIENT_ID
+      ? {
+          fetch: Object.assign(
+            async (
+              input: Parameters<typeof fetch>[0],
+              options?: Parameters<typeof fetch>[1],
+            ) => {
+              const effective =
+                await getGlobalCredentialStore().resolve("github-copilot");
+              if (effective?.type !== "oauth") {
+                throw new Error(
+                  "GitHub Copilot configuration changed. Resolve the model again.",
+                );
+              }
+              const current = await refreshCopilotCredential(effective);
+              const headers = new Headers(options?.headers);
+              headers.set("Authorization", `Bearer ${current.accessToken}`);
+              return fetch(input, { ...options, headers, redirect: "error" });
+            },
+            { preconnect: fetch.preconnect },
+          ),
+        }
+      : {}),
     baseURL: "https://api.githubcopilot.com",
     headers: {
       Authorization: `Bearer ${apiKey}`,
+      ...COPILOT_HEADERS,
       "Openai-Intent": "conversation-edits",
     },
   });
@@ -345,16 +384,39 @@ export function getGlobalProviderResolver(): ProviderResolver {
       credential.type === "oauth" &&
       registration?.origin !== "registered" &&
       registration?.origin !== "user"
-    )
+    ) {
       return createOpenAISubscriptionProvider(credential);
+    }
+    if (
+      providerId === "github-copilot" &&
+      registration?.origin !== "registered" &&
+      registration?.origin !== "user"
+    ) {
+      return await resolveCopilotProvider(credential);
+    }
+    if (
+      providerId === "tinfoil" &&
+      registration?.origin !== "registered" &&
+      registration?.origin !== "user"
+    ) {
+      const { createTinfoilProtectedModel } = await import("./tinfoil/tinfoil");
+      const { DEFAULT_PRIVACY_LIMITS } =
+        await import("../privacy/privacy.constants");
+      const { privacyError } = await import("../privacy/privacy.utils");
+      if (credential.type !== "api" || !credential.key) {
+        throw privacyError("PRIVACY_CREDENTIAL_REQUIRED");
+      }
+      return (modelId) =>
+        createTinfoilProtectedModel({
+          modelId,
+          apiKey: credential.key,
+          requirements: { tee: "required", e2ee: "required" },
+          limits: DEFAULT_PRIVACY_LIMITS,
+        });
+    }
     // 1. Check registered provider definitions (sync, no catalog fetch)
     if (registration) {
       return await resolveViaRegistration(providerId, credential, registration);
-    }
-
-    // 2. Special-case: GitHub Copilot
-    if (providerId === "github-copilot") {
-      return await resolveCopilotProvider(credential);
     }
 
     // 3. Catalog + built-in overrides

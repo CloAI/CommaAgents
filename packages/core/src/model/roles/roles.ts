@@ -26,14 +26,18 @@ export function resolveModelReference(
   model: string,
   { configured, defaults }: ModelRoleSources,
 ): string {
-  if (!model.startsWith(MODEL_ROLE_PREFIX)) return model;
+  if (!model.startsWith(MODEL_ROLE_PREFIX)) {
+    return model;
+  }
   const requestedRole = model.slice(MODEL_ROLE_PREFIX.length);
   const visited: string[] = [];
   let role: string | undefined = requestedRole;
   while (role !== undefined && !visited.includes(role)) {
     visited.push(role);
     const resolved = configured?.[role] ?? defaults?.[role];
-    if (resolved !== undefined) return resolved;
+    if (resolved !== undefined) {
+      return resolved;
+    }
     role =
       role === "primary"
         ? undefined

@@ -1,10 +1,11 @@
 import type { LanguageModel } from "ai";
 import { PrivacyRequirementsSchema } from "./privacy/privacy.schemas";
 import { privacyError } from "./privacy/privacy.utils";
-import type { ModelResolutionOptions } from "./model.types";
+import type { ModelResolutionOptions, ResolvedModel } from "./model.types";
 import { getGlobalCredentialStore } from "../credentials";
 import { ModelResolutionError } from "../errors/index";
-import { parseModel } from "./model.utils";
+import { createPrivacyRuntime } from "./privacy/privacy";
+import { getModelPrivacyRequirements, parseModel } from "./model.utils";
 import {
   getGlobalProviderResolver,
   getProviderDefinition,
@@ -90,6 +91,20 @@ export async function resolveModel(
   modelString: string,
   options?: ModelResolutionOptions,
 ): Promise<LanguageModel> {
+  return (await resolveModelWithPrivacy(modelString, options)).model;
+}
+
+/**
+ * Resolve a model together with protections inherited by related requests.
+ * @param {string} modelString - Qualified or bare model identity.
+ * @param {ModelResolutionOptions} [options] - Minimum protections and runtime services.
+ * @returns {Promise<ResolvedModel>} Selected model and effective protection policy.
+ * @internal
+ */
+export async function resolveModelWithPrivacy(
+  modelString: string,
+  options?: ModelResolutionOptions,
+): Promise<ResolvedModel> {
   const trimmed = modelString.trim();
   if (trimmed.length === 0) {
     throw new ModelResolutionError(modelString, "Model string cannot be empty");
@@ -98,30 +113,49 @@ export async function resolveModel(
   const requirements = PrivacyRequirementsSchema.safeParse(
     options?.privacy === undefined ? {} : options.privacy,
   );
-  if (!requirements.success) throw privacyError("PRIVACY_CONFIGURATION_ERROR");
-  if (requirements.data.tee || requirements.data.e2ee) {
-    if (!trimmed.includes("/"))
+  if (!requirements.success) {
+    throw privacyError("PRIVACY_CONFIGURATION_ERROR");
+  }
+  const automaticPrivacy = getModelPrivacyRequirements(trimmed);
+  const effectivePrivacy = { ...requirements.data, ...automaticPrivacy };
+  if (effectivePrivacy.tee || effectivePrivacy.e2ee) {
+    if (!trimmed.includes("/")) {
       throw privacyError("PRIVACY_CONFIGURATION_ERROR");
-    if (!options?.privacyRuntime)
+    }
+    const privacyRuntime =
+      options?.privacyRuntime ??
+      (automaticPrivacy?.tee ? createPrivacyRuntime() : undefined);
+    if (!privacyRuntime) {
       throw privacyError("PRIVACY_CONFIGURATION_ERROR");
-    if (options.signal?.aborted) throw privacyError("PRIVACY_CANCELLED");
-    return options.privacyRuntime.resolveModel(trimmed, requirements.data, {
-      signal: options.signal,
-      onReport: options.onPrivacyReport,
-    });
+    }
+    if (options?.signal?.aborted) {
+      throw privacyError("PRIVACY_CANCELLED");
+    }
+    return {
+      model: await privacyRuntime.resolveModel(trimmed, effectivePrivacy, {
+        signal: options?.signal,
+        onReport: options?.onPrivacyReport,
+      }),
+      privacy: effectivePrivacy,
+      privacyRuntime,
+    };
   }
 
   const registered = modelRegistry.get(trimmed);
-  if (registered) return registered;
+  if (registered) {
+    return { model: registered };
+  }
 
   const credentialStore = getGlobalCredentialStore();
   const resolver = getGlobalProviderResolver();
 
   if (trimmed.includes("/")) {
-    return await resolveExplicitModel(trimmed, credentialStore, resolver);
+    return {
+      model: await resolveExplicitModel(trimmed, credentialStore, resolver),
+    };
   }
 
-  return await resolveAutoModel(trimmed, credentialStore, resolver);
+  return await resolveAutoModel(trimmed, credentialStore, resolver, options);
 }
 
 async function resolveExplicitModel(
@@ -165,7 +199,8 @@ async function resolveAutoModel(
   modelId: string,
   credentialStore: ReturnType<typeof getGlobalCredentialStore>,
   resolver: ReturnType<typeof getGlobalProviderResolver>,
-): Promise<LanguageModel> {
+  options?: ModelResolutionOptions,
+): Promise<ResolvedModel> {
   // TODO: Decide whether user-configured model IDs should participate in bare-ID provider selection.
   const candidateProviders = getProvidersForModel(modelId);
 
@@ -183,11 +218,19 @@ async function resolveAutoModel(
 
   for (const providerId of candidateProviders) {
     const credential = await credentialStore.resolve(providerId);
-    if (!credential) continue;
+    if (!credential) {
+      continue;
+    }
+
+    // Once a protected provider is selected, failure must not downgrade to another provider.
+    const qualifiedModel = `${providerId}/${modelId}`;
+    if (getModelPrivacyRequirements(qualifiedModel)?.tee) {
+      return resolveModelWithPrivacy(qualifiedModel, options);
+    }
 
     try {
       const factory = await resolver(providerId, credential);
-      return factory(modelId);
+      return { model: factory(modelId) };
     } catch {}
   }
 

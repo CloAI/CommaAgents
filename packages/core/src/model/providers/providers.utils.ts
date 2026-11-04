@@ -9,15 +9,15 @@ import type {
 /**
  * Merge model membership and metadata; overlay values win, including false and zero.
  * @param {readonly ModelInfo[]} catalogModels - Catalog baseline.
- * @param {readonly ModelInfo[]} liveModels - Provider models taking field precedence.
+ * @param {readonly ModelInfo[]} providerModels - Provider-listed models taking field precedence.
  * @returns {readonly ModelInfo[]} Union of model IDs with merged metadata.
  */
-export function mergeCatalogWithLive(
+export function mergeCatalogWithProvider(
   catalogModels: readonly ModelInfo[],
-  liveModels: readonly ModelInfo[],
+  providerModels: readonly ModelInfo[],
 ): readonly ModelInfo[] {
   const byId = new Map(catalogModels.map((model) => [model.id, model]));
-  for (const model of liveModels) {
+  for (const model of providerModels) {
     const existing = byId.get(model.id);
     byId.set(model.id, existing ? mergeModelInfo(existing, model) : model);
   }

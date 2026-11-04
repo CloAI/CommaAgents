@@ -4,7 +4,6 @@ import type {
   ModalitySchema,
   ModelInfoSchema,
   ModelSourceSchema,
-  ModelDiscoverySchema,
   ProviderOriginSchema,
   ProviderInfoSchema,
 } from "./providers.schemas";
@@ -29,14 +28,12 @@ export type CredentialType = "api" | "oauth" | "custom" | "none";
 export type ModelInfo = z.output<typeof ModelInfoSchema>;
 /** Contributors to a resolved model entry. */
 export type ModelSource = z.output<typeof ModelSourceSchema>;
-/** Provider discovery outcome and safe diagnostics. */
-export type ModelDiscovery = z.output<typeof ModelDiscoverySchema>;
 /** Effective provider definition ownership. */
 export type ProviderOrigin = z.output<typeof ProviderOriginSchema>;
 /** Resolved provider and its model catalog. */
 export type ProviderInfo = z.output<typeof ProviderInfoSchema>;
 
-/** Arguments provided to a provider's live `listModels` callback. */
+/** Arguments provided to a provider's `listModels` callback. */
 export interface ListModelsContext {
   /** Resolved credential for the provider, if any. */
   readonly credential?: Credential;
@@ -47,7 +44,7 @@ export interface ListModelsContext {
 }
 
 /**
- * Live model-listing callback supplied by a provider definition.
+ * Model-listing callback supplied by a provider definition.
  *
  * Implementations normalize provider responses to model entries with provider sources.
  * Merge with the catalog baseline is handled by the registry, not here.
@@ -55,12 +52,6 @@ export interface ListModelsContext {
 export type ListModelsFn = (
   context: ListModelsContext,
 ) => Promise<readonly ModelInfo[]>;
-
-/** Resolved models and the outcome of their discovery. */
-export interface ListModelsResult {
-  readonly models: readonly ModelInfo[];
-  readonly discovery: ModelDiscovery;
-}
 
 /**
  * Everything the runtime knows about a provider: metadata from the

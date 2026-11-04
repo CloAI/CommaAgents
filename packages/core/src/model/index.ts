@@ -29,7 +29,6 @@ export type {
   CatalogProvider,
   ListModelsContext,
   ListModelsFn,
-  ListModelsResult,
   Modality,
   ModelCapabilities,
   ModelCost,
@@ -37,10 +36,8 @@ export type {
   ModelModalities,
   ModelStatus,
   ModelSource,
-  ModelDiscovery,
   ProviderOrigin,
   ProviderDefinition,
-  ProviderWithModels,
 } from "./providers/index";
 export {
   getCatalogModels,
@@ -54,12 +51,12 @@ export {
   getRegisteredProviderIds,
   getReverseModelIndex,
   isKnownProviderSync,
-  listAllProviderModels,
+  refreshProviderModels,
   listCatalogProviders,
   listProviderDefinitions,
   listProviderModels,
   loadCatalog,
-  mergeCatalogWithLive,
+  mergeCatalogWithProvider,
   mergeModelInfo,
   refreshCatalog,
   registerProviderDefinition,
@@ -76,9 +73,13 @@ export {
 export {
   ModelInfoSchema,
   ProviderInfoSchema,
-  ModelDiscoverySchema,
   ModelSourceSchema,
   ProviderOriginSchema,
 } from "./providers/providers.schemas";
 export { getModelFamily, resolveModelReference } from "./roles";
 export type { ModelFamily, ModelRoleSources, ModelRoles } from "./roles";
+
+export type {
+  TinfoilPrivacyOptions,
+  TinfoilMeasurementPins,
+} from "./providers/tinfoil/tinfoil.types";

@@ -44,11 +44,12 @@ function parseOptions<Schema extends z.ZodType>(
   value: unknown,
 ): z.output<Schema> {
   const result = schema.safeParse(value);
-  if (!result.success)
+  if (!result.success) {
     throw providerSettingsError(
       "INVALID_ARGUMENTS",
       "Invalid provider options.",
     );
+  }
   return result.data;
 }
 
@@ -58,8 +59,9 @@ function parseOptions<Schema extends z.ZodType>(
  */
 async function requireProvider(providerId: string) {
   const definition = await getProviderDefinition(providerId);
-  if (!definition)
+  if (!definition) {
     throw providerSettingsError("NOT_FOUND", "Provider was not found.");
+  }
   return definition;
 }
 
@@ -130,11 +132,12 @@ export async function configureProvider(options: {
     options,
   );
   const definition = await requireProvider(providerId);
-  if ((definition.credentialType ?? "api") !== "api")
+  if ((definition.credentialType ?? "api") !== "api") {
     throw providerSettingsError(
       "UNSUPPORTED",
       "This provider does not use API-key configuration.",
     );
+  }
   await getGlobalCredentialStore().set(providerId, "$global", {
     type: "api",
     key: apiKey,
@@ -171,11 +174,12 @@ export async function addCustomProvider(options: AddCustomProviderOptions) {
     models: models ?? [],
   };
   return mutateProviderSettings(entry.id, (settings, definition) => {
-    if (definition)
+    if (definition) {
       throw providerSettingsError(
         "CONFLICT",
         "Provider ID is already defined.",
       );
+    }
     settings.providers.push(entry);
   });
 }
@@ -193,16 +197,18 @@ export async function updateCustomProvider(
     options,
   );
   return mutateProviderSettings(providerId, (settings, definition) => {
-    if (!definition)
+    if (!definition) {
       throw providerSettingsError("NOT_FOUND", "Provider was not found.");
+    }
     const entry = settings.providers.find(
       (provider) => provider.id === providerId,
     );
-    if (!entry || entry.kind !== "custom")
+    if (!entry || entry.kind !== "custom") {
       throw providerSettingsError(
         "NOT_USER_DEFINED",
         "Only user-owned provider definitions can be updated.",
       );
+    }
     entry.definition = parseOptions(CustomProviderDefinitionSchema, {
       ...entry.definition,
       ...changes,
@@ -224,11 +230,12 @@ export function removeCustomProvider(options: { readonly providerId: string }) {
       (entry) => entry.id === providerId && entry.kind === "custom",
     );
     if (!entry) {
-      if (definition)
+      if (definition) {
         throw providerSettingsError(
           "NOT_USER_DEFINED",
           "Only user-owned provider definitions can be removed.",
         );
+      }
       return { providerId, removed: false };
     }
     await getGlobalCredentialStore().remove(providerId, "$global");
@@ -256,7 +263,7 @@ export function addCustomProviderModel(options: AddCustomProviderModelOptions) {
   return mutateModel(options, true);
 }
 
-/** Remove only the manual model entry, leaving catalog/live membership unchanged.
+/** Remove only the manual model entry, leaving catalog and provider-listed membership unchanged.
  * @param {AddCustomProviderModelOptions} options - Provider/model identity with optional metadata.
  * @example await removeCustomProviderModel({providerId:"local",modelId:"org/model"});
  * @returns {Promise<ProviderInfo>} Provider after removing the manual model entry.
@@ -285,11 +292,15 @@ async function mutateModel(
     options,
   );
   return mutateProviderSettings(providerId, (settings, definition) => {
-    if (!definition)
+    if (!definition) {
       throw providerSettingsError("NOT_FOUND", "Provider was not found.");
+    }
     let entry = settings.providers.find((entry) => entry.id === providerId);
-    if ((entry?.models.some((model) => model.id === modelId) ?? false) === add)
+    if (
+      (entry?.models.some((model) => model.id === modelId) ?? false) === add
+    ) {
       return false;
+    }
     if (!entry) {
       entry = { kind: "existing", id: providerId, models: [] };
       settings.providers.push(entry);
@@ -297,17 +308,18 @@ async function mutateModel(
     entry.models = add
       ? [...entry.models, { id: modelId, ...(metadata ? { metadata } : {}) }]
       : entry.models.filter((model) => model.id !== modelId);
-    if (!entry.models.length && entry.kind !== "custom")
+    if (!entry.models.length && entry.kind !== "custom") {
       settings.providers = settings.providers.filter(
         (provider) => provider !== entry,
       );
+    }
   });
 }
 
 /** Apply a settings edit through the shared serialized persistence path.
  * @param {string} providerId - Provider returned after the edit.
  * @param {(settings: ProviderSettings, definition: ProviderDefinition | undefined) => false | void} change - Edit the settings, or return false for a no-op.
- * @returns {Promise<ProviderInfo>} Effective provider without live discovery.
+ * @returns {Promise<ProviderInfo>} Effective provider.
  */
 function mutateProviderSettings(
   providerId: string,
@@ -319,10 +331,10 @@ function mutateProviderSettings(
   return serializeProviderSettings(async () => {
     const definition = await getProviderDefinition(providerId);
     const settings = getProviderSettings();
-    if (change(settings, definition) !== false) await commit(settings);
-    return getProviderInfo(providerId, getGlobalCredentialStore(), {
-      live: false,
-    });
+    if (change(settings, definition) !== false) {
+      await commit(settings);
+    }
+    return getProviderInfo(providerId, getGlobalCredentialStore());
   });
 }
 

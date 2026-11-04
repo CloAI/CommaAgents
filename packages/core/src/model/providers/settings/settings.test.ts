@@ -132,14 +132,13 @@ describe("provider settings persistence", () => {
     ]);
     expect(first).toEqual(second);
     expect(first).toMatchObject({ ...endpoint, origin: "user" });
+    expect(await listProviderModels(endpoint.id)).toEqual([
+      { id: "org/model", sources: ["user"], metadata: {} },
+    ]);
     expect(
-      (await listProviderModels(endpoint.id, undefined, { live: false }))
-        .models,
-    ).toEqual([{ id: "org/model", sources: ["user"], metadata: {} }]);
-    expect(
-      (
-        await listProviderModels("openai", undefined, { live: false })
-      ).models.some((model) => model.id === "manual-model"),
+      (await listProviderModels("openai")).some(
+        (model) => model.id === "manual-model",
+      ),
     ).toBe(true);
     resetProviderRegistry();
     expect(await getProviderDefinition(endpoint.id)).toMatchObject({
@@ -195,10 +194,11 @@ describe("provider settings persistence", () => {
       ],
       [{ kind: "existing", id: "openai", models: [], apiKey: "secret" }],
       [{ id: "openai", models: [] }],
-    ])
+    ]) {
       expect(
         ProviderSettingsSchema.safeParse({ version: 3, providers }).success,
       ).toBe(false);
+    }
     expect(
       ProviderSettingsSchema.safeParse({ ...valid, version: 4 }).success,
     ).toBe(false);
@@ -252,10 +252,8 @@ describe("provider settings persistence", () => {
   });
 
   test("manual IDs are additive and idempotent; removing a catalog duplicate retains catalog metadata", async () => {
-    const catalogResult = await listProviderModels("openai", undefined, {
-      live: false,
-    });
-    const catalogModel = catalogResult.models[0]!;
+    const catalogResult = await listProviderModels("openai");
+    const catalogModel = catalogResult[0]!;
     await addCustomProviderModel({
       providerId: "openai",
       modelId: catalogModel.id,
@@ -271,13 +269,11 @@ describe("provider settings persistence", () => {
     expect(
       (await getProviderConfiguration({ providerId: "openai" })).customModels,
     ).toEqual([{ id: catalogModel.id }, { id: "org/manual" }]);
-    const result = await listProviderModels("openai", undefined, {
-      live: false,
-    });
-    expect(
-      result.models.filter((model) => model.id === catalogModel.id),
-    ).toEqual([{ ...catalogModel, sources: ["models.dev", "user"] }]);
-    expect(result.models.find((model) => model.id === "org/manual")).toEqual({
+    const result = await listProviderModels("openai");
+    expect(result.filter((model) => model.id === catalogModel.id)).toEqual([
+      { ...catalogModel, sources: ["models.dev", "user"] },
+    ]);
+    expect(result.find((model) => model.id === "org/manual")).toEqual({
       id: "org/manual",
       sources: ["user"],
       metadata: {},
@@ -287,9 +283,9 @@ describe("provider settings persistence", () => {
       modelId: catalogModel.id,
     });
     expect(
-      (
-        await listProviderModels("openai", undefined, { live: false })
-      ).models.find((model) => model.id === catalogModel.id),
+      (await listProviderModels("openai")).find(
+        (model) => model.id === catalogModel.id,
+      ),
     ).toEqual(catalogModel);
     await removeCustomProviderModel({
       providerId: "openai",
@@ -570,10 +566,9 @@ describe("provider settings persistence", () => {
     ).toEqual([{ id: "org/rich", metadata }]);
     resetProviderRegistry();
     await reloadProviderSettings();
-    expect(
-      (await listProviderModels(endpoint.id, undefined, { live: false }))
-        .models,
-    ).toEqual([{ id: "org/rich", sources: ["user"], metadata }]);
+    expect(await listProviderModels(endpoint.id)).toEqual([
+      { id: "org/rich", sources: ["user"], metadata },
+    ]);
     const file = JSON.parse(readFileSync(getProviderSettingsPath(), "utf8"));
     expect(file.version).toBe(3);
     expect(file.providers[0].models).toEqual([{ id: "org/rich", metadata }]);
