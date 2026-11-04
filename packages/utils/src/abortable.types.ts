@@ -40,8 +40,11 @@ export interface AbortablePromise<ResultType> extends Promise<ResultType> {
  * }
  * ```
  */
-export interface AbortableAsyncGenerator<YieldType>
-  extends AsyncGenerator<YieldType, void, undefined> {
+export interface AbortableAsyncGenerator<YieldType> extends AsyncGenerator<
+  YieldType,
+  void,
+  undefined
+> {
   /** Cancel the in-flight stream. */
   abort(): void;
 }
