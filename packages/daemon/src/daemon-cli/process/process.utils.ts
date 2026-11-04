@@ -8,6 +8,9 @@ import { getDaemonProcessStatus } from "./actions/status";
 export function buildDaemonProcessEnvOverrides({
   port,
   verbose,
+  console: consoleEnabled,
+  consoleFormat,
+  logPayloads,
   env = process.env,
 }: DaemonProcessStartOptions): Record<string, string | undefined> {
   const envOverrides: Record<string, string | undefined> = { ...env };
@@ -17,7 +20,38 @@ export function buildDaemonProcessEnvOverrides({
   if (verbose === true) {
     envOverrides.COMMA_DAEMON_LOG_LEVEL = "debug";
   }
+  if (consoleEnabled !== undefined) {
+    envOverrides.COMMA_DAEMON_CONSOLE = String(consoleEnabled);
+    if (consoleEnabled && consoleFormat === undefined) {
+      envOverrides.COMMA_DAEMON_CONSOLE_FORMAT = "text";
+    }
+  }
+  if (consoleFormat !== undefined) {
+    envOverrides.COMMA_DAEMON_CONSOLE_FORMAT = consoleFormat;
+  }
+  if (logPayloads !== undefined) {
+    envOverrides.COMMA_DAEMON_LOG_PAYLOADS = String(logPayloads);
+  }
   return envOverrides;
+}
+
+/**
+ * Reject console flags before process startup or restart can change daemon state.
+ * @param {DaemonProcessStartOptions} options - Requested process mode and logging flags.
+ * @returns {void} Returns when console flags are valid for this process mode.
+ * @internal
+ */
+export function validateDaemonConsoleOptions(
+  options: DaemonProcessStartOptions,
+): void {
+  if (
+    options.foreground !== true &&
+    (options.console !== undefined || options.consoleFormat !== undefined)
+  ) {
+    throw new Error(
+      "Console flags require --foreground; background logs are available in the configured log file.",
+    );
+  }
 }
 
 export function readDaemonPackageVersion(): string | undefined {
@@ -77,6 +111,9 @@ export function buildStartOptions(
         ? commandArguments.port
         : undefined,
     verbose: commandArguments.verbose === true,
+    console: commandArguments.console,
+    consoleFormat: commandArguments.consoleFormat,
+    logPayloads: commandArguments.logPayloads,
     foregroundCommand: options.foregroundCommand,
   };
 }

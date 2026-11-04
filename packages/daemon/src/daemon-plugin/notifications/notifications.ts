@@ -42,25 +42,30 @@ export function createPluginNotifications<
     key,
     listener,
   ) => {
-    if (phase !== "active")
+    if (phase !== "active") {
       throw new Error(`${name} plugin is disposing or disposed`);
+    }
     await hooks.beforeSubscribe?.(type, key);
-    if (phase !== "active")
+    if (phase !== "active") {
       throw new Error(`${name} plugin is disposing or disposed`);
+    }
     const groups =
       subscribers.get(key) ??
       new Map<PropertyKey, Set<(notification: Notification) => void>>();
     const group =
       groups.get(type) ?? new Set<(notification: Notification) => void>();
     const deliver = (notification: Notification): void => {
-      if (notification.type !== type) return;
+      if (notification.type !== type) {
+        return;
+      }
       try {
         // The discriminator check matches this union member to the selected collection key.
         const completion = listener(notification as Collection[typeof type]);
-        if (completion)
+        if (completion) {
           void Promise.resolve(completion).catch((error: unknown) =>
             reportFailure(key, type, error),
           );
+        }
       } catch (error) {
         reportFailure(key, type, error);
       }
@@ -70,9 +75,12 @@ export function createPluginNotifications<
     subscribers.set(key, groups);
     const unsubscribe = (): void => {
       group.delete(deliver);
-      if (group.size === 0 && groups.get(type) === group) groups.delete(type);
-      if (groups.size === 0 && subscribers.get(key) === groups)
+      if (group.size === 0 && groups.get(type) === group) {
+        groups.delete(type);
+      }
+      if (groups.size === 0 && subscribers.get(key) === groups) {
         subscribers.delete(key);
+      }
     };
     try {
       hooks.onSubscribe?.(type, key, deliver);
@@ -86,15 +94,21 @@ export function createPluginNotifications<
   return {
     subscribe,
     notify(key, notification): void {
-      if (phase === "closed") return;
+      if (phase === "closed") {
+        return;
+      }
       const keys = hooks.getRecipientKeys?.(key) ?? [key];
       const recipients = [...new Set(keys)].flatMap((key) => [
         ...(subscribers.get(key)?.get(notification.type) ?? []),
       ]);
-      for (const recipient of recipients) recipient(notification);
+      for (const recipient of recipients) {
+        recipient(notification);
+      }
     },
     beginDisposal(): void {
-      if (phase === "active") phase = "disposing";
+      if (phase === "active") {
+        phase = "disposing";
+      }
     },
     close(): void {
       phase = "closed";

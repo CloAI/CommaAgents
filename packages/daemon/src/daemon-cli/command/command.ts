@@ -34,6 +34,20 @@ export const daemonStartOptions = (
         return value;
       },
     })
+    .option("console", {
+      type: "boolean",
+      describe:
+        "Write logs to stderr (requires --foreground); use --no-console to disable",
+    })
+    .option("console-format", {
+      type: "string",
+      choices: ["text", "json"] as const,
+      describe: "Console log format (requires --foreground)",
+    })
+    .option("log-payloads", {
+      type: "boolean",
+      describe: "Include agent and tool payloads and enable debug logging",
+    })
     .option("verbose", {
       alias: "v",
       type: "boolean",

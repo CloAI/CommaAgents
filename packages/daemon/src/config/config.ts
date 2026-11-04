@@ -12,7 +12,7 @@ import {
   setDaemonRunsDirectory,
 } from "../defaults";
 import type { DaemonConfig } from "./config.types";
-import { readConfigFile } from "./config.utils";
+import { readConfigFile, resolveLoggingConfig } from "./config.utils";
 
 /** Options for selecting daemon configuration inputs. */
 export interface LoadConfigOptions {
@@ -44,36 +44,58 @@ export function loadDaemonConfig(options?: LoadConfigOptions): DaemonConfig {
 
   // Handle all the file overrides if present, and globally update the values.
   const fileOverrides = readConfigFile(configFile);
-  if (fileOverrides.port !== undefined) setDaemonPort(fileOverrides.port);
-  if (fileOverrides.host !== undefined) setDaemonHost(fileOverrides.host);
-  if (fileOverrides.logLevel !== undefined)
+  if (fileOverrides.port !== undefined) {
+    setDaemonPort(fileOverrides.port);
+  }
+  if (fileOverrides.host !== undefined) {
+    setDaemonHost(fileOverrides.host);
+  }
+  if (fileOverrides.logLevel !== undefined) {
     setDaemonLogLevel(fileOverrides.logLevel);
-  if (fileOverrides.logFile !== undefined)
+  }
+  if (fileOverrides.logFile !== undefined) {
     setDaemonLogFile(fileOverrides.logFile);
-  if (fileOverrides.pidFile !== undefined)
+  }
+  if (fileOverrides.pidFile !== undefined) {
     setDaemonPidFile(fileOverrides.pidFile);
-  if (fileOverrides.runsDir !== undefined)
+  }
+  if (fileOverrides.runsDir !== undefined) {
     setDaemonRunsDirectory(fileOverrides.runsDir);
-  if (fileOverrides.modelRoles !== undefined)
+  }
+  if (fileOverrides.modelRoles !== undefined) {
     setDaemonModelRoles(fileOverrides.modelRoles);
-  if (fileOverrides.instructionFiles !== undefined)
+  }
+  if (fileOverrides.instructionFiles !== undefined) {
     setDaemonInstructionFiles(fileOverrides.instructionFiles);
+  }
 
   // If env variables were defined override the defaults and files, as env take priority.
   const env = options?.env;
   if (env) {
-    if (env.COMMA_DAEMON_PORT)
+    if (env.COMMA_DAEMON_PORT) {
       setDaemonPort(Number.parseInt(env.COMMA_DAEMON_PORT, 10));
-    if (env.COMMA_DAEMON_HOST) setDaemonHost(env.COMMA_DAEMON_HOST);
-    if (env.COMMA_DAEMON_LOG_LEVEL)
+    }
+    if (env.COMMA_DAEMON_HOST) {
+      setDaemonHost(env.COMMA_DAEMON_HOST);
+    }
+    if (env.COMMA_DAEMON_LOG_LEVEL) {
       setDaemonLogLevel(env.COMMA_DAEMON_LOG_LEVEL as DaemonConfig["logLevel"]);
-    if (env.COMMA_DAEMON_LOG_FILE) setDaemonLogFile(env.COMMA_DAEMON_LOG_FILE);
-    if (env.COMMA_DAEMON_PID_FILE) setDaemonPidFile(env.COMMA_DAEMON_PID_FILE);
-    if (env.COMMA_DAEMON_RUNS_DIR)
+    }
+    if (env.COMMA_DAEMON_LOG_FILE) {
+      setDaemonLogFile(env.COMMA_DAEMON_LOG_FILE);
+    }
+    if (env.COMMA_DAEMON_PID_FILE) {
+      setDaemonPidFile(env.COMMA_DAEMON_PID_FILE);
+    }
+    if (env.COMMA_DAEMON_RUNS_DIR) {
       setDaemonRunsDirectory(env.COMMA_DAEMON_RUNS_DIR);
+    }
   }
 
-  const config = getDaemonConfig();
+  const config = {
+    ...getDaemonConfig(),
+    ...resolveLoggingConfig(fileOverrides, options?.env ?? process.env),
+  };
 
   // Validate the final port is in range
   if (
@@ -102,5 +124,11 @@ export function loadDaemonConfig(options?: LoadConfigOptions): DaemonConfig {
     );
   }
 
-  return config;
+  return {
+    ...config,
+    logLevel:
+      config.logPayloads && config.logLevel !== "trace"
+        ? "debug"
+        : config.logLevel,
+  };
 }

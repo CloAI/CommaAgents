@@ -33,8 +33,7 @@ export async function processDaemonCommand(
       return;
     }
     case "restart": {
-      const result = await restartDaemonProcess(startOptions,
-      );
+      const result = await restartDaemonProcess(startOptions);
       console.log(result.message);
       return;
     }

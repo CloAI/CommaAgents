@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runDaemonCommand } from "./command";
+import yargs from "yargs";
+import { daemonStartOptions, runDaemonCommand } from "./command";
 
 const originalEnv = { ...process.env };
 const tempDirs: string[] = [];
@@ -35,6 +36,31 @@ afterEach(() => {
 });
 
 describe("runDaemonCommand", () => {
+  it("should parse logging flags without inventing defaults for absent flags", async () => {
+    const omitted = await daemonStartOptions(yargs([])).parseAsync();
+    expect(omitted.console).toBeUndefined();
+    expect(omitted.consoleFormat).toBeUndefined();
+    expect(omitted.logPayloads).toBeUndefined();
+    const parsed = await daemonStartOptions(
+      yargs([
+        "--foreground",
+        "--no-console",
+        "--console-format",
+        "json",
+        "--log-payloads",
+      ]),
+    ).parseAsync();
+    expect(parsed).toMatchObject({
+      foreground: true,
+      console: false,
+      consoleFormat: "json",
+      logPayloads: true,
+    });
+    const disabled = await daemonStartOptions(
+      yargs(["--no-log-payloads"]),
+    ).parseAsync();
+    expect(disabled.logPayloads).toBe(false);
+  });
   it("prints text daemon status", async () => {
     const tempDir = createTempDir();
     setDaemonEnv(tempDir);

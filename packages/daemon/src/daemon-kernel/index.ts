@@ -116,4 +116,4 @@ export type {
 } from "../plugins/runs";
 
 export { createCorePlugin } from "../plugins/core";
-export type { CorePlugin, CoreProviderListOptions } from "../plugins/core";
+export type { CorePlugin, ProvidersSnapshot } from "../plugins/core";

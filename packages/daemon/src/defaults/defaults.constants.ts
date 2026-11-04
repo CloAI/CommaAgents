@@ -43,4 +43,7 @@ export const PROCESS_ENV_COMMA_DAEMON_RUNS_DIR =
 export const PROCESS_ENV_COMMA_BUILD_VERSION = process.env.COMMA_BUILD_VERSION;
 
 /** Instruction file names checked per directory when building project instruction blocks. */
-export const DEFAULT_INSTRUCTION_FILES: readonly string[] = ["AGENTS.md", "CLAUDE.md"];
+export const DEFAULT_INSTRUCTION_FILES: readonly string[] = [
+  "AGENTS.md",
+  "CLAUDE.md",
+];

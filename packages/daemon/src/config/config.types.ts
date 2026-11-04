@@ -15,6 +15,12 @@ export interface DaemonConfig {
   readonly logLevel: LogLevel | "warn";
   /** Optional file that receives structured daemon logs. */
   readonly logFile: string | undefined;
+  /** Write application logs to stderr. @default true */
+  readonly console?: boolean;
+  /** Console output format; explicit console enablement defaults to text. @default "json" */
+  readonly consoleFormat?: "text" | "json";
+  /** Include agent input, responses, and tool payloads; enables debug logging. @default false */
+  readonly logPayloads?: boolean;
   /** Path to the PID file. */
   readonly pidFile: string;
   /** Path to the config file that was loaded (or the default path if none found). */

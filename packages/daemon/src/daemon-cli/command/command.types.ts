@@ -24,6 +24,12 @@ export interface DaemonCommandArguments {
   readonly port?: number;
   /** Enable debug-level daemon logging. */
   readonly verbose?: boolean;
+  /** Write application logs to stderr; requires foreground mode. */
+  readonly console?: boolean;
+  /** Console log format; requires foreground mode. */
+  readonly consoleFormat?: "text" | "json";
+  /** Include agent and tool payloads and enable debug logging. */
+  readonly logPayloads?: boolean;
   /** Print machine-readable output for commands that support it. */
   readonly json?: boolean;
 }

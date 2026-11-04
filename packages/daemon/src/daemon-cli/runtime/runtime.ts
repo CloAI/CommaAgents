@@ -5,6 +5,8 @@ import type { DaemonKernel } from "../../daemon-kernel";
 import { createDaemonServer } from "../../daemon-server";
 import type { DaemonServer } from "../../daemon-server";
 import { initializeLogging } from "../../logger";
+import { attachExecutionLogging } from "../../plugins/runs/execution/logging";
+import { createExecutionPrivacyRuntime } from "../../plugins/runs/execution/logging/privacy";
 import { removePid, writePid } from "../process/pid/pid";
 import type { DaemonRuntime } from "./runtime.types";
 
@@ -19,8 +21,14 @@ export async function startDaemonRuntime(
   config: DaemonConfig,
 ): Promise<DaemonRuntime> {
   const logging = initializeLogging({
-    level: config.logLevel,
+    level:
+      config.logPayloads && config.logLevel !== "trace"
+        ? "debug"
+        : config.logLevel,
     file: config.logFile,
+    stderr: config.console,
+    consoleFormat:
+      config.consoleFormat ?? (config.console === true ? "text" : "json"),
   });
   let daemon: DaemonKernel | undefined;
   let server: DaemonServer | undefined;
@@ -72,7 +80,22 @@ export async function startDaemonRuntime(
   }
 
   try {
-    daemon = await createDaemonKernel({
+    const kernel = await createDaemonKernel({
+      initialize: (plugins) => {
+        plugins.runs.registerRunPreparation({
+          name: "privacy",
+          prepare: (context) => ({
+            strategyInputs: {
+              privacyRuntime: createExecutionPrivacyRuntime(context),
+            },
+          }),
+        });
+        plugins.runs.registerStrategyHooks({
+          name: "logging",
+          attach: (context) =>
+            attachExecutionLogging(context, config.logPayloads),
+        });
+      },
       runs: {
         runsDir: config.runsDir,
         harness: {
@@ -81,12 +104,15 @@ export async function startDaemonRuntime(
         },
       },
     });
+    daemon = kernel;
     server = createDaemonServer({
-      daemon,
+      daemon: kernel,
       host: config.host,
       port: config.port,
     });
     await server.start();
+    // Call provider APIs in the background; the list channel publishes each update.
+    void kernel.plugins.core.providers.load();
     process.on("uncaughtException", onUncaughtException);
     process.on("unhandledRejection", onUnhandledRejection);
     process.on("SIGINT", shutdown);

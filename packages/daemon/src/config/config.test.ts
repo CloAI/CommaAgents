@@ -367,6 +367,79 @@ describe("loadDaemonConfig validation", () => {
   });
 });
 
+describe("console and payload configuration", () => {
+  let directory: string;
+  beforeEach(() => {
+    directory = createTempDir();
+  });
+  afterEach(() => {
+    rmSync(directory, { recursive: true, force: true });
+  });
+  test("should preserve JSON defaults and use text for explicit console enablement", () => {
+    const configFile = join(directory, "missing.json");
+    expect(loadDaemonConfig({ configFile, env: {} })).toMatchObject({
+      console: true,
+      consoleFormat: "json",
+      logPayloads: false,
+    });
+    expect(
+      loadDaemonConfig({ configFile, env: { COMMA_DAEMON_CONSOLE: "true" } }),
+    ).toMatchObject({
+      console: true,
+      consoleFormat: "text",
+    });
+  });
+
+  test("should resolve environment over file values and enable debug for payloads", () => {
+    const configFile = writeJsonConfig(directory, {
+      console: true,
+      consoleFormat: "json",
+      logPayloads: true,
+    });
+    expect(loadDaemonConfig({ configFile, env: {} })).toMatchObject({
+      logLevel: "debug",
+      logPayloads: true,
+    });
+    expect(
+      loadDaemonConfig({
+        configFile,
+        env: {
+          COMMA_DAEMON_CONSOLE: "false",
+          COMMA_DAEMON_CONSOLE_FORMAT: "text",
+          COMMA_DAEMON_LOG_PAYLOADS: "false",
+        },
+      }),
+    ).toMatchObject({
+      console: false,
+      consoleFormat: "text",
+      logPayloads: false,
+    });
+    expect(
+      loadDaemonConfig({ configFile, env: { COMMA_DAEMON_LOG_LEVEL: "trace" } })
+        .logLevel,
+    ).toBe("trace");
+  });
+
+  test("should reject invalid boolean and format environment values", () => {
+    const configFile = join(directory, "missing.json");
+    for (const name of [
+      "COMMA_DAEMON_CONSOLE",
+      "COMMA_DAEMON_LOG_PAYLOADS",
+      "COMMA_DAEMON_CONSOLE_FORMAT",
+    ]) {
+      expect(() =>
+        loadDaemonConfig({ configFile, env: { [name]: "invalid" } }),
+      ).toThrow(name);
+    }
+    expect(DaemonConfigFileSchema.safeParse({ console: "false" }).success).toBe(
+      false,
+    );
+    expect(
+      DaemonConfigFileSchema.safeParse({ consoleFormat: "xml" }).success,
+    ).toBe(false);
+  });
+});
+
 // loadDaemonConfig — COMMA_DAEMON_CONFIG_FILE env var
 
 describe("loadDaemonConfig config file path resolution", () => {

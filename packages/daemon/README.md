@@ -41,37 +41,37 @@ Plugins are constructed with one `createPlugin(configuration)` call. Keep comman
 
 ## Core provider APIs
 
-The kernel includes a `core` plugin. Use `core.providers.list` to discover known providers, their authentication configuration status, and model metadata:
+The kernel includes a `core` plugin. Subscribe to the `core.providers.list` channel for known providers, their authentication configuration status, and model metadata:
 
 ```ts
 socket.addEventListener("open", () => {
   socket.send(
     JSON.stringify({
-      type: "command",
+      type: "subscribe",
       requestId: crypto.randomUUID(),
-      command: "core.providers.list",
-      arguments: { live: false },
+      channel: "core.providers.list",
+      arguments: {},
     }),
   );
 });
 ```
 
-Successful response data is `{ providers: [...] }`. Arguments may include `scope` for scoped credential resolution and `live` to query providers that support live discovery. `live` defaults to `false`; `{}` is valid. Each provider includes its ID, display name, credential type, auth status, models, model source, and custom-registration flag. Live discovery may also include a fetch timestamp or error description. Credential values are not returned. `configured` means credentials are present, not that the provider has accepted them.
+Each message is `{ type: "providers.updated", data: { providers, refreshing } }`, sent when the channel opens and again after every change. Models combine models.dev, the provider's own API, and manual entries. The daemon calls provider APIs at startup, after credential and custom-provider changes, and on `core.providers.refresh`, which also re-downloads models.dev; `refreshing` is `true` meanwhile. Credential values are not returned. `configured` means credentials are present, not that the provider has accepted them.
 
-The same operation is available to daemon hosts as `kernel.plugins.core.providers.list(options)` and through the standalone `createCorePlugin()` factory. The UI hook infers its argument and response types from kernel registration:
+Daemon hosts read the same list with `kernel.plugins.core.providers.snapshot()`. The UI hook infers its message type from kernel registration:
 
 ```tsx
-const { data, errors, clientError, isLoading } = useCommaAgentsDaemon(
-  { command: "core.providers.list" },
-  { live: false },
+const { data, errors, clientError } = useCommaAgentsDaemon(
+  { channel: "core.providers.list" },
+  {},
 );
-// data?.providers contains the discovered providers.
+// data?.data.providers contains the providers.
 ```
 
 The same namespace exposes `getConfiguration`, `configure`, `verify`, `removeCredential`, `addCustomProvider`, `updateCustomProvider`, `removeCustomProvider`, `addCustomProviderModel`, and `removeCustomProviderModel`. Each has a matching `core.providers.*` command. Core owns the reusable provider settings and credential APIs; these remain available directly from `@comma-agents/core` without a daemon.
 
-Provider settings persist in `.comma/provider-settings.json`, with model objects and optional metadata nested under each provider entry; credentials remain in their existing store. Custom definitions support API-key or unauthenticated endpoints. User-added model IDs are additive: removing one does not hide catalog or live-discovered models. Secret-free configuration reads include effective credential source, saved-key availability, custom endpoint fields, and manual model metadata.
+Provider settings persist in `.comma/provider-settings.json`, with model objects and optional metadata nested under each provider entry; credentials remain in their existing store. Custom definitions support API-key or unauthenticated endpoints. User-added model IDs are additive: removing one does not hide models from models.dev or the provider's API. Secret-free configuration reads include effective credential source, saved-key availability, custom endpoint fields, and manual model metadata.
 
-`verify` makes one explicit authenticated model-list request for OpenAI, Anthropic, or Gemini, with no generation, retries, polling, or stored verification result. Other providers return `unsupported`; `verified` establishes endpoint access, not credit or generation permissions. Live discovery is explicit and uncached. Empty or failed discovery falls back to catalog data with nested discovery outcome metadata.
+`verify` makes one explicit authenticated model-list request for OpenAI, Anthropic, or Gemini, with no generation, retries, polling, or stored verification result. Other providers return `unsupported`; `verified` establishes endpoint access, not credit or generation permissions. An empty or failed provider listing leaves models.dev and manual models.
 
 Removing a custom provider removes its global credential before removing its definition and models. If the settings write then fails, the operation reports `PROVIDER_REMOVAL_PARTIAL`; retry removal. Environment and strategy-scoped credentials remain unchanged.

@@ -9,6 +9,7 @@ import { isRunning, readPid, removePid } from "../pid/pid";
 import {
   buildDaemonProcessEnvOverrides,
   buildDaemonProcessForegroundArgs,
+  validateDaemonConsoleOptions,
 } from "../process.utils";
 import { type DaemonProcessStatus, getDaemonProcessStatus } from "./status";
 
@@ -20,6 +21,12 @@ export interface DaemonProcessStartOptions {
   readonly port?: number;
   /** Enable debug-level daemon logging. @default false */
   readonly verbose?: boolean;
+  /** Write application logs to stderr; requires foreground mode. */
+  readonly console?: boolean;
+  /** Console log format; requires foreground mode. */
+  readonly consoleFormat?: "text" | "json";
+  /** Include agent and tool payloads and enable debug logging. */
+  readonly logPayloads?: boolean;
   /** Treat an already-running daemon as success. @default false */
   readonly allowExisting?: boolean;
   /** Command prefix used to invoke the daemon CLI before start flags. */
@@ -45,6 +52,7 @@ export interface DaemonProcessStartResult {
 export async function startDaemonProcess(
   options: DaemonProcessStartOptions = {},
 ): Promise<DaemonProcessStartResult> {
+  validateDaemonConsoleOptions(options);
   const config = loadDaemonConfig({
     env: buildDaemonProcessEnvOverrides(options),
   });

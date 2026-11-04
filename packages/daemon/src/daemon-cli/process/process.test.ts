@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   getDaemonProcessStatus,
+  restartDaemonProcess,
   startDaemonProcess,
   stopDaemonProcess,
 } from ".";
@@ -11,6 +12,8 @@ import { resetDaemonDefaultOverrides } from "../../defaults";
 import {
   buildDaemonProcessEnvOverrides,
   buildDaemonProcessForegroundArgs,
+  buildStartOptions,
+  validateDaemonConsoleOptions,
 } from "./process.utils";
 
 const tempDirs: string[] = [];
@@ -72,6 +75,58 @@ describe("getDaemonProcessStatus", () => {
 });
 
 describe("daemon process utils", () => {
+  it("should preserve explicit false flags and override inherited logging settings", () => {
+    const options = buildStartOptions(
+      {
+        foreground: true,
+        console: false,
+        consoleFormat: "json",
+        logPayloads: false,
+      },
+      {},
+    );
+    expect(options).toMatchObject({
+      foreground: true,
+      console: false,
+      consoleFormat: "json",
+      logPayloads: false,
+    });
+    expect(
+      buildDaemonProcessEnvOverrides({
+        ...options,
+        env: {
+          COMMA_DAEMON_CONSOLE: "true",
+          COMMA_DAEMON_LOG_PAYLOADS: "true",
+        },
+      }),
+    ).toMatchObject({
+      COMMA_DAEMON_CONSOLE: "false",
+      COMMA_DAEMON_CONSOLE_FORMAT: "json",
+      COMMA_DAEMON_LOG_PAYLOADS: "false",
+    });
+    expect(
+      buildDaemonProcessEnvOverrides({ console: true, env: {} })
+        .COMMA_DAEMON_CONSOLE_FORMAT,
+    ).toBe("text");
+  });
+
+  it("should require foreground for console flags and allow detached payload logging", () => {
+    for (const options of [
+      { console: true },
+      { console: false },
+      { consoleFormat: "json" as const },
+    ]) {
+      expect(() => validateDaemonConsoleOptions(options)).toThrow(
+        "--foreground",
+      );
+      expect(() =>
+        validateDaemonConsoleOptions({ ...options, foreground: true }),
+      ).not.toThrow();
+    }
+    expect(() =>
+      validateDaemonConsoleOptions({ logPayloads: true }),
+    ).not.toThrow();
+  });
   it("builds env overrides for port and verbose mode", () => {
     const env = buildDaemonProcessEnvOverrides({
       env: { EXISTING_VALUE: "kept" },
@@ -104,6 +159,28 @@ describe("daemon process utils", () => {
 });
 
 describe("daemon kernel process startup", () => {
+  it("should reject invalid restart console flags before stopping an existing process", async () => {
+    const directory = createTempDir();
+    const child = Bun.spawn(
+      [process.execPath, "--eval", "setInterval(() => {}, 1000)"],
+      { stdio: ["ignore", "ignore", "ignore"] },
+    );
+    const env = createEnv(directory);
+    writeFileSync(env.COMMA_DAEMON_PID_FILE!, String(child.pid));
+    try {
+      await expect(
+        restartDaemonProcess({ console: true, env }),
+      ).rejects.toThrow("--foreground");
+      expect(() => process.kill(child.pid, 0)).not.toThrow();
+      expect(await Bun.file(env.COMMA_DAEMON_PID_FILE!).text()).toBe(
+        String(child.pid),
+      );
+    } finally {
+      child.kill();
+      await child.exited;
+      resetDaemonDefaultOverrides();
+    }
+  });
   it("should wait for the launched process to publish its own PID", async () => {
     const directory = createTempDir();
     const pidFile = join(directory, "daemon.pid");

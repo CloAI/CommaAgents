@@ -66,8 +66,9 @@ describe("plugin notifications", () => {
       notificationHooks: {
         beforeSubscribe: () => hydration.promise,
         onSubscribe(type, key, deliver) {
-          if (type === "changed" && key === "one")
+          if (type === "changed" && key === "one") {
             deliver({ type: "changed", value: currentValue });
+          }
         },
       },
     });

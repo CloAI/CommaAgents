@@ -27,14 +27,60 @@ function readRecords(file: string): Record<string, unknown>[] {
 }
 afterEach(() => {
   resetSync();
-  for (const directory of directories.splice(0))
+  for (const directory of directories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 describe("application logging", () => {
+  test("should select console format independently of JSON file output and disable console output", async () => {
+    for (const consoleFormat of ["text", "json"] as const) {
+      for (const stderrEnabled of [true, false]) {
+        const file = logFile();
+        const script = `
+          import { initializeLogging } from ${JSON.stringify(new URL("./index.ts", import.meta.url).pathname)};
+          import { getLogger } from ${JSON.stringify(import.meta.resolve("@logtape/logtape"))};
+          const logging = initializeLogging(${JSON.stringify({ file, consoleFormat, stderr: stderrEnabled, level: "debug" })});
+          getLogger(["comma", "test"]).debug("Tool completed", { toolCallId: "tool-1", durationMs: 12 });
+          logging.close();
+        `;
+        const child = Bun.spawn([process.execPath, "--eval", script], {
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const [code, stdout, stderr] = await Promise.all([
+          child.exited,
+          new Response(child.stdout).text(),
+          new Response(child.stderr).text(),
+        ]);
+        expect(code).toBe(0);
+        expect(stdout).toBe("");
+        if (!stderrEnabled) {
+          expect(stderr).toBe("");
+        } else if (consoleFormat === "json") {
+          expect(JSON.parse(stderr)).toMatchObject({
+            message: "Tool completed",
+            properties: { toolCallId: "tool-1" },
+          });
+        } else {
+          expect(stderr).toContain("Tool completed");
+          expect(stderr).toContain("tool-1");
+          expect(stderr).toContain("12");
+          expect(stderr.trim().startsWith("{")).toBe(false);
+        }
+        expect(readRecords(file)).toMatchObject([
+          {
+            level: "DEBUG",
+            message: "Tool completed",
+            properties: { toolCallId: "tool-1", durationMs: 12 },
+          },
+        ]);
+      }
+    }
+  });
   test("package imports are silent and foreground diagnostics go only to stderr", async () => {
     const script = `
-      import { initializeLogging } from ${JSON.stringify(new URL("./configure.ts", import.meta.url).pathname)};
+      import { initializeLogging } from ${JSON.stringify(new URL("./index.ts", import.meta.url).pathname)};
       import { getLogger } from ${JSON.stringify(import.meta.resolve("@logtape/logtape"))};
       const logger = getLogger(["comma", "smoke"]);
       logger.error("before configuration");
@@ -64,7 +110,7 @@ describe("application logging", () => {
   test("retains file diagnostics when background process stdio is ignored", async () => {
     const file = logFile();
     const script = `
-      import { initializeLogging } from ${JSON.stringify(new URL("./configure.ts", import.meta.url).pathname)};
+      import { initializeLogging } from ${JSON.stringify(new URL("./index.ts", import.meta.url).pathname)};
       import { getLogger } from ${JSON.stringify(import.meta.resolve("@logtape/logtape"))};
       const logging = initializeLogging({ file: ${JSON.stringify(file)} });
       getLogger(["comma", "smoke"]).info("background diagnostic");
@@ -122,8 +168,9 @@ describe("application logging", () => {
       maxFiles: 2,
     });
     // Cross the package's write buffer repeatedly as well as the rotation threshold.
-    for (let i = 0; i < 100; i++)
+    for (let i = 0; i < 100; i++) {
       logger.info("entry {i}: {payload}", { i, payload: "x".repeat(200) });
+    }
     logging.close();
     expect(readdirSync(join(file, "..")).sort()).toEqual([
       "daemon.log",

@@ -28,8 +28,14 @@ for (const failure of [
             calls.push("kernel");
             expect(runs.runsDir).toBe("runs-directory");
             if (failure === "kernel") throw new Error("kernel");
-            await initialize?.({});
-            return { plugins: {}, async dispose() {
+            await initialize?.({ runs: { registerRunPreparation(registration) {
+              expect(registration.name).toBe("privacy");
+              expect(typeof registration.prepare).toBe("function");
+            }, registerStrategyHooks(registration) {
+              expect(registration.name).toBe("logging");
+              expect(typeof registration.attach).toBe("function");
+            } } });
+            return { plugins: { core: { providers: { async load() { calls.push("load"); } } } }, async dispose() {
               calls.push("dispose");
               getLogger(["comma", "daemon", "kernel"]).info("final diagnostic");
               if (failure === "dispose") throw new Error("dispose");
@@ -39,7 +45,7 @@ for (const failure of [
         mock.module(${JSON.stringify(new URL("../../daemon-server/index.ts", import.meta.url).pathname)}, () => ({
           createDaemonServer({ daemon, host, port }) {
             calls.push("server");
-            expect(daemon.plugins).toEqual({});
+            expect(Object.keys(daemon.plugins)).toEqual(["core"]);
             expect({ host, port }).toEqual({ host: "127.0.0.1", port: 7422 });
             if (failure === "server") throw new Error("server");
             return { url: "ws://127.0.0.1:7422/ws",
@@ -63,7 +69,7 @@ for (const failure of [
           expect(runtime.stop()).toBe(firstStop);
           if (failure === "stop" || failure === "dispose") await expect(firstStop).rejects.toThrow(failure);
           else await firstStop;
-          expect(calls).toEqual(["kernel", "server", "start", "pid", "stop", "dispose", "remove"]);
+          expect(calls).toEqual(["kernel", "server", "start", "load", "pid", "stop", "dispose", "remove"]);
         }
         if (["server", "start", "pid"].includes(failure)) expect(calls.filter((call) => call === "dispose")).toHaveLength(1);
         if (["start", "pid"].includes(failure)) expect(calls.indexOf("stop")).toBeLessThan(calls.indexOf("dispose"));

@@ -1,12 +1,14 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { inspect } from "node:util";
 import { getRotatingFileSink } from "@logtape/file";
 import {
   configureSync,
   getConfig,
   getConsoleSink,
   getJsonLinesFormatter,
+  getTextFormatter,
   resetSync,
   type LogLevel,
   type Sink,
@@ -22,8 +24,10 @@ export interface LoggingOptions {
   readonly maxSize?: number;
   /** Number of rotated backups to retain. @default 5 */
   readonly maxFiles?: number;
-  /** Write JSON logs to stderr. @default true */
+  /** Write application logs to stderr. @default true */
   readonly stderr?: boolean;
+  /** Format used for console output; file output always uses JSON. @default "json" */
+  readonly consoleFormat?: "text" | "json";
 }
 
 /**
@@ -59,9 +63,28 @@ export function initializeLogging(options: LoggingOptions = {}): {
       error: "error",
       fatal: "error",
     },
-    formatter,
+    formatter:
+      options.consoleFormat === "text"
+        ? getTextFormatter({
+            format: ({ timestamp, level, category, message, record }) => {
+              const properties = Object.keys(record.properties).length
+                ? ` ${inspect(record.properties, {
+                    depth: null,
+                    colors: false,
+                    maxArrayLength: null,
+                    maxStringLength: null,
+                    breakLength: Infinity,
+                    compact: true,
+                  })}`
+                : "";
+              return `${timestamp} ${level} [${category}] ${message}${properties}`;
+            },
+          })
+        : formatter,
   });
-  if (options.file) mkdirSync(dirname(options.file), { recursive: true });
+  if (options.file) {
+    mkdirSync(dirname(options.file), { recursive: true });
+  }
   const file = options.file
     ? getRotatingFileSink(options.file, { formatter, maxSize, maxFiles })
     : undefined;
@@ -96,10 +119,14 @@ export function initializeLogging(options: LoggingOptions = {}): {
   let closed = false;
   return {
     close() {
-      if (closed) return;
+      if (closed) {
+        return;
+      }
       closed = true;
       // Do not dispose configuration installed later by an embedding application.
-      if (getConfig() === ownedConfig) resetSync();
+      if (getConfig() === ownedConfig) {
+        resetSync();
+      }
     },
   };
 }
