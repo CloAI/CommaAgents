@@ -33,9 +33,6 @@ export const exampleProviders: readonly DiscoveredProvider[] = [
       },
     ],
     origin: "catalog",
-    discovery: {
-      status: "catalog_only",
-    },
   },
   {
     id: "beta",
@@ -59,9 +56,6 @@ export const exampleProviders: readonly DiscoveredProvider[] = [
       },
     ],
     origin: "catalog",
-    discovery: {
-      status: "catalog_only",
-    },
   },
   {
     id: "empty",
@@ -70,8 +64,5 @@ export const exampleProviders: readonly DiscoveredProvider[] = [
     authStatus: "none",
     models: [],
     origin: "registered",
-    discovery: {
-      status: "catalog_only",
-    },
   },
 ];

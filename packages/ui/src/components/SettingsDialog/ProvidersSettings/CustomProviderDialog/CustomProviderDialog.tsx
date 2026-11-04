@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
+import type { FieldErrors, UseFormRegister } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { customProviderSchema } from "./CustomProviderDialog.schemas";
+import type { CustomProviderValues } from "./CustomProviderDialog.types";
+import { useCallback, useId, useRef, useState } from "react";
 import type { FormEventHandler } from "react";
 import { Button } from "../../../../design-system/Button";
+import { Modal } from "../../../../design-system/Modal";
 import { TextArea } from "../../../../design-system/TextArea";
 import { normalizeModelId } from "../AddModelDialog/AddModelDialog.utils";
 import { Input } from "../../../../design-system/Input";
@@ -21,9 +27,7 @@ export interface CustomProviderDialogProps {
   /** Close the workflow, keeping changes already saved to core. */
   readonly onClose: () => void;
   /** Reload providers without performing another mutation. */
-  readonly onChanged: (change?: ProviderSettingsChange) => Promise<void>;
-  /** Block parent dismissal while a submitted command is pending. */
-  readonly onBusyChange?: (busy: boolean) => void;
+  readonly onChanged: (change: ProviderSettingsChange) => void;
 }
 
 /**
@@ -54,21 +58,29 @@ function ExistingCustomProviderDialog({
     { command: "core.providers.getConfiguration" },
     { providerId: provider.id },
   );
-  if (!data || !data.customProvider)
+  if (!data || !data.customProvider) {
     return (
-      <div className={styles.form}>
-        <p role={isLoading ? "status" : "alert"} className={styles.notice}>
-          {isLoading
-            ? "Loading provider..."
-            : (errors?.message ??
-              clientError?.message ??
-              "This provider is not owned by user settings.")}
-        </p>
-        <div className={styles.actions}>
-          <Button onClick={props.onClose}>Close</Button>
+      <Modal
+        open
+        title="Configure Custom Provider"
+        onClose={props.onClose}
+        className={styles.modal}
+      >
+        <div className={styles.form}>
+          <p role={isLoading ? "status" : "alert"} className={styles.notice}>
+            {isLoading
+              ? "Loading provider..."
+              : (errors?.message ??
+                clientError?.message ??
+                "This provider is not owned by user settings.")}
+          </p>
+          <div className={styles.actions}>
+            <Button onClick={props.onClose}>Close</Button>
+          </div>
         </div>
-      </div>
+      </Modal>
     );
+  }
   return <CustomProviderForm {...props} provider={provider} initial={data} />;
 }
 
@@ -81,7 +93,6 @@ function CustomProviderForm({
   initial,
   onClose,
   onChanged,
-  onBusyChange = () => {},
 }: CustomProviderDialogProps & { readonly initial?: ProviderConfiguration }) {
   const { mutate: add } = useDaemonMutation("core.providers.addCustomProvider");
   const { mutate: update } = useDaemonMutation(
@@ -94,201 +105,155 @@ function CustomProviderForm({
   const { mutate: remove } = useDaemonMutation(
     "core.providers.removeCustomProvider",
   );
-  const [id, setId] = useState(provider?.id ?? "");
-  const [name, setName] = useState(initial?.customProvider?.name ?? "");
-  const [baseURL, setBaseURL] = useState(
-    initial?.customProvider?.baseURL ?? "",
-  );
-  const [credentialType, setCredentialType] = useState<"api" | "none">(
-    initial?.customProvider?.credentialType ?? "api",
-  );
-  const [apiKey, setApiKey] = useState("");
-  const [models, setModels] = useState("");
+  const {
+    register,
+    control,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(customProviderSchema),
+    defaultValues: {
+      id: provider?.id ?? "",
+      name: initial?.customProvider?.name ?? "",
+      baseURL: initial?.customProvider?.baseURL ?? "",
+      credentialType: initial?.customProvider?.credentialType ?? "api",
+      apiKey: "",
+      models: "",
+    },
+  });
+  const credentialType = useWatch({ control, name: "credentialType" });
   const savedModels = useRef(
     new Set(initial?.customModels.map((model) => model.id)),
   );
   const [savedId, setSavedId] = useState<string | null>(provider?.id ?? null);
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState<"form" | "remove" | "refreshIssue">("form");
+  const [step, setStep] = useState<"form" | "remove">("form");
   const [error, setError] = useState<string | null>(null);
-  const [pendingChange, setPendingChange] = useState<ProviderSettingsChange>();
   const inputId = useId();
-  useEffect(() => {
-    onBusyChange(busy);
-  }, [busy, onBusyChange]);
-  useEffect(() => () => onBusyChange(false), [onBusyChange]);
-
-  const refresh = useCallback(
-    async (change: ProviderSettingsChange) => {
-      setPendingChange(change);
-      try {
-        await onChanged(change);
-        onClose();
-      } catch (caught) {
-        setStep("refreshIssue");
-        setError(
-          `Changes were saved, but providers could not be reloaded. ${providerErrorMessage(caught)}`,
-        );
-      }
-    },
-    [onChanged, onClose],
-  );
-
-  const handleSave = useCallback<FormEventHandler<HTMLFormElement>>(
-    (event) => {
-      event.preventDefault();
-      if (busy) return;
-      const providerId = id.trim();
-      if (!/^[a-z0-9][a-z0-9_-]*$/.test(providerId)) {
-        setError(
-          "Use lowercase letters, digits, hyphens, and underscores for the provider ID.",
-        );
+  const handleSave = useCallback(
+    async ({
+      id,
+      name,
+      baseURL,
+      credentialType,
+      apiKey,
+      models,
+    }: CustomProviderValues) => {
+      if (busy) {
         return;
       }
-      if (!name.trim()) {
-        setError("Enter a display name.");
-        return;
-      }
-      let validURL = false;
-      try {
-        const url = new URL(baseURL.trim());
-        validURL =
-          ["http:", "https:"].includes(url.protocol) &&
-          !url.username &&
-          !url.password &&
-          !url.search &&
-          !url.hash;
-      } catch {
-        validURL = false;
-      }
-      if (!validURL) {
-        setError(
-          "Enter an HTTP(S) API base URL without credentials, query parameters, or a fragment.",
-        );
-        return;
-      }
+      const providerId = id;
       setBusy(true);
       setError(null);
-      void (async () => {
-        let persisted = false;
-        let persistedProviderId = providerId;
-        let pendingModel: string | undefined;
-        try {
-          const fields = {
-            name: name.trim(),
-            baseURL: baseURL.trim(),
-            credentialType,
-          };
-          const result = savedId
-            ? await update({ providerId: savedId, ...fields })
-            : await add({ id: providerId, ...fields });
-          persisted = true;
-          persistedProviderId = result.id;
-          setSavedId(result.id);
-          setId(result.id);
-          if (credentialType === "api" && apiKey.trim())
-            await configure({ providerId: result.id, apiKey: apiKey.trim() });
-          const modelIds = new Set(
-            models
-              .split(/\r?\n/)
-              .map((value) => normalizeModelId(result.id, value))
-              .filter(Boolean),
-          );
-          for (const modelId of modelIds) {
-            if (savedModels.current.has(modelId)) continue;
-            pendingModel = modelId;
-            await addModel({ providerId: result.id, modelId });
-            savedModels.current.add(modelId);
-          }
-          await refresh({ providerId: result.id });
-        } catch (caught) {
-          const message = `${persisted ? "Provider definition is saved. " : ""}${pendingModel ? `Could not add model ${pendingModel}. ` : ""}${providerErrorMessage(caught)}`;
-          setError(message);
-          if (persisted) {
-            try {
-              await onChanged({ providerId: persistedProviderId });
-            } catch {
-              setError(
-                `${message} Providers could not be reloaded; reopen settings to refresh.`,
-              );
-            }
-          }
-        } finally {
-          setBusy(false);
+      let persisted = false;
+      let persistedProviderId = providerId;
+      let pendingModel: string | undefined;
+      try {
+        const fields = {
+          name: name.trim(),
+          baseURL,
+          credentialType,
+        };
+        const result = savedId
+          ? await update({ providerId: savedId, ...fields })
+          : await add({ id: providerId, ...fields });
+        persisted = true;
+        persistedProviderId = result.id;
+        setSavedId(result.id);
+        setValue("id", result.id);
+        if (credentialType === "api" && apiKey.trim()) {
+          await configure({ providerId: result.id, apiKey: apiKey.trim() });
         }
-      })();
+        const modelIds = new Set(
+          models
+            .split(/\r?\n/)
+            .map((value) => normalizeModelId(result.id, value))
+            .filter(Boolean),
+        );
+        for (const modelId of modelIds) {
+          if (savedModels.current.has(modelId)) {
+            continue;
+          }
+          pendingModel = modelId;
+          await addModel({ providerId: result.id, modelId });
+          savedModels.current.add(modelId);
+        }
+        onChanged({ providerId: result.id });
+        onClose();
+      } catch (caught) {
+        setError(
+          `${persisted ? "Provider definition is saved. " : ""}${pendingModel ? `Could not add model ${pendingModel}. ` : ""}${providerErrorMessage(caught)}`,
+        );
+        if (persisted) {
+          onChanged({ providerId: persistedProviderId });
+        }
+      } finally {
+        setBusy(false);
+      }
     },
     [
       add,
       addModel,
-      models,
-      apiKey,
-      baseURL,
       busy,
       configure,
-      credentialType,
-      id,
-      name,
       onChanged,
-      refresh,
+      onClose,
       savedId,
+      setValue,
       update,
     ],
   );
 
   const handleRemove = useCallback(() => {
-    if (!savedId || busy) return;
+    if (!savedId || busy) {
+      return;
+    }
     setBusy(true);
     setError(null);
     void (async () => {
       try {
         await remove({ providerId: savedId });
-        await refresh({ providerId: savedId });
+        onChanged({ providerId: savedId });
+        onClose();
       } catch (caught) {
         setError(providerErrorMessage(caught));
       } finally {
         setBusy(false);
       }
     })();
-  }, [busy, refresh, remove, savedId]);
-  const retryRefresh = useCallback(() => {
-    if (!pendingChange || busy) return;
-    setBusy(true);
-    void refresh(pendingChange).finally(() => setBusy(false));
-  }, [busy, pendingChange, refresh]);
+  }, [busy, onChanged, onClose, remove, savedId]);
 
   return (
-    <CustomProviderDialogRender
-      inputId={inputId}
-      id={id}
-      name={name}
-      baseURL={baseURL}
-      credentialType={credentialType}
-      apiKey={apiKey}
-      models={models}
-      onModelsChange={setModels}
-      saved={savedId !== null}
-      busy={busy}
-      step={step}
-      error={error}
-      onIdChange={setId}
-      onNameChange={setName}
-      onBaseURLChange={setBaseURL}
-      onCredentialTypeChange={setCredentialType}
-      onApiKeyChange={setApiKey}
-      onSubmit={handleSave}
-      onClose={onClose}
-      onAskRemove={() => {
-        setStep("remove");
-        setError(null);
-      }}
-      onCancelRemove={() => {
-        setStep("form");
-        setError(null);
-      }}
-      onConfirmRemove={handleRemove}
-      onRetryRefresh={retryRefresh}
-    />
+    // Saving cannot be dismissed.
+    <Modal
+      open
+      title={provider ? "Configure Custom Provider" : "Add Custom Provider"}
+      onClose={() => !busy && onClose()}
+      className={styles.modal}
+    >
+      <CustomProviderDialogRender
+        inputId={inputId}
+        credentialType={credentialType}
+        saved={savedId !== null}
+        busy={busy}
+        step={step}
+        error={error}
+        errors={errors}
+        onSubmit={handleSubmit(handleSave)}
+        register={register}
+        onClose={onClose}
+        onAskRemove={() => {
+          setStep("remove");
+          setError(null);
+        }}
+        onCancelRemove={() => {
+          setStep("form");
+          setError(null);
+        }}
+        onConfirmRemove={handleRemove}
+      />
+    </Modal>
   );
 }
 
@@ -296,38 +261,20 @@ function CustomProviderForm({
 export interface CustomProviderDialogRenderProps {
   /** Accessible field-ID prefix. */
   readonly inputId: string;
-  /** Provider identity, immutable once saved. */
-  readonly id: string;
-  /** Display name draft. */
-  readonly name: string;
-  /** Complete API prefix draft. */
-  readonly baseURL: string;
+  /** Register native endpoint fields with the form. */
+  readonly register: UseFormRegister<CustomProviderValues>;
   /** Authentication required by the endpoint. */
   readonly credentialType: "api" | "none";
-  /** Optional new API key, never a stored credential. */
-  readonly apiKey: string;
-  /** Optional model IDs, one per line; persisted after the endpoint exists. */
-  readonly models: string;
-  /** Edit model IDs to add through separate commands. */
-  readonly onModelsChange: (value: string) => void;
+  /** Field validation feedback. */
+  readonly errors: FieldErrors<CustomProviderValues>;
   /** Whether the definition has already been persisted. */
   readonly saved: boolean;
   /** Whether a command is pending. */
   readonly busy: boolean;
   /** One inline workflow step. */
-  readonly step: "form" | "remove" | "refreshIssue";
+  readonly step: "form" | "remove";
   /** Safe local/server feedback. */
   readonly error: string | null;
-  /** Edit identity before creation. */
-  readonly onIdChange: (value: string) => void;
-  /** Edit display name. */
-  readonly onNameChange: (value: string) => void;
-  /** Edit API prefix. */
-  readonly onBaseURLChange: (value: string) => void;
-  /** Edit authentication mode. */
-  readonly onCredentialTypeChange: (value: "api" | "none") => void;
-  /** Edit the optional new key. */
-  readonly onApiKeyChange: (value: string) => void;
   /** Save the definition, optional key, and requested model additions. */
   readonly onSubmit: FormEventHandler<HTMLFormElement>;
   /** Close while preserving already-saved changes. */
@@ -338,57 +285,29 @@ export interface CustomProviderDialogRenderProps {
   readonly onCancelRemove: () => void;
   /** Remove the saved definition and global key. */
   readonly onConfirmRemove: () => void;
-  /** Retry the failed reload without repeating mutations. */
-  readonly onRetryRefresh: () => void;
 }
 
 /**
- * Render endpoint editing or its inline removal/reload step.
+ * Render endpoint editing or its inline removal step.
  * @param {CustomProviderDialogRenderProps} props - Form data and actions.
  * @returns {React.ReactElement} Compact endpoint form without another modal.
  */
 export function CustomProviderDialogRender({
   inputId,
-  id,
-  name,
-  baseURL,
+  register,
   credentialType,
-  apiKey,
-  models,
-  onModelsChange,
   saved,
   busy,
   step,
   error,
-  onIdChange,
-  onNameChange,
-  onBaseURLChange,
-  onCredentialTypeChange,
-  onApiKeyChange,
+  errors,
   onSubmit,
   onClose,
   onAskRemove,
   onCancelRemove,
   onConfirmRemove,
-  onRetryRefresh,
 }: CustomProviderDialogRenderProps) {
-  if (step === "refreshIssue")
-    return (
-      <div className={styles.form}>
-        <p role="alert" className={styles.error}>
-          {error}
-        </p>
-        <div className={styles.actions}>
-          <Button disabled={busy} onClick={onClose}>
-            Close
-          </Button>
-          <Button disabled={busy} onClick={onRetryRefresh}>
-            {busy ? "Reloading..." : "Retry reload"}
-          </Button>
-        </div>
-      </div>
-    );
-  if (step === "remove")
+  if (step === "remove") {
     return (
       <div className={styles.form}>
         <p className={styles.message}>
@@ -417,41 +336,66 @@ export function CustomProviderDialogRender({
         </div>
       </div>
     );
+  }
   return (
     <form noValidate onSubmit={onSubmit} className={styles.form}>
       <div className={styles.field}>
         <label htmlFor={`${inputId}-id`}>Provider ID</label>
         <Input
           id={`${inputId}-id`}
-          value={id}
+          {...register("id")}
+          aria-invalid={Boolean(errors.id)}
+          aria-describedby={errors.id ? `${inputId}-id-error` : undefined}
           disabled={busy || saved}
           autoComplete="off"
           spellCheck={false}
-          onChange={(event) => onIdChange(event.target.value)}
           placeholder="my-provider"
         />
+        {errors.id && (
+          <p id={`${inputId}-id-error`} role="alert" className={styles.error}>
+            {errors.id.message}
+          </p>
+        )}
       </div>
       <div className={styles.field}>
         <label htmlFor={`${inputId}-name`}>Display name</label>
         <Input
           id={`${inputId}-name`}
-          value={name}
+          {...register("name")}
+          aria-invalid={Boolean(errors.name)}
+          aria-describedby={errors.name ? `${inputId}-name-error` : undefined}
           disabled={busy}
-          onChange={(event) => onNameChange(event.target.value)}
         />
+        {errors.name && (
+          <p id={`${inputId}-name-error`} role="alert" className={styles.error}>
+            {errors.name.message}
+          </p>
+        )}
       </div>
       <div className={styles.field}>
         <label htmlFor={`${inputId}-url`}>API base URL</label>
         <Input
           id={`${inputId}-url`}
           type="url"
-          value={baseURL}
+          {...register("baseURL")}
+          aria-invalid={Boolean(errors.baseURL)}
+          aria-describedby={
+            errors.baseURL ? `${inputId}-baseURL-error` : undefined
+          }
           disabled={busy}
           autoComplete="off"
           spellCheck={false}
-          onChange={(event) => onBaseURLChange(event.target.value)}
           placeholder="http://localhost:1234/v1"
         />
+        {errors.baseURL && (
+          <p
+            id={`${inputId}-baseURL-error`}
+            role="alert"
+            className={styles.error}
+          >
+            {errors.baseURL.message}
+          </p>
+        )}
         <p className={styles.notice}>
           Include the API prefix, such as /v1, when your server requires it.
         </p>
@@ -461,11 +405,8 @@ export function CustomProviderDialogRender({
         <select
           id={`${inputId}-auth`}
           className={styles.select}
-          value={credentialType}
+          {...register("credentialType")}
           disabled={busy}
-          onChange={(event) =>
-            onCredentialTypeChange(event.target.value as "api" | "none")
-          }
         >
           <option value="api">API key</option>
           <option value="none">None</option>
@@ -478,10 +419,9 @@ export function CustomProviderDialogRender({
             id={`${inputId}-key`}
             type="password"
             autoComplete="new-password"
-            value={apiKey}
+            {...register("apiKey")}
             disabled={busy}
             spellCheck={false}
-            onChange={(event) => onApiKeyChange(event.target.value)}
           />
           <p className={styles.notice}>
             Leave blank to configure a key later
@@ -493,13 +433,12 @@ export function CustomProviderDialogRender({
         <label htmlFor={`${inputId}-models`}>Models (optional)</label>
         <TextArea
           id={`${inputId}-models`}
-          value={models}
+          {...register("models")}
           rows={3}
           disabled={busy}
           autoComplete="off"
           spellCheck={false}
           placeholder={"model-name\nanother-model"}
-          onChange={(event) => onModelsChange(event.target.value)}
         />
         <p className={styles.notice}>
           One model ID per line. The provider prefix is added automatically.

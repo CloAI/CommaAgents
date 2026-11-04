@@ -11,12 +11,18 @@
 .menu {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
   flex: 0 0 11rem;
-  padding: var(--space-3);
+  padding: 0;
   border-right: 1px solid var(--color-border);
 }
 .sectionButton {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 2rem;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-inline-start: 2px solid transparent;
+  border-radius: 0;
   text-align: left;
   background: transparent;
   color: var(--color-muted);
@@ -27,7 +33,11 @@
   }
   &[aria-current="true"] {
     background: var(--color-surface-raised);
+    border-inline-start-color: var(--color-primary);
     color: var(--color-primary);
+  }
+  &:focus-visible {
+    outline-offset: -2px;
   }
 }
 .sections,
@@ -53,12 +63,17 @@
     flex: none;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: var(--space-1);
-    padding: var(--space-2);
     border-right: 0;
     border-bottom: 1px solid var(--color-border);
   }
   .sectionButton {
+    flex: 1 0 auto;
+    width: auto;
+    border-inline-start: 0;
+    border-bottom: 2px solid transparent;
     white-space: nowrap;
+    &[aria-current="true"] {
+      border-bottom-color: var(--color-primary);
+    }
   }
 }

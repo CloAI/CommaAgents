@@ -4,7 +4,6 @@ import {
   expect,
   fireEvent,
   fn,
-  mocked,
   userEvent,
   waitFor,
   within,
@@ -72,14 +71,12 @@ async function saved(socket: MockWebSocket) {
 }
 
 const meta = {
-  title: "Components/SettingsDialog/AddModelDialog",
+  title: "Components/SettingsDialog/ProvidersSettings/AddModelDialog",
   component: AddModelDialog,
   args: {
     providers: exampleProviders,
     initialProviderId: "alpha",
     onClose: fn(),
-    onChanged: fn(async () => undefined),
-    onBusyChange: fn(),
   },
   beforeEach: () => {
     const previous = globalThis.WebSocket;
@@ -171,7 +168,6 @@ export const Metadata: Story = {
       "capabilities.vision",
     );
     await saved(socket);
-    await expect(args.onChanged).toHaveBeenCalledTimes(1);
     await expect(args.onClose).toHaveBeenCalledTimes(1);
   },
 };
@@ -184,6 +180,9 @@ export const Validation: Story = {
     await expect(canvas.getByRole("alert")).toHaveTextContent(
       "Model ID is required",
     );
+    await expect(
+      canvas.getByRole("textbox", { name: "Model ID" }),
+    ).toHaveFocus();
     await userEvent.type(
       canvas.getByRole("textbox", { name: "Model ID" }),
       "new-model",
@@ -197,6 +196,12 @@ export const Validation: Story = {
     await expect(canvas.getByRole("alert")).toHaveTextContent(
       "must be a valid",
     );
+    await expect(
+      canvas.getByRole("textbox", { name: "Knowledge cutoff" }),
+    ).toHaveFocus();
+    await expect(
+      canvas.getByRole("textbox", { name: "Knowledge cutoff" }),
+    ).toHaveAttribute("aria-invalid", "true");
     await expect(requests(socket)).toHaveLength(0);
   },
 };
@@ -242,32 +247,6 @@ export const ExistingManualEntry: Story = {
     await configuration(socket, [{ id: "manual" }]);
     await expect(canvas.getByRole("alert")).toHaveTextContent("already exists");
     await expect(requests(socket)).toHaveLength(1);
-  },
-};
-
-export const RefreshRetry: Story = {
-  play: async ({ canvasElement, args }) => {
-    mocked(args.onChanged)
-      .mockRejectedValueOnce(new Error("Reload failed"))
-      .mockResolvedValue(undefined);
-    const socket = await openSocket();
-    const canvas = within(canvasElement);
-    await userEvent.type(
-      canvas.getByRole("textbox", { name: "Model ID" }),
-      "new",
-    );
-    await userEvent.click(canvas.getByRole("button", { name: "Save" }));
-    await configuration(socket);
-    await saved(socket);
-    await waitFor(() =>
-      expect(canvas.getByRole("alert")).toHaveTextContent("model was saved"),
-    );
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Retry refresh" }),
-    );
-    await expect(args.onChanged).toHaveBeenCalledTimes(2);
-    await expect(args.onClose).toHaveBeenCalledTimes(1);
-    await expect(requests(socket)).toHaveLength(2);
   },
 };
 

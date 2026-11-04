@@ -14,8 +14,4 @@ export interface ProviderSettingsChange {
   readonly verification?: ProviderVerification;
 }
 /** Steps rendered inside the one active workflow dialog. */
-export type ProviderConfigurationStep =
-  | "form"
-  | "verificationIssue"
-  | "remove"
-  | "refreshIssue";
+export type ProviderConfigurationStep = "form" | "verificationIssue" | "remove";

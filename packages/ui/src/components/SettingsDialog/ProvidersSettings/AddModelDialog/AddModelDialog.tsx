@@ -1,10 +1,19 @@
+import { useController, useForm, useWatch } from "react-hook-form";
+import type {
+  FieldErrors,
+  UseFormRegister,
+  ControllerRenderProps,
+} from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { addModelSchema } from "./AddModelDialog.schemas";
 import { useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Input } from "../../../../design-system/Input";
 import { Button } from "../../../../design-system/Button";
+import { Modal } from "../../../../design-system/Modal";
 import { useDaemonMutation } from "../../../../hooks/useDaemonMutation";
 import type { DiscoveredProvider } from "../ProvidersSettings.types";
-import { MODEL_CAPABILITIES } from "../ProvidersSettings.constants";
+import { MODEL_CAPABILITIES } from "../../../ModelDetails";
 import {
   COST_FIELDS,
   EMPTY_CAPABILITIES,
@@ -13,6 +22,7 @@ import {
   TOKEN_FIELDS,
 } from "./AddModelDialog.constants";
 import type {
+  AddModelValues,
   CapabilityDraft,
   ModalityDraft,
   ModelDraft,
@@ -24,7 +34,7 @@ import {
 } from "./AddModelDialog.utils";
 import styles from "./AddModelDialog.module.scss";
 
-/** Model form content; the provider workspace owns its single workflow modal. */
+/** Model form shown in its own modal. */
 export interface AddModelDialogProps {
   /** All known providers, including providers with no models yet. */
   readonly providers: readonly DiscoveredProvider[];
@@ -32,10 +42,6 @@ export interface AddModelDialogProps {
   readonly initialProviderId?: string;
   /** Dismiss the workflow modal. */
   readonly onClose: () => void;
-  /** Refresh the provider browser after a successful model addition. */
-  readonly onChanged: () => Promise<void>;
-  /** Prevent closing the workflow while an explicit save or refresh is pending. */
-  readonly onBusyChange?: (busy: boolean) => void;
 }
 
 /**
@@ -47,101 +53,113 @@ export function AddModelDialog({
   providers,
   initialProviderId = "",
   onClose,
-  onChanged,
-  onBusyChange = () => undefined,
 }: AddModelDialogProps) {
-  const [providerId, setProviderId] = useState(initialProviderId);
-  const [draft, setDraft] = useState<ModelDraft>({ ...EMPTY_MODEL_DRAFT });
-  const [capabilities, setCapabilities] = useState<CapabilityDraft>({
-    ...EMPTY_CAPABILITIES,
+  const {
+    control,
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(
+      addModelSchema(providers.map((provider) => provider.id)),
+    ),
+    defaultValues: {
+      providerId: initialProviderId,
+      draft: { ...EMPTY_MODEL_DRAFT },
+      capabilities: { ...EMPTY_CAPABILITIES },
+      modalities: { input: [], output: [] },
+    },
   });
-  const [modalities, setModalities] = useState<ModalityDraft>({
-    input: [],
-    output: [],
+  const { field: providerField } = useController({
+    control,
+    name: "providerId",
   });
+  const { field: modelField } = useController({
+    control,
+    name: "draft.modelId",
+  });
+  const providerId = providerField.value;
+  const draft = useWatch({ control, name: "draft" });
+  const capabilities = useWatch({ control, name: "capabilities" });
+  const modalities = useWatch({ control, name: "modalities" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
   const pending = useRef(false);
   const add = useDaemonMutation("core.providers.addCustomProviderModel");
   const configuration = useDaemonMutation("core.providers.getConfiguration");
-  const refresh = async (): Promise<void> => {
-    await onChanged();
-    onClose();
-  };
-  const submit = async (event: FormEvent): Promise<void> => {
-    event.preventDefault();
-    if (pending.current) return;
+  const submit = async ({
+    providerId,
+    draft,
+    capabilities,
+    modalities,
+  }: AddModelValues): Promise<void> => {
+    if (pending.current) {
+      return;
+    }
     setError("");
     const modelId = normalizeModelId(providerId, draft.modelId);
-    if (
-      !providerId ||
-      !providers.some((provider) => provider.id === providerId)
-    ) {
-      setError("Choose a provider.");
-      return;
-    }
-    if (!modelId) {
-      setError("Model ID is required.");
-      return;
-    }
     pending.current = true;
     setBusy(true);
-    onBusyChange(true);
     try {
-      if (!saved) {
-        const metadata = parseModelMetadata(draft, capabilities, modalities);
-        const current = await configuration.mutate({ providerId });
-        if (current.customModels.some((model) => model.id === modelId))
-          throw new Error(
-            "A custom entry already exists for this model. Remove it before adding different metadata.",
-          );
-        await add.mutate({
-          providerId,
-          modelId,
-          ...(Object.keys(metadata).length ? { metadata } : {}),
-        });
-        setSaved(true);
+      const metadata = parseModelMetadata(draft, capabilities, modalities);
+      const current = await configuration.mutate({ providerId });
+      if (current.customModels.some((model) => model.id === modelId)) {
+        throw new Error(
+          "A custom entry already exists for this model. Remove it before adding different metadata.",
+        );
       }
-      await refresh();
+      await add.mutate({
+        providerId,
+        modelId,
+        ...(Object.keys(metadata).length ? { metadata } : {}),
+      });
+      onClose();
     } catch (caught) {
       setError(modelErrorMessage(caught));
     } finally {
       pending.current = false;
       setBusy(false);
-      onBusyChange(false);
     }
   };
   return (
-    <AddModelDialogRender
-      providers={providers}
-      providerId={providerId}
-      draft={draft}
-      capabilities={capabilities}
-      modalities={modalities}
-      error={error}
-      busy={busy}
-      saved={saved}
-      onProviderChange={setProviderId}
-      onDraftChange={(key, value) =>
-        setDraft((current) => ({ ...current, [key]: value }))
-      }
-      onCapabilityChange={(key, value) =>
-        setCapabilities((current) => ({ ...current, [key]: value }))
-      }
-      onModalityChange={(direction, value, checked) =>
-        setModalities((current) => ({
-          ...current,
-          [direction]: checked
-            ? [...current[direction], value]
-            : current[direction].filter((item) => item !== value),
-        }))
-      }
-      onSubmit={(event) => {
-        void submit(event);
-      }}
-      onClose={onClose}
-    />
+    // Saving cannot be dismissed.
+    <Modal
+      open
+      title="Add Model"
+      onClose={() => !busy && onClose()}
+      className={styles.modal}
+    >
+      <AddModelDialogRender
+        providers={providers}
+        providerId={providerId}
+        draft={draft}
+        capabilities={capabilities}
+        modalities={modalities}
+        error={error}
+        errors={errors}
+        register={register}
+        providerField={providerField}
+        modelField={modelField}
+        busy={busy}
+        onCapabilityChange={(key, value) =>
+          setValue(`capabilities.${key}`, value, { shouldDirty: true })
+        }
+        onModalityChange={(direction, value, checked) =>
+          setValue(
+            `modalities.${direction}`,
+            checked
+              ? [...modalities[direction], value]
+              : modalities[direction].filter((modality) => modality !== value),
+            { shouldDirty: true },
+          )
+        }
+        onSubmit={(event) => {
+          void handleSubmit(submit)(event);
+        }}
+        onClose={onClose}
+      />
+    </Modal>
   );
 }
 
@@ -153,13 +171,15 @@ export interface AddModelDialogRenderProps {
   /** Optional capability values. */ readonly capabilities: CapabilityDraft;
   /** Optional input/output modalities. */ readonly modalities: ModalityDraft;
   /** Localized validation or request failure. */ readonly error: string;
-  /** Whether a save or provider refresh is running. */ readonly busy: boolean;
-  /** Whether persistence succeeded and only refresh needs retrying. */ readonly saved: boolean;
-  /** Choose a provider. */ readonly onProviderChange: (value: string) => void;
-  /** Update one text field. */ readonly onDraftChange: (
-    key: keyof ModelDraft,
-    value: string,
-  ) => void;
+  /** Whether a save is running. */ readonly busy: boolean;
+  /** Register model text fields. */ readonly register: UseFormRegister<AddModelValues>;
+  /** Controlled provider picker binding. */ readonly providerField: ControllerRenderProps<
+    AddModelValues,
+    "providerId"
+  >;
+  /** Controlled model ID with visible prefix normalization. */
+  readonly modelField: ControllerRenderProps<AddModelValues, "draft.modelId">;
+  /** Validation feedback from the model schema. */ readonly errors: FieldErrors<AddModelValues>;
   /** Toggle whether this model supports a capability. */ readonly onCapabilityChange: (
     key: keyof CapabilityDraft,
     value: CapabilityDraft[keyof CapabilityDraft],
@@ -169,9 +189,7 @@ export interface AddModelDialogRenderProps {
     value: string,
     checked: boolean,
   ) => void;
-  /** Submit the form or retry its post-save refresh. */ readonly onSubmit: (
-    event: FormEvent,
-  ) => void;
+  /** Submit the form. */ readonly onSubmit: (event: FormEvent) => void;
   /** Dismiss the workflow. */ readonly onClose: () => void;
 }
 
@@ -188,15 +206,17 @@ export function AddModelDialogRender({
   modalities,
   error,
   busy,
-  saved,
-  onProviderChange,
-  onDraftChange,
+  register,
+  providerField,
+  modelField,
+  errors,
   onCapabilityChange,
   onModalityChange,
   onSubmit,
   onClose,
 }: AddModelDialogRenderProps) {
   const id = useId();
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -207,7 +227,7 @@ export function AddModelDialogRender({
       .includes(query.trim().toLowerCase()),
   );
   const chooseProvider = (value: string): void => {
-    onProviderChange(value);
+    providerField.onChange(value);
     setPickerOpen(false);
     setQuery("");
   };
@@ -215,15 +235,13 @@ export function AddModelDialogRender({
     (model) => model.id === normalizeModelId(providerId, draft.modelId),
   );
   return (
-    <form className={styles.form} onSubmit={onSubmit}>
+    <form noValidate className={styles.form} onSubmit={onSubmit}>
       <div className={styles.fields}>
-        <p className={styles.hint}>Only provider and model ID are required.</p>
-        {saved ? (
-          <p role="status" className={styles.hint}>
-            Model saved. Refresh the provider list to finish.
-          </p>
-        ) : null}
-        <fieldset disabled={busy || saved} className={styles.content}>
+        <p className={styles.hint}>
+          Add a custom model that isn’t shown in the model list. Choose its
+          provider and enter the model ID, then add any optional details.
+        </p>
+        <fieldset disabled={busy} className={styles.content}>
           <div
             className={styles.providerPicker}
             onBlur={(event) => {
@@ -233,9 +251,18 @@ export function AddModelDialogRender({
               }
             }}
           >
-            <label htmlFor={`${id}-provider`}>Provider</label>
+            <label htmlFor={`${id}-provider`}>
+              Provider<span aria-hidden="true">*</span>
+            </label>
             <Input
               id={`${id}-provider`}
+              ref={providerField.ref}
+              name={providerField.name}
+              onBlur={providerField.onBlur}
+              aria-invalid={Boolean(errors.providerId)}
+              aria-describedby={
+                errors.providerId ? `${id}-validation` : undefined
+              }
               role="combobox"
               aria-required="true"
               aria-expanded={pickerOpen}
@@ -261,7 +288,9 @@ export function AddModelDialogRender({
                 setPickerOpen(true);
               }}
               onKeyDown={(event) => {
-                if (event.nativeEvent.isComposing) return;
+                if (event.nativeEvent.isComposing) {
+                  return;
+                }
                 if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                   event.preventDefault();
                   setPickerOpen(true);
@@ -284,7 +313,9 @@ export function AddModelDialogRender({
                 if (event.key === "Enter" && pickerOpen) {
                   event.preventDefault();
                   const match = matches[Math.min(active, matches.length - 1)];
-                  if (match) chooseProvider(match.id);
+                  if (match) {
+                    chooseProvider(match.id);
+                  }
                 }
               }}
             />
@@ -318,7 +349,9 @@ export function AddModelDialogRender({
             ) : null}
           </div>
           <div className={styles.field}>
-            <label htmlFor={`${id}-model`}>Model ID</label>
+            <label htmlFor={`${id}-model`}>
+              Model ID<span aria-hidden="true">*</span>
+            </label>
             <span className={styles.modelIdField}>
               {providerId && (
                 <code
@@ -332,12 +365,15 @@ export function AddModelDialogRender({
               <Input
                 id={`${id}-model`}
                 aria-required="true"
-                value={draft.modelId}
+                {...modelField}
                 onChange={(event) =>
-                  onDraftChange(
-                    "modelId",
+                  modelField.onChange(
                     normalizeModelId(providerId, event.target.value),
                   )
+                }
+                aria-invalid={Boolean(errors.draft?.modelId)}
+                aria-describedby={
+                  errors.draft?.modelId ? `${id}-validation` : undefined
                 }
                 autoComplete="off"
                 spellCheck={false}
@@ -354,10 +390,7 @@ export function AddModelDialogRender({
           <div className={styles.grid}>
             <label className={styles.field}>
               Display name
-              <Input
-                value={draft.name}
-                onChange={(event) => onDraftChange("name", event.target.value)}
-              />
+              <Input {...register("draft.name")} />
             </label>
           </div>
           <fieldset className={styles.group}>
@@ -386,15 +419,36 @@ export function AddModelDialogRender({
                     type="number"
                     min="0"
                     step="1"
-                    value={draft[key]}
-                    onChange={(event) => onDraftChange(key, event.target.value)}
+                    {...register(`draft.${key}`)}
+                    aria-invalid={Boolean(errors.draft?.[key])}
+                    aria-describedby={
+                      errors.draft?.[key] ? `${id}-validation` : undefined
+                    }
                     placeholder="Unknown"
                   />
                 </label>
               ))}
             </div>
           </fieldset>
-          <details className={styles.advanced}>
+          <details
+            className={styles.advanced}
+            onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+            open={
+              advancedOpen ||
+              Boolean(
+                errors.draft &&
+                Object.keys(errors.draft).some((key) =>
+                  [
+                    "knowledgeCutoff",
+                    "releaseDate",
+                    "lastUpdated",
+                    "status",
+                    ...COST_FIELDS.map((field) => field.key),
+                  ].includes(key),
+                ),
+              )
+            }
+          >
             <summary>Advanced metadata</summary>
             <div className={styles.advancedContent}>
               <fieldset className={styles.group}>
@@ -431,9 +485,10 @@ export function AddModelDialogRender({
                         type="number"
                         min="0"
                         step="any"
-                        value={draft[key]}
-                        onChange={(event) =>
-                          onDraftChange(key, event.target.value)
+                        {...register(`draft.${key}`)}
+                        aria-invalid={Boolean(errors.draft?.[key])}
+                        aria-describedby={
+                          errors.draft?.[key] ? `${id}-validation` : undefined
                         }
                         placeholder="Unknown"
                       />
@@ -445,20 +500,24 @@ export function AddModelDialogRender({
                 <label className={styles.field}>
                   Knowledge cutoff
                   <Input
-                    value={draft.knowledgeCutoff}
-                    placeholder="YYYY-MM or YYYY-MM-DD"
-                    onChange={(event) =>
-                      onDraftChange("knowledgeCutoff", event.target.value)
+                    {...register("draft.knowledgeCutoff")}
+                    aria-invalid={Boolean(errors.draft?.knowledgeCutoff)}
+                    aria-describedby={
+                      errors.draft?.knowledgeCutoff
+                        ? `${id}-validation`
+                        : undefined
                     }
+                    placeholder="YYYY-MM or YYYY-MM-DD"
                   />
                 </label>
                 <label className={styles.field}>
                   Release date
                   <Input
                     type="date"
-                    value={draft.releaseDate}
-                    onChange={(event) =>
-                      onDraftChange("releaseDate", event.target.value)
+                    {...register("draft.releaseDate")}
+                    aria-invalid={Boolean(errors.draft?.releaseDate)}
+                    aria-describedby={
+                      errors.draft?.releaseDate ? `${id}-validation` : undefined
                     }
                   />
                 </label>
@@ -466,18 +525,20 @@ export function AddModelDialogRender({
                   Last updated
                   <Input
                     type="date"
-                    value={draft.lastUpdated}
-                    onChange={(event) =>
-                      onDraftChange("lastUpdated", event.target.value)
+                    {...register("draft.lastUpdated")}
+                    aria-invalid={Boolean(errors.draft?.lastUpdated)}
+                    aria-describedby={
+                      errors.draft?.lastUpdated ? `${id}-validation` : undefined
                     }
                   />
                 </label>
                 <label className={styles.field}>
                   Release status
                   <select
-                    value={draft.status}
-                    onChange={(event) =>
-                      onDraftChange("status", event.target.value)
+                    {...register("draft.status")}
+                    aria-invalid={Boolean(errors.draft?.status)}
+                    aria-describedby={
+                      errors.draft?.status ? `${id}-validation` : undefined
                     }
                   >
                     <option value="">Unknown</option>
@@ -490,21 +551,26 @@ export function AddModelDialogRender({
             </div>
           </details>
         </fieldset>
+        {(errors.providerId || errors.draft) && (
+          <p id={`${id}-validation`} role="alert" className={styles.error}>
+            {errors.providerId?.message ??
+              Object.keys(EMPTY_MODEL_DRAFT)
+                .map((key) => errors.draft?.[key as keyof ModelDraft]?.message)
+                .find(Boolean)}
+          </p>
+        )}
         {error ? (
           <p role="alert" className={styles.error}>
-            {saved
-              ? "The model was saved, but providers could not be reloaded. "
-              : ""}
             {error}
           </p>
         ) : null}
       </div>
       <footer className={styles.footer}>
         <Button onClick={onClose} disabled={busy}>
-          {saved ? "Close" : "Cancel"}
+          Cancel
         </Button>
         <Button type="submit" disabled={busy}>
-          {busy ? "Saving..." : saved ? "Retry refresh" : "Save"}
+          {busy ? "Saving..." : "Save"}
         </Button>
       </footer>
     </form>

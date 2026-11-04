@@ -21,8 +21,9 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const [snapshot, setSnapshot] = useState(loadSettings);
   const handleSave = useCallback((settings: Settings) => {
     const result = saveSettings(settings);
-    if (result.type === "success")
+    if (result.type === "success") {
       setSnapshot({ settings: result.settings, notice: null });
+    }
     return result;
   }, []);
   const value = useMemo<SettingsContextValue>(

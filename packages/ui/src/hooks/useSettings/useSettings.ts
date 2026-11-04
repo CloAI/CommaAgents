@@ -8,7 +8,8 @@ import type { SettingsContextValue } from "./useSettings.types";
  */
 export function useSettings(): SettingsContextValue {
   const context = useContext(SettingsContext);
-  if (!context)
+  if (!context) {
     throw new Error("useSettings must be used within SettingsProvider.");
+  }
   return context;
 }

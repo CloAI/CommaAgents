@@ -1,16 +1,13 @@
-import { useId } from "react";
 import type { ReactNode } from "react";
 import { Button } from "../../../design-system/Button";
 import styles from "./SettingsPanel.module.scss";
 
 /** Shared presentation for a section's own content and actions. */
 export interface SettingsPanelProps {
-  /** Section heading. */
+  /** Accessible section name; the modal header shows the visible title. */
   readonly title: string;
   /** Dismiss the settings modal. */
   readonly onClose: () => void;
-  /** Section-owned controls beside the heading. */
-  readonly headerActions?: ReactNode;
   /** Section-owned save or validation feedback. */
   readonly feedback?: ReactNode;
   /** Section-owned actions beside Cancel. */
@@ -27,21 +24,13 @@ export interface SettingsPanelProps {
 export function SettingsPanel({
   title,
   onClose,
-  headerActions,
   feedback,
   footerActions,
   children,
 }: SettingsPanelProps) {
-  const titleId = useId();
   return (
-    <section className={styles.panel} aria-labelledby={titleId}>
-      <div className={styles.content}>
-        <header className={styles.header}>
-          <h3 id={titleId}>{title}</h3>
-          {headerActions}
-        </header>
-        {children}
-      </div>
+    <section className={styles.panel} aria-label={title}>
+      <div className={styles.content}>{children}</div>
       <footer className={styles.footer}>
         <div className={styles.feedback}>{feedback}</div>
         <Button className={styles.cancel} onClick={onClose}>

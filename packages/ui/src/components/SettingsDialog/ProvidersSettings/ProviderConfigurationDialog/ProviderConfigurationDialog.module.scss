@@ -1,8 +1,8 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-3);
   min-width: 0;
   font-size: var(--font-size-small);
 }
@@ -40,9 +40,16 @@
   color: var(--color-error);
 }
 .danger {
-  color: var(--color-error);
+  color: var(--color-error-text);
   border-color: var(--color-border);
   background: transparent;
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    background: var(--color-surface-raised);
+    border-color: var(--color-error-text);
+    color: var(--color-error-text);
+  }
 }
 .select {
   box-sizing: border-box;
@@ -97,4 +104,10 @@
   a {
     color: var(--color-primary);
   }
+}
+
+.modal {
+  max-width: 32rem;
+  max-height: calc(100svh - 24px);
+  min-height: 0;
 }

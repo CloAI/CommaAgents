@@ -6,12 +6,13 @@ import {
   ProvidersSettingsRender,
 } from "./ProvidersSettings";
 import { exampleProviders } from "./test.utils";
+import {
+  mockProviderSocket,
+  publishProviders,
+} from "./ProviderConfigurationDialog/test.utils";
 import { SettingsProvider } from "../../../hooks/useSettings";
 import { CommaAgentsDaemonProvider } from "../../../hooks/useCommaAgentsDaemon";
-import {
-  deliver,
-  requests,
-} from "../../../hooks/useCommaAgentsDaemon/test.utils";
+import { requests } from "../../../hooks/useCommaAgentsDaemon/test.utils";
 import { MockWebSocket } from "../../../hooks/useWebSocket/test.utils";
 /** Select a provider through the searchable picker.
  * @param {HTMLElement} root - Story canvas.
@@ -22,28 +23,68 @@ async function chooseProvider(root: HTMLElement, name: string) {
   const canvas = within(root);
   const picker = canvas.getByRole("combobox", { name: "Filter by provider" });
   await userEvent.click(picker);
-  if (name !== "All providers") await userEvent.type(picker, name);
+  if (name !== "All providers") {
+    await userEvent.type(picker, name);
+  }
+  await userEvent.click(
+    canvas.getByRole("option", { name: new RegExp(`^${name}\\b`) }),
+  );
+}
+/** Toggle a capability through its dropdown.
+ * @param {HTMLElement} root - Story canvas.
+ * @param {string} name - Capability display name.
+ * @returns {Promise<void>} Resolves after selection and dismissal.
+ */
+async function chooseCapability(root: HTMLElement, name: string) {
+  const canvas = within(root);
+  const trigger = canvas.getByRole("combobox", {
+    name: "Filter by capabilities",
+  });
+  if (trigger.getAttribute("aria-expanded") !== "true") {
+    await userEvent.click(trigger);
+  }
   await userEvent.click(canvas.getByRole("option", { name }));
+  await userEvent.keyboard("{Escape}");
 }
 /** Expand currently collapsed provider groups.
  * @param {HTMLElement} root - Story canvas.
  * @returns {Promise<void>} Resolves after all groups are expanded.
  */
 async function expandProviders(root: HTMLElement) {
-  for (const button of within(root).queryAllByRole("button", {
+  const models = within(root).queryByRole("group", { name: "Models" });
+  if (!models) {
+    return;
+  }
+  for (const button of within(models).queryAllByRole("button", {
     expanded: false,
-  }))
+  })) {
     await userEvent.click(button);
+  }
 }
 const meta = {
   title: "Components/SettingsDialog/ProvidersSettings",
   component: ProvidersSettingsRender,
-  args: { providers: exampleProviders, isLoading: false, onClose: fn() },
+  args: {
+    providers: exampleProviders,
+    isLoading: false,
+    refreshing: false,
+    onRefresh: fn(),
+    verification: {},
+    onOpen: fn(),
+  },
+  beforeEach: mockProviderSocket,
   decorators: [
     (Story) => (
       <div style={{ maxWidth: "28rem", height: "32rem", display: "flex" }}>
         <Story />
       </div>
+    ),
+    (Story) => (
+      <SettingsProvider>
+        <CommaAgentsDaemonProvider>
+          <Story />
+        </CommaAgentsDaemonProvider>
+      </SettingsProvider>
     ),
   ],
 } satisfies Meta<typeof ProvidersSettingsRender>;
@@ -85,16 +126,14 @@ export const PrivacyCapabilities: Story = {
     const canvas = within(canvasElement);
     await expandProviders(canvasElement);
     await expect(
-      canvas.getAllByRole("img", { name: "TEE attestation support" }),
+      canvas.getAllByRole("img", { name: "TEE support" }),
     ).toHaveLength(1);
     await expect(
       canvas.getAllByRole("img", { name: "E2EE support" }),
     ).toHaveLength(1);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "TEE attestation support" }),
-    );
+    await chooseCapability(canvasElement, "TEE support");
     await expect(canvas.getByText("1 model found")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "E2EE support" }));
+    await chooseCapability(canvasElement, "E2EE support");
     await expect(canvas.getByText("1 model found")).toBeVisible();
     await expandProviders(canvasElement);
     await expect(canvas.getByText("Privacy capable")).toBeVisible();
@@ -111,15 +150,15 @@ export const CombinedFilters: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.queryAllByRole("listitem")).toHaveLength(0);
     await expect(canvas.getByText("4 models found")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Tools" }));
+    await chooseCapability(canvasElement, "Tools");
     await expect(canvas.getByText("2 models found")).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Reasoning" }));
+    await chooseCapability(canvasElement, "Reasoning");
     await expect(canvas.getByText("1 model found")).toBeVisible();
     await chooseProvider(canvasElement, "Alpha");
     await expect(
       canvas.getByText("No models match your filters."),
     ).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Tools" }));
+    await chooseCapability(canvasElement, "Tools");
     await expandProviders(canvasElement);
     await expect(canvas.getByText("Reasoner", { exact: true })).toBeVisible();
     const search = canvas.getByRole("searchbox");
@@ -131,7 +170,7 @@ export const CombinedFilters: Story = {
       canvas.getByText("No models match your filters."),
     ).toBeVisible();
     await userEvent.clear(search);
-    await userEvent.click(canvas.getByRole("button", { name: "Reasoning" }));
+    await chooseCapability(canvasElement, "Reasoning");
     await chooseProvider(canvasElement, "All providers");
     await userEvent.type(search, "BETA");
     await expect(canvas.getByText("1 model found")).toBeVisible();
@@ -140,6 +179,51 @@ export const CombinedFilters: Story = {
     await expect(
       canvas.getByRole("button", { name: /Empty.*0 models/ }),
     ).toBeVisible();
+  },
+};
+
+export const CapabilityDropdown: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("combobox", {
+      name: "Filter by capabilities",
+    });
+    await expect(trigger).toHaveAttribute("placeholder", "All capabilities");
+    await userEvent.click(trigger);
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await userEvent.type(trigger, "Tools");
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+    await userEvent.click(canvas.getByRole("option", { name: "Reasoning" }));
+    await expect(canvas.getByRole("option", { name: "Tools" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    const selected = within(
+      canvas.getByRole("group", { name: "Selected capabilities" }),
+    );
+    await expect(
+      selected.getByRole("button", { name: "Remove Tools" }),
+    ).toBeVisible();
+    await expect(
+      selected.getByRole("button", { name: "Remove Reasoning" }),
+    ).toBeVisible();
+    await expect(canvas.getByText("1 model found")).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect(trigger).toHaveFocus();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard("{Enter}");
+    await expect(canvas.getByText("4 models found")).toBeVisible();
+    await expect(
+      canvas.queryByRole("group", { name: "Selected capabilities" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(trigger);
+    await expect(canvas.getByRole("option", { name: "Tools" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    await userEvent.click(canvas.getByRole("searchbox"));
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
   },
 };
 export const PagingDisabled: Story = {
@@ -180,48 +264,30 @@ export const Mobile: Story = {
   globals: { viewport: { value: "mobile1", isRotated: false } },
 };
 export const DaemonDiscovery: Story = {
-  beforeEach: () => {
-    const original = globalThis.WebSocket;
-    MockWebSocket.instances = [];
-    globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
-    const environment = globalThis as typeof globalThis & {
-      IS_REACT_ACT_ENVIRONMENT?: boolean;
-    };
-    const previous = environment.IS_REACT_ACT_ENVIRONMENT;
-    environment.IS_REACT_ACT_ENVIRONMENT = true;
-    return () => {
-      globalThis.WebSocket = original;
-      environment.IS_REACT_ACT_ENVIRONMENT = previous;
-    };
-  },
-  render: () => (
-    <SettingsProvider>
-      <CommaAgentsDaemonProvider>
-        <ProvidersSettings onClose={fn()} />
-      </CommaAgentsDaemonProvider>
-    </SettingsProvider>
-  ),
+  render: () => <ProvidersSettings onClose={fn()} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Loading providers...")).toBeVisible();
     const socket = MockWebSocket.instances.at(-1)!;
     await act(() => socket.open());
-    const command = requests(socket, "command")[0]!;
-    await expect(command.command).toBe("core.providers.list");
-    await expect(command.arguments).toEqual({ live: false });
-    await act(() =>
-      deliver(socket, command.requestId, {
-        type: "response",
-        ok: true,
-        data: { providers: exampleProviders },
-      }),
-    );
+    await publishProviders(exampleProviders);
+    await expect(requests(socket, "subscribe").at(-1)?.arguments).toEqual({});
     await expect(canvas.getByText("4 models found")).toBeVisible();
     await userEvent.type(canvas.getByRole("searchbox"), "alpha");
-    await userEvent.click(canvas.getByRole("button", { name: "Vision" }));
+    await chooseCapability(canvasElement, "Vision");
     await expandProviders(canvasElement);
     await expect(canvas.getAllByRole("listitem")).toHaveLength(1);
-    await expect(requests(socket, "command")).toHaveLength(1);
+    await expect(requests(socket, "command")).toHaveLength(0);
+    await publishProviders([exampleProviders[1]!], true);
+    await expect(
+      canvas.getByRole("button", { name: "Refreshing..." }),
+    ).toBeDisabled();
+    await publishProviders(exampleProviders);
+    await userEvent.click(canvas.getByRole("button", { name: "Refresh" }));
+    await expect(requests(socket, "command").at(-1)).toMatchObject({
+      command: "core.providers.refresh",
+      arguments: {},
+    });
   },
 };
 export const SearchableProvidersAndIcons: Story = {
@@ -268,8 +334,17 @@ export const MultipleProviders: Story = {
     const canvas = within(canvasElement);
     await chooseProvider(canvasElement, "Alpha");
     await expect(canvas.getByText("3 models found")).toBeVisible();
-    await chooseProvider(canvasElement, "Beta");
+    await expect(
+      canvas.getByRole("listbox", { name: "Providers" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("combobox", { name: "Filter by provider" }),
+    ).toHaveFocus();
+    await userEvent.click(canvas.getByRole("option", { name: "Beta beta" }));
     await expect(canvas.getByText("4 models found")).toBeVisible();
+    await expect(
+      canvas.getByRole("listbox", { name: "Providers" }),
+    ).toBeVisible();
     await expect(
       within(
         canvas.getByRole("group", { name: "Selected providers" }),
@@ -330,9 +405,6 @@ export const LiteralSearchHighlight: Story = {
           },
         ],
         origin: "catalog",
-        discovery: {
-          status: "catalog_only",
-        },
       },
     ],
   },
@@ -358,40 +430,26 @@ export const LiteralSearchHighlight: Story = {
     await expect(canvasElement.querySelectorAll("mark")).toHaveLength(0);
   },
 };
-export const ProviderDiscoveryIssue: Story = {
-  args: {
-    providers: [
-      {
-        ...exampleProviders[0]!,
-        origin: "catalog",
-        discovery: {
-          status: "catalog_only",
-          error: "Discovery unavailable.",
-        },
-      },
-    ],
-  },
-  play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByRole("img", { name: /Discovery issue/ }),
-    ).toHaveAttribute("data-status", "warning");
-  },
-};
 export const ProviderActions: Story = {
-  args: { onConfigure: fn() },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
       canvas.getByRole("button", { name: "Configure Alpha" }),
     );
-    await expect(args.onConfigure).toHaveBeenCalledWith(exampleProviders[0]);
+    await expect(args.onOpen).toHaveBeenCalledWith(
+      "configureProvider",
+      exampleProviders[0],
+    );
     await expect(
       canvas.getByRole("button", { name: /Alpha.*3 models/ }),
     ).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(
       canvas.getByRole("button", { name: "Configure Beta" }),
     );
-    await expect(args.onConfigure).toHaveBeenCalledWith(exampleProviders[1]);
+    await expect(args.onOpen).toHaveBeenCalledWith(
+      "configureProvider",
+      exampleProviders[1],
+    );
     await expect(
       canvas.getByRole("button", { name: /Beta.*1 model/ }),
     ).toHaveAttribute("aria-expanded", "false");
@@ -411,5 +469,24 @@ export const VerifiedConnection: Story = {
     await expect(
       within(canvasElement).getByRole("img", { name: /Alpha: Verified/ }),
     ).toBeVisible();
+  },
+};
+export const OffersProviderActions: Story = {
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Refresh" }));
+    await expect(args.onRefresh).toHaveBeenCalledTimes(1);
+    await userEvent.click(canvas.getByRole("button", { name: "+ Provider" }));
+    await expect(args.onOpen).toHaveBeenCalledWith("customProvider");
+    await userEvent.click(canvas.getByRole("button", { name: "+ Model" }));
+    await expect(args.onOpen).toHaveBeenCalledWith("addModel", undefined);
+  },
+};
+export const Refreshing: Story = {
+  args: { refreshing: true },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("button", { name: "Refreshing..." }),
+    ).toBeDisabled();
   },
 };

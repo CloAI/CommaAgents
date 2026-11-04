@@ -77,8 +77,16 @@ export function SettingsDialogRender({
   onSectionChange,
   children,
 }: SettingsDialogRenderProps) {
+  const sectionLabel = SETTINGS_SECTIONS.find(
+    (entry) => entry.id === section,
+  )!.label;
   return (
-    <Modal open title="Settings" onClose={onClose} className={styles.modal}>
+    <Modal
+      open
+      title={`Settings / ${sectionLabel}`}
+      onClose={onClose}
+      className={styles.modal}
+    >
       <div className={styles.workspace}>
         <nav className={styles.menu} aria-label="Settings sections">
           {SETTINGS_SECTIONS.map((entry) => (

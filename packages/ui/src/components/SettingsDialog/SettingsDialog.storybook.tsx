@@ -11,8 +11,8 @@ import {
 import { Button } from "../../design-system/Button";
 import { SettingsProvider, useSettings } from "../../hooks/useSettings";
 import { CommaAgentsDaemonProvider } from "../../hooks/useCommaAgentsDaemon";
-import { deliver, requests } from "../../hooks/useCommaAgentsDaemon/test.utils";
 import { exampleProviders } from "./ProvidersSettings/test.utils";
+import { publishProviders } from "./ProvidersSettings/ProviderConfigurationDialog/test.utils";
 import { MockWebSocket } from "../../hooks/useWebSocket/test.utils";
 import { loadSettings } from "../../settings";
 import { SettingsDialog } from "./SettingsDialog";
@@ -59,8 +59,11 @@ const meta = {
     localStorage.removeItem("comma-agents.settings");
     return () => {
       globalThis.WebSocket = originalWebSocket;
-      if (previous === null) localStorage.removeItem("comma-agents.settings");
-      else localStorage.setItem("comma-agents.settings", previous);
+      if (previous === null) {
+        localStorage.removeItem("comma-agents.settings");
+      } else {
+        localStorage.setItem("comma-agents.settings", previous);
+      }
     };
   },
   parameters: {
@@ -85,19 +88,27 @@ export const Sections: Story = {
       canvas.getByRole("button", { name: "Open settings" }),
     );
     await expect(
-      canvas.getByRole("dialog", { name: "Settings" }),
+      canvas.getByRole("dialog", { name: "Settings / General Settings" }),
     ).toBeVisible();
     await expect(
       canvas.getByRole("textbox", { name: "Daemon WebSocket URL" }),
     ).toHaveValue("ws://127.0.0.1:7422/ws");
     for (const label of ["Appearance", "Hub", "Privacy"]) {
       await userEvent.click(canvas.getByRole("button", { name: label }));
-      await expect(canvas.getByRole("heading", { name: label })).toBeVisible();
+      await expect(
+        canvas.getByRole("heading", { name: `Settings / ${label}` }),
+      ).toBeVisible();
+      await expect(
+        canvas.queryByRole("heading", { name: label }),
+      ).not.toBeInTheDocument();
       await expect(
         canvas.getByText("No settings are available in this section yet."),
       ).toBeVisible();
     }
     await userEvent.click(canvas.getByRole("button", { name: "Providers" }));
+    await expect(
+      canvas.getByRole("dialog", { name: "Settings / Providers" }),
+    ).toBeVisible();
     await expect(
       canvas.getByRole("searchbox", { name: "Search providers and models" }),
     ).toBeVisible();
@@ -180,7 +191,9 @@ export const InvalidEndpoints: Story = {
       "ws://daemon.example/ws#section",
     ]) {
       await userEvent.clear(input);
-      if (value) await userEvent.type(input, value);
+      if (value) {
+        await userEvent.type(input, value);
+      }
       await userEvent.click(canvas.getByRole("button", { name: "Save" }));
       await expect(input).toHaveAttribute("aria-invalid", "true");
       await expect(input).toHaveFocus();
@@ -299,27 +312,20 @@ export const ProviderWorkflows: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Providers" }));
     const socket = MockWebSocket.instances.at(-1)!;
     await act(() => socket.open());
-    const list = requests(socket, "command").find(
-      (request) => request.command === "core.providers.list",
-    )!;
-    await act(() =>
-      deliver(socket, list.requestId, {
-        type: "response",
-        ok: true,
-        data: { providers: exampleProviders },
-      }),
-    );
+    await publishProviders(exampleProviders);
     const search = canvas.getByRole("searchbox");
     await userEvent.type(search, "retained filter");
-    const addModel = canvas.getByRole("button", { name: "Add model" });
+    const addModel = canvas.getByRole("button", { name: "+ Model" });
     await userEvent.click(addModel);
     const modelDialog = canvas.getByRole("dialog", { name: "Add Model" });
-    await expect(within(modelDialog).getByLabelText("Model ID")).toBeVisible();
+    await expect(
+      within(modelDialog).getByRole("textbox", { name: "Model ID" }),
+    ).toBeVisible();
     await userEvent.click(
       within(modelDialog).getByRole("button", { name: "Close dialog" }),
     );
     await expect(
-      canvas.getByRole("dialog", { name: "Settings" }),
+      canvas.getByRole("dialog", { name: "Settings / Providers" }),
     ).toBeVisible();
     await expect(addModel).toHaveFocus();
     await expect(search).toHaveValue("retained filter");
@@ -333,7 +339,7 @@ export const ProviderWorkflows: Story = {
     ).toBeVisible();
     fireEvent(providerDialog, new Event("cancel", { cancelable: true }));
     await expect(
-      canvas.getByRole("dialog", { name: "Settings" }),
+      canvas.getByRole("dialog", { name: "Settings / Providers" }),
     ).toBeVisible();
     await expect(addProvider).toHaveFocus();
     await expect(search).toHaveValue("retained filter");
@@ -358,9 +364,7 @@ export const LocalizedSections: Story = {
     await expect(
       canvas.queryByRole("button", { name: "Save" }),
     ).not.toBeInTheDocument();
-    await expect(
-      canvas.getByRole("button", { name: "Add model" }),
-    ).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "+ Model" })).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "General Settings" }),
     );
@@ -369,7 +373,7 @@ export const LocalizedSections: Story = {
     ).toHaveValue("https://invalid.example");
     await expect(canvas.getByRole("alert")).toBeVisible();
     await expect(
-      canvas.queryByRole("button", { name: "Add model" }),
+      canvas.queryByRole("button", { name: "+ Model" }),
     ).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("button", { name: "+ Provider" }),

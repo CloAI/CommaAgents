@@ -1,26 +1,27 @@
-export type {
-  DiscoveredModel,
-  DiscoveredProvider,
-  ModelCapability,
-  ProviderVerification,
-} from "../../ModelBrowser/ModelBrowser.types";
 import type {
-  DiscoveredProvider,
-  ProviderVerification,
-} from "../../ModelBrowser/ModelBrowser.types";
+  DaemonChannelMap,
+  DaemonCommandMap,
+} from "@comma-agents/daemon/protocol";
 
-/** Credential/endpoint changes invalidate the previous displayed check. */
-export interface ProviderSettingsChange {
-  readonly providerId: string;
-  readonly verification?: ProviderVerification;
-}
-/** At most one provider workflow appears above the Settings modal. */
-export type ProviderDialog =
-  | { readonly type: "model"; readonly providerId?: string }
-  | { readonly type: "configuration"; readonly provider: DiscoveredProvider }
-  | { readonly type: "custom"; readonly provider?: DiscoveredProvider }
-  | {
-      readonly type: "removeModel";
-      readonly provider: DiscoveredProvider;
-      readonly modelId: string;
-    };
+/** Provider metadata returned by the daemon's discovery command. */
+export type DiscoveredProvider =
+  DaemonChannelMap["core.providers.list"]["message"]["data"]["providers"][number];
+
+/** Model metadata returned by provider discovery. */
+export type DiscoveredModel = DiscoveredProvider["models"][number];
+
+/** Capability flags a model can declare. */
+export type ModelCapability = keyof NonNullable<
+  DiscoveredModel["metadata"]["capabilities"]
+>;
+
+/** Latest explicit credential check in this view; never persisted. */
+export type ProviderVerification =
+  DaemonCommandMap["core.providers.verify"]["result"];
+
+/** Provider workflows that open in a modal above the providers panel. */
+export type ProviderModal =
+  | "addModel"
+  | "configureProvider"
+  | "customProvider"
+  | "removeModel";

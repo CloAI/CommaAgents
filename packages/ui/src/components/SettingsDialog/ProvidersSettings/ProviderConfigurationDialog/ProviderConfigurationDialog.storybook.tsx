@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, mocked, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { ProviderConfigurationDialog } from "./ProviderConfigurationDialog";
 import { SettingsProvider } from "../../../../hooks/useSettings";
 import { CommaAgentsDaemonProvider } from "../../../../hooks/useCommaAgentsDaemon";
@@ -14,14 +14,14 @@ import {
   replyProvider,
 } from "./test.utils";
 const meta = {
-  title: "Components/SettingsDialog/ProviderConfigurationDialog",
+  title:
+    "Components/SettingsDialog/ProvidersSettings/ProviderConfigurationDialog",
   component: ProviderConfigurationDialog,
   args: {
     provider: openAIProvider,
     onClose: fn(),
-    onChanged: fn(async () => {}),
+    onChanged: fn(),
     onEditCustom: fn(),
-    onBusyChange: fn(),
   },
   beforeEach: mockProviderSocket,
   decorators: [
@@ -109,17 +109,9 @@ export const VerificationFailureKeepsDraft: Story = {
     ).toHaveLength(3);
   },
 };
-export const ReloadRetryDoesNotRepeatVerification: Story = {
-  args: {
-    onChanged: fn()
-      .mockRejectedValueOnce(new Error("Reload unavailable"))
-      .mockResolvedValue(undefined),
-  },
+export const VerifiesSavedKeyAndCloses: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    mocked(args.onChanged)
-      .mockRejectedValueOnce(new Error("Reload unavailable"))
-      .mockResolvedValue(undefined);
     await loadProviderForm({
       ...emptyConfiguration,
       authStatus: "configured",
@@ -130,22 +122,25 @@ export const ReloadRetryDoesNotRepeatVerification: Story = {
       "",
     );
     await userEvent.click(canvas.getByRole("button", { name: "Save" }));
-    await replyProvider(await providerRequest("core.providers.verify"), {
+    const verification = {
       providerId: "openai",
       status: "verified",
       checkedAt: "2026-10-24T12:00:00.000Z",
+    } as const;
+    await replyProvider(
+      await providerRequest("core.providers.verify"),
+      verification,
+    );
+    await expect(args.onChanged).toHaveBeenCalledWith({
+      providerId: "openai",
+      verification,
     });
-    await expect(canvas.getByRole("alert")).toHaveTextContent("saved");
-    const requestCount = requests(
-      MockWebSocket.instances.at(-1)!,
-      "command",
-    ).length;
-    await userEvent.click(canvas.getByRole("button", { name: "Retry reload" }));
-    await expect(args.onChanged).toHaveBeenCalledTimes(2);
     await expect(args.onClose).toHaveBeenCalled();
     await expect(
-      requests(MockWebSocket.instances.at(-1)!, "command"),
-    ).toHaveLength(requestCount);
+      requests(MockWebSocket.instances.at(-1)!, "command").map(
+        (request) => request.command,
+      ),
+    ).toEqual(["core.providers.getConfiguration", "core.providers.verify"]);
   },
 };
 export const UnsupportedVerificationAndManualEntries: Story = {
@@ -155,9 +150,6 @@ export const UnsupportedVerificationAndManualEntries: Story = {
       id: "custom",
       name: "Custom",
       origin: "user",
-      discovery: {
-        status: "catalog_only",
-      },
     },
     onRemoveModel: fn(),
   },
@@ -187,9 +179,6 @@ export const UnsupportedVerificationAndManualEntries: Story = {
       hasSavedCredential: true,
       credentialSource: "global",
       origin: "catalog",
-      discovery: {
-        status: "catalog_only",
-      },
     });
     await expect(args.onClose).toHaveBeenCalled();
     await expect(
@@ -303,6 +292,77 @@ export const SubscriptionFailure: Story = {
         canvas.getByRole("button", { name: "Continue with ChatGPT" }),
       ).toBeEnabled();
       await expect(args.onClose).not.toHaveBeenCalled();
+    } finally {
+      window.open = originalOpen;
+    }
+  },
+};
+
+export const RequiredKeyValidation: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await loadProviderForm();
+    const input = canvas.getByLabelText("API key");
+    await userEvent.type(input, "   ");
+    await userEvent.click(canvas.getByRole("button", { name: "Save" }));
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Enter an API key.",
+    );
+    await expect(input).toHaveFocus();
+    await expect(input).toHaveAttribute("aria-invalid", "true");
+    await expect(
+      requests(MockWebSocket.instances.at(-1)!).filter(
+        (request) => request.command === "core.providers.configure",
+      ),
+    ).toHaveLength(0);
+    await userEvent.type(input, "new-key");
+    await expect(input).toHaveAttribute("aria-invalid", "false");
+    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
+  },
+};
+
+export const CopilotDeviceSignIn: Story = {
+  args: {
+    provider: {
+      ...openAIProvider,
+      id: "github-copilot",
+      name: "GitHub Copilot",
+      credentialType: "oauth",
+    },
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const originalOpen = window.open;
+    window.open = fn(() => null);
+    try {
+      await loadProviderForm({
+        ...emptyConfiguration,
+        providerId: "github-copilot",
+        verificationSupported: false,
+      });
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Continue with GitHub Copilot" }),
+      );
+      const start = await providerRequest("core.providers.beginSignIn");
+      await expect(start.arguments).toEqual({ providerId: "github-copilot" });
+      const attemptId = "f3fbfb24-dbc9-43d4-b29d-8d81242f0c14";
+      await replyProvider(start, {
+        attemptId,
+        authorizationURL: "https://github.com/login/device",
+        userCode: "ABCD-EFGH",
+      });
+      await expect(canvas.getByText("ABCD-EFGH")).toBeVisible();
+      await expect(
+        canvas.getByRole("link", { name: "Open sign-in page" }),
+      ).toHaveAttribute("href", "https://github.com/login/device");
+      await replyProvider(
+        await providerRequest("core.providers.getSignInStatus"),
+        { attemptId, status: "connected" },
+      );
+      await expect(args.onChanged).toHaveBeenCalledWith({
+        providerId: "github-copilot",
+      });
+      await expect(args.onClose).toHaveBeenCalled();
     } finally {
       window.open = originalOpen;
     }

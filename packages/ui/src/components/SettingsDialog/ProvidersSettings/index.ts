@@ -6,8 +6,4 @@ export type {
   ProvidersSettingsProps,
   ProvidersSettingsRenderProps,
 } from "./ProvidersSettings";
-export type {
-  DiscoveredProvider,
-  DiscoveredModel,
-  ModelCapability,
-} from "./ProvidersSettings.types";
+export type { ProviderModal } from "./ProvidersSettings.types";

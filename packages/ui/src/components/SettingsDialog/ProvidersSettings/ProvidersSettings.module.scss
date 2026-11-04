@@ -1,9 +1,55 @@
-.addButton {
+.providersSettings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
   font-size: var(--font-size-small);
-  white-space: nowrap;
-}
-.workflowModal {
-  max-width: 32rem;
-  max-height: calc(100svh - 24px);
-  min-height: 0;
+
+  .summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    p {
+      margin: 0;
+      color: var(--color-muted);
+    }
+  }
+
+  .summaryActions {
+    display: flex;
+    gap: var(--space-2);
+    flex: none;
+  }
+
+  .addProvider {
+    font-size: var(--font-size-small);
+    white-space: nowrap;
+  }
+
+  .addModel,
+  .refresh {
+    white-space: nowrap;
+    border-color: var(--color-border);
+    background: transparent;
+    color: var(--color-muted);
+    font-size: var(--font-size-small);
+    font-weight: 400;
+    &:hover:not(:disabled) {
+      background: var(--color-surface-raised);
+      color: var(--color-text);
+    }
+  }
+
+  .message {
+    margin: 0;
+    color: var(--color-muted);
+  }
+
+  .groups {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
 }

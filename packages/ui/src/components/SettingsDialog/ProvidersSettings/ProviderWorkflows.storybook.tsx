@@ -3,19 +3,23 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within, waitFor } from "storybook/test";
 import { SettingsProvider } from "../../../hooks/useSettings";
 import { CommaAgentsDaemonProvider } from "../../../hooks/useCommaAgentsDaemon";
-import { deliver } from "../../../hooks/useCommaAgentsDaemon/test.utils";
+import {
+  deliver,
+  requests,
+} from "../../../hooks/useCommaAgentsDaemon/test.utils";
 import { MockWebSocket } from "../../../hooks/useWebSocket/test.utils";
 import { ProvidersSettings } from "./ProvidersSettings";
 import {
   mockProviderSocket,
   providerRequest,
+  publishProviders,
   replyProvider,
   openAIProvider,
   emptyConfiguration,
 } from "./ProviderConfigurationDialog/test.utils";
 import type { DiscoveredProvider } from "./ProvidersSettings.types";
 const meta = {
-  title: "Components/SettingsDialog/ProviderWorkflows",
+  title: "Components/SettingsDialog/ProvidersSettings/Workflows",
   component: ProvidersSettings,
   args: { onClose: fn() },
   beforeEach: mockProviderSocket,
@@ -37,9 +41,7 @@ type Story = StoryObj<typeof meta>;
  */
 async function load() {
   await act(() => MockWebSocket.instances.at(-1)!.open());
-  await replyProvider(await providerRequest("core.providers.list"), {
-    providers: [openAIProvider],
-  });
+  await publishProviders([openAIProvider]);
 }
 export const SaveVerifyReload: Story = {
   play: async ({ canvasElement }) => {
@@ -71,27 +73,19 @@ export const SaveVerifyReload: Story = {
       hasSavedCredential: true,
       credentialSource: "global",
       origin: "catalog",
-      discovery: {
-        status: "catalog_only",
-      },
     });
     await replyProvider(await providerRequest("core.providers.verify"), {
       providerId: "openai",
       status: "verified",
       checkedAt: "2026-10-24T12:00:00Z",
     });
-    await replyProvider(await providerRequest("core.providers.list"), {
-      providers: [
-        {
-          ...openAIProvider,
-          authStatus: "configured",
-          origin: "catalog",
-          discovery: {
-            status: "catalog_only",
-          },
-        },
-      ],
-    });
+    await publishProviders([
+      {
+        ...openAIProvider,
+        authStatus: "configured",
+        origin: "catalog",
+      },
+    ]);
     await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("img", { name: /OpenAI: Verified/ }),
@@ -124,27 +118,19 @@ export const FailedVerificationContinue: Story = {
       hasSavedCredential: true,
       credentialSource: "global",
       origin: "catalog",
-      discovery: {
-        status: "catalog_only",
-      },
     });
     await replyProvider(await providerRequest("core.providers.verify"), {
       providerId: "openai",
       status: "invalid_credentials",
       checkedAt: "2026-10-24T12:00:00Z",
     });
-    await replyProvider(await providerRequest("core.providers.list"), {
-      providers: [
-        {
-          ...openAIProvider,
-          authStatus: "configured",
-          origin: "catalog",
-          discovery: {
-            status: "catalog_only",
-          },
-        },
-      ],
-    });
+    await publishProviders([
+      {
+        ...openAIProvider,
+        authStatus: "configured",
+        origin: "catalog",
+      },
+    ]);
     await expect(canvas.getAllByRole("dialog")).toHaveLength(1);
     await expect(dialog.getByRole("alert")).toBeVisible();
     await userEvent.click(dialog.getByRole("button", { name: "Continue" }));
@@ -186,128 +172,97 @@ export const CreateWithoutKey: Story = {
       id: "custom",
       name: "Custom Endpoint",
       origin: "user",
-      discovery: {
-        status: "catalog_only",
-      },
     };
     await replyProvider(add, provider);
-    await replyProvider(await providerRequest("core.providers.list"), {
-      providers: [openAIProvider, provider],
-    });
+    await publishProviders([openAIProvider, provider]);
     await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("button", { name: "Connect Custom Endpoint" }),
     ).toBeVisible();
   },
 };
-export const RetryInitialDiscovery: Story = {
+export const ShowsListError: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await act(() => MockWebSocket.instances.at(-1)!.open());
-    const request = await providerRequest("core.providers.list");
+    const socket = MockWebSocket.instances.at(-1)!;
+    await act(() => socket.open());
+    await waitFor(() =>
+      expect(requests(socket, "subscribe").length).toBeGreaterThan(0),
+    );
     await act(() =>
-      deliver(MockWebSocket.instances.at(-1)!, request.requestId, {
+      deliver(socket, requests(socket, "subscribe").at(-1)!.requestId, {
         type: "response",
         ok: false,
         error: { code: "TEMPORARY", message: "Try again" },
       }),
     );
     await expect(canvas.getByRole("alert")).toHaveTextContent("Try again");
-    await userEvent.click(canvas.getByRole("button", { name: "Retry" }));
-    await replyProvider(await providerRequest("core.providers.list"), {
-      providers: [openAIProvider],
-    });
-    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
-    await expect(
-      canvas.getByRole("button", { name: "Connect OpenAI" }),
-    ).toBeVisible();
   },
 };
 export const RefreshModels: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await act(() => MockWebSocket.instances.at(-1)!.open());
-    await replyProvider(await providerRequest("core.providers.list"), {
-      providers: [
+    const anthropic: DiscoveredProvider = {
+      ...openAIProvider,
+      id: "anthropic",
+      name: "Anthropic",
+      models: [
         {
-          ...openAIProvider,
-          models: [
-            {
-              id: "old-model",
-              sources: ["provider"],
-              metadata: { name: "Old Model" },
-            },
-          ],
-        },
-        {
-          ...openAIProvider,
-          id: "anthropic",
-          name: "Anthropic",
-          models: [
-            {
-              id: "other-model",
-              sources: ["provider"],
-              metadata: { name: "Other Model" },
-            },
-          ],
+          id: "other-model",
+          sources: ["provider"],
+          metadata: { name: "Other Model" },
         },
       ],
-    });
+    };
+    await act(() => MockWebSocket.instances.at(-1)!.open());
+    await publishProviders([
+      {
+        ...openAIProvider,
+        models: [
+          {
+            id: "old-model",
+            sources: ["provider"],
+            metadata: { name: "Old Model" },
+          },
+        ],
+      },
+      anthropic,
+    ]);
     const search = canvas.getByRole("searchbox");
     await userEvent.type(search, "Model");
     await userEvent.click(
       canvas.getByRole("button", { name: /OpenAI.*1 model/ }),
     );
-    const modelList = canvas.getByRole("list", { name: "OpenAI models" });
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Refresh OpenAI models" }),
-    );
+    await userEvent.click(canvas.getByRole("button", { name: "Refresh" }));
     const request = await providerRequest("core.providers.refresh");
-    await expect(request.arguments).toEqual({ providerId: "openai" });
+    await expect(request.arguments).toEqual({});
     await expect(
-      canvas.getByRole("button", { name: "Refresh OpenAI models" }),
+      canvas.getByRole("button", { name: "Refreshing..." }),
     ).toBeDisabled();
-    await expect(modelList).toHaveTextContent("Old Model");
-    await act(() =>
-      deliver(MockWebSocket.instances.at(-1)!, request.requestId, {
-        type: "response",
-        ok: false,
-        error: { code: "TEMPORARY", message: "Refresh unavailable" },
-      }),
-    );
-    await expect(canvas.getByRole("alert")).toHaveTextContent(
-      "Refresh unavailable",
-    );
-    await expect(modelList).toHaveTextContent("Old Model");
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Refresh OpenAI models" }),
-    );
-    await waitFor(async () => {
-      const retry = await providerRequest("core.providers.refresh");
-      await expect(retry.requestId).not.toBe(request.requestId);
-    });
-    await replyProvider(await providerRequest("core.providers.refresh"), {
-      ...openAIProvider,
-      models: [
+    await replyProvider(request, {});
+    await publishProviders(
+      [
         {
-          id: "new-model",
-          sources: ["provider"],
-          metadata: {
-            name: "New Model",
-          },
+          ...openAIProvider,
+          models: [
+            {
+              id: "new-model",
+              sources: ["provider"],
+              metadata: { name: "New Model" },
+            },
+          ],
         },
+        anthropic,
       ],
-      origin: "catalog",
-      discovery: {
-        status: "live",
-      },
-    });
-    await expect(canvas.queryByRole("alert")).not.toBeInTheDocument();
+      false,
+    );
+    const modelList = canvas.getByRole("list", { name: "OpenAI models" });
     await expect(modelList).toHaveTextContent("New Model");
     await expect(modelList).not.toHaveTextContent("Old Model");
     await expect(search).toHaveValue("Model");
     await expect(
       canvas.getByRole("button", { name: /Anthropic.*1 model/ }),
     ).toBeVisible();
+    await expect(canvas.getByRole("button", { name: "Refresh" })).toBeEnabled();
   },
 };

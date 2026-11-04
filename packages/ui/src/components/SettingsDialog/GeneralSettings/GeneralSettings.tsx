@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { ChangeEventHandler, FormEventHandler, Ref } from "react";
+import { useController, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { generalSettingsSchema } from "./GeneralSettings.schemas";
+import { useCallback, useEffect, useId, useState } from "react";
+import type { ChangeEventHandler, Ref } from "react";
 import { Button } from "../../../design-system/Button";
 import { useSettings } from "../../../hooks/useSettings";
-import { validateDaemonUrl } from "../../../settings";
 import { SettingsPanel } from "../SettingsPanel";
 import { Input } from "../../../design-system/Input";
 import styles from "./GeneralSettings.module.scss";
@@ -22,52 +24,55 @@ export interface GeneralSettingsProps {
  */
 export function GeneralSettings({ active, onClose }: GeneralSettingsProps) {
   const { settings, notice, saveSettings } = useSettings();
-  const [url, setUrl] = useState(settings.daemon.url);
-  const [fieldError, setFieldError] = useState<string | null>(null);
+  const { control, handleSubmit, reset } = useForm({
+    resolver: zodResolver(generalSettingsSchema),
+    defaultValues: { url: settings.daemon.url },
+    reValidateMode: "onChange",
+  });
+  const { field, fieldState } = useController({ control, name: "url" });
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const inputId = useId();
-  const inputRef = useRef<HTMLInputElement>(null);
   const handleChange = useCallback<ChangeEventHandler<HTMLInputElement>>(
     (event) => {
-      setUrl(event.target.value);
-      setFieldError(null);
+      field.onChange(event);
       setSaveError(null);
       setSaved(false);
     },
-    [],
+    [field],
   );
-  const handleSave = useCallback<FormEventHandler<HTMLFormElement>>(
-    (event) => {
-      event.preventDefault();
+  const handleSave = useCallback(
+    ({ url }: { url: string }) => {
       setSaved(false);
       setSaveError(null);
-      const error = validateDaemonUrl(url);
-      setFieldError(error);
-      if (error) {
-        inputRef.current?.focus();
-        return;
-      }
       const result = saveSettings({ ...settings, daemon: { url } });
       if (result.type === "error") {
         setSaveError(result.message);
         return;
       }
-      setUrl(result.settings.daemon.url);
+      reset({ url: result.settings.daemon.url });
       setSaved(true);
     },
-    [url, settings, saveSettings],
+    [settings, saveSettings, reset],
   );
   useEffect(() => {
-    if (!active) setSaved(false);
+    if (!active) {
+      setSaved(false);
+    }
   }, [active]);
   useEffect(() => {
-    if (!saved) return;
+    if (!saved) {
+      return;
+    }
     const timer = window.setTimeout(() => setSaved(false), 3000);
     return () => window.clearTimeout(timer);
   }, [saved]);
   return (
-    <form noValidate onSubmit={handleSave} className={styles.form}>
+    <form
+      noValidate
+      onSubmit={handleSubmit(handleSave)}
+      className={styles.form}
+    >
       <SettingsPanel
         title="General Settings"
         onClose={onClose}
@@ -90,10 +95,12 @@ export function GeneralSettings({ active, onClose }: GeneralSettingsProps) {
         )}
         <GeneralSettingsRender
           inputId={inputId}
-          inputRef={inputRef}
-          url={url}
-          error={fieldError}
+          inputRef={field.ref}
+          url={field.value}
+          error={fieldState.error?.message ?? null}
           onChange={handleChange}
+          onBlur={field.onBlur}
+          name={field.name}
         />
       </SettingsPanel>
     </form>
@@ -110,6 +117,10 @@ export interface GeneralSettingsRenderProps {
   readonly error: string | null;
   /** Input reference used to focus validation errors. */
   readonly inputRef: Ref<HTMLInputElement>;
+  /** Track visits to the endpoint field. */
+  readonly onBlur?: () => void;
+  /** Form field identity. */
+  readonly name?: string;
   /** Update the endpoint draft. */
   readonly onChange: ChangeEventHandler<HTMLInputElement>;
 }
@@ -125,6 +136,8 @@ export function GeneralSettingsRender({
   error,
   inputRef,
   onChange,
+  onBlur,
+  name,
 }: GeneralSettingsRenderProps) {
   return (
     <div className={styles.field}>
@@ -134,6 +147,8 @@ export function GeneralSettingsRender({
         id={inputId}
         value={url}
         onChange={onChange}
+        onBlur={onBlur}
+        name={name}
         inputMode="url"
         autoComplete="url"
         spellCheck={false}

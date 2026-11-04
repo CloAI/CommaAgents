@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { act } from "react";
-import { expect, fn, mocked, userEvent, within, waitFor } from "storybook/test";
+import { expect, fn, userEvent, within, waitFor } from "storybook/test";
 import { CustomProviderDialog } from "./CustomProviderDialog";
 import { SettingsProvider } from "../../../../hooks/useSettings";
 import { CommaAgentsDaemonProvider } from "../../../../hooks/useCommaAgentsDaemon";
@@ -22,14 +22,11 @@ const customProvider = {
   id: "local",
   name: "Local",
   origin: "user" as const,
-  discovery: {
-    status: "catalog_only" as const,
-  },
 };
 const meta = {
-  title: "Components/SettingsDialog/CustomProviderDialog",
+  title: "Components/SettingsDialog/ProvidersSettings/CustomProviderDialog",
   component: CustomProviderDialog,
-  args: { onClose: fn(), onChanged: fn(async () => {}), onBusyChange: fn() },
+  args: { onClose: fn(), onChanged: fn() },
   beforeEach: mockProviderSocket,
   decorators: [
     (Story) => (
@@ -141,9 +138,6 @@ export const OptionalKeyPartialFailureResumesExistingProvider: Story = {
         credentialType: "api",
       },
       origin: "catalog",
-      discovery: {
-        status: "catalog_only" as const,
-      },
     });
     await expect(args.onClose).toHaveBeenCalled();
     await expect(
@@ -179,6 +173,11 @@ export const NoAuthenticationAndURLValidation: Story = {
     await expect(canvas.getByRole("alert")).toHaveTextContent(
       "without credentials, query parameters",
     );
+    await expect(canvas.getByLabelText("API base URL")).toHaveFocus();
+    await expect(canvas.getByLabelText("API base URL")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
     await expect(
       requests(MockWebSocket.instances.at(-1)!, "command"),
     ).toHaveLength(0);
@@ -193,18 +192,12 @@ export const NoAuthenticationAndURLValidation: Story = {
     await replyProvider(add, { ...customProvider, credentialType: "none" });
   },
 };
-export const RemoveAndRetryOnlyReload: Story = {
+export const RemoveProvider: Story = {
   args: {
     provider: customProvider,
-    onChanged: fn()
-      .mockRejectedValueOnce(new Error("Reload failed"))
-      .mockResolvedValue(undefined),
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    mocked(args.onChanged)
-      .mockRejectedValueOnce(new Error("Reload unavailable"))
-      .mockResolvedValue(undefined);
     await loadProviderForm({
       ...emptyConfiguration,
       providerId: "local",
@@ -228,11 +221,7 @@ export const RemoveAndRetryOnlyReload: Story = {
       await providerRequest("core.providers.removeCustomProvider"),
       { providerId: "local", removed: true },
     );
-    await expect(
-      canvas.getByRole("button", { name: "Retry reload" }),
-    ).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Retry reload" }));
-    await expect(args.onChanged).toHaveBeenCalledTimes(2);
+    await expect(args.onChanged).toHaveBeenCalledWith({ providerId: "local" });
     await expect(args.onClose).toHaveBeenCalled();
     await expect(
       requests(MockWebSocket.instances.at(-1)!, "command").filter(

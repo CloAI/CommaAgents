@@ -1,6 +1,11 @@
+import { useController, useForm } from "react-hook-form";
+import type { ControllerRenderProps } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { providerConfigurationSchema } from "./ProviderConfigurationDialog.schemas";
 import { useCallback, useEffect, useId, useState } from "react";
 import type { FormEventHandler } from "react";
 import { Button } from "../../../../design-system/Button";
+import { Modal } from "../../../../design-system/Modal";
 import { Input } from "../../../../design-system/Input";
 import { useCommaAgentsDaemon } from "../../../../hooks/useCommaAgentsDaemon";
 import { useDaemonMutation } from "../../../../hooks/useDaemonMutation";
@@ -15,27 +20,25 @@ import {
   providerErrorMessage,
   verificationMessage,
 } from "./ProviderConfigurationDialog.utils";
-import { OpenAISignIn } from "./OpenAISignIn";
+import { ProviderSignIn } from "./ProviderSignIn";
 import styles from "./ProviderConfigurationDialog.module.scss";
 
-/** Provider configuration workflow rendered inside its owner's modal. */
+/** Provider configuration workflow shown in its own modal. */
 export interface ProviderConfigurationDialogProps {
   /** Provider being configured. */
   readonly provider: DiscoveredProvider;
   /** Close the workflow, keeping any already-saved changes. */
   readonly onClose: () => void;
-  /** Refresh providers and apply the latest request-local verification. */
-  readonly onChanged: (change?: ProviderSettingsChange) => Promise<void>;
+  /** Report the latest request-local verification, or that it no longer applies. */
+  readonly onChanged: (change: ProviderSettingsChange) => void;
   /** Replace this workflow with the custom endpoint editor. */
   readonly onEditCustom: () => void;
-  /** Prevent parent dismissal while a submitted command is pending. */
-  readonly onBusyChange?: (busy: boolean) => void;
   /** Replace this workflow with confirmation for a manual-model entry. */
   readonly onRemoveModel?: (modelId: string) => void;
 }
 
 /**
- * Save credentials, verify once where supported, and refresh without stacking dialogs.
+ * Save credentials and verify once where supported, without stacking dialogs.
  * @param {ProviderConfigurationDialogProps} props - Selected provider and lifecycle callbacks.
  * @returns {React.ReactElement} Credential form or inline confirmation/error step.
  */
@@ -44,7 +47,6 @@ export function ProviderConfigurationDialog({
   onClose,
   onChanged,
   onEditCustom,
-  onBusyChange = () => {},
   onRemoveModel,
 }: ProviderConfigurationDialogProps) {
   const query = useCommaAgentsDaemon(
@@ -57,183 +59,163 @@ export function ProviderConfigurationDialog({
     "core.providers.removeCredential",
   );
   const [configuration, setConfiguration] = useState<ProviderConfiguration>();
-  const [apiKey, setApiKey] = useState("");
   const [authenticationMethod, setAuthenticationMethod] = useState<
     "api" | "oauth"
-  >("api");
+  >(provider.id === "github-copilot" ? "oauth" : "api");
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<ProviderConfigurationStep>("form");
   const [error, setError] = useState<string | null>(null);
-  const [change, setChange] = useState<ProviderSettingsChange>();
-  const [afterRefresh, setAfterRefresh] = useState<
-    "close" | "verificationIssue"
-  >("close");
   const fieldId = useId();
   const current = configuration ?? query.data;
+  const { control, handleSubmit, resetField } = useForm({
+    resolver: zodResolver(
+      providerConfigurationSchema(
+        authenticationMethod === "api" &&
+          provider.credentialType === "api" &&
+          current?.authStatus !== "configured",
+      ),
+    ),
+    defaultValues: { apiKey: "" },
+  });
+  const { field: apiKeyField, fieldState } = useController({
+    control,
+    name: "apiKey",
+  });
   useEffect(() => {
-    if (query.data?.authenticationMethod === "oauth")
+    if (query.data?.authenticationMethod === "oauth") {
       setAuthenticationMethod("oauth");
+    }
   }, [query.data?.authenticationMethod]);
-  useEffect(() => {
-    onBusyChange(busy);
-  }, [busy, onBusyChange]);
-  useEffect(() => () => onBusyChange(false), [onBusyChange]);
 
-  const refresh = useCallback(
-    async (
-      nextChange: ProviderSettingsChange,
-      nextStep: "close" | "verificationIssue",
-    ) => {
-      setChange(nextChange);
-      setAfterRefresh(nextStep);
-      try {
-        await onChanged(nextChange);
-        if (nextStep === "close") onClose();
-        else {
-          setError(
-            verificationMessage(
-              nextChange.verification?.status ?? "unavailable",
-            ),
-          );
-          setStep("verificationIssue");
-        }
-      } catch (caught) {
-        setStep("refreshIssue");
-        setError(
-          `Changes were saved, but providers could not be reloaded. ${providerErrorMessage(caught)}`,
-        );
+  const finish = useCallback(
+    (change: ProviderSettingsChange, verificationFailed = false) => {
+      onChanged(change);
+      if (!verificationFailed) {
+        onClose();
+        return;
       }
+      setError(
+        verificationMessage(change.verification?.status ?? "unavailable"),
+      );
+      setStep("verificationIssue");
     },
     [onChanged, onClose],
   );
 
   const handleConnected = useCallback(async () => {
-    // OAuth validates signed identity and granted plan scopes; it does not generate a test response.
-    await refresh({ providerId: provider.id }, "close");
-  }, [provider.id, refresh]);
+    // Core saves the OAuth credential; sign-in does not generate a test response.
+    finish({ providerId: provider.id });
+  }, [finish, provider.id]);
 
-  const handleSave = useCallback<FormEventHandler<HTMLFormElement>>(
-    (event) => {
-      event.preventDefault();
-      if (busy || !current) return;
-      const key = apiKey.trim();
-      if (
-        provider.credentialType === "api" &&
-        !key &&
-        current.authStatus !== "configured"
-      ) {
-        setError("Enter an API key.");
+  const handleSave = useCallback(
+    async ({ apiKey }: { apiKey: string }) => {
+      if (busy || !current) {
         return;
       }
+      const key = apiKey.trim();
       setBusy(true);
       setError(null);
-      void (async () => {
-        try {
-          const saved = key
-            ? await configure({ providerId: provider.id, apiKey: key })
-            : current;
-          setConfiguration(saved);
-          let verification: ProviderVerification | undefined;
-          if (
-            saved.verificationSupported &&
-            provider.credentialType === "api"
-          ) {
-            try {
-              verification = await verify({ providerId: provider.id });
-            } catch (caught) {
-              verification = {
-                providerId: provider.id,
-                status: "unavailable",
-                checkedAt: new Date().toISOString(),
-              };
-              setError(providerErrorMessage(caught));
-            }
+      try {
+        const saved = key
+          ? await configure({ providerId: provider.id, apiKey: key })
+          : current;
+        setConfiguration(saved);
+        let verification: ProviderVerification | undefined;
+        if (saved.verificationSupported && provider.credentialType === "api") {
+          try {
+            verification = await verify({ providerId: provider.id });
+          } catch (caught) {
+            verification = {
+              providerId: provider.id,
+              status: "unavailable",
+              checkedAt: new Date().toISOString(),
+            };
+            setError(providerErrorMessage(caught));
           }
-          const failed =
-            verification &&
-            !["verified", "unsupported"].includes(verification.status);
-          if (failed && verification)
-            setError(verificationMessage(verification.status));
-          await refresh(
-            { providerId: provider.id, verification },
-            failed ? "verificationIssue" : "close",
-          );
-        } catch (caught) {
-          setError(providerErrorMessage(caught));
-        } finally {
-          setBusy(false);
         }
-      })();
+        finish(
+          { providerId: provider.id, verification },
+          verification !== undefined &&
+            !["verified", "unsupported"].includes(verification.status),
+        );
+      } catch (caught) {
+        setError(providerErrorMessage(caught));
+      } finally {
+        setBusy(false);
+      }
     },
     [
-      apiKey,
       busy,
       configure,
       current,
+      finish,
       provider.id,
       provider.credentialType,
-      refresh,
       verify,
     ],
   );
 
   const handleRemove = useCallback(() => {
-    if (busy) return;
+    if (busy) {
+      return;
+    }
     setBusy(true);
     setError(null);
     void (async () => {
       try {
         setConfiguration(await removeCredential({ providerId: provider.id }));
-        setApiKey("");
-        await refresh({ providerId: provider.id }, "close");
+        resetField("apiKey");
+        finish({ providerId: provider.id });
       } catch (caught) {
         setError(providerErrorMessage(caught));
       } finally {
         setBusy(false);
       }
     })();
-  }, [busy, provider.id, refresh, removeCredential]);
-
-  const retryRefresh = useCallback(() => {
-    if (busy || !change) return;
-    setBusy(true);
-    void refresh(change, afterRefresh).finally(() => setBusy(false));
-  }, [afterRefresh, busy, change, refresh]);
+  }, [busy, finish, provider.id, removeCredential, resetField]);
 
   return (
-    <ProviderConfigurationDialogRender
-      provider={provider}
-      authenticationMethod={authenticationMethod}
-      onAuthenticationMethod={setAuthenticationMethod}
-      onSubscriptionConnected={handleConnected}
-      onSubscriptionBusy={setBusy}
-      configuration={current}
-      loading={query.isLoading}
-      loadError={query.errors?.message ?? query.clientError?.message}
-      apiKey={apiKey}
-      fieldId={fieldId}
-      busy={busy}
-      step={step}
-      error={error}
-      onSubmit={handleSave}
-      onChange={(value) => {
-        setApiKey(value);
-        setError(null);
-      }}
-      onClose={onClose}
-      onEdit={() => {
-        setStep("form");
-        setError(null);
-      }}
-      onRemove={() => {
-        setStep("remove");
-        setError(null);
-      }}
-      onConfirmRemove={handleRemove}
-      onRetryRefresh={retryRefresh}
-      onEditCustom={onEditCustom}
-      onRemoveModel={onRemoveModel}
-    />
+    // Saving cannot be dismissed.
+    <Modal
+      open
+      title={`${provider.authStatus === "configured" || provider.credentialType === "none" ? "Configure" : "Connect"} ${provider.name}`}
+      onClose={() => !busy && onClose()}
+      className={styles.modal}
+    >
+      <ProviderConfigurationDialogRender
+        provider={provider}
+        authenticationMethod={authenticationMethod}
+        onAuthenticationMethod={setAuthenticationMethod}
+        onSubscriptionConnected={handleConnected}
+        onSubscriptionBusy={setBusy}
+        configuration={current}
+        loading={query.isLoading}
+        loadError={query.errors?.message ?? query.clientError?.message}
+        apiKeyField={apiKeyField}
+        fieldError={fieldState.error?.message}
+        fieldId={fieldId}
+        busy={busy}
+        step={step}
+        error={error}
+        onSubmit={handleSubmit(handleSave)}
+        onChange={(value) => {
+          apiKeyField.onChange(value);
+          setError(null);
+        }}
+        onClose={onClose}
+        onEdit={() => {
+          setStep("form");
+          setError(null);
+        }}
+        onRemove={() => {
+          setStep("remove");
+          setError(null);
+        }}
+        onConfirmRemove={handleRemove}
+        onEditCustom={onEditCustom}
+        onRemoveModel={onRemoveModel}
+      />
+    </Modal>
   );
 }
 
@@ -256,7 +238,9 @@ export interface ProviderConfigurationDialogRenderProps {
   /** Initial daemon/client failure. */
   readonly loadError?: string;
   /** New key draft, never the stored key. */
-  readonly apiKey: string;
+  readonly apiKeyField: ControllerRenderProps<{ apiKey: string }, "apiKey">;
+  /** Validation feedback for the new key. */
+  readonly fieldError?: string;
   /** Accessible input identity. */
   readonly fieldId: string;
   /** A submitted operation is pending. */
@@ -277,8 +261,6 @@ export interface ProviderConfigurationDialogRenderProps {
   readonly onRemove: () => void;
   /** Perform confirmed credential removal. */
   readonly onConfirmRemove: () => void;
-  /** Retry only the failed reload, without repeating writes/checks. */
-  readonly onRetryRefresh: () => void;
   /** Open the user-owned endpoint editor. */
   readonly onEditCustom: () => void;
   /** Open manual-entry removal in this same workflow modal. */
@@ -299,7 +281,8 @@ export function ProviderConfigurationDialogRender({
   configuration,
   loading,
   loadError,
-  apiKey,
+  apiKeyField,
+  fieldError,
   fieldId,
   busy,
   step,
@@ -310,11 +293,10 @@ export function ProviderConfigurationDialogRender({
   onEdit,
   onRemove,
   onConfirmRemove,
-  onRetryRefresh,
   onEditCustom,
   onRemoveModel,
 }: ProviderConfigurationDialogRenderProps) {
-  if (step === "verificationIssue")
+  if (step === "verificationIssue") {
     return (
       <div className={styles.form}>
         <p role="alert" className={styles.error}>
@@ -329,23 +311,8 @@ export function ProviderConfigurationDialogRender({
         </div>
       </div>
     );
-  if (step === "refreshIssue")
-    return (
-      <div className={styles.form}>
-        <p role="alert" className={styles.error}>
-          {error}
-        </p>
-        <div className={styles.actions}>
-          <Button disabled={busy} onClick={onClose}>
-            Close
-          </Button>
-          <Button disabled={busy} onClick={onRetryRefresh}>
-            {busy ? "Reloading..." : "Retry reload"}
-          </Button>
-        </div>
-      </div>
-    );
-  if (step === "remove")
+  }
+  if (step === "remove") {
     return (
       <div className={styles.form}>
         <p className={styles.message}>
@@ -373,6 +340,7 @@ export function ProviderConfigurationDialogRender({
         </div>
       </div>
     );
+  }
   return (
     <form className={styles.form} noValidate onSubmit={onSubmit}>
       {loading && !configuration && (
@@ -392,7 +360,9 @@ export function ProviderConfigurationDialogRender({
               ? "Connected. This provider requires no API key."
               : configuration.authStatus === "configured"
                 ? "Connected. Configuration is present; access has not been verified in this form."
-                : "An API key is needed to connect this provider."}
+                : provider.id === "github-copilot"
+                  ? "Sign in with GitHub to connect your Copilot subscription."
+                  : "An API key is needed to connect this provider."}
           </p>
           {configuration.credentialSource === "environment" && (
             <p className={styles.notice}>
@@ -423,7 +393,9 @@ export function ProviderConfigurationDialogRender({
           )}
           {configuration.authenticationMethod === "oauth" && (
             <p className={styles.notice}>
-              Using ChatGPT plan
+              Using{" "}
+              {provider.id === "github-copilot" ? "GitHub Copilot" : "ChatGPT"}{" "}
+              plan
               {configuration.accountEmail
                 ? ` · ${configuration.accountEmail}`
                 : ""}
@@ -433,7 +405,10 @@ export function ProviderConfigurationDialogRender({
           {authenticationMethod === "oauth" &&
           onSubscriptionConnected &&
           onSubscriptionBusy ? (
-            <OpenAISignIn
+            <ProviderSignIn
+              providerId={
+                provider.id === "github-copilot" ? "github-copilot" : "openai"
+              }
               onConnected={onSubscriptionConnected}
               onBusyChange={onSubscriptionBusy}
             />
@@ -449,7 +424,9 @@ export function ProviderConfigurationDialogRender({
                 type="password"
                 autoComplete="new-password"
                 spellCheck={false}
-                value={apiKey}
+                {...apiKeyField}
+                aria-invalid={Boolean(fieldError)}
+                aria-describedby={fieldError ? `${fieldId}-error` : undefined}
                 disabled={busy}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={
@@ -458,6 +435,15 @@ export function ProviderConfigurationDialogRender({
                     : "Enter API key"
                 }
               />
+              {fieldError && (
+                <p
+                  id={`${fieldId}-error`}
+                  role="alert"
+                  className={styles.error}
+                >
+                  {fieldError}
+                </p>
+              )}
             </div>
           ) : (
             provider.credentialType !== "none" && (

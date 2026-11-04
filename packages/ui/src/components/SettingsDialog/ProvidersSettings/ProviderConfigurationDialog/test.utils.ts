@@ -16,9 +16,6 @@ export const openAIProvider: DiscoveredProvider = {
   authStatus: "none",
   models: [],
   origin: "catalog",
-  discovery: {
-    status: "catalog_only",
-  },
 };
 /** Empty global credential configuration. */
 export const emptyConfiguration: ProviderConfiguration = {
@@ -47,8 +44,11 @@ export function mockProviderSocket() {
   return () => {
     globalThis.WebSocket = original;
     environment.IS_REACT_ACT_ENVIRONMENT = previous;
-    if (settings === null) localStorage.removeItem("comma-agents.settings");
-    else localStorage.setItem("comma-agents.settings", settings);
+    if (settings === null) {
+      localStorage.removeItem("comma-agents.settings");
+    } else {
+      localStorage.setItem("comma-agents.settings", settings);
+    }
   };
 }
 /** Wait for one explicit command by name.
@@ -99,4 +99,33 @@ export async function loadProviderForm(
     await providerRequest("core.providers.getConfiguration"),
     configuration,
   );
+}
+/** Subscriptions already acknowledged, so later snapshots skip the acknowledgement. */
+const acknowledged = new Set<string>();
+/** Push one provider list snapshot through the real shared context routing.
+ * @param {readonly DiscoveredProvider[]} providers - Providers in the snapshot.
+ * @param {boolean} [refreshing] - Whether the daemon is calling provider APIs.
+ * @returns {Promise<void>} Resolves after rendering updates.
+ */
+export async function publishProviders(
+  providers: readonly DiscoveredProvider[],
+  refreshing = false,
+): Promise<void> {
+  const socket = MockWebSocket.instances.at(-1)!;
+  const subscribed = () =>
+    requests(socket, "subscribe").filter(
+      (request) => request.channel === "core.providers.list",
+    );
+  await waitFor(() => expect(subscribed().length).toBeGreaterThan(0));
+  const { requestId } = subscribed().at(-1)!;
+  await act(async () => {
+    if (!acknowledged.has(requestId)) {
+      acknowledged.add(requestId);
+      deliver(socket, requestId, { type: "response", ok: true, data: null });
+    }
+    deliver(socket, requestId, {
+      type: "providers.updated",
+      data: { providers, refreshing },
+    });
+  });
 }

@@ -1,3 +1,8 @@
+import type { z } from "zod";
+import type {
+  addModelSchema,
+  modelDraftSchema,
+} from "./AddModelDialog.schemas";
 import type { DaemonCommandMap } from "@comma-agents/daemon/protocol";
 import type { ModelCapability } from "../ProvidersSettings.types";
 
@@ -7,23 +12,9 @@ export type AddModelArguments =
 /** Optional user-authored metadata accepted by the daemon. */
 export type ModelMetadata = NonNullable<AddModelArguments["metadata"]>;
 /** Text values remain drafts until form submission validates them. */
-export type ModelDraft = Record<
-  | "modelId"
-  | "name"
-  | "contextWindow"
-  | "maxInputTokens"
-  | "maxOutputTokens"
-  | "knowledgeCutoff"
-  | "releaseDate"
-  | "lastUpdated"
-  | "status"
-  | "inputCost"
-  | "outputCost"
-  | "reasoningCost"
-  | "cacheReadCost"
-  | "cacheWriteCost",
-  string
->;
+export type ModelDraft = z.infer<typeof modelDraftSchema>;
+/** Values owned by the model form. */
+export type AddModelValues = z.infer<ReturnType<typeof addModelSchema>>;
 /** Enable supported capabilities; disabled toggles leave metadata unspecified. */
 export type CapabilityDraft = Record<ModelCapability, boolean>;
 /** Input/output modalities are optional; empty selection means unknown. */
