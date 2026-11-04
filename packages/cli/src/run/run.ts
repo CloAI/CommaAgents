@@ -93,21 +93,26 @@ export async function runHeadless({
             usage.completionTokens += message.usage.completionTokens;
           }
           const text = agentMessageText(message);
-          if (text === undefined || message.role !== "agent") return;
+          if (text === undefined || message.role !== "agent") {
+            return;
+          }
           outputs.push({
             agentName: message.agentName,
             runId: message.runId,
             text,
           });
-          if (!json)
+          if (!json) {
             process.stdout.write(`\n[${message.agentName}]\n${text}\n`);
+          }
         },
       ),
       await runs.notifications.subscribe(
         "run_input_requested",
         runId,
         (request) => {
-          if (request.runId !== runId) return;
+          if (request.runId !== runId) {
+            return;
+          }
           if (userTurns >= maxUserTurns) {
             reachedTurnLimit = true;
             void runs.stopRun(runId);
@@ -122,10 +127,15 @@ export async function runHeadless({
         "run_snapshot",
         runId,
         ({ snapshot }) => {
-          if (snapshot.runId !== runId || terminalWaiter === undefined) return;
-          if (snapshot.phase === RunPhase.running) continuationRunning = true;
-          if (snapshot.phase === RunPhase.terminal && continuationRunning)
+          if (snapshot.runId !== runId || terminalWaiter === undefined) {
+            return;
+          }
+          if (snapshot.phase === RunPhase.running) {
+            continuationRunning = true;
+          }
+          if (snapshot.phase === RunPhase.terminal && continuationRunning) {
             terminalWaiter.resolve(snapshot);
+          }
         },
       ),
       await questions.notifications.subscribe(
@@ -152,20 +162,22 @@ export async function runHeadless({
     const firstOutcome = await runs.startRun(runId, input).completion;
     let status: string = firstOutcome.status;
     for (const stage of stages.slice(1)) {
-      if (status === "failed" || (status === "stopped" && !reachedTurnLimit))
+      if (status === "failed" || (status === "stopped" && !reachedTurnLimit)) {
         break;
+      }
       userTurns = 1;
       reachedTurnLimit = false;
       continuationRunning = false;
       terminalWaiter = Promise.withResolvers<PluginRunSnapshot>();
       await runs.switchStrategy({ runId, ...stage });
       const submission = await runs.sendRun({ runId, input: thenInput });
-      if (submission.type === "context_required")
+      if (submission.type === "context_required") {
         await runs.sendRun({
           runId,
           input: thenInput,
           contextChoice: "compact",
         });
+      }
       const terminal = await terminalWaiter.promise;
       status =
         terminal.phase === RunPhase.terminal ? terminal.outcome.status : status;
@@ -180,10 +192,14 @@ export async function runHeadless({
       permissionRequests,
       usage,
     };
-    if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    if (json) {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    }
     return result;
   } finally {
-    for (const unsubscribe of unsubscribers) unsubscribe();
+    for (const unsubscribe of unsubscribers) {
+      unsubscribe();
+    }
     await kernel.dispose();
   }
 }

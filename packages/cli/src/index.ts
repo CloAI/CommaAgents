@@ -21,8 +21,4 @@ export type {
   UpdateCheckResult,
   UpdateResult,
 } from "./update";
-export {
-  checkForUpdate,
-  installUpdate,
-  runUpdater,
-} from "./update";
+export { checkForUpdate, installUpdate, runUpdater } from "./update";

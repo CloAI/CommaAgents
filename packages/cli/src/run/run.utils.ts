@@ -25,9 +25,12 @@ export function resolveStrategy(
   const byPath = discovered.find(
     (discoveredStrategy) => discoveredStrategy.path === candidatePath,
   );
-  if (byPath)
+  if (byPath) {
     return { strategyPath: byPath.path, manifestPath: byPath.manifestPath };
-  if (existsSync(candidatePath)) return { strategyPath: candidatePath };
+  }
+  if (existsSync(candidatePath)) {
+    return { strategyPath: candidatePath };
+  }
   const wanted = strategy.toLowerCase();
   const byName = discovered.find(
     (discoveredStrategy) =>
@@ -49,7 +52,9 @@ export function resolveStrategy(
  * @returns {string | undefined} Trimmed text, or undefined when the message has none.
  */
 export function agentMessageText(message: RunMessage): string | undefined {
-  if (message.role !== "agent") return undefined;
+  if (message.role !== "agent") {
+    return undefined;
+  }
   const text = message.content
     .flatMap((block) => (block.type === "text" ? [block.text] : []))
     .join("\n")

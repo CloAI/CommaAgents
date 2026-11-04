@@ -54,10 +54,15 @@ function currentVersion(): string {
 async function readCachedReleases(
   maxAgeMs: number,
 ): Promise<readonly ReleaseInfo[] | undefined> {
-  if (maxAgeMs <= 0) return undefined;
+  if (maxAgeMs <= 0) {
+    return undefined;
+  }
   try {
     const cache = JSON.parse(
-      await readFile(join(getApplicationDataDirectory(), UPDATE_CHECK_CACHE_FILE), "utf8"),
+      await readFile(
+        join(getApplicationDataDirectory(), UPDATE_CHECK_CACHE_FILE),
+        "utf8",
+      ),
     ) as Partial<ReleaseCache>;
     if (
       typeof cache.checkedAt !== "number" ||
@@ -72,9 +77,13 @@ async function readCachedReleases(
 }
 
 function normalizeCachedReleases(value: unknown): readonly ReleaseInfo[] {
-  if (!Array.isArray(value)) throw new Error("Invalid update cache");
+  if (!Array.isArray(value)) {
+    throw new Error("Invalid update cache");
+  }
   return value.flatMap((release): readonly ReleaseInfo[] => {
-    if (typeof release !== "object" || release === null) return [];
+    if (typeof release !== "object" || release === null) {
+      return [];
+    }
     const candidate = release as Partial<ReleaseInfo>;
     if (
       typeof candidate.version !== "string" ||
@@ -358,9 +367,13 @@ export async function installUpdate(
     return { version: update.release.version, deferred: false };
   }
 
-  if (process.platform === "win32") await stopDaemonProcess();
+  if (process.platform === "win32") {
+    await stopDaemonProcess();
+  }
   const deferred = await installStandaloneRelease(update.release, fetch);
-  if (!deferred) await stopDaemonProcess();
+  if (!deferred) {
+    await stopDaemonProcess();
+  }
   return { version: update.release.version, deferred };
 }
 
@@ -435,7 +448,9 @@ export async function runUpdater({
 
 /** Check for an update before launching the TUI and offer to install it. */
 export async function offerUpdateBeforeTui(): Promise<boolean> {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    return false;
+  }
   let update: UpdateCheckResult;
   try {
     update = await checkForUpdate({

@@ -59,6 +59,19 @@ function daemonCommandArguments(
     foreground: booleanValue(commandArguments.foreground),
     port: optionalNumber(commandArguments.port),
     verbose: booleanValue(commandArguments.verbose),
+    console:
+      typeof commandArguments.console === "boolean"
+        ? commandArguments.console
+        : undefined,
+    consoleFormat:
+      commandArguments.consoleFormat === "text" ||
+      commandArguments.consoleFormat === "json"
+        ? commandArguments.consoleFormat
+        : undefined,
+    logPayloads:
+      typeof commandArguments.logPayloads === "boolean"
+        ? commandArguments.logPayloads
+        : undefined,
     json: booleanValue(commandArguments.json),
   };
 }
@@ -328,7 +341,9 @@ yargs(hideBin(process.argv))
       }
 
       const name = optionalString(commandArguments.name);
-      if (!name) throw new Error(`comma hub ${action} requires a package name`);
+      if (!name) {
+        throw new Error(`comma hub ${action} requires a package name`);
+      }
       if (action === "remove") {
         const removed = await manager.remove(name);
         console.log(removed ? `Removed ${name}` : `${name} is not installed`);

@@ -6,7 +6,9 @@ import { resolveSelfDaemonCommand } from "./tui.utils";
 export async function launchTui(
   options: LaunchTuiOptions = {},
 ): Promise<number> {
-  if (await offerUpdateBeforeTui()) return 0;
+  if (await offerUpdateBeforeTui()) {
+    return 0;
+  }
 
   await startDaemonProcess({
     allowExisting: true,
