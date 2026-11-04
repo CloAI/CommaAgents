@@ -188,12 +188,16 @@ export function connectTestClient(
         ): Promise<unknown> {
           // Check already-received messages
           const found = messages.find(predicate);
-          if (found) return Promise.resolve(found);
+          if (found) {
+            return Promise.resolve(found);
+          }
 
           return new Promise<unknown>((res, rej) => {
             const timer = setTimeout(() => {
               const idx = waiters.findIndex((w) => w.resolve === res);
-              if (idx >= 0) waiters.splice(idx, 1);
+              if (idx >= 0) {
+                waiters.splice(idx, 1);
+              }
               rej(
                 new Error(
                   `Timed out waiting for message (${timeout}ms). ` +
@@ -237,7 +241,9 @@ export function connectTestClient(
 
             // Find next matching message not yet collected
             const msg = await client.waitForMessage((m: any) => {
-              if (!predicate(m)) return false;
+              if (!predicate(m)) {
+                return false;
+              }
               // Don't match already-collected messages
               return !collected.includes(m);
             }, remaining);

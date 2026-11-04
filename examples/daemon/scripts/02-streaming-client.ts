@@ -75,7 +75,9 @@ async function main() {
   const strategyPath = path.resolve(STRATEGY_PATH);
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
   console.log(`Strategy: ${strategyPath}`);
-  if (MODEL_OVERRIDE) console.log(`Model override: ${MODEL_OVERRIDE}`);
+  if (MODEL_OVERRIDE) {
+    console.log(`Model override: ${MODEL_OVERRIDE}`);
+  }
   console.log("Streaming mode — tokens will appear as they arrive.\n");
 
   const ws = new WebSocket(DAEMON_URL);

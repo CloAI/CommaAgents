@@ -114,7 +114,9 @@ async function runTuiE2eTest(
   } finally {
     await interruptShellUseSession(sessionName);
     await closeShellUseSession(sessionName);
-    if (passed) rmSync(artifactDir, { recursive: true, force: true });
+    if (passed) {
+      rmSync(artifactDir, { recursive: true, force: true });
+    }
   }
 }
 
@@ -188,7 +190,9 @@ export async function waitForFile(
 ): Promise<void> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    if (await Bun.file(filePath).exists()) return;
+    if (await Bun.file(filePath).exists()) {
+      return;
+    }
     await Bun.sleep(50);
   }
   throw new Error(`Timed out waiting for file: ${filePath}`);

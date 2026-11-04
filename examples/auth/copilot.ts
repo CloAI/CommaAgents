@@ -208,10 +208,14 @@ async function pollForToken(device: DeviceCodeResponse): Promise<PollResult> {
  * (or will expire within the safety buffer).
  */
 export function isExpired(credential: OAuthCredential): boolean {
-  if (!credential.expiresAt) return false;
+  if (!credential.expiresAt) {
+    return false;
+  }
   const expiresAtMs = new Date(credential.expiresAt).getTime();
   // expiresAt of 0 (epoch) means never expires
-  if (expiresAtMs === 0) return false;
+  if (expiresAtMs === 0) {
+    return false;
+  }
   return Date.now() >= expiresAtMs - EXPIRY_BUFFER_MS;
 }
 
@@ -221,9 +225,13 @@ export function isExpired(credential: OAuthCredential): boolean {
  */
 export function isRefreshExpired(credential: OAuthCredential): boolean {
   const refreshExpiresAt = credential.metadata?.refreshExpiresAt;
-  if (refreshExpiresAt == null) return false;
+  if (refreshExpiresAt == null) {
+    return false;
+  }
   const expiresAtMs = new Date(refreshExpiresAt as string).getTime();
-  if (expiresAtMs === 0) return false;
+  if (expiresAtMs === 0) {
+    return false;
+  }
   return Date.now() >= expiresAtMs;
 }
 

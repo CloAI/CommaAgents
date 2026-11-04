@@ -90,7 +90,9 @@ if (argv.list || !argv.alias) {
     console.log(`    ${entry.description}\n`);
   }
   console.log("Usage: bun run example <alias>");
-  if (!argv.alias) process.exit(1);
+  if (!argv.alias) {
+    process.exit(1);
+  }
   process.exit(0);
 }
 

@@ -88,10 +88,14 @@ export function BatchRunner({ provider, examples, onDone }: BatchRunnerProps) {
 
       // -- Run core examples (no daemon needed) --
       for (let i = 0; i < coreExamples.length; i++) {
-        if (cancelled) break;
+        if (cancelled) {
+          break;
+        }
 
         const example = coreExamples[i];
-        if (!example) break;
+        if (!example) {
+          break;
+        }
         setCurrentIndex(allResults.length);
         setCurrentOutput([]);
         setStatusMessage(null);
@@ -134,10 +138,14 @@ export function BatchRunner({ provider, examples, onDone }: BatchRunnerProps) {
 
         // -- Run daemon examples --
         for (let i = 0; i < daemonExamples.length; i++) {
-          if (cancelled) break;
+          if (cancelled) {
+            break;
+          }
 
           const example = daemonExamples[i];
-          if (!example) break;
+          if (!example) {
+            break;
+          }
           setCurrentIndex(allResults.length);
           setCurrentOutput([]);
 
@@ -559,7 +567,9 @@ function runExample(
           child.stdin?.write("done\n");
         } catch {
           // stdin closed — stop writing
-          if (stdinInterval) clearInterval(stdinInterval);
+          if (stdinInterval) {
+            clearInterval(stdinInterval);
+          }
         }
       }, 1_000);
     }
@@ -582,7 +592,9 @@ function runExample(
       const line = `[timeout] Example exceeded ${EXAMPLE_TIMEOUT_MS / 1000}s limit — killed`;
       output.push(line);
       onLine(line);
-      if (stdinInterval) clearInterval(stdinInterval);
+      if (stdinInterval) {
+        clearInterval(stdinInterval);
+      }
       try {
         child.kill("SIGKILL");
       } catch {
@@ -592,7 +604,9 @@ function runExample(
 
     child.on("close", (code) => {
       clearTimeout(timer);
-      if (stdinInterval) clearInterval(stdinInterval);
+      if (stdinInterval) {
+        clearInterval(stdinInterval);
+      }
       resolve({
         example,
         exitCode: code,
@@ -603,7 +617,9 @@ function runExample(
 
     child.on("error", (err) => {
       clearTimeout(timer);
-      if (stdinInterval) clearInterval(stdinInterval);
+      if (stdinInterval) {
+        clearInterval(stdinInterval);
+      }
       const line = `[spawn error] ${err.message}`;
       output.push(line);
       onLine(line);

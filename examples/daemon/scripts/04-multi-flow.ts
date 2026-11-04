@@ -108,7 +108,9 @@ function createTracker(
 
 function findTracker(runId: string): FlowTracker | undefined {
   for (const t of flows.values()) {
-    if (t.runId === runId) return t;
+    if (t.runId === runId) {
+      return t;
+    }
   }
   return undefined;
 }
@@ -130,7 +132,9 @@ async function main() {
   const strategyPath = path.resolve(STRATEGY_PATH);
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
   console.log(`Strategy: ${strategyPath}`);
-  if (MODEL_OVERRIDE) console.log(`Model override: ${MODEL_OVERRIDE}`);
+  if (MODEL_OVERRIDE) {
+    console.log(`Model override: ${MODEL_OVERRIDE}`);
+  }
   console.log();
 
   const ws = new WebSocket(DAEMON_URL);
@@ -181,7 +185,9 @@ async function main() {
     switch (msg.type) {
       case "run_prepared": {
         const tracker = flows.get(msg.runId);
-        if (tracker) tracker.runId = msg.runId;
+        if (tracker) {
+          tracker.runId = msg.runId;
+        }
         ws.send(
           JSON.stringify({
             type: "start_run",
@@ -210,7 +216,9 @@ async function main() {
 
       case "step_started": {
         const t = findTracker(msg.runId);
-        if (t) t.stepCount++;
+        if (t) {
+          t.stepCount++;
+        }
         break;
       }
 
@@ -253,7 +261,9 @@ async function main() {
 
       case "strategy_completed": {
         const t = findTracker(msg.runId);
-        if (t) t.status = "completed";
+        if (t) {
+          t.status = "completed";
+        }
         completedCount++;
 
         const label = t?.label ?? msg.runId.slice(0, 8);
@@ -271,7 +281,9 @@ async function main() {
 
       case "strategy_error": {
         const t = findTracker(msg.runId);
-        if (t) t.status = "error";
+        if (t) {
+          t.status = "error";
+        }
         completedCount++;
 
         const label = t?.label ?? msg.runId.slice(0, 8);

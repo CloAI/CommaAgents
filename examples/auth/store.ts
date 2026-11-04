@@ -31,7 +31,9 @@ let storeInstance: CredentialStore | undefined;
 function getStore(): CredentialStore {
   if (!storeInstance) {
     storeInstance = createCredentialStore({
-      backend: createJsonFileCredentialBackend({ filePath: resolveCredentialsPath() }),
+      backend: createJsonFileCredentialBackend({
+        filePath: resolveCredentialsPath(),
+      }),
     });
   }
   return storeInstance;

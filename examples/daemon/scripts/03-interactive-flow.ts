@@ -100,7 +100,9 @@ const INTERACTIVE_STRATEGY = {
 
 function getStrategyPath(): string {
   const explicit = argv.strategyPath as string | undefined;
-  if (explicit) return path.resolve(explicit);
+  if (explicit) {
+    return path.resolve(explicit);
+  }
 
   // Write a temporary strategy file
   const tmpPath = path.join(
@@ -137,7 +139,9 @@ async function main() {
   const strategyPath = getStrategyPath();
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
   console.log(`Strategy: ${strategyPath}`);
-  if (MODEL_OVERRIDE) console.log(`Model override: ${MODEL_OVERRIDE}`);
+  if (MODEL_OVERRIDE) {
+    console.log(`Model override: ${MODEL_OVERRIDE}`);
+  }
   console.log();
 
   const ws = new WebSocket(DAEMON_URL);

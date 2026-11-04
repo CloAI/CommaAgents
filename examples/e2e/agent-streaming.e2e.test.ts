@@ -52,7 +52,9 @@ describe("E2E: Agent Streaming", () => {
       });
 
       const events: AgentStreamEvent[] = [];
-      if (!agent.stream) throw new Error("Expected agent.stream to be defined");
+      if (!agent.stream) {
+        throw new Error("Expected agent.stream to be defined");
+      }
       for await (const event of agent.stream("Hi")) {
         events.push(event);
       }
@@ -80,7 +82,9 @@ describe("E2E: Agent Streaming", () => {
       });
 
       const textParts: string[] = [];
-      if (!agent.stream) throw new Error("Expected agent.stream to be defined");
+      if (!agent.stream) {
+        throw new Error("Expected agent.stream to be defined");
+      }
       for await (const event of agent.stream("Test")) {
         if (event.type === "text") {
           textParts.push(event.text);
@@ -119,7 +123,9 @@ describe("E2E: Agent Streaming", () => {
       });
 
       const events: AgentStreamEvent[] = [];
-      if (!agent.stream) throw new Error("Expected agent.stream to be defined");
+      if (!agent.stream) {
+        throw new Error("Expected agent.stream to be defined");
+      }
       for await (const event of agent.stream("Echo something")) {
         events.push(event);
       }
@@ -175,7 +181,9 @@ describe("E2E: Agent Streaming", () => {
 
       // Use stream() generator to trigger streaming
       const directEvents: AgentStreamEvent[] = [];
-      if (!agent.stream) throw new Error("Expected agent.stream to be defined");
+      if (!agent.stream) {
+        throw new Error("Expected agent.stream to be defined");
+      }
       for await (const event of agent.stream("Test")) {
         directEvents.push(event);
       }
@@ -205,8 +213,9 @@ describe("E2E: Agent Streaming", () => {
       const events: AgentStreamEvent[] = [];
 
       try {
-        if (!agent.stream)
+        if (!agent.stream) {
           throw new Error("Expected agent.stream to be defined");
+        }
         const streamGenerator = agent.stream("Test abort");
 
         // Abort almost immediately

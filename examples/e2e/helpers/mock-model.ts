@@ -256,9 +256,13 @@ export function createSpyMockModel(responses: string[]): {
   /** Extract system prompt from the prompt messages array. */
   function extractSystemPrompt(prompt: readonly any[]): string | undefined {
     const systemMsg = prompt.find((m: any) => m.role === "system");
-    if (!systemMsg) return undefined;
+    if (!systemMsg) {
+      return undefined;
+    }
     // System message content can be a string or structured
-    if (typeof systemMsg.content === "string") return systemMsg.content;
+    if (typeof systemMsg.content === "string") {
+      return systemMsg.content;
+    }
     return systemMsg.content;
   }
 

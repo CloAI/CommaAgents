@@ -112,10 +112,14 @@ export function startMockDaemon({
     const waiterIndex = waiters.findIndex(
       (waiter) => waiter.type === message.type,
     );
-    if (waiterIndex < 0) return;
+    if (waiterIndex < 0) {
+      return;
+    }
 
     const [waiter] = waiters.splice(waiterIndex, 1);
-    if (!waiter) return;
+    if (!waiter) {
+      return;
+    }
     clearTimeout(waiter.timeout);
     waiter.resolve(message);
   }
@@ -304,7 +308,9 @@ export function startMockDaemon({
             const waiterIndex = waiters.findIndex(
               (waiter) => waiter.resolve === resolve,
             );
-            if (waiterIndex >= 0) waiters.splice(waiterIndex, 1);
+            if (waiterIndex >= 0) {
+              waiters.splice(waiterIndex, 1);
+            }
             reject(
               new Error(
                 `Timed out waiting for client message ${type}; received: ${receivedMessages.map((message) => message.type).join(", ")}`,

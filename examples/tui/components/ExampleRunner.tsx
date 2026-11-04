@@ -72,7 +72,9 @@ export function ExampleRunner({
     if (key.downArrow) {
       setScrollOffset((prev) => {
         const next = Math.min(maxOffset, prev + 1);
-        if (next >= maxOffset) userScrolledRef.current = false;
+        if (next >= maxOffset) {
+          userScrolledRef.current = false;
+        }
         return next;
       });
       return;
@@ -85,7 +87,9 @@ export function ExampleRunner({
     if (key.pageDown) {
       setScrollOffset((prev) => {
         const next = Math.min(maxOffset, prev + pageSize);
-        if (next >= maxOffset) userScrolledRef.current = false;
+        if (next >= maxOffset) {
+          userScrolledRef.current = false;
+        }
         return next;
       });
       return;

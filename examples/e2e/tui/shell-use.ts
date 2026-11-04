@@ -240,7 +240,9 @@ export async function waitForText(
     { sessionName, timeoutMs: timeoutMs + 1_000 },
   );
 
-  if (result.exitCode === 0) return;
+  if (result.exitCode === 0) {
+    return;
+  }
 
   throw new Error(
     `shell-use did not find ${JSON.stringify(text)}.\n${formatShellUseFailure(result)}\n\nTerminal text:\n${await readShellUseText(sessionName, true)}`,
@@ -300,10 +302,14 @@ export async function readShellUseText(
       timeoutMs: 2_000,
     },
   );
-  if (result.exitCode !== 0) return formatShellUseFailure(result);
+  if (result.exitCode !== 0) {
+    return formatShellUseFailure(result);
+  }
 
   const envelope = parseShellUseJson(result.stdout);
-  if (typeof envelope.data === "string") return envelope.data;
+  if (typeof envelope.data === "string") {
+    return envelope.data;
+  }
   if (
     typeof envelope.data === "object" &&
     envelope.data !== null &&
@@ -363,7 +369,9 @@ async function expectShellUse(
   timeoutMs = 10_000,
 ): Promise<void> {
   const result = await runShellUse(args, { sessionName, timeoutMs });
-  if (result.exitCode === 0) return;
+  if (result.exitCode === 0) {
+    return;
+  }
 
   throw new Error(
     `Failed to ${action}.\n${formatShellUseFailure(result)}\n\nTerminal text:\n${await readShellUseText(sessionName, true)}`,
