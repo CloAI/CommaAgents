@@ -21,8 +21,9 @@ export function disposeQuestionRunResources(
   runResources.disposed = true;
   runResources.detachAbort();
   cleanupRunQuestions(context, runResources);
-  if (context.runResources.get(runResources.runId) === runResources)
+  if (context.runResources.get(runResources.runId) === runResources) {
     context.runResources.delete(runResources.runId);
+  }
 }
 
 /**
@@ -66,7 +67,9 @@ export function prepareQuestionRunResources(
   const activate = (): void => {
     context.runResources.set(runResources.runId, runResources);
   };
-  if (!preparation.staged) activate();
+  if (!preparation.staged) {
+    activate();
+  }
   runResources.signal.addEventListener("abort", runResources.onAbort, {
     once: true,
   });

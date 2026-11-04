@@ -117,7 +117,9 @@ async function connectRunMcp(
         acquiredResources.parentRunId,
       );
     };
-    if (!preparation.staged) activate();
+    if (!preparation.staged) {
+      activate();
+    }
     return {
       strategyInputs: { mcpToolsByAgent: toolsByAgent },
       ...(preparation.staged ? { activate } : {}),

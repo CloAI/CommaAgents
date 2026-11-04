@@ -13,7 +13,12 @@ export interface CreateLspPluginOptions {
 
 /** Lifecycle of the language subprocess associated with a working directory. */
 export type LspProcessPhase =
-  "stopped" | "starting" | "running" | "restarting" | "failed" | "stopping";
+  | "stopped"
+  | "starting"
+  | "running"
+  | "restarting"
+  | "failed"
+  | "stopping";
 
 /** Read-only status of one working directory's language subprocess. */
 export interface LspProcessStatus {

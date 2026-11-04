@@ -57,43 +57,22 @@ afterEach(async () => {
   await rm(directory, { recursive: true, force: true });
 });
 describe("core.providers.refresh", () => {
-  it("should validate scope and delegate refresh", async () => {
+  it("should take no arguments and delegate the refresh", async () => {
     const plugin = createCorePlugin();
-    const provider = {
-      id: "openai",
-      name: "OpenAI",
-      credentialType: "api",
-      authStatus: "none",
-      models: [],
-      origin: "catalog",
-      discovery: {
-        status: "catalog_only",
-      },
-    } as const;
-    const refresh = spyOn(plugin.providers, "refresh").mockResolvedValue(
-      provider,
-    );
+    const refresh = spyOn(plugin.providers, "refresh").mockResolvedValue();
     const command = plugin.server.commands.find(
       (entry) => entry.name === "core.providers.refresh",
     )!;
     try {
-      expect(
-        await command.invoke({ providerId: "openai", scope: "workspace" }),
-      ).toEqual(provider);
-      expect(refresh).toHaveBeenCalledWith({
-        providerId: "openai",
-        scope: "workspace",
-      });
-      await expect(command.invoke({})).rejects.toThrow();
-      await expect(command.invoke({ live: false })).rejects.toThrow();
-      await expect(command.invoke({ scope: 42 })).rejects.toThrow();
+      expect(await command.invoke({})).toEqual({});
+      await expect(command.invoke({ providerId: "openai" })).rejects.toThrow();
       expect(refresh).toHaveBeenCalledTimes(1);
     } finally {
       refresh.mockRestore();
       await plugin.dispose();
     }
   });
-  it("should refresh catalog before live discovery through the websocket and preserve registrations", async () => {
+  it("should refresh models.dev, then every provider API, through the websocket", async () => {
     const snapshot = getCatalogSnapshot();
     expect(getProvidersForModel("new-refresh-model")).toEqual([]);
     const calls: string[] = [];
@@ -102,7 +81,7 @@ describe("core.providers.refresh", () => {
       name: "Other provider",
       credentialType: "none",
       async listModels() {
-        calls.push("other-live");
+        calls.push("other-provider");
         return [{ id: "other-model", sources: ["provider"], metadata: {} }];
       },
     });
@@ -111,7 +90,7 @@ describe("core.providers.refresh", () => {
       name: "Custom registration",
       credentialType: "api",
       async listModels({ credential }) {
-        calls.push("live");
+        calls.push("refresh-custom");
         expect(credential).toEqual({ type: "api", key: "refresh-secret" });
         return [
           {
@@ -135,13 +114,16 @@ describe("core.providers.refresh", () => {
       modelId: "live-model",
       metadata: { capabilities: { teeAttestation: true, e2ee: true } },
     });
-    await getGlobalCredentialStore().set("refresh-custom", "workspace", {
+    await getGlobalCredentialStore().set("refresh-custom", "$global", {
       type: "api",
       key: "refresh-secret",
     });
     spyOn(globalThis, "fetch").mockImplementation(
       Object.assign(
-        async () => {
+        async (input: Parameters<typeof fetch>[0]) => {
+          if (!String(input).includes("models.dev")) {
+            return new Response(null, { status: 503 });
+          }
           calls.push("catalog");
           return Response.json({
             ...snapshot,
@@ -200,19 +182,20 @@ describe("core.providers.refresh", () => {
         type: "command",
         requestId,
         command: "core.providers.refresh",
-        arguments: { providerId: "refresh-custom", scope: "workspace" },
+        arguments: {},
       });
-      const result = await client.next();
-      expect(result).toMatchObject({ type: "response", requestId, ok: true });
-      if (
-        result.type !== "response" ||
-        !("ok" in result) ||
-        !result.ok ||
-        !("data" in result)
-      )
-        throw new Error("Refresh failed");
-      expect(result.data).toMatchObject({
-        id: "refresh-custom",
+      expect(await client.next()).toMatchObject({
+        type: "response",
+        requestId,
+        ok: true,
+        data: {},
+      });
+      const { providers, refreshing } =
+        kernel.plugins.core.providers.snapshot();
+      expect(refreshing).toBe(false);
+      expect(
+        providers.find((entry) => entry.id === "refresh-custom"),
+      ).toMatchObject({
         models: [
           { id: "catalog-only", sources: ["models.dev"] },
           {
@@ -226,38 +209,25 @@ describe("core.providers.refresh", () => {
           },
           { id: "manual-model", sources: ["user"], metadata: {} },
         ],
-        discovery: { status: "live" },
       });
-      expect(JSON.stringify(result)).not.toContain("refresh-secret");
-      expect(calls).toEqual(["catalog", "live"]);
+      expect(JSON.stringify(providers)).not.toContain("refresh-secret");
+      expect(calls[0]).toBe("catalog");
+      expect(calls.slice(1).sort()).toEqual([
+        "other-provider",
+        "refresh-custom",
+      ]);
       expect(getProvidersForModel("new-refresh-model")).toEqual([
         "new-refresh-provider",
       ]);
       spyOn(globalThis, "fetch").mockResolvedValue(
         new Response(null, { status: 503 }),
       );
-      await kernel.plugins.core.providers.refresh({
-        providerId: "refresh-custom",
-        scope: "workspace",
-      });
+      await kernel.plugins.core.providers.refresh();
       expect(getCatalogSnapshot()["new-refresh-provider"]).toBeDefined();
     } finally {
       client.socket.close();
       await server.stop();
       await kernel.dispose();
-    }
-  });
-  it("should reject an unknown provider before making network requests", async () => {
-    const request = spyOn(globalThis, "fetch");
-    request.mockClear();
-    const plugin = createCorePlugin();
-    try {
-      await expect(
-        plugin.providers.refresh({ providerId: "missing-provider" }),
-      ).rejects.toThrow("Provider was not found");
-      expect(request).not.toHaveBeenCalled();
-    } finally {
-      await plugin.dispose();
     }
   });
 });

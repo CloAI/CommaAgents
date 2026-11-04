@@ -25,7 +25,9 @@ function fixture() {
     repository: repository(),
     async loadStrategy(options) {
       const sandbox = options.strategyInputs.sandbox;
-      if (!sandbox) throw new Error("Sandbox was not supplied to the loader");
+      if (!sandbox) {
+        throw new Error("Sandbox was not supplied to the loader");
+      }
       sandboxes.set(options.runId, sandbox);
       return loader(options);
     },
@@ -84,8 +86,9 @@ describe("sandbox plugin", () => {
       "run_permission_requested",
       "root",
       (status) => {
-        if (status.type === "run_permission_requested")
+        if (status.type === "run_permission_requested") {
           receivePermission(status);
+        }
       },
     );
     const authorization = sandboxes
@@ -145,10 +148,11 @@ describe("sandbox plugin", () => {
     expect(
       sandbox.resolvePermission("wrong-run", firstRequest.requestId, "allow"),
     ).toBe(false);
-    for (const request of pending)
+    for (const request of pending) {
       expect(
         sandbox.resolvePermission("root", request.requestId, "allow"),
       ).toBe(true);
+    }
     expect(await first.authorization).toBe(join(cwd, "output.ts"));
     expect(await second.authorization).toBe(join(cwd, "output.ts"));
     expect(
@@ -268,7 +272,9 @@ describe("sandbox plugin", () => {
     runs.registerStrategyHooks({
       name: "child-permission",
       attach(scope) {
-        if (!scope.parentRunId) return;
+        if (!scope.parentRunId) {
+          return;
+        }
         childRunId = scope.runId;
         const childSandbox = sandboxes.get(childRunId)!;
         sandbox.updatePolicy(
@@ -311,8 +317,9 @@ describe("sandbox plugin", () => {
       "run_permission_requested",
       "root",
       (status) => {
-        if (status.type === "run_permission_requested")
+        if (status.type === "run_permission_requested") {
           receivePermission(status);
+        }
       },
     );
     const completion = runs.startRun("root", "child").completion;
@@ -355,7 +362,9 @@ describe("sandbox plugin", () => {
       "run_permission_requested",
       "root",
       (status) => {
-        if (status.type !== "run_permission_requested") return;
+        if (status.type !== "run_permission_requested") {
+          return;
+        }
         requests.push(status);
         expect(sandbox.getPendingPermissions("root")).toContain(status);
         expect(
@@ -366,7 +375,9 @@ describe("sandbox plugin", () => {
     runs.registerStrategyHooks({
       name: "nested-permissions",
       attach(scope) {
-        if (!scope.parentRunId) return;
+        if (!scope.parentRunId) {
+          return;
+        }
         const guard = sandboxes.get(scope.runId)!.guardFor("write_file");
         sandbox.updatePolicy(
           scope.runId,
@@ -425,7 +436,9 @@ describe("sandbox plugin", () => {
     runs.registerStrategyHooks({
       name: "grandchild-permission",
       attach(scope) {
-        if (runs.getRunLineage(scope.runId).length !== 3) return;
+        if (runs.getRunLineage(scope.runId).length !== 3) {
+          return;
+        }
         sandbox.updatePolicy(
           scope.runId,
           { mode: "write", default: "ask" },
@@ -459,8 +472,9 @@ describe("sandbox plugin", () => {
       "run_permission_requested",
       "root",
       (status) => {
-        if (status.type === "run_permission_requested")
+        if (status.type === "run_permission_requested") {
           receivePermission(status);
+        }
       },
     );
     await runs.prepareRun({
@@ -537,8 +551,9 @@ describe("sandbox plugin", () => {
       "run_permission_requested",
       "root",
       (status) => {
-        if (status.type === "run_permission_requested")
+        if (status.type === "run_permission_requested") {
           receivePermission(status);
+        }
       },
     );
     const completion = runs.startRun("root").completion;

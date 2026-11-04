@@ -34,10 +34,12 @@ export function describeStrategy(
         definition.description === undefined
           ? {}
           : { description: definition.description };
-      if (isUserAgentDef(definition))
+      if (isUserAgentDef(definition)) {
         return { name, kind: "user" as const, ...description };
-      if (!isLLMAgentDef(definition))
+      }
+      if (!isLLMAgentDef(definition)) {
         return { name, kind: "custom" as const, ...description };
+      }
       return {
         name,
         kind: "llm" as const,
@@ -66,7 +68,7 @@ function collectSteps(
 ): void {
   const entry = { flow: flow.name, flowType: flow.type, depth };
   for (const step of flow.steps) {
-    if (isAgentStep(step))
+    if (isAgentStep(step)) {
       steps.push({
         ...entry,
         agent: step.agent,
@@ -75,10 +77,13 @@ function collectSteps(
           ? {}
           : { description: step.description }),
       });
-    else if (isFlowDef(step)) collectSteps(step, depth + 1, steps);
+    } else if (isFlowDef(step)) {
+      collectSteps(step, depth + 1, steps);
+    }
   }
-  if ("observer" in flow && typeof flow.observer === "string")
+  if ("observer" in flow && typeof flow.observer === "string") {
     steps.push({ ...entry, agent: flow.observer, role: "observer" });
+  }
 }
 
 /**
@@ -93,8 +98,12 @@ function describeModel(
   configured: Readonly<Record<string, string>>,
   defaults: Readonly<Record<string, string>> | undefined,
 ): { readonly model?: string; readonly modelRole?: string } {
-  if (model === undefined) return {};
-  if (!model.startsWith("@")) return { model };
+  if (model === undefined) {
+    return {};
+  }
+  if (!model.startsWith("@")) {
+    return { model };
+  }
   const modelRole = model.slice(1);
   try {
     return {

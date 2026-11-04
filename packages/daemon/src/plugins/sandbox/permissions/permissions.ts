@@ -128,9 +128,10 @@ export function cleanupScopePermissions(
   sandboxScope: SandboxScope,
 ): void {
   for (const [requestId, pending] of context.pending) {
-    if (pending.sandboxScope === sandboxScope)
+    if (pending.sandboxScope === sandboxScope) {
       removePermission(context, requestId)?.reject(
         new DOMException("Sandbox scope cleaned up", "AbortError"),
       );
+    }
   }
 }

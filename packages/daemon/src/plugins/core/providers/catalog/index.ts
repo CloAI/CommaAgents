@@ -1,2 +1,2 @@
-export { listCoreProviders } from "./catalog";
-export { refreshCoreProviders } from "./catalog";
+export { createProviderCatalog } from "./catalog";
+export type { ProviderCatalog } from "./catalog.types";

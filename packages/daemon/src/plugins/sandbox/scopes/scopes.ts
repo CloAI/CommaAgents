@@ -15,12 +15,15 @@ export function disposeSandboxScope(
   context: SandboxContext,
   sandboxScope: SandboxScope,
 ): void {
-  if (sandboxScope.disposed) return;
+  if (sandboxScope.disposed) {
+    return;
+  }
   sandboxScope.disposed = true;
   sandboxScope.detachAbort();
   cleanupScopePermissions(context, sandboxScope);
-  if (context.scopes.get(sandboxScope.runId) === sandboxScope)
+  if (context.scopes.get(sandboxScope.runId) === sandboxScope) {
     context.scopes.delete(sandboxScope.runId);
+  }
 }
 
 /**
@@ -47,7 +50,9 @@ export function prepareSandboxScope(
   const activate = (): void => {
     context.scopes.set(preparation.runId, sandboxScope);
   };
-  if (!preparation.staged) activate();
+  if (!preparation.staged) {
+    activate();
+  }
   preparation.signal.addEventListener("abort", sandboxScope.onAbort, {
     once: true,
   });
@@ -84,7 +89,9 @@ function createSandboxScope(
       {
         onAsk: (request) => requestPermission(context, sandboxScope, request),
         onPolicyChange: (snapshot): void => {
-          if (context.disposed || sandboxScope.disposed) return;
+          if (context.disposed || sandboxScope.disposed) {
+            return;
+          }
           context.notifications.notify(sandboxScope.runId, {
             type: "run_policy_updated",
             runId: sandboxScope.runId,
@@ -133,6 +140,7 @@ export function updateSandboxPolicy(
  */
 export function disposeSandbox(context: SandboxContext): void {
   context.disposed = true;
-  for (const sandboxScope of context.scopes.values())
+  for (const sandboxScope of context.scopes.values()) {
     disposeSandboxScope(context, sandboxScope);
+  }
 }

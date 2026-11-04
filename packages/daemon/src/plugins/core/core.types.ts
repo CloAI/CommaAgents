@@ -1,14 +1,25 @@
-import type { listProviders } from "@comma-agents/core";
-import type { Plugin } from "../../daemon-plugin";
+import type { ProviderInfo } from "@comma-agents/core";
+import type { NotifyingPlugin } from "../../daemon-plugin";
 import type { CoreProviders } from "./providers";
 
-/** Provider discovery options shared with the core library. */
-export type CoreProviderListOptions = NonNullable<
-  Parameters<typeof listProviders>[1]
->;
+/** The current provider list and whether provider APIs are being called. */
+export interface ProvidersSnapshot {
+  /** Every known provider with its models.dev, provider-listed, and manual models. */
+  readonly providers: readonly ProviderInfo[];
+  /** Whether a refresh is calling provider APIs. */
+  readonly refreshing: boolean;
+}
+
+/** Notifications emitted when the provider list changes. */
+export interface CoreNotifications {
+  readonly providers_updated: {
+    readonly type: "providers_updated";
+    readonly snapshot: ProvidersSnapshot;
+  };
+}
 
 /** Thin aggregation of core provider APIs and typed daemon bindings. */
-export interface CorePlugin extends Plugin<"core"> {
+export interface CorePlugin extends NotifyingPlugin<"core", CoreNotifications> {
   /** Core-owned provider configuration, credential, verification, and query operations. */
   readonly providers: CoreProviders;
   /** User-configured models for `@role` references, used when describing strategies. */

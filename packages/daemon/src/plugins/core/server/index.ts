@@ -1,4 +1,4 @@
-export { listProvidersCommand } from "./commands/list-providers";
+export { listProvidersChannel } from "./channels/list-providers";
 export { refreshProvidersCommand } from "./commands/refresh-providers";
 export { getConfigurationCommand } from "./commands/get-configuration";
 export { configureCommand } from "./commands/configure-provider";

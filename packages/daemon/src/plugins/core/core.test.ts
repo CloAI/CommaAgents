@@ -14,6 +14,7 @@ import {
   resetProviderRegistry,
 } from "@comma-agents/core";
 import type { ProviderInfo } from "@comma-agents/core";
+import type { ProvidersSnapshot } from "./core.types";
 import { createCorePlugin } from "./core";
 import { createDaemonKernel } from "../../daemon-kernel/daemon-kernel";
 import { createDaemonServer } from "../../daemon-server/daemon-server";
@@ -23,7 +24,6 @@ const provider: ProviderInfo = {
   name: "Test provider",
   credentialType: "api",
   authStatus: "configured",
-  discovery: { status: "live", fetchedAt: "2026-01-01T00:00:00.000Z" },
   models: [
     {
       id: "test-model",
@@ -85,72 +85,70 @@ afterEach(async () => {
   await rm(directory, { recursive: true, force: true });
 });
 describe("createCorePlugin", () => {
-  it("should discover core providers with scoped auth status without live calls or credential values", async () => {
-    let liveCalls = 0;
+  it("should list providers without provider API calls or credential values until loaded", async () => {
+    let providerCalls = 0;
     registerProviderDefinition({
       id: provider.id,
       name: provider.name,
       credentialType: "api",
       async listModels() {
-        liveCalls++;
+        providerCalls++;
         return provider.models;
       },
     });
-    await getGlobalCredentialStore().set(provider.id, "workspace", {
+    await getGlobalCredentialStore().set(provider.id, "$global", {
       type: "api",
       key: "secret-test-key",
     });
     const plugin = createCorePlugin();
     try {
-      const scoped = await plugin.providers.list({ scope: "workspace" });
+      await plugin.providers.ready();
+      const { providers } = plugin.providers.snapshot();
+      expect(providers.find((entry) => entry.id === provider.id)).toMatchObject(
+        { authStatus: "configured", origin: "registered", models: [] },
+      );
+      expect(providers.map((entry) => entry.id)).toEqual(
+        providers.map((entry) => entry.id).sort(),
+      );
+      expect(providers.some((entry) => entry.id === "openai")).toBe(true);
+      expect(providerCalls).toBe(0);
+      await plugin.providers.load();
+      expect(providerCalls).toBe(1);
+      const loaded = plugin.providers.snapshot();
+      expect(loaded.refreshing).toBe(false);
       expect(
-        await plugin.server.commands[0]!.invoke({ scope: "workspace" }),
-      ).toEqual({ providers: scoped });
-      expect(scoped.find((entry) => entry.id === provider.id)).toMatchObject({
-        authStatus: "configured",
-        origin: "registered",
-        discovery: {
-          status: "catalog_only",
-        },
-      });
-      const global = await plugin.providers.list();
-      expect(global.find((entry) => entry.id === provider.id)?.authStatus).toBe(
-        "none",
-      );
-      expect(global.map((entry) => entry.id)).toEqual(
-        global.map((entry) => entry.id).sort(),
-      );
-      expect(global.some((entry) => entry.id === "openai")).toBe(true);
-      expect(liveCalls).toBe(0);
-      expect(JSON.stringify(scoped)).not.toContain("secret-test-key");
+        loaded.providers.find((entry) => entry.id === provider.id)?.models,
+      ).toEqual(provider.models);
+      expect(JSON.stringify(loaded)).not.toContain("secret-test-key");
     } finally {
       await plugin.dispose();
     }
   });
-  it("should validate arguments, forward live options and retain complete model metadata", async () => {
+  it("should publish a new snapshot after a provider change", async () => {
     const plugin = createCorePlugin();
-    const lookup = spyOn(plugin.providers, "list").mockResolvedValue([
-      provider,
-    ]);
+    const snapshots: ProvidersSnapshot[] = [];
     try {
-      const command = plugin.server.commands[0]!;
-      expect(await command.invoke({})).toEqual({ providers: [provider] });
-      expect(lookup).toHaveBeenLastCalledWith({ live: false });
-      expect(await command.invoke({ live: true, scope: "workspace" })).toEqual({
-        providers: [provider],
+      await plugin.providers.ready();
+      const unsubscribe = await plugin.notifications.subscribe(
+        "providers_updated",
+        "providers",
+        ({ snapshot }) => {
+          snapshots.push(snapshot);
+        },
+      );
+      expect(snapshots).toHaveLength(1);
+      await plugin.providers.addCustomProviderModel({
+        providerId: "openai",
+        modelId: "org/manual",
       });
-      expect(lookup).toHaveBeenLastCalledWith({
-        live: true,
-        scope: "workspace",
-      });
-      await expect(command.invoke({ live: "true" })).rejects.toThrow();
-      await expect(command.invoke({ scope: 42 })).rejects.toThrow();
-      await expect(command.invoke({ unknown: true })).rejects.toThrow();
-      expect(lookup).toHaveBeenCalledTimes(2);
-      lookup.mockRejectedValue(new Error("Discovery unavailable"));
-      await expect(command.invoke({})).rejects.toThrow("Discovery unavailable");
+      expect(snapshots).toHaveLength(2);
+      expect(
+        snapshots[1]!.providers
+          .find((entry) => entry.id === "openai")
+          ?.models.some((model) => model.id === "org/manual"),
+      ).toBe(true);
+      unsubscribe();
     } finally {
-      lookup.mockRestore();
       await plugin.dispose();
     }
   });
@@ -270,7 +268,7 @@ describe("createCorePlugin", () => {
   });
   it("should cancel an in-flight core verification when the plugin is disposed", async () => {
     const plugin = createCorePlugin();
-    await plugin.providers.list();
+    await plugin.providers.ready();
     await getGlobalCredentialStore().set("openai", "$global", {
       type: "api",
       key: "verification-secret",
@@ -288,8 +286,9 @@ describe("createCorePlugin", () => {
           const signal = options?.signal;
           markStarted();
           return new Promise<Response>((_resolve, reject) => {
-            if (!signal)
+            if (!signal) {
               throw new Error("Expected verification cancellation signal");
+            }
             signal.addEventListener(
               "abort",
               () => reject(new DOMException("Aborted", "AbortError")),
@@ -343,8 +342,9 @@ describe("createCorePlugin", () => {
         !("ok" in response) ||
         !response.ok ||
         !("data" in response)
-      )
+      ) {
         throw new Error("Expected successful command");
+      }
       return response.data;
     }
     try {
@@ -427,52 +427,38 @@ describe("createCorePlugin", () => {
       await kernel.dispose();
     }
   });
-  it("should route provider discovery through the kernel websocket using the request id", async () => {
+  it("should send the provider list over the kernel websocket channel", async () => {
     const kernel = await createDaemonKernel({
       runs: { runsDir: join(directory, "runs") },
     });
-    const lookup = spyOn(
-      kernel.plugins.core.providers,
-      "list",
-    ).mockResolvedValue([provider]);
     const server = createDaemonServer({ daemon: kernel, port: 0 });
     await server.start();
     const client = await connectSocket(server.url);
     try {
       const requestId = crypto.randomUUID();
       client.send({
-        type: "command",
+        type: "subscribe",
         requestId,
-        command: "core.providers.list",
-        arguments: { scope: "workspace", live: true },
+        channel: "core.providers.list",
+        arguments: {},
       });
       expect(await client.next()).toMatchObject({
         type: "response",
         requestId,
         ok: true,
-        data: { providers: [provider] },
-      });
-      expect(lookup).toHaveBeenLastCalledWith({
-        scope: "workspace",
-        live: true,
-      });
-      lookup.mockRejectedValue(new Error("Discovery unavailable"));
-      const failedId = crypto.randomUUID();
-      client.send({
-        type: "command",
-        requestId: failedId,
-        command: "core.providers.list",
-        arguments: {},
       });
       expect(await client.next()).toMatchObject({
-        type: "response",
-        requestId: failedId,
-        ok: false,
-        error: { code: "INTERNAL_ERROR" },
+        type: "providers.updated",
+        requestId,
+        data: {
+          refreshing: false,
+          providers: expect.arrayContaining([
+            expect.objectContaining({ id: "openai" }),
+          ]),
+        },
       });
     } finally {
       client.socket.close();
-      lookup.mockRestore();
       await server.stop();
       await kernel.dispose();
     }
@@ -498,8 +484,9 @@ describe("createCorePlugin", () => {
         });
         const result = await client.next();
         expect(result).toMatchObject({ type: "response", requestId, ok: true });
-        if (result.type !== "response" || !("ok" in result) || !result.ok)
+        if (result.type !== "response" || !("ok" in result) || !result.ok) {
           throw new Error("Expected a successful response.");
+        }
         return result.data;
       };
       const started = await invoke("beginSignIn", { providerId: "openai" });
@@ -513,8 +500,9 @@ describe("createCorePlugin", () => {
         typeof started !== "object" ||
         !("attemptId" in started) ||
         typeof started.attemptId !== "string"
-      )
+      ) {
         throw new Error("Missing attempt handle.");
+      }
       expect(
         await invoke("getSignInStatus", { attemptId: started.attemptId }),
       ).toEqual({ attemptId: started.attemptId, status: "pending" });

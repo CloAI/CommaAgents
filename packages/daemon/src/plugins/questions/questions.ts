@@ -40,7 +40,9 @@ export function createQuestionsPlugin({
           .getRunLineage(runId)
           .map((identity) => identity.runId),
       onSubscribe: (type, runId, deliver) => {
-        if (type !== "run_question_requested") return;
+        if (type !== "run_question_requested") {
+          return;
+        }
         for (const request of getPendingQuestions(context, runId)) {
           if (context.pending.has(request.requestId)) {
             deliver(request);

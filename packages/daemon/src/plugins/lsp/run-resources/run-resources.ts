@@ -21,8 +21,9 @@ export function disposeRunLsp(
     resources.disposed = true;
     resources.controller.abort();
     resources.detachAbort();
-    if (context.runs.get(resources.runId) === resources)
+    if (context.runs.get(resources.runId) === resources) {
       context.runs.delete(resources.runId);
+    }
     const entry = resources.process;
     entry?.runIds.delete(resources.runId);
     resources.disposal =
@@ -67,7 +68,9 @@ export function prepareRunLsp(
   const activate = (): void => {
     context.runs.set(resources.runId, resources);
   };
-  if (!preparation.staged) activate();
+  if (!preparation.staged) {
+    activate();
+  }
   preparation.signal.addEventListener("abort", onAbort, { once: true });
   return {
     ...(preparation.staged ? { activate } : {}),

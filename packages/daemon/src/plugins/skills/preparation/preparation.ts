@@ -46,7 +46,9 @@ export async function prepareRunSkills(
   const activate = (): void => {
     context.registries.set(preparation.runId, registry);
   };
-  if (!preparation.staged) activate();
+  if (!preparation.staged) {
+    activate();
+  }
 
   return {
     ...(preparation.staged ? { activate } : {}),

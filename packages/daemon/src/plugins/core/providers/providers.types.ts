@@ -8,22 +8,15 @@ import type {
   removeCustomProvider,
   addCustomProviderModel,
   removeCustomProviderModel,
-  ProviderInfo,
   ProviderAuthentication,
 } from "@comma-agents/core";
-import type { CoreProviderListOptions } from "../core.types";
+import type { ProviderCatalog } from "./catalog";
 
 /** Core-owned provider behavior exposed by the daemon aggregation layer. */
-export interface CoreProviders extends Omit<ProviderAuthentication, "dispose"> {
-  /** List provider configuration and model metadata through core discovery. */
-  readonly list: (
-    options?: CoreProviderListOptions,
-  ) => Promise<readonly ProviderInfo[]>;
-  /** Refresh catalog metadata and query the selected provider for live models. */
-  readonly refresh: (options: {
-    readonly providerId: string;
-    readonly scope?: string;
-  }) => Promise<ProviderInfo>;
+export interface CoreProviders
+  extends
+    Omit<ProviderAuthentication, "dispose">,
+    Pick<ProviderCatalog, "snapshot" | "ready" | "load" | "refresh"> {
   /** Read effective credential state and editable user-owned configuration, without secrets. */
   readonly getConfiguration: typeof getProviderConfiguration;
   /** Save or replace a global API key without a verification request. */

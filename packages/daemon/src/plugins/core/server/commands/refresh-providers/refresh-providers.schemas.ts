@@ -1,9 +1,6 @@
 import { z } from "zod/v4";
 
-/** Provider identity and optional credential scope for explicit model refresh. */
-export const RefreshProvidersArgumentsSchema = z
-  .object({
-    providerId: z.string().min(1),
-    scope: z.string().optional(),
-  })
-  .strict();
+/** A refresh covers every provider, so it takes no arguments. */
+export const RefreshProvidersArgumentsSchema = z.object({}).strict();
+/** The refreshed list arrives on `core.providers.list`. */
+export const RefreshProvidersOutputSchema = z.object({}).strict();

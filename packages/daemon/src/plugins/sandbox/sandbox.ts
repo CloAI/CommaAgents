@@ -43,7 +43,7 @@ export function createSandboxPlugin({
       onSubscribe: (type, runId, deliver) => {
         if (type !== "run_permission_requested") {
           return;
-        };
+        }
 
         for (const request of getPendingPermissions(context, runId)) {
           if (context.pending.has(request.requestId)) {
