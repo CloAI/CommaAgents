@@ -47,8 +47,9 @@ beforeEach(async () => {
 afterEach(() => {
   fetchSpy.mockRestore();
   setGlobalCredentialStore(previousStore);
-  for (const providerId of ["openai", "anthropic", "google"])
+  for (const providerId of ["openai", "anthropic", "google"]) {
     unregisterProviderDefinition(providerId);
+  }
 });
 
 describe("verifyProvider", () => {

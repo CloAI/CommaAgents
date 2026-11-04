@@ -7,7 +7,15 @@ export const DEFAULT_PRIVACY_LIMITS: PrivacyLimits = {
   maxWireBytes: 64 * 1024 * 1024,
   maxPlaintextBytes: 16 * 1024 * 1024,
 };
-export const DEFAULT_PCCS_URL =
-  "https://pccs.phala.network/sgx/certification/v4/";
-export const DEFAULT_NRAS_URL =
-  "https://nras.attestation.nvidia.com/v4/attest/gpu";
+/** Public request metadata whose values can be included in privacy diagnostics. */
+export const PRIVACY_VISIBLE_HEADERS = new Set([
+  "accept",
+  "content-type",
+  "content-length",
+  "user-agent",
+]);
+
+/** Error diagnostics never buffer more than this many response bytes. */
+export const PRIVACY_ERROR_BODY_LIMIT = 16 * 1024;
+/** A stalled error body must not delay reporting the original HTTP failure. */
+export const PRIVACY_ERROR_BODY_TIMEOUT_MS = 2000;

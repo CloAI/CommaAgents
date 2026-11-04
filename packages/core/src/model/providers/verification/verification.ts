@@ -66,13 +66,20 @@ export async function verifyProvider(
   if (
     !supportsProviderVerification(providerId) ||
     (definition.credentialType ?? "api") !== "api"
-  )
+  ) {
     return result("unsupported");
+  }
 
   const credential = await getGlobalCredentialStore().resolve(providerId);
-  if (!credential) return result("unconfigured");
-  if (credential.type !== "api") return result("unsupported");
-  if (signal?.aborted) return result("unavailable");
+  if (!credential) {
+    return result("unconfigured");
+  }
+  if (credential.type !== "api") {
+    return result("unsupported");
+  }
+  if (signal?.aborted) {
+    return result("unavailable");
+  }
 
   const request = verificationRequests[
     providerId as keyof typeof verificationRequests
@@ -92,12 +99,21 @@ export async function verifyProvider(
         ? AbortSignal.any([controller.signal, signal])
         : controller.signal,
     });
-    if (request.invalidCredentialStatuses.includes(response.status))
+    if (request.invalidCredentialStatuses.includes(response.status)) {
       return result("invalid_credentials");
-    if (response.status === 403) return result("access_denied");
-    if (response.status === 429) return result("rate_limited");
-    if (response.status >= 500) return result("unavailable");
-    if (!response.ok) return result("invalid_response");
+    }
+    if (response.status === 403) {
+      return result("access_denied");
+    }
+    if (response.status === 429) {
+      return result("rate_limited");
+    }
+    if (response.status >= 500) {
+      return result("unavailable");
+    }
+    if (!response.ok) {
+      return result("invalid_response");
+    }
     const payload: unknown = await response.json();
     return result(
       request.acceptsResponse(payload) ? "verified" : "invalid_response",
