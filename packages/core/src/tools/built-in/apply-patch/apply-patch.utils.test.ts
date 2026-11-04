@@ -65,7 +65,9 @@ describe("parsePatchEnvelope", () => {
     );
     expect(plan.operations).toHaveLength(1);
     const operation = plan.operations[0];
-    if (operation?.kind !== "add") throw new Error("expected add");
+    if (operation?.kind !== "add") {
+      throw new Error("expected add");
+    }
     expect(operation.path).toBe("notes.txt");
     expect(operation.content).toBe("hello\nworld\n");
     expect(plan.hunkCount).toBe(0);
@@ -82,7 +84,9 @@ describe("parsePatchEnvelope", () => {
       ].join("\n"),
     );
     const operation = plan.operations[0];
-    if (operation?.kind !== "add") throw new Error("expected add");
+    if (operation?.kind !== "add") {
+      throw new Error("expected add");
+    }
     expect(operation.content).toBe("abc");
   });
 
@@ -114,7 +118,9 @@ describe("parsePatchEnvelope", () => {
     );
     expect(plan.operations).toHaveLength(1);
     const operation = plan.operations[0];
-    if (operation?.kind !== "update") throw new Error("expected update");
+    if (operation?.kind !== "update") {
+      throw new Error("expected update");
+    }
     expect(operation.path).toBe("src/foo.ts");
     expect(operation.hunks).toHaveLength(1);
     expect(operation.hunks[0]?.header).toBe("optional header");
@@ -138,7 +144,9 @@ describe("parsePatchEnvelope", () => {
       ),
     );
     const operation = plan.operations[0];
-    if (operation?.kind !== "delete") throw new Error("expected delete");
+    if (operation?.kind !== "delete") {
+      throw new Error("expected delete");
+    }
     expect(operation.path).toBe("old.ts");
   });
 
@@ -149,7 +157,9 @@ describe("parsePatchEnvelope", () => {
       ),
     );
     const operation = plan.operations[0];
-    if (operation?.kind !== "move") throw new Error("expected move");
+    if (operation?.kind !== "move") {
+      throw new Error("expected move");
+    }
     expect(operation.fromPath).toBe("a.ts");
     expect(operation.toPath).toBe("b.ts");
     expect(operation.hunks).toHaveLength(0);
@@ -167,7 +177,9 @@ describe("parsePatchEnvelope", () => {
       ].join("\n"),
     );
     const operation = plan.operations[0];
-    if (operation?.kind !== "move") throw new Error("expected move");
+    if (operation?.kind !== "move") {
+      throw new Error("expected move");
+    }
     expect(operation.hunks).toHaveLength(1);
     expect(plan.hunkCount).toBe(1);
   });

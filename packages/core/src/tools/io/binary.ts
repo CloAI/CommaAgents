@@ -17,7 +17,9 @@ export const BINARY_DETECTION_SAMPLE_BYTES = 8 * 1024;
 export function isLikelyBinary(buffer: Uint8Array): boolean {
   const limit = Math.min(buffer.length, BINARY_DETECTION_SAMPLE_BYTES);
   for (let i = 0; i < limit; i++) {
-    if (buffer[i] === 0) return true;
+    if (buffer[i] === 0) {
+      return true;
+    }
   }
   return false;
 }

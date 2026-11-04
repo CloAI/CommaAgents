@@ -226,7 +226,9 @@ The result includes \`entries: [{ name, relativePath, type, size, mtime, depth }
 
       while (queue.length > 0) {
         const node = queue.shift()!;
-        if (node.depth >= effectiveDepth) continue;
+        if (node.depth >= effectiveDepth) {
+          continue;
+        }
 
         let dirents: Dirent[];
         try {
@@ -243,7 +245,9 @@ The result includes \`entries: [{ name, relativePath, type, size, mtime, depth }
         }
 
         for (const dirent of dirents) {
-          if (!includeHidden && dirent.name.startsWith(".")) continue;
+          if (!includeHidden && dirent.name.startsWith(".")) {
+            continue;
+          }
 
           const childAbs = join(node.absolutePath, dirent.name);
           const childRelFromRoot = node.relativeFromRoot
@@ -257,8 +261,9 @@ The result includes \`entries: [{ name, relativePath, type, size, mtime, depth }
               type: "fs.read",
               resource: childRelFromWorkspace,
             })
-          )
+          ) {
             continue;
+          }
 
           const type: ListDirectoryEntry["type"] = dirent.isSymbolicLink()
             ? "symlink"
@@ -300,13 +305,19 @@ The result includes \`entries: [{ name, relativePath, type, size, mtime, depth }
             });
           }
         }
-        if (truncated) break;
+        if (truncated) {
+          break;
+        }
       }
 
       collected.sort((a, b) => {
-        if (a.depth !== b.depth) return a.depth - b.depth;
+        if (a.depth !== b.depth) {
+          return a.depth - b.depth;
+        }
         const tr = typeRank(a.type) - typeRank(b.type);
-        if (tr !== 0) return tr;
+        if (tr !== 0) {
+          return tr;
+        }
         return a.name.localeCompare(b.name);
       });
 

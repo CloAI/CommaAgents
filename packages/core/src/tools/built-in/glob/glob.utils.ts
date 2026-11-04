@@ -10,7 +10,9 @@ export function matchesAnyGlob(
   patterns: readonly string[],
 ): boolean {
   for (const pattern of patterns) {
-    if (new Bun.Glob(pattern).match(relPath)) return true;
+    if (new Bun.Glob(pattern).match(relPath)) {
+      return true;
+    }
   }
   return false;
 }

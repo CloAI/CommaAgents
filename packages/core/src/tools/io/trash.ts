@@ -144,14 +144,18 @@ export async function listTrash(
   const results: TrashEntry[] = [];
 
   for (const name of entries) {
-    if (!name.endsWith(".tar.gz")) continue;
+    if (!name.endsWith(".tar.gz")) {
+      continue;
+    }
     const full = join(bucket, name);
 
     try {
       const fileStat = await stat(full);
       const metaResult = await readTrashMetadata(full);
 
-      if (!metaResult) continue;
+      if (!metaResult) {
+        continue;
+      }
 
       results.push({
         path: full,
@@ -297,7 +301,9 @@ export async function clearTrash(
   try {
     const entries = await readdir(bucket);
     for (const name of entries) {
-      if (!name.endsWith(".tar.gz")) continue;
+      if (!name.endsWith(".tar.gz")) {
+        continue;
+      }
       try {
         const fileStat = await stat(join(bucket, name));
         totalBytes += fileStat.size;

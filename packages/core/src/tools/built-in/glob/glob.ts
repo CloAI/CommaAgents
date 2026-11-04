@@ -200,10 +200,16 @@ export function createGlobTool(
       const queue: QueueItem[] = [{ absolutePath: absoluteRoot, depth: 0 }];
 
       outer: while (queue.length > 0) {
-        if (abort.aborted) break;
+        if (abort.aborted) {
+          break;
+        }
         const node = queue.shift();
-        if (!node) continue;
-        if (node.depth >= maxDepth) continue;
+        if (!node) {
+          continue;
+        }
+        if (node.depth >= maxDepth) {
+          continue;
+        }
 
         let dirents: Dirent[];
         try {
@@ -216,7 +222,9 @@ export function createGlobTool(
         }
 
         for (const dirent of dirents) {
-          if (abort.aborted) break outer;
+          if (abort.aborted) {
+            break outer;
+          }
 
           const childAbs = join(node.absolutePath, dirent.name);
           const relFromRoot = toForwardSlash(relative(absoluteRoot, childAbs));
@@ -224,14 +232,18 @@ export function createGlobTool(
             relative(guard.cwd, childAbs),
           );
 
-          if (matchesAnyGlob(relFromWorkspace, excludeGlobs)) continue;
+          if (matchesAnyGlob(relFromWorkspace, excludeGlobs)) {
+            continue;
+          }
 
           const isDir = dirent.isDirectory();
           if (isDir) {
             queue.push({ absolutePath: childAbs, depth: node.depth + 1 });
           }
 
-          if (!dirent.isFile() && !isDir && !dirent.isSymbolicLink()) continue;
+          if (!dirent.isFile() && !isDir && !dirent.isSymbolicLink()) {
+            continue;
+          }
 
           if (
             !guard.canAccess({ type: "fs.read", resource: relFromWorkspace })

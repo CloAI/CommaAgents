@@ -22,7 +22,9 @@ export function parseStructuredAnswer(
 ): DelegateJsonValue | undefined {
   const fenced = /^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/.exec(text.trim());
   const trimmed = (fenced?.[1] ?? text).trim();
-  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return undefined;
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    return undefined;
+  }
   try {
     const parsed: DelegateJsonValue = JSON.parse(trimmed);
     return parsed;

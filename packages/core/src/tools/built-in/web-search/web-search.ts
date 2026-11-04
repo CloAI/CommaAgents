@@ -98,7 +98,9 @@ export function createWebSearchTool(
       const store = getGlobalCredentialStore();
       for (const provider of providers) {
         const credential = await store.resolve(provider.credentialId);
-        if (credential?.type !== "api") continue;
+        if (credential?.type !== "api") {
+          continue;
+        }
         try {
           const results = await provider.search({
             query,

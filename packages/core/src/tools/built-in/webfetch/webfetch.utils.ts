@@ -74,7 +74,9 @@ export function transformContent(
   html: string,
   format: "text" | "markdown" | "html",
 ): string {
-  if (format === "html") return html;
+  if (format === "html") {
+    return html;
+  }
   const markdown = getTurndown().turndown(html);
   return format === "text" ? stripMarkdown(markdown) : markdown;
 }

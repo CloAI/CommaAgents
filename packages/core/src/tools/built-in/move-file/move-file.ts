@@ -292,7 +292,9 @@ After every \`move_file\` call, **run the project's configured verifier with \`r
         });
       } catch (caughtError) {
         const code = (caughtError as NodeJS.ErrnoException).code;
-        if (code !== "ENOENT" && code !== "ENOTDIR") throw caughtError;
+        if (code !== "ENOENT" && code !== "ENOTDIR") {
+          throw caughtError;
+        }
         const parent = dirname(toAbs);
         try {
           const parentStat = await stat(parent);

@@ -27,9 +27,13 @@ export function truncateUtf8(
   maxBytes: number,
 ): { content: string; truncated: boolean } {
   const encoded = new TextEncoder().encode(content);
-  if (encoded.byteLength <= maxBytes) return { content, truncated: false };
+  if (encoded.byteLength <= maxBytes) {
+    return { content, truncated: false };
+  }
   let cut = maxBytes;
-  while (cut > 0 && ((encoded[cut] ?? 0) & 0xc0) === 0x80) cut--;
+  while (cut > 0 && ((encoded[cut] ?? 0) & 0xc0) === 0x80) {
+    cut--;
+  }
   const sliced = encoded.subarray(0, cut);
   return { content: new TextDecoder("utf-8").decode(sliced), truncated: true };
 }

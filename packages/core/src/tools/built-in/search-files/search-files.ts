@@ -260,9 +260,13 @@ export function createSearchFilesTool(
       const queue: QueueItem[] = [{ absolutePath: absoluteRoot, depth: 0 }];
 
       outer: while (queue.length > 0) {
-        if (abort.aborted) break;
+        if (abort.aborted) {
+          break;
+        }
         const node = queue.shift()!;
-        if (node.depth >= maxDepth) continue;
+        if (node.depth >= maxDepth) {
+          continue;
+        }
 
         let dirents: Dirent[];
         try {
@@ -275,7 +279,9 @@ export function createSearchFilesTool(
         }
 
         for (const dirent of dirents) {
-          if (abort.aborted) break outer;
+          if (abort.aborted) {
+            break outer;
+          }
 
           const childAbs = join(node.absolutePath, dirent.name);
           const relFromRoot = toForwardSlash(relative(absoluteRoot, childAbs));
@@ -283,18 +289,26 @@ export function createSearchFilesTool(
             relative(guard.cwd, childAbs),
           );
 
-          if (matchesAnyGlob(relFromWorkspace, excludeGlobs)) continue;
+          if (matchesAnyGlob(relFromWorkspace, excludeGlobs)) {
+            continue;
+          }
 
           if (dirent.isDirectory()) {
             queue.push({ absolutePath: childAbs, depth: node.depth + 1 });
             continue;
           }
 
-          if (!dirent.isFile()) continue;
-          if (!guard.canAccess({ type: "fs.read", resource: relFromWorkspace }))
+          if (!dirent.isFile()) {
             continue;
-          if (includeGlobs && !matchesAnyGlob(relFromRoot, includeGlobs))
+          }
+          if (
+            !guard.canAccess({ type: "fs.read", resource: relFromWorkspace })
+          ) {
             continue;
+          }
+          if (includeGlobs && !matchesAnyGlob(relFromRoot, includeGlobs)) {
+            continue;
+          }
 
           if (mode === "path") {
             if (pathGlob?.match(relFromRoot)) {
@@ -314,7 +328,9 @@ export function createSearchFilesTool(
           } catch {
             continue;
           }
-          if (childStat.size > maxFileBytes) continue;
+          if (childStat.size > maxFileBytes) {
+            continue;
+          }
 
           let buffer: Uint8Array;
           try {
@@ -322,7 +338,9 @@ export function createSearchFilesTool(
           } catch {
             continue;
           }
-          if (isLikelyBinary(buffer)) continue;
+          if (isLikelyBinary(buffer)) {
+            continue;
+          }
           filesScanned++;
 
           const text = new TextDecoder("utf-8").decode(buffer);
@@ -333,7 +351,9 @@ export function createSearchFilesTool(
             for (let i = 0; i < lines.length; i++) {
               const line = lines[i]!;
               const idx = line.indexOf(needle);
-              if (idx === -1) continue;
+              if (idx === -1) {
+                continue;
+              }
               if (matches.length >= maxResults) {
                 truncated = true;
                 break outer;
@@ -350,7 +370,9 @@ export function createSearchFilesTool(
             for (let i = 0; i < lines.length; i++) {
               const line = lines[i]!;
               const match = regex.exec(line);
-              if (!match) continue;
+              if (!match) {
+                continue;
+              }
               if (matches.length >= maxResults) {
                 truncated = true;
                 break outer;

@@ -12,8 +12,9 @@ export function formatResults(
   query: string,
   results: readonly WebSearchResult[],
 ): string {
-  if (results.length === 0)
+  if (results.length === 0) {
     return `No results from ${provider} for "${query}".`;
+  }
   const lines = results.map((result, resultIndex) =>
     [
       `${resultIndex + 1}. ${result.title}`,

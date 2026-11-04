@@ -18,7 +18,9 @@ export function createMemoryAuditSink(): AuditSink {
       entries.push(entry);
     },
     async list(sessionId?: string): Promise<readonly AuditEntry[]> {
-      if (sessionId === undefined) return [...entries];
+      if (sessionId === undefined) {
+        return [...entries];
+      }
       return entries.filter((entry) => entry.sessionId === sessionId);
     },
     async load(sessionId: string): Promise<readonly AuditEntry[]> {
@@ -63,8 +65,12 @@ export function createFileAuditSink(
 
   /** Truncate the diff field if it exceeds the configured maximum. */
   function truncateDiff(entry: AuditEntry): AuditEntry {
-    if (entry.diff === undefined) return entry;
-    if (entry.diff.length <= maxDiffBytes) return entry;
+    if (entry.diff === undefined) {
+      return entry;
+    }
+    if (entry.diff.length <= maxDiffBytes) {
+      return entry;
+    }
     return {
       ...entry,
       diff: `${entry.diff.slice(0, maxDiffBytes)}\n…(truncated, full diff exceeded ${maxDiffBytes} bytes)`,
@@ -81,7 +87,9 @@ export function createFileAuditSink(
     }
     const out: AuditEntry[] = [];
     for (const filename of files) {
-      if (!filename.endsWith(".jsonl")) continue;
+      if (!filename.endsWith(".jsonl")) {
+        continue;
+      }
       const entries = await readJsonl(join(auditDir, filename));
       out.push(...entries);
     }
@@ -98,7 +106,9 @@ export function createFileAuditSink(
     }
     const out: AuditEntry[] = [];
     for (const line of content.split("\n")) {
-      if (line.length === 0) continue;
+      if (line.length === 0) {
+        continue;
+      }
       try {
         out.push(JSON.parse(line) as AuditEntry);
       } catch {

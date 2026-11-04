@@ -100,13 +100,19 @@ Use \`read_file\` or \`search_files\` for raw text inspection. Use \`lsp_request
 Positions are 1-indexed: line 1, character 1 is the first character of the file. The daemon chooses the language service from the file path/workspace; only pass \`languageId\` when you need to disambiguate.`,
     parameters: lspRequestParams,
     execute: async (args, toolContext) => {
-      if (!toolContext.languageService) return lspUnavailable();
+      if (!toolContext.languageService) {
+        return lspUnavailable();
+      }
 
       const validation = validateArgs(args);
-      if (!validation.ok) return validation.result;
+      if (!validation.ok) {
+        return validation.result;
+      }
 
       const authorized = await authorizeRead(args.path, toolContext);
-      if (!authorized.ok) return authorized.result;
+      if (!authorized.ok) {
+        return authorized.result;
+      }
 
       const response = await toolContext.languageService.request(
         {
@@ -190,7 +196,9 @@ async function authorizeRead(
     }
   | { readonly ok: false; readonly result: ToolResult<LspRequestData> }
 > {
-  if (!path) return { ok: true };
+  if (!path) {
+    return { ok: true };
+  }
   try {
     return {
       ok: true,
@@ -216,7 +224,9 @@ async function authorizeRead(
 }
 
 function formatResponse(method: LspMethod, response: LspResponse): string {
-  if (response.diagnostics) return formatDiagnostics(response.diagnostics);
+  if (response.diagnostics) {
+    return formatDiagnostics(response.diagnostics);
+  }
   if (response.hover !== undefined) {
     return response.hover
       ? formatHover(response.hover)
@@ -225,7 +235,9 @@ function formatResponse(method: LspMethod, response: LspResponse): string {
   if (response.locations) {
     return formatLocations(response.locations, `No locations for ${method}.`);
   }
-  if (response.symbols) return formatSymbols(response.symbols);
+  if (response.symbols) {
+    return formatSymbols(response.symbols);
+  }
   return `No result for ${method}.`;
 }
 

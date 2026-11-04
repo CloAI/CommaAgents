@@ -69,7 +69,9 @@ export async function logAuditSuccess(
   sink: AuditSink | undefined,
   base: Omit<AuditEntry, "success">,
 ): Promise<void> {
-  if (!sink) return;
+  if (!sink) {
+    return;
+  }
   try {
     await sink.append({ ...base, success: true });
   } catch {
@@ -92,7 +94,9 @@ export async function logAuditFailure(
   base: Omit<AuditEntry, "success">,
   error: string,
 ): Promise<void> {
-  if (!sink) return;
+  if (!sink) {
+    return;
+  }
   try {
     await sink.append({ ...base, success: false, error });
   } catch {

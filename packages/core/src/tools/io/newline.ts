@@ -30,8 +30,12 @@ export function detectNewline(content: string): NewlineStyle {
     }
   }
 
-  if (crlf === 0 && lf === 0) return "none";
-  if (crlf > 0 && lf > 0) return "mixed";
+  if (crlf === 0 && lf === 0) {
+    return "none";
+  }
+  if (crlf > 0 && lf > 0) {
+    return "mixed";
+  }
   return crlf > 0 ? "crlf" : "lf";
 }
 

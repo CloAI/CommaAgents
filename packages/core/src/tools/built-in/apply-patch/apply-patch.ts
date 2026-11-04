@@ -165,7 +165,9 @@ export function createApplyPatchTool(
             ? [operation.fromPath, operation.toPath]
             : [operation.path];
         for (const candidatePath of pathsToResolve) {
-          if (resolved.has(candidatePath)) continue;
+          if (resolved.has(candidatePath)) {
+            continue;
+          }
           try {
             resolved.set(
               candidatePath,
@@ -209,7 +211,9 @@ export function createApplyPatchTool(
           },
         });
       } catch (caughtError) {
-        if (!(caughtError instanceof CommitFailedError)) throw caughtError;
+        if (!(caughtError instanceof CommitFailedError)) {
+          throw caughtError;
+        }
 
         await writeAuditFailure({
           sink,

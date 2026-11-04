@@ -30,25 +30,33 @@ export function offsetsToLineRange(
 ): { startLine: number; endLine: number } {
   let startLine = 1;
   for (let i = 0; i < startOffset; i++) {
-    if (text.charCodeAt(i) === 10) startLine++;
+    if (text.charCodeAt(i) === 10) {
+      startLine++;
+    }
   }
   let endLine = startLine;
   const lastIndex = Math.max(startOffset, endOffset - 1);
   for (let i = startOffset; i < lastIndex; i++) {
-    if (text.charCodeAt(i) === 10) endLine++;
+    if (text.charCodeAt(i) === 10) {
+      endLine++;
+    }
   }
   return { startLine, endLine };
 }
 
 /** Find every occurrence of `needle` in `haystack` and return start offsets. */
 export function findAllOccurrences(haystack: string, needle: string): number[] {
-  if (needle.length === 0) return [];
+  if (needle.length === 0) {
+    return [];
+  }
   const offsets: number[] = [];
   let from = 0;
   // eslint-disable-next-line no-constant-condition -- intentional infinite loop with break
   while (true) {
     const idx = haystack.indexOf(needle, from);
-    if (idx === -1) break;
+    if (idx === -1) {
+      break;
+    }
     offsets.push(idx);
     from = idx + needle.length;
   }

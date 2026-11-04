@@ -177,7 +177,9 @@ export function matchesAnyPattern(
   patterns: readonly RegExp[],
 ): boolean {
   for (const pattern of patterns) {
-    if (pattern.test(command)) return true;
+    if (pattern.test(command)) {
+      return true;
+    }
   }
   return false;
 }

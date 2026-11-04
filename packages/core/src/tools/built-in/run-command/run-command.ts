@@ -251,7 +251,9 @@ export function createRunCommandTool(
       };
 
       child.stdout.on("data", (chunk: Buffer) => {
-        if (stdoutOverflow) return;
+        if (stdoutOverflow) {
+          return;
+        }
         const remaining = maxStdoutBytes - stdoutBytes;
         if (chunk.byteLength >= remaining) {
           stdoutChunks.push(chunk.subarray(0, remaining + 1));
@@ -263,7 +265,9 @@ export function createRunCommandTool(
         }
       });
       child.stderr.on("data", (chunk: Buffer) => {
-        if (stderrOverflow) return;
+        if (stderrOverflow) {
+          return;
+        }
         const remaining = maxStderrBytes - stderrBytes;
         if (chunk.byteLength >= remaining) {
           stderrChunks.push(chunk.subarray(0, remaining + 1));

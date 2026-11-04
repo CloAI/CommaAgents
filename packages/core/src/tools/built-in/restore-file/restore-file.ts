@@ -149,7 +149,9 @@ export function createRestoreFileTool(): ToolDefinition<
         );
       } catch (caughtError) {
         const code = (caughtError as NodeJS.ErrnoException).code;
-        if (code !== "ENOENT" && code !== "ENOTDIR") throw caughtError;
+        if (code !== "ENOENT" && code !== "ENOTDIR") {
+          throw caughtError;
+        }
       }
 
       let restoredAbsolute: string;

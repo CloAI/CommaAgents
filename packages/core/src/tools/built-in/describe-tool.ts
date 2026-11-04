@@ -70,7 +70,9 @@ export function describeTool(options: DescribeToolOptions): string {
     typeof options.purpose === "string" ? [options.purpose] : options.purpose;
   for (let i = 0; i < purposeLines.length; i += 1) {
     lines.push(purposeLines[i]!);
-    if (i < purposeLines.length - 1) lines.push("");
+    if (i < purposeLines.length - 1) {
+      lines.push("");
+    }
   }
 
   // Inputs.

@@ -26,8 +26,9 @@ function workspaceWithStrategy(): string {
 }
 
 afterEach(() => {
-  for (const workspace of workspaces.splice(0))
+  for (const workspace of workspaces.splice(0)) {
     rmSync(workspace, { recursive: true, force: true });
+  }
 });
 
 describe("createRequestStrategySwitchTool", () => {

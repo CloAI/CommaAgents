@@ -80,8 +80,9 @@ describe("createDelegateTool", () => {
       makeToolContext({
         subagents,
         launchStrategy: async (request: LaunchStrategyRequest) => {
-          if (request.strategyPath === "/s/verify.json")
+          if (request.strategyPath === "/s/verify.json") {
             throw new Error("depth limit");
+          }
           return { strategyName: "Explore", text: "done" };
         },
       }),
