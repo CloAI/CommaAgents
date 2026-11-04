@@ -1,6 +1,8 @@
 /** Browser-safe subset of `node:util` used by the logs formatter. */
 export function inspect(value: unknown): string {
-  if (value instanceof Error) return value.stack ?? value.message;
+  if (value instanceof Error) {
+    return value.stack ?? value.message;
+  }
 
   try {
     const serialized = JSON.stringify(value, (_key, nestedValue) =>

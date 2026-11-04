@@ -16,7 +16,9 @@ export { breakLines, collapseNewlines, truncateText };
 
 /** Fill in defaults for any unset options. */
 export function resolveOptions(options?: DebugOptions): ResolvedDebugOptions {
-  if (!options) return DEFAULTS;
+  if (!options) {
+    return DEFAULTS;
+  }
   return {
     truncate: options.truncate ?? 0,
     breakLineAfter: options.breakLineAfter ?? 0,
@@ -35,7 +37,9 @@ export function resolveOptions(options?: DebugOptions): ResolvedDebugOptions {
  */
 export function formatText(text: string, opts: ResolvedDebugOptions): string {
   let result = text;
-  if (opts.collapseNewlines) result = collapseNewlines(result);
+  if (opts.collapseNewlines) {
+    result = collapseNewlines(result);
+  }
   result = truncateText(result, opts.truncate);
   return result;
 }
