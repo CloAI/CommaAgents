@@ -11,6 +11,7 @@ export { PROCESS_ENV_COMMA_AGENTS_CREDENTIALS_FILENAME as CREDENTIALS_FILENAME }
  */
 export const WELL_KNOWN_ENV_VARS: EnvVarMap = {
   openai: ["OPENAI_API_KEY"],
+  tinfoil: ["TINFOIL_API_KEY"],
   anthropic: ["ANTHROPIC_API_KEY"],
   google: ["GOOGLE_GENERATIVE_AI_API_KEY", "GOOGLE_API_KEY"],
   "google-vertex": ["GOOGLE_VERTEX_API_KEY"],

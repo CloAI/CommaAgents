@@ -24,7 +24,9 @@ import type {
  * @returns {EnvVarMap} The combined provider environment mappings.
  */
 function buildEnvVarMap(overrides?: EnvVarMap): EnvVarMap {
-  if (!overrides) return { ...WELL_KNOWN_ENV_VARS };
+  if (!overrides) {
+    return { ...WELL_KNOWN_ENV_VARS };
+  }
   return { ...WELL_KNOWN_ENV_VARS, ...overrides };
 }
 
@@ -43,7 +45,9 @@ function resolveFromEnv(
   env: Readonly<Record<string, string | undefined>>,
 ): Credential | undefined {
   const vars = envVarMap[providerId];
-  if (!vars) return undefined;
+  if (!vars) {
+    return undefined;
+  }
 
   for (const varName of vars) {
     const value = env[varName];
@@ -124,16 +128,22 @@ export function createCredentialStore(
     // 1. Strategy-scoped credential
     if (scope && scope !== "$global") {
       const scopedCred = data[scope]?.[providerId];
-      if (scopedCred) return scopedCred;
+      if (scopedCred) {
+        return scopedCred;
+      }
     }
 
     // 2. Environment variable
     const envCred = resolveFromEnv(providerId, envVarMap, env);
-    if (envCred) return envCred;
+    if (envCred) {
+      return envCred;
+    }
 
     // 3. Global-scoped credential
     const globalCred = data.$global?.[providerId];
-    if (globalCred) return globalCred;
+    if (globalCred) {
+      return globalCred;
+    }
 
     return undefined;
   }
@@ -143,7 +153,9 @@ export function createCredentialStore(
 
     async getSource(providerId: string): Promise<CredentialSource> {
       const data = await readAll();
-      if (resolveFromEnv(providerId, envVarMap, env)) return "environment";
+      if (resolveFromEnv(providerId, envVarMap, env)) {
+        return "environment";
+      }
       return data.$global?.[providerId] ? "global" : "none";
     },
 
@@ -214,7 +226,9 @@ export function createCredentialStore(
     async list(scope: string): Promise<string[]> {
       const data = await readAll();
       const scopeData = data[scope];
-      if (!scopeData) return [];
+      if (!scopeData) {
+        return [];
+      }
       return Object.keys(scopeData);
     },
 

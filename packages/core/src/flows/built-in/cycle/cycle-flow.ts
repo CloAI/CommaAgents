@@ -59,7 +59,9 @@ export function matchesBreakSignal(
       const lines = lowerOutput.split("\n");
       for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed.length === 0) continue;
+        if (trimmed.length === 0) {
+          continue;
+        }
         return matchesLineSignal(trimmed);
       }
       return false;
@@ -69,8 +71,12 @@ export function matchesBreakSignal(
       const lines = lowerOutput.split("\n");
       for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed.length === 0) continue;
-        if (matchesLineSignal(trimmed)) return true;
+        if (trimmed.length === 0) {
+          continue;
+        }
+        if (matchesLineSignal(trimmed)) {
+          return true;
+        }
       }
       return false;
     }

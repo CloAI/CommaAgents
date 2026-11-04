@@ -323,7 +323,9 @@ describe("createFlow", () => {
       ],
       execute: async (steps, message, ctx) => {
         const check = await ctx.runStep(steps[0]!, message);
-        if (check.text === "SKIP") return check.text;
+        if (check.text === "SKIP") {
+          return check.text;
+        }
         const work = await ctx.runStep(steps[1]!, check.text);
         return work.text;
       },

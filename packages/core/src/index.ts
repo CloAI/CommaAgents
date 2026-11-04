@@ -1,10 +1,7 @@
 // @comma-agents/core
 // Composable agent orchestration framework
 
-export type {
-  AbortableAsyncGenerator,
-  AbortablePromise,
-} from "./abortable";
+export type { AbortableAsyncGenerator, AbortablePromise } from "./abortable";
 // -- Abortable utilities (re-exported from @comma-agents/utils) --
 export {
   createPrivacyRuntime,
@@ -17,17 +14,24 @@ export type {
   PrivacyResolutionOptions,
   PrivacyReport,
   PrivacyEvent,
+  PrivacyDiagnostic,
+  PrivacyProviderError,
+  PrivacyWorkloadMeasurements,
+  PrivacyWorkloadPolicy,
+  PrivacyWorkloadMismatch,
   PrivacyLimits,
   PrivacyCheckStatus,
   PrivacyError,
   PrivacyErrorCode,
 } from "./model/privacy";
+export type {
+  VenicePrivacyOptions,
+  VeniceWorkloadPolicy,
+  VeniceWorkloadMeasurements,
+} from "./model/providers/venice/venice.types";
 export type { ModelResolutionOptions } from "./model/model.types";
 
-export {
-  createAbortableGenerator,
-  createAbortablePromise,
-} from "./abortable";
+export { createAbortableGenerator, createAbortablePromise } from "./abortable";
 
 // -- Agent composition --
 export { createAgent } from "./agents/agent/agent";
@@ -235,7 +239,6 @@ export type {
   CatalogProvider,
   ListModelsContext,
   ListModelsFn,
-  ListModelsResult,
   Modality,
   ModelCapabilities,
   ModelCost,
@@ -243,10 +246,8 @@ export type {
   ModelModalities,
   ModelStatus,
   ModelSource,
-  ModelDiscovery,
   ProviderOrigin,
   ProviderDefinition,
-  ProviderWithModels,
 } from "./model/providers/index";
 export {
   getCatalogModels,
@@ -260,12 +261,12 @@ export {
   getRegisteredProviderIds,
   getReverseModelIndex,
   isKnownProviderSync,
-  listAllProviderModels,
+  refreshProviderModels,
   listCatalogProviders,
   listProviderDefinitions,
   listProviderModels,
   loadCatalog,
-  mergeCatalogWithLive,
+  mergeCatalogWithProvider,
   mergeModelInfo,
   refreshCatalog,
   registerProviderDefinition,
@@ -541,7 +542,11 @@ export type {
 export {
   ModelInfoSchema,
   ProviderInfoSchema,
-  ModelDiscoverySchema,
   ModelSourceSchema,
   ProviderOriginSchema,
 } from "./model/providers/providers.schemas";
+
+export type {
+  TinfoilPrivacyOptions,
+  TinfoilMeasurementPins,
+} from "./model/providers/tinfoil/tinfoil.types";

@@ -7,7 +7,9 @@ export async function runSideEffectHooks<HookValue>(
   hooks: ReadonlyArray<SideEffectHook<HookValue>> | undefined,
   value: HookValue,
 ): Promise<void> {
-  if (!hooks) return;
+  if (!hooks) {
+    return;
+  }
   for (const hook of hooks) {
     await hook(value);
   }
@@ -21,7 +23,9 @@ export async function runTransformHooks<HookValue>(
   hooks: ReadonlyArray<TransformHook<HookValue>> | undefined,
   value: HookValue,
 ): Promise<HookValue> {
-  if (!hooks) return value;
+  if (!hooks) {
+    return value;
+  }
   let current = value;
   for (const hook of hooks) {
     current = await hook(current);

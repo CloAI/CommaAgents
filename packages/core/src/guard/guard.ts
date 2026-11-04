@@ -24,7 +24,9 @@ function resolveSymlinks(absolutePath: string): string {
       return suffix.length > 0 ? resolve(real, ...suffix.reverse()) : real;
     } catch {
       const parent = resolve(current, "..");
-      if (parent === current) break;
+      if (parent === current) {
+        break;
+      }
       suffix.push(current.slice(parent.length + 1));
       current = parent;
     }
@@ -124,7 +126,9 @@ export function createGuard(
 
   function removePolicy(name: string): boolean {
     const idx = policyChain.findIndex((p) => p.name === name);
-    if (idx < 0) return false;
+    if (idx < 0) {
+      return false;
+    }
     policyChain.splice(idx, 1);
     notifyChange();
     return true;
@@ -258,7 +262,9 @@ export function createGuard(
         resolvedRequest,
         "session",
       );
-      if (rememberedDecision === "allow") return resolvedPath;
+      if (rememberedDecision === "allow") {
+        return resolvedPath;
+      }
       if (rememberedDecision === "deny") {
         throw new SandboxViolationError(
           resolvedPath,
@@ -287,11 +293,17 @@ export function createGuard(
     }
 
     for (const policy of policyChain) {
-      if (policy.priority === "mandatory") continue;
+      if (policy.priority === "mandatory") {
+        continue;
+      }
       const decision = await policy.evaluate(resolvedRequest);
-      if (decision === "pass") continue;
+      if (decision === "pass") {
+        continue;
+      }
 
-      if (decision === "allow") return resolvedPath;
+      if (decision === "allow") {
+        return resolvedPath;
+      }
 
       if (decision === "deny") {
         const reason =
@@ -351,9 +363,15 @@ export function createGuard(
 
       for (const policy of policyChain) {
         const decision = policy.evaluate(resolvedRequest);
-        if (decision instanceof Promise) return false;
-        if (decision === "pass") continue;
-        if (policy.priority === "mandatory" && decision === "allow") continue;
+        if (decision instanceof Promise) {
+          return false;
+        }
+        if (decision === "pass") {
+          continue;
+        }
+        if (policy.priority === "mandatory" && decision === "allow") {
+          continue;
+        }
         return decision === "allow";
       }
       // No policy handled = implicit allow.
@@ -400,9 +418,13 @@ async function evaluatePolicyPriority(
   priority: PolicyPriority,
 ): Promise<PolicyDecision> {
   for (const policy of policies) {
-    if ((policy.priority ?? "tool") !== priority) continue;
+    if ((policy.priority ?? "tool") !== priority) {
+      continue;
+    }
     const decision = await policy.evaluate(request);
-    if (decision !== "pass") return decision;
+    if (decision !== "pass") {
+      return decision;
+    }
   }
   return "pass";
 }

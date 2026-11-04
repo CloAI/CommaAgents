@@ -74,7 +74,9 @@ export function resolveMcpValue(
   value: McpValue,
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): string {
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    return value;
+  }
   const resolvedValue = env[value.env];
   if (resolvedValue === undefined || resolvedValue.length === 0) {
     throw new Error(`Missing environment variable: ${value.env}`);
@@ -87,7 +89,9 @@ function loadMcpConfigFile(
   source: "global" | "workspace",
   servers: Map<string, McpServerEntry>,
 ): void {
-  if (!existsSync(configPath)) return;
+  if (!existsSync(configPath)) {
+    return;
+  }
   const parsed = McpConfigFileSchema.parse(
     JSON.parse(readFileSync(configPath, "utf8")),
   );

@@ -96,7 +96,9 @@ export function createSandbox(
     sharedPolicies.set(policy.name, policy);
     for (const [guardToolName, guard] of guards) {
       const toolPolicy = policiesByTool.get(guardToolName)?.get(policy.name);
-      if (!toolPolicy) guard.addPolicy(policy);
+      if (!toolPolicy) {
+        guard.addPolicy(policy);
+      }
     }
   }
 

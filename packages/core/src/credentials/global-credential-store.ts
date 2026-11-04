@@ -8,7 +8,9 @@ let customCredentialStore: CredentialStore | undefined;
 
 /** Return the process-wide credential store, creating its file backend on demand. */
 export function getGlobalCredentialStore(): CredentialStore {
-  if (customCredentialStore) return customCredentialStore;
+  if (customCredentialStore) {
+    return customCredentialStore;
+  }
 
   defaultCredentialStore ??= createCredentialStore({
     backend: createJsonFileCredentialBackend({

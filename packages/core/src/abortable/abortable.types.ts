@@ -5,8 +5,11 @@ export interface AbortablePromise<ResultType> extends Promise<ResultType> {
 }
 
 /** An async generator that can be cancelled by calling `.abort()`. */
-export interface AbortableAsyncGenerator<YieldType>
-  extends AsyncGenerator<YieldType, void, undefined> {
+export interface AbortableAsyncGenerator<YieldType> extends AsyncGenerator<
+  YieldType,
+  void,
+  undefined
+> {
   /** Cancel the in-flight stream. */
   abort(): void;
 }

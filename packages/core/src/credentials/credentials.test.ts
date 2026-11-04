@@ -93,7 +93,9 @@ describe("JsonFileBackend", () => {
   });
 
   test("writeAll sets file permissions to 0o600 on Unix", async () => {
-    if (process.platform === "win32") return; // skip on Windows
+    if (process.platform === "win32") {
+      return;
+    } // skip on Windows
     mkdirSync(TEST_DIR, { recursive: true });
     const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     await backend.writeAll({ $global: { openai: apiKey } });
