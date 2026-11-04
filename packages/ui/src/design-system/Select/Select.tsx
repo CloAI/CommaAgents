@@ -100,13 +100,18 @@ export function Select({
     setOpen(true);
   }, [options, groupOrder, value]);
   const handleToggle = useCallback(() => {
-    if (isOpen) setOpen(false);
-    else openList();
+    if (isOpen) {
+      setOpen(false);
+    } else {
+      openList();
+    }
   }, [isOpen, openList]);
   const handleChoose = useCallback(
     (index: number) => {
       const option = visible[index];
-      if (!option || option.disabled !== undefined) return;
+      if (!option || option.disabled !== undefined) {
+        return;
+      }
       onChange(option.value);
       setOpen(false);
       triggerRef.current?.focus();
@@ -152,41 +157,57 @@ export function Select({
         case "ArrowDown":
         case "ArrowUp":
           event.preventDefault();
-          if (!isOpen) openList();
-          else
+          if (!isOpen) {
+            openList();
+          } else {
             setActiveIndex((index) =>
               event.key === "ArrowDown"
                 ? Math.min(index + 1, Math.max(lastIndex, 0))
                 : Math.max(index - 1, 0),
             );
+          }
           break;
         case "Home":
         case "End":
           // In the search field these keys move the caret.
-          if (!isOpen || searching) break;
+          if (!isOpen || searching) {
+            break;
+          }
           event.preventDefault();
           setActiveIndex(event.key === "Home" ? 0 : lastIndex);
           break;
         case "ArrowLeft":
         case "ArrowRight":
-          if (!searching || query !== "" || groups.length === 0) break;
+          if (!searching || query !== "" || groups.length === 0) {
+            break;
+          }
           event.preventDefault();
           cycleGroup(event.key === "ArrowRight" ? 1 : -1);
           break;
         case "Enter":
           event.preventDefault();
-          if (isOpen) handleChoose(activeIndex);
-          else openList();
+          if (isOpen) {
+            handleChoose(activeIndex);
+          } else {
+            openList();
+          }
           break;
         case " ":
           // Space types a space in the search field.
-          if (searching) break;
+          if (searching) {
+            break;
+          }
           event.preventDefault();
-          if (isOpen) handleChoose(activeIndex);
-          else openList();
+          if (isOpen) {
+            handleChoose(activeIndex);
+          } else {
+            openList();
+          }
           break;
         case "Escape":
-          if (!isOpen) break;
+          if (!isOpen) {
+            break;
+          }
           // Keep an enclosing dialog open while only the list closes.
           event.preventDefault();
           event.stopPropagation();
@@ -199,7 +220,9 @@ export function Select({
           }
           break;
         case "Tab":
-          if (searching) triggerRef.current?.focus();
+          if (searching) {
+            triggerRef.current?.focus();
+          }
           setOpen(false);
           break;
       }
@@ -219,22 +242,29 @@ export function Select({
   // Browsers activate a button on Space keyup; keydown already handled the key.
   const handleKeyUp = useCallback<KeyboardEventHandler<HTMLButtonElement>>(
     (event) => {
-      if (event.key === " ") event.preventDefault();
+      if (event.key === " ") {
+        event.preventDefault();
+      }
     },
     [],
   );
 
   useEffect(() => {
-    if (searching) inputRef.current?.focus();
+    if (searching) {
+      inputRef.current?.focus();
+    }
   }, [searching]);
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
     const handlePointerDown = (event: PointerEvent) => {
       if (
         event.target instanceof Node &&
         !rootRef.current?.contains(event.target)
-      )
+      ) {
         setOpen(false);
+      }
     };
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
@@ -379,12 +409,16 @@ export function SelectRender({
   );
   useLayoutEffect(() => {
     const panel = floating.current;
-    if (!open || !panel) return;
+    if (!open || !panel) {
+      return;
+    }
     // The native top layer escapes pane clipping while preserving DOM focus and event order.
     panel.showPopover();
     void update();
     return () => {
-      if (panel.matches(":popover-open")) panel.hidePopover();
+      if (panel.matches(":popover-open")) {
+        panel.hidePopover();
+      }
     };
   }, [open, floating, update]);
   const panelId = `${baseId}-panel`;

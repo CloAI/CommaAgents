@@ -40,9 +40,10 @@ export function groupNames(
   groupOrder: readonly string[],
 ): string[] {
   const others = new Set<string>();
-  for (const option of options)
+  for (const option of options) {
     if (option.group !== undefined && !groupOrder.includes(option.group))
       others.add(option.group);
+  }
   return [...groupOrder, ...[...others].sort()];
 }
 
@@ -90,8 +91,11 @@ export function sectionOptions(
   }[] = [];
   visible.forEach((option, index) => {
     const last = sections.at(-1);
-    if (last && last.group === option.group) last.items.push({ option, index });
-    else sections.push({ group: option.group, items: [{ option, index }] });
+    if (last && last.group === option.group) {
+      last.items.push({ option, index });
+    } else {
+      sections.push({ group: option.group, items: [{ option, index }] });
+    }
   });
   return sections;
 }
@@ -108,26 +112,30 @@ export function highlightSegments(
 ): HighlightSegment[] {
   const lower = text.toLowerCase();
   // Case mapping that changes length would misalign the ranges.
-  if (terms.length === 0 || lower.length !== text.length)
+  if (terms.length === 0 || lower.length !== text.length) {
     return [{ text, match: false }];
+  }
   const marked = new Array<boolean>(text.length).fill(false);
   for (const term of terms) {
     for (
       let start = lower.indexOf(term);
       start !== -1;
       start = lower.indexOf(term, start + 1)
-    )
+    ) {
       marked.fill(true, start, start + term.length);
+    }
   }
   const segments: HighlightSegment[] = [];
   for (let index = 0; index < text.length; index++) {
     const last = segments.at(-1);
-    if (last && last.match === marked[index])
+    if (last && last.match === marked[index]) {
       segments[segments.length - 1] = {
         ...last,
         text: last.text + text[index],
       };
-    else segments.push({ text: text[index]!, match: marked[index]! });
+    } else {
+      segments.push({ text: text[index]!, match: marked[index]! });
+    }
   }
   return segments;
 }

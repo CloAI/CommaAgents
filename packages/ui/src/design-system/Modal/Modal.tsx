@@ -38,7 +38,9 @@ export function Modal({
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    if (!open || !dialog) return;
+    if (!open || !dialog) {
+      return;
+    }
 
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
@@ -66,7 +68,9 @@ export function Modal({
       }}
       onClose={(event) => {
         event.stopPropagation();
-        if (open && !dialogRef.current?.open) onClose();
+        if (open && !dialogRef.current?.open) {
+          onClose();
+        }
       }}
     >
       <header className={styles.header}>

@@ -49,7 +49,7 @@ export function SelectList({
     activeRef.current?.scrollIntoView({ block: "nearest" });
   }, [activeIndex, visible]);
 
-  if (visible.length === 0)
+  if (visible.length === 0) {
     return (
       <div className={styles.empty}>
         <span>{emptyMessage}</span>
@@ -66,6 +66,7 @@ export function SelectList({
         )}
       </div>
     );
+  }
 
   const renderOption = (
     { option, index }: { option: SelectOption; index: number },
@@ -97,6 +98,7 @@ export function SelectList({
             ),
           )}
         </span>
+        {option.suffix}
         {option.tag && <span className={styles.tag}>{option.tag}</span>}
       </span>
       {option.description && (

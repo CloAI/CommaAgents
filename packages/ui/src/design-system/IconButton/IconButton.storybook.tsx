@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Compact 28px icon action with a 16px Lucide icon. Supply a descriptive label for its accessible name and native hover title.",
+          "Compact 26px icon action with a 16px Lucide icon. Supply a descriptive label for its accessible name and native hover title.",
       },
     },
   },

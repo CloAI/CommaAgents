@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 /** One choice in a {@link Select}. */
 export interface SelectOption {
   /** Unique value reported on selection. */
@@ -8,6 +10,8 @@ export interface SelectOption {
   readonly description?: string;
   /** Short badge shown beside the label in the list. */
   readonly tag?: string;
+  /** Noninteractive content beside the option label, such as capability icons. */
+  readonly suffix?: ReactNode;
   /** Heading and filter chip the option belongs to; ungrouped options appear last, under All only. */
   readonly group?: string;
   /** Extra searchable text that is not displayed. */
