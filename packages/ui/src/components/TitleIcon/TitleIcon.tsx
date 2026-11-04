@@ -19,7 +19,9 @@ export function TitleIcon() {
   }, []);
 
   useEffect(() => {
-    if (reducedMotion) return;
+    if (reducedMotion) {
+      return;
+    }
     const timer = window.setInterval(
       () =>
         setFrameIndex((previous) => (previous + 1) % framesData.frames.length),

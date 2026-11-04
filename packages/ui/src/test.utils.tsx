@@ -50,20 +50,23 @@ export function prepareStory(fixture: StoryFixture = {}): () => void {
   const original = globalThis.WebSocket;
   globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
   const previousSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
-  if (fixture.settings === undefined)
+  if (fixture.settings === undefined) {
     localStorage.removeItem(SETTINGS_STORAGE_KEY);
-  else
+  } else {
     localStorage.setItem(
       SETTINGS_STORAGE_KEY,
       JSON.stringify(fixture.settings),
     );
+  }
   const restoreLayout = isolateLayoutStorage(fixture.layout);
   return () => {
     globalThis.WebSocket = original;
     restoreLayout();
-    if (previousSettings === null)
+    if (previousSettings === null) {
       localStorage.removeItem(SETTINGS_STORAGE_KEY);
-    else localStorage.setItem(SETTINGS_STORAGE_KEY, previousSettings);
+    } else {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, previousSettings);
+    }
   };
 }
 
@@ -98,7 +101,7 @@ export async function answerStrategyLists(
 ): Promise<void> {
   for (const request of requests(socket, "command").filter(
     (candidate) => candidate.command === "core.strategies.list",
-  ))
+  )) {
     await act(() =>
       deliver(socket, request.requestId, {
         type: "response",
@@ -106,4 +109,5 @@ export async function answerStrategyLists(
         data: { strategies, warnings: [] },
       }),
     );
+  }
 }

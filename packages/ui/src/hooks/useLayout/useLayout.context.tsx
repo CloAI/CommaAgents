@@ -6,7 +6,7 @@ import {
   useReducer,
 } from "react";
 import type { ReactNode } from "react";
-import { canSplit, listPanes } from "./layout";
+import { canSplit, listPanes, randomId } from "./layout";
 import type { DropZone, SplitDirection } from "./layout.types";
 import { loadLayout, saveLayout } from "./layout.storage";
 import { layoutReducer } from "./useLayout.reducer";
@@ -47,6 +47,10 @@ export function LayoutProvider({ initialPath, children }: LayoutProviderProps) {
     return () => window.clearTimeout(timer);
   }, [layout]);
 
+  const newChat = useCallback(
+    () => dispatch({ type: "newChat", id: randomId() }),
+    [],
+  );
   const splitPane = useCallback(
     (id: string, direction: SplitDirection) =>
       dispatch({ type: "split", id, direction }),
@@ -93,6 +97,7 @@ export function LayoutProvider({ initialPath, children }: LayoutProviderProps) {
       ...state,
       paneCount: listPanes(state.layout.root).length,
       canSplit: canSplit(state.layout),
+      newChat,
       splitPane,
       closePane,
       movePane,
@@ -105,6 +110,7 @@ export function LayoutProvider({ initialPath, children }: LayoutProviderProps) {
     }),
     [
       state,
+      newChat,
       splitPane,
       closePane,
       movePane,

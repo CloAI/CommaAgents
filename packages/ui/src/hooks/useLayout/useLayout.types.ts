@@ -14,6 +14,8 @@ export interface LayoutState {
 
 /** Layout state and the operations that change it. */
 export interface LayoutContextValue extends LayoutState {
+  /** Replace the focused pane with an empty chat. */
+  readonly newChat: () => void;
   /** Number of panes in the grid. */
   readonly paneCount: number;
   /** Whether another pane fits. */

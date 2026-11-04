@@ -40,7 +40,9 @@ function shape(node: LayoutNode): string {
  * @returns {SplitNode} The split.
  */
 function asSplit(node: LayoutNode): SplitNode {
-  if (node.type !== "split") throw new Error("Expected a split.");
+  if (node.type !== "split") {
+    throw new Error("Expected a split.");
+  }
   return node;
 }
 
@@ -119,8 +121,9 @@ describe("splitPane", () => {
     const id = ids();
     let layout = layoutWith((l) => l);
     expect(splitPane(layout, "missing", "row", id)).toBe(layout);
-    while (canSplit(layout))
+    while (canSplit(layout)) {
       layout = splitPane(layout, layout.activeId, "row", id);
+    }
     expect(listPanes(layout.root)).toHaveLength(MAX_PANES);
     expect(splitPane(layout, layout.activeId, "column", id)).toBe(layout);
   });

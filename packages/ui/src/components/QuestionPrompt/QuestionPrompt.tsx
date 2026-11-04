@@ -28,8 +28,9 @@ export function QuestionPrompt({ question }: QuestionPromptProps) {
           requestId: question.requestId,
           response,
         });
-        if (!result.answered)
+        if (!result.answered) {
           setError("This question was already answered or cancelled.");
+        }
       } catch (answerError) {
         setError(
           answerError instanceof Error
@@ -91,7 +92,9 @@ export function QuestionPromptRender({
         className={styles.answer}
         onSubmit={(event) => {
           event.preventDefault();
-          if (draft.trim().length > 0) onAnswer(draft.trim());
+          if (draft.trim().length > 0) {
+            onAnswer(draft.trim());
+          }
         }}
       >
         {isSwitch && (

@@ -25,7 +25,9 @@ export function useDoublePress({
   const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disarm = useCallback(() => {
     lastPress.current = null;
-    if (timeout.current !== null) clearTimeout(timeout.current);
+    if (timeout.current !== null) {
+      clearTimeout(timeout.current);
+    }
     timeout.current = null;
     setArmed(false);
   }, []);
@@ -33,16 +35,21 @@ export function useDoublePress({
     disarm();
     const ownerDocument = scopeRef.current?.ownerDocument;
     const ownerWindow = ownerDocument?.defaultView;
-    if (!enabled || !ownerDocument || !ownerWindow) return;
+    if (!enabled || !ownerDocument || !ownerWindow) {
+      return;
+    }
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : null;
       if (
         !isPlainPress(event, key) ||
         isInScope?.(target) === false ||
         target?.closest(DIALOG_SELECTOR)
-      )
+      ) {
         return disarm();
-      if (event.repeat) return;
+      }
+      if (event.repeat) {
+        return;
+      }
       event.preventDefault();
       const pressedAt = performance.now();
       if (
@@ -65,7 +72,9 @@ export function useDoublePress({
       ownerDocument.removeEventListener("keydown", handleKeyDown);
       ownerDocument.removeEventListener("pointerdown", disarm);
       ownerWindow.removeEventListener("blur", disarm);
-      if (timeout.current !== null) clearTimeout(timeout.current);
+      if (timeout.current !== null) {
+        clearTimeout(timeout.current);
+      }
     };
   }, [key, enabled, onTrigger, intervalMs, scopeRef, isInScope, disarm]);
   return { armed };

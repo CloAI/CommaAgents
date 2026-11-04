@@ -70,14 +70,18 @@ export function canSplit(layout: Layout): boolean {
  * @returns {LayoutNode} The tidied subtree.
  */
 export function normalize(node: LayoutNode): LayoutNode {
-  if (node.type === "pane") return node;
+  if (node.type === "pane") {
+    return node;
+  }
   const children = node.children.flatMap((child) => {
     const tidy = normalize(child);
     return tidy.type === "split" && tidy.direction === node.direction
       ? tidy.children
       : [tidy];
   });
-  if (children.length === 1) return children[0]!;
+  if (children.length === 1) {
+    return children[0]!;
+  }
   const unchanged =
     children.length === node.children.length &&
     children.every((child, index) => child === node.children[index]);
@@ -93,12 +97,16 @@ export function normalize(node: LayoutNode): LayoutNode {
  * @returns {LayoutNode | undefined} The edited subtree, or undefined when nothing remains.
  */
 function removePane(node: LayoutNode, id: string): LayoutNode | undefined {
-  if (node.type === "pane") return node.id === id ? undefined : node;
+  if (node.type === "pane") {
+    return node.id === id ? undefined : node;
+  }
   const children = node.children.flatMap((child) => {
     const remaining = removePane(child, id);
     return remaining ? [remaining] : [];
   });
-  if (children.length === 0) return undefined;
+  if (children.length === 0) {
+    return undefined;
+  }
   return children.length === node.children.length
     ? { ...node, children }
     : { type: "split", id: node.id, direction: node.direction, children };
@@ -123,7 +131,9 @@ function insertBeside(
   makeId: () => string,
 ): LayoutNode {
   if (node.type === "pane") {
-    if (node.id !== targetId) return node;
+    if (node.id !== targetId) {
+      return node;
+    }
     return {
       type: "split",
       id: makeId(),
@@ -164,7 +174,9 @@ export function splitPane(
   direction: SplitDirection,
   makeId: () => string = randomId,
 ): Layout {
-  if (!containsPane(layout.root, id) || !canSplit(layout)) return layout;
+  if (!containsPane(layout.root, id) || !canSplit(layout)) {
+    return layout;
+  }
   const added: PaneNode = { type: "pane", id: makeId(), path: NEW_CHAT_PATH };
   return {
     root: normalize(
@@ -183,9 +195,13 @@ export function splitPane(
 export function closePane(layout: Layout, id: string): Layout {
   const order = listPanes(layout.root);
   const index = order.findIndex((pane) => pane.id === id);
-  if (index === -1 || order.length <= 1) return layout;
+  if (index === -1 || order.length <= 1) {
+    return layout;
+  }
   const remaining = removePane(layout.root, id);
-  if (!remaining) return layout;
+  if (!remaining) {
+    return layout;
+  }
   const neighbor = order[index + 1] ?? order[index - 1]!;
   return {
     root: normalize(remaining),
@@ -222,9 +238,13 @@ export function movePane(
   const panes = listPanes(layout.root);
   const source = panes.find((pane) => pane.id === sourceId);
   const target = panes.find((pane) => pane.id === targetId);
-  if (!source || !target || source === target) return layout;
+  if (!source || !target || source === target) {
+    return layout;
+  }
   const without = removePane(layout.root, sourceId);
-  if (!without) return layout;
+  if (!without) {
+    return layout;
+  }
   const { direction, placement } = ZONE_PLACEMENT[zone];
   return {
     root: normalize(
@@ -280,7 +300,9 @@ export function setSplitSizes(
 ): Layout {
   let changed = false;
   const edit = (node: LayoutNode): LayoutNode => {
-    if (node.type === "pane") return node;
+    if (node.type === "pane") {
+      return node;
+    }
     if (
       node.id === splitId &&
       sizes.length === node.children.length &&
@@ -290,7 +312,9 @@ export function setSplitSizes(
       const same = node.sizes?.every(
         (size, index) => Math.abs(size - sizes[index]!) < 1,
       );
-      if (same) return node;
+      if (same) {
+        return node;
+      }
       changed = true;
       return { ...node, sizes: [...sizes] };
     }
@@ -307,9 +331,12 @@ export function setSplitSizes(
  * @returns {boolean} Whether both describe the same layout.
  */
 function sameTree(a: LayoutNode, b: LayoutNode): boolean {
-  if (a === b) return true;
-  if (a.type === "pane")
+  if (a === b) {
+    return true;
+  }
+  if (a.type === "pane") {
     return b.type === "pane" && a.id === b.id && a.path === b.path;
+  }
   return (
     b.type === "split" &&
     a.id === b.id &&
@@ -317,4 +344,22 @@ function sameTree(a: LayoutNode, b: LayoutNode): boolean {
     a.children.length === b.children.length &&
     a.children.every((child, index) => sameTree(child, b.children[index]!))
   );
+}
+
+/**
+ * Replace the focused pane with a fresh chat while retaining its position and split sizes.
+ * @param {Layout} layout - Current grid and focus.
+ * @param {string} newId - Identity of the fresh pane.
+ * @returns {Layout} The grid with only the focused pane replaced.
+ */
+export function replaceActivePane(layout: Layout, newId: string): Layout {
+  const replace = (node: LayoutNode): LayoutNode => {
+    if (node.type === "pane") {
+      return node.id === layout.activeId
+        ? { type: "pane", id: newId, path: NEW_CHAT_PATH }
+        : node;
+    }
+    return { ...node, children: node.children.map(replace) };
+  };
+  return { ...layout, root: replace(layout.root), activeId: newId };
 }

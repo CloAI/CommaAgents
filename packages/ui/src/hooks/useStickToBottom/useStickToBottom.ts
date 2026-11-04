@@ -15,7 +15,9 @@ export function useStickToBottom(): StickToBottom {
   const following = useRef(true);
   const onScroll = useCallback(() => {
     const scroller = scrollRef.current;
-    if (!scroller) return;
+    if (!scroller) {
+      return;
+    }
     following.current =
       scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <=
       BOTTOM_THRESHOLD_PX;
@@ -23,10 +25,14 @@ export function useStickToBottom(): StickToBottom {
   useEffect(() => {
     const scroller = scrollRef.current;
     const content = contentRef.current;
-    if (!scroller || !content) return;
+    if (!scroller || !content) {
+      return;
+    }
     // Observing the content catches growth that React state alone misses, such as markdown replacing plain text.
     const observer = new ResizeObserver(() => {
-      if (following.current) scroller.scrollTop = scroller.scrollHeight;
+      if (following.current) {
+        scroller.scrollTop = scroller.scrollHeight;
+      }
     });
     observer.observe(content);
     observer.observe(scroller);

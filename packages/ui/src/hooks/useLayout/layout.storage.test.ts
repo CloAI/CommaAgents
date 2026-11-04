@@ -81,15 +81,17 @@ describe("layout storage", () => {
           children: [pane, pane],
         },
       }),
-    ])
+    ]) {
       expect(parseLayout(text)).toBeUndefined();
+    }
   });
 
   it("should reject a layout with more panes than allowed", () => {
     let n = 0;
     let layout = start;
-    for (let i = 0; i < MAX_PANES - 1; i++)
+    for (let i = 0; i < MAX_PANES - 1; i++) {
       layout = splitPane(layout, layout.activeId, "row", () => `n${++n}`);
+    }
     expect(parseLayout(serializeLayout(layout))).toBeDefined();
     const panes = Array.from({ length: MAX_PANES + 1 }, (_, index) => ({
       type: "pane",

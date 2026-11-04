@@ -7,13 +7,19 @@ import type { PreparedArguments } from "./useCommaAgentsDaemon.types";
  * @returns {unknown} A copy with stable object key ordering.
  */
 function sortKeys(value: unknown): unknown {
-  if (value === null || typeof value !== "object") return value;
-  if (Object.getOwnPropertySymbols(value).length)
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  if (Object.getOwnPropertySymbols(value).length) {
     throw new Error("Symbol keys are not supported in arguments.");
-  if (Array.isArray(value)) return Array.from(value, sortKeys);
+  }
+  if (Array.isArray(value)) {
+    return Array.from(value, sortKeys);
+  }
   const prototype = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null)
+  if (prototype !== Object.prototype && prototype !== null) {
     throw new Error("Arguments must contain plain JSON objects.");
+  }
   const record = value as Record<string, unknown>;
   return Object.fromEntries(
     Object.keys(record)

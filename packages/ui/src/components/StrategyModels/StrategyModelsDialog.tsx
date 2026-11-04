@@ -5,8 +5,11 @@ import { Modal } from "../../design-system/Modal";
 import { useCommaAgentsDaemon } from "../../hooks/useCommaAgentsDaemon";
 import { splitModel } from "../../hooks/useStrategyModels";
 import type { StepRow, StrategyModels } from "../../hooks/useStrategyModels";
-import { ModelBrowser } from "../ModelBrowser";
-import type { DiscoveredModel, DiscoveredProvider } from "../ModelBrowser";
+import { ModelPicker } from "../ModelPicker";
+import type {
+  DiscoveredModel,
+  DiscoveredProvider,
+} from "./StrategyModels.types";
 import { StrategyStepRow } from "./StrategyStepRow";
 import {
   isConnected,
@@ -38,11 +41,13 @@ export function StrategyModelsDialog({
   models,
   onClose,
 }: StrategyModelsDialogProps) {
-  const { data, errors, clientError, isLoading } = useCommaAgentsDaemon(
-    { command: "core.providers.list" },
-    { live: false },
+  const { data, errors, clientError } = useCommaAgentsDaemon(
+    { channel: "core.providers.list" },
+    {},
   );
-  const providers = useMemo(() => data?.providers ?? [], [data]);
+  // The list is loading until its first snapshot, not just the subscription acknowledgement.
+  const isLoading = !data && !errors && !clientError;
+  const providers = useMemo(() => data?.data.providers ?? [], [data]);
   const providersError = errors?.message ?? clientError?.message;
   const [target, setTarget] = useState<PickTarget | null>(null);
   const [notice, setNotice] = useState<string>();
@@ -78,9 +83,9 @@ export function StrategyModelsDialog({
   const handlePick = useCallback(
     (provider: DiscoveredProvider, model: DiscoveredModel) => {
       const value = `${provider.id}/${model.id}`;
-      if (target?.type === "agent")
+      if (target?.type === "agent") {
         models.setOverrides({ [target.agent]: value });
-      else {
+      } else {
         const { eligible, skipped } = partitionAgents(models.steps, model);
         models.setOverrides(
           Object.fromEntries(eligible.map((agent) => [agent, value])),
@@ -129,7 +134,7 @@ export function StrategyModelsDialog({
             className={styles.pickerModal}
           >
             <div className={styles.picker}>
-              <ModelBrowser
+              <ModelPicker
                 providers={providers}
                 isLoading={isLoading}
                 error={providersError}
@@ -195,9 +200,11 @@ export function StrategyModelsDialogRender({
   const flows: { flow: string; depth: number; rows: StepRow[] }[] = [];
   for (const row of steps) {
     const last = flows.at(-1);
-    if (last && last.flow === row.flow && last.depth === row.depth)
+    if (last && last.flow === row.flow && last.depth === row.depth) {
       last.rows.push(row);
-    else flows.push({ flow: row.flow, depth: row.depth, rows: [row] });
+    } else {
+      flows.push({ flow: row.flow, depth: row.depth, rows: [row] });
+    }
   }
   return (
     <div className={styles.dialog}>

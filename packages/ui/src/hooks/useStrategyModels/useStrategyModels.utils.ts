@@ -30,8 +30,9 @@ export function buildStepRows(
 ): StepRow[] {
   const agents = new Map(strategy.agents.map((agent) => [agent.name, agent]));
   const uses = new Map<string, number>();
-  for (const step of strategy.steps)
+  for (const step of strategy.steps) {
     uses.set(step.agent, (uses.get(step.agent) ?? 0) + 1);
+  }
   return strategy.steps.map((step, index) => {
     const agent = agents.get(step.agent);
     const kind = agent?.kind ?? "custom";
@@ -70,11 +71,14 @@ export function findUniform(
   steps: readonly StepRow[],
 ): UniformModel | undefined {
   const agents = new Map<string, StepRow>();
-  for (const step of steps)
+  for (const step of steps) {
     if (step.kind === "llm" && !agents.has(step.agent))
       agents.set(step.agent, step);
+  }
   const [first, ...rest] = [...agents.values()];
-  if (!first) return undefined;
+  if (!first) {
+    return undefined;
+  }
   const same = rest.every(
     (agent) =>
       agent.effectiveModel === first.effectiveModel &&

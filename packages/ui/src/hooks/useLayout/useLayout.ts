@@ -8,7 +8,8 @@ import type { LayoutContextValue } from "./useLayout.types";
  */
 export function useLayout(): LayoutContextValue {
   const context = useContext(LayoutContext);
-  if (!context)
+  if (!context) {
     throw new Error("useLayout must be used within LayoutProvider.");
+  }
   return context;
 }

@@ -1,5 +1,6 @@
 import {
   closePane,
+  replaceActivePane,
   containsPane,
   listPanes,
   movePane,
@@ -13,6 +14,7 @@ import type { LayoutState } from "./useLayout.types";
 
 /** A change to the layout state. */
 export type LayoutAction =
+  | { readonly type: "newChat"; readonly id: string }
   | {
       readonly type: "split";
       readonly id: string;
@@ -78,6 +80,15 @@ export function layoutReducer(
   action: LayoutAction,
 ): LayoutState {
   switch (action.type) {
+    case "newChat":
+      return prune({
+        ...state,
+        layout: replaceActivePane(state.layout, action.id),
+        maximizedId:
+          state.maximizedId === state.layout.activeId
+            ? action.id
+            : state.maximizedId,
+      });
     case "split": {
       const layout = splitPane(state.layout, action.id, action.direction);
       // A new pane next to a maximized one would be hidden, so return to the grid.
@@ -111,7 +122,9 @@ export function layoutReducer(
       return layout === state.layout ? state : { ...state, layout };
     }
     case "maximize":
-      if (!containsPane(state.layout.root, action.id)) return state;
+      if (!containsPane(state.layout.root, action.id)) {
+        return state;
+      }
       return {
         ...state,
         maximizedId: state.maximizedId === action.id ? undefined : action.id,

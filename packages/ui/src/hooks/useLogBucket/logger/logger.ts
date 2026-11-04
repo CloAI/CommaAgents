@@ -23,7 +23,9 @@ export function createLogBucket({
   let entries: readonly LogEntry[] = [];
   const listeners = new Set<() => void>();
   const notify = (): void => {
-    for (const listener of listeners) listener();
+    for (const listener of listeners) {
+      listener();
+    }
   };
   const write = (level: LogLevel, message: string, details?: string): void => {
     const timestamp = new Date().toISOString();
@@ -47,8 +49,11 @@ export function createLogBucket({
         ? [...entries.slice(0, -1), entry]
         : [...entries, entry].slice(-maxEntries);
     notify();
-    if (details === undefined) console[level](`[${name}] ${message}`);
-    else console[level](`[${name}] ${message}`, details);
+    if (details === undefined) {
+      console[level](`[${name}] ${message}`);
+    } else {
+      console[level](`[${name}] ${message}`, details);
+    }
   };
   return {
     info: (message, details) => write("info", message, details),

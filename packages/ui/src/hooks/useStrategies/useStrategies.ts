@@ -16,8 +16,9 @@ export function useStrategies(): Strategies {
   );
   const strategies = data?.strategies ?? NO_STRATEGIES;
   useEffect(() => {
-    for (const warning of data?.warnings ?? [])
+    for (const warning of data?.warnings ?? []) {
       daemonLogs.warn(`Skipped strategy: ${warning.reason}`, warning.path);
+    }
   }, [data]);
   return {
     status:

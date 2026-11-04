@@ -3,11 +3,12 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { CommaAgentsDaemonProvider } from "../../hooks/useCommaAgentsDaemon";
 import { deliver, requests } from "../../hooks/useCommaAgentsDaemon/test.utils";
+import { publishProviders } from "../SettingsDialog/ProvidersSettings/ProviderConfigurationDialog/test.utils";
 import { SettingsProvider } from "../../hooks/useSettings";
 import { MockWebSocket } from "../../hooks/useWebSocket/test.utils";
 import type { DescribedStrategy } from "../../hooks/useStrategyModels";
 import { SETTINGS_STORAGE_KEY } from "../../settings/settings.constants";
-import type { DiscoveredProvider } from "../ModelBrowser";
+import type { DiscoveredProvider } from "./StrategyModels.types";
 import { StrategyModels, StrategyModelsRender } from "./StrategyModels";
 const PATH = "/work/.comma/strategies/plan.json";
 const STRATEGY: DescribedStrategy = {
@@ -135,9 +136,6 @@ const PROVIDERS: readonly DiscoveredProvider[] = [
       },
     ],
     origin: "catalog",
-    discovery: {
-      status: "catalog_only",
-    },
   },
   {
     id: "anthropic",
@@ -154,9 +152,6 @@ const PROVIDERS: readonly DiscoveredProvider[] = [
       },
     ],
     origin: "catalog",
-    discovery: {
-      status: "catalog_only",
-    },
   },
   {
     id: "vault",
@@ -173,9 +168,6 @@ const PROVIDERS: readonly DiscoveredProvider[] = [
       },
     ],
     origin: "catalog",
-    discovery: {
-      status: "catalog_only",
-    },
   },
 ];
 const meta = {
@@ -261,8 +253,11 @@ const connected = {
     localStorage.removeItem(SETTINGS_STORAGE_KEY);
     return () => {
       globalThis.WebSocket = originalWebSocket;
-      if (previous === null) localStorage.removeItem(SETTINGS_STORAGE_KEY);
-      else localStorage.setItem(SETTINGS_STORAGE_KEY, previous);
+      if (previous === null) {
+        localStorage.removeItem(SETTINGS_STORAGE_KEY);
+      } else {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, previous);
+      }
     };
   },
 } satisfies Story;
@@ -282,11 +277,7 @@ const describeOk = (strategy: DescribedStrategy = STRATEGY) =>
     data: strategy,
   });
 const providersOk = (providers: readonly DiscoveredProvider[] = PROVIDERS) =>
-  answer("core.providers.list", {
-    type: "response",
-    ok: true,
-    data: { providers },
-  });
+  publishProviders(providers);
 const saved = () =>
   JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "{}")
     .modelOverrides?.[PATH];

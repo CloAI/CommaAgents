@@ -159,3 +159,24 @@
   gap: var(--space-1) var(--space-2);
   max-width: 100%;
 }
+
+.capabilities {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-muted);
+
+  span {
+    display: inline-flex;
+  }
+
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  &:empty {
+    display: none;
+  }
+}

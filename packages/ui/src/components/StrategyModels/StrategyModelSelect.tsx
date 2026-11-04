@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from "react";
 import { Button } from "../../design-system/Button";
 import { Select } from "../../design-system/Select";
-import type { SelectOption } from "../../design-system/Select";
+import type { StrategyModelOption } from "./StrategyModels.types";
+import { MODEL_CAPABILITIES } from "../ModelDetails/ModelDetails.constants";
 import { useCommaAgentsDaemon } from "../../hooks/useCommaAgentsDaemon";
 import type {
   StrategyModels,
@@ -30,12 +31,14 @@ export function StrategyModelSelect({
   uniform,
   onOpenSteps,
 }: StrategyModelSelectProps) {
-  const { data, errors, clientError, isLoading } = useCommaAgentsDaemon(
-    { command: "core.providers.list" },
-    { live: false },
+  const { data, errors, clientError } = useCommaAgentsDaemon(
+    { channel: "core.providers.list" },
+    {},
   );
+  // The list is loading until its first snapshot, not just the subscription acknowledgement.
+  const isLoading = !data && !errors && !clientError;
   const { options, groups } = useMemo(
-    () => modelOptions(data?.providers ?? [], uniform.privacy),
+    () => modelOptions(data?.data.providers ?? [], uniform.privacy),
     [data, uniform.privacy],
   );
   const handleChange = useCallback(
@@ -78,7 +81,7 @@ export interface StrategyModelSelectRenderProps {
   /** Whether the choices are loading, failed, absent, or usable. */
   readonly status: "loading" | "error" | "empty" | "ready";
   /** Models of connected providers. */
-  readonly options: readonly SelectOption[];
+  readonly options: readonly StrategyModelOption[];
   /** Provider names in display order. */
   readonly groups: readonly string[];
   /** Whether the shown model replaces the strategy's own. */
@@ -111,7 +114,25 @@ export function StrategyModelSelectRender({
     <div className={styles.quick}>
       <Select
         label="Model"
-        options={options}
+        options={options.map((option) => ({
+          ...option,
+          suffix: (
+            <span className={styles.capabilities}>
+              {MODEL_CAPABILITIES.filter(
+                (capability) => option.capabilities?.[capability.id] === true,
+              ).map((capability) => (
+                <span
+                  key={capability.id}
+                  role="img"
+                  aria-label={capability.label}
+                  title={capability.label}
+                >
+                  <capability.icon aria-hidden="true" />
+                </span>
+              ))}
+            </span>
+          ),
+        }))}
         value={model}
         onChange={onChange}
         placeholder={

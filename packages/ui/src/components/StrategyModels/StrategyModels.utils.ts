@@ -1,5 +1,8 @@
-import type { SelectOption } from "../../design-system/Select";
-import type { DiscoveredModel, DiscoveredProvider } from "../ModelBrowser";
+import type {
+  StrategyModelOption,
+  DiscoveredModel,
+  DiscoveredProvider,
+} from "./StrategyModels.types";
 import { splitModel } from "../../hooks/useStrategyModels";
 import type { StepRow } from "../../hooks/useStrategyModels";
 
@@ -30,14 +33,22 @@ export function modelIssue(
   row: StepRow,
   providers: readonly DiscoveredProvider[],
 ): ModelIssue | undefined {
-  if (row.kind !== "llm") return undefined;
-  if (row.effectiveModel === undefined) return "No model set";
+  if (row.kind !== "llm") {
+    return undefined;
+  }
+  if (row.effectiveModel === undefined) {
+    return "No model set";
+  }
   const parts = splitModel(row.effectiveModel);
   const provider = providers.find(
     (candidate) => candidate.id === parts?.providerId,
   );
-  if (!parts || !provider) return "Model not in catalog";
-  if (!isConnected(provider)) return "Provider not connected";
+  if (!parts || !provider) {
+    return "Model not in catalog";
+  }
+  if (!isConnected(provider)) {
+    return "Provider not connected";
+  }
   return provider.models.some((model) => model.id === parts.modelId)
     ? undefined
     : "Model not in catalog";
@@ -56,13 +67,15 @@ export function privacyIssue(
   if (
     privacy?.e2ee === "required" &&
     model.metadata.capabilities?.e2ee !== true
-  )
+  ) {
     return "Requires E2EE support";
+  }
   if (
     privacy?.tee === "required" &&
     model.metadata.capabilities?.teeAttestation !== true
-  )
+  ) {
     return "Requires TEE attestation";
+  }
   return undefined;
 }
 
@@ -80,7 +93,9 @@ export function partitionAgents(
   const eligible: string[] = [];
   const skipped: string[] = [];
   for (const step of steps) {
-    if (step.kind !== "llm" || seen.has(step.agent)) continue;
+    if (step.kind !== "llm" || seen.has(step.agent)) {
+      continue;
+    }
     seen.add(step.agent);
     (privacyIssue(step.privacy, model) === undefined ? eligible : skipped).push(
       step.agent,
@@ -93,12 +108,12 @@ export function partitionAgents(
  * List the models of connected providers as dropdown options grouped by provider.
  * @param {readonly DiscoveredProvider[]} providers - Discovered providers.
  * @param {StepRow["privacy"]} privacy - Protections every affected agent requires.
- * @returns {{options: SelectOption[], groups: string[]}} Options, with unmet privacy requirements as disabled reasons, and provider names in order.
+ * @returns {{options: StrategyModelOption[], groups: string[]}} Options, with unmet privacy requirements as disabled reasons, and provider names in order.
  */
 export function modelOptions(
   providers: readonly DiscoveredProvider[],
   privacy: StepRow["privacy"],
-): { readonly options: SelectOption[]; readonly groups: string[] } {
+): { readonly options: StrategyModelOption[]; readonly groups: string[] } {
   const connected = providers.filter(isConnected);
   return {
     groups: connected.map((provider) => provider.name),
@@ -110,6 +125,7 @@ export function modelOptions(
           label: model.metadata.name ?? model.id,
           description: `${provider.id}/${model.id}`,
           group: provider.name,
+          capabilities: model.metadata.capabilities,
           ...(reason === undefined ? {} : { disabled: reason }),
         };
       }),

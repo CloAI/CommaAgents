@@ -1,21 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { Sidebar } from "./Sidebar";
+import { SidebarRender } from "./Sidebar";
 
 const meta = {
   title: "Components/Sidebar",
-  component: Sidebar,
+  component: SidebarRender,
   args: { onNewChat: fn(), onSettings: fn() },
   parameters: {
     layout: "fullscreen",
     docs: {
       description: {
         component:
-          "Always-visible 44px application rail. New Chat stays at the top and Settings at the bottom. The application opens the settings dialog and keeps New Chat as an alert placeholder.",
+          "Always-visible 44px application rail. New Chat stays at the top and Settings at the bottom. The application opens the settings dialog and replaces the focused pane with a fresh chat when New Chat is selected.",
       },
     },
   },
-} satisfies Meta<typeof Sidebar>;
+} satisfies Meta<typeof SidebarRender>;
 
 // oxlint-disable-next-line import/no-default-export -- Colocated Storybook stories require a default metadata export.
 export default meta;

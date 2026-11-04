@@ -28,8 +28,9 @@ export function Workspace() {
   useEffect(() => {
     const hash = hashFromPath(activePath);
     // Replacing keeps the browser history free of every pane switch.
-    if (window.location.hash !== hash)
+    if (window.location.hash !== hash) {
       window.history.replaceState(null, "", hash);
+    }
   }, [activePath]);
   return (
     <div className={styles.workspace}>
@@ -45,10 +46,14 @@ export function Workspace() {
  */
 function WorkspaceNode({ node }: { readonly node: LayoutNode }) {
   const { maximizedId, setSplitSizes } = useLayout();
-  if (node.type === "pane") return <ChatPane id={node.id} />;
+  if (node.type === "pane") {
+    return <ChatPane key={node.id} id={node.id} />;
+  }
   return (
     <div className={styles.fill}>
       <Allotment
+        // The splitter fixes its axis at mount; docking can replace the split or change its direction.
+        key={`${node.id}:${node.direction}`}
         vertical={node.direction === "column"}
         defaultSizes={node.sizes ? [...node.sizes] : undefined}
         minSize={node.direction === "row" ? MIN_PANE_WIDTH : MIN_PANE_HEIGHT}

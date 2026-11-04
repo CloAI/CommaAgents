@@ -64,7 +64,9 @@ export async function answerCommand(
     const found = requests(socket, "command")
       .filter((candidate) => candidate.command === command)
       .at(-1);
-    if (!found) throw new Error(`No ${command} request yet.`);
+    if (!found) {
+      throw new Error(`No ${command} request yet.`);
+    }
     return found;
   });
   await act(() => deliver(socket, request.requestId, message));
@@ -84,7 +86,9 @@ export async function acknowledgeSubscription(
     const found = requests(socket, "subscribe")
       .filter((candidate) => candidate.channel === channel)
       .at(-1);
-    if (!found) throw new Error(`Not subscribed to ${channel} yet.`);
+    if (!found) {
+      throw new Error(`Not subscribed to ${channel} yet.`);
+    }
     return found;
   });
   await act(() =>

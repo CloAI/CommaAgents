@@ -1,6 +1,6 @@
 import { act } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { daemonLogs } from "../hooks/useLogBucket/logger";
 import { CommaAgentsDaemonProvider } from "../hooks/useCommaAgentsDaemon";
 import { LayoutProvider } from "../hooks/useLayout";
@@ -14,8 +14,6 @@ const meta = {
   title: "Screens/App",
   component: AppRender,
   args: {
-    onNewChat: fn(),
-    onSettings: fn(),
     connectionStatus: <ConnectionStatus label="Daemon" status="connected" />,
   },
   parameters: { layout: "fullscreen" },
@@ -113,5 +111,77 @@ export const ConnectionLifecycle: Story = {
     await userEvent.click(canvas.getByRole("button", { name: "Close dialog" }));
     await expect(trigger).toHaveFocus();
     await expect(MockWebSocket.instances).toHaveLength(count);
+  },
+};
+
+export const NewChatReplacesFocusedPane: Story = {
+  render: () => <App />,
+  beforeEach: () => {
+    const previousUrl = window.location.href;
+    const restore = isolateLayoutStorage({
+      root: {
+        type: "split",
+        id: "split",
+        direction: "row",
+        sizes: [40, 60],
+        children: [
+          { type: "pane", id: "a", path: "/runs/aaaaaaaa" },
+          { type: "pane", id: "b", path: "/runs/bbbbbbbb" },
+        ],
+      },
+      activeId: "b",
+    });
+    window.history.replaceState(null, "", "#/runs/bbbbbbbb");
+    return () => {
+      restore();
+      window.history.replaceState(null, "", previousUrl);
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const sibling = canvas.getByRole("group", { name: "Run bbbbbbbb" });
+    await userEvent.click(
+      canvas.getByRole("heading", { name: "Run aaaaaaaa" }),
+    );
+    const trigger = within(
+      canvas.getByRole("navigation", { name: "Application" }),
+    ).getByRole("button", { name: "New chat" });
+    await userEvent.click(trigger);
+    await expect(
+      canvas.queryByRole("group", { name: "Run aaaaaaaa" }),
+    ).not.toBeInTheDocument();
+    await expect(canvas.getByRole("group", { name: "Run bbbbbbbb" })).toBe(
+      sibling,
+    );
+    const fresh = canvas.getByRole("group", { name: "New chat" });
+    await expect(fresh).toHaveAttribute("data-active", "true");
+    await waitFor(() => expect(window.location.hash).toBe("#/"));
+    const input = within(fresh).getByRole("textbox", { name: "Message" });
+    await userEvent.type(input, "Discard this draft");
+    await userEvent.click(trigger);
+    const emptyInput = within(
+      canvas.getByRole("group", { name: "New chat" }),
+    ).getByRole("textbox", { name: "Message" });
+    await expect(emptyInput).toHaveValue("");
+    await expect(emptyInput).not.toBe(input);
+    await expect(canvas.getByRole("group", { name: "Run bbbbbbbb" })).toBe(
+      sibling,
+    );
+  },
+};
+
+export const NewChatReplacesSinglePane: Story = {
+  render: () => <App />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const input = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(input, "Old draft");
+    await userEvent.click(canvas.getByRole("button", { name: "New chat" }));
+    await expect(canvas.getByRole("textbox", { name: "Message" })).toHaveValue(
+      "",
+    );
+    await expect(canvas.getByRole("textbox", { name: "Message" })).not.toBe(
+      input,
+    );
   },
 };

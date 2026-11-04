@@ -8,14 +8,19 @@ import type { Layout } from "./layout.types";
  */
 export function isolateLayoutStorage(seed?: Layout): () => void {
   const previous = localStorage.getItem(LAYOUT_STORAGE_KEY);
-  if (seed === undefined) localStorage.removeItem(LAYOUT_STORAGE_KEY);
-  else
+  if (seed === undefined) {
+    localStorage.removeItem(LAYOUT_STORAGE_KEY);
+  } else {
     localStorage.setItem(
       LAYOUT_STORAGE_KEY,
       JSON.stringify({ version: 1, ...seed }),
     );
+  }
   return () => {
-    if (previous === null) localStorage.removeItem(LAYOUT_STORAGE_KEY);
-    else localStorage.setItem(LAYOUT_STORAGE_KEY, previous);
+    if (previous === null) {
+      localStorage.removeItem(LAYOUT_STORAGE_KEY);
+    } else {
+      localStorage.setItem(LAYOUT_STORAGE_KEY, previous);
+    }
   };
 }

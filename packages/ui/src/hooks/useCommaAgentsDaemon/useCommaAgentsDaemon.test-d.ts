@@ -7,19 +7,15 @@ import { useCommaAgentsDaemon } from "./useCommaAgentsDaemon";
  */
 function useContractChecks() {
   const providers = useCommaAgentsDaemon(
-    { command: "core.providers.list" },
+    { channel: "core.providers.list" },
     {},
   );
-  useCommaAgentsDaemon(
-    { command: "core.providers.list" },
-    { live: true, scope: "example" },
-  );
-  // @ts-expect-error Provider discovery options are inferred from the command.
-  useCommaAgentsDaemon({ command: "core.providers.list" }, { live: "yes" });
-  const providerId: string | undefined = providers.data?.providers[0]?.id;
-  // @ts-expect-error Provider metadata retains its result types.
+  // @ts-expect-error The provider list takes no arguments.
+  useCommaAgentsDaemon({ channel: "core.providers.list" }, { live: true });
+  const providerId: string | undefined = providers.data?.data.providers[0]?.id;
+  // @ts-expect-error Provider metadata retains its message types.
   const invalidProviderId: number | undefined =
-    providers.data?.providers[0]?.id;
+    providers.data?.data.providers[0]?.id;
   void providerId;
   void invalidProviderId;
   const configuration = useCommaAgentsDaemon(

@@ -54,12 +54,11 @@
   display: flex;
   gap: var(--space-1);
 }
-.send,
-.stop {
+.send {
   border-color: var(--color-border);
   color: var(--color-primary);
 }
-.composer[data-cancellable] .input {
+.composer[data-actions] .input {
   padding-right: calc(3.75rem + var(--space-3) + var(--scrollbar-offset));
 }
 

@@ -165,7 +165,9 @@ export const RetentionAndCoalescing: Story = {
       await expect(single.getSnapshot()).toHaveLength(1);
       await expect(single.getSnapshot()[0]!.message).toBe("Last.");
       const defaults = createLogBucket({ name: "default" });
-      for (let i = 0; i < 101; i++) defaults.info(String(i));
+      for (let i = 0; i < 101; i++) {
+        defaults.info(String(i));
+      }
       await expect(defaults.getSnapshot()).toHaveLength(100);
       await expect(defaults.getSnapshot()[0]!.message).toBe("1");
       await expect(() =>
@@ -183,8 +185,9 @@ function LiveLauncher() {
   const [open, setOpen] = useState(false);
   const [bucket] = useState(() => {
     const logs = createLogBucket({ name: "live" });
-    for (let i = 0; i < 80; i++)
+    for (let i = 0; i < 80; i++) {
       logs.info(`Entry ${i}: ${"long text ".repeat(30)}`);
+    }
     liveBucket = logs;
     return logs;
   });

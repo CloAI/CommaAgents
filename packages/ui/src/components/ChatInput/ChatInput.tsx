@@ -2,7 +2,6 @@ import { ArrowUp } from "lucide-react";
 import {
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -11,16 +10,15 @@ import type {
   ChangeEventHandler,
   FormEventHandler,
   KeyboardEventHandler,
+  ReactNode,
 } from "react";
 import { IconButton } from "../../design-system/IconButton";
-import { StopControl } from "./StopControl";
-import type { SubmitOutcome } from "./ChatInput.types";
 import styles from "./ChatInput.module.scss";
 
 /** Submission callback for the local prompt composer. */
 export interface ChatInputProps {
-  /** Receive a nonempty prompt with outer whitespace removed; a failed outcome keeps the draft. */
-  readonly onSubmit: (prompt: string) => void | Promise<SubmitOutcome>;
+  /** Receive a nonempty prompt with outer whitespace removed; resolving with an error message keeps the draft and shows it. */
+  readonly onSubmit: (prompt: string) => void | Promise<string | undefined>;
   /** Prevent editing and submitting while the run is unavailable. */
   readonly disabled?: boolean;
   /** Clear a successfully acknowledged message. */
@@ -29,14 +27,8 @@ export interface ChatInputProps {
   readonly placeholder?: string;
   /** Focus the field whenever it becomes available, so a conversation can continue without clicking. */
   readonly autoFocus?: boolean;
-  /** Stop the active run without submitting or clearing the draft. */
-  readonly onCancel?: () => void;
-  /** Prevent duplicate stop requests while cancellation is pending. @default false */
-  readonly cancelling?: boolean;
-  /** Prevent stopping while disconnected or another lifecycle change is pending. @default false */
-  readonly cancelDisabled?: boolean;
-  /** Show the first-Escape hint above Stop while the shortcut is armed. @default false */
-  readonly cancelHint?: boolean;
+  /** Extra controls placed before Send, such as Stop; they stay usable while sending is disabled. */
+  readonly actions?: ReactNode;
 }
 
 /**
@@ -50,16 +42,11 @@ export function ChatInput({
   clearOnSuccess = false,
   placeholder = "Enter your prompt...",
   autoFocus = false,
-  onCancel,
-  cancelling = false,
-  cancelDisabled = false,
-  cancelHint = false,
+  actions,
 }: ChatInputProps) {
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string>();
-  const pendingSubmission = useRef(false);
-  const inputId = useId();
   const handleChange = useCallback<ChangeEventHandler<HTMLTextAreaElement>>(
     (event) => {
       setDraft(event.target.value);
@@ -70,53 +57,37 @@ export function ChatInput({
     (event) => {
       event.preventDefault();
       const prompt = draft.trim();
-      if (!prompt || disabled || pendingSubmission.current) return;
-      pendingSubmission.current = true;
+      // Submitting disables the field and Send, so a second press cannot arrive before this state renders.
+      if (!prompt || disabled || submitting) {
+        return;
+      }
       setSubmitting(true);
       setSubmissionError(undefined);
       Promise.resolve(onSubmit(prompt))
-        .then((outcome) => {
-          if (outcome?.ok === false) setSubmissionError(outcome.message);
-          else if (clearOnSuccess) setDraft("");
+        .then((error) => {
+          if (error) {
+            setSubmissionError(error);
+          } else if (clearOnSuccess) {
+            setDraft("");
+          }
         })
         .finally(() => {
-          pendingSubmission.current = false;
           setSubmitting(false);
         });
     },
-    [draft, onSubmit, disabled, clearOnSuccess],
-  );
-  const handleKeyDown = useCallback<KeyboardEventHandler<HTMLTextAreaElement>>(
-    (event) => {
-      // Safari may report the final IME Enter as keyCode 229 after composition ends.
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey &&
-        !event.nativeEvent.isComposing &&
-        event.keyCode !== 229
-      ) {
-        event.preventDefault();
-        event.currentTarget.form?.requestSubmit();
-      }
-    },
-    [],
+    [draft, onSubmit, disabled, submitting, clearOnSuccess],
   );
 
   return (
     <>
       <ChatInputRender
-        inputId={inputId}
         draft={draft}
         disabled={disabled || submitting}
         placeholder={placeholder}
         autoFocus={autoFocus}
         onChange={handleChange}
         onSubmit={handleSubmit}
-        onKeyDown={handleKeyDown}
-        onCancel={onCancel}
-        cancelling={cancelling}
-        cancelDisabled={cancelDisabled}
-        cancelHint={cancelHint}
+        actions={actions}
       />
       {submissionError && <p role="alert">{submissionError}</p>}
     </>
@@ -125,8 +96,6 @@ export function ChatInput({
 
 /** Controlled fields and event handlers for the composer preview. */
 export interface ChatInputRenderProps {
-  /** Unique field identifier. */
-  readonly inputId: string;
   /** Current editable prompt. */
   readonly draft: string;
   /** Prevent editing and submission. */
@@ -139,16 +108,8 @@ export interface ChatInputRenderProps {
   readonly onChange: ChangeEventHandler<HTMLTextAreaElement>;
   /** Handle form submission. */
   readonly onSubmit: FormEventHandler<HTMLFormElement>;
-  /** Handle submission and newline keyboard shortcuts. */
-  readonly onKeyDown: KeyboardEventHandler<HTMLTextAreaElement>;
-  /** Stop active work independently of message submission. */
-  readonly onCancel?: () => void;
-  /** Whether a stop request is pending. @default false */
-  readonly cancelling?: boolean;
-  /** Prevent stopping while the run is unavailable. @default false */
-  readonly cancelDisabled?: boolean;
-  /** Show the first-Escape hint above Stop while the shortcut is armed. @default false */
-  readonly cancelHint?: boolean;
+  /** Extra controls placed before Send. */
+  readonly actions?: ReactNode;
 }
 
 /**
@@ -157,18 +118,13 @@ export interface ChatInputRenderProps {
  * @returns {React.ReactElement} The rendered component.
  */
 export function ChatInputRender({
-  inputId,
   draft,
   onChange,
   onSubmit,
-  onKeyDown,
   disabled = false,
   placeholder = "Enter your prompt...",
   autoFocus = false,
-  onCancel,
-  cancelling = false,
-  cancelDisabled = false,
-  cancelHint = false,
+  actions,
 }: ChatInputRenderProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -184,17 +140,21 @@ export function ChatInputRender({
         document.activeElement ===
           formRef.current?.querySelector("[data-cancel]"))
     ) {
-      if (!disabled) input.focus();
-      else if (onCancel && !cancelDisabled && !cancelling)
+      if (!disabled) {
+        input.focus();
+      } else {
         formRef.current
-          ?.querySelector<HTMLButtonElement>("[data-cancel]")
+          ?.querySelector<HTMLButtonElement>("[data-cancel]:enabled")
           ?.focus();
+      }
     }
-  }, [autoFocus, disabled, onCancel, cancelDisabled, cancelling]);
+  }, [autoFocus, disabled]);
 
   const resizeInput = useCallback(() => {
     const input = inputRef.current;
-    if (!input) return;
+    if (!input) {
+      return;
+    }
     const computedStyle = window.getComputedStyle(input);
     const lineHeight = Number.parseFloat(computedStyle.lineHeight);
     const padding =
@@ -221,11 +181,29 @@ export function ChatInputRender({
     input.scrollTop = scrollPosition;
   }, []);
 
+  const onKeyDown = useCallback<KeyboardEventHandler<HTMLTextAreaElement>>(
+    (event) => {
+      // Safari may report the final IME Enter as keyCode 229 after composition ends.
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey &&
+        !event.nativeEvent.isComposing &&
+        event.keyCode !== 229
+      ) {
+        event.preventDefault();
+        event.currentTarget.form?.requestSubmit();
+      }
+    },
+    [],
+  );
+
   useLayoutEffect(() => resizeInput(), [draft, resizeInput]);
 
   useLayoutEffect(() => {
     const input = inputRef.current;
-    if (!input) return;
+    if (!input) {
+      return;
+    }
     let previousWidth = 0;
     let resizeFrame = 0;
     let mounted = true;
@@ -240,7 +218,9 @@ export function ChatInputRender({
     });
     observer.observe(input);
     void document.fonts.ready.then(() => {
-      if (mounted) resizeInput();
+      if (mounted) {
+        resizeInput();
+      }
     });
     document.fonts.addEventListener("loadingdone", resizeInput);
     return () => {
@@ -256,12 +236,11 @@ export function ChatInputRender({
       ref={formRef}
       className={styles.composer}
       onSubmit={onSubmit}
-      data-cancellable={onCancel ? "" : undefined}
+      data-actions={actions ? "" : undefined}
     >
       <textarea
         ref={inputRef}
         className={styles.input}
-        id={inputId}
         aria-label="Message"
         placeholder={placeholder}
         disabled={disabled}
@@ -271,15 +250,7 @@ export function ChatInputRender({
         onKeyDown={onKeyDown}
       />
       <div className={styles.actions}>
-        {onCancel && (
-          <StopControl
-            className={styles.stop}
-            onCancel={onCancel}
-            cancelling={cancelling}
-            disabled={cancelDisabled}
-            hint={cancelHint}
-          />
-        )}
+        {actions}
         <IconButton
           className={styles.send}
           label="Send"

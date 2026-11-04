@@ -99,7 +99,9 @@ export function LogDialogRender({
   }, [search, level]);
   useEffect(() => {
     const element = scrollRef.current;
-    if (element && following.current) element.scrollTop = element.scrollHeight;
+    if (element && following.current) {
+      element.scrollTop = element.scrollHeight;
+    }
   }, [entries, search, level]);
 
   return (

@@ -55,10 +55,11 @@ export function useCommaAgentsDaemon(
     isLoading: true,
   });
   const context = useContext(CommaAgentsDaemonContext);
-  if (!context)
+  if (!context) {
     throw new Error(
       "useCommaAgentsDaemon must be used within CommaAgentsDaemonProvider.",
     );
+  }
   const kind = "command" in operation ? "command" : "channel";
   const name = "command" in operation ? operation.command : operation.channel;
   const prepared = prepareArguments(argumentsValue);

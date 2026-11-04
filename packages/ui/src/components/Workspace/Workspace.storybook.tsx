@@ -90,7 +90,9 @@ export const SplitVerticalPutsANewChatBeside: Story = {
     );
     const panes = await waitFor(() => {
       const found = canvas.getAllByRole("group", { name: "New chat" });
-      if (found.length !== 2) throw new Error("Not split yet.");
+      if (found.length !== 2) {
+        throw new Error("Not split yet.");
+      }
       return found;
     });
     // Allotment lays the new pane out after it mounts.
@@ -119,7 +121,9 @@ export const SplitHorizontalPutsANewChatBelow: Story = {
     );
     const panes = await waitFor(() => {
       const found = canvas.getAllByRole("group", { name: "New chat" });
-      if (found.length !== 2) throw new Error("Not split yet.");
+      if (found.length !== 2) {
+        throw new Error("Not split yet.");
+      }
       return found;
     });
     await waitFor(() =>
@@ -180,6 +184,10 @@ export const DraggingAHeaderDocksThePane: Story = {
     const canvas = within(canvasElement);
     const left = canvas.getByRole("group", { name: "Run aaaaaaaa" });
     const right = canvas.getByRole("group", { name: "Run bbbbbbbb" });
+    await waitFor(() => {
+      expect(box(left).width).toBeGreaterThan(100);
+      expect(box(right).height).toBeGreaterThanOrEqual(160);
+    });
     const dataTransfer = new DataTransfer();
     fireEvent.dragStart(headerOf(left), { dataTransfer });
     // Dropping on the bottom edge of the other pane stacks the two.
@@ -196,9 +204,15 @@ export const DraggingAHeaderDocksThePane: Story = {
     await waitFor(() => {
       const moved = canvas.getByRole("group", { name: "Run aaaaaaaa" });
       const other = canvas.getByRole("group", { name: "Run bbbbbbbb" });
-      if (box(moved).top < box(other).bottom - 1)
+      expect(box(moved).width).toBeGreaterThan(100);
+      expect(box(moved).height).toBeGreaterThanOrEqual(160);
+      expect(box(other).width).toBeGreaterThan(100);
+      expect(box(other).height).toBeGreaterThanOrEqual(160);
+      if (box(moved).top < box(other).bottom - 1) {
         throw new Error("Not docked yet.");
+      }
     });
+    await waitFor(() => expect(window.location.hash).toBe("#/runs/aaaaaaaa"));
     await expect(
       box(canvas.getByRole("group", { name: "Run aaaaaaaa" })).left,
     ).toBeCloseTo(
@@ -248,7 +262,96 @@ export const StopsSplittingAtTheLimit: Story = {
     ).toHaveLength(8);
     for (const button of canvas.getAllByRole("button", {
       name: "Split vertical",
-    }))
+    })) {
       await expect(button).toBeDisabled();
+    }
+  },
+};
+
+export const SplitPaneDocksBelowItsOriginalPane: Story = {
+  beforeEach: () =>
+    prepareStory({
+      layout: { root: pane("main", "/runs/aaaaaaaa"), activeId: "main" },
+    }),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const main = canvas.getByRole("group", { name: "Run aaaaaaaa" });
+    await userEvent.click(
+      within(main).getByRole("button", { name: "Split vertical" }),
+    );
+    const added = await canvas.findByRole("group", { name: "New chat" });
+    await waitFor(() => expect(box(added).width).toBeGreaterThan(100));
+    const dataTransfer = new DataTransfer();
+    fireEvent.dragStart(headerOf(added), { dataTransfer });
+    const original = canvas.getByRole("group", { name: "Run aaaaaaaa" });
+    const overlay = await within(original).findByTestId("drop-zones");
+    const target = box(original);
+    const point = {
+      clientX: target.left + target.width / 2,
+      clientY: target.bottom - 4,
+      dataTransfer,
+    };
+    fireEvent.dragOver(overlay, point);
+    fireEvent.drop(overlay, point);
+    fireEvent.dragEnd(headerOf(added), { dataTransfer });
+    await waitFor(() => {
+      const top = box(canvas.getByRole("group", { name: "Run aaaaaaaa" }));
+      const bottom = box(canvas.getByRole("group", { name: "New chat" }));
+      expect(top.height).toBeGreaterThanOrEqual(160);
+      expect(bottom.height).toBeGreaterThanOrEqual(160);
+      expect(top.width).toBeGreaterThan(100);
+      expect(bottom.width).toBeGreaterThan(100);
+      expect(bottom.top).toBeGreaterThanOrEqual(top.bottom - 1);
+      expect(bottom.left).toBeCloseTo(top.left, 0);
+    });
+    await waitFor(() => expect(window.location.hash).toBe("#/"));
+    await expect(
+      within(canvas.getByRole("group", { name: "New chat" })).getByRole(
+        "textbox",
+        { name: "Message" },
+      ),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("heading", { name: "Run aaaaaaaa" }),
+    );
+    await waitFor(() => expect(window.location.hash).toBe("#/runs/aaaaaaaa"));
+    await waitFor(() => {
+      const saved = JSON.parse(
+        localStorage.getItem(LAYOUT_STORAGE_KEY) ?? "{}",
+      );
+      expect(saved.root.direction).toBe("column");
+      expect(saved.root.children).toHaveLength(2);
+      expect(
+        saved.root.children.map((child: { path: string }) => child.path),
+      ).toEqual(["/runs/aaaaaaaa", "/"]);
+    });
+
+    // Dock back onto a side edge to exercise the reverse axis change.
+    const lowerPane = canvas.getByRole("group", { name: "New chat" });
+    const upperPane = canvas.getByRole("group", { name: "Run aaaaaaaa" });
+    const reverseTransfer = new DataTransfer();
+    fireEvent.dragStart(headerOf(lowerPane), { dataTransfer: reverseTransfer });
+    const reverseOverlay = await within(upperPane).findByTestId("drop-zones");
+    const upperBounds = box(upperPane);
+    const reversePoint = {
+      clientX: upperBounds.right - 4,
+      clientY: upperBounds.top + upperBounds.height / 2,
+      dataTransfer: reverseTransfer,
+    };
+    fireEvent.dragOver(reverseOverlay, reversePoint);
+    fireEvent.drop(reverseOverlay, reversePoint);
+    fireEvent.dragEnd(headerOf(lowerPane), { dataTransfer: reverseTransfer });
+    await waitFor(() => {
+      const originalBounds = box(
+        canvas.getByRole("group", { name: "Run aaaaaaaa" }),
+      );
+      const movedBounds = box(canvas.getByRole("group", { name: "New chat" }));
+      expect(originalBounds.width).toBeGreaterThanOrEqual(240);
+      expect(movedBounds.width).toBeGreaterThanOrEqual(240);
+      expect(originalBounds.height).toBeGreaterThanOrEqual(160);
+      expect(movedBounds.height).toBeGreaterThanOrEqual(160);
+      expect(movedBounds.left).toBeGreaterThanOrEqual(originalBounds.right - 1);
+      expect(movedBounds.top).toBeCloseTo(originalBounds.top, 0);
+    });
   },
 };

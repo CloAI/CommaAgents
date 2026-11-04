@@ -43,10 +43,11 @@ export function useDaemonChannel(
   onError?: (error: DaemonRequestError | DaemonClientError) => void,
 ): void {
   const context = useContext(CommaAgentsDaemonContext);
-  if (!context)
+  if (!context) {
     throw new Error(
       "useDaemonChannel must be used within CommaAgentsDaemonProvider.",
     );
+  }
   const handler = useRef(onMessage);
   const failure = useRef(onError);
   useEffect(() => {
@@ -59,18 +60,27 @@ export function useDaemonChannel(
   const invalid =
     prepared && "error" in prepared ? prepared.error.message : undefined;
   useEffect(() => {
-    if (invalid !== undefined)
+    if (invalid !== undefined) {
       daemonLogs.error(invalid, `channel: ${channel}; code: INVALID_ARGUMENTS`);
+    }
   }, [channel, invalid]);
   useEffect(() => {
-    if (key === undefined) return;
+    if (key === undefined) {
+      return;
+    }
     return context.subscribe(
       channel,
       JSON.parse(key) as DaemonArguments,
       (patch) => {
-        if (patch.data !== undefined) handler.current(patch.data);
-        if (patch.errors) failure.current?.(patch.errors);
-        if (patch.clientError) failure.current?.(patch.clientError);
+        if (patch.data !== undefined) {
+          handler.current(patch.data);
+        }
+        if (patch.errors) {
+          failure.current?.(patch.errors);
+        }
+        if (patch.clientError) {
+          failure.current?.(patch.clientError);
+        }
       },
     );
   }, [context, channel, key]);

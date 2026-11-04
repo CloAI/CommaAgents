@@ -10,9 +10,10 @@ import type { WebSocketStatus } from "../useWebSocket";
  */
 export function useDaemonConnectionStatus(): WebSocketStatus {
   const status = useContext(DaemonConnectionStatusContext);
-  if (status === null)
+  if (status === null) {
     throw new Error(
       "useDaemonConnectionStatus must be used within CommaAgentsDaemonProvider.",
     );
+  }
   return status;
 }

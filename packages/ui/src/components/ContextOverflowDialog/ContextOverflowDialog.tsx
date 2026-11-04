@@ -30,12 +30,12 @@ export function ContextOverflowDialog({
         {error ? (
           <p role="alert">{error}</p>
         ) : (
-          <p>This request may exceed the model’s context limit.</p>
+          <p>This request may exceed the model's context limit.</p>
         )}
         <p>
           Estimated request: {estimatedTokens.toLocaleString()} tokens
           {tokenLimit ? `; budget: ${tokenLimit.toLocaleString()}` : ""}.
-          Estimates may differ from the provider’s count.
+          Estimates may differ from the provider's count.
         </p>
         <p>
           Compacting uses a model call to summarize older discussion. Your

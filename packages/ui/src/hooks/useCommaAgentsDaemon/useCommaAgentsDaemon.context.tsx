@@ -61,6 +61,7 @@ export function CommaAgentsDaemonProvider({
     }
   }, []);
 
+  // TODO: Fail Locally? What is this? I have not heard of this kinda error handling...
   const failLocally = useCallback(
     (request: DaemonRequest, error: DaemonClientError) => {
       if (error.code === "TIMEOUT") {
@@ -81,6 +82,7 @@ export function CommaAgentsDaemonProvider({
 
   const transmit = useCallback(
     (request: DaemonRequest) => {
+      //AI: We should not have special timeouts per "request type"...
       const timeoutMs =
         request.name === "core.providers.refresh" ? 30_000 : 10_000;
       request.sent = true;
@@ -90,8 +92,10 @@ export function CommaAgentsDaemonProvider({
         clientError: undefined,
       });
       request.timer = window.setTimeout(() => {
-        if (registry.current.get(request.id) === request)
-          // TODO: I don't think we really need to handle this timeout? Also, we need to clear it when we get a response...
+        if (
+          registry.current.get(request.id) === request
+        ) // TODO: I don't think we really need to handle this timeout? Also, we need to clear it when we get a response...
+        {
           failLocally(request, {
             code: "TIMEOUT",
             message:
@@ -101,6 +105,7 @@ export function CommaAgentsDaemonProvider({
                   : "The daemon did not respond within ten seconds. The command may still complete on the server."
                 : "The daemon did not acknowledge the subscription within ten seconds.",
           });
+        }
       }, timeoutMs);
       const message: PluginClientMessage =
         request.kind === "command"
@@ -125,30 +130,38 @@ export function CommaAgentsDaemonProvider({
     (raw: unknown) => {
       let message: PluginServerMessage;
       try {
-        if (typeof raw !== "string") throw new Error("Expected a text frame.");
+        if (typeof raw !== "string") {
+          throw new Error("Expected a text frame.");
+        }
         message = ServerMessageSchema.parse(JSON.parse(raw));
       } catch {
         daemonLogs.error(
           "The daemon sent an invalid protocol message.",
           "code: INVALID_MESSAGE",
         );
-        for (const request of [...registry.current.values()])
+        for (const request of [...registry.current.values()]) {
           failLocally(request, {
             code: "INVALID_MESSAGE",
             message: "The daemon sent an invalid protocol message.",
           });
+        }
         return;
       }
       const request = registry.current.get(message.requestId);
-      if (!request) return;
+      if (!request) {
+        return;
+      }
       if (message.type === "response" && "ok" in message) {
         window.clearTimeout(request.timer);
-        if (!message.ok)
+        if (!message.ok) {
           daemonLogs.error(
             message.error.message,
             `${request.kind}: ${request.name}; requestId: ${request.id}; code: ${message.error.code}`,
           );
-        if (!message.ok || request.kind === "command") release(request);
+        }
+        if (!message.ok || request.kind === "command") {
+          release(request);
+        }
         request.listener({
           isLoading: false,
           errors: message.ok ? undefined : message.error,
@@ -159,11 +172,12 @@ export function CommaAgentsDaemonProvider({
         });
       } else if (message.type === "subscription_end" && "reason" in message) {
         release(request);
-        if (message.reason === "failed")
+        if (message.reason === "failed") {
           daemonLogs.error(
             message.error.message,
             `channel: ${request.name}; requestId: ${request.id}; code: ${message.error.code}`,
           );
+        }
         request.listener({
           isLoading: false,
           errors: message.reason === "failed" ? message.error : undefined,
@@ -187,8 +201,12 @@ export function CommaAgentsDaemonProvider({
       if (connected.current) {
         daemonLogs.info("Daemon connected.");
         for (const request of [...registry.current.values()]) {
-          if (!connected.current) break;
-          if (request.sent) continue;
+          if (!connected.current) {
+            break;
+          }
+          if (request.sent) {
+            continue;
+          }
           registry.current.delete(request.id);
           request.id = crypto.randomUUID();
           registry.current.set(request.id, request);
@@ -204,7 +222,9 @@ export function CommaAgentsDaemonProvider({
       for (const request of [...registry.current.values()]) {
         window.clearTimeout(request.timer);
         if (request.kind === "command") {
-          if (!request.sent) continue;
+          if (!request.sent) {
+            continue;
+          }
           failLocally(request, {
             code: "CONNECTION_LOST",
             message:
@@ -247,7 +267,9 @@ export function CommaAgentsDaemonProvider({
     connected.current = false;
     return () => {
       connected.current = false;
-      for (const request of [...requests.values()]) release(request, true);
+      for (const request of [...requests.values()]) {
+        release(request, true);
+      }
     };
   }, [endpoint, release]);
 
@@ -267,10 +289,13 @@ export function CommaAgentsDaemonProvider({
         sent: false,
       };
       registry.current.set(request.id, request);
-      if (connected.current) transmit(request);
+      if (connected.current) {
+        transmit(request);
+      }
       return () => {
-        if (registry.current.get(request.id) === request)
+        if (registry.current.get(request.id) === request) {
           release(request, true);
+        }
       };
     },
     [release, transmit],

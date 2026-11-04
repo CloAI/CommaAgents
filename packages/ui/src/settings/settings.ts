@@ -14,8 +14,9 @@ import { isSettingsRecord } from "./settings.utils";
 export function loadSettings(): SettingsLoadResult {
   try {
     const storedValue = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (storedValue === null)
+    if (storedValue === null) {
       return { settings: DEFAULT_SETTINGS, notice: null };
+    }
     const record: unknown = JSON.parse(storedValue);
     if (
       typeof record === "object" &&
@@ -59,7 +60,9 @@ export function loadSettings(): SettingsLoadResult {
  */
 export function saveSettings(settings: Settings): SettingsSaveResult {
   const validationError = validateDaemonUrl(settings.daemon.url);
-  if (validationError) return { type: "error", message: validationError };
+  if (validationError) {
+    return { type: "error", message: validationError };
+  }
   const savedSettings = normalizeSettings(settings);
   const record: SettingsRecord = { version: 1, ...savedSettings };
   try {
@@ -80,7 +83,9 @@ export function saveSettings(settings: Settings): SettingsSaveResult {
  * @returns {string | null} A field error, or null when the URL is valid.
  */
 export function validateDaemonUrl(value: string): string | null {
-  if (!value.trim()) return "Enter a daemon WebSocket URL.";
+  if (!value.trim()) {
+    return "Enter a daemon WebSocket URL.";
+  }
   try {
     const endpoint = new URL(value.trim());
     if (
@@ -90,10 +95,12 @@ export function validateDaemonUrl(value: string): string | null {
     ) {
       return "Use a full ws:// or wss:// URL with a hostname.";
     }
-    if (endpoint.hash || endpoint.href.includes("#"))
+    if (endpoint.hash || endpoint.href.includes("#")) {
       return "Remove the fragment from the daemon URL.";
-    if (endpoint.username || endpoint.password)
+    }
+    if (endpoint.username || endpoint.password) {
       return "Embedded credentials are not supported.";
+    }
     return null;
   } catch {
     return "Use a full ws:// or wss:// URL with a hostname.";

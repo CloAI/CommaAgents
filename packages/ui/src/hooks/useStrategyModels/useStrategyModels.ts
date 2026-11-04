@@ -92,7 +92,9 @@ export function useStrategyModels(
       if (result.type === "error") {
         setSessionOverrides(pruned);
         daemonLogs.error(result.message, "model overrides");
-      } else setSessionOverrides(undefined);
+      } else {
+        setSessionOverrides(undefined);
+      }
     },
     [data, settings, saveSettings, strategyPath, binding],
   );

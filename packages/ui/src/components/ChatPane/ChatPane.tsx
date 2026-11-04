@@ -37,6 +37,7 @@ export function ChatPane({ id }: ChatPaneProps) {
   } = useLayout();
   const path =
     listPanes(layout.root).find((pane) => pane.id === id)?.path ?? "/";
+
   // The pane's router starts at the saved route and is the source of truth afterward.
   const [initialPath] = useState(path);
   const maximized = maximizedId === id;
@@ -70,7 +71,9 @@ export function ChatPane({ id }: ChatPaneProps) {
   );
   const handleDrop = useCallback(
     (zone: DropZone) => {
-      if (draggingId !== undefined) movePane(draggingId, id, zone);
+      if (draggingId !== undefined) {
+        movePane(draggingId, id, zone);
+      }
       setDragging(undefined);
     },
     [draggingId, movePane, setDragging, id],
@@ -187,13 +190,14 @@ export function ChatPaneRender({
       onFocusCapture={onActivate}
     >
       <ChatPaneHeader
-        title={title}
+        active={active && hasSiblings}
         centered={centered}
-        onToggleWidth={() => setCentered((value) => !value)}
+        title={title}
         maximized={maximized}
         hasSiblings={hasSiblings}
         canSplit={canSplit}
         draggable={draggable}
+        onToggleWidth={() => setCentered((value) => !value)}
         onSplit={onSplit}
         onToggleMaximize={onToggleMaximize}
         onClose={onClose}

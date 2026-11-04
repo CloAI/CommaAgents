@@ -43,7 +43,9 @@ export class MockWebSocket {
    * @returns {void} No return value.
    */
   send(data: string): void {
-    if (this.throwOnSend) throw new Error("Sending failed.");
+    if (this.throwOnSend) {
+      throw new Error("Sending failed.");
+    }
     this.sent.push(data);
   }
 

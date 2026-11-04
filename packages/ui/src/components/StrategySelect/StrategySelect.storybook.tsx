@@ -137,8 +137,11 @@ const connected = {
     localStorage.removeItem(SETTINGS_STORAGE_KEY);
     return () => {
       globalThis.WebSocket = originalWebSocket;
-      if (previous === null) localStorage.removeItem(SETTINGS_STORAGE_KEY);
-      else localStorage.setItem(SETTINGS_STORAGE_KEY, previous);
+      if (previous === null) {
+        localStorage.removeItem(SETTINGS_STORAGE_KEY);
+      } else {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, previous);
+      }
     };
   },
 } satisfies Story;

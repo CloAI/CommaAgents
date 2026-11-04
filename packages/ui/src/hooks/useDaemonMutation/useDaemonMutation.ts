@@ -23,10 +23,11 @@ export function useDaemonMutation<Name extends keyof DaemonCommandMap>(
   command: Name,
 ): DaemonMutationResult<Name> {
   const context = useContext(CommaAgentsDaemonContext);
-  if (!context)
+  if (!context) {
     throw new Error(
       "useDaemonMutation must be used within CommaAgentsDaemonProvider.",
     );
+  }
   const status = useDaemonConnectionStatus();
   const [state, setState] = useState<DaemonCommandResult<Name>>({
     data: undefined,
@@ -73,17 +74,19 @@ export function useDaemonMutation<Name extends keyof DaemonCommandMap>(
       if (
         owner.current?.context !== context ||
         owner.current.command !== command
-      )
+      ) {
         return Promise.reject({
           code: "CONNECTION_LOST",
           message:
             "The request was cancelled. It may still complete on the daemon.",
         });
-      if (pending.current)
+      }
+      if (pending.current) {
         return Promise.reject({
           code: "INVALID_ARGUMENTS",
           message: "A command is already pending.",
         });
+      }
       const prepared = prepareArguments(args);
       const error: DaemonClientError | undefined =
         "error" in prepared
@@ -116,8 +119,9 @@ export function useDaemonMutation<Name extends keyof DaemonCommandMap>(
           command,
           JSON.parse((prepared as { key: string }).key) as DaemonArguments,
           (update) => {
-            if (pending.current !== active || update.isLoading !== false)
+            if (pending.current !== active || update.isLoading !== false) {
               return;
+            }
             pending.current = null;
             active.dispose();
             const failure = update.errors ?? update.clientError;
@@ -128,8 +132,11 @@ export function useDaemonMutation<Name extends keyof DaemonCommandMap>(
               clientError: update.clientError,
               isLoading: false,
             });
-            if (failure) reject(failure);
-            else resolve(data);
+            if (failure) {
+              reject(failure);
+            } else {
+              resolve(data);
+            }
           },
         );
       });

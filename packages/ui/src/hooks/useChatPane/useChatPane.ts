@@ -8,6 +8,8 @@ import type { ChatPaneContextValue } from "./useChatPane.context";
  */
 export function useChatPane(): ChatPaneContextValue {
   const context = useContext(ChatPaneContext);
-  if (!context) throw new Error("useChatPane must be used within a ChatPane.");
+  if (!context) {
+    throw new Error("useChatPane must be used within a ChatPane.");
+  }
   return context;
 }

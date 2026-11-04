@@ -152,9 +152,11 @@ const meta = {
       environment.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
       vi.useRealTimers();
       globalThis.WebSocket = originalWebSocket;
-      if (originalSettings === null)
+      if (originalSettings === null) {
         localStorage.removeItem("comma-agents.settings");
-      else localStorage.setItem("comma-agents.settings", originalSettings);
+      } else {
+        localStorage.setItem("comma-agents.settings", originalSettings);
+      }
     };
   },
 } satisfies Meta<typeof DaemonExample>;

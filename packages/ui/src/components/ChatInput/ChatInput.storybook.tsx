@@ -8,8 +8,6 @@ import {
   within,
 } from "storybook/test";
 import { ChatInput } from "./ChatInput";
-import type { SubmitOutcome } from "./ChatInput.types";
-import { SUBMITTED } from "./ChatInput.utils";
 
 const meta = {
   title: "Components/ChatInput",
@@ -37,31 +35,18 @@ export const Empty: Story = {
   },
 };
 
-export const StopPreservesTheDraft: Story = {
-  args: { onCancel: fn() },
-  play: async ({ canvasElement, args }) => {
-    const canvas = within(canvasElement);
-    const input = canvas.getByRole("textbox", { name: "Message" });
-    await userEvent.type(input, "Keep this unsent draft");
-    await userEvent.click(canvas.getByRole("button", { name: "Stop" }));
-    await expect(args.onCancel).toHaveBeenCalledTimes(1);
-    await expect(args.onSubmit).not.toHaveBeenCalled();
-    await expect(input).toHaveValue("Keep this unsent draft");
+export const ActionsStayUsableWhileSendingIsDisabled: Story = {
+  args: {
+    disabled: true,
+    actions: <button type="button">Extra</button>,
   },
-};
-
-export const StopWorksWhenSendingIsDisabled: Story = {
-  args: { disabled: true, onCancel: fn(), autoFocus: true },
-  play: async ({ canvasElement, args }) => {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const stop = canvas.getByRole("button", { name: "Stop" });
     await expect(
       canvas.getByRole("textbox", { name: "Message" }),
     ).toBeDisabled();
     await expect(canvas.getByRole("button", { name: "Send" })).toBeDisabled();
-    await expect(stop).toBeEnabled();
-    await userEvent.click(stop);
-    await expect(args.onCancel).toHaveBeenCalledTimes(1);
+    await expect(canvas.getByRole("button", { name: "Extra" })).toBeEnabled();
   },
 };
 export const SendByButton: Story = {
@@ -225,14 +210,14 @@ export const ClearsAfterAcknowledgement: Story = {
   args: { clearOnSuccess: true },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const acknowledgement = Promise.withResolvers<SubmitOutcome>();
+    const acknowledgement = Promise.withResolvers<string | undefined>();
     args.onSubmit.mockReturnValueOnce(acknowledgement.promise);
     const input = canvas.getByRole("textbox", { name: "Message" });
     await userEvent.type(input, "A reply{Enter}");
     await expect(input).toHaveValue("A reply");
     await expect(input).toBeDisabled();
     await expect(canvas.getByRole("button", { name: "Send" })).toBeDisabled();
-    acknowledgement.resolve(SUBMITTED);
+    acknowledgement.resolve(undefined);
     await waitFor(() => expect(input).toHaveValue(""));
     await expect(input).toBeEnabled();
   },
@@ -242,10 +227,7 @@ export const RetainsFailedDraft: Story = {
   args: { clearOnSuccess: true },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    args.onSubmit.mockResolvedValueOnce({
-      ok: false,
-      message: "Connection lost.",
-    });
+    args.onSubmit.mockResolvedValueOnce("Connection lost.");
     const input = canvas.getByRole("textbox", { name: "Message" });
     await userEvent.type(input, "Keep this message{Enter}");
     await expect(await canvas.findByRole("alert")).toHaveTextContent(

@@ -8,14 +8,16 @@ import {
   X,
 } from "lucide-react";
 import type { DragEventHandler } from "react";
-import { IconButton } from "../../design-system/IconButton";
-import type { SplitDirection } from "../../hooks/useLayout";
-import styles from "./ChatPane.module.scss";
+import { IconButton } from "../../../design-system/IconButton";
+import type { SplitDirection } from "../../../hooks/useLayout";
+import styles from "./ChatPaneHeader.module.scss";
 
 /** What the header shows and does. */
 export interface ChatPaneHeaderProps {
   /** Name of the pane. */
   readonly title: string;
+  /** Whether the pane is active among multiple panes. @default false */
+  readonly active?: boolean;
   /** Whether chat content uses a centered reading width. */
   readonly centered?: boolean;
   /** Switch between centered and full-width content. */
@@ -47,6 +49,7 @@ export interface ChatPaneHeaderProps {
  */
 export function ChatPaneHeader({
   title,
+  active = false,
   centered = false,
   onToggleWidth,
   maximized,
@@ -62,20 +65,14 @@ export function ChatPaneHeader({
   return (
     // A div, not <header>: a banner landmark would repeat in every pane.
     <div
-      className={styles.header}
+      className={styles.chatPaneHeader}
+      data-active={active}
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
       <h2 className={styles.title}>{title}</h2>
       <div className={styles.actions}>
-        <IconButton
-          label={centered ? "Use full chat width" : "Center chat"}
-          aria-pressed={centered}
-          onClick={onToggleWidth}
-        >
-          {centered ? <UnfoldHorizontal /> : <FoldHorizontal />}
-        </IconButton>
         <IconButton
           label="Split vertical"
           title="Split vertical: new pane beside this one"
@@ -91,6 +88,13 @@ export function ChatPaneHeader({
           onClick={() => onSplit("column")}
         >
           <Rows2 />
+        </IconButton>
+        <IconButton
+          label={centered ? "Use full chat width" : "Center chat"}
+          aria-pressed={centered}
+          onClick={onToggleWidth}
+        >
+          {centered ? <UnfoldHorizontal /> : <FoldHorizontal />}
         </IconButton>
         {hasSiblings && (
           <IconButton

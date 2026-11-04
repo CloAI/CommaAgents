@@ -27,25 +27,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * @returns {LayoutNode | undefined} The node, or undefined when invalid.
  */
 function readNode(value: unknown, seen: Set<string>): LayoutNode | undefined {
-  if (!isRecord(value) || typeof value.id !== "string" || value.id === "")
+  if (!isRecord(value) || typeof value.id !== "string" || value.id === "") {
     return undefined;
-  if (seen.has(value.id)) return undefined;
+  }
+  if (seen.has(value.id)) {
+    return undefined;
+  }
   seen.add(value.id);
-  if (value.type === "pane")
+  if (value.type === "pane") {
     return typeof value.path === "string" && value.path.startsWith("/")
       ? { type: "pane", id: value.id, path: value.path }
       : undefined;
+  }
   if (
     value.type !== "split" ||
     (value.direction !== "row" && value.direction !== "column") ||
     !Array.isArray(value.children) ||
     value.children.length < 2
-  )
+  ) {
     return undefined;
+  }
   const children: LayoutNode[] = [];
   for (const child of value.children) {
     const node = readNode(child, seen);
-    if (!node) return undefined;
+    if (!node) {
+      return undefined;
+    }
     children.push(node);
   }
   const sizes =
@@ -78,12 +85,18 @@ export function parseLayout(text: string): Layout | undefined {
   } catch {
     return undefined;
   }
-  if (!isRecord(value) || value.version !== 1) return undefined;
+  if (!isRecord(value) || value.version !== 1) {
+    return undefined;
+  }
   const root = readNode(value.root, new Set());
-  if (!root) return undefined;
+  if (!root) {
+    return undefined;
+  }
   const tidy = normalize(root);
   const panes = listPanes(tidy);
-  if (panes.length > MAX_PANES) return undefined;
+  if (panes.length > MAX_PANES) {
+    return undefined;
+  }
   const activeId =
     typeof value.activeId === "string" &&
     panes.some((pane) => pane.id === value.activeId)

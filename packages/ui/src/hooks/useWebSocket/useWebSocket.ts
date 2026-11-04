@@ -36,7 +36,9 @@ export function useWebSocket({
 
   const send = useCallback((data: string): boolean => {
     const connection = activeConnection.current;
-    if (!connection || connection.socket.readyState === 0) return false;
+    if (!connection || connection.socket.readyState === 0) {
+      return false;
+    }
     if (connection.socket.readyState !== 1) {
       connection.fail(new Error("WebSocket is not open."));
       return false;
@@ -72,7 +74,9 @@ export function useWebSocket({
     };
 
     const connect = (): void => {
-      if (disposed) return;
+      if (disposed) {
+        return;
+      }
       let socket: WebSocket | undefined;
       let attemptFinished = false;
 
@@ -80,7 +84,9 @@ export function useWebSocket({
         attemptFinished = true;
         clearTimeout(timer);
         activeConnection.current = null;
-        if (!socket) return;
+        if (!socket) {
+          return;
+        }
         socket.onopen = null;
         socket.onmessage = null;
         socket.onerror = null;
@@ -90,7 +96,9 @@ export function useWebSocket({
       disposeAttempt = cleanup;
 
       const fail = (error: Error): void => {
-        if (attemptFinished) return;
+        if (attemptFinished) {
+          return;
+        }
         cleanup();
         const nextDelay = retryDelay;
         retryDelay = Math.min(retryDelay * 2, MAX_RECONNECT_DELAY_MS);
@@ -114,13 +122,17 @@ export function useWebSocket({
       }
       activeConnection.current = { socket, fail };
       socket.onopen = () => {
-        if (attemptFinished) return;
+        if (attemptFinished) {
+          return;
+        }
         clearTimeout(timer);
         retryDelay = INITIAL_RECONNECT_DELAY_MS;
         transition("connected");
       };
       socket.onmessage = (event: MessageEvent<unknown>) => {
-        if (!attemptFinished) callbacks.current.onMessage(event.data);
+        if (!attemptFinished) {
+          callbacks.current.onMessage(event.data);
+        }
       };
       socket.onerror = () => fail(new Error("WebSocket connection failed."));
       socket.onclose = (event) =>
