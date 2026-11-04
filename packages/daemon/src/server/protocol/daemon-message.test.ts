@@ -457,7 +457,9 @@ describe("DaemonMessage union", () => {
       conversation: { records: [], retentionEvents: [] },
     });
     expect(result.type).toBe("run_prepared");
-    if (result.type !== "run_prepared") throw new Error("unexpected type");
+    if (result.type !== "run_prepared") {
+      throw new Error("unexpected type");
+    }
     expect(result.conversation.inputs).toEqual([]);
   });
 
@@ -479,7 +481,9 @@ describe("DaemonMessage union", () => {
       },
     });
     expect(result.type).toBe("run_prepared");
-    if (result.type !== "run_prepared") throw new Error("unexpected type");
+    if (result.type !== "run_prepared") {
+      throw new Error("unexpected type");
+    }
     expect(result.conversation.inputs).toEqual([
       { text: "human prompt", beforeRecordId: "record-1" },
       { text: "trailing prompt" },

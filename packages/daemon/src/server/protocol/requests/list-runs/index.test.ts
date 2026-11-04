@@ -53,7 +53,9 @@ describe("handleListRuns", () => {
         daemonRunState,
         daemonStore: createDaemonStore(),
         reply(message) {
-          if (message.type === "run_list") response = message;
+          if (message.type === "run_list") {
+            response = message;
+          }
         },
       },
     );

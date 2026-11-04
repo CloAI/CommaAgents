@@ -16,7 +16,9 @@ function createTestSocket(throwOnSend = false): TestSocket {
     messages,
     socket: {
       send(message: string) {
-        if (throwOnSend) throw new Error("disconnected");
+        if (throwOnSend) {
+          throw new Error("disconnected");
+        }
         messages.push(message);
       },
     } as unknown as ServerWebSocket<WsData>,

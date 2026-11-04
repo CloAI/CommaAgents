@@ -179,7 +179,9 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
         });
     },
     async stop(): Promise<void> {
-      if (!server) return;
+      if (!server) {
+        return;
+      }
 
       await daemonRunState.shutdown();
 

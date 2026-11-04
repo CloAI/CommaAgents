@@ -137,12 +137,16 @@ function connectClient(daemon: Daemon): Promise<{
       ): Promise<unknown> => {
         // Check already-received messages
         const found = messages.find(predicate);
-        if (found) return Promise.resolve(found);
+        if (found) {
+          return Promise.resolve(found);
+        }
 
         return new Promise<unknown>((res, rej) => {
           const timer = setTimeout(() => {
             const idx = waiters.findIndex((w) => w.resolve === res);
-            if (idx >= 0) waiters.splice(idx, 1);
+            if (idx >= 0) {
+              waiters.splice(idx, 1);
+            }
             rej(
               new Error(
                 `Timed out waiting for message (${timeoutMs}ms). Got: ${JSON.stringify(messages)}`,
@@ -236,7 +240,9 @@ afterEach(async () => {
   for (const f of tempFiles) {
     try {
       const file = Bun.file(f);
-      if (await file.exists()) await Bun.write(f, "");
+      if (await file.exists()) {
+        await Bun.write(f, "");
+      }
     } catch {
       // Ignore
     }

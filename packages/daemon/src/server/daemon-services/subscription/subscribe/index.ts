@@ -26,7 +26,9 @@ export function handleSubscribe(
       throw new Error(`Client not found: ${context.clientId}`);
     }
     const runStore = context.daemonStore.getRunStore(message.runId);
-    if (!runStore) throw new Error(`Run not found: ${message.runId}`);
+    if (!runStore) {
+      throw new Error(`Run not found: ${message.runId}`);
+    }
     runStore.addSubscriber(context.clientId);
   } catch (caughtError) {
     context.reply({

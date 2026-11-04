@@ -385,7 +385,8 @@ describe("retired provider protocol", () => {
       "register_provider",
       "unregister_provider",
       "set_credential",
-    ])
+    ]) {
       expect(parseClientMessage({ type }).success).toBe(false);
+    }
   });
 });

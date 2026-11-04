@@ -32,7 +32,9 @@ export async function handleHubList(
   context: HandlerContext<"hub_list">,
 ): Promise<void> {
   try {
-    if (!context.hubManager) throw new Error("Hub manager is unavailable");
+    if (!context.hubManager) {
+      throw new Error("Hub manager is unavailable");
+    }
     const [available, installed] = await Promise.all([
       context.hubManager.listAvailable(),
       context.hubManager.listInstalled(),
@@ -61,7 +63,9 @@ export async function handleHubInstall(
   context: HandlerContext<"hub_install">,
 ): Promise<void> {
   try {
-    if (!context.hubManager) throw new Error("Hub manager is unavailable");
+    if (!context.hubManager) {
+      throw new Error("Hub manager is unavailable");
+    }
     const installedPackage = await context.hubManager.install(message.name, {
       allowCode: message.allowCode,
     });
@@ -82,7 +86,9 @@ export async function handleHubUpdate(
   context: HandlerContext<"hub_update">,
 ): Promise<void> {
   try {
-    if (!context.hubManager) throw new Error("Hub manager is unavailable");
+    if (!context.hubManager) {
+      throw new Error("Hub manager is unavailable");
+    }
     const installedPackage = await context.hubManager.update(message.name, {
       allowCode: message.allowCode,
     });
@@ -103,7 +109,9 @@ export async function handleHubRemove(
   context: HandlerContext<"hub_remove">,
 ): Promise<void> {
   try {
-    if (!context.hubManager) throw new Error("Hub manager is unavailable");
+    if (!context.hubManager) {
+      throw new Error("Hub manager is unavailable");
+    }
     const removed = await context.hubManager.remove(message.name);
     context.reply({
       type: "hub_packages",

@@ -45,7 +45,9 @@ export function createDaemonStore(): DaemonStore {
     },
     removeRun(runId) {
       const runStore = runStores.get(runId);
-      if (!runStore) return false;
+      if (!runStore) {
+        return false;
+      }
       runStores.delete(runId);
       runStore.dispose();
       return true;
@@ -54,7 +56,9 @@ export function createDaemonStore(): DaemonStore {
       clients.add(clientId);
     },
     removeClient(clientId) {
-      if (!clients.delete(clientId)) return;
+      if (!clients.delete(clientId)) {
+        return;
+      }
       for (const runStore of runStores.values()) {
         runStore.removeSubscriber(clientId);
       }

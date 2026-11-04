@@ -19,7 +19,6 @@ import type {
 
 // Every map entry must be represented; runtime registration checks below detect widening or omissions.
 const commandNames = {
-  "core.providers.list": true,
   "core.strategies.list": true,
   "core.strategies.describe": true,
   "core.providers.refresh": true,
@@ -49,13 +48,11 @@ const commandNames = {
   "questions.answer": true,
 } satisfies Record<keyof DaemonCommandMap, true>;
 const channelNames = {
+  "core.providers.list": true,
   "status.watch": true,
   runs: true,
   "questions.watch": true,
-} satisfies Record<
-  keyof DaemonChannelMap,
-  true
->;
+} satisfies Record<keyof DaemonChannelMap, true>;
 
 function checkBuiltinContracts() {
   const providerArguments: DaemonCommandMap["core.providers.configure"]["arguments"] =
@@ -65,7 +62,7 @@ function checkBuiltinContracts() {
     };
   const providerOutput: DaemonCommandMap["core.providers.getConfiguration"]["result"]["credentialSource"] =
     "environment";
-  const providerId: DaemonCommandMap["core.providers.list"]["result"]["providers"][number]["id"] =
+  const providerId: DaemonChannelMap["core.providers.list"]["message"]["data"]["providers"][number]["id"] =
     "openai";
   const verificationStatus: DaemonCommandMap["core.providers.verify"]["result"]["status"] =
     "verified";

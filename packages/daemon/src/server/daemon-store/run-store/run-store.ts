@@ -55,7 +55,9 @@ export function createRunStore({
   let disposed = false;
 
   function assertAvailable(): void {
-    if (disposed) throw new Error(`Run store disposed: ${runState.id}`);
+    if (disposed) {
+      throw new Error(`Run store disposed: ${runState.id}`);
+    }
   }
 
   async function transition(
@@ -88,7 +90,9 @@ export function createRunStore({
         result: runTransition.result,
       };
     } else {
-      if (runTransition.type === "cancelled") abortController.abort();
+      if (runTransition.type === "cancelled") {
+        abortController.abort();
+      }
       runState = {
         ...runMetadata,
         status: runTransition.type,
@@ -115,9 +119,13 @@ export function createRunStore({
     );
     const effectErrors: RunTransitionEffectError[] = [];
     settledEffects.forEach((settledEffect, effectIndex) => {
-      if (settledEffect.status === "fulfilled") return;
+      if (settledEffect.status === "fulfilled") {
+        return;
+      }
       const effect = matchingEffects[effectIndex];
-      if (!effect) return;
+      if (!effect) {
+        return;
+      }
       effectErrors.push({
         effectName: effect.name,
         error: settledEffect.reason,
@@ -159,11 +167,15 @@ export function createRunStore({
       subscribers.add(clientId);
     },
     removeSubscriber(clientId): void {
-      if (disposed) return;
+      if (disposed) {
+        return;
+      }
       subscribers.delete(clientId);
     },
     getSubscribers(): readonly string[] {
-      if (disposed) return [];
+      if (disposed) {
+        return [];
+      }
       return [...subscribers];
     },
     setRuntimeValue<ValueType>(key: string, value: ValueType): void {
@@ -175,7 +187,9 @@ export function createRunStore({
       return runtimeValues.get(key) as ValueType | undefined;
     },
     deleteRuntimeValue(key): void {
-      if (disposed) return;
+      if (disposed) {
+        return;
+      }
       runtimeValues.delete(key);
     },
     registerAction<ArgumentTypes extends unknown[]>(
@@ -194,7 +208,9 @@ export function createRunStore({
     ): boolean {
       assertAvailable();
       const actionHandler = actionHandlers.get(actionName);
-      if (!actionHandler) return false;
+      if (!actionHandler) {
+        return false;
+      }
       return (
         actionHandler as unknown as (
           ...actionArguments: ArgumentTypes
@@ -202,11 +218,15 @@ export function createRunStore({
       )(...actionArguments);
     },
     clearActions(): void {
-      if (disposed) return;
+      if (disposed) {
+        return;
+      }
       actionHandlers.clear();
     },
     dispose(): void {
-      if (disposed) return;
+      if (disposed) {
+        return;
+      }
       disposed = true;
       abortController.abort();
       subscribers.clear();

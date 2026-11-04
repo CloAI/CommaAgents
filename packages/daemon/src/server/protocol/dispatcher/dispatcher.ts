@@ -41,10 +41,14 @@ export function createDispatcher({
   function broadcast(runId: string, message: DaemonMessage): void {
     const serializedMessage = JSON.stringify(message);
     const runStore = daemonStore.getRunStore(runId);
-    if (!runStore) return;
+    if (!runStore) {
+      return;
+    }
     for (const clientId of runStore.getSubscribers()) {
       const websocket = clients.get(clientId);
-      if (!websocket) continue;
+      if (!websocket) {
+        continue;
+      }
 
       try {
         websocket.send(serializedMessage);
