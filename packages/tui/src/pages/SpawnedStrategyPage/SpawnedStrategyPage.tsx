@@ -45,7 +45,9 @@ export function SpawnedStrategyPage(): React.ReactElement {
   );
 
   useInput((_input, key) => {
-    if (key.escape) handleBack();
+    if (key.escape) {
+      handleBack();
+    }
   });
 
   return (

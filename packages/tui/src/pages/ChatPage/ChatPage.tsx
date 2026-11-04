@@ -182,7 +182,9 @@ export function ChatPageRender({
 
   useInput(
     (input, key) => {
-      if (isMouseEscape(input)) return;
+      if (isMouseEscape(input)) {
+        return;
+      }
       if (!key.escape) {
         lastEscapeAtRef.current = null;
         return;
@@ -205,7 +207,9 @@ export function ChatPageRender({
   );
 
   useEffect(() => {
-    if (!abortShortcutActive) lastEscapeAtRef.current = null;
+    if (!abortShortcutActive) {
+      lastEscapeAtRef.current = null;
+    }
   }, [abortShortcutActive]);
 
   const showComposer =
@@ -231,7 +235,9 @@ export function ChatPageRender({
 
   const { focus } = useFocusManager();
   useEffect(() => {
-    if (showComposer) focus(REPLY_INPUT_ID);
+    if (showComposer) {
+      focus(REPLY_INPUT_ID);
+    }
   }, [focus, showComposer]);
 
   const handleComposerSubmit = (

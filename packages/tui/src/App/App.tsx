@@ -137,9 +137,15 @@ export function App({
     if (keyPress.ctrl && inputText === "p") {
       commandPalette.toggle();
     }
-    if (keyPress.meta && inputText === "1") navigate("/");
-    if (keyPress.meta && inputText === "2") navigate("/logs");
-    if (keyPress.meta && inputText === "3" && devMode) navigate("/dev");
+    if (keyPress.meta && inputText === "1") {
+      navigate("/");
+    }
+    if (keyPress.meta && inputText === "2") {
+      navigate("/logs");
+    }
+    if (keyPress.meta && inputText === "3" && devMode) {
+      navigate("/dev");
+    }
   });
 
   return (
