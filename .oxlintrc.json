@@ -5,6 +5,7 @@
     "correctness": "error"
   },
   "rules": {
+    "curly": ["error", "all"],
     "import/no-default-export": "error",
     "jsdoc/require-param": "error",
     "jsdoc/require-param-description": "error",
