@@ -9,24 +9,22 @@ import styles from "./ContextMeter.module.scss";
 
 /** How full the context window is. */
 export interface ContextMeterProps {
-  /** Tokens in the final model step's context. */
-  readonly usedTokens: number;
-  /** Size of the model's context window in tokens. */
-  readonly contextWindow: number;
-  /** Share of the window used, from 0 to 1. */
-  readonly ratio: number;
+  /** Tokens in the final model step's context, when reported. */
+  readonly usedTokens?: number;
+  /** Size of the model's context window in tokens, when known. */
+  readonly contextWindow?: number;
 }
 
 /**
  * Show a small ring, with the percentage inside it, for how much of the context window a response filled.
  * @param {ContextMeterProps} props - Component properties.
- * @returns {React.ReactElement} The meter.
+ * @returns {React.ReactElement | null} The meter, or nothing while either figure is unknown.
  */
-export function ContextMeter({
-  usedTokens,
-  contextWindow,
-  ratio,
-}: ContextMeterProps) {
+export function ContextMeter({ usedTokens, contextWindow }: ContextMeterProps) {
+  if (usedTokens === undefined || !contextWindow) {
+    return null;
+  }
+  const ratio = Math.min(1, usedTokens / contextWindow);
   const percent = Math.round(ratio * 100);
   return (
     <span

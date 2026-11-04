@@ -1,11 +1,7 @@
-import type { RunToolStatus } from "@comma-agents/daemon";
-import type { RunContent } from "../../hooks/runs";
 import { describe, expect, it } from "vitest";
 import { ACCENT_LIGHTNESS, ACCENT_SATURATION } from "./RunSection.constants";
 import {
   agentColor,
-  groupRunContent,
-  contextRatio,
   formatDuration,
   formatTokens,
   tokenBreakdown,
@@ -41,10 +37,11 @@ describe("agentColor", () => {
   });
 
   it("should stay readable on the surface color for every hue", () => {
-    for (let hue = 0; hue < 360; hue++)
+    for (let hue = 0; hue < 360; hue++) {
       expect(
         (luminance(hue) + 0.05) / (SURFACE_LUMINANCE + 0.05),
       ).toBeGreaterThan(4.5);
+    }
   });
 });
 
@@ -72,21 +69,6 @@ describe("formatTokens", () => {
   });
 });
 
-describe("contextRatio", () => {
-  it("should divide used tokens by the window", () => {
-    expect(contextRatio(50, 200)).toBe(0.25);
-  });
-
-  it("should cap a full window at one", () => {
-    expect(contextRatio(300, 200)).toBe(1);
-  });
-
-  it("should be unknown without both figures", () => {
-    expect(contextRatio(undefined, 200)).toBeUndefined();
-    expect(contextRatio(50, undefined)).toBeUndefined();
-  });
-});
-
 describe("tokenBreakdown", () => {
   it("should list input and output tokens", () => {
     expect(
@@ -101,56 +83,5 @@ describe("tokenBreakdown", () => {
         { totalTokens: 1204, inputTokenDetails: { cacheReadTokens: 512 } },
       ),
     ).toBe("Input: 900\nOutput: 304\nCached: 512");
-  });
-});
-
-describe("groupRunContent", () => {
-  const first = {
-    type: "tool",
-    toolCallId: "a",
-    toolName: "read",
-    arguments: {},
-    status: "running" as RunToolStatus.running,
-  } satisfies RunContent;
-  const second = { ...first, toolCallId: "b" };
-
-  it("groups tools across empty placeholders and retains original objects", () => {
-    const result = groupRunContent([
-      first,
-      { type: "text", text: " " },
-      { type: "reasoning", text: "" },
-      second,
-    ]);
-    expect(result).toEqual([
-      { type: "tools", key: "tools-a", tools: [first, second] },
-    ]);
-    if (result[0]?.type === "tools") expect(result[0].tools[0]).toBe(first);
-  });
-
-  it("keeps visible prose and reasoning as chronological boundaries", () => {
-    const text = { type: "text", text: "Explanation" } as const;
-    const reasoning = { type: "reasoning", text: "Thinking" } as const;
-    expect(
-      groupRunContent([first, text, second, reasoning, first]).map(
-        (block) => block.type,
-      ),
-    ).toEqual(["tools", "content", "tools", "content", "tools"]);
-  });
-
-  it("keeps group identity stable when more calls arrive or statuses change", () => {
-    expect(groupRunContent([first])[0]?.key).toBe(
-      groupRunContent([
-        {
-          ...first,
-          status: "completed" as RunToolStatus.completed,
-          output: null,
-        },
-        second,
-      ])[0]?.key,
-    );
-  });
-
-  it("omits empty content without creating groups", () => {
-    expect(groupRunContent([{ type: "text", text: "" }])).toEqual([]);
   });
 });

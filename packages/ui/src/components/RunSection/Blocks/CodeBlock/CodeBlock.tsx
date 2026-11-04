@@ -30,7 +30,9 @@ export function CodeBlock({ language, children }: CodeBlockProps) {
     }
   }, []);
   useEffect(() => {
-    if (!copied) return;
+    if (!copied) {
+      return;
+    }
     const timer = setTimeout(() => setCopied(false), COPIED_DURATION_MS);
     return () => clearTimeout(timer);
   }, [copied]);

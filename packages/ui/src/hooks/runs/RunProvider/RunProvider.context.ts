@@ -14,8 +14,9 @@ export const RunControlsContext = createContext<RunControls | null>(null);
  */
 export function useRunControls(): RunControls {
   const controls = useContext(RunControlsContext);
-  if (!controls)
+  if (!controls) {
     throw new Error("Run hooks must be used within a RunProvider.");
+  }
   return controls;
 }
 
@@ -25,6 +26,8 @@ export function useRunControls(): RunControls {
  */
 export function useRunFeed(): RunFeed {
   const feed = useContext(RunFeedContext);
-  if (!feed) throw new Error("useRunFeed must be used within a RunProvider.");
+  if (!feed) {
+    throw new Error("useRunFeed must be used within a RunProvider.");
+  }
   return feed;
 }

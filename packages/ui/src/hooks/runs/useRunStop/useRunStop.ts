@@ -21,13 +21,17 @@ export function useRunStopState(
   const { attempt, isLoading } = useDaemonMutation("runs.stop");
   const canStop = active && connected && !blocked;
   const stop = useCallback(() => {
-    if (!canStop || pending.current) return;
+    if (!canStop || pending.current) {
+      return;
+    }
     pending.current = true;
     setError(undefined);
     onStop();
     void attempt({ runId }).then((result) => {
       pending.current = false;
-      if (!result.ok) setError(result.error.message);
+      if (!result.ok) {
+        setError(result.error.message);
+      }
     });
   }, [canStop, onStop, attempt, runId]);
   return useMemo(

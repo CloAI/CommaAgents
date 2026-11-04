@@ -13,10 +13,18 @@ export function selectRunStatus({
   failure,
   snapshot,
 }: RunFeedState): RunStatusView {
-  if (failure) return { status: "failed", error: failure };
-  if (!snapshot) return { status: "loading" };
-  if (snapshot.phase === "prepared") return { status: "prepared" };
-  if (snapshot.phase !== "terminal") return { status: "running" };
+  if (failure) {
+    return { status: "failed", error: failure };
+  }
+  if (!snapshot) {
+    return { status: "loading" };
+  }
+  if (snapshot.phase === "prepared") {
+    return { status: "prepared" };
+  }
+  if (snapshot.phase !== "terminal") {
+    return { status: "running" };
+  }
   switch (snapshot.outcome.status) {
     case "completed":
       return { status: "completed" };
@@ -37,7 +45,9 @@ export function selectRunStatus({
  */
 export function childLabel(child: RunChild): string {
   const name = child.strategyName;
-  if (!name.includes("/")) return name;
+  if (!name.includes("/")) {
+    return name;
+  }
   const fileName = name.split("/").at(-1) ?? name;
   return fileName.replace(/\.(jsonc?|ya?ml)$/i, "");
 }

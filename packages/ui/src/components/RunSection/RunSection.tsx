@@ -1,15 +1,13 @@
 import { memo } from "react";
 import type { RunChild, RunMessage } from "../../hooks/runs";
-import { MarkdownBlock } from "./MarkdownBlock";
-import { ReasoningBlock } from "./ReasoningBlock";
-import { ToolGroup } from "./ToolGroup";
+import { MarkdownBlock } from "./Blocks/MarkdownBlock";
+import { ReasoningBlock } from "./Blocks/ReasoningBlock";
+import { ToolGroupBlock, groupRunContent } from "./Blocks/ToolGroupBlock";
 import styles from "./RunSection.module.scss";
 import { ContextMeter } from "./ContextMeter";
 import { useElapsed } from "./useElapsed";
 import {
   agentColor,
-  groupRunContent,
-  contextRatio,
   formatDuration,
   formatTokens,
   tokenBreakdown,
@@ -43,11 +41,7 @@ export const RunSection = memo(function RunSection({
     agent?.completedAt,
     message.streaming,
   );
-  const ratio = contextRatio(
-    agent?.contextUsage?.totalTokens,
-    agent?.contextWindow,
-  );
-  if (message.role === "strategy")
+  if (message.role === "strategy") {
     return (
       <p className={styles.strategyChange}>
         {message.content
@@ -55,6 +49,7 @@ export const RunSection = memo(function RunSection({
           .join("")}
       </p>
     );
+  }
   return (
     <article
       className={styles.runSection}
@@ -106,15 +101,10 @@ export const RunSection = memo(function RunSection({
                 tok
               </span>
             )}
-            {ratio !== undefined &&
-              agent?.contextUsage &&
-              agent.contextWindow && (
-                <ContextMeter
-                  usedTokens={agent.contextUsage.totalTokens}
-                  contextWindow={agent.contextWindow}
-                  ratio={ratio}
-                />
-              )}
+            <ContextMeter
+              usedTokens={agent?.contextUsage?.totalTokens}
+              contextWindow={agent?.contextWindow}
+            />
             <time dateTime={message.createdAt}>
               {new Date(message.createdAt).toLocaleTimeString([], {
                 hour: "2-digit",
@@ -126,7 +116,7 @@ export const RunSection = memo(function RunSection({
         <div className={styles.blocks}>
           {groupRunContent(message.content).map((block) =>
             block.type === "tools" ? (
-              <ToolGroup
+              <ToolGroupBlock
                 key={block.key}
                 tools={block.tools}
                 childRuns={childRuns?.filter(

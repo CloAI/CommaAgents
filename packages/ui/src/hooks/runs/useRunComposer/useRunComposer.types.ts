@@ -1,5 +1,3 @@
-import type { SubmitOutcome } from "../../../components/ChatInput";
-
 /** What a submitted message does right now. */
 export type ComposerMode = "continue" | "reply" | "steer";
 
@@ -33,5 +31,5 @@ export interface RunComposer {
   readonly selectRecipient: (id: string) => void;
   readonly canSubmit: boolean;
   /** Continue, reply, or steer according to the mode. */
-  readonly submit: (text: string) => Promise<SubmitOutcome>;
+  readonly submit: (text: string) => Promise<string | undefined>;
 }

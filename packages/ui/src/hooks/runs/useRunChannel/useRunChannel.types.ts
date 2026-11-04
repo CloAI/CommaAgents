@@ -135,4 +135,7 @@ export interface RunStatusView {
 }
 
 /** A followed run: its channel state plus where it stands. */
-export type RunFeed = RunFeedState & RunStatusView;
+export interface RunFeed extends RunFeedState, RunStatusView {
+  /** Why the run cannot be followed at all, such as when it does not exist. */
+  readonly unavailable?: string;
+}

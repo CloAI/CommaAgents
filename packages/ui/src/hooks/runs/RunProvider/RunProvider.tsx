@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import type { ReactNode } from "react";
-import type { DaemonFailure } from "../../useDaemonMutation";
 import { useRunChannel } from "../useRunChannel";
 import { useRunStopState } from "../useRunStop/useRunStop";
 import { hasActiveWork } from "../useRunStop/useRunStop.utils";
@@ -12,8 +11,6 @@ import { RunControlsContext, RunFeedContext } from "./RunProvider.context";
 export interface RunProviderProps {
   /** Run to follow. */
   readonly runId: string;
-  /** Called when the run cannot be followed, such as when it does not exist. */
-  readonly onError?: (error: DaemonFailure) => void;
   readonly children: ReactNode;
 }
 
@@ -22,8 +19,8 @@ export interface RunProviderProps {
  * @param {RunProviderProps} props - Component properties.
  * @returns {React.ReactElement} The children within the run's contexts.
  */
-export function RunProvider({ runId, onError, children }: RunProviderProps) {
-  const feed = useRunChannel(runId, onError);
+export function RunProvider({ runId, children }: RunProviderProps) {
+  const feed = useRunChannel(runId);
   const submission = useRunSubmissionState(
     runId,
     feed.snapshot?.strategyState?.revision ?? 0,

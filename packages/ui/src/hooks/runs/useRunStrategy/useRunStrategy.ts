@@ -32,7 +32,9 @@ export function useRunStrategyState(
   );
   const apply = useCallback(
     async (change: PendingStrategyChange, stop: boolean) => {
-      if (!snapshot || saving.current) return;
+      if (!snapshot || saving.current) {
+        return;
+      }
       saving.current = true;
       setError(undefined);
       const { strategy, models } = change;
@@ -45,33 +47,44 @@ export function useRunStrategyState(
         expectedRevision: snapshot.strategyState?.revision ?? 0,
       });
       saving.current = false;
-      if (result.ok) return setPending(undefined);
+      if (result.ok) {
+        return setPending(undefined);
+      }
       setError(result.error.message);
       // Another pane may have started execution since this pane last received a snapshot.
-      if (result.error.code === RunErrorCode.RUN_BUSY) setPending(change);
+      if (result.error.code === RunErrorCode.RUN_BUSY) {
+        setPending(change);
+      }
     },
     [attempt, runId, settings.modelOverrides, snapshot],
   );
   const request = useCallback(
     (change: PendingStrategyChange) => {
-      if (saving.current) return;
-      if (snapshot?.phase === "running" || snapshot?.phase === "preparing")
+      if (saving.current) {
+        return;
+      }
+      if (snapshot?.phase === "running" || snapshot?.phase === "preparing") {
         setPending(change);
-      else void apply(change, false);
+      } else {
+        void apply(change, false);
+      }
     },
     [apply, snapshot],
   );
   const select = useCallback(
     (path: string) => {
       const strategy = strategies.find((entry) => entry.path === path);
-      if (strategy && path !== snapshot?.configuration.strategyPath)
+      if (strategy && path !== snapshot?.configuration.strategyPath) {
         request({ strategy });
+      }
     },
     [strategies, snapshot, request],
   );
   const changeModels = useCallback(
     (models: Readonly<Record<string, string>>) => {
-      if (selected) request({ strategy: selected, models });
+      if (selected) {
+        request({ strategy: selected, models });
+      }
     },
     [selected, request],
   );
@@ -80,7 +93,9 @@ export function useRunStrategyState(
     setError(undefined);
   }, []);
   const stopAndSwitch = useCallback(() => {
-    if (pending) void apply(pending, true);
+    if (pending) {
+      void apply(pending, true);
+    }
   }, [apply, pending]);
   return useMemo(
     () => ({

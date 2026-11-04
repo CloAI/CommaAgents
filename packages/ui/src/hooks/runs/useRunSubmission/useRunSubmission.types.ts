@@ -1,5 +1,4 @@
 import type { DaemonCommandMap } from "@comma-agents/daemon/protocol";
-import type { SubmitOutcome } from "../../../components/ChatInput";
 
 /** Explicit context treatment chosen before sending. */
 export type ContextChoice = "compact" | "recent" | "full";
@@ -12,7 +11,7 @@ export type ContextRequest = Extract<
 /** A continuation that remains pending through context selection and model acceptance. */
 export interface RunSubmission {
   /** Settle once accepted, or with why the draft was kept. */
-  readonly send: (input: string) => Promise<SubmitOutcome>;
+  readonly send: (input: string) => Promise<string | undefined>;
   /** Context choice currently being presented. */
   readonly dialog: ContextRequest | undefined;
   /** Resume submission with an explicit context choice. */

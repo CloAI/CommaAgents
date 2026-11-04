@@ -1,5 +1,5 @@
 import { Wrench } from "lucide-react";
-import type { RunChild, RunContent } from "../../../hooks/runs";
+import type { RunChild, RunContent } from "../../../../hooks/runs";
 import { ToolChildren } from "./ToolChildren";
 import { CodeBlock } from "../CodeBlock";
 import styles from "./ToolBlock.module.scss";

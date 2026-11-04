@@ -18,11 +18,15 @@ export function useElapsed(
 ): number | undefined {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!streaming) return;
+    if (!streaming) {
+      return;
+    }
     const timer = setInterval(() => setNow(Date.now()), TICK_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [streaming]);
-  if (streaming) return Math.max(0, now - Date.parse(createdAt));
+  if (streaming) {
+    return Math.max(0, now - Date.parse(createdAt));
+  }
   return completedAt === undefined
     ? undefined
     : Date.parse(completedAt) - Date.parse(createdAt);

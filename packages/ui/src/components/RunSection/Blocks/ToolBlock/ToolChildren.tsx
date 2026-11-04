@@ -1,6 +1,6 @@
 import { ArrowUpRight, Bot } from "lucide-react";
-import { childLabel, childStatus } from "../../../hooks/runs";
-import type { RunChild } from "../../../hooks/runs";
+import { childLabel, childStatus } from "../../../../hooks/runs";
+import type { RunChild } from "../../../../hooks/runs";
 import styles from "./ToolBlock.module.scss";
 
 /** Delegated jobs and their navigation actions. */
@@ -17,7 +17,9 @@ export interface ToolChildrenProps {
  * @returns {React.ReactElement | null} Jobs, or nothing for an empty list.
  */
 export function ToolChildren({ childRuns, onOpenChild }: ToolChildrenProps) {
-  if (childRuns.length === 0) return null;
+  if (childRuns.length === 0) {
+    return null;
+  }
   return (
     <ul className={styles.children} aria-label="Delegated jobs">
       {childRuns.map((child) => (

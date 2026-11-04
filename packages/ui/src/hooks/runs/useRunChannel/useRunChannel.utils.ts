@@ -27,7 +27,9 @@ export function upsertBy<Item>(
     last !== undefined && key(last) === id
       ? items.length - 1
       : items.findIndex((item) => key(item) === id);
-  if (index === -1) return [...items, next];
+  if (index === -1) {
+    return [...items, next];
+  }
   const updated = [...items];
   updated[index] = next;
   return updated;
@@ -130,8 +132,9 @@ export function streamedAgentMessage(
   chunk: RunEventMap["agent.stream"],
 ): RunAgentMessage {
   const content = [...(previous?.content ?? [])];
-  for (let index = content.length; index < chunk.contentIndex; index++)
+  for (let index = content.length; index < chunk.contentIndex; index++) {
     content[index] = { type: "text", text: "" };
+  }
   content[chunk.contentIndex] = chunk.content;
   return {
     id: chunk.messageId,

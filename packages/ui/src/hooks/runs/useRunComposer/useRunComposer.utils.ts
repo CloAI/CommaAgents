@@ -11,7 +11,9 @@ import type {
  * @returns {ComposerMode} Continue, reply to a waiting agent, or steer a working one.
  */
 export function composerMode({ status, pendingInputs }: RunFeed): ComposerMode {
-  if (status !== "running") return "continue";
+  if (status !== "running") {
+    return "continue";
+  }
   return pendingInputs.length > 0 ? "reply" : "steer";
 }
 
@@ -25,16 +27,18 @@ export function composerRecipients(
   { pendingInputs, activeAgents }: RunFeed,
   mode: ComposerMode,
 ): ComposerRecipient[] {
-  if (mode === "reply")
+  if (mode === "reply") {
     return pendingInputs.map(({ inputId, agentName }) => ({
       id: inputId,
       name: agentName,
     }));
-  if (mode === "steer")
+  }
+  if (mode === "steer") {
     return activeAgents.map(({ messageId, agentName }) => ({
       id: messageId,
       name: agentName,
     }));
+  }
   return [];
 }
 
@@ -66,6 +70,8 @@ export function canSubmitMessage({
   strategyAvailable,
   recipient,
 }: ComposerGate): boolean {
-  if (!initialized || !connected || busy) return false;
+  if (!initialized || !connected || busy) {
+    return false;
+  }
   return mode === "continue" ? strategyAvailable : recipient !== undefined;
 }

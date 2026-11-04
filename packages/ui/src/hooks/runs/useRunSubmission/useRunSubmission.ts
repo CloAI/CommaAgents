@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { submitOutcome } from "../../../components/ChatInput";
-import type { SubmitOutcome } from "../../../components/ChatInput";
 import { useDaemonMutation } from "../../useDaemonMutation";
 import { useRunControls } from "../RunProvider/RunProvider.context";
 import type {
@@ -37,7 +35,7 @@ export function useRunSubmissionState(
     settle();
   }, [settle]);
   const send = useCallback(
-    async (input: string): Promise<SubmitOutcome> => {
+    async (input: string): Promise<string | undefined> => {
       cancelled.current = false;
       setSubmitting(true);
       let contextChoice: ContextChoice | undefined;
@@ -49,25 +47,24 @@ export function useRunSubmissionState(
             expectedRevision: revision,
             contextChoice,
           });
-          if (cancelled.current)
-            return {
-              ok: false,
-              message: "Message preserved after the stop request.",
-            };
-          if (!result.ok || result.data.type === "started")
-            return submitOutcome(result);
+          if (cancelled.current) {
+            return "Message preserved after the stop request.";
+          }
+          if (!result.ok) {
+            return result.error.message;
+          }
+          if (result.data.type === "started") {
+            return undefined;
+          }
           setDialog(result.data);
           contextChoice = await new Promise<ContextChoice | undefined>(
             (resolve) => {
               decide.current = resolve;
             },
           );
-          if (!contextChoice)
-            return {
-              ok: false,
-              message:
-                "Message preserved. Choose context when you are ready to send.",
-            };
+          if (!contextChoice) {
+            return "Message preserved. Choose context when you are ready to send.";
+          }
         }
       } finally {
         settle();

@@ -21,7 +21,7 @@ const calls: readonly RunTool[] = Array.from(
       toolName: `read_file_${index}`,
       arguments: { path: `src/file-${index}.ts` },
     };
-    if (index === 9)
+    if (index === 9) {
       return {
         ...tool,
         status: "failed" as RunToolStatus.failed,
@@ -30,10 +30,13 @@ const calls: readonly RunTool[] = Array.from(
           code: "TOOL_EXECUTION_ERROR" as RunErrorCode.TOOL_EXECUTION_ERROR,
         },
       };
-    if (index === 8)
+    }
+    if (index === 8) {
       return { ...tool, status: "stopped" as RunToolStatus.stopped };
-    if (index > 5)
+    }
+    if (index > 5) {
       return { ...tool, status: "running" as RunToolStatus.running };
+    }
     return {
       ...tool,
       status: "completed" as RunToolStatus.completed,
@@ -282,8 +285,11 @@ export const Typography: Story = {
         expect(writeText).toHaveBeenCalledWith(pre.textContent),
       );
     } finally {
-      if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
-      else Reflect.deleteProperty(navigator, "clipboard");
+      if (clipboard) {
+        Object.defineProperty(navigator, "clipboard", clipboard);
+      } else {
+        Reflect.deleteProperty(navigator, "clipboard");
+      }
     }
   },
 };

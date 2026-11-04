@@ -1,6 +1,4 @@
 import { useCallback, useState } from "react";
-import { submitOutcome } from "../../../components/ChatInput";
-import type { SubmitOutcome } from "../../../components/ChatInput";
 import { useDaemonConnectionStatus } from "../../useCommaAgentsDaemon";
 import { useDaemonMutation } from "../../useDaemonMutation";
 import { useRunControls, useRunFeed } from "../RunProvider/RunProvider.context";
@@ -12,10 +10,7 @@ import {
   pickRecipient,
 } from "./useRunComposer.utils";
 
-const NO_RECIPIENT: SubmitOutcome = {
-  ok: false,
-  message: "Choose an available recipient before sending.",
-};
+const NO_RECIPIENT = "Choose an available recipient before sending.";
 
 /**
  * Route a message to the followed run: continue it, reply to a waiting agent, or steer a working one.
@@ -41,15 +36,21 @@ export function useRunComposer(): RunComposer {
   });
   const { send } = submission;
   const submit = useCallback(
-    async (text: string): Promise<SubmitOutcome> => {
-      if (!canSubmit) return NO_RECIPIENT;
-      if (mode === "continue") return send(text);
-      if (!recipient) return NO_RECIPIENT;
-      return submitOutcome(
+    async (text: string): Promise<string | undefined> => {
+      if (!canSubmit) {
+        return NO_RECIPIENT;
+      }
+      if (mode === "continue") {
+        return send(text);
+      }
+      if (!recipient) {
+        return NO_RECIPIENT;
+      }
+      const result =
         mode === "reply"
           ? await reply({ runId, inputId: recipient.id, text })
-          : await steer({ runId, messageId: recipient.id, text }),
-      );
+          : await steer({ runId, messageId: recipient.id, text });
+      return result.ok ? undefined : result.error.message;
     },
     [canSubmit, mode, recipient, send, reply, steer, runId],
   );

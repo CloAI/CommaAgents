@@ -1,16 +1,8 @@
-import { RunErrorCode } from "@comma-agents/daemon/protocol";
-import { useCallback, useContext, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
 import { Button } from "../../design-system/Button";
-import { RunProvider, useRunStop } from "../../hooks/runs";
-import { ChatPaneContext } from "../../hooks/useChatPane";
-import type { DaemonFailure } from "../../hooks/useDaemonMutation";
-import { useDoublePress } from "../../hooks/useDoublePress";
-import { LayoutContext } from "../../hooks/useLayout/useLayout.context";
+import { RunProvider, useRunFeed } from "../../hooks/runs";
 import { RunComposer } from "./RunComposer";
-import { RunDialogs } from "./RunDialogs";
 import { RunOutput } from "./RunOutput";
-import { isRunPageTarget } from "./RunPage.utils";
 import styles from "./RunPage.module.scss";
 
 /**
@@ -21,85 +13,40 @@ export function RunPage() {
   const { runId } = useParams();
   // Keyed so opening another run starts from a clean slate.
   return runId ? (
-    <FollowedRun key={runId} runId={runId} />
+    <RunProvider key={runId} runId={runId}>
+      <RunView runId={runId} />
+    </RunProvider>
   ) : (
     <Navigate to="/" replace />
   );
 }
 
 /**
- * Follow a run and explain when it cannot be followed.
- * @param {{runId: string}} props - Component properties.
- * @returns {React.ReactElement} The run within its provider.
- */
-function FollowedRun({ runId }: { readonly runId: string }) {
-  const [failure, setFailure] = useState<string>();
-  const handleError = useCallback(
-    (error: DaemonFailure) =>
-      setFailure(
-        error.code === RunErrorCode.RUN_NOT_FOUND
-          ? "Run not found."
-          : error.message,
-      ),
-    [],
-  );
-  return (
-    <RunProvider runId={runId} onError={handleError}>
-      <RunView runId={runId} failure={failure} />
-    </RunProvider>
-  );
-}
-
-/**
- * Lay out the run's output, composer, and dialogs, and stop it on a double Escape.
- * @param {{runId: string, failure?: string}} props - Run and why it cannot be followed, if so.
+ * Lay out the run's output and composer.
+ * @param {{runId: string}} props - Run being shown.
  * @returns {React.ReactElement} The run page.
  */
-function RunView({
-  runId,
-  failure,
-}: {
-  readonly runId: string;
-  readonly failure: string | undefined;
-}) {
-  const rootRef = useRef<HTMLDivElement>(null);
+function RunView({ runId }: { readonly runId: string }) {
   const navigate = useNavigate();
-  const pane = useContext(ChatPaneContext);
-  const layout = useContext(LayoutContext);
-  const stop = useRunStop();
-  const focused = !pane || layout?.layout.activeId === pane.paneId;
-  const isInScope = useCallback(
-    (target: Element | null) =>
-      isRunPageTarget(rootRef.current, target, pane !== null),
-    [pane],
-  );
-  const { armed } = useDoublePress({
-    key: "Escape",
-    enabled: stop.canStop && focused,
-    onTrigger: stop.stop,
-    scopeRef: rootRef,
-    isInScope,
-  });
+  const { unavailable } = useRunFeed();
   return (
     <div
       className={styles.page}
       role="group"
       aria-label="Run"
-      ref={rootRef}
       data-run-page={runId}
     >
-      {failure ? (
+      {unavailable ? (
         <p role="alert" className={styles.failure}>
-          {failure}
+          {unavailable}
           <Button onClick={() => navigate("/")}>New chat</Button>
         </p>
       ) : (
         <>
           <RunOutput />
-          <RunComposer runId={runId} stopHint={armed} />
+          <RunComposer runId={runId} />
         </>
       )}
-      <RunDialogs />
     </div>
   );
 }

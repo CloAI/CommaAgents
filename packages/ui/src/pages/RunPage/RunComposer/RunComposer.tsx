@@ -1,8 +1,10 @@
 import { ChatInput } from "../../../components/ChatInput";
+import { ContextOverflowDialog } from "../../../components/ContextOverflowDialog";
 import { QuestionPrompt } from "../../../components/QuestionPrompt";
 import { RecipientSelect } from "../../../components/RecipientSelect";
 import { StrategyModels } from "../../../components/StrategyModels";
 import { StrategySelectRender } from "../../../components/StrategySelect";
+import { StrategySwitchDialog } from "../../../components/StrategySwitchDialog";
 import {
   useRunComposer,
   useRunFeed,
@@ -13,27 +15,26 @@ import {
 import { useDaemonConnectionStatus } from "../../../hooks/useCommaAgentsDaemon";
 import { usePendingQuestions } from "../../../hooks/usePendingQuestions";
 import { COMPOSER_PLACEHOLDERS } from "../RunPage.constants";
+import { StopControl } from "../StopControl";
 import styles from "../RunPage.module.scss";
 
-/** How the composer reflects the page's stop shortcut. */
+/** The run being composed for. */
 export interface RunComposerProps {
   /** Run whose agents' questions are shown. */
   readonly runId: string;
-  /** Whether the first Escape has armed stopping. */
-  readonly stopHint: boolean;
 }
 
 /**
- * Send messages to the run and change its strategy, with any problems shown above.
+ * Send messages to the run and change its strategy, with any problems shown above and the decisions either needs.
  * @param {RunComposerProps} props - Component properties.
  * @returns {React.ReactElement} The composer and strategy controls.
  */
-export function RunComposer({ runId, stopHint }: RunComposerProps) {
+export function RunComposer({ runId }: RunComposerProps) {
   const { snapshot } = useRunFeed();
   const composer = useRunComposer();
   const strategy = useRunStrategy();
   const stop = useRunStop();
-  const { isSubmitting } = useRunSubmission();
+  const submission = useRunSubmission();
   const questions = usePendingQuestions(runId);
   const connected = useDaemonConnectionStatus() === "connected";
   return (
@@ -62,19 +63,23 @@ export function RunComposer({ runId, stopHint }: RunComposerProps) {
           <QuestionPrompt key={question.requestId} question={question} />
         ))}
         <ChatInput
-          onCancel={stop.active ? stop.stop : undefined}
-          cancelling={stop.isStopping}
-          cancelHint={stopHint}
-          cancelDisabled={!stop.canStop}
+          actions={<StopControl />}
           onSubmit={composer.submit}
           disabled={!composer.canSubmit}
           clearOnSuccess
           autoFocus
           placeholder={COMPOSER_PLACEHOLDERS[composer.mode]}
         />
+        {submission.dialog && (
+          <ContextOverflowDialog
+            {...submission.dialog}
+            onChoose={submission.choose}
+            onCancel={submission.cancel}
+          />
+        )}
         <fieldset
           className={styles.strategyControls}
-          disabled={strategy.isLoading || isSubmitting || !connected}
+          disabled={strategy.isLoading || submission.isSubmitting || !connected}
         >
           <legend className={styles.srOnly}>Conversation strategy</legend>
           <StrategySelectRender
@@ -92,6 +97,16 @@ export function RunComposer({ runId, stopHint }: RunComposerProps) {
             }}
           />
         </fieldset>
+        {/* Outside the fieldset, which would otherwise disable the dialog's buttons. */}
+        {strategy.pending && (
+          <StrategySwitchDialog
+            strategyName={strategy.pending.strategy.name}
+            busy={strategy.isLoading}
+            error={strategy.error}
+            onStopAndSwitch={strategy.stopAndSwitch}
+            onWait={strategy.wait}
+          />
+        )}
       </div>
     </div>
   );

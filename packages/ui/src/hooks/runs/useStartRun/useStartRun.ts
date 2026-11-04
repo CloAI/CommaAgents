@@ -17,7 +17,9 @@ export function useStartRun(): StartRun {
   const { attempt: begin } = useDaemonMutation("runs.start");
   const start = useCallback(
     async (strategy: StrategyItem | undefined, prompt: string) => {
-      if (starting.current) return undefined;
+      if (starting.current) {
+        return undefined;
+      }
       if (!strategy) {
         setError("Choose a strategy first.");
         return undefined;
@@ -39,7 +41,9 @@ export function useStartRun(): StartRun {
         : prepared;
       starting.current = false;
       setStarting(false);
-      if (started.ok && prepared.ok) return prepared.data.runId;
+      if (started.ok && prepared.ok) {
+        return prepared.data.runId;
+      }
       setError(started.ok ? undefined : started.error.message);
       return undefined;
     },

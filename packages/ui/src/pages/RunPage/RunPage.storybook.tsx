@@ -160,7 +160,9 @@ export const OffersANewChatWhenTheRunIsMissing: Story = {
       const found = requests(socket, "subscribe")
         .filter((candidate) => candidate.channel === "runs")
         .at(-1);
-      if (!found) throw new Error("Not subscribed to runs yet.");
+      if (!found) {
+        throw new Error("Not subscribed to runs yet.");
+      }
       return found;
     });
     await act(() =>
@@ -698,10 +700,11 @@ export const ScrollsInsteadOfShrinkingMessages: Story = {
     await waitFor(() =>
       expect(list.scrollHeight).toBeGreaterThan(list.clientHeight),
     );
-    for (const section of canvas.getAllByRole("article"))
+    for (const section of canvas.getAllByRole("article")) {
       await expect(section.scrollHeight).toBeLessThanOrEqual(
         section.clientHeight,
       );
+    }
     list.scrollTop = 0;
     await expect(list.scrollTop).toBe(0);
   },
@@ -1049,7 +1052,9 @@ export const ContextChoicesPreserveTheDraftUntilAccepted: Story = {
         contextChoice: choice,
         input: "Implement this",
       });
-      if (choice !== "full") await expect(input).toHaveValue("Implement this");
+      if (choice !== "full") {
+        await expect(input).toHaveValue("Implement this");
+      }
     }
     await expect(input).toHaveValue("");
     await expect(page.queryByRole("dialog")).toBeNull();
