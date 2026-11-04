@@ -18,8 +18,12 @@ export function useChatSteering(subscribeToDaemon = false): ChatSteeringResult {
   const sendSteer = useCallback<ChatSteeringResult["sendSteer"]>(
     (chatRunId, text) => {
       const chatRun = chatRuns.get(chatRunId);
-      if (!chatRun?.daemonRunId) return;
-      if (chatRun.status !== "running" && chatRun.status !== "pending") return;
+      if (!chatRun?.daemonRunId) {
+        return;
+      }
+      if (chatRun.status !== "running" && chatRun.status !== "pending") {
+        return;
+      }
       steerRunCommand({ runId: chatRun.daemonRunId, text });
     },
     [chatRuns, steerRunCommand],
@@ -30,7 +34,9 @@ export function useChatSteering(subscribeToDaemon = false): ChatSteeringResult {
     (message) => {
       setChatRuns((previousChatRuns) => {
         const chatRun = previousChatRuns.get(message.runId);
-        if (!chatRun) return previousChatRuns;
+        if (!chatRun) {
+          return previousChatRuns;
+        }
         const chatRunId = chatRun.id;
         const parentToolCallId = getActiveLaunchStrategyId(chatRun);
         const steerMessage: ChatMessage = {

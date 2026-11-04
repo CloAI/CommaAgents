@@ -69,7 +69,9 @@ export function useMouseHover({
 
   // Subscribe to mouse events and run AABB hit-tests.
   useEffect(() => {
-    if (!subscribe) return;
+    if (!subscribe) {
+      return;
+    }
     return subscribe((event: MouseEvent) => {
       // Only consider event kinds that carry cursor position.
       const { kind } = event;

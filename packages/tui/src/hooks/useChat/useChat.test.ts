@@ -40,12 +40,24 @@ mock.module("../useDaemon/useDaemon", () => ({
 
 mock.module("../useDaemon/useDaemonCommand/useDaemonCommand", () => ({
   useDaemonCommand: (type: string) => {
-    if (type === "prepare_run") return mockPrepareRunCommand;
-    if (type === "start_run") return mockStartRunCommand;
-    if (type === "continue_run") return mockContinueRunCommand;
-    if (type === "user_input") return mockSendUserInputCommand;
-    if (type === "stop_run") return mockStopRunCommand;
-    if (type === "list_runs") return mockListRunsCommand;
+    if (type === "prepare_run") {
+      return mockPrepareRunCommand;
+    }
+    if (type === "start_run") {
+      return mockStartRunCommand;
+    }
+    if (type === "continue_run") {
+      return mockContinueRunCommand;
+    }
+    if (type === "user_input") {
+      return mockSendUserInputCommand;
+    }
+    if (type === "stop_run") {
+      return mockStopRunCommand;
+    }
+    if (type === "list_runs") {
+      return mockListRunsCommand;
+    }
     return mock(() => null);
   },
 }));

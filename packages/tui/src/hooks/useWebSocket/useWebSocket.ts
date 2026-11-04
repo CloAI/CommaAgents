@@ -114,7 +114,9 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
     manuallyClosedRef.current = false;
 
     const connect = (): void => {
-      if (disposed || manuallyClosedRef.current) return;
+      if (disposed || manuallyClosedRef.current) {
+        return;
+      }
 
       updateStatus("connecting");
       console.log(`[websocket] Connecting to ${url}`);
@@ -154,7 +156,9 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
       }, connectionTimeoutMs);
 
       webSocket.addEventListener("open", () => {
-        if (disposed || socketRef.current !== webSocket) return;
+        if (disposed || socketRef.current !== webSocket) {
+          return;
+        }
 
         if (connectionTimeoutRef.current) {
           clearTimeout(connectionTimeoutRef.current);
@@ -185,7 +189,9 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
       });
 
       webSocket.addEventListener("message", (event) => {
-        if (disposed || socketRef.current !== webSocket) return;
+        if (disposed || socketRef.current !== webSocket) {
+          return;
+        }
         const data = String(event.data);
         console.debug(
           `[websocket] Received inbound message (${data.length} bytes)`,
@@ -194,7 +200,9 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
       });
 
       webSocket.addEventListener("close", () => {
-        if (disposed || socketRef.current !== webSocket) return;
+        if (disposed || socketRef.current !== webSocket) {
+          return;
+        }
 
         socketRef.current = null;
         if (connectionTimeoutRef.current) {
@@ -202,7 +210,9 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
           connectionTimeoutRef.current = null;
         }
         updateStatus("disconnected");
-        if (manuallyClosedRef.current) return;
+        if (manuallyClosedRef.current) {
+          return;
+        }
 
         console.log(
           `[websocket] Disconnected from ${url}; reconnecting in ${reconnectDelayMs}ms`,
@@ -214,7 +224,9 @@ export function useWebSocket(config: UseWebSocketConfig): WebSocketState {
       });
 
       webSocket.addEventListener("error", () => {
-        if (disposed || socketRef.current !== webSocket) return;
+        if (disposed || socketRef.current !== webSocket) {
+          return;
+        }
         console.error(`[websocket] Connection error: ${url}`);
         updateStatus("error");
         onErrorRef.current?.("WebSocket connection failed");

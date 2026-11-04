@@ -86,12 +86,16 @@ export function useDebugRender(
   previousPropsRef.current = props ? { ...props } : undefined;
 
   useEffect(() => {
-    if (!DEBUG_RENDER) return;
+    if (!DEBUG_RENDER) {
+      return;
+    }
     mountedRef.current = true;
 
     const target = stdout ?? process.stdout;
     const node = nodeRef.current;
-    if (!node || reasons.length === 0) return;
+    if (!node || reasons.length === 0) {
+      return;
+    }
 
     const line = buildLabelLine(
       label,
@@ -135,15 +139,21 @@ export function useDebugRender(
   });
 
   useEffect(() => {
-    if (!DEBUG_RENDER) return;
+    if (!DEBUG_RENDER) {
+      return;
+    }
 
     return () => {
       const target = stdout ?? process.stdout;
       const node = nodeRef.current;
-      if (!node) return;
+      if (!node) {
+        return;
+      }
 
       const unmountReasons = filterReasons(["unmount"], enabledReasons);
-      if (unmountReasons.length === 0) return;
+      if (unmountReasons.length === 0) {
+        return;
+      }
       const line = buildLabelLine(
         label,
         renderCount.current,

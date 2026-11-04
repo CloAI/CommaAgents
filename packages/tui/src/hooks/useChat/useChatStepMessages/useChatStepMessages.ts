@@ -13,7 +13,9 @@ export function useChatStepMessages(): void {
   useDaemonSubscription("step_started", (message) => {
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(message.runId);
-      if (!chatRun) return previousChatRuns;
+      if (!chatRun) {
+        return previousChatRuns;
+      }
       const chatRunId = chatRun.id;
       const parentToolCallId = getActiveLaunchStrategyId(chatRun);
       const systemMessage: ChatMessage = {
@@ -38,7 +40,9 @@ export function useChatStepMessages(): void {
   useDaemonSubscription("step_completed", (message) => {
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(message.runId);
-      if (!chatRun) return previousChatRuns;
+      if (!chatRun) {
+        return previousChatRuns;
+      }
       const chatRunId = chatRun.id;
       const parentToolCallId = getActiveLaunchStrategyId(chatRun);
       const systemMessage: ChatMessage = {

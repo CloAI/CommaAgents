@@ -57,13 +57,17 @@ export function ModalContextProvider(
   const open = useCallback((modalId: ModalId, data?: unknown): void => {
     setModals((previous) => {
       const current = previous.get(modalId);
-      if (current?.isOpen && Object.is(current.data, data)) return previous;
+      if (current?.isOpen && Object.is(current.data, data)) {
+        return previous;
+      }
       const next = new Map(previous);
       next.set(modalId, { isOpen: true, data });
       return next;
     });
     setOpenStack((previous) => {
-      if (previous.at(-1) === modalId) return previous;
+      if (previous.at(-1) === modalId) {
+        return previous;
+      }
       const filtered = previous.filter((id) => id !== modalId);
       return [...filtered, modalId];
     });
@@ -98,7 +102,9 @@ export function ModalContextProvider(
     });
     setOpenStack((previous) => {
       const isCurrentlyOpen = previous.includes(modalId);
-      if (isCurrentlyOpen) return previous.filter((id) => id !== modalId);
+      if (isCurrentlyOpen) {
+        return previous.filter((id) => id !== modalId);
+      }
       return [...previous, modalId];
     });
   }, []);

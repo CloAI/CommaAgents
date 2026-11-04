@@ -150,7 +150,9 @@ export function conversationRecordsToChatMessages(
   }
 
   for (const retentionEvent of retentionEvents) {
-    if (renderedRetentionEventIds.has(retentionEvent.id)) continue;
+    if (renderedRetentionEventIds.has(retentionEvent.id)) {
+      continue;
+    }
     const timestamp = parseRecordTimestamp(retentionEvent.createdAt);
     messages.push({
       id: `${chatRunId}-retention-${retentionEvent.id}`,
@@ -176,9 +178,13 @@ function conversationRecordSegments(
   }
 
   for (const responseMessage of record.responseMessages) {
-    if (!Array.isArray(responseMessage.content)) continue;
+    if (!Array.isArray(responseMessage.content)) {
+      continue;
+    }
     for (const rawPart of responseMessage.content) {
-      if (typeof rawPart !== "object" || rawPart === null) continue;
+      if (typeof rawPart !== "object" || rawPart === null) {
+        continue;
+      }
       const part = rawPart as Record<string, unknown>;
       if (
         part.type === "tool-call" &&
@@ -215,8 +221,12 @@ function conversationRecordSegments(
 }
 
 function stringifyToolValue(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value === undefined) return "";
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value === undefined) {
+    return "";
+  }
   try {
     return JSON.stringify(value);
   } catch {

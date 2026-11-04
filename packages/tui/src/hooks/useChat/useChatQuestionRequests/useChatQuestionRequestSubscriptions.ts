@@ -8,7 +8,9 @@ export function useChatQuestionRequestSubscriptions(): void {
   useDaemonSubscription("request_question", (message) => {
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(message.runId);
-      if (!chatRun) return previousChatRuns;
+      if (!chatRun) {
+        return previousChatRuns;
+      }
       const nextChatRuns = new Map(previousChatRuns);
       nextChatRuns.set(message.runId, {
         ...chatRun,

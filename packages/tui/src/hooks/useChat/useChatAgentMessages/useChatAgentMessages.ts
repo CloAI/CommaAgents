@@ -13,7 +13,9 @@ export function useChatAgentMessages(): void {
   useDaemonSubscription("agent_streaming", (message) => {
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(message.runId);
-      if (!chatRun) return previousChatRuns;
+      if (!chatRun) {
+        return previousChatRuns;
+      }
       const chatRunId = chatRun.id;
 
       // Locate (or create) the in-flight agent message for this agent. We
@@ -291,7 +293,9 @@ export function useChatAgentMessages(): void {
       }
 
       if (message.event.type === "done") {
-        if (lastAgentIndex < 0) return previousChatRuns;
+        if (lastAgentIndex < 0) {
+          return previousChatRuns;
+        }
         const mutableMessages = [...chatRun.messages];
         const target = mutableMessages[lastAgentIndex]!;
         const finalSegments = (target.segments ?? []).map<MessageSegment>(
@@ -337,7 +341,9 @@ export function useChatAgentMessages(): void {
   useDaemonSubscription("agent_output", (message) => {
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(message.runId);
-      if (!chatRun) return previousChatRuns;
+      if (!chatRun) {
+        return previousChatRuns;
+      }
       const chatRunId = chatRun.id;
 
       // If the streaming subscription has already produced a message for this

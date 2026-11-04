@@ -41,7 +41,9 @@ export function DaemonContextProvider({
   // Stable dispatch — fans out a daemon message to all matching listeners.
   const dispatch = useCallback((message: DaemonMessage) => {
     const set = listenersRef.current.get(message.type);
-    if (!set) return;
+    if (!set) {
+      return;
+    }
     for (const listener of set) {
       (listener as DaemonMessageListener<typeof message.type>)(
         message as never,

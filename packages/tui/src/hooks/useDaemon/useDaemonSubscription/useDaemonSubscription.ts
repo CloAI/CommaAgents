@@ -36,7 +36,9 @@ export function useDaemonSubscription<MessageKind extends DaemonMessageType>(
   const { on } = useDaemon();
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      return;
+    }
 
     const handler: DaemonMessageListener<MessageKind> = (message) => {
       // If a runId filter is active, skip messages that don't match.

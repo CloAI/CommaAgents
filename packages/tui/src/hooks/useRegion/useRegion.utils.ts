@@ -36,7 +36,9 @@ export function buildRegionOutput(
 
   for (let rowIndex = 0; rowIndex < lines.length; rowIndex++) {
     const line = lines[rowIndex];
-    if (line === undefined) continue;
+    if (line === undefined) {
+      continue;
+    }
 
     // +1 because ANSI cursor positions are 1-indexed.
     output += cursorTo(top + rowIndex + 1, left + 1);
@@ -65,7 +67,9 @@ export function visibleLength(str: string): number {
  */
 export function padToWidth(str: string, width: number): string {
   const visible = visibleLength(str);
-  if (visible >= width) return str;
+  if (visible >= width) {
+    return str;
+  }
   return str + " ".repeat(width - visible);
 }
 
@@ -89,8 +93,12 @@ const ANSI_SGR_PATTERN = /\x1b\[[0-9;]*m/g;
  */
 export function fitToWidth(str: string, width: number): string {
   const visible = visibleLength(str);
-  if (visible === width) return str;
-  if (visible < width) return str + " ".repeat(width - visible);
+  if (visible === width) {
+    return str;
+  }
+  if (visible < width) {
+    return str + " ".repeat(width - visible);
+  }
 
   // Truncation path — walk the string, copying ANSI escapes verbatim and
   // counting only visible chars. Stop once `width` visible chars have been
@@ -125,7 +133,9 @@ export function fitToWidth(str: string, width: number): string {
 
   // Reset SGR state if any escape was emitted, so trailing styles don't
   // bleed into whatever follows on the same row.
-  if (sawEscape) result += "\x1b[0m";
+  if (sawEscape) {
+    result += "\x1b[0m";
+  }
 
   return result;
 }

@@ -47,13 +47,18 @@ export function useMouseWheelScroll({
   }, [onScroll]);
 
   useEffect(() => {
-    if (!subscribe) return;
+    if (!subscribe) {
+      return;
+    }
     return subscribe((event: MouseEvent) => {
-      if (event.kind !== "wheel-up" && event.kind !== "wheel-down") return;
+      if (event.kind !== "wheel-up" && event.kind !== "wheel-down") {
+        return;
+      }
 
       // If a ref was provided, gate on whether the tick lands inside the box.
-      if (ref !== undefined && !isInsideRef(ref, event.column, event.row))
+      if (ref !== undefined && !isInsideRef(ref, event.column, event.row)) {
         return;
+      }
 
       const scrollEvent: MouseScrollEvent = {
         direction: event.kind === "wheel-up" ? "up" : "down",

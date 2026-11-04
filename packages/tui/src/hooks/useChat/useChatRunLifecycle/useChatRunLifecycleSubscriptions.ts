@@ -17,7 +17,9 @@ export function useChatRunLifecycleSubscriptions(): void {
   const failPendingExecution = (chatRunId: string, message: string): void => {
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(chatRunId);
-      if (!chatRun?.pendingExecution) return previousChatRuns;
+      if (!chatRun?.pendingExecution) {
+        return previousChatRuns;
+      }
 
       const isContinuation = chatRun.pendingExecution.mode === "continue";
       const nextChatRuns = new Map(previousChatRuns);
@@ -67,7 +69,9 @@ export function useChatRunLifecycleSubscriptions(): void {
       );
       setChatRuns((previousChatRuns) => {
         const existingChatRun = previousChatRuns.get(message.runId);
-        if (!existingChatRun) return previousChatRuns;
+        if (!existingChatRun) {
+          return previousChatRuns;
+        }
         const nextChatRuns = new Map(previousChatRuns);
         nextChatRuns.set(message.runId, {
           ...existingChatRun,
@@ -97,7 +101,9 @@ export function useChatRunLifecycleSubscriptions(): void {
     if (failedMcpServers.length > 0) {
       setChatRuns((previousChatRuns) => {
         const existingChatRun = previousChatRuns.get(message.runId);
-        if (!existingChatRun) return previousChatRuns;
+        if (!existingChatRun) {
+          return previousChatRuns;
+        }
         const nextChatRuns = new Map(previousChatRuns);
         nextChatRuns.set(message.runId, {
           ...existingChatRun,
@@ -136,7 +142,9 @@ export function useChatRunLifecycleSubscriptions(): void {
 
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(message.runId);
-      if (!chatRun) return previousChatRuns;
+      if (!chatRun) {
+        return previousChatRuns;
+      }
       const hydratedMessages = conversationRecordsToChatMessages(
         message.runId,
         message.conversation.records,
@@ -173,7 +181,9 @@ export function useChatRunLifecycleSubscriptions(): void {
     subscribeCommand({ runId: message.runId });
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(message.runId);
-      if (!chatRun) return previousChatRuns;
+      if (!chatRun) {
+        return previousChatRuns;
+      }
 
       const systemMessage: ChatMessage = {
         id: createLocalChatMessageId(message.runId),
@@ -204,7 +214,9 @@ export function useChatRunLifecycleSubscriptions(): void {
   useDaemonSubscription("strategy_completed", (message) => {
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(message.runId);
-      if (!chatRun) return previousChatRuns;
+      if (!chatRun) {
+        return previousChatRuns;
+      }
       const chatRunId = chatRun.id;
       const systemMessage: ChatMessage = {
         id: createLocalChatMessageId(chatRunId),
@@ -232,7 +244,9 @@ export function useChatRunLifecycleSubscriptions(): void {
   useDaemonSubscription("strategy_error", (message) => {
     setChatRuns((previousChatRuns) => {
       const chatRun = previousChatRuns.get(message.runId);
-      if (!chatRun) return previousChatRuns;
+      if (!chatRun) {
+        return previousChatRuns;
+      }
       const chatRunId = chatRun.id;
       const systemMessage: ChatMessage = {
         id: createLocalChatMessageId(chatRunId),
@@ -263,7 +277,9 @@ export function useChatRunLifecycleSubscriptions(): void {
             chatRun.pendingExecution?.requestId === message.requestId,
         )
       : undefined;
-    if (!correlatedRun) return;
+    if (!correlatedRun) {
+      return;
+    }
     failPendingExecution(correlatedRun[0], message.message);
   });
 }
@@ -286,7 +302,9 @@ function mergeContinuationMessages(
   }
 
   const queuedMessage = chatRun.messages[queuedMessageIndex]!;
-  if (queuedMessageIndex > 0) return chatRun.messages;
+  if (queuedMessageIndex > 0) {
+    return chatRun.messages;
+  }
   return hydratedMessages.length > 0
     ? [...hydratedMessages, queuedMessage]
     : chatRun.messages;

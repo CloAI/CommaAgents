@@ -33,7 +33,9 @@ class FakeWebSocket {
   }
 
   addEventListener(type: string, listener: (event: unknown) => void): void {
-    if (!this.listeners[type]) this.listeners[type] = [];
+    if (!this.listeners[type]) {
+      this.listeners[type] = [];
+    }
     this.listeners[type].push(listener);
   }
 
