@@ -38,13 +38,17 @@ export async function assertProjectCodeApproved(
   manifestPath: string,
   hubManager?: HubManager,
 ): Promise<void> {
-  if (!hubManager) return;
+  if (!hubManager) {
+    return;
+  }
   const installed = await hubManager.listInstalled();
   const managed = installed.find(
     (item) =>
       resolve(item.path, "comma-project.json") === resolve(manifestPath),
   );
-  if (!managed) return;
+  if (!managed) {
+    return;
+  }
   const manifest = CommaProjectManifestSchema.parse(
     JSON.parse(await Bun.file(manifestPath).text()),
   );
@@ -117,7 +121,9 @@ export async function prepareStrategy(
 
   if (agentHooks) {
     for (const [agentName, agent] of Object.entries(strategy.agents)) {
-      if (!agent.appendHook) continue;
+      if (!agent.appendHook) {
+        continue;
+      }
 
       const agentDefinition = strategy.raw.agents[agentName];
       if (agentDefinition && !isUserAgentDef(agentDefinition)) {

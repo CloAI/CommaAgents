@@ -15,7 +15,9 @@ export function createSteeringSystem(): DaemonSystem {
 
       actions.register("steer", (text): boolean => {
         const mailbox = systemData.get("steeringMailbox");
-        if (!mailbox) return false;
+        if (!mailbox) {
+          return false;
+        }
 
         mailbox.push(text);
 
@@ -34,11 +36,15 @@ export function createSteeringSystem(): DaemonSystem {
       const { strategy, systemData } = strategyContext;
 
       for (const agent of Object.values(strategy.agents)) {
-        if (!agent.appendHook) continue;
+        if (!agent.appendHook) {
+          continue;
+        }
 
         agent.appendHook("alterCallMessage", (message: string): string => {
           const mailbox = systemData.get("steeringMailbox");
-          if (!mailbox || mailbox.length === 0) return message;
+          if (!mailbox || mailbox.length === 0) {
+            return message;
+          }
 
           const steeringBlock = mailbox
             .map((text) => `<user_steering>\n${text}\n</user_steering>`)

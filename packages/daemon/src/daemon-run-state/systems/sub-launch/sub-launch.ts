@@ -94,7 +94,9 @@ export function createSubLaunchSystem(
         );
 
         for (const [agentName, agent] of Object.entries(subStrategy.agents)) {
-          if (!agent.appendHook) continue;
+          if (!agent.appendHook) {
+            continue;
+          }
 
           const agentDefinition = subStrategy.raw.agents[agentName];
           const isUserAgent =
@@ -106,7 +108,9 @@ export function createSubLaunchSystem(
           });
 
           agent.appendHook("onStreamEvent", (event: AgentStreamEvent): void => {
-            if (isUserAgent) return;
+            if (isUserAgent) {
+              return;
+            }
 
             messageSender.broadcast(run.id, {
               type: "agent_streaming",
@@ -147,7 +151,9 @@ export function createSubLaunchSystem(
         const flowCall = subStrategy.flow.call(input ?? "");
         const abortFlow = (): void => flowCall.abort();
         abortSignal.addEventListener("abort", abortFlow, { once: true });
-        if (abortSignal.aborted) abortFlow();
+        if (abortSignal.aborted) {
+          abortFlow();
+        }
 
         let result: AgentCallResult;
         try {

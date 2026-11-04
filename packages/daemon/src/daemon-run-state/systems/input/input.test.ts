@@ -9,7 +9,9 @@ describe("createInputSystem", () => {
     system.onRunPrepare?.(context);
 
     const collector = context.systemData.get("inputCollector");
-    if (!collector) throw new Error("Input collector was not registered");
+    if (!collector) {
+      throw new Error("Input collector was not registered");
+    }
 
     const result = collector({
       agentName: "user",
@@ -31,7 +33,9 @@ describe("createInputSystem", () => {
     system.onRunPrepare?.(context);
 
     const collector = context.systemData.get("inputCollector");
-    if (!collector) throw new Error("Input collector was not registered");
+    if (!collector) {
+      throw new Error("Input collector was not registered");
+    }
     const result = collector({ agentName: "user", prompt: "What next?" });
 
     await system.onRunCleanup?.(context);
@@ -48,7 +52,9 @@ describe("createInputSystem", () => {
     system.onRunPrepare?.(context);
 
     const collector = context.systemData.get("inputCollector");
-    if (!collector) throw new Error("Input collector was not registered");
+    if (!collector) {
+      throw new Error("Input collector was not registered");
+    }
     const result = collector({ agentName: "user", prompt: "What next?" });
 
     context.abortController.abort();

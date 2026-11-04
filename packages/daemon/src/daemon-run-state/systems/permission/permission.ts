@@ -129,7 +129,9 @@ export function createPermissionSystem(): DaemonSystem {
         "resolvePermission",
         (permissionRequestId, decision): boolean => {
           const entry = pending.get(permissionRequestId);
-          if (!entry) return false;
+          if (!entry) {
+            return false;
+          }
 
           removePending(permissionRequestId, entry);
           entry.resolve(decision);

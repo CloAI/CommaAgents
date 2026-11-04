@@ -66,7 +66,9 @@ export function createQuestionSystem(): DaemonSystem {
               reject(new DOMException("Run aborted", "AbortError"));
             },
           };
-          abortSignal.addEventListener("abort", entry.abortHandler, { once: true });
+          abortSignal.addEventListener("abort", entry.abortHandler, {
+            once: true,
+          });
           pending.set(requestId, entry);
 
           messageSender.broadcast(run.id, {
@@ -100,7 +102,9 @@ export function createQuestionSystem(): DaemonSystem {
         "resolveQuestion",
         (questionRequestId, response): boolean => {
           const entry = pending.get(questionRequestId);
-          if (!entry) return false;
+          if (!entry) {
+            return false;
+          }
 
           removePending(questionRequestId, entry);
           entry.resolve(response);

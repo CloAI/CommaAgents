@@ -1,5 +1,2 @@
 export { createQuestionSystem } from "./question";
-export type {
-  QuestionRequester,
-  QuestionSystem,
-} from "./question.types";
+export type { QuestionRequester, QuestionSystem } from "./question.types";

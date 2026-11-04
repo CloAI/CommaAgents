@@ -84,7 +84,9 @@ export function createRunRepository(
   return {
     async getRunIdentity(runId): Promise<RunIdentity | undefined> {
       const filePath = join(runsDir, `${runId}.identity.json`);
-      if (!existsSync(filePath)) return undefined;
+      if (!existsSync(filePath)) {
+        return undefined;
+      }
       const parsed: unknown = JSON.parse(readFileSync(filePath, "utf8"));
       if (
         !parsed ||
@@ -93,8 +95,9 @@ export function createRunRepository(
         parsed.runId !== runId ||
         ("parentRunId" in parsed &&
           (typeof parsed.parentRunId !== "string" || !parsed.parentRunId))
-      )
+      ) {
         throw new Error(`Invalid run identity: ${filePath}`);
+      }
       return {
         runId,
         ...("parentRunId" in parsed
@@ -148,7 +151,9 @@ export function createRunRepository(
     },
 
     async listRuns(filter): Promise<readonly RunOverview[]> {
-      if (!existsSync(runsDir)) return [];
+      if (!existsSync(runsDir)) {
+        return [];
+      }
 
       let entries: string[];
       try {
@@ -159,10 +164,14 @@ export function createRunRepository(
 
       const results: RunOverview[] = [];
       for (const entry of entries) {
-        if (!entry.endsWith(".jsonl")) continue;
+        if (!entry.endsWith(".jsonl")) {
+          continue;
+        }
         const filePath = join(runsDir, entry);
         const events = readRunEventsFile(filePath);
-        if (events.length === 0) continue;
+        if (events.length === 0) {
+          continue;
+        }
 
         // Use the latest lifecycle segment because continuations append another
         // run_started/run_completed pair to the same logical run timeline.
@@ -172,7 +181,9 @@ export function createRunRepository(
             (!event.runId || event.runId === entry.slice(0, -6)),
         );
         const started = events[latestStartedIndex];
-        if (!started || started.type !== "run_started") continue;
+        if (!started || started.type !== "run_started") {
+          continue;
+        }
 
         const completed = events
           .slice(latestStartedIndex + 1)
@@ -219,8 +230,9 @@ export function createRunRepository(
           !existsSync(filePath) &&
           !existsSync(configPath) &&
           !existsSync(identityPath)
-        )
+        ) {
           return false;
+        }
         try {
           rmSync(filePath, { force: true });
           rmSync(configPath, { force: true });
@@ -234,7 +246,9 @@ export function createRunRepository(
 
     async getRunConfig(runId): Promise<RunConfig | undefined> {
       const filePath = runConfigFilePath(runId);
-      if (!existsSync(filePath)) return undefined;
+      if (!existsSync(filePath)) {
+        return undefined;
+      }
       const parsed = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
       if (
         typeof parsed !== "object" ||

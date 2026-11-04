@@ -12,20 +12,26 @@ export function readRunEventsFile(
   filePath: string,
   strict = false,
 ): TimelineEvent[] {
-  if (!existsSync(filePath)) return [];
+  if (!existsSync(filePath)) {
+    return [];
+  }
 
   let raw: string;
   try {
     raw = readFileSync(filePath, "utf-8");
   } catch (error) {
-    if (strict) throw error;
+    if (strict) {
+      throw error;
+    }
     return [];
   }
 
   const events: TimelineEvent[] = [];
   const lines = raw.split("\n");
   for (const [index, line] of lines.entries()) {
-    if (line.trim() === "") continue;
+    if (line.trim() === "") {
+      continue;
+    }
     try {
       events.push(JSON.parse(line) as TimelineEvent);
     } catch {

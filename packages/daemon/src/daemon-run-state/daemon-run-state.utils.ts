@@ -74,28 +74,40 @@ export function conversationHistoryFromEvents(
     if (event.type === "run_started") {
       const text = event.initialInput;
       if (text !== undefined && text.length > 0) {
-        if (pendingInput !== undefined) inputs.push({ text: pendingInput });
+        if (pendingInput !== undefined) {
+          inputs.push({ text: pendingInput });
+        }
         pendingInput = text;
       }
     } else if (event.type === "user_input") {
-      if (event.childId || event.source !== "human") continue;
-      if (pendingInput !== undefined) inputs.push({ text: pendingInput });
+      if (event.childId || event.source !== "human") {
+        continue;
+      }
+      if (pendingInput !== undefined) {
+        inputs.push({ text: pendingInput });
+      }
       pendingInput = event.text;
     } else if (event.type === "agent_call") {
-      if (event.childId) continue;
+      if (event.childId) {
+        continue;
+      }
       if (pendingInput !== undefined) {
         inputs.push({ text: pendingInput, beforeRecordId: event.record.id });
         pendingInput = undefined;
       }
       records.push(event.record);
     } else if (event.type === "conversation_retention") {
-      if (event.childId) continue;
+      if (event.childId) {
+        continue;
+      }
       records = [...applyRetentionEvent(records, event.event)];
       retentionEvents.push(event.event);
     }
   }
 
-  if (pendingInput !== undefined) inputs.push({ text: pendingInput });
+  if (pendingInput !== undefined) {
+    inputs.push({ text: pendingInput });
+  }
   return { records, retentionEvents, inputs };
 }
 
@@ -108,7 +120,9 @@ function applyRetentionEvent(
   let insertedSummary = false;
 
   for (const record of records) {
-    if (record.id === event.summaryRecord.id) continue;
+    if (record.id === event.summaryRecord.id) {
+      continue;
+    }
     if (
       event.insertBeforeRecordId !== undefined &&
       record.id === event.insertBeforeRecordId &&
@@ -129,6 +143,8 @@ function applyRetentionEvent(
     );
   }
 
-  if (!insertedSummary) nextRecords.push(event.summaryRecord);
+  if (!insertedSummary) {
+    nextRecords.push(event.summaryRecord);
+  }
   return nextRecords;
 }

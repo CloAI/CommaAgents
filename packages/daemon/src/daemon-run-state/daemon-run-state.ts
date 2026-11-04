@@ -158,7 +158,9 @@ export function createDaemonRunState({
       throw new Error(`Run not found: ${runId}`);
     }
 
-    if (existingRun) daemonStore.removeRun(runId);
+    if (existingRun) {
+      daemonStore.removeRun(runId);
+    }
 
     const effectiveCwd = options.cwd ?? latestStart?.cwd ?? process.cwd();
     const effectiveModelOverride =
@@ -222,7 +224,9 @@ export function createDaemonRunState({
       });
 
       const conversation = conversationHistoryFromEvents(persistedEvents);
-      if (mode === "continuation") restoreAgentContexts(strategy, conversation);
+      if (mode === "continuation") {
+        restoreAgentContexts(strategy, conversation);
+      }
 
       await invokeOnStrategyLoaded(systems, { ...context, strategy });
       const preparedRun: PreparedRun = { runStore, context, strategy, mode };
@@ -278,7 +282,9 @@ export function createDaemonRunState({
     const prepared = runStore?.getRuntimeValue<PreparedRun>(
       PREPARED_RUN_RUNTIME_KEY,
     );
-    if (!prepared) throw new Error(`Prepared run not found: ${runId}`);
+    if (!prepared) {
+      throw new Error(`Prepared run not found: ${runId}`);
+    }
     if (prepared.mode !== expectedMode) {
       throw new Error(
         expectedMode === "continuation"
@@ -334,7 +340,9 @@ export function createDaemonRunState({
       context.abortSignal.addEventListener("abort", abortFlow, {
         once: true,
       });
-      if (context.abortSignal.aborted) abortFlow();
+      if (context.abortSignal.aborted) {
+        abortFlow();
+      }
 
       let result: AgentCallResult;
       try {
@@ -485,8 +493,11 @@ export function createDaemonRunState({
         throw new Error(`Unknown MCP server: ${options.serverId}`);
       }
       const enabledIds = new Set(config.enabledServerIds);
-      if (options.enabled) enabledIds.add(options.serverId);
-      else enabledIds.delete(options.serverId);
+      if (options.enabled) {
+        enabledIds.add(options.serverId);
+      } else {
+        enabledIds.delete(options.serverId);
+      }
       await runRepository.saveRunConfig(options.runId, {
         enabledMcpServerIds: [...enabledIds],
       });
@@ -532,8 +543,12 @@ export function createDaemonRunState({
         const prepared = runStore.getRuntimeValue<PreparedRun>(
           PREPARED_RUN_RUNTIME_KEY,
         );
-        if (!prepared) continue;
-        if (prepared.execution) executions.push(prepared.execution);
+        if (!prepared) {
+          continue;
+        }
+        if (prepared.execution) {
+          executions.push(prepared.execution);
+        }
         await stopRun(runStore.id);
       }
       await Promise.allSettled([...executions, ...cleanupPromises]);

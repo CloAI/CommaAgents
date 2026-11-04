@@ -9,7 +9,9 @@ export type AgentModelDetails = Pick<
 export function resolveAgentModelDetails(
   model: string | undefined,
 ): AgentModelDetails {
-  if (model === undefined) return {};
+  if (model === undefined) {
+    return {};
+  }
 
   const contextWindow =
     getQualifiedModelMetadata(model)?.metadata.contextWindow;

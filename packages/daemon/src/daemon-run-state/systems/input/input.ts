@@ -61,7 +61,9 @@ export function createInputSystem(): DaemonSystem {
               reject(new DOMException("Run aborted", "AbortError"));
             },
           };
-          abortSignal.addEventListener("abort", entry.abortHandler, { once: true });
+          abortSignal.addEventListener("abort", entry.abortHandler, {
+            once: true,
+          });
           pending.set(agentName, entry);
 
           messageSender.broadcast(run.id, {
@@ -88,7 +90,9 @@ export function createInputSystem(): DaemonSystem {
 
       actions.register("resolveInput", (agentName, text): boolean => {
         const entry = pending.get(agentName);
-        if (!entry) return false;
+        if (!entry) {
+          return false;
+        }
 
         removePending(agentName, entry);
         entry.resolve(text);

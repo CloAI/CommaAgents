@@ -56,7 +56,9 @@ export async function resolveRunMcpConfig({
     for (const [agentName, agentDefinition] of Object.entries(
       strategy.agents,
     )) {
-      if (!isLLMAgentDef(agentDefinition)) continue;
+      if (!isLLMAgentDef(agentDefinition)) {
+        continue;
+      }
       for (const serverId of agentDefinition.mcpServers ?? []) {
         if (!servers.has(serverId)) {
           throw new Error(
@@ -151,7 +153,9 @@ export function updateMcpDefault(
   enabled: boolean,
 ): void {
   const entry = config.servers.get(serverId);
-  if (!entry) throw new Error(`Unknown MCP server: ${serverId}`);
+  if (!entry) {
+    throw new Error(`Unknown MCP server: ${serverId}`);
+  }
   if (entry.source === "strategy" || !entry.configPath) {
     throw new Error(
       `Strategy-private MCP server "${serverId}" has no shared default.`,

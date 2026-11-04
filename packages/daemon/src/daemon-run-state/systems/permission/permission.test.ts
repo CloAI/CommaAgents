@@ -18,7 +18,9 @@ describe("createPermissionSystem", () => {
     system.onRunPrepare?.(context);
 
     const requester = context.systemData.get("permissionRequester");
-    if (!requester) throw new Error("Permission requester was not registered");
+    if (!requester) {
+      throw new Error("Permission requester was not registered");
+    }
 
     const result = requester(request);
     const message = context.messageSender.broadcasts[0]?.message;
@@ -38,7 +40,9 @@ describe("createPermissionSystem", () => {
     system.onRunPrepare?.(context);
 
     const requester = context.systemData.get("permissionRequester");
-    if (!requester) throw new Error("Permission requester was not registered");
+    if (!requester) {
+      throw new Error("Permission requester was not registered");
+    }
 
     const first = requester(request);
     const second = requester(request);
@@ -72,7 +76,9 @@ describe("createPermissionSystem", () => {
     system.onRunPrepare?.(context);
 
     const requester = context.systemData.get("permissionRequester");
-    if (!requester) throw new Error("Permission requester was not registered");
+    if (!requester) {
+      throw new Error("Permission requester was not registered");
+    }
     const result = requester(request);
 
     await system.onRunCleanup?.(context);

@@ -27,7 +27,9 @@ export function createPersistenceSystem(
       strategy.flow.appendHook?.("afterStep", flowHooks.afterStep);
 
       for (const agent of Object.values(strategy.agents)) {
-        if (!agent.appendHook) continue;
+        if (!agent.appendHook) {
+          continue;
+        }
 
         const agentHooks = buildAgentHooks(agent, run, runRepository);
         agent.appendHook("onStreamEvent", agentHooks.onStreamEvent);
@@ -63,7 +65,9 @@ function buildAgentHooks(
 ) {
   return {
     onStreamEvent(event: AgentStreamEvent): void {
-      if (event.type !== "retention") return;
+      if (event.type !== "retention") {
+        return;
+      }
 
       appendEvent(runRepository, run.id, {
         type: "conversation_retention",

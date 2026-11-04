@@ -37,7 +37,9 @@ export function createStreamingSystem(
       strategy.flow.appendHook?.("afterStep", flowHooks.afterStep);
 
       for (const [agentName, agent] of Object.entries(strategy.agents)) {
-        if (!agent.appendHook) continue;
+        if (!agent.appendHook) {
+          continue;
+        }
 
         const agentDefinition = strategy.raw.agents[agentName];
         const isUserAgent =
@@ -113,7 +115,9 @@ function buildAgentHooks(
         logToolEvent(run.id, agentName, event);
       }
 
-      if (isUserAgent) return;
+      if (isUserAgent) {
+        return;
+      }
 
       messageSender.broadcast(run.id, {
         type: "agent_streaming",
@@ -171,6 +175,8 @@ function logToolEvent(
 function previewForLog(value: string): string {
   const limit = 200;
   const flattened = value.replace(/\r?\n/g, "\\n");
-  if (flattened.length <= limit) return flattened;
+  if (flattened.length <= limit) {
+    return flattened;
+  }
   return `${flattened.slice(0, limit)}…`;
 }
