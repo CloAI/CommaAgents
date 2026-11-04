@@ -8,14 +8,21 @@ export function filterEvents(
   events: readonly TimelineEvent[],
   filter?: TimelineFilter,
 ): readonly TimelineEvent[] {
-  if (!filter) return events;
+  if (!filter) {
+    return events;
+  }
   const { type, agentName, since } = filter;
 
   return events.filter((event) => {
-    if (type !== undefined && event.type !== type) return false;
-    if (agentName !== undefined && !eventHasAgent(event, agentName))
+    if (type !== undefined && event.type !== type) {
       return false;
-    if (since !== undefined && event.ts <= since) return false;
+    }
+    if (agentName !== undefined && !eventHasAgent(event, agentName)) {
+      return false;
+    }
+    if (since !== undefined && event.ts <= since) {
+      return false;
+    }
     return true;
   });
 }

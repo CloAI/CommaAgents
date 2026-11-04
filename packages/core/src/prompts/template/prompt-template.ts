@@ -28,17 +28,22 @@ const engine = new Liquid({
 // -- env filter --
 engine.registerFilter("env", (varName: unknown) => {
   const name = String(varName ?? "");
-  if (!name) throw new Error('{{ "VAR" | env }} requires a variable name');
+  if (!name) {
+    throw new Error('{{ "VAR" | env }} requires a variable name');
+  }
   const value = process.env[name];
-  if (value === undefined) throw new Error(`env filter: "${name}" is not set`);
+  if (value === undefined) {
+    throw new Error(`env filter: "${name}" is not set`);
+  }
   return value;
 });
 
 // -- file filter (async) --
 engine.registerFilter("file", async (filePath: unknown) => {
   const resolvedPath = String(filePath ?? "");
-  if (!resolvedPath)
+  if (!resolvedPath) {
     throw new Error('{{ "/path" | file }} requires a file path');
+  }
   try {
     const content = await readFile(resolvedPath, "utf-8");
     return content.split("\n")[0]?.trim() ?? "";
@@ -50,7 +55,9 @@ engine.registerFilter("file", async (filePath: unknown) => {
 // -- exec filter (async) --
 engine.registerFilter("exec", async (command: unknown) => {
   const shellCommand = String(command ?? "");
-  if (!shellCommand) throw new Error('{{ "cmd" | exec }} requires a command');
+  if (!shellCommand) {
+    throw new Error('{{ "cmd" | exec }} requires a command');
+  }
   try {
     if (typeof globalThis.Bun !== "undefined") {
       const childProcess = Bun.spawn(["sh", "-c", shellCommand], {
@@ -60,7 +67,9 @@ engine.registerFilter("exec", async (command: unknown) => {
       const output = await new Response(childProcess.stdout).text();
       await childProcess.exited;
       const trimmed = output.trim();
-      if (!trimmed) throw new Error("empty output");
+      if (!trimmed) {
+        throw new Error("empty output");
+      }
       return trimmed;
     }
     const { execSync } = await import("node:child_process");
@@ -68,7 +77,9 @@ engine.registerFilter("exec", async (command: unknown) => {
       encoding: "utf-8",
       timeout: 10_000,
     }).trim();
-    if (!output) throw new Error("empty output");
+    if (!output) {
+      throw new Error("empty output");
+    }
     return output;
   } catch (error) {
     throw new Error(

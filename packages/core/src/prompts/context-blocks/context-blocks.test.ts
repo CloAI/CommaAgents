@@ -16,8 +16,9 @@ function createRepository(): string {
 }
 
 afterEach(() => {
-  for (const directory of temporaryDirectories.splice(0))
+  for (const directory of temporaryDirectories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 describe("loadProjectInstructions", () => {

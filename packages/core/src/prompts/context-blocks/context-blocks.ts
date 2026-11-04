@@ -41,10 +41,14 @@ export async function loadProjectInstructions(
     const fileName = instructionFiles.find((candidate) =>
       existsSync(join(directory, candidate)),
     );
-    if (fileName === undefined) continue;
+    if (fileName === undefined) {
+      continue;
+    }
     const filePath = join(directory, fileName);
     const content = (await readFile(filePath, "utf-8")).trim();
-    if (content.length === 0) continue;
+    if (content.length === 0) {
+      continue;
+    }
     instructions.push({
       path: relative(root, filePath),
       content:
@@ -81,7 +85,9 @@ export function describeEnvironment(cwd: string): EnvironmentDescription {
       stderr: "ignore",
     },
   );
-  if (status.exitCode !== 0) return description;
+  if (status.exitCode !== 0) {
+    return description;
+  }
   return { ...description, git: parseGitStatus(status.stdout.toString()) };
 }
 

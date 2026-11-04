@@ -50,7 +50,9 @@ export async function prepareContextRecords(
       },
     });
     records = result.records;
-    if (result.event !== undefined) events.push(result.event);
+    if (result.event !== undefined) {
+      events.push(result.event);
+    }
   }
 
   if (options.rollingWindow !== undefined) {
@@ -70,14 +72,18 @@ export async function prepareContextRecords(
 function resolveRollingWindowOptions(
   options: number | RollingWindowOptions,
 ): RollingWindowOptions {
-  if (typeof options === "number") return { maxRecords: options };
+  if (typeof options === "number") {
+    return { maxRecords: options };
+  }
   return options;
 }
 
 function resolveCompactionOptions(
   options: true | CompactionOptions,
 ): CompactionOptions {
-  if (options === true) return {};
+  if (options === true) {
+    return {};
+  }
   return options;
 }
 
@@ -87,7 +93,11 @@ function contextTransforms(
     | readonly ContextRecordTransform[]
     | undefined,
 ): readonly ContextRecordTransform[] {
-  if (transformRecords === undefined) return [];
-  if (typeof transformRecords === "function") return [transformRecords];
+  if (transformRecords === undefined) {
+    return [];
+  }
+  if (typeof transformRecords === "function") {
+    return [transformRecords];
+  }
   return transformRecords;
 }

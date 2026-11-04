@@ -10,9 +10,13 @@ import type { GitSummary } from "./context-blocks.types";
 export function findRepositoryRoot(cwd: string): string {
   let directory = resolve(cwd);
   while (true) {
-    if (existsSync(join(directory, ".git"))) return directory;
+    if (existsSync(join(directory, ".git"))) {
+      return directory;
+    }
     const parent = dirname(directory);
-    if (parent === directory) return resolve(cwd);
+    if (parent === directory) {
+      return resolve(cwd);
+    }
     directory = parent;
   }
 }

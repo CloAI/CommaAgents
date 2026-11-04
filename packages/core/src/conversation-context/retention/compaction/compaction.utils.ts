@@ -62,7 +62,9 @@ export function recentRecordCountWithinTokens(
   let count = 0;
   for (let recordIndex = records.length - 1; recordIndex >= 0; recordIndex--) {
     total += estimateRecordTokens(records[recordIndex]!);
-    if (count > 0 && total > tokenBudget) break;
+    if (count > 0 && total > tokenBudget) {
+      break;
+    }
     count += 1;
   }
   return count;

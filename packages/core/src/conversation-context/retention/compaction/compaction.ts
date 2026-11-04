@@ -62,7 +62,9 @@ export async function applyCompaction(input: ApplyCompactionInput): Promise<{
     reason = "record-count";
   }
 
-  if (reason === undefined) return { records };
+  if (reason === undefined) {
+    return { records };
+  }
   if (options.summarize === undefined) {
     throw new Error(
       "Conversation context compaction requires a summarize function. " +
@@ -72,7 +74,9 @@ export async function applyCompaction(input: ApplyCompactionInput): Promise<{
 
   const olderRecords = active.slice(0, active.length - keepRecent);
   const recentRecords = active.slice(active.length - keepRecent);
-  if (olderRecords.length === 0) return { records };
+  if (olderRecords.length === 0) {
+    return { records };
+  }
 
   const createdAt = new Date().toISOString();
   let summaryText: string;
@@ -80,8 +84,9 @@ export async function applyCompaction(input: ApplyCompactionInput): Promise<{
     summaryText = await options.summarize(olderRecords);
   } catch (summaryError) {
     // A rejected summary (for example one cut off by the output limit) leaves history untouched rather than saving a lossy one.
-    if (summaryError instanceof CompactionSummaryRejectedError)
+    if (summaryError instanceof CompactionSummaryRejectedError) {
       return { records };
+    }
     throw summaryError;
   }
   const summaryRecord: ConversationRecord = {
