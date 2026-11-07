@@ -5,7 +5,7 @@
 - Original checkout: `/Users/sync/VPS/CloAI/CommaAgents2`, branch `feature/clean-up-daemon-services`, original HEAD `2ce9225`.
 - Frozen baseline: `/Users/sync/VPS/CloAI/CommaAgents2-bun-baseline`, snapshot `4a41089`.
 - Migration: `/Users/sync/VPS/CloAI/CommaAgents2-node26`, branch `migration/node26-uws`.
-- The snapshot includes pre-existing tracked and untracked work. Migration statistics compare against that snapshot, excluding the user's original changes. No merge or publication has occurred.
+- The snapshot includes pre-existing tracked and untracked work. Migration statistics compare against that snapshot, excluding the user's original changes. The migration was merged into the original checkout on `feature/clean-up-daemon-services` in commit `13cb57f`. The existing work is preserved in checkpoint `4a41089`; pre-merge backup branch `backup/pre-node26-merge` remains available. No publication has occurred.
 
 Runtime: Node 26.13.0. Package management/provider installation: pnpm 10.30.0. Build: Rolldown 1.3.0 with built-in Oxc transforms/minification and TypeScript declarations/checks. Tests: Vitest 3.2.7. User TypeScript loading: tsx 4.23.15. Transport: uWebSockets.js tag v20.70.0.
 
@@ -51,6 +51,8 @@ The approved picomatch 4.0.7 matcher preserves Bun's dotfiles, whole-pattern neg
 
 ## Validation and remaining baseline failures
 
+Post-merge checks in the original checkout passed under Node 26.13.0 and pnpm 10.30.0: frozen installation, full root build/four-package validation, CLI and TUI help/startup, core/daemon production typechecks, and all 149 focused migration tests across 14 files. The original checkout's local VS Code launch configuration was carried over; `.vscode/` remains ignored.
+
 - Frozen pnpm installation: passed.
 - All four public builds and package validation: passed.
 - Core/daemon production declaration-project typechecks with `noCheck:false`: passed.
@@ -58,7 +60,7 @@ The approved picomatch 4.0.7 matcher preserves Bun's dotfiles, whole-pattern neg
 - ESM project loading: 20 tests passed, including native built-package enum/JSX/shared-registry proofs.
 - Glob and guard parity: 51 tests passed.
 - Real current/legacy transport, dispatcher, and subscription checks: 53 tests passed, including overload close 1013, retry after occupied port, restart, invalid frames, and cleanup.
-- CLI/TUI workspace startup/help: passed.
+- CLI/TUI workspace startup/help: passed. The merged checkout also includes `.nvmrc` selecting Node 26 and the local Node/pnpm VS Code launch configuration.
 - Packed consumer daemon: native uWS + real status command + independent listener stop passed.
 - Packed consumer CLI/TUI: fresh pnpm installation without inherited workspace patches passed both native CLI and TUI help checks. The shipped TUI chunk embeds patched Ink and its three Ink component packages; React, Yoga/WASM, and react-reconciler stay external. A temporary copy of the actual installed chunk exposed its private renderer only for verification and produced the expected 20 x 2 layout, then was removed. Yoga 3.2.1 and react-reconciler 0.34.0 are direct dependencies; the bundled Ink license is retained.
 - Lint: 1,159 diagnostics versus 1,160 on the frozen baseline, with zero new diagnostics.

@@ -1,6 +1,6 @@
 # Bun versus Node 26 migration experiment
 
-This comparison uses two isolated worktrees starting from snapshot 4a41089, including the original checkout's uncommitted work. The original checkout is unchanged. Migration branch: migration/node26-uws. No merge has been performed.
+These measurements were captured in two isolated worktrees starting from snapshot 4a41089, including the original checkout's uncommitted work. Migration branch: migration/node26-uws. See [MIGRATION.md](./MIGRATION.md) for the current integration status.
 
 ## Measured comparison
 
