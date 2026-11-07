@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { generateText } from "ai";
 import {
@@ -55,7 +55,7 @@ beforeEach(() => {
     }),
   );
   authentication = createProviderAuthentication();
-  spyOn(globalThis, "fetch").mockImplementation(
+  vi.spyOn(globalThis, "fetch").mockImplementation(
     Object.assign(
       async (
         input: Parameters<typeof fetch>[0],
@@ -103,7 +103,7 @@ beforeEach(() => {
         }
         return originalFetch(input, options);
       },
-      { preconnect: originalFetch.preconnect },
+      {},
     ),
   );
 });

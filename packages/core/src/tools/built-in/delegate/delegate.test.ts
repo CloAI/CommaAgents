@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import type { LaunchStrategyRequest } from "../../launch-strategy.types";
 import { makeToolContext } from "../../test.utils";
 import { createDelegateTool } from "./delegate";

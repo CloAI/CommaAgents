@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { prepareContextRecords } from "./retention";
 import { activeRecords } from "./retention.utils";
 import { countingSummarizer, makeRecord } from "./test.utils";

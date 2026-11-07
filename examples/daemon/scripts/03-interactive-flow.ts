@@ -10,14 +10,14 @@
  * then sends their input back to the daemon.
  *
  * Prerequisites:
- *   1. Start the daemon: bun run --cwd packages/daemon start
+ *   1. Start the daemon: pnpm --dir packages/daemon start
  *   2. A strategy file with a UserAgent step (e.g., a cycle flow that asks
  *      the user for feedback each iteration). See the strategy YAML below.
  *   3. Set up provider API keys (e.g., OPENAI_API_KEY)
  *
  * Run:
- *   bun run examples/03-interactive-flow.ts [strategy-path]
- *   bun run examples/03-interactive-flow.ts --daemon-url ws://localhost:8080/ws
+ *   pnpm exec tsx examples/03-interactive-flow.ts [strategy-path]
+ *   pnpm exec tsx examples/03-interactive-flow.ts --daemon-url ws://localhost:8080/ws
  *
  * If no strategy-path is given, this example writes a temporary strategy
  * to /tmp and uses it automatically.

@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Text } from "ink";
 import { render } from "ink-testing-library";
 import type React from "react";
@@ -99,7 +100,7 @@ async function waitFor(
     if (Date.now() >= deadline) {
       throw new Error(`Condition was not met within ${timeoutMs}ms`);
     }
-    await Bun.sleep(1);
+    await delay(1);
   }
 }
 
@@ -147,7 +148,7 @@ describe("useWebSocket", () => {
 
     // When the socket opens, the queue is drained in order.
     socket.triggerOpen();
-    await Bun.sleep(0);
+    await delay(0);
     expect(socket.sent).toEqual(["first-message"]);
   });
 
@@ -158,7 +159,7 @@ describe("useWebSocket", () => {
 
     const socket = FakeWebSocket.instances[0]!;
     socket.triggerOpen();
-    await Bun.sleep(0);
+    await delay(0);
 
     const ok = capture.current?.send("live");
     expect(ok).toBe(true);
@@ -196,7 +197,7 @@ describe("useWebSocket", () => {
     );
 
     capture.current?.close();
-    await Bun.sleep(10);
+    await delay(10);
 
     expect(capture.current?.status).toBe("disconnected");
     expect(FakeWebSocket.instances).toHaveLength(1);

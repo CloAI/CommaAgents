@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -96,7 +96,7 @@ describe("createDeleteFileTool", () => {
     expect(data.beforeSha256).toBe(sha);
     expect(data.sizeBytes).toBe(4);
     expect(typeof data.trashedTo).toBe("string");
-    expect(data.trashedTo).toEndWith(".tar.gz");
+    expect(data.trashedTo).toMatch(/\.tar\.gz$/);
     expect(existsSync(join(workspaceRoot, "a.txt"))).toBe(false);
     expect(existsSync(data.trashedTo!)).toBe(true);
   });

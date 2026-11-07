@@ -1,13 +1,13 @@
 {
   "name": "@comma-agents/debug",
   "version": "2.0.0",
-  "description": "Opt-in debug logging for comma-agents — hook verbose output into agents and flows",
+  "description": "Opt-in debug logging for comma-agents \u2014 hook verbose output into agents and flows",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun",
-    "test": "bun test --coverage"
+    "build": "node --import tsx ../../scripts/build-public-package.ts debug",
+    "test": "vitest run packages/debug/src --coverage"
   },
   "dependencies": {
     "@comma-agents/core": "workspace:*",

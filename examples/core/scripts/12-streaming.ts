@@ -13,7 +13,7 @@
  *   - { type: "done", result } — generation complete with final result
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/12-streaming.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/12-streaming.ts
  *
  * Concepts:
  *   - agent.stream(message) for streaming responses

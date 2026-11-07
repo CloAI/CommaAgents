@@ -2,7 +2,7 @@ import { z } from "zod";
 import { parseTinfoilDocument, parseTinfoilReference } from "./owned.document";
 import { verifyTinfoilRelease, verifyTinfoilWitness } from "./owned.provenance";
 import { verifyTinfoilCPU } from "./owned.cpu";
-import { parseTinfoilJSON, decodeTinfoilBase64 } from "./owned.json";
+import { parseTinfoilJSON, decodeTinfoilBase64 } from "./owned.json.ts";
 import { devicesSchema } from "./owned.schemas";
 import type { TinfoilAppraisal, TinfoilVerification } from "./owned.types";
 

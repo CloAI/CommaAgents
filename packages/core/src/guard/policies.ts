@@ -1,3 +1,4 @@
+import { compileGlob } from "../glob/glob";
 import type { PathPolicy } from "../sandbox/sandbox.types";
 import type { AccessRequest, Policy, PolicyDecision } from "./guard.types";
 
@@ -14,7 +15,7 @@ function matchesAny(
   const relative =
     absolutePath === cwd ? "." : absolutePath.slice(cwdWithSep.length);
   for (const pattern of patterns) {
-    if (new Bun.Glob(pattern).match(relative)) {
+    if (compileGlob(pattern)(relative)) {
       return true;
     }
   }

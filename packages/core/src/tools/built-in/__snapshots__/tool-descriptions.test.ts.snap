@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`built-in tool descriptions read_file description 1`] = `
+exports[`built-in tool descriptions > read_file description 1`] = `
 "Read a workspace file and return its UTF-8 content plus a sha256 over the whole on-disk bytes for stale-file detection.
 
 Inputs:
@@ -23,7 +23,7 @@ Notes:
   Slicing operates on LF-normalized content; \`sha256\` is computed on the raw bytes (BOM and CRLF preserved)."
 `;
 
-exports[`built-in tool descriptions list_directory description 1`] = `
+exports[`built-in tool descriptions > list_directory description 1`] = `
 "List the entries of a workspace directory and return both a structured array and a human-readable tree view.
 
 Inputs:
@@ -45,12 +45,12 @@ Notes:
   Entries blocked by \`forbiddenGlobs\` or \`canRead\` are filtered silently — best-effort listing semantics."
 `;
 
-exports[`built-in tool descriptions search_files description 1`] = `
+exports[`built-in tool descriptions > search_files description 1`] = `
 "Search the workspace by path glob, literal text, or regex; returns structured match locations with optional context lines.
 
 Inputs:
   - \`query\` (string, required) — Pattern to match. Interpretation depends on \`mode\`: glob (path), literal (text), or JS regex (regex).
-  - \`mode\` ("path" | "text" | "regex", required) — "path" matches file paths against a Bun.Glob; "text" searches file contents for a literal substring; "regex" compiles \`query\` as a JS regex with the "m" flag so ^/$ anchor on lines.
+  - \`mode\` ("path" | "text" | "regex", required) — "path" matches file paths against a glob pattern; "text" searches file contents for a literal substring; "regex" compiles \`query\` as a JS regex with the "m" flag so ^/$ anchor on lines.
   - \`root\` (string, optional, default ".") — Workspace-relative directory to search under.
   - \`includeGlobs\` (string[], optional) — Path globs that candidate files must match.
   - \`excludeGlobs\` (string[], optional, default node_modules / .git / dist / build / .next / .turbo / coverage) — Path globs that candidates must NOT match.
@@ -70,7 +70,7 @@ Notes:
   Binary files are skipped automatically in content modes. Files larger than 4194304 bytes are skipped. Traversal is capped at depth 32."
 `;
 
-exports[`built-in tool descriptions glob description 1`] = `
+exports[`built-in tool descriptions > glob description 1`] = `
 "Search the workspace for files and folders matching a glob pattern.
 
 Inputs:
@@ -91,7 +91,7 @@ Notes:
   Traversal is capped at depth 32."
 `;
 
-exports[`built-in tool descriptions create_file description 1`] = `
+exports[`built-in tool descriptions > create_file description 1`] = `
 "Create a brand-new file at \`path\` with the given UTF-8 content. Refuses to overwrite — use \`write_file\` for existing files.
 
 Inputs:
@@ -113,7 +113,7 @@ Notes:
   Every create is appended to the audit log as a \`create\` operation."
 `;
 
-exports[`built-in tool descriptions write_file description 1`] = `
+exports[`built-in tool descriptions > write_file description 1`] = `
 "Replace the contents of an existing file. The sha256 from a prior \`read_file\` must be passed as \`expectedSha256\` so concurrent edits are detected.
 
 Inputs:
@@ -137,7 +137,7 @@ Notes:
   Every write is appended to the audit log as an \`update\` operation."
 `;
 
-exports[`built-in tool descriptions edit_file description 1`] = `
+exports[`built-in tool descriptions > edit_file description 1`] = `
 "Apply one or more exact-string replacements to a text file in a single transaction.
 
 All edits are matched against the ORIGINAL file snapshot, so edit order is irrelevant and earlier edits never create or hide matches for later edits.
@@ -170,7 +170,7 @@ Notes:
   Every successful run is appended to the audit log as an \`update\` operation."
 `;
 
-exports[`built-in tool descriptions delete_file description 1`] = `
+exports[`built-in tool descriptions > delete_file description 1`] = `
 "Delete a workspace file. By default the file is moved to a workspace-scoped trash bucket so it can be recovered.
 
 Inputs:
@@ -192,7 +192,7 @@ Notes:
   Every delete is appended to the audit log as a \`delete\` operation."
 `;
 
-exports[`built-in tool descriptions move_file description 1`] = `
+exports[`built-in tool descriptions > move_file description 1`] = `
 "Rename or move a regular file inside the workspace. Both paths must resolve inside the sandbox.
 
 Inputs:
@@ -216,7 +216,7 @@ Notes:
   Every move is appended to the audit log as a \`move\` operation."
 `;
 
-exports[`built-in tool descriptions apply_patch description 1`] = `
+exports[`built-in tool descriptions > apply_patch description 1`] = `
 "Apply a multi-file patch in the OpenAI \`apply_patch\` v2 envelope format. A single call can Add, Update, Delete, and Move files together.
 
 By default the whole patch is atomic: every change is staged, then committed by rename; any failure rolls back the files already committed.
@@ -243,7 +243,7 @@ Notes:
   \`apply_patch\` is the preferred tool for any change touching more than one file — it gives atomicity that sequential \`write_file\` / \`edit_file\` calls can't."
 `;
 
-exports[`built-in tool descriptions run_command description 1`] = `
+exports[`built-in tool descriptions > run_command description 1`] = `
 "Execute a shell command inside the workspace and capture its stdout, stderr, and exit code.
 
 Host: Linux TEST (x64). Shell: /bin/sh -c. Runtime: bun TEST.

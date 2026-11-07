@@ -1,6 +1,6 @@
 // Tests for all daemon → client message schemas.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { DaemonMessage, parseDaemonMessage } from "./messages";
 import { AgentOutputMessage } from "./responses/agent-output";
 import { AgentStreamingMessage } from "./responses/agent-streaming";

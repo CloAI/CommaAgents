@@ -1,4 +1,4 @@
-import { spyOn } from "bun:test";
+import { vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -34,10 +34,10 @@ export function createMockRunsPlugin(options: {
   readonly loadStrategy: typeof runLoader.loadRunStrategy;
 }) {
   dependencyMocks.push(
-    spyOn(repositoryModule, "createRunRepository").mockReturnValue(
+    vi.spyOn(repositoryModule, "createRunRepository").mockReturnValue(
       options.repository,
     ),
-    spyOn(runLoader, "loadRunStrategy").mockImplementation(
+    vi.spyOn(runLoader, "loadRunStrategy").mockImplementation(
       options.loadStrategy,
     ),
   );

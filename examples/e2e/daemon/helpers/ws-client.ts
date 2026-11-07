@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 // WebSocket test client + daemon lifecycle helpers for daemon E2E tests.
 //
 // Provides:
@@ -295,7 +297,7 @@ export async function writeTempStrategy(
 ): Promise<string> {
   const filename = `e2e-strategy-${crypto.randomUUID()}.${ext}`;
   const filePath = join(tmpdir(), filename);
-  await Bun.write(filePath, content);
+  await writeFile(filePath, content);
   tempFiles.push(filePath);
   return filePath;
 }
@@ -306,9 +308,8 @@ export async function writeTempStrategy(
 export async function cleanupTempFiles(): Promise<void> {
   for (const f of tempFiles) {
     try {
-      const file = Bun.file(f);
-      if (await file.exists()) {
-        await Bun.write(f, ""); // Truncate
+      if (existsSync(f)) {
+        await writeFile(f, ""); // Truncate
       }
     } catch {
       // Ignore

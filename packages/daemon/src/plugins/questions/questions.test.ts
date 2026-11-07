@@ -1,5 +1,5 @@
 import { RunOutcomeStatus } from "../runs/state/state.schemas";
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, describe, expect, vi, test } from "vitest";
 import { realpathSync } from "node:fs";
 import {
   cleanupRunFixtures,
@@ -247,7 +247,7 @@ describe("questions plugin", () => {
         grandchildId = strategyContext.runId;
         parentId = strategyContext.parentRunId!;
         const call = strategyContext.strategy.flow.call;
-        spyOn(strategyContext.strategy.flow, "call").mockImplementation(() => {
+        vi.spyOn(strategyContext.strategy.flow, "call").mockImplementation(() => {
           let flowCall: ReturnType<typeof call> | undefined;
           const completion = requesters.get(strategyContext.runId)!({
             ...request,
@@ -323,7 +323,7 @@ describe("questions plugin", () => {
         if (!strategyContext.parentRunId) {
           return;
         }
-        spyOn(strategyContext.strategy.flow, "call").mockImplementation(() => {
+        vi.spyOn(strategyContext.strategy.flow, "call").mockImplementation(() => {
           const completion = requesters.get(strategyContext.runId)!({
             ...request,
             signal: strategyContext.signal,

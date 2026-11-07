@@ -1,29 +1,37 @@
-import { chmodSync, rmSync } from "node:fs";
-import {
-  assertReleasePackageEntrypoints,
-  releasePackageResolver,
-} from "./release-package-resolver";
+import { chmodSync, rmSync, readFileSync } from "node:fs";
+import { build } from "rolldown";
+import { assertReleasePackageEntrypoints } from "./release-package-resolver";
 
-const packageManifest = (await Bun.file("package.json").json()) as {
+const packageManifest = JSON.parse(readFileSync("package.json", "utf8")) as {
   readonly version: string;
+  readonly dependencies: Record<string, string>;
 };
 assertReleasePackageEntrypoints();
 rmSync("dist", { recursive: true, force: true });
-const result = await Bun.build({
-  entrypoints: ["src/main.ts"],
-  outdir: "dist",
-  naming: "comma.js",
-  target: "bun",
-  minify: true,
-  plugins: [releasePackageResolver],
-  define: {
-    "process.env.COMMA_BUILD_VERSION": JSON.stringify(packageManifest.version),
-    "process.env.COMMA_STANDALONE_BUILD": JSON.stringify("0"),
+await build({
+  input: "src/main.ts",
+  platform: "node",
+  external: (specifier) =>
+    Object.keys(packageManifest.dependencies).some(
+      (dependency) =>
+        specifier === dependency || specifier.startsWith(`${dependency}/`),
+    ),
+  transform: {
+    target: "node26",
+    jsx: { runtime: "automatic" },
+    define: {
+      "process.env.COMMA_BUILD_VERSION": JSON.stringify(
+        packageManifest.version,
+      ),
+      "process.env.COMMA_STANDALONE_BUILD": JSON.stringify("0"),
+    },
+  },
+  output: {
+    dir: "dist",
+    entryFileNames: "comma.js",
+    format: "esm",
+    minify: true,
+    sourcemap: true,
   },
 });
-
-if (!result.success) {
-  throw new AggregateError(result.logs, "Failed to build comma CLI");
-}
-
 chmodSync("dist/comma.js", 0o755);

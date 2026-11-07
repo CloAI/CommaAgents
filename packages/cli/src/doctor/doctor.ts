@@ -94,10 +94,9 @@ export function runDoctor({
     {
       id: "runtime",
       label: "Runtime",
-      status: process.versions.bun ? "pass" : "fail",
-      message: process.versions.bun
-        ? `Bun ${process.versions.bun}`
-        : "Bun runtime is required",
+      status:
+        Number(process.versions.node.split(".")[0]) >= 26 ? "pass" : "fail",
+      message: `Node.js ${process.versions.node}${Number(process.versions.node.split(".")[0]) >= 26 ? "" : " (Node.js 26 or newer is required)"}`,
     },
     checkDataDir(dataDir),
     {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RunStorage } from "../state/storage/storage.types";
 import * as storageModule from "../state/storage/storage";
 import {
@@ -418,7 +418,7 @@ describe("run execution", () => {
         throw new Error("Private filesystem diagnosis");
       },
     };
-    const mock = spyOn(storageModule, "createRunStorage").mockReturnValue(
+    const mock = vi.spyOn(storageModule, "createRunStorage").mockReturnValue(
       failing,
     );
     const runs = createMockRunsPlugin({
@@ -451,7 +451,7 @@ describe("run execution", () => {
     const backing = storageModule.createRunStorage(directories.at(-1)!);
     const entered = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const mock = spyOn(storageModule, "createRunStorage").mockReturnValue({
+    const mock = vi.spyOn(storageModule, "createRunStorage").mockReturnValue({
       ...backing,
       async append(runId, event) {
         entered.resolve();

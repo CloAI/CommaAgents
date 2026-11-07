@@ -1,6 +1,6 @@
 // Tests for flow loader — parse, validate, and instantiate flows.
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { StrategyValidationError } from "../../errors/index";
 import { createFlow } from "../flow/flow";

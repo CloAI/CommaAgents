@@ -1,6 +1,6 @@
 // Tests for strategy/loader.ts — full load pipeline with model registry
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { mkdir, rm, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Schema } from "ai";

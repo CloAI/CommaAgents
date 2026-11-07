@@ -8,11 +8,11 @@ description: Run the browser interface prototype and explore its design system i
 `@comma-agents/ui` provides a browser prototype with the animated Comma Agents logo and a prompt composer. Run this private workspace package from a repository checkout:
 
 ```bash
-bun install
-bun run ui
+pnpm install
+pnpm run ui
 ```
 
-Requires Bun 1.3 or newer. Open the development server URL, normally `http://localhost:5173`.
+Requires Node.js 26 or newer. Open the development server URL, normally `http://localhost:5173`.
 
 ## Enter a prompt
 
@@ -169,7 +169,7 @@ The ASCII logo animates automatically at 16 frames per second without playback c
 Start Storybook to browse the visual foundations, primitive controls, composed components, and home screen:
 
 ```bash
-bun run ui:storybook
+pnpm run ui:storybook
 ```
 
 Open `http://localhost:6007`. Stories include controls, component documentation, accessibility checks, and composer interaction examples. The dark theme uses black and purple surfaces, lavender accents, locally bundled Geist Mono typography, Lucide icons, and minimally rounded controls.
@@ -179,13 +179,13 @@ Open `http://localhost:6007`. Stories include controls, component documentation,
 Build the app and a standalone Storybook from the repository root:
 
 ```bash
-bun run ui:build
-bun run ui:storybook:build
+pnpm run ui:build
+pnpm run ui:storybook:build
 ```
 
 The app output is in `packages/ui/dist`; Storybook output is in `packages/ui/storybook-static`. Preview the app build from the package directory:
 
 ```bash
 cd packages/ui
-bun run preview
+pnpm run preview
 ```

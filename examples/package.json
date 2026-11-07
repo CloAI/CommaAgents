@@ -5,8 +5,8 @@
   "description": "Example scripts and strategies for comma-agents (not published)",
   "type": "module",
   "scripts": {
-    "tui": "bun run tui/main.tsx",
-    "run:all": "bun run tui/main.tsx --all"
+    "tui": "node --import tsx tui/main.tsx",
+    "run:all": "node --import tsx tui/main.tsx --all"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "3.0.54",

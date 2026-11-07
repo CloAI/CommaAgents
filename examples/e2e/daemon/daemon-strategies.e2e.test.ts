@@ -11,7 +11,7 @@
 // 7. Concurrent flows (multiple simultaneous runs)
 // 8. Error cases (invalid strategy path, missing fields)
 
-import { afterAll, afterEach, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { resetGlobalDefaults, resetModelRegistry } from "@comma-agents/core";
 
 import {

@@ -5,13 +5,13 @@
  * starting a strategy execution, and receiving the result.
  *
  * Prerequisites:
- *   1. Start the daemon: bun run --cwd packages/daemon start
+ *   1. Start the daemon: pnpm --dir packages/daemon start
  *   2. Ensure a strategy file exists (e.g., ../../examples/core/simple/strategy.json)
  *   3. Set up provider API keys (e.g., OPENAI_API_KEY)
  *
  * Run:
- *   bun run examples/01-basic-client.ts [strategy-path]
- *   bun run examples/01-basic-client.ts --daemon-url ws://localhost:8080/ws
+ *   pnpm exec tsx examples/01-basic-client.ts [strategy-path]
+ *   pnpm exec tsx examples/01-basic-client.ts --daemon-url ws://localhost:8080/ws
  *
  * Concepts:
  *   - WebSocket connection to the daemon
@@ -26,7 +26,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 const DEFAULT_STRATEGY = path.resolve(
-  import.meta.dir,
+  import.meta.dirname,
   "../../core/strategies/simple/strategy.json",
 );
 

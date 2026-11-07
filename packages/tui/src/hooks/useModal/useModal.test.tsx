@@ -1,4 +1,5 @@
-import { describe, expect, it } from "bun:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { describe, expect, it } from "vitest";
 import { Text } from "ink";
 import { render } from "ink-testing-library";
 
@@ -15,7 +16,7 @@ async function waitFor(
     if (Date.now() >= deadline) {
       throw new Error(`Condition was not met within ${timeoutMs}ms`);
     }
-    await Bun.sleep(5);
+    await delay(5);
   }
 }
 
@@ -64,7 +65,7 @@ describe("useModal", () => {
     const initialRenderCount = renderCount;
 
     controls?.close();
-    await Bun.sleep(20);
+    await delay(20);
 
     expect(renderCount).toBe(initialRenderCount);
     result.cleanup();

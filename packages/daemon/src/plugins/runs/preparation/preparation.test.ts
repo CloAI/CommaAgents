@@ -1,5 +1,5 @@
 import { RunPhase } from "../state/state.schemas";
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanupRunFixtures,
   createMockRunsPlugin,
@@ -17,7 +17,7 @@ describe("run preparation", () => {
     const backing = storageModule.createRunStorage(directories.at(-1)!);
     const saving = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const mock = spyOn(storageModule, "createRunStorage").mockReturnValue({
+    const mock = vi.spyOn(storageModule, "createRunStorage").mockReturnValue({
       ...backing,
       async save(snapshot) {
         if (snapshot.phase === RunPhase.prepared) {

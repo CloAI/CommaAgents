@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 // Strategy loader — parse, validate, and instantiate a strategy file
 // into a runnable Agent tree.
 //
@@ -77,12 +79,11 @@ export async function loadStrategy(
   }
 
   // Read the file
-  const file = Bun.file(filePath);
-  if (!(await file.exists())) {
+  if (!existsSync(filePath)) {
     throw new StrategyValidationError(`Strategy file not found: ${filePath}`);
   }
 
-  const content = await file.text();
+  const content = await readFile(filePath, "utf8");
 
   const strategyDir = dirname(filePath);
 
@@ -161,7 +162,7 @@ async function findMissingModelRolesDeep(
       visited.add(strategyPath);
       const format = /\.ya?ml$/i.test(strategyPath) ? "yaml" : "json";
       const child = parseStrategyFromString(
-        await Bun.file(strategyPath).text(),
+        await readFile(strategyPath, "utf8"),
         format,
       );
       for (const role of await findMissingModelRolesDeep(

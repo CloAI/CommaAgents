@@ -17,13 +17,13 @@ More categories (e.g. `tui/`) will be added as those packages mature.
 Strategy examples can be run from the project root via a single `example` script:
 
 ```sh
-bun run example <alias>
+pnpm run example <alias>
 ```
 
 List all available strategy examples:
 
 ```sh
-bun run example --list
+pnpm run example --list
 ```
 
 ## Running Script Examples
@@ -31,17 +31,17 @@ bun run example --list
 Core script examples are run from the project root:
 
 ```sh
-MODEL=openai/gpt-4o bun run examples/core/scripts/01-basic-agent.ts
+MODEL=openai/gpt-4o pnpm run examples/core/scripts/01-basic-agent.ts
 ```
 
 Daemon script examples require a running daemon instance:
 
 ```sh
 # Terminal 1: start the daemon
-bun run daemon
+pnpm run daemon
 
 # Terminal 2: run a daemon example
-bun run examples/daemon/scripts/01-basic-client.ts
+pnpm run examples/daemon/scripts/01-basic-client.ts
 ```
 
 See each subdirectory's README for detailed instructions.

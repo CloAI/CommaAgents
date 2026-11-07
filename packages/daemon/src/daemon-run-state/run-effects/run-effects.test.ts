@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import type { AgentCallResult, LoadedStrategy } from "@comma-agents/core";
 import { createRunStore } from "../../server/daemon-store";
 import { mockRunRepository } from "../../test.utils";

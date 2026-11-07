@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { createFlow } from "../flow/flow";
@@ -33,7 +33,7 @@ describe("flow registry", () => {
   });
 
   it("should warn when replacing a registered flow", () => {
-    const warning = spyOn(console, "warn").mockImplementation(() => {});
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     const definition = defineFlowType({
       configSchema: z.object({}).strict(),
       create: ({ name, steps }) =>

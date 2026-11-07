@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { resolve } from "node:path";
 import type { DiscoveredStrategy } from "@comma-agents/core/strategy";
 import { RunMessageStatus, type RunMessage } from "@comma-agents/daemon";
@@ -33,7 +33,7 @@ describe("resolveStrategy", () => {
   });
 
   it("should accept an existing file path that discovery did not find", () => {
-    const filePath = resolve(import.meta.dir, "run.ts");
+    const filePath = resolve(import.meta.dirname, "run.ts");
     expect(resolveStrategy(filePath, "/work", discovered)).toEqual({
       strategyPath: filePath,
     });

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { refreshCopilotCredential } from "./authentication/copilot";
 import {
   COPILOT_CLIENT_ID,
@@ -33,7 +34,7 @@ const installLocks = new Map<string, Promise<void>>();
  * Set the directory where provider npm packages are auto-installed.
  *
  * When set, `resolveViaPackage()` will attempt to install missing provider
- * packages into this directory (using `bun add`) before falling back to
+ * packages into this directory (using `pnpm add`) before falling back to
  * the standard module resolution. Pass `undefined` to disable auto-install.
  *
  * The daemon calls this on startup with its configured `providerInstallDirectory`.
@@ -90,13 +91,20 @@ async function ensurePackageInCache(
       return;
     }
 
-    const result = Bun.spawnSync(["bun", "add", packageName], {
-      cwd: directory,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const result = spawnSync(
+      process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+      ["add", packageName],
+      {
+        cwd: directory,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
 
-    if (result.exitCode !== 0) {
-      const stderr = new TextDecoder().decode(result.stderr);
+    if (result.status !== 0) {
+      const stderr =
+        result.error?.message ??
+        result.stderr?.toString() ??
+        "Unknown installation error";
       throw new Error(
         `Failed to install ${packageName} into provider cache: ${stderr.trim()}`,
       );
@@ -237,7 +245,7 @@ async function resolveViaPackage(
     } else {
       throw new Error(
         `Failed to load provider package "${packageName}" for provider "${providerId}". ` +
-          `Install it with: bun add ${packageName}\n` +
+          `Install it with: pnpm add ${packageName}\n` +
           `Original error: ${importError instanceof Error ? importError.message : String(importError)}`,
       );
     }
@@ -291,7 +299,7 @@ async function resolveCopilotProvider(
       providerModule = await tryImportFromCache(packageName, importError);
     } else {
       throw new Error(
-        `Failed to load ${packageName}. Install it with: bun add ${packageName}\n` +
+        `Failed to load ${packageName}. Install it with: pnpm add ${packageName}\n` +
           `Original error: ${importError instanceof Error ? importError.message : String(importError)}`,
       );
     }
@@ -313,25 +321,22 @@ async function resolveCopilotProvider(
     ...(credential.type === "oauth" &&
     credential.metadata?.clientId === COPILOT_CLIENT_ID
       ? {
-          fetch: Object.assign(
-            async (
-              input: Parameters<typeof fetch>[0],
-              options?: Parameters<typeof fetch>[1],
-            ) => {
-              const effective =
-                await getGlobalCredentialStore().resolve("github-copilot");
-              if (effective?.type !== "oauth") {
-                throw new Error(
-                  "GitHub Copilot configuration changed. Resolve the model again.",
-                );
-              }
-              const current = await refreshCopilotCredential(effective);
-              const headers = new Headers(options?.headers);
-              headers.set("Authorization", `Bearer ${current.accessToken}`);
-              return fetch(input, { ...options, headers, redirect: "error" });
-            },
-            { preconnect: fetch.preconnect },
-          ),
+          fetch: async (
+            input: Parameters<typeof fetch>[0],
+            options?: Parameters<typeof fetch>[1],
+          ) => {
+            const effective =
+              await getGlobalCredentialStore().resolve("github-copilot");
+            if (effective?.type !== "oauth") {
+              throw new Error(
+                "GitHub Copilot configuration changed. Resolve the model again.",
+              );
+            }
+            const current = await refreshCopilotCredential(effective);
+            const headers = new Headers(options?.headers);
+            headers.set("Authorization", `Bearer ${current.accessToken}`);
+            return fetch(input, { ...options, headers, redirect: "error" });
+          },
         }
       : {}),
     baseURL: "https://api.githubcopilot.com",

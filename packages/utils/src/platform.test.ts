@@ -1,6 +1,6 @@
 // Tests for platform utilities.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { isLinux, isSystemd } from "./platform";
 
 describe("isLinux", () => {

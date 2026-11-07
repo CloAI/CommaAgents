@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "vitest";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { LanguageModel } from "ai";
@@ -26,7 +26,7 @@ import {
 } from "./providers/index";
 import { resetProviderRegistry } from "./providers/providers";
 
-const TEST_DIR = join(import.meta.dir, "__test_providers__");
+const TEST_DIR = join(import.meta.dirname, "__test_providers__");
 const TEST_FILE = join(TEST_DIR, "credentials.json");
 
 function cleanup() {
@@ -173,7 +173,7 @@ describe("getProvidersForModel", () => {
   test("returns provider IDs for a known catalog model", () => {
     const providers = getProvidersForModel("gpt-4o");
     expect(providers.length).toBeGreaterThan(0);
-    expect(providers[0]).toBeString();
+    expect(providers[0]).toBeTypeOf("string");
   });
 
   test("returns empty array for unknown model", () => {

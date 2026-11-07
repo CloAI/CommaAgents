@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { listTinfoilModels } from "./tinfoil";
 import { getProviderDefinition } from "../providers";
 import { createCredentialStore } from "../../../credentials";
@@ -11,7 +11,7 @@ afterEach(() => {
 
 describe("Tinfoil discovery", () => {
   it("should list chat models with pricing, context, tools, and mandatory privacy", async () => {
-    const fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({
         data: [
           {

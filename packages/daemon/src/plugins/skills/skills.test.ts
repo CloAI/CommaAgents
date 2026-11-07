@@ -1,5 +1,5 @@
 import { RunOutcomeStatus } from "../runs/state/state.schemas";
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, describe, expect, vi, test } from "vitest";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as skillsModule from "@comma-agents/core/skills";
@@ -203,7 +203,7 @@ describe("skills plugin", () => {
     const gate = Promise.withResolvers<void>();
     const loadSkills = skillsModule.loadSkills;
     loaderMocks.push(
-      spyOn(skillsModule, "loadSkills").mockImplementation(
+      vi.spyOn(skillsModule, "loadSkills").mockImplementation(
         async (workspaceRoot, options) => {
           entered.resolve();
           await gate.promise;
@@ -237,7 +237,7 @@ describe("skills plugin", () => {
     const gate = Promise.withResolvers<void>();
     const loadSkills = skillsModule.loadSkills;
     loaderMocks.push(
-      spyOn(skillsModule, "loadSkills").mockImplementation(
+      vi.spyOn(skillsModule, "loadSkills").mockImplementation(
         async (workspaceRoot, options) => {
           entered.resolve();
           await gate.promise;

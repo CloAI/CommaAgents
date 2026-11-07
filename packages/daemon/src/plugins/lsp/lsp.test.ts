@@ -1,5 +1,6 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { RunPhase, RunOutcomeStatus } from "../runs/state/state.schemas";
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "vitest";
 import { mkdir, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { cleanupRunFixtures } from "../runs/test.utils";
@@ -37,7 +38,7 @@ async function waitForProcess(
     ) {
       return;
     }
-    await Bun.sleep(25);
+    await delay(25);
   }
   throw new Error(`LSP process did not reach ${phase}`);
 }

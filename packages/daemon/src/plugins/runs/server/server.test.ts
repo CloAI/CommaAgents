@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentStreamEvent } from "@comma-agents/core";
 import { createDaemonServer } from "../../../daemon-server";
 import type { DaemonServer, PluginServerMessage } from "../../../daemon-server";
@@ -172,7 +172,7 @@ describe("runs WebSocket API", () => {
     const backing = storageModule.createRunStorage(directories.at(-1)!);
     const saving = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const mock = spyOn(storageModule, "createRunStorage").mockReturnValue({
+    const mock = vi.spyOn(storageModule, "createRunStorage").mockReturnValue({
       ...backing,
       async save(snapshot) {
         if (snapshot.runId === "other" && snapshot.phase === "preparing") {

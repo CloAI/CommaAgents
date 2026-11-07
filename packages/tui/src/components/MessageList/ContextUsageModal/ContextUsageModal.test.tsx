@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { render } from "ink-testing-library";
 import { ContextUsageModalRender } from "./ContextUsageModal";
 import type { ContextUsageModalPayload } from "./ContextUsageModal.types";

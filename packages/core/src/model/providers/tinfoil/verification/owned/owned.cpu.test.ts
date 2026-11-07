@@ -1,4 +1,4 @@
-import { describe, expect, it, spyOn } from "bun:test";
+import { describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import turin from "./turin-model.fixture.json";
 import intel from "./tdx-model.fixture.json";
@@ -100,7 +100,7 @@ for (const [name, fixture, platform, gpuCount] of [
   describe(`independent ${name} model CPU verification`, () => {
     const f = evidence(fixture);
     it("should verify manufacturer signatures, revocation, policy, software, nonce, keys and GPU evidence offline", async () => {
-      const network = spyOn(globalThis, "fetch").mockRejectedValue(
+      const network = vi.spyOn(globalThis, "fetch").mockRejectedValue(
         new Error("CPU verification must remain offline"),
       );
       try {

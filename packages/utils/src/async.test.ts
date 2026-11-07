@@ -1,6 +1,6 @@
 // Tests for async utilities.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { sleep } from "./async";
 
 describe("sleep", () => {

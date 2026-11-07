@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { createAgent, createSequentialFlow } from "@comma-agents/core";
 import type { Agent, AgentStreamEvent } from "@comma-agents/core";
 import { withConfig, type LogRecord } from "@logtape/logtape";

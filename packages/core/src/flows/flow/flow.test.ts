@@ -1,6 +1,6 @@
 // Tests for buildFlowAgent / createFlow — the core flow API.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createAbortablePromise } from "@comma-agents/utils";
 import type { Agent, AgentCallResult } from "../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../errors/index";

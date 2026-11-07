@@ -1,6 +1,6 @@
 // Tests for token-tracking — createTokenTracker and useTokenTracking.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createAgent } from "../../../agents/agent/agent";
 import type { AgentCallResult } from "../../../agents/agent/agent.types";
 import { hookIntoAgent } from "../../../agents/hook-into-agent/hook-into-agent";

@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { readFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
+import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,7 +57,7 @@ async function waitFor(predicate: () => boolean, timeoutMs = 1_000) {
     if (Date.now() >= deadline) {
       throw new Error(`Condition was not met within ${timeoutMs}ms`);
     }
-    await Bun.sleep(5);
+    await delay(5);
   }
 }
 
@@ -87,9 +89,9 @@ describe("context providers", () => {
 
     expect(lastFrame()).toBe("dark");
     current?.updateConfig({ themeName: "light" });
-    await Bun.sleep(0);
+    await delay(0);
     expect(lastFrame()).toBe("light");
-    expect(JSON.parse(await Bun.file(configFilePath).text())).toEqual({
+    expect(JSON.parse(await readFile(configFilePath, "utf8"))).toEqual({
       themeName: "light",
     });
   });
@@ -209,7 +211,7 @@ describe("context providers", () => {
         },
       ],
     } satisfies Extract<DaemonMessage, { type: "mcp_server_list" }>);
-    await Bun.sleep(0);
+    await delay(0);
 
     expect(lastFrame()).toBe("1");
     expect(current?.servers[0]?.id).toBe("filesystem");
@@ -308,7 +310,7 @@ describe("context providers", () => {
 
     permissionActions?.sendPermissionDecision(chatRun.id, "allow");
     questionActions?.sendQuestionResponse(chatRun.id, "yes");
-    await Bun.sleep(0);
+    await delay(0);
 
     expect(sent).toEqual(
       expect.arrayContaining([

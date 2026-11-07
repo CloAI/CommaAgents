@@ -1,6 +1,6 @@
 // Tests for strategy/schema.ts — Zod schema validation
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { BUILT_IN_TOOL_NAMES } from "../tools/tool.constants";
 import {
   AgentDefSchema,

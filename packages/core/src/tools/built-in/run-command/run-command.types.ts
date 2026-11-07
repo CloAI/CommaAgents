@@ -16,7 +16,7 @@ export interface PlatformInfo {
   readonly shellPath: string;
   /** Argv element used to invoke the shell with a command string. */
   readonly shellFlag: string;
-  /** Runtime identifier: `"bun"` or `"node"` plus version. */
+  /** Runtime identifier: `"node"` plus version. */
   readonly runtime: string;
 }
 

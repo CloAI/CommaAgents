@@ -181,94 +181,125 @@ export function createTinfoilProtectedModel(
         baseURL: "https://inference.tinfoil.sh/v1",
         apiKey: "transport-owned",
         supportsStructuredOutputs: true,
-        fetch: Object.assign(
-          async (
-            input: Parameters<typeof fetch>[0],
-            init?: Parameters<typeof fetch>[1],
-          ) => {
-            assertPrivacyActive(signal);
-            if (
-              String(input) !==
-                "https://inference.tinfoil.sh/v1/chat/completions" ||
-              typeof init?.body !== "string"
-            ) {
-              throw privacyError("PRIVACY_CONFIGURATION_ERROR");
-            }
-            if (
-              Buffer.byteLength(init.body) > options.limits.maxPlaintextBytes
-            ) {
-              throw privacyError("PRIVACY_LIMIT_EXCEEDED");
-            }
-            const requestBody = JSON.parse(init.body) as Record<
-              string,
-              unknown
-            >;
-            if (
-              requestBody.model !== options.modelId ||
-              (requestBody.stream === true) !== (operation === "doStream")
-            ) {
-              throw privacyError("PRIVACY_CONFIGURATION_ERROR");
-            }
-            const outgoing = JSON.stringify({
-              ...requestBody,
-              user_cache_secret:
-                requestBody.user_cache_secret ||
-                process.env.TINFOIL_USER_CACHE_SECRET ||
-                promptCacheSecret,
+        fetch: async (
+          input: Parameters<typeof fetch>[0],
+          init?: Parameters<typeof fetch>[1],
+        ) => {
+          assertPrivacyActive(signal);
+          if (
+            String(input) !==
+              "https://inference.tinfoil.sh/v1/chat/completions" ||
+            typeof init?.body !== "string"
+          ) {
+            throw privacyError("PRIVACY_CONFIGURATION_ERROR");
+          }
+          if (Buffer.byteLength(init.body) > options.limits.maxPlaintextBytes) {
+            throw privacyError("PRIVACY_LIMIT_EXCEEDED");
+          }
+          const requestBody = JSON.parse(init.body) as Record<string, unknown>;
+          if (
+            requestBody.model !== options.modelId ||
+            (requestBody.stream === true) !== (operation === "doStream")
+          ) {
+            throw privacyError("PRIVACY_CONFIGURATION_ERROR");
+          }
+          const outgoing = JSON.stringify({
+            ...requestBody,
+            user_cache_secret:
+              requestBody.user_cache_secret ||
+              process.env.TINFOIL_USER_CACHE_SECRET ||
+              promptCacheSecret,
+          });
+          if (Buffer.byteLength(outgoing) > options.limits.maxPlaintextBytes) {
+            throw privacyError("PRIVACY_LIMIT_EXCEEDED");
+          }
+          for (let attempt = 0; attempt < 2; attempt++) {
+            emit("attestation");
+            verificationFailureReason = undefined;
+            const verification = await verifyTinfoilV3({
+              ...options,
+              signal,
+              onDiagnostic,
+              onFailure(reason) {
+                verificationFailureReason = reason;
+                verificationSteps = { v3: "failed" };
+              },
             });
-            if (
-              Buffer.byteLength(outgoing) > options.limits.maxPlaintextBytes
-            ) {
-              throw privacyError("PRIVACY_LIMIT_EXCEEDED");
-            }
-            for (let attempt = 0; attempt < 2; attempt++) {
-              emit("attestation");
-              verificationFailureReason = undefined;
-              const verification = await verifyTinfoilV3({
-                ...options,
-                signal,
-                onDiagnostic,
-                onFailure(reason) {
-                  verificationFailureReason = reason;
-                  verificationSteps = { v3: "failed" };
-                },
-              });
-              const expiry = verification.freshnessExpiresAt!;
-              freshnessExpiresAt = expiry.toISOString();
-              const measurement = verification.enclaveMeasurement;
-              workloadMeasurements = {
-                ...Object.fromEntries(
-                  Object.entries(measurement).filter(
-                    ([field]) => field !== "type",
-                  ),
+            const expiry = verification.freshnessExpiresAt!;
+            freshnessExpiresAt = expiry.toISOString();
+            const measurement = verification.enclaveMeasurement;
+            workloadMeasurements = {
+              ...Object.fromEntries(
+                Object.entries(measurement).filter(
+                  ([field]) => field !== "type",
                 ),
-                codeDigest: verification.codeDigest,
-                ...(verification.platform
-                  ? { platformDigest: verification.platform.digest }
-                  : {}),
-                ...(verification.runtime
-                  ? { runtimeDigest: verification.runtime.digest }
-                  : {}),
-                ...(verification.config
-                  ? { configDigest: verification.config.digest }
-                  : {}),
-              };
+              ),
+              codeDigest: verification.codeDigest,
+              ...(verification.platform
+                ? { platformDigest: verification.platform.digest }
+                : {}),
+              ...(verification.runtime
+                ? { runtimeDigest: verification.runtime.digest }
+                : {}),
+              ...(verification.config
+                ? { configDigest: verification.config.digest }
+                : {}),
+            };
+            checks = {
+              ...checks,
+              cpu: "passed",
+              freshness: "passed",
+              keyBinding: "passed",
+              workload: "passed",
+            };
+            verificationSteps = {
+              v3: "passed",
+              nonceBinding: "passed",
+              provenance: "passed",
+              platformPolicy: "passed",
+              quote: "passed",
+              keyBinding: "passed",
+              freshness: "passed",
+              workload: "passed",
+            };
+            onDiagnostic({
+              operation: "workload-measurements",
+              status: "succeeded",
+              measurements: workloadMeasurements,
+              verificationSteps,
+            });
+            assertEvidenceCurrent();
+            downstreamVerification = undefined;
+            checks = { ...checks, gpu: "unavailable" };
+            let downstream;
+            try {
+              downstream = await tinfoilDownstream.audit({
+                modelId: options.modelId,
+                router: verification,
+                signal,
+                limits: options.limits,
+                freshnessMaxAgeMs: options.freshnessMaxAgeMs,
+                onDiagnostic,
+              });
+              downstreamVerification = downstream.report;
+              freshnessExpiresAt = new Date(
+                Math.min(expiry.getTime(), downstream.expiresAt),
+              ).toISOString();
               checks = {
                 ...checks,
-                cpu: "passed",
-                freshness: "passed",
-                keyBinding: "passed",
-                workload: "passed",
+                gpu: downstream.report.gpuCount > 0 ? "passed" : "unavailable",
               };
               verificationSteps = {
-                v3: "passed",
-                nonceBinding: "passed",
-                provenance: "passed",
-                platformPolicy: "passed",
-                quote: "passed",
-                keyBinding: "passed",
-                freshness: "passed",
-                workload: "passed",
+                ...verificationSteps,
+                routerAdmission: "passed",
+                downstreamKeyBinding: "passed",
+                downstreamProvenance: "passed",
+                downstreamCpu: "passed",
+                gpuEvidence: checks.gpu,
+              };
+              workloadMeasurements = {
+                ...workloadMeasurements,
+                downstreamPoolDigest: downstream.poolDigest,
               };
               onDiagnostic({
                 operation: "workload-measurements",
@@ -276,203 +307,155 @@ export function createTinfoilProtectedModel(
                 measurements: workloadMeasurements,
                 verificationSteps,
               });
-              assertEvidenceCurrent();
-              downstreamVerification = undefined;
-              checks = { ...checks, gpu: "unavailable" };
-              let downstream;
-              try {
-                downstream = await tinfoilDownstream.audit({
-                  modelId: options.modelId,
-                  router: verification,
-                  signal,
-                  limits: options.limits,
-                  freshnessMaxAgeMs: options.freshnessMaxAgeMs,
-                  onDiagnostic,
-                });
-                downstreamVerification = downstream.report;
-                freshnessExpiresAt = new Date(
-                  Math.min(expiry.getTime(), downstream.expiresAt),
-                ).toISOString();
-                checks = {
-                  ...checks,
-                  gpu:
-                    downstream.report.gpuCount > 0 ? "passed" : "unavailable",
-                };
-                verificationSteps = {
-                  ...verificationSteps,
-                  routerAdmission: "passed",
-                  downstreamKeyBinding: "passed",
-                  downstreamProvenance: "passed",
-                  downstreamCpu: "passed",
-                  gpuEvidence: checks.gpu,
-                };
-                workloadMeasurements = {
-                  ...workloadMeasurements,
-                  downstreamPoolDigest: downstream.poolDigest,
-                };
-                onDiagnostic({
-                  operation: "workload-measurements",
-                  status: "succeeded",
-                  measurements: workloadMeasurements,
-                  verificationSteps,
-                });
-              } catch (error) {
-                const cpuFailed = verificationSteps?.downstreamCpu === "failed";
-                checks = {
-                  ...checks,
-                  gpu: cpuFailed ? "unavailable" : "failed",
-                };
-                verificationSteps = {
-                  ...verificationSteps,
-                  gpuEvidence: cpuFailed ? "unavailable" : "failed",
-                };
-                throw error;
-              }
-              assertEvidenceCurrent();
-              const identity = await Identity.fromPublicKeyHex(
-                verification.hpkePublicKey()!,
-              );
-              const target = "https://inference.tinfoil.sh/v1/chat/completions";
-              const { request, context } =
-                await identity.encryptRequestWithContext(
-                  new Request(target, {
-                    method: "POST",
-                    redirect: "error",
-                    signal,
-                    headers: {
-                      Authorization: `Bearer ${options.apiKey}`,
-                      "Content-Type": "application/json",
-                    },
-                    body: outgoing,
-                  }),
-                );
-              if (!context) {
-                throw privacyError("PRIVACY_BINDING_UNAVAILABLE");
-              }
-              assertEvidenceCurrent();
-              emit("inference");
-              let staleKey = false;
-              const transportFetch = Object.assign(
-                async (
-                  targetInput: Parameters<typeof fetch>[0],
-                  targetInit?: Parameters<typeof fetch>[1],
-                ) => {
-                  const response = await fetch(targetInput, targetInit);
-                  if (
-                    response.status !== 422 ||
-                    response.headers
-                      .get("content-type")
-                      ?.split(";")[0]
-                      ?.trim() !== PROTOCOL.PROBLEM_JSON_MEDIA_TYPE
-                  ) {
-                    return response;
-                  }
-                  const problemBytes = await readPrivacyBody(
-                    response,
-                    Math.min(options.limits.maxWireBytes, 16384),
-                    signal,
-                  );
-                  try {
-                    const problem = JSON.parse(
-                      new TextDecoder().decode(problemBytes),
-                    ) as { type?: unknown };
-                    staleKey =
-                      problem.type === PROTOCOL.KEY_CONFIG_PROBLEM_TYPE;
-                  } catch {
-                    /* Invalid problem details remain an ordinary HTTP rejection. */
-                  }
-                  return new Response(problemBytes, {
-                    status: response.status,
-                    headers: response.headers,
-                  });
-                },
-                { preconnect: fetch.preconnect },
-              );
-              let encryptedBytes: Uint8Array;
-              let wireResponse: Response;
-              try {
-                ({ bytes: encryptedBytes, response: wireResponse } =
-                  await fetchPrivacyBytes(
-                    target,
-                    {
-                      method: "POST",
-                      redirect: "error",
-                      headers: request.headers,
-                      body: await request.arrayBuffer(),
-                    },
-                    {
-                      fetch: transportFetch,
-                      signal,
-                      maxBytes: options.limits.maxWireBytes,
-                      operation: "inference",
-                      onDiagnostic,
-                    },
-                  ));
-              } catch (error) {
-                if (
-                  attempt === 0 &&
-                  staleKey &&
-                  !signal.aborted &&
-                  sanitizePrivacyError(error, signal).code ===
-                    "PRIVACY_PROVIDER_ERROR"
-                ) {
-                  continue;
-                }
-                throw error;
-              }
-              emit("authentication");
-              let bytes: Uint8Array;
-              let response: Response;
-              try {
-                response = await identity.decryptResponseWithContext(
-                  new Response(encryptedBytes, {
-                    status: wireResponse.status,
-                    headers: wireResponse.headers,
-                  }),
-                  context,
-                );
-                bytes = await readPrivacyBody(
-                  response,
-                  options.limits.maxPlaintextBytes,
-                  signal,
-                );
-              } catch (error) {
-                checks = { ...checks, responseBinding: "failed" };
-                const safeError = sanitizePrivacyError(error, signal);
-                if (safeError.code !== "PRIVACY_PROVIDER_ERROR") {
-                  throw safeError;
-                }
-                throw privacyError("PRIVACY_RESPONSE_AUTHENTICATION_FAILED");
-              }
-              assertEvidenceCurrent();
+            } catch (error) {
+              const cpuFailed = verificationSteps?.downstreamCpu === "failed";
               checks = {
                 ...checks,
-                responseBinding: "passed",
-                encryption: "passed",
+                gpu: cpuFailed ? "unavailable" : "failed",
               };
-              try {
-                await downstream.assertCurrentPool();
-                verificationSteps = {
-                  ...verificationSteps,
-                  admittedPoolBinding: "passed",
-                };
-              } catch (error) {
-                checks = { ...checks, gpu: "failed" };
-                verificationSteps = {
-                  ...verificationSteps,
-                  admittedPoolBinding: "failed",
-                };
-                throw error;
-              }
-              assertEvidenceCurrent();
-              const headers = new Headers(response.headers);
-              headers.delete("content-length");
-              return new Response(bytes, { status: response.status, headers });
+              verificationSteps = {
+                ...verificationSteps,
+                gpuEvidence: cpuFailed ? "unavailable" : "failed",
+              };
+              throw error;
             }
-            throw privacyError("PRIVACY_PROVIDER_ERROR");
-          },
-          { preconnect: fetch.preconnect },
-        ),
+            assertEvidenceCurrent();
+            const identity = await Identity.fromPublicKeyHex(
+              verification.hpkePublicKey()!,
+            );
+            const target = "https://inference.tinfoil.sh/v1/chat/completions";
+            const { request, context } =
+              await identity.encryptRequestWithContext(
+                new Request(target, {
+                  method: "POST",
+                  redirect: "error",
+                  signal,
+                  headers: {
+                    Authorization: `Bearer ${options.apiKey}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: outgoing,
+                }),
+              );
+            if (!context) {
+              throw privacyError("PRIVACY_BINDING_UNAVAILABLE");
+            }
+            assertEvidenceCurrent();
+            emit("inference");
+            let staleKey = false;
+            const transportFetch = async (
+              targetInput: Parameters<typeof fetch>[0],
+              targetInit?: Parameters<typeof fetch>[1],
+            ) => {
+              const response = await fetch(targetInput, targetInit);
+              if (
+                response.status !== 422 ||
+                response.headers.get("content-type")?.split(";")[0]?.trim() !==
+                  PROTOCOL.PROBLEM_JSON_MEDIA_TYPE
+              ) {
+                return response;
+              }
+              const problemBytes = await readPrivacyBody(
+                response,
+                Math.min(options.limits.maxWireBytes, 16384),
+                signal,
+              );
+              try {
+                const problem = JSON.parse(
+                  new TextDecoder().decode(problemBytes),
+                ) as { type?: unknown };
+                staleKey = problem.type === PROTOCOL.KEY_CONFIG_PROBLEM_TYPE;
+              } catch {
+                /* Invalid problem details remain an ordinary HTTP rejection. */
+              }
+              return new Response(problemBytes, {
+                status: response.status,
+                headers: response.headers,
+              });
+            };
+            let encryptedBytes: Uint8Array;
+            let wireResponse: Response;
+            try {
+              ({ bytes: encryptedBytes, response: wireResponse } =
+                await fetchPrivacyBytes(
+                  target,
+                  {
+                    method: "POST",
+                    redirect: "error",
+                    headers: request.headers,
+                    body: await request.arrayBuffer(),
+                  },
+                  {
+                    fetch: transportFetch,
+                    signal,
+                    maxBytes: options.limits.maxWireBytes,
+                    operation: "inference",
+                    onDiagnostic,
+                  },
+                ));
+            } catch (error) {
+              if (
+                attempt === 0 &&
+                staleKey &&
+                !signal.aborted &&
+                sanitizePrivacyError(error, signal).code ===
+                  "PRIVACY_PROVIDER_ERROR"
+              ) {
+                continue;
+              }
+              throw error;
+            }
+            emit("authentication");
+            let bytes: Uint8Array;
+            let response: Response;
+            try {
+              response = await identity.decryptResponseWithContext(
+                new Response(encryptedBytes, {
+                  status: wireResponse.status,
+                  headers: wireResponse.headers,
+                }),
+                context,
+              );
+              bytes = await readPrivacyBody(
+                response,
+                options.limits.maxPlaintextBytes,
+                signal,
+              );
+            } catch (error) {
+              checks = { ...checks, responseBinding: "failed" };
+              const safeError = sanitizePrivacyError(error, signal);
+              if (safeError.code !== "PRIVACY_PROVIDER_ERROR") {
+                throw safeError;
+              }
+              throw privacyError("PRIVACY_RESPONSE_AUTHENTICATION_FAILED");
+            }
+            assertEvidenceCurrent();
+            checks = {
+              ...checks,
+              responseBinding: "passed",
+              encryption: "passed",
+            };
+            try {
+              await downstream.assertCurrentPool();
+              verificationSteps = {
+                ...verificationSteps,
+                admittedPoolBinding: "passed",
+              };
+            } catch (error) {
+              checks = { ...checks, gpu: "failed" };
+              verificationSteps = {
+                ...verificationSteps,
+                admittedPoolBinding: "failed",
+              };
+              throw error;
+            }
+            assertEvidenceCurrent();
+            const headers = new Headers(response.headers);
+            headers.delete("content-length");
+            return new Response(bytes, { status: response.status, headers });
+          }
+          throw privacyError("PRIVACY_PROVIDER_ERROR");
+        },
       }).chatModel(options.modelId);
       if (operation === "doGenerate") {
         const result = await model.doGenerate(parameters);

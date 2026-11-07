@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 // Integration tests for the WebSocket server (createDaemon).
 //
 // These tests use real Bun WebSocket connections, real strategy files with
@@ -12,7 +14,7 @@ import {
   describe,
   expect,
   it,
-} from "bun:test";
+} from "vitest";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -239,9 +241,8 @@ afterEach(async () => {
   // Clean up temp files
   for (const f of tempFiles) {
     try {
-      const file = Bun.file(f);
-      if (await file.exists()) {
-        await Bun.write(f, "");
+      if (existsSync(f)) {
+        await writeFile(f, "");
       }
     } catch {
       // Ignore

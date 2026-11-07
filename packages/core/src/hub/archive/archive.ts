@@ -1,3 +1,4 @@
+import { gunzipSync } from "node:zlib";
 import { createWriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
@@ -12,9 +13,7 @@ export async function extractHubPackageArchive(
   packageName: string,
   destination: string,
 ): Promise<void> {
-  const unpackedArchive = Bun.gunzipSync(
-    compressedArchive.buffer as ArrayBuffer,
-  );
+  const unpackedArchive = gunzipSync(compressedArchive);
   const archive = extract();
   const packageMarker = `/packages/${packageName}/`;
   let fileCount = 0;

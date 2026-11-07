@@ -1,7 +1,12 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
+import { fileURLToPath } from "node:url";
 import { runStandaloneDaemonCli } from "./daemon-cli";
 
 runStandaloneDaemonCli({
-  foregroundCommand: [process.execPath, "run", import.meta.path],
+  foregroundCommand: [
+    process.execPath,
+    ...(import.meta.url.endsWith(".ts") ? ["--import", "tsx"] : []),
+    fileURLToPath(import.meta.url),
+  ],
 });

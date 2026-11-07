@@ -1,4 +1,4 @@
-import { sleep } from "bun";
+import { setTimeout as sleep } from "node:timers/promises";
 import { loadDaemonConfig } from "../../../config";
 import {
   DEFAULT_DAEMON_POLL_INTERVAL_MS,

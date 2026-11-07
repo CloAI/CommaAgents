@@ -6,7 +6,7 @@
  * answer questions about the local project.
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/02-agent-with-tools.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/02-agent-with-tools.ts
  *
  * Concepts:
  *   - Passing tools as string names to createAgent via the `tools` config

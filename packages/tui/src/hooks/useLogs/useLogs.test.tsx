@@ -6,7 +6,7 @@ import {
   describe,
   expect,
   it,
-} from "bun:test";
+} from "vitest";
 import { Text } from "ink";
 import { render } from "ink-testing-library";
 import type React from "react";

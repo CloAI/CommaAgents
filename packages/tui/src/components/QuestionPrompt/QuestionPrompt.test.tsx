@@ -1,11 +1,11 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, vi } from "vitest";
 import { render } from "ink-testing-library";
 import { QuestionPrompt, QuestionPromptRender } from "./QuestionPrompt";
 
 describe("QuestionPromptRender", () => {
   it("should render actor name and question asks text", () => {
-    const onSubmit = mock(() => {});
-    const onInputValueChange = mock(() => {});
+    const onSubmit = vi.fn(() => {});
+    const onInputValueChange = vi.fn(() => {});
     const colors = {
       primary: "cyan",
       secondary: "gray",
@@ -33,7 +33,7 @@ describe("QuestionPromptRender", () => {
 
 describe("QuestionPrompt integration", () => {
   it("should render integrated QuestionPrompt container", () => {
-    const onSubmit = mock(() => {});
+    const onSubmit = vi.fn(() => {});
     const request = {
       type: "request_question" as const,
       ts: "2026-06-09T12:00:00.000Z",
@@ -56,7 +56,7 @@ describe("QuestionPrompt integration", () => {
   });
 
   it("should render without tool name correctly", () => {
-    const onSubmit = mock(() => {});
+    const onSubmit = vi.fn(() => {});
     const request = {
       type: "request_question" as const,
       ts: "2026-06-09T12:00:00.000Z",

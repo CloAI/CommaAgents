@@ -1,4 +1,9 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { createServer } from "node:net";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { afterEach, describe, expect, it } from "vitest";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -161,8 +166,9 @@ describe("daemon process utils", () => {
 describe("daemon kernel process startup", () => {
   it("should reject invalid restart console flags before stopping an existing process", async () => {
     const directory = createTempDir();
-    const child = Bun.spawn(
-      [process.execPath, "--eval", "setInterval(() => {}, 1000)"],
+    const child = spawn(
+      process.execPath,
+      ["--eval", "setInterval(() => {}, 1000)"],
       { stdio: ["ignore", "ignore", "ignore"] },
     );
     const env = createEnv(directory);
@@ -171,13 +177,13 @@ describe("daemon kernel process startup", () => {
       await expect(
         restartDaemonProcess({ console: true, env }),
       ).rejects.toThrow("--foreground");
-      expect(() => process.kill(child.pid, 0)).not.toThrow();
-      expect(await Bun.file(env.COMMA_DAEMON_PID_FILE!).text()).toBe(
+      expect(() => process.kill(child.pid!, 0)).not.toThrow();
+      expect(await readFile(env.COMMA_DAEMON_PID_FILE!, "utf8")).toBe(
         String(child.pid),
       );
     } finally {
       child.kill();
-      await child.exited;
+      await once(child, "exit").then(([code]) => code);
       resetDaemonDefaultOverrides();
     }
   });
@@ -223,7 +229,7 @@ describe("daemon kernel process startup", () => {
       });
       expect(started.message).toBe("Daemon may still be starting");
     } finally {
-      const childPid = Number(await Bun.file(childPidFile).text());
+      const childPid = Number(await readFile(childPidFile, "utf8"));
       process.kill(childPid, "SIGTERM");
       rmSync(pidFile, { force: true });
       resetDaemonDefaultOverrides();
@@ -251,15 +257,13 @@ describe("daemon kernel process startup", () => {
 
   it("should start the real CLI in the background with the supplied environment and release its PID on stop", async () => {
     const directory = createTempDir();
-    const reservation = Bun.serve({
-      port: 0,
-      hostname: "127.0.0.1",
-      fetch() {
-        return new Response();
-      },
-    });
-    const port = reservation.port!;
-    await reservation.stop(true);
+    const reservation = createServer();
+    reservation.listen(0, "127.0.0.1");
+    await once(reservation, "listening");
+    const port = (reservation.address() as { port: number }).port;
+    await new Promise<void>((resolve, reject) =>
+      reservation.close((error) => (error ? reject(error) : resolve())),
+    );
     const env = {
       ...process.env,
       ...createEnv(directory),
@@ -281,12 +285,10 @@ describe("daemon kernel process startup", () => {
       });
       expect(started.message).toContain("Daemon started in background");
       expect((await stopDaemonProcess({ env })).stopped).toBe(true);
-      expect(await Bun.file(join(directory, "daemon.log")).text()).toContain(
+      expect(await readFile(join(directory, "daemon.log"), "utf8")).toContain(
         "Daemon listening at ws://127.0.0.1:",
       );
-      expect(await Bun.file(join(directory, "daemon.pid")).exists()).toBe(
-        false,
-      );
+      expect(await existsSync(join(directory, "daemon.pid"))).toBe(false);
     } finally {
       await stopDaemonProcess({ env });
       resetDaemonDefaultOverrides();

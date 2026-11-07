@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { createDaemonServer } from "./daemon-server";
 import type { DaemonServer } from "./daemon-server.types";
 import { connectSocket, counterPlugin } from "./test.utils";
@@ -372,5 +372,149 @@ describe("createDaemonServer", () => {
       ok: false,
       error: { code: "UNKNOWN_BINDING" },
     });
+  });
+
+  it("should preserve HTTP routing without exposing legacy health checks", async () => {
+    const server = createDaemonServer({ daemon: { plugins: {} }, port: 0 });
+    servers.push(server);
+    await server.start();
+    const origin = server.url.replace("ws:", "http:").replace(/\/ws$/, "");
+    const upgrade = await fetch(`${origin}/ws`);
+    expect(upgrade.status).toBe(400);
+    expect(await upgrade.text()).toBe("WebSocket upgrade required");
+    for (const path of ["/health", "/missing"]) {
+      const response = await fetch(`${origin}${path}`);
+      expect(response.status).toBe(404);
+      expect(await response.text()).toBe("Not Found");
+    }
+  });
+
+  it("should close malformed and binary messages and clean up their subscriptions", async () => {
+    const { plugin, context } = counterPlugin();
+    const server = createDaemonServer({
+      daemon: { plugins: { counter: plugin } },
+      port: 0,
+    });
+    servers.push(server);
+    await server.start();
+    for (const payload of ["{", new Uint8Array([123, 125])]) {
+      const client = await connectSocket(server.url);
+      client.send({
+        type: "subscribe",
+        requestId: crypto.randomUUID(),
+        channel: "counter.watch",
+        arguments: {},
+      });
+      await client.next();
+      await client.next();
+      client.socket.send(payload);
+      expect((await client.closed).code).toBe(1008);
+      expect(context.listeners.size).toBe(0);
+    }
+    expect(context.cleanups).toBe(2);
+  });
+
+  it("should reject occupied ports and allow the failed listener to retry", async () => {
+    const first = createDaemonServer({ daemon: { plugins: {} }, port: 0 });
+    servers.push(first);
+    await first.start();
+    const port = first.port;
+    const second = createDaemonServer({ daemon: { plugins: {} }, port });
+    servers.push(second);
+    await expect(second.start()).rejects.toThrow("Failed to listen");
+    expect(second.port).toBe(0);
+    await first.stop();
+    await second.start();
+    expect(second.port).toBe(port);
+    const client = await connectSocket(second.url);
+    client.socket.close();
+    await client.closed;
+  });
+
+  it("should close active clients with 1001 and restart without reusing closed sockets", async () => {
+    const { plugin, context } = counterPlugin();
+    const server = createDaemonServer({
+      daemon: { plugins: { counter: plugin } },
+      port: 0,
+    });
+    servers.push(server);
+    await server.start();
+    const first = await connectSocket(server.url);
+    first.send({
+      type: "subscribe",
+      requestId: crypto.randomUUID(),
+      channel: "counter.watch",
+      arguments: {},
+    });
+    await first.next();
+    await first.next();
+    await server.stop();
+    expect((await first.closed).code).toBe(1001);
+    expect(server.port).toBe(0);
+    expect(context.cleanups).toBe(1);
+    await server.start();
+    const second = await connectSocket(server.url);
+    second.send({
+      type: "command",
+      requestId: crypto.randomUUID(),
+      command: "counter.add",
+      arguments: { value: 5 },
+    });
+    expect(await second.next()).toMatchObject({
+      type: "response",
+      ok: true,
+      data: 5,
+    });
+    expect(context.cleanups).toBe(1);
+  });
+
+  it("should close a slow consumer with 1013 and release its channel", async () => {
+    let publish: ((payload: string) => void) | undefined;
+    let cleanups = 0;
+    const plugin = createPlugin({
+      name: "pressure",
+      async cleanup() {},
+      server: {
+        channels: [
+          defineChannel({
+            name: "pressure.watch",
+            arguments: z.object({}).strict(),
+            message: z
+              .object({ type: z.literal("pressure.data"), data: z.string() })
+              .strict(),
+            open({ channel }) {
+              publish = (payload) =>
+                channel.send({ type: "pressure.data", data: payload });
+              return {
+                cleanup() {
+                  cleanups++;
+                },
+              };
+            },
+          }),
+        ],
+      },
+    });
+    const server = createDaemonServer({
+      daemon: { plugins: { pressure: plugin } },
+      port: 0,
+    });
+    servers.push(server);
+    await server.start();
+    const client = await connectSocket(server.url);
+    client.send({
+      type: "subscribe",
+      requestId: crypto.randomUUID(),
+      channel: "pressure.watch",
+      arguments: {},
+    });
+    await client.next();
+    // A synchronous burst prevents the client from draining while the server exceeds its buffer limit.
+    const payload = "x".repeat(64 * 1024);
+    for (let index = 0; index < 1024; index++) {
+      publish?.(payload);
+    }
+    expect((await client.closed).code).toBe(1013);
+    expect(cleanups).toBe(1);
   });
 });

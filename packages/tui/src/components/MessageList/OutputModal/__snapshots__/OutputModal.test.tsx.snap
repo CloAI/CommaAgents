@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`OutputModalRender snapshots empty query — renders all lines verbatim 1`] = `
+exports[`OutputModalRender > snapshots > empty query — renders all lines verbatim 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ › regex…                                                                                         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -10,7 +10,7 @@ exports[`OutputModalRender snapshots empty query — renders all lines verbatim 
    3 gamma"
 `;
 
-exports[`OutputModalRender snapshots with matches — filters and highlights 1`] = `
+exports[`OutputModalRender > snapshots > with matches — filters and highlights 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ › match                                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -19,7 +19,7 @@ exports[`OutputModalRender snapshots with matches — filters and highlights 1`]
    4 another match"
 `;
 
-exports[`OutputModalRender snapshots no matches — empty state row 1`] = `
+exports[`OutputModalRender > snapshots > no matches — empty state row 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ › ZZZ                                                                                            │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -27,7 +27,7 @@ exports[`OutputModalRender snapshots no matches — empty state row 1`] = `
 — no matches"
 `;
 
-exports[`OutputModalRender snapshots invalid regex — error status, no filter 1`] = `
+exports[`OutputModalRender > snapshots > invalid regex — error status, no filter 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ › [oops                                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

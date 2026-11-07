@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import {
   collectReleaseManifestErrors,
   parseReleaseTag,
@@ -76,8 +76,7 @@ describe("release version utilities", () => {
       [
         {
           path: "packages/core/package.json",
-          contents:
-            '{"name":"@comma-agents/core","version":"2.0.0-rc.1"}',
+          contents: '{"name":"@comma-agents/core","version":"2.0.0-rc.1"}',
         },
       ],
       "2.0.0-rc.2",

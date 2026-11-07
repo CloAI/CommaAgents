@@ -1,16 +1,17 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { defaultInputCollector } from "./user-agent.utils";
 
-const originalPrompt = globalThis.prompt;
+const promptGlobal = globalThis as typeof globalThis & { prompt?: (message?: string) => string | null };
+const originalPrompt = promptGlobal.prompt;
 
 afterEach(() => {
-  globalThis.prompt = originalPrompt;
+  promptGlobal.prompt = originalPrompt;
 });
 
 describe("defaultInputCollector", () => {
   it("passes the request prompt to the global prompt function", async () => {
     let receivedPrompt: string | undefined;
-    globalThis.prompt = (message?: string) => {
+    promptGlobal.prompt = (message?: string) => {
       receivedPrompt = message;
       return "answer";
     };
@@ -25,7 +26,7 @@ describe("defaultInputCollector", () => {
   });
 
   it("returns an empty string when the global prompt is cancelled", async () => {
-    globalThis.prompt = () => null;
+    promptGlobal.prompt = () => null;
 
     const result = await defaultInputCollector({
       agentName: "user",

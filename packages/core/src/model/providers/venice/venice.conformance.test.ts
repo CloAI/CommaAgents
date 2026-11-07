@@ -1,6 +1,6 @@
 import type { VeniceWorkloadMeasurements } from "./venice.types";
 import { DEFAULT_NRAS_URL, DEFAULT_PCCS_URL } from "./venice.constants";
-import { expect, test } from "bun:test";
+import { expect, test } from "vitest";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { DEFAULT_PRIVACY_LIMITS } from "../../privacy/privacy.constants";

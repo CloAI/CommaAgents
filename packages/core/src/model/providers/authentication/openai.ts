@@ -241,42 +241,39 @@ export function createOpenAISubscriptionProvider(
   const provider = createOpenAI({
     apiKey: "oauth-managed-by-core",
     baseURL: OPENAI_RESOURCE,
-    fetch: Object.assign(
-      async (
-        input: Parameters<typeof fetch>[0],
-        options?: Parameters<typeof fetch>[1],
-      ) => {
-        if (String(input) !== `${OPENAI_RESOURCE}/responses`) {
-          throw authenticationError(
-            "ChatGPT subscription usage requires the Responses API.",
-          );
-        }
-        const effective = await store.resolve("openai");
-        if (
-          effective?.type !== "oauth" ||
-          effective.metadata?.clientId !== clientId
-        ) {
-          throw authenticationError(
-            "ChatGPT configuration changed. Resolve the model again.",
-          );
-        }
-        const current = await refreshOpenAICredential(effective, store);
-        const body: Record<string, unknown> = JSON.parse(String(options?.body));
-        const streaming = body.stream === true;
-        const headers = new Headers(options?.headers);
-        headers.set("Authorization", `Bearer ${current.accessToken}`);
-        const response = await fetch(`${OPENAI_RESOURCE}/responses`, {
-          ...options,
-          headers,
-          redirect: "error",
-          body: JSON.stringify({ ...body, store: false, stream: true }),
-        });
-        return !response.ok
-          ? response
-          : subscriptionResponse(response, streaming);
-      },
-      { preconnect: fetch.preconnect },
-    ),
+    fetch: async (
+      input: Parameters<typeof fetch>[0],
+      options?: Parameters<typeof fetch>[1],
+    ) => {
+      if (String(input) !== `${OPENAI_RESOURCE}/responses`) {
+        throw authenticationError(
+          "ChatGPT subscription usage requires the Responses API.",
+        );
+      }
+      const effective = await store.resolve("openai");
+      if (
+        effective?.type !== "oauth" ||
+        effective.metadata?.clientId !== clientId
+      ) {
+        throw authenticationError(
+          "ChatGPT configuration changed. Resolve the model again.",
+        );
+      }
+      const current = await refreshOpenAICredential(effective, store);
+      const body: Record<string, unknown> = JSON.parse(String(options?.body));
+      const streaming = body.stream === true;
+      const headers = new Headers(options?.headers);
+      headers.set("Authorization", `Bearer ${current.accessToken}`);
+      const response = await fetch(`${OPENAI_RESOURCE}/responses`, {
+        ...options,
+        headers,
+        redirect: "error",
+        body: JSON.stringify({ ...body, store: false, stream: true }),
+      });
+      return !response.ok
+        ? response
+        : subscriptionResponse(response, streaming);
+    },
   });
   return (modelId: string) =>
     wrapLanguageModel({

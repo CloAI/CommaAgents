@@ -20,14 +20,11 @@ jobs:
     environment: npm-release
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: 1.3.10
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 24
-      - run: npm install --global npm@11.5.1
-      - run: bun install --frozen-lockfile
+          node-version: 26
+      - run: npm install --global npm@11.20.0 pnpm@10.30.0
+      - run: pnpm install --frozen-lockfile
       - name: Validate release tag
         shell: bash
         run: |
@@ -36,25 +33,8 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match package version v$version" >&2
             exit 1
           fi
-      - run: bun run build
-      - run: bun test packages/cli/src packages/daemon/src/daemon-control packages/core/src/abortable
-      - run: bun run --cwd packages/cli build:standalone all
-      - name: Package standalone executables
-        shell: bash
-        run: |
-          mkdir -p artifacts
-          for target in darwin-arm64 darwin-x64 linux-arm64 linux-arm64-musl linux-x64 linux-x64-musl; do
-            tar -C "packages/cli/dist/standalone/$target" -czf "artifacts/comma-$target.tar.gz" comma
-          done
-          for target in windows-arm64 windows-x64; do
-            zip -j "artifacts/comma-$target.zip" "packages/cli/dist/standalone/$target/comma.exe"
-          done
-          (cd artifacts && sha256sum comma-* > SHA256SUMS)
-      - name: Attest standalone artifacts
-        if: github.event.repository.visibility == 'public'
-        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
-        with:
-          subject-path: artifacts/*
+      - run: pnpm build
+      - run: pnpm exec vitest run packages/cli/src packages/daemon/src/daemon-control packages/core/src/abortable
       - name: Prepare draft GitHub release
         shell: bash
         env:
@@ -73,7 +53,6 @@ jobs:
           else
             gh release create "$tag" --draft --generate-notes "${prerelease[@]}"
           fi
-          gh release upload "$tag" artifacts/* --clobber
       - name: Publish npm packages with trusted publishing
         shell: bash
         run: |

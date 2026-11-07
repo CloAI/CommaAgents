@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -34,7 +34,7 @@ beforeEach(async () => {
   setProviderSettingsPath(join(directory, "settings.json"));
   resetCatalog();
   resetProviderRegistry();
-  spyOn(globalThis, "fetch").mockResolvedValue(
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
     new Response(null, { status: 503 }),
   );
   await reloadProviderSettings();
@@ -59,7 +59,7 @@ afterEach(async () => {
 describe("core.providers.refresh", () => {
   it("should take no arguments and delegate the refresh", async () => {
     const plugin = createCorePlugin();
-    const refresh = spyOn(plugin.providers, "refresh").mockResolvedValue();
+    const refresh = vi.spyOn(plugin.providers, "refresh").mockResolvedValue();
     const command = plugin.server.commands.find(
       (entry) => entry.name === "core.providers.refresh",
     )!;
@@ -118,7 +118,7 @@ describe("core.providers.refresh", () => {
       type: "api",
       key: "refresh-secret",
     });
-    spyOn(globalThis, "fetch").mockImplementation(
+    vi.spyOn(globalThis, "fetch").mockImplementation(
       Object.assign(
         async (input: Parameters<typeof fetch>[0]) => {
           if (!String(input).includes("models.dev")) {
@@ -167,7 +167,7 @@ describe("core.providers.refresh", () => {
             },
           });
         },
-        { preconnect: originalFetch.preconnect },
+        {},
       ),
     );
     const kernel = await createDaemonKernel({
@@ -219,7 +219,7 @@ describe("core.providers.refresh", () => {
       expect(getProvidersForModel("new-refresh-model")).toEqual([
         "new-refresh-provider",
       ]);
-      spyOn(globalThis, "fetch").mockResolvedValue(
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
         new Response(null, { status: 503 }),
       );
       await kernel.plugins.core.providers.refresh();

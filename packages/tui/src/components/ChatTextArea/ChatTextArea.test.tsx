@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, vi } from "vitest";
 import { render } from "ink-testing-library";
 
 import { ChatTextArea, ChatTextAreaRender } from "./ChatTextArea";
@@ -8,8 +8,8 @@ describe("ChatTextAreaRender", () => {
     const { lastFrame } = render(
       <ChatTextAreaRender
         inputValue=""
-        onInputChange={mock()}
-        onSubmit={mock()}
+        onInputChange={vi.fn()}
+        onSubmit={vi.fn()}
         strategyLabel="Plan"
         strategyDescription="Break a goal into steps"
         width={60}
@@ -27,8 +27,8 @@ describe("ChatTextAreaRender", () => {
     const { lastFrame } = render(
       <ChatTextAreaRender
         inputValue=""
-        onInputChange={mock()}
-        onSubmit={mock()}
+        onInputChange={vi.fn()}
+        onSubmit={vi.fn()}
         strategyLabel="Plan"
         strategyDescription="Break a goal into steps"
         width={60}
@@ -46,8 +46,8 @@ describe("ChatTextAreaRender", () => {
     const { lastFrame } = render(
       <ChatTextAreaRender
         inputValue=""
-        onInputChange={mock()}
-        onSubmit={mock()}
+        onInputChange={vi.fn()}
+        onSubmit={vi.fn()}
         strategyLabel="Plan"
         strategyDescription="Break a goal into steps"
         width={60}
@@ -64,8 +64,8 @@ describe("ChatTextAreaRender", () => {
     const { lastFrame } = render(
       <ChatTextAreaRender
         inputValue=""
-        onInputChange={mock()}
-        onSubmit={mock()}
+        onInputChange={vi.fn()}
+        onSubmit={vi.fn()}
         strategyLabel="Plan"
         strategyDescription="Break a goal into steps"
         width={60}
@@ -83,8 +83,8 @@ describe("ChatTextAreaRender", () => {
     const { lastFrame } = render(
       <ChatTextAreaRender
         inputValue=""
-        onInputChange={mock()}
-        onSubmit={mock()}
+        onInputChange={vi.fn()}
+        onSubmit={vi.fn()}
         strategyLabel="Build"
         strategyDescription="Describe what to build"
         width={60}
@@ -103,7 +103,7 @@ describe("ChatTextArea", () => {
     const { lastFrame } = render(
       <ChatTextArea
         strategies={[]}
-        onSubmit={mock()}
+        onSubmit={vi.fn()}
         id="chat"
         width={60}
         height={3}
@@ -121,7 +121,7 @@ describe("ChatTextArea", () => {
         strategies={[]}
         emptyStrategyLabel="No bundled strategies found"
         emptyPlaceholder="Check the package install."
-        onSubmit={mock()}
+        onSubmit={vi.fn()}
         id="chat"
         width={60}
         height={3}
@@ -154,7 +154,7 @@ describe("ChatTextArea", () => {
           },
         ]}
         initialStrategyPath="/plan.json"
-        onSubmit={mock()}
+        onSubmit={vi.fn()}
         id="chat"
         width={60}
         height={3}

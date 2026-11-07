@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import fixture from "../production-v3.fixture.json";

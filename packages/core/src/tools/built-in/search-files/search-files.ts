@@ -1,5 +1,6 @@
+import { compileGlob } from "../../../glob/glob";
 import type { Dirent } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { z } from "zod";
 import { SandboxViolationError } from "../../../errors";
@@ -46,13 +47,13 @@ const searchFilesParams = z.object({
     .array(z.string())
     .optional()
     .describe(
-      "When set, only paths matching at least one of these Bun.Glob patterns are considered.",
+      "When set, only paths matching at least one of these glob patterns are considered.",
     ),
   excludeGlobs: z
     .array(z.string())
     .optional()
     .describe(
-      "Bun.Glob patterns to exclude. Replaces the default exclude set " +
+      "glob patterns to exclude. Replaces the default exclude set " +
         "(node_modules, .git, dist, build, .next, .turbo, coverage). Pass [] to disable.",
     ),
   maxResults: z
@@ -95,7 +96,7 @@ export function createSearchFilesTool(
           type: '"path" | "text" | "regex"',
           required: true,
           description:
-            '"path" matches file paths against a Bun.Glob; "text" searches file contents for a literal substring; "regex" compiles `query` as a JS regex with the "m" flag so ^/$ anchor on lines.',
+            '"path" matches file paths against a glob pattern; "text" searches file contents for a literal substring; "regex" compiles `query` as a JS regex with the "m" flag so ^/$ anchor on lines.',
         },
         {
           name: "root",
@@ -213,7 +214,7 @@ export function createSearchFilesTool(
         compiledRegex = compiled.regex;
       }
       const pathGlob =
-        mode === "path" ? new Bun.Glob(validatedArguments.query) : undefined;
+        mode === "path" ? compileGlob(validatedArguments.query) : undefined;
 
       let absoluteRoot: string;
       try {
@@ -311,7 +312,7 @@ export function createSearchFilesTool(
           }
 
           if (mode === "path") {
-            if (pathGlob?.match(relFromRoot)) {
+            if (pathGlob?.(relFromRoot)) {
               filesScanned++;
               if (matches.length >= maxResults) {
                 truncated = true;
@@ -334,7 +335,7 @@ export function createSearchFilesTool(
 
           let buffer: Uint8Array;
           try {
-            buffer = new Uint8Array(await Bun.file(childAbs).arrayBuffer());
+            buffer = new Uint8Array(await readFile(childAbs));
           } catch {
             continue;
           }

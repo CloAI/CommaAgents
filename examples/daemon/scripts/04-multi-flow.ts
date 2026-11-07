@@ -11,13 +11,13 @@
  *   - List active strategies with `list_strategies`
  *
  * Prerequisites:
- *   1. Start the daemon: bun run --cwd packages/daemon start
+ *   1. Start the daemon: pnpm --dir packages/daemon start
  *   2. Ensure strategy files exist (or use the defaults below)
  *   3. Set up provider API keys (e.g., OPENAI_API_KEY)
  *
  * Run:
- *   bun run examples/04-multi-flow.ts [strategy-path]
- *   bun run examples/04-multi-flow.ts --daemon-url ws://localhost:8080/ws
+ *   pnpm exec tsx examples/04-multi-flow.ts [strategy-path]
+ *   pnpm exec tsx examples/04-multi-flow.ts --daemon-url ws://localhost:8080/ws
  *
  * Concepts:
  *   - Concurrent strategy execution
@@ -32,7 +32,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 const DEFAULT_STRATEGY = path.resolve(
-  import.meta.dir,
+  import.meta.dirname,
   "../../core/strategies/simple/strategy.json",
 );
 

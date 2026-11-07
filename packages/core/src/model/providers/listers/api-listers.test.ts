@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, describe, expect, vi, test } from "vitest";
 import { getProviderDefinition, resetProviderRegistry } from "../providers";
 import { refreshAndListProviderModels } from "../test.utils";
 import { listAnthropicModels } from "./anthropic";
@@ -15,7 +15,7 @@ afterEach(() => {
 
 describe("API model discovery", () => {
   test("should preserve OpenAI subscription discovery for OAuth credentials", async () => {
-    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValue(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({
         models: [
           {
@@ -86,7 +86,7 @@ describe("API model discovery", () => {
     },
   ]) {
     test(`should discover ${provider.id} models through its registered lister`, async () => {
-      const fetchMock = spyOn(globalThis, "fetch").mockResolvedValue(
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
         Response.json(provider.payload),
       );
       expect((await getProviderDefinition(provider.id))?.listModels).toBe(
@@ -108,7 +108,7 @@ describe("API model discovery", () => {
     });
 
     test(`should reject invalid ${provider.id} credentials before fetching`, async () => {
-      const fetchMock = spyOn(globalThis, "fetch");
+      const fetchMock = vi.spyOn(globalThis, "fetch");
       for (const invalidCredential of [
         undefined,
         { type: "api", key: "" },
@@ -122,7 +122,7 @@ describe("API model discovery", () => {
     });
 
     test(`should honor ${provider.id} base URL and cancellation overrides`, async () => {
-      const fetchMock = spyOn(globalThis, "fetch").mockResolvedValue(
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
         Response.json(provider.payload),
       );
       const signal = new AbortController().signal;
@@ -139,7 +139,7 @@ describe("API model discovery", () => {
     });
 
     test(`should report ${provider.id} HTTP errors and fall back to catalog models`, async () => {
-      spyOn(globalThis, "fetch").mockResolvedValue(
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
         new Response(null, { status: 401, statusText: "Unauthorized" }),
       );
       await expect(provider.listModels({ credential })).rejects.toThrow(
@@ -154,7 +154,7 @@ describe("API model discovery", () => {
   }
 
   test("should follow Anthropic cursors and preserve names and token limits", async () => {
-    const fetchMock = spyOn(globalThis, "fetch")
+    const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         Response.json({
           data: [
@@ -196,7 +196,7 @@ describe("API model discovery", () => {
   });
 
   test("should follow Google pages, filter embeddings, and normalize metadata", async () => {
-    const fetchMock = spyOn(globalThis, "fetch")
+    const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         Response.json({
           models: [
@@ -248,18 +248,18 @@ describe("API model discovery", () => {
   });
 
   test("should accept an empty Google ProtoJSON response", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
     expect(await listGoogleModels({ credential })).toEqual([]);
   });
 
   test("should reject incomplete or cyclic pagination instead of returning partial lists", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValueOnce(
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       Response.json({ data: [], has_more: true }),
     );
     await expect(listAnthropicModels({ credential })).rejects.toThrow(
       "pagination cursor",
     );
-    const fetchMock = spyOn(globalThis, "fetch")
+    const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json({ nextPageToken: "repeat" }))
       .mockResolvedValueOnce(Response.json({ nextPageToken: "repeat" }));
     await expect(listGoogleModels({ credential })).rejects.toThrow(

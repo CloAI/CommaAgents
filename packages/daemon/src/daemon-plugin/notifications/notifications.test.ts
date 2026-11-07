@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { describe, expect, test } from "vitest";
 import { createPlugin } from "../plugin";
 
 interface TestNotifications {
@@ -156,7 +157,7 @@ describe("plugin notifications", () => {
     notifications.notify("one", { type: "changed", value: 1 });
     expect(calls).toEqual(["healthy"]);
     gate.resolve();
-    await Bun.sleep(0);
+    await delay(0);
     expect(calls).toEqual(["healthy", "slow"]);
     await plugin.dispose();
   });

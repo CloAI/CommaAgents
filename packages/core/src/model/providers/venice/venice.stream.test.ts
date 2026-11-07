@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { encryptVeniceMessage, generateVeniceKeyPair } from "./venice.crypto";
 import { parseVeniceStream } from "./venice.stream";
 

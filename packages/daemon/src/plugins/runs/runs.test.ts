@@ -1,5 +1,5 @@
 import { RunPhase, RunOutcomeStatus } from "./state/state.schemas";
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

@@ -7,5 +7,5 @@ export function resolveSelfDaemonCommand(): string[] {
   if (cliEntrypoint === undefined) {
     throw new Error("Unable to resolve the comma CLI entrypoint");
   }
-  return [process.execPath, "run", cliEntrypoint, "daemon"];
+  return [process.execPath, ...process.execArgv, cliEntrypoint, "daemon"];
 }

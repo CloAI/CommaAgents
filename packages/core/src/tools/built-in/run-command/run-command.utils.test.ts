@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { RUN_COMMAND_DEFAULT_DENY_PATTERNS } from "./run-command.constants";
 import type { PlatformInfo } from "./run-command.types";
 import {

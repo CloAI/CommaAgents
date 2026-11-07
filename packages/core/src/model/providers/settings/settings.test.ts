@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, vi, test } from "vitest";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -74,7 +74,7 @@ beforeEach(() => {
       env: {},
     }),
   );
-  globalThis.fetch = mock(async () => {
+  globalThis.fetch = vi.fn(async () => {
     throw new Error("Unexpected network request in settings test");
   }) as unknown as typeof fetch;
 });
@@ -611,7 +611,7 @@ describe("provider settings persistence", () => {
     });
     let requestURL = "";
     let requestHeaders = new Headers();
-    globalThis.fetch = mock(
+    globalThis.fetch = vi.fn(
       async (input: Parameters<typeof fetch>[0], options?: RequestInit) => {
         requestURL = String(input);
         requestHeaders = new Headers(options?.headers);

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createCredentialStore,
   getGlobalCredentialStore,
@@ -46,7 +46,7 @@ beforeEach(() => {
   };
   deviceLifetime = 60;
   requests = [];
-  spyOn(globalThis, "fetch").mockImplementation(
+  vi.spyOn(globalThis, "fetch").mockImplementation(
     Object.assign(
       async (
         input: Parameters<typeof fetch>[0],
@@ -99,7 +99,7 @@ beforeEach(() => {
         }
         throw new Error("Unexpected URL");
       },
-      { preconnect: originalFetch.preconnect },
+      {},
     ),
   );
 });

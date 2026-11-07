@@ -1,6 +1,6 @@
 // Tests for ErrorInfoSchema.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { ErrorInfoSchema } from "./strategy-error.schema";
 
 describe("ErrorInfoSchema", () => {

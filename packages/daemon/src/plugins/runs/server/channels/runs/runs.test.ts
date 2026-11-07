@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentStreamEvent } from "@comma-agents/core";
@@ -25,7 +25,7 @@ describe("runs channel initialization", () => {
       configuration: { strategyPath: "example.json" },
     });
     const getHistory = runs.getHistory;
-    const reading = spyOn(runs, "getHistory").mockImplementationOnce(
+    const reading = vi.spyOn(runs, "getHistory").mockImplementationOnce(
       async (runId, options) => {
         const stale = await getHistory(runId, options);
         await runs.startRun(runId, "during hydration").completion;
@@ -105,7 +105,7 @@ describe("runs channel initialization", () => {
       configuration: { strategyPath: "example.json" },
     });
     const getHistory = runs.getHistory;
-    const reading = spyOn(runs, "getHistory").mockImplementationOnce(
+    const reading = vi.spyOn(runs, "getHistory").mockImplementationOnce(
       async (runId, options) => {
         await runs.startRun(runId, "already saved").completion;
         return getHistory(runId, options);
@@ -187,7 +187,7 @@ describe("runs channel initialization", () => {
     });
     const getHistory = runs.getHistory;
     let execution: ReturnType<typeof runs.startRun> | undefined;
-    const reading = spyOn(runs, "getHistory").mockImplementationOnce(
+    const reading = vi.spyOn(runs, "getHistory").mockImplementationOnce(
       async (runId, options) => {
         const page = await getHistory(runId, options);
         execution = runs.startRun(runId, "answer");
@@ -254,7 +254,7 @@ describe("runs channel initialization", () => {
     const backing = storageModule.createRunStorage(directories.at(-1)!);
     const saving = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const storage = spyOn(storageModule, "createRunStorage").mockReturnValue({
+    const storage = vi.spyOn(storageModule, "createRunStorage").mockReturnValue({
       ...backing,
       async append(runId, event) {
         saving.resolve();
@@ -370,7 +370,7 @@ describe("runs channel initialization", () => {
     const registering = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
     let cleanups = 0;
-    const subscribing = spyOn(
+    const subscribing = vi.spyOn(
       runs.notifications,
       "subscribe",
     ).mockImplementationOnce(async () => {

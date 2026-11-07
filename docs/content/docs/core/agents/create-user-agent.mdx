@@ -32,7 +32,7 @@ The configuration object passed to `createUserAgent`.
 
 ## Input Collection
 
-By default, input is read from stdin (works in both Node.js and Bun). Pass a custom `inputCollector` to collect input from other sources, such as a WebSocket or UI:
+By default, input is read from stdin (runs in Node.js). Pass a custom `inputCollector` to collect input from other sources, such as a WebSocket or UI:
 
 ```ts
 import { createUserAgent } from "@comma-agents/core";

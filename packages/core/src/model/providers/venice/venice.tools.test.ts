@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, jsonSchema, stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
@@ -233,7 +233,7 @@ describe("Venice encrypted local tools", () => {
           );
           return Response.json(decoded.completion);
         },
-        { preconnect: fetch.preconnect },
+        {},
       ),
     }).chat("model");
     const result = await generateText({
@@ -442,7 +442,7 @@ describe("Venice encrypted local tools", () => {
               },
             );
           },
-          { preconnect: globalThis.fetch.preconnect },
+          {  },
         ),
       }).chat("model");
       const options = {

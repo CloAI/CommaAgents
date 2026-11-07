@@ -1,6 +1,6 @@
 // Tests for createUserAgent factory
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { hookIntoAgent } from "../../hook-into-agent/hook-into-agent";
 import type { InputCollector, InputRequest } from "./user-agent";
 import { createUserAgent } from "./user-agent";

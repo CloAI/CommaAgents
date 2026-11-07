@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import type { MockInstance } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCredentialStore } from "../../../credentials/credentials";
 import {
   getGlobalCredentialStore,
@@ -13,7 +14,7 @@ import {
 import { supportsProviderVerification, verifyProvider } from "./verification";
 
 let previousStore: ReturnType<typeof getGlobalCredentialStore>;
-let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">>;
+let fetchSpy: MockInstance<typeof globalThis.fetch>;
 
 beforeEach(async () => {
   previousStore = getGlobalCredentialStore();
@@ -31,7 +32,7 @@ beforeEach(async () => {
       env: {},
     }),
   );
-  fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
   for (const providerId of ["openai", "anthropic", "google"]) {
     registerProviderDefinition({
       id: providerId,
@@ -208,7 +209,7 @@ describe("verifyProvider", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockImplementation(
       Object.assign(async () => Response.json({ object: "list", data: [] }), {
-        preconnect: globalThis.fetch.preconnect,
+
       }),
     );
     await verifyProvider({ providerId: "openai" });
@@ -282,7 +283,7 @@ describe("verifyProvider", () => {
             );
             queueMicrotask(() => owner.abort());
           }),
-        { preconnect: globalThis.fetch.preconnect },
+        {  },
       ),
     );
     expect(
@@ -312,7 +313,7 @@ describe("verifyProvider", () => {
               },
             }),
           ),
-        { preconnect: globalThis.fetch.preconnect },
+        {  },
       ),
     );
     expect((await verifyProvider({ providerId: "openai" })).status).toBe(

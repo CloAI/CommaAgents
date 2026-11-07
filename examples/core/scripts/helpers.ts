@@ -11,10 +11,10 @@
  *      - For OAuth tokens (Copilot): automatically refreshes if expired
  *
  * Usage:
- *   MODEL=openai/gpt-4o bun run examples/core/scripts/01-basic-agent.ts
- *   MODEL=anthropic/claude-sonnet-4-5 bun run examples/core/scripts/01-basic-agent.ts
- *   MODEL=github-copilot/gpt-4o bun run examples/core/scripts/01-basic-agent.ts
- *   MODEL=ollama/llama3 bun run examples/core/scripts/01-basic-agent.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/core/scripts/01-basic-agent.ts
+ *   MODEL=anthropic/claude-sonnet-4-5 pnpm exec tsx examples/core/scripts/01-basic-agent.ts
+ *   MODEL=github-copilot/gpt-4o pnpm exec tsx examples/core/scripts/01-basic-agent.ts
+ *   MODEL=ollama/llama3 pnpm exec tsx examples/core/scripts/01-basic-agent.ts
  *
  * Prerequisites:
  *   Install the provider package for your chosen provider:

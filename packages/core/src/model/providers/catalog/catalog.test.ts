@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { getCatalogCachePath } from "../../../defaults/defaults";

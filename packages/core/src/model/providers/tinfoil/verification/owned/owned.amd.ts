@@ -14,7 +14,7 @@ import {
   hex32,
   hex48,
 } from "./owned.schemas";
-import { decodeTinfoilBase64 } from "./owned.json";
+import { decodeTinfoilBase64 } from "./owned.json.ts";
 import type { TinfoilCertificate } from "./owned.types";
 
 const byte = z.number().int().min(0).max(255);
