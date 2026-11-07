@@ -15,7 +15,6 @@ export async function handlePrepareRun(
     const prepared = await context.daemonRunState.prepareRun(context.clientId, {
       runId: message.runId,
       strategyPath: message.strategyPath,
-      modelOverride: message.modelOverride,
       cwd: message.cwd,
       manifestPath: message.manifestPath,
     });

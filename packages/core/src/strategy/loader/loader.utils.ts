@@ -152,16 +152,13 @@ async function buildLLMAgent(
   options: LoadStrategyOptions,
   strategy: Strategy,
 ): Promise<Agent> {
-  // An override replaces whatever the strategy file specifies; a per-agent entry wins.
   const effectiveModel =
-    options.modelOverrides?.[name] ??
-    options.modelOverride ??
-    (agentDefinition.model === undefined
+    agentDefinition.model === undefined
       ? undefined
       : resolveModelReference(agentDefinition.model, {
           configured: options.modelRoles,
           defaults: strategy.modelRoles,
-        }));
+        });
 
   // Model is required for LLM agents
   if (!effectiveModel) {
@@ -360,7 +357,7 @@ async function buildLLMAgent(
  * @param {LoadStrategyOptions} options - Loader options supplying the strategy directory and cwd.
  * @returns {Promise<SubagentTarget[]>} Launchable targets.
  */
-async function resolveSubagents(
+export async function resolveSubagents(
   agentName: string,
   references: Readonly<Record<string, string>>,
   options: LoadStrategyOptions,

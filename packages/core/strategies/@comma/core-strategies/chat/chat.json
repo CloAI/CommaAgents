@@ -2,11 +2,6 @@
   "name": "Chat",
   "version": "3.0",
   "description": "Talk things through. Codebase questions and research go to subagents; switch to Plan or Build when it is time to do work.",
-  "modelRoles": {
-    "primary": "openrouter/google/gemini-3.5-flash",
-    "subagent": "openrouter/google/gemini-3.5-flash",
-    "fast": "openrouter/google/gemma-4-26b-a4b-it"
-  },
   "agents": {
     "user": {
       "type": "user",
@@ -15,7 +10,7 @@
     },
     "chat": {
       "description": "Answers directly and delegates codebase and web research.",
-      "model": "@primary",
+      "model": "@medium",
       "maxSteps": 20,
       "systemPromptTemplate": { "template": "./prompts/chat.md" },
       "context": {

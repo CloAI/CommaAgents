@@ -76,8 +76,19 @@ export {
   ModelSourceSchema,
   ProviderOriginSchema,
 } from "./providers/providers.schemas";
-export { getModelFamily, resolveModelReference } from "./roles";
-export type { ModelFamily, ModelRoleSources, ModelRoles } from "./roles";
+export {
+  collectModelRoleReferences,
+  DEFAULT_MODEL_ROLES,
+  findMissingModelRoles,
+  getModelFamily,
+  resolveModelReference,
+} from "./roles";
+export type {
+  ModelFamily,
+  ModelRoleDefinition,
+  ModelRoleSources,
+  ModelRoles,
+} from "./roles";
 
 export type {
   TinfoilPrivacyOptions,

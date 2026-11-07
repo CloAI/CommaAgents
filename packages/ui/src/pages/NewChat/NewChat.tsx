@@ -1,7 +1,9 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
+import { ChatComposer } from "../../components/ChatComposer";
 import { ChatInput } from "../../components/ChatInput";
+import { ModelRolesDialog } from "../../components/ModelRolesDialog";
 import { StrategyControls } from "../../components/StrategyControls";
 import { TitleIcon } from "../../components/TitleIcon";
 import { useStartRun } from "../../hooks/runs";
@@ -21,23 +23,39 @@ export function NewChat() {
     path: strategyChoices[paneId],
     onChange: (path) => chooseStrategy(paneId, path),
   });
-  const { start, error } = useStartRun();
+  const { start, error, missingRoles, dismissMissingRoles } = useStartRun();
   const navigate = useNavigate();
   const { selected } = strategy;
+  const lastPrompt = useRef("");
   const handleSubmit = useCallback(
     (prompt: string) => {
+      lastPrompt.current = prompt;
       void start(selected, prompt).then(
         (runId) => runId && navigate(`/runs/${runId}`, { replace: true }),
       );
     },
     [start, selected, navigate],
   );
+  // Roles are saved on the daemon, so starting the same prompt again now succeeds.
+  const handleRolesSaved = useCallback(() => {
+    dismissMissingRoles();
+    handleSubmit(lastPrompt.current);
+  }, [dismissMissingRoles, handleSubmit]);
   return (
-    <NewChatRender
-      onSubmit={handleSubmit}
-      controls={<StrategyControls strategy={strategy} />}
-      error={error}
-    />
+    <>
+      <NewChatRender
+        onSubmit={handleSubmit}
+        controls={<StrategyControls strategy={strategy} />}
+        error={error}
+      />
+      {missingRoles && (
+        <ModelRolesDialog
+          roles={missingRoles}
+          onSaved={handleRolesSaved}
+          onCancel={dismissMissingRoles}
+        />
+      )}
+    </>
   );
 }
 
@@ -45,7 +63,7 @@ export function NewChat() {
 export interface NewChatRenderProps {
   /** Receive a submitted prompt. */
   readonly onSubmit: (prompt: string) => void;
-  /** Strategy controls shown beneath the composer. */
+  /** Strategy controls shown above the input. */
   readonly controls?: ReactNode;
   /** Why the last attempt to start a run failed. */
   readonly error?: string;
@@ -67,15 +85,9 @@ export function NewChatRender({
         <TitleIcon />
       </div>
       <div className={styles.content}>
-        <ChatInput onSubmit={onSubmit} />
-      </div>
-      <div className={styles.strategy}>
-        {controls}
-        {error && (
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
-        )}
+        <ChatComposer controls={controls} warnings={error ? [error] : []}>
+          <ChatInput onSubmit={onSubmit} />
+        </ChatComposer>
       </div>
     </div>
   );

@@ -77,8 +77,7 @@ export interface RunChildPreparationContext extends RunPreparationContextBase {
 }
 /** Fully resolved settings and ownership supplied to feature preparation. */
 export type RunPreparationContext =
-  | RunRootPreparationContext
-  | RunChildPreparationContext;
+  RunRootPreparationContext | RunChildPreparationContext;
 
 /** Run-scoped services and cleanup returned by a preparation provider. */
 export interface RunPreparationResult {
@@ -150,8 +149,8 @@ export interface CreateRunsPluginOptions {
 
 /** User-level settings that shape how strategies build their agents. */
 export interface HarnessSettings {
-  /** Models for `@role` references; these win over each strategy's `modelRoles`. */
-  readonly modelRoles?: Readonly<Record<string, string>>;
+  /** Reads the models for `@role` references at each load; these win over each strategy's `modelRoles`. */
+  readonly getModelRoles?: () => Readonly<Record<string, string>>;
   /** Instruction file names checked per directory for project instruction blocks. */
   readonly instructionFiles?: readonly string[];
 }

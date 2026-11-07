@@ -75,14 +75,15 @@ agents:
 
 ### Model roles
 
-An agent's `model` can name a role instead of a model, such as `@primary` or `@fast`. The strategy's top-level `modelRoles` gives each role a default, and the daemon's `modelRoles` setting overrides it for every strategy. A role with no model falls back along `compaction` → `fast` → `subagent` → `primary`; any other role falls back to `primary`. A run's model override still replaces every agent's model.
+An agent's `model` can name a role instead of a model, such as `@medium` or `@simple`. The official strategies use `@simple`, `@medium`, `@complex`, `@memory`, and `@compaction` and name no models of their own; the daemon's `modelRoles` setting supplies them, and a run can override them for itself. A strategy may also set a top-level `modelRoles` for roles it wants to define itself; the daemon's value wins when both are set. A role no source defines is not replaced by another role: loading fails with the full list of missing roles so they can be configured.
 
 ```json
 {
-  "modelRoles": { "primary": "openai/gpt-5", "fast": "openai/gpt-5-mini" },
+  "modelRoles": { "reviewer": "openai/gpt-5" },
   "agents": {
-    "builder": { "model": "@primary" },
-    "scout": { "model": "@fast" }
+    "builder": { "model": "@medium" },
+    "reviewer": { "model": "@reviewer" },
+    "scout": { "model": "@simple" }
   }
 }
 ```
@@ -94,7 +95,7 @@ An agent's `model` can name a role instead of a model, such as `@primary` or `@f
 ```json
 {
   "builder": {
-    "model": "@primary",
+    "model": "@medium",
     "tools": ["read_file", "edit_file", "delegate"],
     "subagents": {
       "explore": "../subagents/explore/explore.json",

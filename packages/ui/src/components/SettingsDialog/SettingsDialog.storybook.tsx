@@ -10,6 +10,7 @@ import {
 } from "storybook/test";
 import { Button } from "../../design-system/Button";
 import { SettingsProvider, useSettings } from "../../hooks/useSettings";
+import { ThemeProvider } from "../../hooks/useTheme";
 import { CommaAgentsDaemonProvider } from "../../hooks/useCommaAgentsDaemon";
 import { exampleProviders } from "./ProvidersSettings/test.utils";
 import { publishProviders } from "./ProvidersSettings/ProviderConfigurationDialog/test.utils";
@@ -46,9 +47,11 @@ const meta = {
   args: { onClose: fn() },
   render: (args) => (
     <SettingsProvider>
-      <CommaAgentsDaemonProvider>
-        <SettingsLauncher {...args} />
-      </CommaAgentsDaemonProvider>
+      <ThemeProvider>
+        <CommaAgentsDaemonProvider>
+          <SettingsLauncher {...args} />
+        </CommaAgentsDaemonProvider>
+      </ThemeProvider>
     </SettingsProvider>
   ),
   beforeEach: () => {
@@ -93,7 +96,7 @@ export const Sections: Story = {
     await expect(
       canvas.getByRole("textbox", { name: "Daemon WebSocket URL" }),
     ).toHaveValue("ws://127.0.0.1:7422/ws");
-    for (const label of ["Appearance", "Hub", "Privacy"]) {
+    for (const label of ["Hub", "Privacy"]) {
       await userEvent.click(canvas.getByRole("button", { name: label }));
       await expect(
         canvas.getByRole("heading", { name: `Settings / ${label}` }),
@@ -379,5 +382,28 @@ export const LocalizedSections: Story = {
       canvas.queryByRole("button", { name: "+ Provider" }),
     ).not.toBeInTheDocument();
     await expect(localStorage.getItem("comma-agents.settings")).toBeNull();
+  },
+};
+
+export const ThemeChoicePersists: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open settings" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Appearance" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Light" }));
+    await expect(document.documentElement.style.colorScheme).toBe("light");
+    await expect(
+      document.documentElement.style.getPropertyValue("--color-canvas"),
+    ).toBe("#fdf9ff");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Customize copy" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Save theme" }));
+    await expect(loadSettings().settings.appearance?.mode).toBe("light");
+    await expect(
+      loadSettings().settings.appearance?.customThemes[0]?.name,
+    ).toBe("Comma copy");
   },
 };

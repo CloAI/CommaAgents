@@ -168,6 +168,7 @@ export {
   FlowExecutionError,
   HookExecutionError,
   ModelResolutionError,
+  MissingModelRolesError,
   StrategyValidationError,
   ToolExecutionError,
 } from "./errors/index";
@@ -231,8 +232,19 @@ export {
   listProviders,
   parseModel,
 } from "./model/model.utils";
-export { getModelFamily, resolveModelReference } from "./model/roles";
-export type { ModelFamily, ModelRoleSources, ModelRoles } from "./model/roles";
+export {
+  collectModelRoleReferences,
+  DEFAULT_MODEL_ROLES,
+  findMissingModelRoles,
+  getModelFamily,
+  resolveModelReference,
+} from "./model/roles";
+export type {
+  ModelFamily,
+  ModelRoleDefinition,
+  ModelRoleSources,
+  ModelRoles,
+} from "./model/roles";
 export type {
   CatalogData,
   CatalogModel,

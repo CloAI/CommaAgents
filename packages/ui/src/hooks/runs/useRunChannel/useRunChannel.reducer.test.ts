@@ -84,7 +84,6 @@ describe("reduceRunFeed", () => {
       unmatchedAgents: [],
       strategyState: {
         revision: 1,
-        modelsByStrategy: {},
         handoff: { messages: [], eventOffset: 0 },
         changes: [
           {

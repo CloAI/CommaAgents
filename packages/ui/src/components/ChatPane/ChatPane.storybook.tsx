@@ -1,6 +1,15 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import {
+  expect,
+  fireEvent,
+  fn,
+  userEvent,
+  waitFor,
+  within,
+} from "storybook/test";
 import { ChatPaneRender } from "./ChatPane";
+import type { ChatPaneRenderProps } from "./ChatPane";
 import runStyles from "../../pages/RunPage/RunPage.module.scss";
 
 const meta = {
@@ -144,5 +153,55 @@ export const TogglesChatWidth: Story = {
     );
     await expect(body.getBoundingClientRect().left).toBe(initialBounds.left);
     await expect(body.getBoundingClientRect().right).toBe(initialBounds.right);
+  },
+};
+
+function ColorPreview(props: ChatPaneRenderProps) {
+  const [hue, setHue] = useState<number>();
+  return <ChatPaneRender {...props} hue={hue} onHueChange={setHue} />;
+}
+
+export const ChangesAndResetsThePaneColor: Story = {
+  render: (args) => <ColorPreview {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const pane = canvas.getByRole("group", { name: "Chat width" });
+    const original = getComputedStyle(pane).backgroundColor;
+    await userEvent.click(canvas.getByRole("button", { name: "Chat color" }));
+    const popout = canvas.getByRole("dialog", { name: "Chat color" });
+    await expect(popout.matches(":popover-open")).toBe(true);
+    const palette = canvas.getByRole("button", { name: "Chat color" });
+    await waitFor(() => {
+      const bounds = popout.getBoundingClientRect();
+      expect(bounds.top).toBeGreaterThanOrEqual(
+        palette.getBoundingClientRect().bottom,
+      );
+      expect(bounds.width).toBeLessThanOrEqual(18 * 16);
+      expect(bounds.right).toBeLessThanOrEqual(window.innerWidth - 7);
+    });
+    const slider = canvas.getByRole("slider", { name: "Chat color hue" });
+    fireEvent.change(slider, { target: { value: "0" } });
+    await waitFor(() =>
+      expect(pane.style.getPropertyValue("--pane-hue")).toBe("0"),
+    );
+    await expect(pane.style.getPropertyValue("--pane-hue")).toBe("0");
+    await expect(getComputedStyle(pane).backgroundColor).not.toBe(original);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Reset to theme" }),
+    );
+    await expect(getComputedStyle(pane).backgroundColor).toBe(original);
+    await userEvent.click(canvas.getByRole("button", { name: "Done" }));
+    await expect(
+      canvas.queryByRole("dialog", { name: "Chat color" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(palette);
+    await expect(popout).toBeVisible();
+    await userEvent.click(canvas.getByRole("heading", { name: "Chat width" }));
+    await waitFor(() => expect(popout).not.toBeVisible());
+    await expect(palette).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(palette);
+    await expect(popout).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(popout).not.toBeVisible());
   },
 };

@@ -64,9 +64,6 @@ export function createRunPersistenceEffect({
           ...(context.manifestPath !== undefined
             ? { manifestPath: context.manifestPath }
             : {}),
-          ...(context.modelOverride !== undefined
-            ? { modelOverride: context.modelOverride }
-            : {}),
           enabledMcpServerIds,
           mcpServers,
         });

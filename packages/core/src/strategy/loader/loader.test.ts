@@ -14,7 +14,10 @@ import {
   resetAgentRegistry,
 } from "../../agents/registry/agent-registry";
 import type { AgentTypeRuntime } from "../../agents/registry/agent-registry.types";
-import { StrategyValidationError } from "../../errors/index";
+import {
+  MissingModelRolesError,
+  StrategyValidationError,
+} from "../../errors/index";
 import { createFlow } from "../../flows/flow/flow";
 import type { FlowHooks } from "../../flows/flow/flow.types";
 import {
@@ -274,14 +277,15 @@ describe("agent instantiation", () => {
     expect(result.agents.assistant?.name).toBe("assistant");
   });
 
-  it("applies per-agent model overrides only to the named agent", async () => {
+  it("resolves role references from the configured roles", async () => {
     setupMockModels();
     const json = JSON.stringify({
       name: "Test",
       version: "1.0",
+      modelRoles: { simple: "openai/gpt-4o" },
       agents: {
-        first: { model: "openai/gpt-4o" },
-        second: { model: "openai/gpt-4o" },
+        first: { model: "@medium" },
+        second: { model: "@simple" },
       },
       flow: {
         name: "Main",
@@ -289,37 +293,47 @@ describe("agent instantiation", () => {
         steps: [{ agent: "first" }, { agent: "second" }],
       },
     });
-    // Record which model each call reaches.
-    const used: string[] = [];
-    for (const id of ["openai/gpt-3.5-turbo", "anthropic/claude-sonnet-4-5"]) {
-      registerModel(id, {
-        modelId: id,
-        specificationVersion: "v3",
-        provider: "mock",
-        doStream: async () => {
-          used.push(id);
-          return {
-            stream: new ReadableStream({
-              start(controller) {
-                controller.close();
-              },
-            }),
-          };
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock doesn't need full LanguageModel interface
-      } as any);
-    }
     const result = await loadStrategyFromString(json, "json", {
-      modelOverride: "openai/gpt-3.5-turbo",
-      modelOverrides: { first: "anthropic/claude-sonnet-4-5" },
+      modelRoles: {
+        medium: "anthropic/claude-sonnet-4-5",
+        simple: "openai/gpt-3.5-turbo",
+      },
     });
-    await result.agents.first!.call("hi");
-    await result.agents.second!.call("hi");
 
-    // The per-agent entry wins; the other agent falls back to the global override.
-    expect(used).toEqual([
+    expect(result.agents.first?.config?.model).toBe(
       "anthropic/claude-sonnet-4-5",
-      "openai/gpt-3.5-turbo",
+    );
+    expect(result.agents.second?.config?.model).toBe("openai/gpt-3.5-turbo");
+  });
+
+  it("lists every missing role at once, including compaction roles", async () => {
+    setupMockModels();
+    const json = JSON.stringify({
+      name: "Test",
+      version: "1.0",
+      modelRoles: { simple: "openai/gpt-4o" },
+      agents: {
+        first: {
+          model: "@medium",
+          context: { compaction: { model: "@compaction" } },
+        },
+        second: { model: "@simple" },
+      },
+      flow: {
+        name: "Main",
+        type: "sequential",
+        steps: [{ agent: "first" }, { agent: "second" }],
+      },
+    });
+
+    const error = await loadStrategyFromString(json, "json").catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toBeInstanceOf(MissingModelRolesError);
+    expect((error as MissingModelRolesError).roles).toEqual([
+      "medium",
+      "compaction",
     ]);
   });
 
@@ -625,13 +639,11 @@ describe("custom agent resolution", () => {
     });
 
     const result = await loadStrategyFromString(json, "json", {
-      modelOverride: "openai/gpt-4o",
       strategyDir: "/tmp/strategy",
       runId: "run-1",
     });
 
     expect((await result.flow.call("hello")).text).toBe("custom: hello");
-    expect(receivedRuntime?.modelOverride).toBe("openai/gpt-4o");
     expect(receivedRuntime?.strategyDir).toBe("/tmp/strategy");
     expect(receivedRuntime?.runId).toBe("run-1");
   });

@@ -50,27 +50,6 @@ describe("PrepareRunMessage", () => {
     expect(PrepareRunMessage.parse(msg).requestId).toBe("req-1");
   });
 
-  test("accepts optional modelOverride", () => {
-    const msg = {
-      type: "prepare_run" as const,
-      strategyPath: "/path.json",
-      modelOverride: "anthropic/claude-sonnet-4-20250514",
-    };
-    expect(PrepareRunMessage.parse(msg).modelOverride).toBe(
-      "anthropic/claude-sonnet-4-20250514",
-    );
-  });
-
-  test("rejects empty modelOverride", () => {
-    expect(
-      PrepareRunMessage.safeParse({
-        type: "prepare_run" as const,
-        strategyPath: "/p.json",
-        modelOverride: "",
-      }).success,
-    ).toBe(false);
-  });
-
   test("accepts an existing runId without a strategyPath", () => {
     expect(
       PrepareRunMessage.parse({

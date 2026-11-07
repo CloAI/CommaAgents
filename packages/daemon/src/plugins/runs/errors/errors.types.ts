@@ -7,6 +7,7 @@ export enum RunErrorCode {
   INVALID_ARGUMENTS = "INVALID_ARGUMENTS",
   INVALID_CURSOR = "INVALID_CURSOR",
   PREPARATION_ERROR = "PREPARATION_ERROR",
+  MISSING_MODEL_ROLES = "MISSING_MODEL_ROLES",
   EXECUTION_ERROR = "EXECUTION_ERROR",
   TOOL_EXECUTION_ERROR = "TOOL_EXECUTION_ERROR",
   PERSISTENCE_ERROR = "PERSISTENCE_ERROR",
@@ -32,6 +33,15 @@ export interface RunOperationError {
     | RunErrorCode.PERSISTENCE_ERROR;
   readonly metadata: { readonly runId: string };
 }
+/** A strategy refers to `@role` models the daemon has not configured. */
+export interface RunMissingModelRolesError {
+  readonly code: RunErrorCode.MISSING_MODEL_ROLES;
+  readonly metadata: {
+    readonly runId: string;
+    /** Role names without the `@` prefix. */
+    readonly roles: readonly string[];
+  };
+}
 /** Invalid pagination or request arguments. */
 export interface RunArgumentError {
   readonly code: RunErrorCode.INVALID_ARGUMENTS | RunErrorCode.INVALID_CURSOR;
@@ -41,4 +51,5 @@ export type RunError =
   | RunRequestError
   | RunInputError
   | RunOperationError
+  | RunMissingModelRolesError
   | RunArgumentError;

@@ -21,6 +21,8 @@ import type {
 const commandNames = {
   "core.strategies.list": true,
   "core.strategies.describe": true,
+  "core.modelRoles.get": true,
+  "core.modelRoles.set": true,
   "core.providers.refresh": true,
   "core.providers.beginSignIn": true,
   "core.providers.getSignInStatus": true,
@@ -49,6 +51,7 @@ const commandNames = {
 } satisfies Record<keyof DaemonCommandMap, true>;
 const channelNames = {
   "core.providers.list": true,
+  "core.modelRoles.watch": true,
   "status.watch": true,
   runs: true,
   "questions.watch": true,

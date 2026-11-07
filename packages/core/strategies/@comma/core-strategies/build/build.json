@@ -2,11 +2,6 @@
   "name": "Build",
   "version": "3.0",
   "description": "Implement code changes, verify them with the project's checks and an independent verifier, and hand back to you after each turn.",
-  "modelRoles": {
-    "primary": "openrouter/google/gemini-3.5-flash",
-    "subagent": "openrouter/google/gemini-3.5-flash",
-    "fast": "openrouter/google/gemma-4-26b-a4b-it"
-  },
   "agents": {
     "user": {
       "type": "user",
@@ -15,7 +10,7 @@
     },
     "builder": {
       "description": "Implements and verifies code changes.",
-      "model": "@primary",
+      "model": "@medium",
       "maxSteps": 150,
       "systemPromptTemplate": { "template": "./prompts/builder.md" },
       "context": {

@@ -101,7 +101,7 @@ export async function verifyNvidiaTokens(
     throw privacyError("PRIVACY_ATTESTATION_FAILED");
   }
   const deviceIds = new Set<string>();
-  let expiresAt = overall.exp! * 1000;
+  let expiresAt = Math.min(overall.exp! * 1000, (overall.iat! + 120) * 1000);
   for (const [deviceId, token] of entries) {
     const digest = submodules[deviceId]?.[1][1];
     if (!digest || !equalBytes(decodeHex(digest), sha256Bytes(token))) {
@@ -121,7 +121,11 @@ export async function verifyNvidiaTokens(
       throw privacyError("PRIVACY_ATTESTATION_FAILED");
     }
     deviceIds.add(device.ueid as string);
-    expiresAt = Math.min(expiresAt, device.exp! * 1000);
+    expiresAt = Math.min(
+      expiresAt,
+      device.exp! * 1000,
+      (device.iat! + 120) * 1000,
+    );
     for (const claim of [
       "x-nvidia-gpu-attestation-report-signature-verified",
       "x-nvidia-gpu-attestation-report-nonce-match",
@@ -160,7 +164,11 @@ export async function verifyNvidiaTokens(
       if (!Number.isFinite(expiration) || expiration <= Date.now()) {
         throw privacyError("PRIVACY_ATTESTATION_FAILED");
       }
+      expiresAt = Math.min(expiresAt, expiration);
     }
+  }
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    throw privacyError("PRIVACY_ATTESTATION_FAILED");
   }
   return { expiresAt, deviceIds: [...deviceIds] };
 }

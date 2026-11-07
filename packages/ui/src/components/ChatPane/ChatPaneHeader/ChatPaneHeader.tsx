@@ -10,10 +10,17 @@ import {
 import type { DragEventHandler } from "react";
 import { IconButton } from "../../../design-system/IconButton";
 import type { SplitDirection } from "../../../hooks/useLayout";
+import { ChatColorPicker } from "./ChatColorPicker";
 import styles from "./ChatPaneHeader.module.scss";
 
 /** What the header shows and does. */
 export interface ChatPaneHeaderProps {
+  /** Selected hue or the default theme. */
+  readonly hue?: number;
+  /** Save the pane hue. */
+  readonly onHueChange?: (hue: number | undefined) => void;
+  /** Storage failure shown in the color picker. */
+  readonly colorError?: string;
   /** Name of the pane. */
   readonly title: string;
   /** Whether the pane is active among multiple panes. @default false */
@@ -48,6 +55,9 @@ export interface ChatPaneHeaderProps {
  * @returns {React.ReactElement} The pane header.
  */
 export function ChatPaneHeader({
+  hue,
+  onHueChange,
+  colorError,
   title,
   active = false,
   centered = false,
@@ -73,6 +83,13 @@ export function ChatPaneHeader({
     >
       <h2 className={styles.title}>{title}</h2>
       <div className={styles.actions}>
+        {onHueChange && (
+          <ChatColorPicker
+            hue={hue}
+            onHueChange={onHueChange}
+            error={colorError}
+          />
+        )}
         <IconButton
           label="Split vertical"
           title="Split vertical: new pane beside this one"

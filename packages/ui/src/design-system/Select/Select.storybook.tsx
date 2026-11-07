@@ -446,3 +446,51 @@ export const TriggerLabelOverridesTheSelectedLabel: Story = {
     ).toHaveTextContent("openai/not-listed");
   },
 };
+
+export const FitsContent: Story = {
+  args: {
+    searchable: true,
+    options: [{ value: "short", label: "Short" }],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: /^Strategy:/ }));
+    const panel = canvas.getByRole("dialog", { name: "Strategy" });
+    await expect(panel.getBoundingClientRect().width).toBeLessThan(26 * 16);
+    await expect(panel.getBoundingClientRect().width).toBeLessThanOrEqual(
+      window.innerWidth - 16,
+    );
+  },
+};
+
+export const CapsLongContentWithoutACustomWidth: Story = {
+  args: {
+    searchable: true,
+    value: "long",
+    options: [
+      {
+        value: "long",
+        label: "Long strategy name ".repeat(16),
+        description: "Long strategy description ".repeat(20),
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: /^Strategy:/ });
+    const cap =
+      24 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+    await expect(trigger.getBoundingClientRect().width).toBeLessThanOrEqual(
+      cap,
+    );
+    await userEvent.click(trigger);
+    const panel = canvas.getByRole("dialog", { name: "Strategy" });
+    await waitFor(() =>
+      expect(panel.getBoundingClientRect().width).toBeLessThanOrEqual(cap),
+    );
+    await expect(panel.getBoundingClientRect().right).toBeLessThanOrEqual(
+      window.innerWidth - 7,
+    );
+    await expect(panel.scrollWidth).toBeLessThanOrEqual(panel.clientWidth);
+  },
+};

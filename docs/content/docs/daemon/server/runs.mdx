@@ -25,7 +25,7 @@ Send requests over the [plugin server](/docs/daemon/server/plugin-server) WebSoc
 }
 ```
 
-For a new run, `strategyPath` is required; `cwd` defaults to the daemon's working directory. You can also supply `manifestPath`, `modelOverride`, `modelOverrides`, and a caller-generated `runId`. `modelOverride` replaces every LLM agent's model. `modelOverrides` maps agent names to `providerID/modelID` and replaces only those agents' models, taking precedence over `modelOverride`; names the strategy does not define are ignored. Preparation returns `data: { runId }` after loading and saving the effective configuration. If preparation is stopped, it returns the run ID with a terminal stopped run instead.
+For a new run, `strategyPath` is required; `cwd` defaults to the daemon's working directory. You can also supply `manifestPath`, a caller-generated `runId`, and `modelRoles`, a map of role name to `providerID/modelID` for this run only. Per-run roles win over the daemon's `modelRoles`, which win over the strategy's own; they are saved with the run, survive `runs.switchStrategy`, and apply to every subagent the run launches. On an existing run, new `modelRoles` merge over the saved ones and `null` clears them. If the strategy or its subagents use a role no source defines, preparation fails with code `MISSING_MODEL_ROLES` and `metadata.roles` listing every missing role; set them in `modelRoles` or with `core.modelRoles.set` and prepare again. Preparation returns `data: { runId }` after loading and saving the effective configuration. If preparation is stopped, it returns the run ID with a terminal stopped run instead.
 
 Subscribe using the returned run ID:
 
@@ -100,7 +100,7 @@ Snapshots do not contain model conversation records. `parentRunId` is present fo
 | Command | Arguments | Successful response data |
 | --- | --- | --- |
 | `runs.prepare` | New configuration, or `runId` with optional configuration overrides | `{ runId }` after preparation |
-| `runs.switchStrategy` | `runId`, `strategyPath`, optional `manifestPath`, `modelOverrides`, `stop`, `expectedRevision` | Prepared snapshot; execution waits for another message |
+| `runs.switchStrategy` | `runId`, `strategyPath`, optional `manifestPath`, `modelRoles`, `stop`, `expectedRevision` | Prepared snapshot; execution waits for another message |
 | `runs.send` | `runId`, `input`, optional `contextChoice`, `expectedRevision` | `{ type: "started" }` or a context decision request |
 | `runs.start` | `runId`, optional `input` | `null` |
 | `runs.stop` | `runId` | `null` when stop is requested |
@@ -250,12 +250,12 @@ History and channel output belong to the selected run. A parent receives child l
   "command": "runs.prepare",
   "arguments": {
     "runId": "example-run",
-    "configuration": { "modelOverride": null }
+    "configuration": { "manifestPath": null }
   }
 }
 ```
 
-Omitted configuration fields retain their last successfully prepared values. Explicit `null` clears `manifestPath`, `modelOverride`, or `modelOverrides`; strategy path and working directory cannot be cleared. Failed replacement preparation keeps the last successful configuration and strategy description.
+Omitted configuration fields retain their last successfully prepared values. Explicit `null` clears `manifestPath` or `modelRoles`; strategy path and working directory cannot be cleared. Failed replacement preparation keeps the last successful configuration and strategy description.
 
 After preparation succeeds, send `runs.start` with the same run ID and optional new input. This restores the model conversation and starts the declared flow again. It does not resume an exact interrupted flow checkpoint or incomplete tool operation.
 

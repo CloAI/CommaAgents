@@ -4,6 +4,7 @@ import { Button } from "../../design-system/Button";
 import { Modal } from "../../design-system/Modal";
 import { ProvidersSettings } from "./ProvidersSettings";
 import { GeneralSettings } from "./GeneralSettings";
+import { AppearanceSettings } from "./AppearanceSettings";
 import { SettingsPanel } from "./SettingsPanel";
 import { SETTINGS_SECTIONS } from "./SettingsDialog.constants";
 import type { SettingsSection } from "./SettingsDialog.types";
@@ -45,13 +46,16 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
         <GeneralSettings active={section === "general"} onClose={onClose} />
       </div>
       {section === "providers" && <ProvidersSettings onClose={onClose} />}
-      {section !== "general" && section !== "providers" && (
-        <SettingsPanel title={sectionLabel} onClose={onClose}>
-          <p className={styles.placeholder}>
-            No settings are available in this section yet.
-          </p>
-        </SettingsPanel>
-      )}
+      {section === "appearance" && <AppearanceSettings onClose={onClose} />}
+      {section !== "general" &&
+        section !== "providers" &&
+        section !== "appearance" && (
+          <SettingsPanel title={sectionLabel} onClose={onClose}>
+            <p className={styles.placeholder}>
+              No settings are available in this section yet.
+            </p>
+          </SettingsPanel>
+        )}
     </SettingsDialogRender>
   );
 }

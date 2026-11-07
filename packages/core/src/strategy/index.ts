@@ -15,7 +15,10 @@ export {
   resolveInstalledStrategyReference,
 } from "./discover/index";
 // Model roles referenced by agent definitions
-export { resolveModelReference } from "../model/roles";
+export {
+  collectModelRoleReferences,
+  resolveModelReference,
+} from "../model/roles";
 // Factories
 export { exportStrategy } from "./exporter/exporter";
 // Config types

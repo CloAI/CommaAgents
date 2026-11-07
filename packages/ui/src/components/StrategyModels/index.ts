@@ -1,5 +1,5 @@
-export { StrategyModels, StrategyModelsRender } from "./StrategyModels";
+export { StrategyModels } from "./StrategyModels";
 export type {
+  StrategyModelBinding,
   StrategyModelsProps,
-  StrategyModelsRenderProps,
 } from "./StrategyModels";

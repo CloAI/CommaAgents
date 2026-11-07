@@ -1,9 +1,11 @@
 import { getLogger } from "@logtape/logtape";
 import type { DaemonConfig } from "../../config";
+import { writeConfigModelRoles } from "../../config/config.utils";
 import { createDaemonKernel } from "../../daemon-kernel";
 import type { DaemonKernel } from "../../daemon-kernel";
 import { createDaemonServer } from "../../daemon-server";
 import type { DaemonServer } from "../../daemon-server";
+import { setDaemonModelRoles } from "../../defaults";
 import { initializeLogging } from "../../logger";
 import { attachExecutionLogging } from "../../plugins/runs/execution/logging";
 import { createExecutionPrivacyRuntime } from "../../plugins/runs/execution/logging/privacy";
@@ -98,10 +100,12 @@ export async function startDaemonRuntime(
       },
       runs: {
         runsDir: config.runsDir,
-        harness: {
-          modelRoles: config.modelRoles,
-          instructionFiles: config.instructionFiles,
-        },
+        harness: { instructionFiles: config.instructionFiles },
+      },
+      modelRoles: config.modelRoles,
+      persistModelRoles: (modelRoles) => {
+        writeConfigModelRoles(config.configFile, modelRoles);
+        setDaemonModelRoles(modelRoles);
       },
     });
     daemon = kernel;

@@ -64,7 +64,6 @@ const meta = {
         version: 1,
         daemon: { url: "ws://127.0.0.1:7422/ws" },
         strategyPath: PLAN.path,
-        modelOverrides: { [PLAN.path]: { assistant: "openai/gpt-4o" } },
       },
     }),
   parameters: {
@@ -101,11 +100,9 @@ export const SubmitPreparesStartsAndOpensTheRun: Story = {
       ok: true,
       data: { runId: "run-1" },
     });
-    // The saved per-agent override travels with the run configuration.
     await expect(prepare.arguments).toEqual({
       configuration: {
         strategyPath: PLAN.path,
-        modelOverrides: { assistant: "openai/gpt-4o" },
       },
     });
     const start = await answerCommand(socket, "runs.start", {

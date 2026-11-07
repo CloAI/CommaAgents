@@ -20,6 +20,7 @@ import {
 } from "../state/state";
 import { runSnapshot } from "../state/state.utils";
 import { RunConfigurationSchema } from "./preparation.schemas";
+import { mergeModelRoles } from "./preparation.utils";
 import { loadRunPreparation } from "./loading/loading";
 import { cleanupRunEntry } from "./resources/resources";
 import { restoredConversation } from "../conversation/conversation";
@@ -81,14 +82,13 @@ export async function prepareRun(
       overrides.manifestPath === null
         ? undefined
         : (overrides.manifestPath ?? previous?.configuration.manifestPath),
-    modelOverride:
-      overrides.modelOverride === null
+    modelRoles:
+      overrides.modelRoles === null
         ? undefined
-        : (overrides.modelOverride ?? previous?.configuration.modelOverride),
-    modelOverrides:
-      overrides.modelOverrides === null
-        ? undefined
-        : (overrides.modelOverrides ?? previous?.configuration.modelOverrides),
+        : mergeModelRoles(
+            previous?.configuration.modelRoles,
+            overrides.modelRoles,
+          ),
   });
   const pending = Promise.withResolvers<PrepareRunResult>();
   const entry = createRunEntry(

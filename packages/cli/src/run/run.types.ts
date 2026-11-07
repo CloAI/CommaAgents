@@ -9,8 +9,8 @@ export interface HeadlessRunOptions {
   readonly input: string;
   /** Working directory the run operates in. @default process.cwd() */
   readonly cwd?: string;
-  /** `provider/model` applied to every agent without its own override. */
-  readonly model?: string;
+  /** `provider/model` per role name for this run; these win over the daemon's configured roles. */
+  readonly modelRoles?: Readonly<Record<string, string>>;
   /** User turns accepted before the run is stopped; the first input counts as one. @default 1 */
   readonly maxUserTurns?: number;
   /** Decision returned for every sandbox permission request. @default "deny" */

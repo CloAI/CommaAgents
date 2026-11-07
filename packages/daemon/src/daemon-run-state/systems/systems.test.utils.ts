@@ -23,7 +23,6 @@ export function createSystemRunContext(runId = "run-1"): SystemRunContext & {
     },
     messageSender: mockMessageSender(),
     clientId: "client-1",
-    modelOverride: undefined,
     abortSignal: abortController.signal,
     systemData: createSystemDataStore(),
     actions: createRunActionRegistry(),

@@ -2,7 +2,7 @@
   min-width: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
-  background: var(--color-canvas);
+  background: var(--color-code-background);
   font-family: var(--font-mono);
   font-size: var(--font-size-chat);
   line-height: var(--line-height-code);
@@ -80,13 +80,28 @@
     }
     :global(.hljs-attr),
     :global(.hljs-attribute),
-    :global(.hljs-variable),
     :global(.hljs-property) {
       color: var(--syntax-attribute);
     }
     :global(.hljs-type),
     :global(.hljs-class) {
       color: var(--syntax-type);
+    }
+    :global(.hljs-variable),
+    :global(.hljs-template-variable),
+    :global(.hljs-params) {
+      color: var(--syntax-variable);
+    }
+    :global(.hljs-tag),
+    :global(.hljs-name) {
+      color: var(--syntax-tag);
+    }
+    :global(.hljs-operator),
+    :global(.hljs-punctuation) {
+      color: var(--syntax-operator);
+    }
+    :global(.hljs-meta) {
+      color: var(--syntax-meta);
     }
     :global(.hljs-deletion) {
       color: var(--color-error);

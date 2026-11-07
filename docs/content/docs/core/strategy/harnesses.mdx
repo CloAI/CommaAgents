@@ -34,4 +34,4 @@ comma run -s Plan -i "Add retry support to webfetch" --then Build --approve allo
 
 ## Choosing models
 
-Each harness declares default models for the `@primary`, `@subagent`, and `@fast` roles. Set `modelRoles` in the [daemon configuration](/docs/daemon/config) to use your own models everywhere. Summaries written when a conversation is compacted use `@compaction`, which falls back to `@fast`.
+The harnesses name no models. They use the `@medium`, `@simple`, and `@compaction` roles, which you set in the [daemon configuration](/docs/daemon/config) or under Settings → General → Strategy models; a run that needs an unset role stops and lists what is missing. Summaries written when a conversation is compacted use `@compaction`.

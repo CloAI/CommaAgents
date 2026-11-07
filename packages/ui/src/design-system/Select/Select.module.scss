@@ -1,10 +1,16 @@
 .select {
-  // Darker than the app's raised surface so the picker recedes behind its content.
-  --select-surface: #110d18;
-  --select-active: #1d1728;
+  // Between canvas and surface so the picker recedes behind its content in any theme.
+  --select-surface: color-mix(
+    in srgb,
+    var(--color-canvas) 50%,
+    var(--color-surface)
+  );
+  --select-active: var(--color-surface-raised);
   position: relative;
   display: inline-block;
-  max-width: 100%;
+  width: fit-content;
+  min-width: 0;
+  max-width: min(100%, var(--select-max-width, 24rem));
 }
 .trigger {
   display: inline-flex;
@@ -57,8 +63,12 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  width: 26rem;
-  max-width: calc(100vw - 2 * var(--space-4));
+  width: max-content;
+  min-width: min(14rem, calc(100vw - 2 * var(--space-4)));
+  max-width: min(
+    var(--select-max-width, 24rem),
+    calc(100vw - 2 * var(--space-4))
+  );
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   background: var(--select-surface);
@@ -175,7 +185,7 @@
 }
 .match {
   border-radius: 2px;
-  background: rgb(208 188 255 / 0.22);
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
   color: inherit;
 }
 .tag {

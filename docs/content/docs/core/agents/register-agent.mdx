@@ -93,7 +93,7 @@ registerAgent(
       createAgent(
         {
           name,
-          model: runtime.modelOverride ?? config.model,
+          model: config.model,
           systemPrompt: config.instructions,
           tools: ["read_file", "search_files"],
         },
@@ -109,7 +109,6 @@ Do not assume every runtime service is present. Forward or use only the services
 
 `runtime` describes the current load operation:
 
-- `modelOverride` is the model selected by the caller for this load.
 - `skillRegistry` contains the skills discovered for the workspace.
 - `strategyDir` is the base directory for paths referenced by the definition.
 - `inputCollector` bridges user input into interactive agents and tools.

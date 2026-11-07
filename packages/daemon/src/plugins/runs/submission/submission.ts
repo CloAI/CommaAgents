@@ -14,7 +14,6 @@ import {
   contextMessages,
   estimateTokens,
   handoffRecords,
-  strategyKey,
 } from "../switching/switching.utils";
 import {
   recentMessages,
@@ -168,12 +167,6 @@ export async function sendRun(
       const events = await context.storage.conversation(runId);
       const state = {
         revision: previous?.revision ?? 0,
-        modelsByStrategy: previous?.modelsByStrategy ?? {
-          [strategyKey(entry.configuration)]: {
-            modelOverride: entry.configuration.modelOverride,
-            modelOverrides: entry.configuration.modelOverrides,
-          },
-        },
         changes: previous?.changes ?? [],
         handoff: {
           messages: retained,

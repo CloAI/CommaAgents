@@ -22,7 +22,6 @@ export type TimelineEvent = {
       readonly cwd: string;
       readonly initialInput?: string;
       readonly manifestPath?: string;
-      readonly modelOverride?: string;
       readonly enabledMcpServerIds?: readonly string[];
       readonly mcpServers?: readonly McpServerStatus[];
     }

@@ -111,13 +111,15 @@ function context(
 describe("hardware verification", () => {
   test("should authenticate overall and device signatures with matching signed nonce and digest", async () => {
     const fixture = await tokenFixture();
-    await verifyNvidiaTokens(
+    const verified = await verifyNvidiaTokens(
       fixture.tokens,
       expectedNonce,
       fixture.keySet,
       issuer,
       1,
     );
+    expect(verified.expiresAt).toBeLessThanOrEqual(Date.now() + 120000);
+    expect(verified.deviceIds).toEqual(["test-gpu-0"]);
   });
 
   test("should reject a replaced device token even when its own signature is valid", async () => {

@@ -2,7 +2,8 @@
  * @param {Uint8Array} bytes - Original document or signed payload bytes.
  * @returns {unknown} Strictly decoded JSON value.
  */
-export function parseTinfoilJSON(bytes: Uint8Array): unknown {
+function parseJSONDocument(bytes: Uint8Array) {
+  const fields = new Map<string, string>();
   const source = new TextDecoder("utf-8", {
     fatal: true,
     ignoreBOM: true,
@@ -73,7 +74,12 @@ export function parseTinfoilJSON(bytes: Uint8Array): unknown {
         if (source[position++] !== ":") {
           fail();
         }
+        whitespace();
+        const start = position;
         object[name] = value(depth + 1);
+        if (depth === 0) {
+          fields.set(name, source.slice(start, position));
+        }
         whitespace();
         const separator = source[position++];
         if (separator === "}") {
@@ -142,7 +148,7 @@ export function parseTinfoilJSON(bytes: Uint8Array): unknown {
   if (position !== source.length) {
     fail();
   }
-  return result;
+  return { value: result, fields };
 }
 
 /** Decode canonical RFC 4648 base64 without accepting alternate encodings.
@@ -158,4 +164,28 @@ export function decodeTinfoilBase64(encoded: string): Uint8Array {
     throw new Error("Invalid attestation base64");
   }
   return bytes;
+}
+
+/** Parse strict JSON without losing integer precision or accepting duplicate object names.
+ * @param {Uint8Array} bytes - Exact original UTF-8 bytes.
+ * @returns {unknown} Parsed value.
+ */
+export function parseTinfoilJSON(bytes: Uint8Array): unknown {
+  return parseJSONDocument(bytes).value;
+}
+
+/** Preserve an Intel-signed object's exact original JSON bytes, including whitespace and property order.
+ * @param {Uint8Array} bytes - Strictly validated signed envelope.
+ * @param {string} field - Root-level signed object name.
+ * @returns {string} Exact object encoding; no reserialization occurs.
+ */
+export function readTinfoilSignedJSONObject(
+  bytes: Uint8Array,
+  field: string,
+): string {
+  const value = parseJSONDocument(bytes).fields.get(field);
+  if (!value?.startsWith("{") || !value.endsWith("}")) {
+    throw new Error("Missing signed JSON object");
+  }
+  return value;
 }

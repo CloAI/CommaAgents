@@ -114,6 +114,9 @@ export function createExecutionPrivacyRuntime(context: RunPreparationContext) {
         ...(report.workloadMeasurements
           ? { workloadMeasurements: report.workloadMeasurements }
           : {}),
+        ...(report.downstreamVerification
+          ? { downstreamVerification: report.downstreamVerification }
+          : {}),
         ...(report.gpuAssociation
           ? { gpuAssociation: report.gpuAssociation }
           : {}),

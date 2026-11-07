@@ -6,6 +6,7 @@ import { CommaAgentsDaemonProvider } from "../hooks/useCommaAgentsDaemon";
 import { LayoutProvider } from "../hooks/useLayout";
 import { isolateLayoutStorage } from "../hooks/useLayout/test.utils";
 import { SettingsProvider } from "../hooks/useSettings";
+import { ThemeProvider } from "../hooks/useTheme";
 import { MockWebSocket } from "../hooks/useWebSocket/test.utils";
 import { ConnectionStatus } from "../design-system/ConnectionStatus";
 import { App, AppRender } from "./App";
@@ -38,11 +39,13 @@ type Story = StoryObj<typeof meta>;
 const withProviders: NonNullable<Story["decorators"]> = [
   (Story) => (
     <SettingsProvider>
-      <CommaAgentsDaemonProvider>
-        <LayoutProvider>
-          <Story />
-        </LayoutProvider>
-      </CommaAgentsDaemonProvider>
+      <ThemeProvider>
+        <CommaAgentsDaemonProvider>
+          <LayoutProvider>
+            <Story />
+          </LayoutProvider>
+        </CommaAgentsDaemonProvider>
+      </ThemeProvider>
     </SettingsProvider>
   ),
 ];

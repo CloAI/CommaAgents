@@ -11,4 +11,8 @@ export interface StartRun {
   readonly isStarting: boolean;
   /** Why the last attempt failed. */
   readonly error: string | undefined;
+  /** Model roles the strategy needs that the daemon has not configured; set them, then start again. */
+  readonly missingRoles: readonly string[] | undefined;
+  /** Forget the missing roles without configuring them. */
+  readonly dismissMissingRoles: () => void;
 }

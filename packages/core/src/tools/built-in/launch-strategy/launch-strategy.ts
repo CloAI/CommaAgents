@@ -26,12 +26,6 @@ export const launchStrategyParams = z.object({
     .describe(
       "Initial message passed to the strategy's entry flow. Use an empty string when the entry flow is a user agent that prompts for input on its own.",
     ),
-  modelOverride: z
-    .string()
-    .optional()
-    .describe(
-      "Optional provider/model override (`providerID/modelID`) applied to every LLM agent in the sub-strategy.",
-    ),
 });
 
 /**
@@ -68,13 +62,6 @@ export function createLaunchStrategyTool(): ToolDefinition<
           description:
             "Initial message passed to the sub-strategy's entry flow.",
         },
-        {
-          name: "modelOverride",
-          type: "string",
-          required: false,
-          description:
-            'Provider/model override applied to every LLM agent in the sub-strategy. Format: "providerID/modelID".',
-        },
       ],
       outputs:
         "`{ strategyName, path, result, finishReason? }` — `result` is the final text produced by the sub-strategy's entry flow.",
@@ -97,7 +84,7 @@ export function createLaunchStrategyTool(): ToolDefinition<
     }),
     parameters: launchStrategyParams,
     execute: async (validatedArguments, toolContext) => {
-      const { name, input, modelOverride } = validatedArguments;
+      const { name, input } = validatedArguments;
 
       let discovered: Awaited<ReturnType<typeof discoverStrategies>>;
       try {
@@ -141,7 +128,6 @@ export function createLaunchStrategyTool(): ToolDefinition<
             strategyPath: match.path,
             ...(match.manifestPath ? { manifestPath: match.manifestPath } : {}),
             input,
-            ...(modelOverride ? { modelOverride } : {}),
           });
           const data: LaunchStrategyData = {
             strategyName: result.strategyName,
@@ -209,7 +195,6 @@ export function createLaunchStrategyTool(): ToolDefinition<
             ? { skillRegistry: toolContext.skillRegistry }
             : {}),
           ...(seededCollector ? { inputCollector: seededCollector } : {}),
-          ...(modelOverride ? { modelOverride } : {}),
         };
         const loaded = await loadStrategyFromString(content, format, options);
         const callResult = await loaded.flow.call(input);

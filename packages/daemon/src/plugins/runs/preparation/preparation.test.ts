@@ -7,6 +7,7 @@ import {
   directories,
   repository,
 } from "../test.utils";
+import { MissingModelRolesError } from "@comma-agents/core";
 import { RunErrorCode } from "../errors";
 import * as storageModule from "../state/storage/storage";
 afterEach(cleanupRunFixtures);
@@ -115,34 +116,6 @@ describe("run preparation", () => {
     }
   });
 
-  it("should keep per-agent model overrides until they are cleared", async () => {
-    const runs = createMockRunsPlugin({
-      repository: repository(),
-      loadStrategy: fakeLoader({ loads: [], restored: [] }),
-    });
-    const prepared = await runs.prepareRun({
-      runId: "agents",
-      configuration: {
-        strategyPath: "example.json",
-        modelOverrides: { planner: "openai/gpt-4o" },
-      },
-    });
-    expect(prepared.configuration.modelOverrides).toEqual({
-      planner: "openai/gpt-4o",
-    });
-    await runs.startRun("agents", "go").completion;
-    const kept = await runs.prepareRun({ runId: "agents" });
-    expect(kept.configuration.modelOverrides).toEqual({
-      planner: "openai/gpt-4o",
-    });
-    await runs.startRun("agents", "again").completion;
-    const cleared = await runs.prepareRun({
-      runId: "agents",
-      configuration: { modelOverrides: null },
-    });
-    expect(cleared.configuration.modelOverrides).toBeUndefined();
-    await runs.dispose();
-  });
   it("should resolve saved settings and allow clearing optional overrides", async () => {
     const runs = createMockRunsPlugin({
       repository: repository(),
@@ -154,19 +127,17 @@ describe("run preparation", () => {
         strategyPath: "first.json",
         cwd: "/first",
         manifestPath: "project.json",
-        modelOverride: "first/model",
       },
     });
     await runs.startRun("settings", "first").completion;
     const changed = await runs.prepareRun({
       runId: "settings",
-      configuration: { cwd: "/second", modelOverride: null },
+      configuration: { cwd: "/second", manifestPath: null },
     });
     expect(changed.configuration).toEqual({
       strategyPath: "first.json",
       cwd: "/second",
-      manifestPath: "project.json",
-      modelOverride: undefined,
+      manifestPath: undefined,
     });
     expect(changed).not.toHaveProperty("mode");
     expect(changed).not.toHaveProperty("conversation");
@@ -217,6 +188,68 @@ describe("run preparation", () => {
     expect(await runs.getRun("pending")).toMatchObject({
       phase: "terminal",
       outcome: { status: "stopped" },
+    });
+    await runs.dispose();
+  });
+  it("should report every missing model role when preparation cannot resolve them", async () => {
+    const runs = createMockRunsPlugin({
+      repository: repository(),
+      loadStrategy() {
+        throw new MissingModelRolesError(["medium", "compaction"]);
+      },
+    });
+    await expect(
+      runs.prepareRun({
+        runId: "roles",
+        configuration: { strategyPath: "example.json" },
+      }),
+    ).rejects.toMatchObject({
+      code: RunErrorCode.MISSING_MODEL_ROLES,
+      metadata: { runId: "roles", roles: ["medium", "compaction"] },
+    });
+    await runs.dispose();
+  });
+  it("should pass per-run roles to the loader, merge later choices over them, and clear them with null", async () => {
+    const seen: Array<Readonly<Record<string, string>> | undefined> = [];
+    const loader = fakeLoader({ loads: [], restored: [] });
+    const runs = createMockRunsPlugin({
+      repository: repository(),
+      loadStrategy(options) {
+        seen.push(options.modelRoles);
+        return loader(options);
+      },
+    });
+    await runs.prepareRun({
+      runId: "roles",
+      configuration: {
+        strategyPath: "example.json",
+        modelRoles: { medium: "openai/gpt-5", simple: "openai/gpt-5-mini" },
+      },
+    });
+    await runs.startRun("roles", "go").completion;
+    const merged = await runs.prepareRun({
+      runId: "roles",
+      configuration: { modelRoles: { medium: "anthropic/claude-sonnet-5-5" } },
+    });
+    expect(merged.configuration.modelRoles).toEqual({
+      medium: "anthropic/claude-sonnet-5-5",
+      simple: "openai/gpt-5-mini",
+    });
+    await runs.startRun("roles", "again").completion;
+    const kept = await runs.prepareRun({ runId: "roles" });
+    expect(kept.configuration.modelRoles).toEqual(
+      merged.configuration.modelRoles,
+    );
+    await runs.startRun("roles", "third").completion;
+    const cleared = await runs.prepareRun({
+      runId: "roles",
+      configuration: { modelRoles: null },
+    });
+    expect(cleared.configuration.modelRoles).toBeUndefined();
+    expect(seen.at(-1)).toBeUndefined();
+    expect(seen[0]).toEqual({
+      medium: "openai/gpt-5",
+      simple: "openai/gpt-5-mini",
     });
     await runs.dispose();
   });

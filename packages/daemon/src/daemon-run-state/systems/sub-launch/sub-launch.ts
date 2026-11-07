@@ -29,7 +29,7 @@ export function createSubLaunchSystem(
       const launchStrategy: LaunchStrategyHandle = async (
         request: LaunchStrategyRequest,
       ) => {
-        const { strategyPath, manifestPath, input, modelOverride } = request;
+        const { strategyPath, manifestPath, input } = request;
 
         logger.info(
           `Launching sub-strategy from ${strategyPath} with input length ${input?.length ?? 0}`,
@@ -83,7 +83,6 @@ export function createSubLaunchSystem(
           strategyFile.format,
           {
             inputCollector: wrappedCollector,
-            modelOverride,
             skillRegistry,
             sandbox,
             questionRequester,

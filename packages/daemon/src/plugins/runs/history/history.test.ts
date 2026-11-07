@@ -22,7 +22,7 @@ describe("run persistence", () => {
       runId: "saved",
       configuration: {
         strategyPath: "example.json",
-        modelOverride: "saved/model",
+        cwd: "/saved",
       },
     });
     await runs.startRun("saved", "first").completion;
@@ -38,7 +38,7 @@ describe("run persistence", () => {
     const snapshot = await restarted.getRun("saved");
     expect(snapshot).toMatchObject({
       phase: "terminal",
-      configuration: { modelOverride: "saved/model" },
+      configuration: { cwd: "/saved" },
       strategy: {
         name: "example",
         agents: ["writer"],

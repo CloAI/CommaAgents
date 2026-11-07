@@ -52,7 +52,7 @@ export const LLMAgentDefSchema = z
   .object({
     type: z.literal("llm").optional(),
     description: z.string().optional(),
-    /** `provider/model`, or a role reference such as `@primary` resolved through `modelRoles`. */
+    /** `provider/model`, or a role reference such as `@medium` resolved through `modelRoles`. */
     model: z.string().optional(),
     /** Required provider-independent inference protections. */
     privacy: PrivacyRequirementsSchema.optional(),

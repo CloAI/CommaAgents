@@ -8,5 +8,9 @@
     "target": "trusted_root.json",
     "verification": "Released @freedomofpress/sigstore-browser 0.1.15 TrustedRootProvider; TUF verification enabled",
     "sha256": "6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66"
+  },
+  "amdTurin": {
+    "source": "https://kdsintf.amd.com/vcek/v1/Turin/cert_chain",
+    "sha256": "cc9a52fbed3fbc6e4a0a50149a541a75938f975658909c2a6084767829b36e85"
   }
 }

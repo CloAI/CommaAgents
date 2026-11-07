@@ -6,6 +6,7 @@ import type { ChangeEventHandler, Ref } from "react";
 import { Button } from "../../../design-system/Button";
 import { useSettings } from "../../../hooks/useSettings";
 import { SettingsPanel } from "../SettingsPanel";
+import { StrategyModelsSettings } from "../StrategyModelsSettings";
 import { Input } from "../../../design-system/Input";
 import styles from "./GeneralSettings.module.scss";
 
@@ -102,6 +103,7 @@ export function GeneralSettings({ active, onClose }: GeneralSettingsProps) {
           onBlur={field.onBlur}
           name={field.name}
         />
+        <StrategyModelsSettings />
       </SettingsPanel>
     </form>
   );

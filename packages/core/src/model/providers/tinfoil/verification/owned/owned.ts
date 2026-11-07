@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { parseTinfoilDocument, parseTinfoilReference } from "./owned.document";
 import { verifyTinfoilRelease, verifyTinfoilWitness } from "./owned.provenance";
-import { authenticateTinfoilAMD, appraiseTinfoilAMD } from "./owned.amd";
+import { verifyTinfoilCPU } from "./owned.cpu";
 import { parseTinfoilJSON, decodeTinfoilBase64 } from "./owned.json";
-import { devicesSchema, hex48 } from "./owned.schemas";
+import { devicesSchema } from "./owned.schemas";
 import type { TinfoilAppraisal, TinfoilVerification } from "./owned.types";
 
 /** Appraise the supported release-profile V3 protocol with first-party envelope and hardware policy checks.
@@ -26,30 +26,34 @@ export async function verifyTinfoilDocument(
     if (!Number.isFinite(time)) {
       throw new Error("Invalid appraisal time");
     }
-    // Device attestation is a separate protocol; the router proof must not imply GPU verification.
+    const devices = devicesSchema.parse(
+      parseTinfoilJSON(decodeTinfoilBase64(document.device_evidence)),
+    );
+    const amd =
+      document.cpu_evidence.format ===
+      "https://tinfoil.sh/format/sev-snp-report/v1";
+    const tdx =
+      document.cpu_evidence.format === "https://tinfoil.sh/format/tdx-quote/v1";
     if (
-      document.cpu_evidence.format !==
-        "https://tinfoil.sh/format/sev-snp-report/v1" ||
-      devicesSchema.parse(
-        parseTinfoilJSON(decodeTinfoilBase64(document.device_evidence)),
-      ).items.length
+      (options.profile !== "model" && (!amd || devices.items.length)) ||
+      (!amd && !tdx)
     ) {
       throw new Error("Unsupported hardware evidence profile");
     }
     const expectedCollateral = [
-      ["cpu-endorsement", "endorsement", "amd-vcek"],
-      ["cpu-crl", "endorsement", "amd-crl"],
+      ["cpu-endorsement", "endorsement", amd ? "amd-vcek" : "intel-pcs"],
+      ...(amd ? [["cpu-crl", "endorsement", "amd-crl"]] : []),
       ["code", "reference-values", "sigstore-code"],
       ["code-freshness", "reference-values", "sigstore-freshness"],
       ["platform", "reference-values", "sigstore-platform"],
       ["platform-freshness", "reference-values", "sigstore-freshness"],
-    ] as const;
+    ];
     if (document.collateral.length !== expectedCollateral.length) {
       throw new Error("Unsupported collateral profile");
     }
     const collateral = new Map(document.collateral.map((c) => [c.id, c]));
     for (const [id, role, format] of expectedCollateral) {
-      const c = collateral.get(id);
+      const c = collateral.get(id!);
       if (
         !c ||
         c.role !== role ||
@@ -92,13 +96,6 @@ export async function verifyTinfoilDocument(
       time,
       age,
     );
-    layer = "quote";
-    authenticateTinfoilAMD(
-      cpuReport,
-      collateral.get("cpu-endorsement")!.data,
-      collateral.get("cpu-crl")!.data,
-      time,
-    );
     layer = "policy";
     if (
       code.statement.predicateType !==
@@ -110,58 +107,56 @@ export async function verifyTinfoilDocument(
     }
     const workload = z
       .object({
-        snp_measurement: hex48,
-        vm_shape: z.object({ gpus: z.literal(0) }).passthrough(),
+        vm_shape: z
+          .object({ gpus: z.number().int().min(0).max(64) })
+          .passthrough(),
       })
       .passthrough()
       .parse(code.statement.predicate);
-    const policies = z
-      .object({
-        format: z.literal(
-          "https://tinfoil.sh/predicate/platform-endorsements/v1",
-        ),
-        machines: z.record(z.string()),
-        policies: z.record(z.unknown()),
-      })
-      .passthrough()
-      .parse(platform.statement.predicate);
-    const chipID = Buffer.from(cpuReport.subarray(0x1a0, 0x1e0)).toString(
-      "hex",
-    );
-    const name = policies.machines[chipID];
+    const gpuCount = workload.vm_shape.gpus;
     if (
-      !name ||
-      !Object.hasOwn(policies.machines, chipID) ||
-      !Object.hasOwn(policies.policies, name)
+      (options.profile !== "model" && gpuCount !== 0) ||
+      devices.items.length !== gpuCount
     ) {
-      throw new Error("Unapproved hardware identity");
+      throw new Error("Signed GPU count does not match endorsed evidence");
     }
-    const policy = z
-      .object({ platform: z.literal("sev-snp"), sev_snp: z.unknown() })
-      .strict()
-      .parse(policies.policies[name]);
-    appraiseTinfoilAMD(
-      cpuReport,
-      policy.sev_snp,
-      workload.snp_measurement,
-      expectedReportData,
-    );
+    let cpu;
+    try {
+      cpu = verifyTinfoilCPU({
+        document,
+        report: cpuReport,
+        reportData: expectedReportData,
+        platform: platform.statement.predicate,
+        workload: code.statement.predicate,
+        time,
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "layer" in error &&
+        typeof error.layer === "string"
+      ) {
+        layer = error.layer;
+      }
+      throw error;
+    }
+    const enclaveMeasurement = cpu.measurements;
     const pins = options.pinnedRegisters;
     if (
       pins &&
-      (pins.type !== "sev-snp" ||
-        (pins.launch && pins.launch !== workload.snp_measurement))
+      (pins.type !== enclaveMeasurement.type ||
+        Object.entries(pins).some(
+          ([field, value]) =>
+            field !== "type" && enclaveMeasurement[field] !== value,
+        ))
     ) {
       throw new Error("Workload register pin mismatch");
     }
-    const expiry = Math.min(codeExpiry, platformExpiry);
-    const enclaveMeasurement = Object.freeze({
-      type: "sev-snp",
-      launch: workload.snp_measurement,
-    });
+    const expiry = Math.min(codeExpiry, platformExpiry, cpu.expiresAt);
     return Object.freeze({
       configRepo: code.repo,
       codeTag: code.tag,
+      gpuCount,
       codeDigest: code.digest,
       enclaveMeasurement,
       get freshnessExpiresAt() {

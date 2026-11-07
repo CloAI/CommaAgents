@@ -16,18 +16,26 @@ export interface CoreNotifications {
     readonly type: "providers_updated";
     readonly snapshot: ProvidersSnapshot;
   };
+  /** The configured model roles changed; subscribers read them from the plugin. */
+  readonly model_roles_updated: { readonly type: "model_roles_updated" };
 }
 
 /** Thin aggregation of core provider APIs and typed daemon bindings. */
 export interface CorePlugin extends NotifyingPlugin<"core", CoreNotifications> {
   /** Core-owned provider configuration, credential, verification, and query operations. */
   readonly providers: CoreProviders;
-  /** User-configured models for `@role` references, used when describing strategies. */
-  readonly modelRoles: Readonly<Record<string, string>>;
+  /** User-configured models for `@role` references. */
+  getModelRoles(): Readonly<Record<string, string>>;
+  /** Replace the configured roles, saving them before they take effect. */
+  setModelRoles(modelRoles: Readonly<Record<string, string>>): void;
 }
 
 /** Settings for the core plugin. */
 export interface CreateCorePluginOptions {
   /** User-configured models for `@role` references. @default {} */
   readonly modelRoles?: Readonly<Record<string, string>>;
+  /** Saves roles before {@link CorePlugin.setModelRoles} applies them. @default no persistence */
+  readonly persistModelRoles?: (
+    modelRoles: Readonly<Record<string, string>>,
+  ) => void;
 }

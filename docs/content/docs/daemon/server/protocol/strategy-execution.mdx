@@ -15,7 +15,6 @@ input. Send `stop_run` to cancel either a prepared or running run.
   "type": "prepare_run",
   "runId": "run_abc123",
   "strategyPath": "./strategies/code-review.yaml",
-  "modelOverride": "anthropic/claude-sonnet-4-20250514",
   "cwd": "/workspace",
   "requestId": "prepare-1"
 }
@@ -23,7 +22,7 @@ input. Send `stop_run` to cancel either a prepared or running run.
 
 For a new run, `strategyPath` is required and `runId` is optional. To prepare
 an existing run for continuation, send its persisted `runId`; `strategyPath`,
-`modelOverride`, `cwd`, and `manifestPath` may override the previous
+`cwd` and `manifestPath` may override the previous
 execution's configuration. The requesting client is automatically subscribed
 to the run.
 

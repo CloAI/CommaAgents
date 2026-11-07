@@ -1,6 +1,6 @@
 import type { ProtectedModelOptions } from "../protected/protected.types";
 
-/** Optional additional register pins, enforced alongside signed V3 workload/platform policy. The current verifier supports AMD Genoa release-profile evidence; other hardware rejects. */
+/** Optional additional register pins, enforced alongside signed V3 workload/platform policy. Router evidence supports AMD Genoa/Turin; model CPU evidence supports AMD Genoa/Turin and Intel TDX, all using release-based collateral. */
 export type TinfoilMeasurementPins =
   | {
       /** Attested hardware platform. */

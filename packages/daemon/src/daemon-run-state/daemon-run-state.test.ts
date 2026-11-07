@@ -83,14 +83,12 @@ async function prepareAndStart(
   strategyPath: string,
   input = "",
   requestId?: string,
-  modelOverride?: string,
   cwd?: string,
   manifestPath?: string,
   runId?: string,
 ): Promise<string> {
   const prepared = await daemonRunState.prepareRun(clientId, {
     strategyPath,
-    modelOverride,
     cwd,
     manifestPath,
     runId,
@@ -1122,7 +1120,6 @@ registerFlow(
       "client-1",
       filePath,
       "hello",
-      undefined,
       undefined,
       cwd,
     );

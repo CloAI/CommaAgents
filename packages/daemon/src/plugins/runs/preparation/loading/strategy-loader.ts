@@ -11,8 +11,7 @@ import type { LoadRunStrategyOptions } from "./loading.types";
 export async function loadRunStrategy({
   strategyPath,
   manifestPath,
-  modelOverride,
-  modelOverrides,
+  modelRoles,
   runId,
   inputCollector,
   launchStrategy,
@@ -55,12 +54,10 @@ export async function loadRunStrategy({
     inputCollector,
     launchStrategy,
     requestStrategySwitch,
-    modelOverride,
-    modelOverrides,
     strategyDir: dirname(strategyPath),
     runId,
     cwd,
-    modelRoles: harness?.modelRoles,
+    modelRoles: { ...harness?.getModelRoles?.(), ...modelRoles },
     instructionFiles: harness?.instructionFiles,
   });
 }

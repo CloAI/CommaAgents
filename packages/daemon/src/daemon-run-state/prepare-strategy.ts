@@ -18,7 +18,6 @@ const logger = getLogger(["comma", "daemon", "prepare-strategy"]);
 export interface PrepareStrategyOptions {
   readonly strategyPath: string;
   readonly manifestPath?: string;
-  readonly modelOverride?: string;
   readonly runId: string;
   readonly systemData: SystemDataStore;
 
@@ -68,7 +67,6 @@ export async function prepareStrategy(
   const {
     strategyPath,
     manifestPath,
-    modelOverride,
     runId,
     systemData,
     flowHooks,
@@ -108,7 +106,6 @@ export async function prepareStrategy(
       sandbox,
       questionRequester,
       flowHooks,
-      modelOverride,
       strategyDir: dirname(strategyPath),
       runId,
       mcpToolsByAgent,

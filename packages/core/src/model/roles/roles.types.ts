@@ -1,7 +1,13 @@
-/** Model identifiers keyed by role name, e.g. `{ primary: "openai/gpt-5", fast: "openai/gpt-5-mini" }`. */
+/** Model identifiers keyed by role name, e.g. `{ medium: "openai/gpt-5", simple: "openai/gpt-5-mini" }`. */
 export type ModelRoles = Readonly<Record<string, string>>;
 
-/** Sources consulted when an agent's model is a role reference such as `@primary`. */
+/** A role offered for configuration, with what it is used for. */
+export interface ModelRoleDefinition {
+  readonly name: string;
+  readonly description: string;
+}
+
+/** Sources consulted when an agent's model is a role reference such as `@medium`. */
 export interface ModelRoleSources {
   /** User-configured roles; these win over strategy defaults. */
   readonly configured?: ModelRoles;

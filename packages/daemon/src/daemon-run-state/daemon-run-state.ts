@@ -163,8 +163,6 @@ export function createDaemonRunState({
     }
 
     const effectiveCwd = options.cwd ?? latestStart?.cwd ?? process.cwd();
-    const effectiveModelOverride =
-      options.modelOverride ?? latestStart?.modelOverride;
     const effectiveManifestPath =
       options.manifestPath ?? latestStart?.manifestPath;
     const runStore = daemonStore.createRun(
@@ -191,7 +189,6 @@ export function createDaemonRunState({
       run,
       messageSender,
       clientId,
-      modelOverride: effectiveModelOverride,
       abortSignal: runStore.abortSignal,
       systemData,
       actions,
@@ -217,7 +214,6 @@ export function createDaemonRunState({
         ...(effectiveManifestPath
           ? { manifestPath: effectiveManifestPath }
           : {}),
-        modelOverride: context.modelOverride,
         runId: run.id,
         systemData,
         hubManager,

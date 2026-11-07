@@ -139,7 +139,7 @@ describe("runs WebSocket API", () => {
           runId: "overrides",
           configuration: {
             strategyPath: "example.json",
-            modelOverrides: { writer: "openai/gpt-4o" },
+            cwd: "/work",
           },
         },
       });
@@ -159,7 +159,7 @@ describe("runs WebSocket API", () => {
         type: "run.initial",
         data: {
           snapshot: {
-            configuration: { modelOverrides: { writer: "openai/gpt-4o" } },
+            configuration: { cwd: "/work" },
           },
         },
       });

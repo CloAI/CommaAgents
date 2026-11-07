@@ -7,7 +7,7 @@
   position: absolute;
   border: 2px solid var(--color-primary);
   border-radius: var(--radius-control);
-  background: rgb(208 188 255 / 0.18);
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
   pointer-events: none;
   &[data-zone="left"] {
     inset: 0 50% 0 0;

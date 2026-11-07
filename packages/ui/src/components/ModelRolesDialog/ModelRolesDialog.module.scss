@@ -1,0 +1,21 @@
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  font-size: var(--font-size-small);
+
+  p {
+    margin: 0;
+  }
+
+  .error {
+    color: var(--color-error-text);
+  }
+
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+  }
+}

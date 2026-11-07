@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Select } from "../../design-system/Select";
 import type { SelectOption } from "../../design-system/Select";
+import { useDaemonConnectionStatus } from "../../hooks/useCommaAgentsDaemon";
 import { useSelectedStrategy } from "../../hooks/useSelectedStrategy";
 import type { SelectedStrategy } from "../../hooks/useSelectedStrategy";
 import type { StrategyItem } from "../../hooks/useStrategies";
@@ -16,9 +17,11 @@ import {
  * @returns {React.ReactElement} The rendered component.
  */
 export function StrategySelect() {
+  const connected = useDaemonConnectionStatus() === "connected";
   const { status, strategies, selected, select } = useSelectedStrategy();
   return (
     <StrategySelectRender
+      connected={connected}
       status={status}
       strategies={strategies}
       selected={selected}
@@ -32,6 +35,8 @@ export interface StrategySelectRenderProps extends Pick<
   SelectedStrategy,
   "status" | "strategies" | "selected"
 > {
+  /** Whether the daemon is connected. Waiting is shown after 50ms. @default true */
+  readonly connected?: boolean;
   /** Receive the path of the chosen strategy. */
   readonly onSelect: (path: string) => void;
 }
@@ -42,12 +47,33 @@ export interface StrategySelectRenderProps extends Pick<
  * @returns {React.ReactElement} The rendered component.
  */
 export function StrategySelectRender({
+  connected = true,
   status,
   strategies,
   selected,
   onSelect,
 }: StrategySelectRenderProps) {
   const options = useMemo(() => strategies.map(toOption), [strategies]);
+  const [showWaiting, setShowWaiting] = useState(false);
+  useEffect(() => {
+    setShowWaiting(false);
+    if (connected) {
+      return;
+    }
+    const timer = window.setTimeout(() => setShowWaiting(true), 50);
+    return () => window.clearTimeout(timer);
+  }, [connected]);
+  if (!connected) {
+    return (
+      <span
+        role="status"
+        aria-label="Daemon connection"
+        aria-busy={!showWaiting}
+      >
+        {showWaiting ? "Waiting for daemon…" : ""}
+      </span>
+    );
+  }
   return (
     <Select
       label="Strategy"

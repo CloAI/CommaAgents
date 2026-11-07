@@ -4,16 +4,6 @@ import type { Agent, AgentRuntime } from "../agent/agent.types";
 
 /** Loader-provided services available when constructing a registered agent type. */
 export interface AgentTypeRuntime extends AgentRuntime {
-  /**
-   * Model override supplied for the current load operation.
-   * Custom factories decide whether and how to apply it.
-   */
-  readonly modelOverride?: string;
-  /**
-   * Model overrides by agent name for the current load operation.
-   * An entry takes precedence over `modelOverride` for that agent.
-   */
-  readonly modelOverrides?: Readonly<Record<string, string>>;
   /** Base directory for resolving paths referenced by the loaded definition. */
   readonly strategyDir?: string;
 }

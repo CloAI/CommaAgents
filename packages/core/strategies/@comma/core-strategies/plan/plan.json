@@ -2,11 +2,6 @@
   "name": "Plan",
   "version": "3.0",
   "description": "Explore the codebase, settle open decisions with you, and produce a decision-complete plan to hand to Build.",
-  "modelRoles": {
-    "primary": "openrouter/google/gemini-3.5-flash",
-    "subagent": "openrouter/google/gemini-3.5-flash",
-    "fast": "openrouter/google/gemma-4-26b-a4b-it"
-  },
   "agents": {
     "user": {
       "type": "user",
@@ -15,7 +10,7 @@
     },
     "planner": {
       "description": "Investigates read-only and writes the plan.",
-      "model": "@primary",
+      "model": "@medium",
       "maxSteps": 80,
       "systemPromptTemplate": { "template": "./prompts/planner.md" },
       "context": {

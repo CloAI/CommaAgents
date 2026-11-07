@@ -109,9 +109,8 @@ export async function executeChildRun(
           strategyPath: request.strategyPath,
           cwd: parent.configuration.cwd,
           manifestPath: request.manifestPath,
-          // Children inherit a run-wide override so every agent in an evaluated run uses one model.
-          modelOverride:
-            request.modelOverride ?? parent.configuration.modelOverride,
+          // Roles chosen for the parent apply to every child it launches.
+          modelRoles: parent.configuration.modelRoles,
         },
       },
       { runId, parentRunId: parent.runId },

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import type { DragEvent, ReactNode } from "react";
+import type { CSSProperties, DragEvent, ReactNode } from "react";
 import { MemoryRouter, useLocation } from "react-router";
+import { useSettings } from "../../hooks/useSettings";
 import { ChatPaneContext } from "../../hooks/useChatPane";
 import { listPanes, useLayout } from "../../hooks/useLayout";
 import type { DropZone, SplitDirection } from "../../hooks/useLayout";
@@ -22,6 +23,18 @@ export interface ChatPaneProps {
  * @returns {React.ReactElement} The pane.
  */
 export function ChatPane({ id }: ChatPaneProps) {
+  const { settings, saveSettings } = useSettings();
+  const [colorError, setColorError] = useState<string>();
+  const handleHueChange = (hue: number | undefined) => {
+    const paneHues = { ...settings.paneHues };
+    if (hue === undefined) {
+      delete paneHues[id];
+    } else {
+      paneHues[id] = hue;
+    }
+    const result = saveSettings({ ...settings, paneHues });
+    setColorError(result.type === "error" ? result.message : undefined);
+  };
   const {
     layout,
     paneCount,
@@ -82,6 +95,9 @@ export function ChatPane({ id }: ChatPaneProps) {
   return (
     <ChatPaneRender
       title={paneTitle(path)}
+      hue={settings.paneHues?.[id]}
+      onHueChange={handleHueChange}
+      colorError={colorError}
       active={layout.activeId === id}
       maximized={maximized}
       hasSiblings={hasSiblings}
@@ -126,6 +142,12 @@ function LocationReporter({ paneId }: { readonly paneId: string }) {
 
 /** Presentation state and handlers for a pane. */
 export interface ChatPaneRenderProps {
+  /** Saved hue for this pane; unset uses the main theme. */
+  readonly hue?: number;
+  /** Persist this pane's color or restore the main theme. */
+  readonly onHueChange?: (hue: number | undefined) => void;
+  /** A browser storage failure when changing the color. */
+  readonly colorError?: string;
   /** Name shown in the header. */
   readonly title: string;
   /** Whether the pane has focus. */
@@ -162,6 +184,9 @@ export interface ChatPaneRenderProps {
  * @returns {React.ReactElement} The pane frame.
  */
 export function ChatPaneRender({
+  hue,
+  onHueChange,
+  colorError,
   title,
   active,
   maximized,
@@ -184,12 +209,19 @@ export function ChatPaneRender({
     <div
       role="group"
       className={styles.pane}
+      data-custom-color={hue !== undefined}
+      style={
+        hue === undefined ? undefined : ({ "--pane-hue": hue } as CSSProperties)
+      }
       aria-label={title}
       data-active={active && hasSiblings}
       onPointerDownCapture={onActivate}
       onFocusCapture={onActivate}
     >
       <ChatPaneHeader
+        hue={hue}
+        onHueChange={onHueChange}
+        colorError={colorError}
         active={active && hasSiblings}
         centered={centered}
         title={title}

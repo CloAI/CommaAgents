@@ -111,11 +111,14 @@ export interface PrivacyReport {
   /** Per-profile expected and actual measurement differences when workload approval rejects. */
   readonly workloadMismatch?: PrivacyWorkloadMismatch;
   /** Source of CPU/GPU association; this does not prove physical co-location independently of the serving software. */
-  readonly gpuAssociation?: "approved-workload" | "router-admitted-enclave";
-  /** Direct NVIDIA report appraisal for every admitted candidate; model CPU identities are vouched for by the attested router. */
+  readonly gpuAssociation?:
+    | "approved-workload"
+    | "router-admitted-enclave"
+    | "verified-model-enclave";
+  /** Independent CPU and NVIDIA appraisal for the selected model pool; older reports can record delegated CPU verification. */
   readonly downstreamVerification?: {
     readonly scope: "router-admitted-pool";
-    readonly identitySource: "attested-router";
+    readonly identitySource: "attested-router" | "client-verified-cpu";
     readonly modelRepository: string;
     readonly enclaveCount: number;
     readonly gpuCount: number;

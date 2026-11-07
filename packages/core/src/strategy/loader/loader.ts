@@ -17,11 +17,16 @@ import { dirname } from "node:path";
 import stripJsonComments from "strip-json-comments";
 import YAML from "yaml";
 
-import { StrategyValidationError } from "../../errors/index";
+import {
+  MissingModelRolesError,
+  StrategyValidationError,
+} from "../../errors/index";
 import { buildFlowFromDescription } from "../../flows/loader/loader.utils";
+import { findMissingModelRoles, isLlmAgent } from "../../model/roles";
 import { StrategySchema } from "../schema";
+import type { Strategy } from "../schema";
 import type { LoadedStrategy, LoadStrategyOptions } from "./loader.types";
-import { buildAgentRegistry } from "./loader.utils";
+import { buildAgentRegistry, resolveSubagents } from "./loader.utils";
 
 // loadStrategy — from file path
 
@@ -108,6 +113,11 @@ export async function loadStrategyFromString(
 ): Promise<LoadedStrategy> {
   const strategy = parseStrategyFromString(content, format);
 
+  const missingRoles = await findMissingModelRolesDeep(strategy, options);
+  if (missingRoles.length > 0) {
+    throw new MissingModelRolesError(missingRoles);
+  }
+
   const agents = await buildAgentRegistry(strategy, options);
   const flow = buildFlowFromDescription(strategy.flow, {
     agents,
@@ -122,6 +132,48 @@ export async function loadStrategyFromString(
     agents,
     raw: strategy,
   };
+}
+
+/**
+ * Find every role the strategy and its subagent strategies use that the options do not define,
+ * so a missing role is reported before any run starts rather than when a subagent is launched.
+ */
+async function findMissingModelRolesDeep(
+  strategy: Strategy,
+  options: LoadStrategyOptions,
+  visited = new Set<string>(),
+): Promise<string[]> {
+  const missing = new Set(
+    findMissingModelRoles(strategy, { configured: options.modelRoles }),
+  );
+  for (const [agentName, agent] of Object.entries(strategy.agents)) {
+    if (!isLlmAgent(agent) || agent.subagents === undefined) {
+      continue;
+    }
+    for (const { strategyPath } of await resolveSubagents(
+      agentName,
+      agent.subagents,
+      options,
+    )) {
+      if (visited.has(strategyPath)) {
+        continue;
+      }
+      visited.add(strategyPath);
+      const format = /\.ya?ml$/i.test(strategyPath) ? "yaml" : "json";
+      const child = parseStrategyFromString(
+        await Bun.file(strategyPath).text(),
+        format,
+      );
+      for (const role of await findMissingModelRolesDeep(
+        child,
+        { ...options, strategyDir: dirname(strategyPath) },
+        visited,
+      )) {
+        missing.add(role);
+      }
+    }
+  }
+  return [...missing];
 }
 
 /** Parse and validate strategy source without instantiating runtime agents. */

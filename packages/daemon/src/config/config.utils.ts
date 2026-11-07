@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { type DaemonConfig, DaemonConfigFileSchema } from ".";
 
 export function readConfigFile(filePath: string): Partial<DaemonConfig> {
@@ -18,6 +19,25 @@ export function readConfigFile(filePath: string): Partial<DaemonConfig> {
     }
   }
   return result as Partial<DaemonConfig>;
+}
+
+/**
+ * Save `modelRoles` in the config file, keeping every other setting as written.
+ * @param {string} filePath - Config file to create or update.
+ * @param {Readonly<Record<string, string>>} modelRoles - Models keyed by role name.
+ */
+export function writeConfigModelRoles(
+  filePath: string,
+  modelRoles: Readonly<Record<string, string>>,
+): void {
+  const existing = existsSync(filePath)
+    ? DaemonConfigFileSchema.parse(JSON.parse(readFileSync(filePath, "utf-8")))
+    : {};
+  mkdirSync(dirname(filePath), { recursive: true });
+  writeFileSync(
+    filePath,
+    `${JSON.stringify({ ...existing, modelRoles }, null, 2)}\n`,
+  );
 }
 
 /**

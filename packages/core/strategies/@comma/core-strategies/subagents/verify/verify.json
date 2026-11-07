@@ -2,13 +2,9 @@
   "name": "Verify",
   "version": "1.0",
   "description": "Independent check of a finished change: intent, correctness, tests, and the project's own checks. Answers VERDICT: pass or fail with findings.",
-  "modelRoles": {
-    "primary": "openrouter/google/gemini-3.5-flash",
-    "subagent": "openrouter/google/gemini-3.5-flash"
-  },
   "agents": {
     "verifier": {
-      "model": "@subagent",
+      "model": "@medium",
       "maxSteps": 60,
       "systemPrompt": "./prompts/verify.md",
       "context": { "instructions": true, "environment": true },

@@ -23,14 +23,6 @@
   min-width: 0;
   padding-bottom: var(--space-4);
 }
-.strategy {
-  grid-row: 3;
-  align-self: start;
-  width: 100%;
-  max-width: var(--content-width);
-  min-width: 0;
-  padding-top: var(--space-2);
-}
 .content {
   grid-row: 2;
   width: 100%;
@@ -42,11 +34,6 @@
   .logo {
     display: none;
   }
-}
-.error {
-  margin: var(--space-4) 0 0;
-  color: var(--color-error);
-  font-size: var(--font-size-small);
 }
 @media (min-width: 48rem) {
   .screen {

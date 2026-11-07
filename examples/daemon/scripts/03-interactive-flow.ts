@@ -54,13 +54,6 @@ const argv = yargs(hideBin(process.argv))
     default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
     describe: "WebSocket URL of the daemon",
   })
-  .option("model-override", {
-    alias: "m",
-    type: "string",
-    default: process.env.MODEL,
-    describe:
-      'Override the model for all agents (e.g. "anthropic/claude-sonnet-4-20250514"). Also reads MODEL env var.',
-  })
   .example("$0", "Run with auto-generated interactive strategy")
   .example("$0 path/to/strategy.json", "Run a specific interactive strategy")
   .strict()
@@ -70,7 +63,6 @@ const argv = yargs(hideBin(process.argv))
   .parseSync();
 
 const DAEMON_URL = argv.daemonUrl as string;
-const MODEL_OVERRIDE = argv.modelOverride as string | undefined;
 
 // -- Temporary strategy with a UserAgent ------------------------------------
 
@@ -139,9 +131,6 @@ async function main() {
   const strategyPath = getStrategyPath();
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
   console.log(`Strategy: ${strategyPath}`);
-  if (MODEL_OVERRIDE) {
-    console.log(`Model override: ${MODEL_OVERRIDE}`);
-  }
   console.log();
 
   const ws = new WebSocket(DAEMON_URL);
@@ -155,7 +144,6 @@ async function main() {
         type: "prepare_run",
         strategyPath,
         requestId: "prepare-interactive-1",
-        ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
       }),
     );
   };

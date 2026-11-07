@@ -4,6 +4,7 @@ export type {
   LoadConfigOptions,
 } from "./config";
 export { DaemonConfigFileSchema, loadDaemonConfig } from "./config";
+export { writeConfigModelRoles } from "./config/config.utils";
 export type {
   DaemonCommandAction,
   DaemonCommandArguments,

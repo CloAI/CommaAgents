@@ -7,6 +7,21 @@
   min-width: 0;
   min-height: 0;
   background: var(--color-canvas);
+  &[data-custom-color="true"] {
+    --color-canvas: hsl(from var(--base-color-canvas) var(--pane-hue) s l);
+    --color-surface: hsl(from var(--base-color-surface) var(--pane-hue) s l);
+    --color-surface-raised: hsl(
+      from var(--base-color-surface-raised) var(--pane-hue) s l
+    );
+    --color-primary: hsl(from var(--base-color-primary) var(--pane-hue) s l);
+    --color-on-primary: hsl(
+      from var(--base-color-on-primary) var(--pane-hue) s l
+    );
+    --color-text: hsl(from var(--base-color-text) var(--pane-hue) s l);
+    --color-muted: hsl(from var(--base-color-muted) var(--pane-hue) s l);
+    --color-border: hsl(from var(--base-color-border) var(--pane-hue) s l);
+    --color-focus: var(--color-primary);
+  }
 }
 .body {
   flex: 1;

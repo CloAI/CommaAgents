@@ -21,7 +21,7 @@ export const DescribedAgentSchema = z
     description: z.string().optional(),
     /** `providerID/modelID` the agent uses, with any `@role` reference resolved. */
     model: z.string().optional(),
-    /** Role named by the agent's model reference, such as `primary` for `@primary`. */
+    /** Role named by the agent's model reference, such as `medium` for `@medium`. */
     modelRole: z.string().optional(),
     privacy: AgentPrivacySchema.optional(),
   })
@@ -46,6 +46,8 @@ export const DescribeStrategyOutputSchema = z
     name: z.string(),
     version: z.string(),
     description: z.string().optional(),
+    /** Roles the strategy refers to, without the `@` prefix, including compaction models. */
+    modelRoles: z.array(z.string()).readonly(),
     agents: z.array(DescribedAgentSchema).readonly(),
     steps: z.array(DescribedStepSchema).readonly(),
   })

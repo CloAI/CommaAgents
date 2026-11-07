@@ -4,7 +4,10 @@ import {
   isLLMAgentDef,
   isUserAgentDef,
 } from "@comma-agents/core/strategy";
-import { resolveModelReference } from "@comma-agents/core/strategy";
+import {
+  collectModelRoleReferences,
+  resolveModelReference,
+} from "@comma-agents/core/strategy";
 import type { FlowDef, Strategy } from "@comma-agents/core/strategy";
 import type { z } from "zod/v4";
 import type { DescribeStrategyOutputSchema } from "./describe-strategy.schemas";
@@ -29,6 +32,7 @@ export function describeStrategy(
     ...(strategy.description === undefined
       ? {}
       : { description: strategy.description }),
+    modelRoles: collectModelRoleReferences(strategy),
     agents: Object.entries(strategy.agents).map(([name, definition]) => {
       const description =
         definition.description === undefined

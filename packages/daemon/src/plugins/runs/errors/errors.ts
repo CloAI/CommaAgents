@@ -1,5 +1,10 @@
+import { MissingModelRolesError } from "@comma-agents/core";
 import { getLogger } from "@logtape/logtape";
-import type { RunError, RunOperationError } from "./errors.types";
+import type {
+  RunError,
+  RunMissingModelRolesError,
+  RunOperationError,
+} from "./errors.types";
 import { RunErrorCode } from "./errors.types";
 import { RUN_ERROR_MESSAGES } from "./errors.constants";
 const logger = getLogger(["comma", "daemon", "plugins", "runs"]);
@@ -24,7 +29,13 @@ export function operationError(
   code: RunOperationError["code"],
   runId: string,
   cause: unknown,
-): RunOperationError {
+): RunOperationError | RunMissingModelRolesError {
+  if (cause instanceof MissingModelRolesError) {
+    return {
+      code: RunErrorCode.MISSING_MODEL_ROLES,
+      metadata: { runId, roles: cause.roles },
+    };
+  }
   if (
     cause instanceof Error &&
     "code" in cause &&

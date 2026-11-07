@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { getModelFamily, resolveModelReference } from "./roles";
+import { MissingModelRolesError } from "../../errors/index";
+import { StrategySchema } from "../../strategy/schema";
+import {
+  findMissingModelRoles,
+  getModelFamily,
+  resolveModelReference,
+} from "./roles";
 
 describe("resolveModelReference", () => {
   it("should return plain model identifiers unchanged", () => {
@@ -8,42 +14,60 @@ describe("resolveModelReference", () => {
 
   it("should prefer configured roles over strategy defaults", () => {
     expect(
-      resolveModelReference("@primary", {
-        configured: { primary: "anthropic/claude-opus-5-5" },
-        defaults: { primary: "openai/gpt-5" },
+      resolveModelReference("@medium", {
+        configured: { medium: "anthropic/claude-opus-5-5" },
+        defaults: { medium: "openai/gpt-5" },
       }),
     ).toBe("anthropic/claude-opus-5-5");
   });
 
-  it("should follow the fallback chain from compaction to primary", () => {
+  it("should use the strategy default when no role is configured", () => {
     expect(
-      resolveModelReference("@compaction", {
-        defaults: { primary: "openai/gpt-5" },
+      resolveModelReference("@medium", {
+        defaults: { medium: "openai/gpt-5" },
       }),
     ).toBe("openai/gpt-5");
   });
 
-  it("should stop at the first role in the chain that has a model", () => {
-    expect(
-      resolveModelReference("@compaction", {
-        configured: { subagent: "openai/gpt-5-mini" },
-        defaults: { primary: "openai/gpt-5" },
+  it("should not fall back to another role", () => {
+    expect(() =>
+      resolveModelReference("@simple", {
+        configured: { medium: "openai/gpt-5" },
       }),
-    ).toBe("openai/gpt-5-mini");
+    ).toThrow(MissingModelRolesError);
+  });
+});
+
+describe("findMissingModelRoles", () => {
+  const strategy = StrategySchema.parse({
+    name: "Test",
+    version: "1.0",
+    modelRoles: { simple: "openai/gpt-5-mini" },
+    agents: {
+      user: { type: "user" },
+      main: {
+        model: "@medium",
+        context: { compaction: { model: "@compaction" } },
+      },
+      helper: { model: "@simple" },
+      fixed: { model: "openai/gpt-5" },
+    },
+    flow: { name: "Main", type: "sequential", steps: [{ agent: "main" }] },
   });
 
-  it("should fall back to primary for unknown roles", () => {
-    expect(
-      resolveModelReference("@research", {
-        defaults: { primary: "openai/gpt-5" },
-      }),
-    ).toBe("openai/gpt-5");
+  it("should list referenced roles that nothing defines", () => {
+    expect(findMissingModelRoles(strategy, { configured: {} })).toEqual([
+      "medium",
+      "compaction",
+    ]);
   });
 
-  it("should name every tried role when nothing resolves", () => {
-    expect(() => resolveModelReference("@fast", {})).toThrow(
-      'Model role "@fast" has no model. Tried roles: fast → subagent → primary.',
-    );
+  it("should count configured roles and strategy defaults as defined", () => {
+    expect(
+      findMissingModelRoles(strategy, {
+        configured: { medium: "openai/gpt-5", compaction: "openai/gpt-5-mini" },
+      }),
+    ).toEqual([]);
   });
 });
 

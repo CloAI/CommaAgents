@@ -4,13 +4,16 @@ import type { StrategyItem } from "../../useStrategies";
 /** A user selection awaiting the active-work decision. */
 export interface PendingStrategyChange {
   readonly strategy: StrategyItem;
-  readonly models?: Readonly<Record<string, string>>;
+  /** Roles to merge into the run's own, or `null` to clear them. */
+  readonly modelRoles?: Readonly<Record<string, string>> | null;
 }
 
 /** Run-owned strategy controls and their explicit switching actions. */
 export interface RunStrategy extends SelectedStrategy {
-  /** Persist model settings for this conversation. */
+  /** Choose models for roles in this conversation only. */
   readonly changeModels: (models: Readonly<Record<string, string>>) => void;
+  /** Drop this conversation's role choices so the daemon's apply again. */
+  readonly resetModels: () => void;
   /** Selection requiring an explicit decision about active work. */
   readonly pending: PendingStrategyChange | undefined;
   /** Dismiss without stopping or queuing a switch. */

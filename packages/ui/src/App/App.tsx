@@ -5,6 +5,7 @@ import { Sidebar } from "../components/Sidebar";
 import { CommaAgentsDaemonProvider } from "../hooks/useCommaAgentsDaemon";
 import { LayoutProvider, pathFromHash } from "../hooks/useLayout";
 import { SettingsProvider } from "../hooks/useSettings";
+import { ThemeProvider } from "../hooks/useTheme";
 import { Workspace } from "../components/Workspace";
 import styles from "./App.module.scss";
 
@@ -18,11 +19,13 @@ export function App() {
 
   return (
     <SettingsProvider>
-      <CommaAgentsDaemonProvider>
-        <LayoutProvider initialPath={initialPath}>
-          <AppRender connectionStatus={<DaemonConnectionStatus />} />
-        </LayoutProvider>
-      </CommaAgentsDaemonProvider>
+      <ThemeProvider>
+        <CommaAgentsDaemonProvider>
+          <LayoutProvider initialPath={initialPath}>
+            <AppRender connectionStatus={<DaemonConnectionStatus />} />
+          </LayoutProvider>
+        </CommaAgentsDaemonProvider>
+      </ThemeProvider>
     </SettingsProvider>
   );
 }

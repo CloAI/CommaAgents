@@ -42,6 +42,67 @@ async function capture(run: () => Promise<void>): Promise<LogRecord[]> {
 }
 
 describe("createExecutionPrivacyRuntime", () => {
+  it("should log independently verified model CPU and GPU scope", async () => {
+    let observe: ((event: PrivacyEvent) => void) | undefined;
+    const factory = spyOn(core, "createPrivacyRuntime").mockImplementation(
+      (options) => {
+        observe = options?.onEvent;
+        return {
+          async resolveModel() {
+            throw new Error("unused");
+          },
+        };
+      },
+    );
+    const downstreamVerification = {
+      scope: "router-admitted-pool",
+      identitySource: "client-verified-cpu",
+      modelRepository: "tinfoilsh/model",
+      enclaveCount: 2,
+      gpuCount: 8,
+    } as const;
+    try {
+      const records = await capture(async () => {
+        createExecutionPrivacyRuntime(scope);
+        observe?.({
+          providerId: "tinfoil",
+          modelId: "model",
+          requestId: "request",
+          phase: "verified",
+          report: {
+            requestId: "request",
+            modelId: "model",
+            requirements: { tee: "required", e2ee: "required" },
+            status: "verified",
+            startedAt: new Date().toISOString(),
+            checkedAt: new Date().toISOString(),
+            checks: {
+              cpu: "passed",
+              gpu: "passed",
+              workload: "passed",
+              freshness: "passed",
+              keyBinding: "passed",
+              responseBinding: "passed",
+              encryption: "passed",
+            },
+            providerId: "tinfoil",
+            downstreamVerification,
+            gpuAssociation: "verified-model-enclave",
+          },
+        });
+      });
+      expect(
+        records.some(
+          (record) =>
+            record.properties.downstreamVerification ===
+              downstreamVerification &&
+            record.properties.gpuAssociation === "verified-model-enclave",
+        ),
+      ).toBe(true);
+    } finally {
+      factory.mockRestore();
+    }
+  });
   it("should retain provider verification steps in operation and rejection logs", async () => {
     let observe: ((event: PrivacyEvent) => void) | undefined;
     const factory = spyOn(core, "createPrivacyRuntime").mockImplementation(

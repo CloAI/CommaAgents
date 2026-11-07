@@ -6,6 +6,7 @@ import { LayoutProvider } from "./hooks/useLayout";
 import { isolateLayoutStorage } from "./hooks/useLayout/test.utils";
 import type { Layout } from "./hooks/useLayout";
 import { SettingsProvider } from "./hooks/useSettings";
+import { ThemeProvider } from "./hooks/useTheme";
 import { MockWebSocket } from "./hooks/useWebSocket/test.utils";
 import { SETTINGS_STORAGE_KEY } from "./settings/settings.constants";
 
@@ -25,9 +26,11 @@ export interface AppProvidersProps {
 export function AppProviders({ initialPath, children }: AppProvidersProps) {
   return (
     <SettingsProvider>
-      <CommaAgentsDaemonProvider>
-        <LayoutProvider initialPath={initialPath}>{children}</LayoutProvider>
-      </CommaAgentsDaemonProvider>
+      <ThemeProvider>
+        <CommaAgentsDaemonProvider>
+          <LayoutProvider initialPath={initialPath}>{children}</LayoutProvider>
+        </CommaAgentsDaemonProvider>
+      </ThemeProvider>
     </SettingsProvider>
   );
 }

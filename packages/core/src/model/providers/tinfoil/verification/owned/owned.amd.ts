@@ -5,6 +5,7 @@ import {
   parseTinfoilCertificate,
   parseTinfoilDER,
   derUnsigned,
+  derTime,
   verifyTinfoilCRL,
 } from "./owned.der";
 import {
@@ -18,7 +19,13 @@ import type { TinfoilCertificate } from "./owned.types";
 
 const byte = z.number().int().min(0).max(255);
 const tcb = z
-  .object({ bl_spl: byte, tee_spl: byte, snp_spl: byte, ucode_spl: byte })
+  .object({
+    bl_spl: byte,
+    tee_spl: byte,
+    snp_spl: byte,
+    ucode_spl: byte,
+    fmc_spl: byte.optional(),
+  })
   .strict();
 const flag = z.boolean().default(false);
 const vector = z
@@ -97,27 +104,33 @@ function validateCA(cert: TinfoilCertificate, root: boolean) {
   }
 }
 
-/** Authenticate the current Genoa VCEK chain, chip/TCB certificate extensions and signed CPU report.
+/** Authenticate a Genoa or Turin VCEK chain, chip/TCB certificate extensions and signed CPU report.
  * @param {Uint8Array} report - Original AMD report bytes.
  * @param {unknown} certificateData - Supplied AMD endorsement collateral.
  * @param {unknown} crlData - Supplied AMD revocation collateral.
  * @param {number} time - Single appraisal time.
- * @returns {void} Nothing; any authentication failure rejects.
+ * @returns {number} Earliest authenticated certificate or revocation expiry.
  */
 export function authenticateTinfoilAMD(
   report: Uint8Array,
   certificateData: unknown,
   crlData: unknown,
   time: number,
-): void {
+): number {
+  if (!Number.isFinite(time)) {
+    throw new Error("Invalid CPU appraisal time");
+  }
   const bytes = Buffer.from(report);
+  const turin =
+    bytes.length === 1184 && bytes[0x188] === 0x1a && bytes[0x189] === 2;
+  const genoa =
+    bytes.length === 1184 && bytes[0x188] === 0x19 && bytes[0x189] === 0x11;
   if (
     bytes.length !== 1184 ||
-    bytes.readUInt32LE(0) !== 3 ||
+    ![3, 4, 5].includes(bytes.readUInt32LE(0)) ||
     bytes.readUInt32LE(0x34) !== 1 ||
-    bytes[0x188] !== 0x19 ||
-    bytes[0x189] !== 0x11 ||
-    bytes[0x18a] !== 1 ||
+    (!turin && !genoa) ||
+    ![0, 1].includes(bytes[0x18a]!) ||
     bytes.readUInt32LE(0x48) !== 0
   ) {
     throw new Error("Unsupported AMD report/platform");
@@ -140,7 +153,9 @@ export function authenticateTinfoilAMD(
   // Pin the manufacturer's chain; endpoint collateral never supplies a new trust root.
   const pemPattern =
     /-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g;
-  const pinned = roots.genoaChainPem.match(pemPattern)!;
+  const pinned = (turin ? roots.turinChainPem : roots.genoaChainPem).match(
+    pemPattern,
+  )!;
   const presented = supplied.cert_chain_pem.match(pemPattern);
   if (
     !presented ||
@@ -179,11 +194,10 @@ export function authenticateTinfoilAMD(
   ) {
     throw new Error("AMD certificate signature rejected");
   }
-  const revoked = verifyTinfoilCRL(
-    decodeTinfoilBase64(amdCrlSchema.parse(crlData).crl_der_base64),
-    [ark],
-    time,
+  const crlBytes = decodeTinfoilBase64(
+    amdCrlSchema.parse(crlData).crl_der_base64,
   );
+  const revoked = verifyTinfoilCRL(crlBytes, [ark], time);
   if (revoked.has(BigInt(`0x${ask.certificate.serialNumber}`).toString(16))) {
     throw new Error("AMD signing certificate revoked");
   }
@@ -198,25 +212,45 @@ export function authenticateTinfoilAMD(
     leaf.extensions.get(`${oid}2`)?.value ?? new Uint8Array(),
   );
   if (
-    integer("1") !== 0n ||
+    integer("1") !== (turin ? 1n : 0n) ||
     product.tag !== 22 ||
-    !/^Genoa(?:-B[0-9])?$/.test(Buffer.from(product.value).toString()) ||
+    !new RegExp(`^${turin ? "Turin" : "Genoa"}(?:-B${bytes[0x18a]})?$`).test(
+      Buffer.from(product.value).toString(),
+    ) ||
     !Buffer.from(leaf.extensions.get(`${oid}4`)?.value ?? []).equals(
-      bytes.subarray(0x1a0, 0x1e0),
+      bytes.subarray(0x1a0, turin ? 0x1a8 : 0x1e0),
     )
   ) {
     throw new Error("VCEK chip identity mismatch");
   }
-  for (const [slot, suffix] of [
-    [0, "3.1"],
-    [1, "3.2"],
-    [2, "3.4"],
-    [3, "3.5"],
-    [4, "3.6"],
-    [5, "3.7"],
-    [6, "3.3"],
-    [7, "3.8"],
-  ] as const) {
+  if (turin && bytes.subarray(0x1a8, 0x1e0).some((byte) => byte !== 0)) {
+    throw new Error("Invalid Turin chip identity padding");
+  }
+  if (bytes.subarray(0x1a0, 0x1e0).every((byte) => byte === 0)) {
+    throw new Error("Masked AMD chip identity");
+  }
+  const slots: readonly (readonly [number, string])[] = turin
+    ? [
+        [0, "3.9"],
+        [1, "3.1"],
+        [2, "3.2"],
+        [3, "3.3"],
+        [4, "3.5"],
+        [5, "3.6"],
+        [6, "3.7"],
+        [7, "3.8"],
+      ]
+    : [
+        [0, "3.1"],
+        [1, "3.2"],
+        [2, "3.4"],
+        [3, "3.5"],
+        [4, "3.6"],
+        [5, "3.7"],
+        [6, "3.3"],
+        [7, "3.8"],
+      ];
+  for (const [slot, suffix] of slots) {
     if (integer(suffix) !== BigInt(bytes[0x180 + slot]!)) {
       throw new Error("VCEK TCB mismatch");
     }
@@ -233,6 +267,14 @@ export function authenticateTinfoilAMD(
   ) {
     throw new Error("AMD report signature rejected");
   }
+  const crlBody = parseTinfoilDER(crlBytes).children[0]!;
+  const offset = crlBody.children[0]?.tag === 2 ? 1 : 0;
+  return Math.min(
+    Date.parse(leaf.certificate.validTo),
+    Date.parse(ask.certificate.validTo),
+    Date.parse(ark.certificate.validTo),
+    derTime(crlBody.children[offset + 3]!),
+  );
 }
 
 /** Compare a signed AMD policy with every security-relevant report field and workload measurement.
@@ -251,6 +293,18 @@ export function appraiseTinfoilAMD(
   const p = policySchema.parse(policyData);
   hex48.parse(launch);
   const b = Buffer.from(report);
+  const turin = b[0x188] === 0x1a;
+  if (
+    turin
+      ? p.minimum_tcb.fmc_spl === undefined ||
+        p.minimum_launch_tcb.fmc_spl === undefined ||
+        !p.platform_info.iommu_write_safe
+      : p.minimum_tcb.fmc_spl !== undefined ||
+        p.minimum_launch_tcb.fmc_spl !== undefined ||
+        p.platform_info.iommu_write_safe
+  ) {
+    throw new Error("AMD policy product mismatch");
+  }
   if (
     !b.subarray(0x50, 0x90).equals(reportData) ||
     b.subarray(0x90, 0xc0).toString("hex") !== launch ||
@@ -260,8 +314,10 @@ export function appraiseTinfoilAMD(
     b.subarray(0x10, 0x20).toString("hex") !== p.family_id ||
     b.subarray(0x20, 0x30).toString("hex") !== p.image_id ||
     b.subarray(0xe0, 0x140).some((v) => v !== 0) ||
-    b.readBigUInt64LE(0x1f8) < p.minimum_launch_mitigation_vector ||
-    b.readBigUInt64LE(0x200) < p.minimum_current_mitigation_vector
+    (b.readBigUInt64LE(0x1f8) & p.minimum_launch_mitigation_vector) !==
+      p.minimum_launch_mitigation_vector ||
+    (b.readBigUInt64LE(0x200) & p.minimum_current_mitigation_vector) !==
+      p.minimum_current_mitigation_vector
   ) {
     throw new Error("AMD workload or report-data policy mismatch");
   }
@@ -276,8 +332,8 @@ export function appraiseTinfoilAMD(
   if (
     current < floor ||
     committed < floor ||
-    (current === floor && b[0x1e8]! < p.minimum_build) ||
-    (committed === floor && b[0x1ec]! < p.minimum_build) ||
+    b[0x1e8]! < p.minimum_build ||
+    b[0x1ec]! < p.minimum_build ||
     current !== committed ||
     b[0x1e8] !== b[0x1ec]
   ) {
@@ -327,21 +383,27 @@ export function appraiseTinfoilAMD(
   if (b.readBigUInt64LE(0x40) !== expectedInfo) {
     throw new Error("AMD platform security policy rejected");
   }
-  const slots = [0, 1, 6, 7];
+  const slots = turin ? [1, 2, 3, 7, 0] : [0, 1, 6, 7];
   const minimum = [
     p.minimum_tcb.bl_spl,
     p.minimum_tcb.tee_spl,
     p.minimum_tcb.snp_spl,
     p.minimum_tcb.ucode_spl,
+    ...(turin ? [p.minimum_tcb.fmc_spl!] : []),
   ];
   const minimumLaunch = [
     p.minimum_launch_tcb.bl_spl,
     p.minimum_launch_tcb.tee_spl,
     p.minimum_launch_tcb.snp_spl,
     p.minimum_launch_tcb.ucode_spl,
+    ...(turin ? [p.minimum_launch_tcb.fmc_spl!] : []),
   ];
   for (const offset of [0x38, 0x180, 0x1e0, 0x1f0]) {
-    if (b.subarray(offset + 2, offset + 6).some((v) => v !== 0)) {
+    if (
+      b
+        .subarray(offset + (turin ? 4 : 2), offset + (turin ? 7 : 6))
+        .some((v) => v !== 0)
+    ) {
       throw new Error("Unsupported AMD TCB layout");
     }
     for (let i = 0; i < slots.length; i++) {
@@ -357,7 +419,10 @@ export function appraiseTinfoilAMD(
     throw new Error("Provisional AMD firmware rejected");
   }
   for (const slot of slots) {
-    if (b[0x1f0 + slot]! > b[0x38 + slot]!) {
+    if (
+      b[0x1f0 + slot]! > b[0x38 + slot]! ||
+      b[0x180 + slot]! > b[0x38 + slot]!
+    ) {
       throw new Error("AMD launch TCB exceeds current TCB");
     }
   }

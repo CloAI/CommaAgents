@@ -87,14 +87,14 @@ Detached processes discard console output; their configured log file retains dia
 
 Two settings shape how strategies build their agents:
 
-- `modelRoles` maps role names to models. Strategies refer to roles such as `@primary`, `@subagent`, `@fast`, and `@compaction`; a role you configure here wins over the strategy's own default.
+- `modelRoles` maps role names to models. Strategies refer to roles such as `@simple`, `@medium`, `@complex`, `@memory`, and `@compaction`; a role you configure here wins over the strategy's own default, and a role nobody defines stops the run with a list of what to set. The web UI edits these under Settings → General → Strategy models, and `comma models set <role> <provider/model>` writes them from the CLI. A run can override any role for itself: pass `modelRoles` to `runs.prepare`, use the Strategy models control beside the strategy picker (on the new-chat page the choice is remembered per strategy and sent when the chat starts), or `comma run --model-role medium=provider/model`. Clients can call `core.modelRoles.get` and `core.modelRoles.set`.
 - `instructionFiles` lists the file names read for project instructions, checked in each directory from the repository root down to the working directory. Defaults to `["AGENTS.md", "CLAUDE.md"]`.
 
 ```json
 {
   "modelRoles": {
-    "primary": "anthropic/claude-sonnet-5-5",
-    "fast": "openai/gpt-5-mini"
+    "medium": "anthropic/claude-sonnet-5-5",
+    "simple": "openai/gpt-5-mini"
   },
   "instructionFiles": ["AGENTS.md"]
 }

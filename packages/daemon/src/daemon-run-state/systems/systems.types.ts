@@ -116,8 +116,6 @@ export interface PrepareRunOptions {
   readonly runId?: string;
   /** Strategy file to load. Required when preparing a new run. */
   readonly strategyPath?: string;
-  /** Model applied to every LLM agent in this execution. */
-  readonly modelOverride?: string;
   /** Working directory used by the strategy and its tools. */
   readonly cwd?: string;
   /** Project manifest to load before the strategy. */
@@ -211,7 +209,6 @@ export interface SystemRunContext {
   readonly messageSender: MessageSender;
 
   readonly clientId: string;
-  readonly modelOverride: string | undefined;
   readonly abortSignal: AbortSignal;
   readonly systemData: SystemDataStore;
   readonly actions: RunActionRegistry;

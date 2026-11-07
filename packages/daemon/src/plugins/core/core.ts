@@ -25,6 +25,9 @@ import {
   removeCustomProviderCommand,
   addCustomProviderModelCommand,
   removeCustomProviderModelCommand,
+  getModelRolesCommand,
+  setModelRolesCommand,
+  watchModelRolesChannel,
 } from "./server";
 
 /**
@@ -37,7 +40,9 @@ import {
  */
 export function createCorePlugin({
   modelRoles = {},
+  persistModelRoles,
 }: CreateCorePluginOptions = {}) {
+  let currentModelRoles = modelRoles;
   const verification = new AbortController();
   const authentication = createProviderAuthentication();
   const catalog = createProviderCatalog((snapshot) =>
@@ -47,8 +52,12 @@ export function createCorePlugin({
     name: "core",
     notifications: true,
     notificationHooks: {
-      onSubscribe(_type, _key, deliver) {
-        deliver({ type: "providers_updated", snapshot: catalog.snapshot() });
+      onSubscribe(type, _key, deliver) {
+        deliver(
+          type === "model_roles_updated"
+            ? { type: "model_roles_updated" }
+            : { type: "providers_updated", snapshot: catalog.snapshot() },
+        );
       },
     },
     async cleanup() {
@@ -56,10 +65,12 @@ export function createCorePlugin({
       authentication.dispose();
     },
     server: {
-      channels: [listProvidersChannel],
+      channels: [listProvidersChannel, watchModelRolesChannel],
       commands: [
         listStrategiesCommand,
         describeStrategyCommand,
+        getModelRolesCommand,
+        setModelRolesCommand,
         refreshProvidersCommand,
         getConfigurationCommand,
         configureCommand,
@@ -86,6 +97,11 @@ export function createCorePlugin({
       authentication,
       catalog,
     ),
-    modelRoles,
+    getModelRoles: () => currentModelRoles,
+    setModelRoles(next: Readonly<Record<string, string>>) {
+      persistModelRoles?.(next);
+      currentModelRoles = next;
+      notifications.notify("model_roles", { type: "model_roles_updated" });
+    },
   });
 }

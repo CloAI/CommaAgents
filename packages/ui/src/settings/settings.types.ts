@@ -1,3 +1,5 @@
+import type { AppearanceSettings } from "../theme";
+
 /** Saved connection preferences available throughout the application. */
 export interface Settings {
   /** Daemon connection preferences. */
@@ -7,12 +9,18 @@ export interface Settings {
   };
   /** Path of the strategy chosen for new runs, when one was picked. */
   readonly strategyPath?: string;
-  /** `provider/model` chosen per agent name, keyed by strategy path. */
-  readonly modelOverrides?: ModelOverrides;
+  /** `provider/model` chosen per role name for new chats, keyed by strategy path. */
+  readonly strategyModelRoles?: StrategyModelRoles;
+  /** Named model-role configurations saved in this browser. */
+  readonly modelRolePresets?: StrategyModelRoles;
+  /** Selected theme, light or dark mode, and the user's own themes. */
+  readonly appearance?: AppearanceSettings;
+  /** Accent hue per chat pane, preserving the theme saturation and lightness. */
+  readonly paneHues?: Readonly<Record<string, number>>;
 }
 
-/** Models that replace a strategy's own, as strategy path to agent name to `provider/model`. */
-export type ModelOverrides = Readonly<
+/** Roles chosen for new chats, as strategy path to role name to `provider/model`. */
+export type StrategyModelRoles = Readonly<
   Record<string, Readonly<Record<string, string>>>
 >;
 

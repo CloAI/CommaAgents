@@ -20,7 +20,7 @@ Each harness loops: it works, hands back to you, and continues with your next me
 
 ## Models
 
-Agents use model roles (`@primary`, `@subagent`, `@fast`, `@compaction`). Each strategy sets defaults in `modelRoles`; set `modelRoles` in the daemon configuration to override them everywhere.
+Agents use model roles (`@simple`, `@medium`, `@compaction`) and ship no models of their own. Define the roles in the daemon's `modelRoles` configuration; a run fails with the list of missing roles until they are set.
 
 ## Legacy
 

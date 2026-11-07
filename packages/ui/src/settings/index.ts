@@ -1,7 +1,7 @@
 export { loadSettings, saveSettings, validateDaemonUrl } from "./settings";
 export type {
-  ModelOverrides,
   Settings,
+  StrategyModelRoles,
   SettingsLoadResult,
   SettingsSaveResult,
 } from "./settings.types";

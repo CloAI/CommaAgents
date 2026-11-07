@@ -1,34 +1,47 @@
 import { ChevronDown } from "lucide-react";
 import { useCallback, useState } from "react";
+import { Button } from "../../design-system/Button";
 import { Modal } from "../../design-system/Modal";
-import { useStrategyModels } from "../../hooks/useStrategyModels";
-import type {
-  StrategyModelsStatus,
-  StrategyModelBinding,
-} from "../../hooks/useStrategyModels";
-import { StrategyModelSelect } from "./StrategyModelSelect";
-import { StrategyModelsDialog } from "./StrategyModelsDialog";
+import { useCommaAgentsDaemon } from "../../hooks/useCommaAgentsDaemon";
+import { useModelRoles } from "../../hooks/useModelRoles";
+import {
+  ModelRoleFields,
+  ModelSelect,
+  useModelChoices,
+} from "../ModelRoleFields";
 import styles from "./StrategyModels.module.scss";
 
-/** The strategy whose models are shown. */
+/** The conversation's own role choices and how to change them. */
+export interface StrategyModelBinding {
+  /** Roles chosen for this conversation, as `provider/model` per role name. */
+  readonly roles: Readonly<Record<string, string>>;
+  /** Replace this conversation’s role overrides with the supplied choices. */
+  readonly onChange: (changes: Readonly<Record<string, string>>) => void;
+  /** Drop this conversation's choices so the daemon's models apply again. */
+  readonly onReset: () => void;
+}
+
+/** The strategy whose model roles are shown and the conversation they belong to. */
 export interface StrategyModelsProps {
   /** Path of the selected strategy; undefined while none is available. */
   readonly strategyPath: string | undefined;
-  /** Overrides belonging to this conversation, when editing an existing run. */
-  readonly binding?: StrategyModelBinding;
+  /** Choices made for this conversation only. */
+  readonly binding: StrategyModelBinding;
 }
 
 /**
- * Show how many models the selected strategy uses and open their editor.
+ * Choose the models behind the roles the selected strategy uses, for this conversation only.
+ * Always available: without a strategy's own role list it offers the daemon's roles instead.
+ * Roles without a choice here use the daemon's models, which Settings edits for every conversation.
  * @param {StrategyModelsProps} props - Component properties.
- * @returns {React.ReactElement} The quick selector or the trigger, with its dialog while open.
+ * @returns {React.ReactElement} A dropdown for one role, or a button opening the editor for several.
  */
 export function StrategyModels({ strategyPath, binding }: StrategyModelsProps) {
-  // Keyed so each strategy starts with fresh status and session overrides.
+  // Keyed so each strategy starts with fresh state.
   return strategyPath === undefined ? (
-    <StrategyModelsRender status="none" agentCount={0} overriddenCount={0} />
+    <RoleControls strategyRoles={undefined} binding={binding} />
   ) : (
-    <SelectedStrategyModels
+    <DescribedStrategyModels
       key={strategyPath}
       strategyPath={strategyPath}
       binding={binding}
@@ -36,39 +49,107 @@ export function StrategyModels({ strategyPath, binding }: StrategyModelsProps) {
   );
 }
 
-/**
- * Describe one strategy and own the editor's open state.
- * @param {{strategyPath: string}} props - Component properties.
- * @returns {React.ReactElement} The quick selector or trigger with its dialog.
- */
-function SelectedStrategyModels({
+function DescribedStrategyModels({
   strategyPath,
   binding,
 }: {
   strategyPath: string;
-  binding?: StrategyModelBinding;
+  binding: StrategyModelBinding;
 }) {
-  const models = useStrategyModels(strategyPath, binding);
+  const described = useCommaAgentsDaemon(
+    { command: "core.strategies.describe" },
+    { strategyPath },
+  );
+  // An older daemon, a failed request, or a strategy without roles all fall back to the daemon's roles.
+  const strategyRoles = described.data?.modelRoles;
+  return (
+    <RoleControls
+      strategyRoles={strategyRoles?.length ? strategyRoles : undefined}
+      binding={binding}
+    />
+  );
+}
+
+function RoleControls({
+  strategyRoles,
+  binding,
+}: {
+  strategyRoles: readonly string[] | undefined;
+  binding: StrategyModelBinding;
+}) {
+  const { modelRoles, defaults } = useModelRoles();
+  const models = useModelChoices();
   const [open, setOpen] = useState(false);
-  const handleOpen = useCallback(() => setOpen(true), []);
+  const [draft, setDraft] = useState<Readonly<Record<string, string>>>({});
+  const handleOpen = useCallback(() => {
+    setDraft(binding.roles);
+    setOpen(true);
+  }, [binding.roles]);
   const handleClose = useCallback(() => setOpen(false), []);
-  // The dialog stays in one place so switching controls never remounts it.
+  const roles = strategyRoles ?? [
+    ...defaults.map((entry) => entry.name),
+    ...Object.keys(modelRoles).filter(
+      (name) => !defaults.some((entry) => entry.name === name),
+    ),
+  ];
+  const [only] = roles;
+  const values = { ...modelRoles, ...binding.roles };
+  const overridden = roles.filter((role) => binding.roles[role] !== undefined);
+  const reset = overridden.length > 0 && (
+    <>
+      <span className={styles.tag} data-tone="primary">
+        Overridden
+      </span>
+      <Button
+        className={styles.action}
+        aria-label="Reset models"
+        onClick={binding.onReset}
+      >
+        Reset
+      </Button>
+    </>
+  );
+  if (roles.length === 1 && only !== undefined) {
+    return (
+      <div className={styles.quick}>
+        <ModelSelect
+          label={`Model for @${only}`}
+          value={values[only]}
+          models={models}
+          onChange={(model) =>
+            binding.onChange({ ...binding.roles, [only]: model })
+          }
+        />
+        {reset}
+      </div>
+    );
+  }
+  const unset = roles.filter((role) => values[role] === undefined).length;
+  const summary =
+    roles.length === 0
+      ? "Models"
+      : `${roles.length} models${overridden.length > 0 ? ` - ${overridden.length} overridden` : ""}`;
+  const notSet = unset > 0 ? `${unset} not set` : undefined;
   return (
     <>
-      {models.status === "ready" && models.uniform ? (
-        <StrategyModelSelect
-          models={models}
-          uniform={models.uniform}
-          onOpenSteps={handleOpen}
-        />
-      ) : (
-        <StrategyModelsRender
-          status={models.status}
-          agentCount={models.agentCount}
-          overriddenCount={models.overriddenCount}
-          onOpen={handleOpen}
-        />
-      )}
+      <button
+        type="button"
+        aria-label={`Strategy models: ${summary}${notSet ? ` - ${notSet}` : ""}`}
+        aria-haspopup="dialog"
+        className={styles.trigger}
+        onClick={handleOpen}
+      >
+        <span>
+          {summary}
+          {notSet && (
+            <>
+              {" - "}
+              <span className={styles.notSet}>{notSet}</span>
+            </>
+          )}
+        </span>
+        <ChevronDown aria-hidden="true" className={styles.chevron} />
+      </button>
       {open && (
         <Modal
           open
@@ -76,55 +157,57 @@ function SelectedStrategyModels({
           onClose={handleClose}
           className={styles.modal}
         >
-          <StrategyModelsDialog models={models} onClose={handleClose} />
+          <div className={styles.dialog}>
+            <div className={styles.dialogToolbar}>
+              <span className={styles.tag} data-tone="primary">
+                {Object.keys(draft).length > 0
+                  ? "Overridden"
+                  : "Using defaults"}
+              </span>
+              <Button
+                onClick={() => setDraft({})}
+                disabled={Object.keys(draft).length === 0}
+              >
+                Reset
+              </Button>
+            </div>
+            <p className={styles.intro}>
+              {strategyRoles === undefined
+                ? "Choices here apply to this conversation only. Roles you leave alone use the models set in Settings."
+                : "Choices here apply to this conversation only, for the roles this strategy uses. Roles you leave alone use the models set in Settings."}
+            </p>
+            {roles.length === 0 ? (
+              <p className={styles.intro}>
+                No model roles are available from the daemon yet.
+              </p>
+            ) : (
+              <ModelRoleFields
+                roles={roles}
+                definitions={defaults}
+                values={{ ...modelRoles, ...draft }}
+                onChange={(changes) =>
+                  setDraft((current) => ({ ...current, ...changes }))
+                }
+              />
+            )}
+            <div className={styles.footer}>
+              <Button onClick={handleClose}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (Object.keys(draft).length === 0) {
+                    binding.onReset();
+                  } else {
+                    binding.onChange(draft);
+                  }
+                  handleClose();
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
     </>
-  );
-}
-
-/** Counts to summarize and the handler that opens the editor. */
-export interface StrategyModelsRenderProps {
-  /** Whether models are loading, unavailable, absent, or ready. */
-  readonly status: StrategyModelsStatus;
-  /** Distinct LLM agents the strategy uses. */
-  readonly agentCount: number;
-  /** Agents with an override. */
-  readonly overriddenCount: number;
-  /** Open the editor. */
-  readonly onOpen?: () => void;
-}
-
-/**
- * Render the summary trigger.
- * @param {StrategyModelsRenderProps} props - Component properties.
- * @returns {React.ReactElement} The trigger.
- */
-export function StrategyModelsRender({
-  status,
-  agentCount,
-  overriddenCount,
-  onOpen,
-}: StrategyModelsRenderProps) {
-  const text =
-    status === "loading"
-      ? "Loading models..."
-      : status === "error"
-        ? "Models unavailable"
-        : status === "none"
-          ? "No models"
-          : `${agentCount} ${agentCount === 1 ? "model" : "models"}${overriddenCount > 0 ? ` - ${overriddenCount} overridden` : ""}`;
-  return (
-    <button
-      type="button"
-      aria-label={`Strategy models: ${text}`}
-      aria-haspopup="dialog"
-      className={styles.trigger}
-      disabled={status !== "ready"}
-      onClick={onOpen}
-    >
-      <span>{text}</span>
-      <ChevronDown aria-hidden="true" className={styles.chevron} />
-    </button>
   );
 }

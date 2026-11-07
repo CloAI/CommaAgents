@@ -38,7 +38,7 @@ export async function runHeadless({
   strategy,
   input,
   cwd = process.cwd(),
-  model,
+  modelRoles,
   maxUserTurns = DEFAULT_MAX_USER_TURNS,
   approve = "deny",
   then = [],
@@ -53,11 +53,9 @@ export async function runHeadless({
   const kernel = await createDaemonKernel({
     runs: {
       runsDir: config.runsDir,
-      harness: {
-        modelRoles: config.modelRoles,
-        instructionFiles: config.instructionFiles,
-      },
+      harness: { instructionFiles: config.instructionFiles },
     },
+    modelRoles: config.modelRoles,
   });
   const { runs, questions, sandbox } = kernel.plugins;
   const outputs: HeadlessAgentOutput[] = [];
@@ -75,7 +73,7 @@ export async function runHeadless({
       configuration: {
         ...stages[0]!,
         cwd,
-        ...(model === undefined ? {} : { modelOverride: model }),
+        ...(modelRoles === undefined ? {} : { modelRoles }),
       },
     });
     const { runId } = prepared;

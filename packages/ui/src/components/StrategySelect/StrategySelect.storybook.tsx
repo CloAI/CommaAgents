@@ -1,6 +1,14 @@
-import { act } from "react";
+import { act, useState } from "react";
+import { vi } from "vitest";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import {
+  expect,
+  fireEvent,
+  fn,
+  userEvent,
+  waitFor,
+  within,
+} from "storybook/test";
 import { CommaAgentsDaemonProvider } from "../../hooks/useCommaAgentsDaemon";
 import { deliver, requests } from "../../hooks/useCommaAgentsDaemon/test.utils";
 import type { StrategyItem } from "../../hooks/useStrategies";
@@ -160,12 +168,16 @@ export const DiscoversAndKeepsThePickForTheSession: Story = {
   ...connected,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const trigger = canvas.getByRole("button", { name: /^Strategy/ });
-    await expect(trigger).toBeDisabled();
+    await expect(
+      canvas.getByRole("status", { name: "Daemon connection" }),
+    ).toBeInTheDocument();
     await respond({
       type: "response",
       ok: true,
       data: { strategies: STRATEGIES, warnings: [] },
+    });
+    const trigger = await within(canvasElement).findByRole("button", {
+      name: /^Strategy/,
     });
     // With nothing saved, the highest-priority strategy is used.
     await waitFor(() => expect(trigger).toHaveTextContent("Project plan"));
@@ -193,11 +205,13 @@ export const FallsBackWhenSavedStrategyIsGone: Story = {
     return cleanup;
   },
   play: async ({ canvasElement }) => {
-    const trigger = within(canvasElement).getByRole("button");
     await respond({
       type: "response",
       ok: true,
       data: { strategies: STRATEGIES, warnings: [] },
+    });
+    const trigger = await within(canvasElement).findByRole("button", {
+      name: /^Strategy/,
     });
     await waitFor(() => expect(trigger).toHaveTextContent("Project plan"));
   },
@@ -205,11 +219,13 @@ export const FallsBackWhenSavedStrategyIsGone: Story = {
 export const ShowsUnavailableOnDaemonError: Story = {
   ...connected,
   play: async ({ canvasElement }) => {
-    const trigger = within(canvasElement).getByRole("button");
     await respond({
       type: "response",
       ok: false,
       error: { code: "INTERNAL_ERROR", message: "Discovery failed" },
+    });
+    const trigger = await within(canvasElement).findByRole("button", {
+      name: /^Strategy/,
     });
     await waitFor(() =>
       expect(trigger).toHaveTextContent("Strategies unavailable"),
@@ -228,12 +244,73 @@ export const UsesRecordSavedBeforeStrategies: Story = {
     return cleanup;
   },
   play: async ({ canvasElement }) => {
-    const trigger = within(canvasElement).getByRole("button");
     await respond({
       type: "response",
       ok: true,
       data: { strategies: STRATEGIES, warnings: [] },
     });
+    const trigger = await within(canvasElement).findByRole("button", {
+      name: /^Strategy/,
+    });
     await waitFor(() => expect(trigger).toHaveTextContent("Project plan"));
+  },
+};
+
+export const DelaysConnectionNoticeAndCancelsOnReconnect: Story = {
+  render: function ConnectionPreview(args) {
+    const [connected, setConnected] = useState(true);
+    return (
+      <>
+        <button onClick={() => setConnected(false)}>Disconnect daemon</button>
+        <button onClick={() => setConnected(true)}>Connect daemon</button>
+        <StrategySelectRender {...args} connected={connected} />
+      </>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    vi.useFakeTimers();
+    try {
+      await act(() =>
+        fireEvent.click(
+          canvas.getByRole("button", { name: "Disconnect daemon" }),
+        ),
+      );
+      await act(() => vi.advanceTimersByTime(49));
+      await expect(
+        canvas.getByRole("status", { name: "Daemon connection" }),
+      ).toBeEmptyDOMElement();
+      await expect(
+        canvas.queryByRole("button", { name: /^Strategy:/ }),
+      ).not.toBeInTheDocument();
+      await act(() => vi.advanceTimersByTime(1));
+      await expect(
+        canvas.getByRole("status", { name: "Daemon connection" }),
+      ).toHaveTextContent("Waiting for daemon");
+      await act(() =>
+        fireEvent.click(canvas.getByRole("button", { name: "Connect daemon" })),
+      );
+      await expect(
+        canvas.getByRole("button", { name: /^Strategy:/ }),
+      ).toBeVisible();
+      await act(() =>
+        fireEvent.click(
+          canvas.getByRole("button", { name: "Disconnect daemon" }),
+        ),
+      );
+      await act(() => vi.advanceTimersByTime(25));
+      await act(() =>
+        fireEvent.click(canvas.getByRole("button", { name: "Connect daemon" })),
+      );
+      await act(() => vi.advanceTimersByTime(100));
+      await expect(
+        canvas.queryByRole("status", { name: "Daemon connection" }),
+      ).not.toBeInTheDocument();
+      await expect(
+        canvas.getByRole("button", { name: /^Strategy:/ }),
+      ).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
   },
 };

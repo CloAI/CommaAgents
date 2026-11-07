@@ -1,3 +1,4 @@
+import { tinfoilDownstream } from "./downstream/downstream";
 import { randomUUID, randomBytes } from "node:crypto";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { Identity, PROTOCOL } from "ehbp";
@@ -69,6 +70,7 @@ export function createTinfoilProtectedModel(
     let verificationFailureReason: string | undefined;
     let verificationSteps: PrivacyReport["verificationSteps"];
     let freshnessExpiresAt: string | undefined;
+    let downstreamVerification: PrivacyReport["downstreamVerification"];
     const assertEvidenceCurrent = () => {
       assertPrivacyActive(signal);
       if (!freshnessExpiresAt || Date.parse(freshnessExpiresAt) <= Date.now()) {
@@ -94,7 +96,13 @@ export function createTinfoilProtectedModel(
         }),
       );
     };
-    const onDiagnostic = (diagnostic: PrivacyDiagnostic) =>
+    const onDiagnostic = (diagnostic: PrivacyDiagnostic) => {
+      if (
+        diagnostic.operation === "cpu-verification" &&
+        diagnostic.status === "failed"
+      ) {
+        verificationSteps = { ...verificationSteps, downstreamCpu: "failed" };
+      }
       emit(
         diagnostic.operation === "attestation" ||
           diagnostic.operation === "workload-verification"
@@ -116,6 +124,7 @@ export function createTinfoilProtectedModel(
             : {}),
         },
       );
+    };
     const finish = (
       status: PrivacyReport["status"],
       errorCode?: PrivacyReport["errorCode"],
@@ -130,6 +139,14 @@ export function createTinfoilProtectedModel(
         status,
         checks,
         ...(verificationSteps ? { verificationSteps } : {}),
+        ...(downstreamVerification
+          ? {
+              downstreamVerification,
+              ...(downstreamVerification.gpuCount > 0
+                ? { gpuAssociation: "verified-model-enclave" as const }
+                : {}),
+            }
+          : {}),
         ...(freshnessExpiresAt ? { freshnessExpiresAt } : {}),
         ...(workloadMeasurements ? { workloadMeasurements } : {}),
         ...(errorCode ? { errorCode } : {}),
@@ -142,6 +159,14 @@ export function createTinfoilProtectedModel(
         modelId: options.modelId,
         status,
         checks: { ...checks },
+        ...(downstreamVerification
+          ? {
+              downstreamVerification,
+              ...(downstreamVerification.gpuCount > 0
+                ? { gpuAssociation: "verified-model-enclave" as const }
+                : {}),
+            }
+          : {}),
         ...(freshnessExpiresAt ? { freshnessExpiresAt } : {}),
         ...(verificationSteps
           ? { verificationSteps: { ...verificationSteps } }
@@ -251,6 +276,58 @@ export function createTinfoilProtectedModel(
                 measurements: workloadMeasurements,
                 verificationSteps,
               });
+              assertEvidenceCurrent();
+              downstreamVerification = undefined;
+              checks = { ...checks, gpu: "unavailable" };
+              let downstream;
+              try {
+                downstream = await tinfoilDownstream.audit({
+                  modelId: options.modelId,
+                  router: verification,
+                  signal,
+                  limits: options.limits,
+                  freshnessMaxAgeMs: options.freshnessMaxAgeMs,
+                  onDiagnostic,
+                });
+                downstreamVerification = downstream.report;
+                freshnessExpiresAt = new Date(
+                  Math.min(expiry.getTime(), downstream.expiresAt),
+                ).toISOString();
+                checks = {
+                  ...checks,
+                  gpu:
+                    downstream.report.gpuCount > 0 ? "passed" : "unavailable",
+                };
+                verificationSteps = {
+                  ...verificationSteps,
+                  routerAdmission: "passed",
+                  downstreamKeyBinding: "passed",
+                  downstreamProvenance: "passed",
+                  downstreamCpu: "passed",
+                  gpuEvidence: checks.gpu,
+                };
+                workloadMeasurements = {
+                  ...workloadMeasurements,
+                  downstreamPoolDigest: downstream.poolDigest,
+                };
+                onDiagnostic({
+                  operation: "workload-measurements",
+                  status: "succeeded",
+                  measurements: workloadMeasurements,
+                  verificationSteps,
+                });
+              } catch (error) {
+                const cpuFailed = verificationSteps?.downstreamCpu === "failed";
+                checks = {
+                  ...checks,
+                  gpu: cpuFailed ? "unavailable" : "failed",
+                };
+                verificationSteps = {
+                  ...verificationSteps,
+                  gpuEvidence: cpuFailed ? "unavailable" : "failed",
+                };
+                throw error;
+              }
               assertEvidenceCurrent();
               const identity = await Identity.fromPublicKeyHex(
                 verification.hpkePublicKey()!,
@@ -373,6 +450,21 @@ export function createTinfoilProtectedModel(
                 responseBinding: "passed",
                 encryption: "passed",
               };
+              try {
+                await downstream.assertCurrentPool();
+                verificationSteps = {
+                  ...verificationSteps,
+                  admittedPoolBinding: "passed",
+                };
+              } catch (error) {
+                checks = { ...checks, gpu: "failed" };
+                verificationSteps = {
+                  ...verificationSteps,
+                  admittedPoolBinding: "failed",
+                };
+                throw error;
+              }
+              assertEvidenceCurrent();
               const headers = new Headers(response.headers);
               headers.delete("content-length");
               return new Response(bytes, { status: response.status, headers });

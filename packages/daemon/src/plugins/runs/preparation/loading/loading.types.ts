@@ -10,8 +10,8 @@ import type { HarnessSettings, StrategyLoaderInputs } from "../../runs.types";
 export interface LoadRunStrategyOptions {
   readonly strategyPath: string;
   readonly manifestPath?: string;
-  readonly modelOverride?: string;
-  readonly modelOverrides?: Readonly<Record<string, string>>;
+  /** Roles chosen for this run; these win over the daemon's configured roles. */
+  readonly modelRoles?: Readonly<Record<string, string>>;
   readonly runId: string;
   readonly inputCollector: InputCollector;
   readonly launchStrategy: LaunchStrategyHandle;

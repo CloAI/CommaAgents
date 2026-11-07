@@ -33,6 +33,14 @@ export const RunErrorSchema = z.union([
     .strict(),
   z
     .object({
+      code: z.literal(RunErrorCode.MISSING_MODEL_ROLES),
+      metadata: z
+        .object({ runId: z.string(), roles: z.array(z.string()).readonly() })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
       code: z.enum([
         RunErrorCode.INVALID_ARGUMENTS,
         RunErrorCode.INVALID_CURSOR,

@@ -22,11 +22,16 @@ import type { CreateDaemonKernelOptions } from "./daemon-kernel.types";
  */
 export async function createDaemonKernel({
   runs,
+  modelRoles,
+  persistModelRoles,
   initialize,
 }: CreateDaemonKernelOptions) {
   const status = createStatusPlugin();
-  const corePlugin = createCorePlugin({ modelRoles: runs.harness?.modelRoles });
-  const runsPlugin = createRunsPlugin(runs);
+  const corePlugin = createCorePlugin({ modelRoles, persistModelRoles });
+  const runsPlugin = createRunsPlugin({
+    ...runs,
+    harness: { ...runs.harness, getModelRoles: corePlugin.getModelRoles },
+  });
   const sandboxPlugin = createSandboxPlugin({
     dependencies: { runs: runsPlugin },
   });

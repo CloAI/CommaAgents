@@ -113,16 +113,25 @@ export function validateDaemonUrl(value: string): string | null {
  * @returns {Settings} Preferences safe to store and share.
  */
 function normalizeSettings(settings: Settings): Settings {
-  const modelOverrides = Object.fromEntries(
-    Object.entries(settings.modelOverrides ?? {}).filter(
-      ([, agents]) => Object.keys(agents).length > 0,
+  const strategyModelRoles = Object.fromEntries(
+    Object.entries(settings.strategyModelRoles ?? {}).filter(
+      ([, roles]) => Object.keys(roles).length > 0,
     ),
   );
   return {
     daemon: { url: settings.daemon.url.trim() },
+    ...(settings.appearance === undefined
+      ? {}
+      : { appearance: settings.appearance }),
+    ...(settings.modelRolePresets === undefined
+      ? {}
+      : { modelRolePresets: settings.modelRolePresets }),
+    ...(settings.paneHues === undefined ? {} : { paneHues: settings.paneHues }),
     ...(settings.strategyPath === undefined
       ? {}
       : { strategyPath: settings.strategyPath }),
-    ...(Object.keys(modelOverrides).length === 0 ? {} : { modelOverrides }),
+    ...(Object.keys(strategyModelRoles).length === 0
+      ? {}
+      : { strategyModelRoles }),
   };
 }

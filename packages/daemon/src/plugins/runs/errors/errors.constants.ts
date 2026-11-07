@@ -7,6 +7,7 @@ export const RUN_ERROR_MESSAGES: Record<RunErrorCode, string> = {
   INVALID_ARGUMENTS: "Invalid run arguments",
   INVALID_CURSOR: "Invalid history cursor",
   PREPARATION_ERROR: "Run preparation failed",
+  MISSING_MODEL_ROLES: "Model roles are not configured",
   EXECUTION_ERROR: "Run execution failed",
   TOOL_EXECUTION_ERROR: "Tool execution failed",
   PERSISTENCE_ERROR: "Run persistence failed",

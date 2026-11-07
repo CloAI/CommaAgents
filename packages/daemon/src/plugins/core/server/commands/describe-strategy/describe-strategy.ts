@@ -28,7 +28,7 @@ export const describeStrategyCommand = defineCommand({
     const file = await readStrategyFile(options.strategyPath);
     return describeStrategy(
       parseStrategyFromString(file.content, file.format),
-      plugin.modelRoles,
+      plugin.getModelRoles(),
     );
   },
 });

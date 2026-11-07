@@ -159,7 +159,7 @@ export async function loadAgentFromString(
   return createAgent(
     {
       name: description.name,
-      model: options.modelOverride ?? description.model,
+      model: description.model,
       systemPrompt,
       tools: description.tools,
       privacy: description.privacy,

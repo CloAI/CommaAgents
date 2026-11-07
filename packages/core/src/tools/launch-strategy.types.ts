@@ -26,11 +26,6 @@ export interface LaunchStrategyRequest {
   /** Initial message passed to the strategy's entry flow. */
   readonly input: string;
   /**
-   * Provider/model override applied to all LLM agents in the
-   * sub-strategy. Format: `"providerID/modelID"`.
-   */
-  readonly modelOverride?: string;
-  /**
    * Refuse the launch when the parent is already this many levels below the root run.
    * Omitted means no limit.
    */

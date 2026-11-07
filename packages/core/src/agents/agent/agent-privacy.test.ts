@@ -522,29 +522,24 @@ describe("automatic model privacy", () => {
     }
   });
 
-  it("should derive protection from global and per-agent strategy model overrides", async () => {
+  it("should derive protection from a strategy model role", async () => {
     const model = await advertisePrivacy({ e2ee: true });
-    for (const overrides of [
-      { modelOverride: model },
-      { modelOverrides: { writer: model } },
-    ]) {
-      const strategy = await loadStrategyFromString(
-        JSON.stringify({
-          name: "automatic-privacy",
-          version: "1",
-          agents: { writer: { model: "mock/plain" } },
-          flow: {
-            name: "write",
-            type: "sequential",
-            steps: [{ agent: "writer" }],
-          },
-        }),
-        "json",
-        overrides,
-      );
-      expect(strategy.agents.writer?.config?.model).toBe(model);
-      expect(strategy.agents.writer?.config?.privacy).toEqual(requirements);
-    }
+    const strategy = await loadStrategyFromString(
+      JSON.stringify({
+        name: "automatic-privacy",
+        version: "1",
+        agents: { writer: { model: "@medium" } },
+        flow: {
+          name: "write",
+          type: "sequential",
+          steps: [{ agent: "writer" }],
+        },
+      }),
+      "json",
+      { modelRoles: { medium: model } },
+    );
+    expect(strategy.agents.writer?.config?.model).toBe(model);
+    expect(strategy.agents.writer?.config?.privacy).toEqual(requirements);
   });
 
   it("should inherit automatic protection when compacting with another model", async () => {

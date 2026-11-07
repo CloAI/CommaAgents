@@ -392,7 +392,7 @@ export function SelectRender({
         padding: 8,
         apply({ availableWidth, availableHeight, elements }) {
           Object.assign(elements.floating.style, {
-            maxWidth: `${Math.max(0, availableWidth)}px`,
+            maxWidth: `min(var(--select-max-width, 24rem), ${Math.max(0, availableWidth)}px)`,
             maxHeight: `${Math.max(0, availableHeight)}px`,
           });
         },

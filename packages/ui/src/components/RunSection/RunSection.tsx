@@ -36,6 +36,10 @@ export const RunSection = memo(function RunSection({
   const agent = message.role === "agent" ? message : undefined;
   const name = agent ? agent.agentName : "You";
   const accent = agent ? agentColor(name) : undefined;
+  // The bar can stay bright, but text must keep contrast on light and dark themes alike.
+  const accentText = accent
+    ? `color-mix(in srgb, ${accent} 50%, var(--color-text))`
+    : undefined;
   const elapsed = useElapsed(
     message.createdAt,
     agent?.completedAt,
@@ -65,11 +69,11 @@ export const RunSection = memo(function RunSection({
       <div className={styles.body}>
         <header className={styles.header}>
           <span className={styles.role}>{message.role}</span>
-          <span className={styles.name} style={{ color: accent }}>
+          <span className={styles.name} style={{ color: accentText }}>
             {name}
           </span>
           {message.streaming && (
-            <span className={styles.live} style={{ color: accent }}>
+            <span className={styles.live} style={{ color: accentText }}>
               <span className={styles.dots} aria-hidden>
                 <span className={styles.dot} />
                 <span className={styles.dot} />

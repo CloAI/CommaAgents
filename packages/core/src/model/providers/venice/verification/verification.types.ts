@@ -60,8 +60,4 @@ export interface NvidiaEvidence {
   }[];
 }
 
-/** Authenticated NRAS envelope and individually signed GPU submodules. */
-export interface NvidiaTokens {
-  readonly overall: string;
-  readonly devices: Readonly<Record<string, string>>;
-}
+export type { NvidiaTokens } from "../../../privacy/hardware/nvidia/nvidia.types";

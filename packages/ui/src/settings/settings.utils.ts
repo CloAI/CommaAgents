@@ -1,4 +1,5 @@
-import type { ModelOverrides, SettingsRecord } from "./settings.types";
+import { isAppearanceSettings } from "../theme";
+import type { SettingsRecord, StrategyModelRoles } from "./settings.types";
 
 /**
  * Validate the shape of a decoded local-storage record.
@@ -19,28 +20,46 @@ export function isSettingsRecord(value: unknown): value is SettingsRecord {
     (!("strategyPath" in value) ||
       value.strategyPath === undefined ||
       typeof value.strategyPath === "string") &&
-    (!("modelOverrides" in value) ||
-      value.modelOverrides === undefined ||
-      isModelOverrides(value.modelOverrides))
+    (!("strategyModelRoles" in value) ||
+      value.strategyModelRoles === undefined ||
+      isStrategyModelRoles(value.strategyModelRoles)) &&
+    (!("modelRolePresets" in value) ||
+      value.modelRolePresets === undefined ||
+      isStrategyModelRoles(value.modelRolePresets)) &&
+    (!("appearance" in value) ||
+      value.appearance === undefined ||
+      isAppearanceSettings(value.appearance)) &&
+    (!("paneHues" in value) ||
+      value.paneHues === undefined ||
+      (typeof value.paneHues === "object" &&
+        value.paneHues !== null &&
+        !Array.isArray(value.paneHues) &&
+        Object.values(value.paneHues).every(
+          (hue) =>
+            typeof hue === "number" &&
+            Number.isFinite(hue) &&
+            hue >= 0 &&
+            hue <= 360,
+        )))
   );
 }
 
 /**
- * Validate strategy path to agent name to model string records.
+ * Validate strategy path to role name to model string records.
  * @param {unknown} value - Decoded browser data.
  * @returns {boolean} Whether every entry is a string-to-string record.
  */
-function isModelOverrides(value: unknown): value is ModelOverrides {
+function isStrategyModelRoles(value: unknown): value is StrategyModelRoles {
   return (
     typeof value === "object" &&
     value !== null &&
     !Array.isArray(value) &&
     Object.values(value).every(
-      (agents) =>
-        typeof agents === "object" &&
-        agents !== null &&
-        !Array.isArray(agents) &&
-        Object.values(agents).every((model) => typeof model === "string"),
+      (roles) =>
+        typeof roles === "object" &&
+        roles !== null &&
+        !Array.isArray(roles) &&
+        Object.values(roles).every((model) => typeof model === "string"),
     )
   );
 }

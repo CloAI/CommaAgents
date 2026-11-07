@@ -1,4 +1,5 @@
 export { listProvidersChannel } from "./channels/list-providers";
+export { watchModelRolesChannel } from "./channels/watch-model-roles";
 export { refreshProvidersCommand } from "./commands/refresh-providers";
 export { getConfigurationCommand } from "./commands/get-configuration";
 export { configureCommand } from "./commands/configure-provider";
@@ -14,3 +15,7 @@ export { getSignInStatusCommand } from "./commands/get-sign-in-status";
 export { cancelSignInCommand } from "./commands/cancel-sign-in";
 export { listStrategiesCommand } from "./commands/list-strategies";
 export { describeStrategyCommand } from "./commands/describe-strategy";
+export {
+  getModelRolesCommand,
+  setModelRolesCommand,
+} from "./commands/model-roles";

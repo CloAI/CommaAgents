@@ -1,3 +1,4 @@
+import { ChatComposer } from "../../../components/ChatComposer";
 import { ChatInput } from "../../../components/ChatInput";
 import { ContextOverflowDialog } from "../../../components/ContextOverflowDialog";
 import { QuestionPrompt } from "../../../components/QuestionPrompt";
@@ -40,16 +41,6 @@ export function RunComposer({ runId }: RunComposerProps) {
   return (
     <div className={styles.composerFrame}>
       <div className={styles.composer}>
-        {strategy.status === "ready" && !strategy.selected && snapshot && (
-          <p role="alert">
-            Strategy unavailable:{" "}
-            {snapshot.strategy?.name ?? snapshot.configuration.strategyPath}.
-            Choose another strategy before sending.
-          </p>
-        )}
-        {strategy.error && !strategy.pending && (
-          <p role="alert">{strategy.error}</p>
-        )}
         {composer.mode !== "continue" && composer.recipients.length > 1 && (
           <RecipientSelect
             mode={composer.mode}
@@ -58,18 +49,55 @@ export function RunComposer({ runId }: RunComposerProps) {
             onChange={composer.selectRecipient}
           />
         )}
-        {stop.error && <p role="alert">{stop.error}</p>}
         {questions.map((question) => (
           <QuestionPrompt key={question.requestId} question={question} />
         ))}
-        <ChatInput
-          actions={<StopControl />}
-          onSubmit={composer.submit}
-          disabled={!composer.canSubmit}
-          clearOnSuccess
-          autoFocus
-          placeholder={COMPOSER_PLACEHOLDERS[composer.mode]}
-        />
+        <ChatComposer
+          warnings={[
+            connected &&
+            strategy.status === "ready" &&
+            !strategy.selected &&
+            snapshot
+              ? `Strategy unavailable: ${snapshot.strategy?.name ?? snapshot.configuration.strategyPath}. Choose another strategy before sending.`
+              : undefined,
+            connected && !strategy.pending ? strategy.error : undefined,
+            stop.error,
+          ].filter((warning): warning is string => Boolean(warning))}
+          controls={
+            <fieldset
+              className={styles.strategyControls}
+              disabled={
+                strategy.isLoading || submission.isSubmitting || !connected
+              }
+            >
+              <legend className={styles.srOnly}>Conversation strategy</legend>
+              <StrategySelectRender
+                connected={connected}
+                status={strategy.status}
+                strategies={strategy.strategies}
+                selected={strategy.selected}
+                onSelect={strategy.select}
+              />
+              <StrategyModels
+                strategyPath={strategy.selected?.path}
+                binding={{
+                  roles: snapshot?.configuration.modelRoles ?? {},
+                  onChange: strategy.changeModels,
+                  onReset: strategy.resetModels,
+                }}
+              />
+            </fieldset>
+          }
+        >
+          <ChatInput
+            actions={<StopControl />}
+            onSubmit={composer.submit}
+            disabled={!composer.canSubmit}
+            clearOnSuccess
+            autoFocus
+            placeholder={COMPOSER_PLACEHOLDERS[composer.mode]}
+          />
+        </ChatComposer>
         {submission.dialog && (
           <ContextOverflowDialog
             {...submission.dialog}
@@ -77,26 +105,6 @@ export function RunComposer({ runId }: RunComposerProps) {
             onCancel={submission.cancel}
           />
         )}
-        <fieldset
-          className={styles.strategyControls}
-          disabled={strategy.isLoading || submission.isSubmitting || !connected}
-        >
-          <legend className={styles.srOnly}>Conversation strategy</legend>
-          <StrategySelectRender
-            status={strategy.status}
-            strategies={strategy.strategies}
-            selected={strategy.selected}
-            onSelect={strategy.select}
-          />
-          <StrategyModels
-            strategyPath={strategy.selected?.path}
-            binding={{
-              overrides: snapshot?.configuration.modelOverrides ?? {},
-              modelOverride: snapshot?.configuration.modelOverride,
-              onChange: strategy.changeModels,
-            }}
-          />
-        </fieldset>
         {/* Outside the fieldset, which would otherwise disable the dialog's buttons. */}
         {strategy.pending && (
           <StrategySwitchDialog

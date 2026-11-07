@@ -11,6 +11,7 @@ import { runSnapshot } from "../state/state.utils";
 import { stopRun } from "../execution/execution";
 import { cleanupRunEntry } from "../preparation/resources/resources";
 import { loadRunPreparation } from "../preparation/loading/loading";
+import { mergeModelRoles } from "../preparation/preparation.utils";
 import { RunConfigurationSchema } from "../preparation/preparation.schemas";
 import {
   restoreAgentContexts,
@@ -71,24 +72,16 @@ export async function switchStrategy(
     };
     const sameStrategy =
       strategyKey(target) === strategyKey(previous.configuration);
-    const remembered =
-      previous.strategyState?.modelsByStrategy[strategyKey(target)];
-    const models =
-      remembered ??
-      (sameStrategy
-        ? previous.configuration
-        : { modelOverrides: selection.modelOverrides });
     const configuration = RunConfigurationSchema.parse({
       ...target,
       cwd: previous.configuration.cwd,
-      modelOverride:
-        sameStrategy && selection.modelOverrides !== undefined
+      modelRoles:
+        selection.modelRoles === null
           ? undefined
-          : models.modelOverride,
-      modelOverrides:
-        sameStrategy && selection.modelOverrides !== undefined
-          ? selection.modelOverrides
-          : models.modelOverrides,
+          : mergeModelRoles(
+              previous.configuration.modelRoles,
+              selection.modelRoles,
+            ),
     });
     const events = await context.storage.conversation(runId);
     const history = await context.history.read(runId);
@@ -117,20 +110,8 @@ export async function switchStrategy(
       entry: candidate,
       completion: settled.promise,
     });
-    const modelsByStrategy = {
-      ...previous.strategyState?.modelsByStrategy,
-      [strategyKey(previous.configuration)]: {
-        modelOverride: previous.configuration.modelOverride,
-        modelOverrides: previous.configuration.modelOverrides,
-      },
-      [strategyKey(configuration)]: {
-        modelOverride: configuration.modelOverride,
-        modelOverrides: configuration.modelOverrides,
-      },
-    };
     candidate.strategyState = {
       revision,
-      modelsByStrategy,
       changes: [...(previous.strategyState?.changes ?? [])],
       handoff:
         sameStrategy && previous.strategyState

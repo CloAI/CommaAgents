@@ -1,3 +1,15 @@
-export { getModelFamily, resolveModelReference } from "./roles";
+export {
+  collectModelRoleReferences,
+  findMissingModelRoles,
+  getModelFamily,
+  isLlmAgent,
+  resolveModelReference,
+} from "./roles";
+export { DEFAULT_MODEL_ROLES } from "./roles.constants";
 
-export type { ModelFamily, ModelRoleSources, ModelRoles } from "./roles.types";
+export type {
+  ModelFamily,
+  ModelRoleDefinition,
+  ModelRoleSources,
+  ModelRoles,
+} from "./roles.types";

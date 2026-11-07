@@ -1,12 +1,5 @@
 import { z } from "zod/v4";
 
-export const StrategyModelsSchema = z
-  .object({
-    modelOverride: z.string().optional(),
-    modelOverrides: z.record(z.string(), z.string()).optional(),
-  })
-  .strict();
-
 export const StrategyChangeSchema = z
   .object({
     type: z.literal("strategy.changed"),
@@ -33,7 +26,6 @@ export const ContextMessageSchema = z
 export const StrategyStateSchema = z
   .object({
     revision: z.number().int().nonnegative(),
-    modelsByStrategy: z.record(z.string(), StrategyModelsSchema),
     changes: z.array(StrategyChangeSchema),
     handoff: z
       .object({
@@ -50,7 +42,8 @@ export const SwitchStrategyArgumentsSchema = z
     runId: z.string().min(1),
     strategyPath: z.string().min(1),
     manifestPath: z.string().min(1).nullable().optional(),
-    modelOverrides: z.record(z.string(), z.string()).optional(),
+    /** Merged over the run's saved roles; `null` clears them. */
+    modelRoles: z.record(z.string().min(1), z.string().min(1)).nullable().optional(),
     stop: z.boolean().default(false),
     expectedRevision: z.number().int().nonnegative().optional(),
   })

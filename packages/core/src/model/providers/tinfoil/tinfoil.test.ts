@@ -1,3 +1,4 @@
+import { tinfoilDownstream } from "./downstream/downstream";
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { generateText, jsonSchema, stepCountIs, streamText, tool } from "ai";
 import {
@@ -39,6 +40,8 @@ let wireRequests: string[];
 let events: PrivacyEvent[];
 let reports: PrivacyReport[];
 let verification: ReturnType<typeof spyOn<typeof tinfoilVerifier, "verify">>;
+let downstream: ReturnType<typeof spyOn<typeof tinfoilDownstream, "audit">>;
+let poolChecks: number;
 let reply: string;
 let responseMode: "valid" | "plaintext" | "tampered" | "truncated";
 let inferenceCalls: number;
@@ -154,6 +157,23 @@ function createModel(limits = DEFAULT_PRIVACY_LIMITS) {
 
 beforeEach(async () => {
   process.env.TINFOIL_USER_CACHE_SECRET = "test-cache-secret";
+  poolChecks = 0;
+  downstream = spyOn(tinfoilDownstream, "audit").mockImplementation(
+    async () => ({
+      expiresAt: Date.now() + 60000,
+      poolDigest: "aa".repeat(32),
+      report: {
+        scope: "router-admitted-pool",
+        identitySource: "client-verified-cpu",
+        modelRepository: "tinfoilsh/model",
+        enclaveCount: 1,
+        gpuCount: 4,
+      },
+      assertCurrentPool: async () => {
+        poolChecks++;
+      },
+    }),
+  );
   serverIdentity = await Identity.generate();
   context = null;
   plaintextRequests = [];
@@ -169,6 +189,7 @@ beforeEach(async () => {
     configRepo: "tinfoilsh/confidential-model-router",
     codeDigest: "ab".repeat(32),
     codeTag: "v1",
+    gpuCount: 0,
     enclaveMeasurement: { type: "sev-snp", launch: "cd".repeat(48) },
     freshnessExpiresAt: new Date(Date.now() + 60000),
     config: undefined,
@@ -251,11 +272,151 @@ afterEach(() => {
   }
   globalThis.fetch = originalFetch;
   verification.mockRestore();
+  downstream.mockRestore();
   // Restore only spies owned by these tests, leaving unrelated module mocks intact.
   Identity.prototype.encryptRequestWithContext = originalEncrypt;
 });
 
 describe("Tinfoil protected inference", () => {
+  it("should reject GPU appraisal failure before sending any prompt", async () => {
+    downstream.mockRejectedValue(
+      Object.assign(new Error("GPU verification failed"), {
+        code: "PRIVACY_ATTESTATION_FAILED",
+      }),
+    );
+    await expect(
+      generateText({
+        model: createModel(),
+        prompt: "private prompt",
+        maxRetries: 0,
+      }),
+    ).rejects.toMatchObject({ code: "PRIVACY_ATTESTATION_FAILED" });
+    expect(inferenceCalls).toBe(0);
+    expect(reports[0]?.checks.gpu).toBe("failed");
+  });
+  it("should report the rejected model CPU without marking unexamined GPU evidence failed", async () => {
+    downstream.mockImplementation(async (options) => {
+      options.onDiagnostic?.({
+        operation: "cpu-verification",
+        status: "failed",
+        failureReason: "downstream-cpu-quote-rejected",
+        errorCode: "PRIVACY_ATTESTATION_FAILED",
+      });
+      throw Object.assign(new Error("CPU quote rejected"), {
+        code: "PRIVACY_ATTESTATION_FAILED",
+      });
+    });
+    await expect(
+      generateText({
+        model: createModel(),
+        prompt: "private prompt",
+        maxRetries: 0,
+      }),
+    ).rejects.toMatchObject({ code: "PRIVACY_ATTESTATION_FAILED" });
+    expect(inferenceCalls).toBe(0);
+    expect(reports[0]).toMatchObject({
+      checks: { cpu: "passed", gpu: "unavailable" },
+      verificationSteps: {
+        downstreamCpu: "failed",
+        gpuEvidence: "unavailable",
+      },
+    });
+  });
+  it("should discard authenticated completions if the admitted pool changes", async () => {
+    downstream.mockResolvedValue({
+      expiresAt: Date.now() + 60000,
+      poolDigest: "aa".repeat(32),
+      report: {
+        scope: "router-admitted-pool",
+        identitySource: "client-verified-cpu",
+        modelRepository: "tinfoilsh/model",
+        enclaveCount: 1,
+        gpuCount: 4,
+      },
+      assertCurrentPool: async () => {
+        throw Object.assign(new Error("Pool changed"), {
+          code: "PRIVACY_BINDING_UNAVAILABLE",
+        });
+      },
+    });
+    await expect(
+      generateText({
+        model: createModel(),
+        prompt: "private prompt",
+        maxRetries: 0,
+      }),
+    ).rejects.toMatchObject({ code: "PRIVACY_BINDING_UNAVAILABLE" });
+    expect(inferenceCalls).toBe(1);
+    expect(reports[0]?.checks).toMatchObject({
+      gpu: "failed",
+      responseBinding: "passed",
+      encryption: "passed",
+    });
+    expect(reports[0]?.verificationSteps?.admittedPoolBinding).toBe("failed");
+  });
+  it("should not execute a tool from a completion whose admitted pool changed", async () => {
+    reply = completion(true);
+    let executions = 0;
+    downstream.mockResolvedValue({
+      expiresAt: Date.now() + 60000,
+      poolDigest: "aa".repeat(32),
+      report: {
+        scope: "router-admitted-pool",
+        identitySource: "client-verified-cpu",
+        modelRepository: "tinfoilsh/model",
+        enclaveCount: 1,
+        gpuCount: 4,
+      },
+      assertCurrentPool: async () => {
+        throw Object.assign(new Error("Pool changed"), {
+          code: "PRIVACY_BINDING_UNAVAILABLE",
+        });
+      },
+    });
+    await expect(
+      generateText({
+        model: createModel(),
+        prompt: "private prompt",
+        maxRetries: 0,
+        tools: {
+          lookup: tool({
+            description: "Look up a value",
+            inputSchema: jsonSchema<{ query: string }>({
+              type: "object",
+              properties: { query: { type: "string" } },
+              required: ["query"],
+            }),
+            execute: async () => {
+              executions++;
+              return "result";
+            },
+          }),
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PRIVACY_BINDING_UNAVAILABLE" });
+    expect(executions).toBe(0);
+  });
+  it("should report independently checked GPUs and the independently verified model CPU identity", async () => {
+    await generateText({
+      model: createModel(),
+      prompt: "private prompt",
+      maxRetries: 0,
+    });
+    expect(poolChecks).toBe(1);
+    expect(reports[0]).toMatchObject({
+      checks: { gpu: "passed" },
+      gpuAssociation: "verified-model-enclave",
+      downstreamVerification: {
+        identitySource: "client-verified-cpu",
+        gpuCount: 4,
+        enclaveCount: 1,
+      },
+      verificationSteps: {
+        downstreamCpu: "passed",
+        admittedPoolBinding: "passed",
+      },
+    });
+  });
   it("should reject expired verified evidence before any inference", async () => {
     verificationResult = {
       ...verificationResult,
@@ -516,7 +677,7 @@ describe("Tinfoil protected inference", () => {
       status: "verified",
       checks: {
         cpu: "passed",
-        gpu: "unavailable",
+        gpu: "passed",
         freshness: "passed",
         keyBinding: "passed",
         responseBinding: "passed",

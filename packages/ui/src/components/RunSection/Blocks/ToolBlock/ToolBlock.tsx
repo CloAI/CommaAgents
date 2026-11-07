@@ -4,6 +4,18 @@ import { ToolChildren } from "./ToolChildren";
 import { CodeBlock } from "../CodeBlock";
 import styles from "./ToolBlock.module.scss";
 
+/**
+ * Pretty-print a value as JSON, showing newlines inside strings as real line breaks.
+ * @param {unknown} value - Arguments or output of a tool call.
+ * @returns {string} Indented JSON text.
+ */
+function formatJson(value: unknown): string {
+  return (JSON.stringify(value, null, 2) ?? "").replace(
+    /\\(\\|n)/g,
+    (match, escaped: string) => (escaped === "n" ? "\n" : match),
+  );
+}
+
 /** The tool call to show. */
 export interface ToolBlockProps {
   /** Tool block with its arguments and, once finished, its output. */
@@ -39,14 +51,14 @@ export function ToolBlock({ tool, childRuns, onOpenChild }: ToolBlockProps) {
         </summary>
         <div className={styles.details}>
           <span className={styles.label}>Arguments</span>
-          <CodeBlock language="json">
-            <code>{JSON.stringify(tool.arguments, null, 2)}</code>
+          <CodeBlock language="json" bodyClassName={styles.json}>
+            <code>{formatJson(tool.arguments)}</code>
           </CodeBlock>
           {(tool.status === "completed" || tool.status === "failed") && (
             <>
               <span className={styles.label}>Output</span>
-              <CodeBlock language="json">
-                <code>{JSON.stringify(tool.output, null, 2)}</code>
+              <CodeBlock language="json" bodyClassName={styles.json}>
+                <code>{formatJson(tool.output)}</code>
               </CodeBlock>
             </>
           )}

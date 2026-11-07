@@ -287,37 +287,49 @@ describe("strategy switching", () => {
     }
   });
 
-  it("should restore each strategy's model overrides and reject stale revisions", async () => {
+  it("should keep per-run roles across a strategy switch and let a switch change them", async () => {
     const { runs, plan, build } = fixture();
     try {
       await runs.prepareRun({
         runId: "chat",
         configuration: {
           strategyPath: plan,
-          modelOverrides: { planner: "mock/plan" },
+          modelRoles: { medium: "mock/switch" },
         },
       });
-      const first = await runs.switchStrategy({
+      const kept = await runs.switchStrategy({
         runId: "chat",
         strategyPath: build,
-        modelOverrides: { coder: "mock/build" },
       });
-      expect(first.configuration).toMatchObject({
-        modelOverrides: { coder: "mock/build" },
+      expect(kept.configuration.modelRoles).toEqual({ medium: "mock/switch" });
+      const changed = await runs.switchStrategy({
+        runId: "chat",
+        strategyPath: build,
+        modelRoles: { simple: "mock/switch" },
       });
-      expect(
-        (await runs.switchStrategy({ runId: "chat", strategyPath: plan }))
-          .configuration.modelOverrides,
-      ).toEqual({ planner: "mock/plan" });
-      expect(
-        (
-          await runs.switchStrategy({
-            runId: "chat",
-            strategyPath: build,
-            modelOverrides: { coder: "mock/new-default" },
-          })
-        ).configuration.modelOverrides,
-      ).toEqual({ coder: "mock/build" });
+      expect(changed.configuration.modelRoles).toEqual({
+        medium: "mock/switch",
+        simple: "mock/switch",
+      });
+      const cleared = await runs.switchStrategy({
+        runId: "chat",
+        strategyPath: build,
+        modelRoles: null,
+      });
+      expect(cleared.configuration.modelRoles).toBeUndefined();
+    } finally {
+      await runs.dispose();
+    }
+  });
+
+  it("should reject stale revisions", async () => {
+    const { runs, plan, build } = fixture();
+    try {
+      await runs.prepareRun({
+        runId: "chat",
+        configuration: { strategyPath: plan },
+      });
+      await runs.switchStrategy({ runId: "chat", strategyPath: build });
       await expect(
         runs.switchStrategy({
           runId: "chat",
@@ -327,13 +339,10 @@ describe("strategy switching", () => {
       ).rejects.toMatchObject({ code: "INVALID_RUN_STATE" });
       const updated = await runs.switchStrategy({
         runId: "chat",
-        strategyPath: build,
-        modelOverrides: { coder: "mock/conversation" },
+        strategyPath: plan,
+        expectedRevision: 1,
       });
-      expect(updated.configuration.modelOverrides).toEqual({
-        coder: "mock/conversation",
-      });
-      expect(updated.strategyState?.changes).toHaveLength(3);
+      expect(updated.strategyState?.changes).toHaveLength(2);
     } finally {
       await runs.dispose();
     }

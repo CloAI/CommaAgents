@@ -29,6 +29,12 @@ export interface DaemonPlugins extends Readonly<Record<string, Plugin>> {
 export interface CreateDaemonKernelOptions {
   /** Run storage and feature dependencies. */
   readonly runs: CreateRunsPluginOptions;
+  /** Models for `@role` references at startup. @default {} */
+  readonly modelRoles?: Readonly<Record<string, string>>;
+  /** Saves roles changed through `core.modelRoles.set`. @default roles last only until restart */
+  readonly persistModelRoles?: (
+    modelRoles: Readonly<Record<string, string>>,
+  ) => void;
   /** Manually initialize feature plugins and their dependencies at startup. */
   readonly initialize?: (plugins: DaemonPlugins) => Promise<void> | void;
 }

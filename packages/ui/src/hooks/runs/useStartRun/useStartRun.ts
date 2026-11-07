@@ -1,16 +1,19 @@
+import { RunErrorCode } from "@comma-agents/daemon/protocol";
 import { useCallback, useRef, useState } from "react";
 import { useDaemonMutation } from "../../useDaemonMutation";
 import { useSettings } from "../../useSettings";
 import type { StrategyItem } from "../../useStrategies";
 import type { StartRun } from "./useStartRun.types";
+import { missingRolesFrom } from "./useStartRun.utils";
 
 /**
- * Prepare a run with the strategy's saved model choices and start it with a prompt.
- * @returns {StartRun} Start action and its progress.
+ * Prepare a run and start it with a prompt, reporting model roles the daemon lacks.
+ * @returns {StartRun} Start action, its progress, and any roles to configure before retrying.
  */
 export function useStartRun(): StartRun {
   const [isStarting, setStarting] = useState(false);
   const [error, setError] = useState<string>();
+  const [missingRoles, setMissingRoles] = useState<readonly string[]>();
   const starting = useRef(false);
   const { settings } = useSettings();
   const { attempt: prepare } = useDaemonMutation("runs.prepare");
@@ -27,13 +30,13 @@ export function useStartRun(): StartRun {
       starting.current = true;
       setStarting(true);
       setError(undefined);
-      const overrides = settings.modelOverrides?.[strategy.path];
+      setMissingRoles(undefined);
+      const roles = settings.strategyModelRoles?.[strategy.path];
       const prepared = await prepare({
         configuration: {
           strategyPath: strategy.path,
           manifestPath: strategy.manifestPath,
-          modelOverrides:
-            overrides && Object.keys(overrides).length ? overrides : undefined,
+          modelRoles: roles && Object.keys(roles).length ? roles : undefined,
         },
       });
       const started = prepared.ok
@@ -44,10 +47,18 @@ export function useStartRun(): StartRun {
       if (started.ok && prepared.ok) {
         return prepared.data.runId;
       }
-      setError(started.ok ? undefined : started.error.message);
+      if (!started.ok) {
+        const roles =
+          started.error.code === RunErrorCode.MISSING_MODEL_ROLES
+            ? missingRolesFrom(started.error)
+            : undefined;
+        setMissingRoles(roles);
+        setError(roles ? undefined : started.error.message);
+      }
       return undefined;
     },
-    [settings.modelOverrides, prepare, begin],
+    [settings.strategyModelRoles, prepare, begin],
   );
-  return { start, isStarting, error };
+  const dismissMissingRoles = useCallback(() => setMissingRoles(undefined), []);
+  return { start, isStarting, error, missingRoles, dismissMissingRoles };
 }

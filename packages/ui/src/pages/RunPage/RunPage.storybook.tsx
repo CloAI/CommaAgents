@@ -17,7 +17,6 @@ import {
   prepareStory,
 } from "../../test.utils";
 import { RunPage } from "./RunPage";
-import { SETTINGS_STORAGE_KEY } from "../../settings/settings.constants";
 import { ChatPaneContext } from "../../hooks/useChatPane";
 import { useLayout } from "../../hooks/useLayout";
 import { LayoutContext } from "../../hooks/useLayout/useLayout.context";
@@ -857,7 +856,6 @@ function buildSnapshot() {
     unmatchedAgents: [],
     strategyState: {
       revision: 1,
-      modelsByStrategy: {},
       handoff: { messages: [], eventOffset: 0 },
       changes: [
         {
@@ -884,8 +882,8 @@ export const SwitchesStrategyBeforeTheNextMessage: Story = {
     await expect(
       canvas
         .getByRole("group", { name: "Conversation strategy" })
-        .getBoundingClientRect().top,
-    ).toBeGreaterThanOrEqual(input.getBoundingClientRect().bottom);
+        .getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(input.getBoundingClientRect().top);
     await userEvent.type(input, "Implement the plan");
     await userEvent.click(canvas.getByRole("button", { name: /^Strategy:/ }));
     await userEvent.click(canvas.getByRole("option", { name: /Build/ }));
@@ -1143,92 +1141,6 @@ export const MissingStrategyRequiresAnotherSelection: Story = {
     await expect(
       canvas.getByRole("button", { name: /^Strategy:/ }),
     ).toBeEnabled();
-  },
-};
-
-export const ModelChangesBelongToTheConversation: Story = {
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const { socket, subscription } = await switchingFixture();
-    await answerCommand(socket, "core.strategies.describe", {
-      type: "response",
-      ok: true,
-      data: {
-        name: "Plan",
-        version: "1",
-        agents: [{ name: "planner", kind: "llm", model: "mock/original" }],
-        steps: [
-          {
-            flow: "Plan",
-            flowType: "sequential",
-            depth: 0,
-            agent: "planner",
-            role: "step",
-          },
-        ],
-      },
-    });
-    await answerCommand(socket, "core.providers.list", {
-      type: "response",
-      ok: true,
-      data: {
-        providers: [
-          {
-            id: "mock",
-            name: "Mock",
-            credentialType: "none",
-            authStatus: "configured",
-            models: [
-              {
-                id: "original",
-                sources: ["models.dev"],
-                metadata: { name: "Original model" },
-              },
-              {
-                id: "replacement",
-                sources: ["models.dev"],
-                metadata: { name: "Replacement model" },
-              },
-            ],
-          },
-        ],
-      },
-    });
-    const savedDefaults = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    await userEvent.click(canvas.getByRole("button", { name: /^Model:/ }));
-    await userEvent.click(
-      canvas.getByRole("option", { name: /Replacement model/ }),
-    );
-    const snapshot = runSnapshot("run-1", "prepared", {
-      unmatchedAgents: [],
-      configuration: {
-        strategyPath: "/work/strategy.json",
-        cwd: "/work",
-        modelOverrides: { planner: "mock/replacement" },
-      },
-    });
-    await act(() =>
-      deliver(socket, subscription.requestId, {
-        type: "run.state",
-        data: snapshot,
-      }),
-    );
-    const request = await answerCommand(socket, "runs.switchStrategy", {
-      type: "response",
-      ok: true,
-      data: snapshot,
-    });
-    await expect(request.arguments).toMatchObject({
-      strategyPath: "/work/strategy.json",
-      modelOverrides: { planner: "mock/replacement" },
-    });
-    await expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBe(
-      savedDefaults,
-    );
-    await expect(
-      canvas.getByRole("button", { name: /^Model:/ }),
-    ).toHaveTextContent("mock/replacement");
-    await expect(canvas.queryByText(/Strategy changed:/)).toBeNull();
   },
 };
 

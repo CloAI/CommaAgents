@@ -1,7 +1,6 @@
 import { RunErrorCode } from "@comma-agents/daemon/protocol";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useDaemonMutation } from "../../useDaemonMutation";
-import { useSettings } from "../../useSettings";
 import { useStrategies } from "../../useStrategies";
 import type { RunSnapshot } from "../useRunChannel";
 import { useRunControls } from "../RunProvider/RunProvider.context";
@@ -25,7 +24,6 @@ export function useRunStrategyState(
   const [pending, setPending] = useState<PendingStrategyChange>();
   const saving = useRef(false);
   const { status, strategies } = useStrategies();
-  const { settings } = useSettings();
   const { attempt, isLoading } = useDaemonMutation("runs.switchStrategy");
   const selected = strategies.find(
     (strategy) => strategy.path === snapshot?.configuration.strategyPath,
@@ -37,12 +35,12 @@ export function useRunStrategyState(
       }
       saving.current = true;
       setError(undefined);
-      const { strategy, models } = change;
+      const { strategy, modelRoles } = change;
       const result = await attempt({
         runId,
         strategyPath: strategy.path,
         manifestPath: strategy.manifestPath ?? null,
-        modelOverrides: models ?? settings.modelOverrides?.[strategy.path],
+        modelRoles,
         stop,
         expectedRevision: snapshot.strategyState?.revision ?? 0,
       });
@@ -56,7 +54,7 @@ export function useRunStrategyState(
         setPending(change);
       }
     },
-    [attempt, runId, settings.modelOverrides, snapshot],
+    [attempt, runId, snapshot],
   );
   const request = useCallback(
     (change: PendingStrategyChange) => {
@@ -83,11 +81,16 @@ export function useRunStrategyState(
   const changeModels = useCallback(
     (models: Readonly<Record<string, string>>) => {
       if (selected) {
-        request({ strategy: selected, models });
+        request({ strategy: selected, modelRoles: models });
       }
     },
     [selected, request],
   );
+  const resetModels = useCallback(() => {
+    if (selected) {
+      request({ strategy: selected, modelRoles: null });
+    }
+  }, [selected, request]);
   const wait = useCallback(() => {
     setPending(undefined);
     setError(undefined);
@@ -104,6 +107,7 @@ export function useRunStrategyState(
       selected,
       select,
       changeModels,
+      resetModels,
       pending,
       wait,
       stopAndSwitch,
@@ -116,6 +120,7 @@ export function useRunStrategyState(
       selected,
       select,
       changeModels,
+      resetModels,
       pending,
       wait,
       stopAndSwitch,

@@ -85,6 +85,29 @@ afterEach(async () => {
   await rm(directory, { recursive: true, force: true });
 });
 describe("createCorePlugin", () => {
+  it("should persist model roles before applying them", () => {
+    const saved: Array<Readonly<Record<string, string>>> = [];
+    const core = createCorePlugin({
+      modelRoles: { medium: "openai/gpt-5" },
+      persistModelRoles: (roles) => saved.push(roles),
+    });
+    expect(core.getModelRoles()).toEqual({ medium: "openai/gpt-5" });
+    core.setModelRoles({ simple: "openai/gpt-5-mini" });
+    expect(saved).toEqual([{ simple: "openai/gpt-5-mini" }]);
+    expect(core.getModelRoles()).toEqual({ simple: "openai/gpt-5-mini" });
+  });
+
+  it("should keep the previous roles when saving fails", () => {
+    const core = createCorePlugin({
+      modelRoles: { medium: "openai/gpt-5" },
+      persistModelRoles() {
+        throw new Error("disk full");
+      },
+    });
+    expect(() => core.setModelRoles({})).toThrow("disk full");
+    expect(core.getModelRoles()).toEqual({ medium: "openai/gpt-5" });
+  });
+
   it("should list providers without provider API calls or credential values until loaded", async () => {
     let providerCalls = 0;
     registerProviderDefinition({
@@ -459,6 +482,55 @@ describe("createCorePlugin", () => {
       });
     } finally {
       client.socket.close();
+      await server.stop();
+      await kernel.dispose();
+    }
+  });
+  it("should push model role changes to every watching client", async () => {
+    const kernel = await createDaemonKernel({
+      runs: { runsDir: join(directory, "runs") },
+      modelRoles: { medium: "openai/gpt-5" },
+    });
+    const server = createDaemonServer({ daemon: kernel, port: 0 });
+    await server.start();
+    const watcher = await connectSocket(server.url);
+    const editor = await connectSocket(server.url);
+    try {
+      const requestId = crypto.randomUUID();
+      watcher.send({
+        type: "subscribe",
+        requestId,
+        channel: "core.modelRoles.watch",
+        arguments: {},
+      });
+      expect(await watcher.next()).toMatchObject({ ok: true, requestId });
+      expect(await watcher.next()).toMatchObject({
+        type: "modelRoles.updated",
+        data: {
+          modelRoles: { medium: "openai/gpt-5" },
+          defaults: expect.arrayContaining([
+            expect.objectContaining({ name: "medium" }),
+          ]),
+        },
+      });
+      editor.send({
+        type: "command",
+        requestId: crypto.randomUUID(),
+        command: "core.modelRoles.set",
+        arguments: {
+          modelRoles: { medium: "openai/gpt-5", simple: "openai/gpt-5-mini" },
+        },
+      });
+      expect(await editor.next()).toMatchObject({ ok: true });
+      expect(await watcher.next()).toMatchObject({
+        type: "modelRoles.updated",
+        data: {
+          modelRoles: { medium: "openai/gpt-5", simple: "openai/gpt-5-mini" },
+        },
+      });
+    } finally {
+      watcher.socket.close();
+      editor.socket.close();
       await server.stop();
       await kernel.dispose();
     }

@@ -82,11 +82,11 @@ Both `loadStrategy` and `loadStrategyFromString` accept an options object.
 
 ### Model Override
 
-Override the model for every LLM agent in the strategy, regardless of what the file specifies:
+Supply the models for `@role` references. Loading throws `MissingModelRolesError`, listing every role the strategy and its subagents use that is not defined here or in the strategy's own `modelRoles`:
 
 ```ts
 const strategy = await loadStrategy("./strategy.json", {
-  modelOverride: "anthropic/claude-sonnet-4-20250514",
+  modelRoles: { medium: "anthropic/claude-sonnet-4-20250514" },
 });
 ```
 

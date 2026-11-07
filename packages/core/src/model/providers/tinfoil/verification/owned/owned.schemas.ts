@@ -59,7 +59,17 @@ export const devicesSchema = z
   .object({
     format: z.literal("https://tinfoil.sh/device-evidence/v1"),
     items: z
-      .array(z.object({ id: text, kind: text, vendor: text, format: text, evidence: z.unknown() }).strict())
+      .array(
+        z
+          .object({
+            id: text,
+            kind: text,
+            vendor: text,
+            format: text,
+            evidence: z.unknown(),
+          })
+          .strict(),
+      )
       .max(128),
   })
   .strict();

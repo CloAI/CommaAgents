@@ -9,6 +9,8 @@ const COPIED_DURATION_MS = 1500;
 export interface CodeBlockProps {
   /** Language named on the fence, shown in the header. */
   readonly language?: string;
+  /** Extra class for the scrolling code area, e.g. to cap its height. */
+  readonly bodyClassName?: string;
   /** The `code` element holding the text, optionally with highlighted children. */
   readonly children: ReactNode;
 }
@@ -18,7 +20,11 @@ export interface CodeBlockProps {
  * @param {CodeBlockProps} props - Component properties.
  * @returns {React.ReactElement} The code block.
  */
-export function CodeBlock({ language, children }: CodeBlockProps) {
+export function CodeBlock({
+  language,
+  bodyClassName,
+  children,
+}: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const codeRef = useRef<HTMLPreElement>(null);
   const handleCopy = useCallback(async () => {
@@ -39,6 +45,7 @@ export function CodeBlock({ language, children }: CodeBlockProps) {
   return (
     <CodeBlockRender
       language={language}
+      bodyClassName={bodyClassName}
       copied={copied}
       codeRef={codeRef}
       onCopy={handleCopy}
@@ -52,6 +59,8 @@ export function CodeBlock({ language, children }: CodeBlockProps) {
 export interface CodeBlockRenderProps {
   /** Language named on the fence, shown in the header. */
   readonly language?: string;
+  /** Extra class for the scrolling code area. */
+  readonly bodyClassName?: string;
   /** Whether the code was just copied. */
   readonly copied: boolean;
   /** Receives the element whose text is copied. */
@@ -69,6 +78,7 @@ export interface CodeBlockRenderProps {
  */
 export function CodeBlockRender({
   language,
+  bodyClassName,
   copied,
   codeRef,
   onCopy,
@@ -87,7 +97,11 @@ export function CodeBlockRender({
           <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
-      <pre ref={codeRef} className={styles.body} tabIndex={0}>
+      <pre
+        ref={codeRef}
+        className={[styles.body, bodyClassName].filter(Boolean).join(" ")}
+        tabIndex={0}
+      >
         {children}
       </pre>
     </div>
