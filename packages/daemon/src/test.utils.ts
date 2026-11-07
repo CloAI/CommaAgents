@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 // Shared test utilities for daemon unit tests.
 //
 // Provides mock factories for MessageSender and model registration
@@ -212,7 +213,7 @@ export async function writeTempStrategy(
 ): Promise<string> {
   const filename = `test-strategy-${crypto.randomUUID()}.${extension}`;
   const filePath = join(tmpdir(), filename);
-  await Bun.write(filePath, content);
+  await writeFile(filePath, content);
   return filePath;
 }
 

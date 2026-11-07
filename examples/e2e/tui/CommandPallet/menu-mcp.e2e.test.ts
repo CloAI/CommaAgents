@@ -1,4 +1,4 @@
-import { expect } from "bun:test";
+import { expect } from "vitest";
 import { createSimpleSuccessScenario, startMockDaemon } from "../mock-daemon";
 import {
   clickText,

@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { z } from "zod";
 import { SandboxViolationError } from "../../../errors";
 import { defineTool } from "../../define/define-tool";
@@ -233,8 +233,7 @@ If a subsequent edit/write returns \`stale_file\`, the file changed under you â€
         );
       }
 
-      const file = Bun.file(absolutePath);
-      const buffer = new Uint8Array(await file.arrayBuffer());
+      const buffer = new Uint8Array(await readFile(absolutePath));
       const sizeBytes = buffer.byteLength;
       const sha256 = sha256OfBuffer(buffer);
       const binary = isLikelyBinary(buffer);

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, describe, expect, vi, test } from "vitest";
 import { getProviderDefinition, resetProviderRegistry } from "../providers";
 import { refreshAndListProviderModels } from "../test.utils";
 import { listVeniceModels } from "./venice";
@@ -12,7 +12,7 @@ afterEach(() => {
 
 describe("listVeniceModels", () => {
   test("should preserve unsupported and unknown privacy capabilities", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({
         data: [
           {
@@ -47,7 +47,7 @@ describe("listVeniceModels", () => {
     ]);
   });
   test("should authenticate and map metadata while excluding offline and non-text models", async () => {
-    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValue(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({
         data: [
           {
@@ -110,7 +110,7 @@ describe("listVeniceModels", () => {
   });
 
   test("should honor a base URL override and caller abort signal", async () => {
-    const fetchMock = spyOn(globalThis, "fetch").mockResolvedValue(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({ data: [] }),
     );
     const signal = new AbortController().signal;
@@ -132,7 +132,7 @@ describe("listVeniceModels", () => {
   });
 
   test("should reject missing, empty, or incompatible credentials before fetching", async () => {
-    const fetchMock = spyOn(globalThis, "fetch");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
     for (const credential of [
       undefined,
       { type: "api", key: "" },
@@ -146,7 +146,7 @@ describe("listVeniceModels", () => {
   });
 
   test("should report HTTP errors and let the registry fall back to the catalog", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(null, { status: 401, statusText: "Unauthorized" }),
     );
     const credential = { type: "api", key: "invalid" } as const;
@@ -159,7 +159,7 @@ describe("listVeniceModels", () => {
   });
 
   test("should register Venice discovery and return live models through the registry", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({ data: [{ id: "venice-live-test", type: "text" }] }),
     );
 

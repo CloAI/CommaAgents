@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`PermissionPrompt renders the fs.read operation clearly 1`] = `
+exports[`PermissionPrompt > renders the fs.read operation clearly 1`] = `
 "┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                                                                                  │
 │  ⚠ Permission request                                                                            │
@@ -17,7 +17,7 @@ exports[`PermissionPrompt renders the fs.read operation clearly 1`] = `
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘"
 `;
 
-exports[`PermissionPrompt renders the fs.write operation clearly 1`] = `
+exports[`PermissionPrompt > renders the fs.write operation clearly 1`] = `
 "┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                                                                                  │
 │  ⚠ Permission request                                                                            │
@@ -34,7 +34,7 @@ exports[`PermissionPrompt renders the fs.write operation clearly 1`] = `
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘"
 `;
 
-exports[`PermissionPrompt renders the command.execute operation clearly 1`] = `
+exports[`PermissionPrompt > renders the command.execute operation clearly 1`] = `
 "┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                                                                                  │
 │  ⚠ Permission request                                                                            │

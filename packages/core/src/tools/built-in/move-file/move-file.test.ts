@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync, realpathSync } from "node:fs";
 import * as fsp from "node:fs/promises";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -12,6 +12,11 @@ import { trashWorkspaceDir } from "../../io/trash";
 import { makeToolContext } from "../../test.utils";
 import type { ToolContext } from "../../tool.types";
 import { createMoveFileTool, type MoveFileData } from "./index";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const filesystem = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...filesystem, rename: vi.fn(filesystem.rename) };
+});
 
 let workspaceRoot: string;
 
@@ -148,7 +153,7 @@ describe("createMoveFileTool", () => {
       ),
     );
     expect(typeof data.overwroteTrashedTo).toBe("string");
-    expect(data.overwroteTrashedTo).toEndWith(".tar.gz");
+    expect(data.overwroteTrashedTo).toMatch(/\.tar\.gz$/);
     expect(await readFile(join(workspaceRoot, "b.txt"), "utf8")).toBe("new\n");
     expect(existsSync(data.overwroteTrashedTo!)).toBe(true);
   });
@@ -384,7 +389,7 @@ describe("createMoveFileTool", () => {
     const exdev = Object.assign(new Error("EXDEV: cross-device link"), {
       code: "EXDEV",
     });
-    const renameSpy = spyOn(fsp, "rename").mockRejectedValueOnce(exdev);
+    const renameSpy = vi.spyOn(fsp, "rename").mockRejectedValueOnce(exdev);
 
     try {
       const tool = createMoveFileTool();

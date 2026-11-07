@@ -3,7 +3,7 @@
 // Verifies that tools with `systemPrompt` field have their contributions
 // injected ONCE into the agent's system prompt at creation time.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   buildToolSystemPrompt,

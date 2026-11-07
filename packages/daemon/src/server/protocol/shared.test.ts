@@ -1,6 +1,6 @@
 // Tests for shared protocol base envelopes.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { ClientBase, DaemonBase } from "./shared";
 
 // ClientBase

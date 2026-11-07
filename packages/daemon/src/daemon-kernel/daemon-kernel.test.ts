@@ -1,4 +1,4 @@
-import { describe, expect, spyOn, test } from "bun:test";
+import { describe, expect, vi, test } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,7 +14,7 @@ describe("daemon kernel", () => {
         initialize(plugins) {
           for (const plugin of Object.values(plugins)) {
             const dispose = plugin.dispose;
-            spyOn(plugin, "dispose").mockImplementation(async () => {
+            vi.spyOn(plugin, "dispose").mockImplementation(async () => {
               order.push(plugin.name);
               await dispose();
               if (plugin.name === "mcp") {
@@ -74,23 +74,23 @@ describe("daemon kernel", () => {
 
   test("disposes runs when feature initialization fails", async () => {
     const runsDir = mkdtempSync(join(tmpdir(), "daemon-kernel-"));
-    let disposal: ReturnType<typeof spyOn> | undefined;
-    let sandboxDisposal: ReturnType<typeof spyOn> | undefined;
-    let questionsDisposal: ReturnType<typeof spyOn> | undefined;
-    let skillsDisposal: ReturnType<typeof spyOn> | undefined;
-    let mcpDisposal: ReturnType<typeof spyOn> | undefined;
-    let lspDisposal: ReturnType<typeof spyOn> | undefined;
+    let disposal: ReturnType<typeof vi.spyOn> | undefined;
+    let sandboxDisposal: ReturnType<typeof vi.spyOn> | undefined;
+    let questionsDisposal: ReturnType<typeof vi.spyOn> | undefined;
+    let skillsDisposal: ReturnType<typeof vi.spyOn> | undefined;
+    let mcpDisposal: ReturnType<typeof vi.spyOn> | undefined;
+    let lspDisposal: ReturnType<typeof vi.spyOn> | undefined;
     try {
       await expect(
         createDaemonKernel({
           runs: { runsDir },
           initialize(plugins) {
-            disposal = spyOn(plugins.runs, "dispose");
-            sandboxDisposal = spyOn(plugins.sandbox, "dispose");
-            questionsDisposal = spyOn(plugins.questions, "dispose");
-            skillsDisposal = spyOn(plugins.skills, "dispose");
-            mcpDisposal = spyOn(plugins.mcp, "dispose");
-            lspDisposal = spyOn(plugins.lsp, "dispose");
+            disposal = vi.spyOn(plugins.runs, "dispose");
+            sandboxDisposal = vi.spyOn(plugins.sandbox, "dispose");
+            questionsDisposal = vi.spyOn(plugins.questions, "dispose");
+            skillsDisposal = vi.spyOn(plugins.skills, "dispose");
+            mcpDisposal = vi.spyOn(plugins.mcp, "dispose");
+            lspDisposal = vi.spyOn(plugins.lsp, "dispose");
             throw new Error("feature failed");
           },
         }),

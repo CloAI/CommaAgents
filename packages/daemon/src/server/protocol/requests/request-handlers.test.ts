@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { writeFile } from "node:fs/promises";
+import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -414,7 +415,7 @@ describe("trash request handlers", () => {
     tempDirs.push(workspace, trashWorkspaceDir(workspace));
     const replies: DaemonMessage[] = [];
     const originalPath = join(workspace, "note.txt");
-    await Bun.write(originalPath, "content");
+    await writeFile(originalPath, "content");
     const archivePath = await moveToTrash(workspace, originalPath);
 
     await handleTrashList(
@@ -436,7 +437,7 @@ describe("trash request handlers", () => {
       workspace,
       join(workspace, "restored.txt"),
     );
-    expect(secondArchive).toBeString();
+    expect(secondArchive).toBeTypeOf("string");
 
     await handleTrashClear(
       { type: "trash_clear", cwd: workspace, requestId: "clear-1" },

@@ -3,7 +3,7 @@
 // file and rebuild SessionFileState. Verifies that the audit log is a
 // faithful record from which the file-system view can be reconstructed.
 
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { realpathSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";

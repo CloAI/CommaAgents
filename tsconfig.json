@@ -1,19 +1,39 @@
 {
   "compilerOptions": {
     "paths": {
-      "@comma-agents/core": ["./packages/core/src/index.ts"],
-      "@comma-agents/core/hub": ["./packages/core/src/hub/index.ts"],
-      "@comma-agents/core/sandbox": ["./packages/core/src/sandbox/index.ts"],
-      "@comma-agents/core/strategy": ["./packages/core/src/strategy/index.ts"],
-      "@comma-agents/core/skills": ["./packages/core/src/skills/index.ts"],
-      "@comma-agents/core/mcp": ["./packages/core/src/mcp/index.ts"],
-      "@comma-agents/core/language": ["./packages/core/src/language/index.ts"],
+      "@comma-agents/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@comma-agents/core/hub": [
+        "./packages/core/src/hub/index.ts"
+      ],
+      "@comma-agents/core/sandbox": [
+        "./packages/core/src/sandbox/index.ts"
+      ],
+      "@comma-agents/core/strategy": [
+        "./packages/core/src/strategy/index.ts"
+      ],
+      "@comma-agents/core/skills": [
+        "./packages/core/src/skills/index.ts"
+      ],
+      "@comma-agents/core/mcp": [
+        "./packages/core/src/mcp/index.ts"
+      ],
+      "@comma-agents/core/language": [
+        "./packages/core/src/language/index.ts"
+      ],
       "@comma-agents/daemon/protocol": [
         "./packages/daemon/src/daemon-server/protocol.ts"
       ],
-      "@comma-agents/daemon": ["./packages/daemon/src/index.ts"],
-      "@comma-agents/tui": ["./packages/tui/src/index.ts"],
-      "@comma-agents/utils": ["./packages/utils/src/index.ts"],
+      "@comma-agents/daemon": [
+        "./packages/daemon/src/index.ts"
+      ],
+      "@comma-agents/tui": [
+        "./packages/tui/src/index.ts"
+      ],
+      "@comma-agents/utils": [
+        "./packages/utils/src/index.ts"
+      ],
       "@comma-agents/core/conversation-context": [
         "./packages/core/src/conversation-context/index.ts"
       ]
@@ -21,8 +41,13 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ESNext"],
-    "types": ["bun-types"],
+    "lib": [
+      "ESNext"
+    ],
+    "types": [
+      "node",
+      "vitest/globals"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -36,7 +61,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "exactOptionalPropertyTypes": false,
-    "outDir": "dist"
+    "outDir": "dist",
+    "allowImportingTsExtensions": true
   },
-  "exclude": ["node_modules", "dist"]
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

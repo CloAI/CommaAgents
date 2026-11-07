@@ -1,6 +1,6 @@
 // Tests for all client → daemon message schemas.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { ClientMessage, parseClientMessage } from "./messages";
 import { ContinueRunMessage } from "./requests/continue-run/continue-run.schema";
 import { ListStrategiesMessage } from "./requests/list-strategies/list-strategies.schema";

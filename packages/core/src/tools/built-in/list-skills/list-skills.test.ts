@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 
 import { createSandbox } from "../../../sandbox/sandbox";
 import { PERMISSIVE_SANDBOX_OPTIONS } from "../../../sandbox/sandbox.constants";

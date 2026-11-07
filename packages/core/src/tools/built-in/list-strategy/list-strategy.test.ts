@@ -4,7 +4,7 @@
 // drive the underlying discovery with a temp cwd so the result is
 // deterministic regardless of host configuration.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -48,7 +48,7 @@ describe("createListStrategyTool", () => {
 
     expect(result.ok).toBe(true);
     expect(result.data?.count).toBe(result.data?.strategies.length);
-    expect(result.data?.strategies).toBeArray();
+    expect(result.data?.strategies).toEqual(expect.any(Array));
     expect(
       result.data?.strategies.some(
         (strategy) =>

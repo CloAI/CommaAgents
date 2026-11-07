@@ -1,5 +1,6 @@
+import type { MockInstance } from "vitest";
 import { tinfoilDownstream } from "./downstream/downstream";
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generateText, jsonSchema, stepCountIs, streamText, tool } from "ai";
 import {
   Identity,
@@ -39,8 +40,8 @@ let plaintextRequests: Record<string, unknown>[];
 let wireRequests: string[];
 let events: PrivacyEvent[];
 let reports: PrivacyReport[];
-let verification: ReturnType<typeof spyOn<typeof tinfoilVerifier, "verify">>;
-let downstream: ReturnType<typeof spyOn<typeof tinfoilDownstream, "audit">>;
+let verification: MockInstance<typeof tinfoilVerifier.verify>;
+let downstream: MockInstance<typeof tinfoilDownstream.audit>;
 let poolChecks: number;
 let reply: string;
 let responseMode: "valid" | "plaintext" | "tampered" | "truncated";
@@ -158,7 +159,7 @@ function createModel(limits = DEFAULT_PRIVACY_LIMITS) {
 beforeEach(async () => {
   process.env.TINFOIL_USER_CACHE_SECRET = "test-cache-secret";
   poolChecks = 0;
-  downstream = spyOn(tinfoilDownstream, "audit").mockImplementation(
+  downstream = vi.spyOn(tinfoilDownstream, "audit").mockImplementation(
     async () => ({
       expiresAt: Date.now() + 60000,
       poolDigest: "aa".repeat(32),
@@ -197,10 +198,10 @@ beforeEach(async () => {
     platform: undefined,
     hpkePublicKey: () => publicKey,
   };
-  verification = spyOn(tinfoilVerifier, "verify").mockImplementation(
+  verification = vi.spyOn(tinfoilVerifier, "verify").mockImplementation(
     async () => verificationResult,
   );
-  spyOn(Identity.prototype, "encryptRequestWithContext").mockImplementation(
+  vi.spyOn(Identity.prototype, "encryptRequestWithContext").mockImplementation(
     async function (this: Identity, request) {
       plaintextRequests.push(
         JSON.parse(await request.clone().text()) as Record<string, unknown>,
@@ -261,7 +262,7 @@ beforeEach(async () => {
       }
       return encryptedResponse();
     },
-    { preconnect: originalFetch.preconnect },
+    {},
   );
 });
 afterEach(() => {
@@ -437,7 +438,7 @@ describe("Tinfoil protected inference", () => {
       ...verificationResult,
       freshnessExpiresAt: new Date(now + 60000),
     };
-    const clock = spyOn(Date, "now").mockReturnValue(now);
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
     const currentFetch: (
       input: Parameters<typeof fetch>[0],
       init?: Parameters<typeof fetch>[1],
@@ -453,7 +454,7 @@ describe("Tinfoil protected inference", () => {
         }
         return response;
       },
-      { preconnect: originalFetch.preconnect },
+      {},
     );
     try {
       await expect(
@@ -586,7 +587,7 @@ describe("Tinfoil protected inference", () => {
         replayHeaders = Object.fromEntries(response.headers);
         return new Response(replayBytes, { headers: replayHeaders });
       },
-      { preconnect: originalFetch.preconnect },
+      {},
     );
     await generateText({
       model: createModel(),

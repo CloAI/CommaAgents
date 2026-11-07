@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createConversationRecord } from "../conversation-context";
 import { createTimeline } from "./timeline";
 import type { TimelineEvent } from "./timeline.types";

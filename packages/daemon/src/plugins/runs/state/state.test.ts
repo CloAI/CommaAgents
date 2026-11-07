@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPlugin } from "../../../daemon-plugin";
@@ -115,8 +115,8 @@ describe("saved run reads", () => {
     });
     const path = join(directories.at(-1)!, "archived", "run.json");
     const original = readFileSync(path, "utf8");
-    const saving = spyOn(context.storage, "save");
-    const restoring = spyOn(context.storage, "conversation");
+    const saving = vi.spyOn(context.storage, "save");
+    const restoring = vi.spyOn(context.storage, "conversation");
     try {
       const snapshots = await Promise.all([
         getRunSnapshot(context, "archived"),
@@ -165,7 +165,7 @@ describe("saved run reads", () => {
     const read = context.storage.read;
     const entered = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const reading = spyOn(context.storage, "read").mockImplementationOnce(
+    const reading = vi.spyOn(context.storage, "read").mockImplementationOnce(
       async (runId) => {
         const snapshot = await read(runId);
         entered.resolve();

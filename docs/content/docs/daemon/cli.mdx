@@ -68,13 +68,13 @@ The CLI starts the plugin kernel and exposes its commands and channels over the 
 For repository debugging, run the shared foreground runtime with:
 
 ```bash
-bun run scripts/debug-daemon.ts
+pnpm run scripts/debug-daemon.ts
 ```
 
 The IDE's **Debug: Daemon** launch configuration enables readable debug logs with payloads disabled. For the same output from a terminal:
 
 ```bash
-COMMA_DAEMON_CONSOLE=true COMMA_DAEMON_LOG_LEVEL=debug bun run scripts/debug-daemon.ts
+COMMA_DAEMON_CONSOLE=true COMMA_DAEMON_LOG_LEVEL=debug pnpm run scripts/debug-daemon.ts
 ```
 
 Both entry points write the configured PID file and release it on shutdown.

@@ -389,7 +389,7 @@ export function BatchRunner({ provider, examples, onDone }: BatchRunnerProps) {
  */
 function startDaemon(provider: ProviderSelection): Promise<ChildProcess> {
   return new Promise((resolve, reject) => {
-    const repoRoot = path.resolve(import.meta.dir, "../../..");
+    const repoRoot = path.resolve(import.meta.dirname, "../../..");
     const cliPath = path.resolve(repoRoot, DAEMON_CLI_PATH);
     const modelOverride = `${provider.providerID}/${provider.model}`;
 
@@ -497,7 +497,7 @@ function writeErrorLog(
   provider: ProviderSelection,
 ): string | null {
   try {
-    const examplesDir = path.resolve(import.meta.dir, "../..");
+    const examplesDir = path.resolve(import.meta.dirname, "../..");
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const logFileName = `batch-errors-${timestamp}.log`;
     const logFilePath = path.join(examplesDir, logFileName);
@@ -538,7 +538,7 @@ function runExample(
   onLine: (line: string) => void,
 ): Promise<ExampleResult> {
   return new Promise((resolve) => {
-    const examplesDir = path.resolve(import.meta.dir, "../..");
+    const examplesDir = path.resolve(import.meta.dirname, "../..");
     const scriptPath = path.resolve(examplesDir, example.value);
     const startTime = Date.now();
     const output: string[] = [];

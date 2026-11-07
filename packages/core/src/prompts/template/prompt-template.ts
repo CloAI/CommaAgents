@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 // PromptTemplate — LiquidJS-backed template engine for system prompts and messages.
 //
 // Custom filters:
@@ -59,24 +60,17 @@ engine.registerFilter("exec", async (command: unknown) => {
     throw new Error('{{ "cmd" | exec }} requires a command');
   }
   try {
-    if (typeof globalThis.Bun !== "undefined") {
-      const childProcess = Bun.spawn(["sh", "-c", shellCommand], {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      const output = await new Response(childProcess.stdout).text();
-      await childProcess.exited;
-      const trimmed = output.trim();
-      if (!trimmed) {
-        throw new Error("empty output");
-      }
-      return trimmed;
-    }
-    const { execSync } = await import("node:child_process");
-    const output = execSync(shellCommand, {
-      encoding: "utf-8",
-      timeout: 10_000,
-    }).trim();
+    const childProcess = spawn("sh", ["-c", shellCommand], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const chunks: Buffer[] = [];
+    childProcess.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
+    childProcess.stderr.resume();
+    await new Promise<void>((resolveExit, rejectExit) => {
+      childProcess.once("error", rejectExit);
+      childProcess.once("close", () => resolveExit());
+    });
+    const output = Buffer.concat(chunks).toString("utf8").trim();
     if (!output) {
       throw new Error("empty output");
     }

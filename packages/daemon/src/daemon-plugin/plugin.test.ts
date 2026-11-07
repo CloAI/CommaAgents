@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "vitest";
 import { createPlugin } from "./plugin";
 import { defineCommand } from "./server";
 import type { CommandContext } from "./server";

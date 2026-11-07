@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -191,7 +191,7 @@ describe("agent privacy propagation", () => {
     });
     setGlobalCredentialStore(store);
     resetProviderRegistry();
-    const request = spyOn(globalThis, "fetch")
+    const request = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json(catalog))
       .mockResolvedValue(
         Response.json({ invalid: "untrusted-attestation-body" }),

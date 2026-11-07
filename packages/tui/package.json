@@ -31,18 +31,18 @@
     "tag": "next"
   },
   "scripts": {
-    "start": "bun --inspect-wait=127.0.0.1:6499/tui run src/main.tsx",
-    "build": "bun run ../../scripts/build-public-package.ts tui",
-    "prepack": "bun run build",
-    "generate:frames": "bun run src/components/TitleIcon/icon-generator/generator.ts",
-    "test": "bun test --coverage",
-    "test:e2e": "COMMA_TUI_E2E=1 bun test ../../examples/e2e/tui --max-concurrency=1",
+    "start": "node --import tsx src/main.tsx",
+    "build": "node --import tsx ../../scripts/build-public-package.ts tui",
+    "prepack": "pnpm run build",
+    "generate:frames": "node --import tsx src/components/TitleIcon/icon-generator/generator.ts",
+    "test": "vitest run packages/tui/src --coverage",
+    "test:e2e": "COMMA_TUI_E2E=1 vitest run ../../examples/e2e/tui --maxWorkers=1 --no-file-parallelism",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "lint": "oxlint src",
     "lint:fix": "oxlint --fix src",
     "format": "oxfmt src",
-    "docs": "bun run --cwd docs dev",
-    "docs:build": "bun run --cwd docs build"
+    "docs": "pnpm --dir docs dev",
+    "docs:build": "pnpm --dir docs build"
   },
   "dependencies": {
     "@amandaghassaei/stl-parser": "1.7.0",
@@ -63,7 +63,9 @@
     "shiki": "4.5.0",
     "string-width": "8.3.0",
     "word-wrap": "1.2.5",
-    "yargs": "18.2.0"
+    "yargs": "18.2.0",
+    "yoga-layout": "3.2.1",
+    "react-reconciler": "0.34.0"
   },
   "devDependencies": {
     "@types/react": "19.3.0",
@@ -72,6 +74,6 @@
     "typescript": "6.0.2"
   },
   "engines": {
-    "bun": ">=1.3.0"
+    "node": ">=26.0.0"
   }
 }

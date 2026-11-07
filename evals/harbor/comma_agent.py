@@ -1,7 +1,7 @@
 """Harbor adapter that runs a CommaAgents strategy headlessly inside a task container.
 
 The adapter packs the local checkout (tracked and modified files, no node_modules),
-uploads it, installs Bun and dependencies, then calls `comma run` with the task
+uploads it, installs Node.js 26, pnpm, and dependencies, then calls `comma run` with the task
 instruction. Evaluating the local tree, not a published package, lets strategy and
 prompt changes be compared before release.
 
@@ -71,12 +71,19 @@ class CommaAgent(BaseInstalledAgent):
     async def install(self, environment: BaseEnvironment) -> None:
         await self.exec_as_root(
             environment,
-            command="command -v curl unzip git >/dev/null || "
-            "(apt-get update && apt-get install -y curl unzip git)",
+            command="command -v curl xz git >/dev/null || "
+            "(apt-get update && apt-get install -y curl xz-utils git)",
         )
         await self.exec_as_agent(
             environment,
-            command="command -v bun >/dev/null || curl -fsSL https://bun.sh/install | bash",
+            command=(
+                'mkdir -p "$HOME/.local/share/comma-node" && '
+                'case "$(uname -m)" in x86_64) arch=x64;; aarch64|arm64) arch=arm64;; *) exit 1;; esac && '
+                'curl -fsSL "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-$arch.tar.xz" '
+                '| tar -xJ --strip-components=1 -C "$HOME/.local/share/comma-node" && '
+                'export PATH="$HOME/.local/share/comma-node/bin:$PATH" && '
+                'npm install --global pnpm@10.30.0'
+            ),
         )
 
     async def configure(self, environment: BaseEnvironment) -> None:
@@ -85,7 +92,7 @@ class CommaAgent(BaseInstalledAgent):
             environment,
             command=(
                 f"mkdir -p {REMOTE_ROOT} && tar -xzf {REMOTE_ARCHIVE} -C {REMOTE_ROOT} && "
-                f'export PATH="$HOME/.bun/bin:$PATH" && cd {REMOTE_ROOT} && bun install --frozen-lockfile'
+                f'export PATH="$HOME/.local/share/comma-node/bin:$PATH" && cd {REMOTE_ROOT} && pnpm install --frozen-lockfile && pnpm build'
             ),
         )
 
@@ -94,8 +101,8 @@ class CommaAgent(BaseInstalledAgent):
         self, instruction: str, environment: BaseEnvironment, context: AgentContext
     ) -> None:
         command = [
-            "bun",
-            f"{REMOTE_ROOT}/packages/cli/src/main.ts",
+            "node",
+            f"{REMOTE_ROOT}/packages/cli/dist/comma.js",
             "run",
             "--strategy",
             self.strategy,
@@ -119,7 +126,7 @@ class CommaAgent(BaseInstalledAgent):
         await self.exec_as_agent(
             environment,
             command=(
-                f'export PATH="$HOME/.bun/bin:$PATH" && mkdir -p /logs/agent && '
+                f'export PATH="$HOME/.local/share/comma-node/bin:$PATH" && mkdir -p /logs/agent && '
                 f"{quoted} > {REMOTE_LOG}"
             ),
         )

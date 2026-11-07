@@ -1,4 +1,6 @@
-import { describe, it } from "bun:test";
+import { existsSync } from "node:fs";
+import { setTimeout as delay } from "node:timers/promises";
+import { describe, it } from "vitest";
 import {
   mkdirSync,
   mkdtempSync,
@@ -190,10 +192,10 @@ export async function waitForFile(
 ): Promise<void> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    if (await Bun.file(filePath).exists()) {
+    if (await existsSync(filePath)) {
       return;
     }
-    await Bun.sleep(50);
+    await delay(50);
   }
   throw new Error(`Timed out waiting for file: ${filePath}`);
 }

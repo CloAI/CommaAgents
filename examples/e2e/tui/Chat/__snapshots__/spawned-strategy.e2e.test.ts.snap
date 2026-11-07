@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`TUI shell-use E2E: spawned strategy should open a spawned strategy detail page 1`] = `
+exports[`TUI shell-use E2E: spawned strategy > should open a spawned strategy detail page 1`] = `
 "snapshot: spawned-strategy-nested
  Chat Logs
  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ exports[`TUI shell-use E2E: spawned strategy should open a spawned strategy deta
  [Done] Spawn Parent Strategy  [MCP 0/0]"
 `;
 
-exports[`TUI shell-use E2E: spawned strategy should open a spawned strategy detail page 2`] = `
+exports[`TUI shell-use E2E: spawned strategy > should open a spawned strategy detail page 2`] = `
 "snapshot: spawned-strategy-detail
  Chat Logs
  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ exports[`TUI shell-use E2E: spawned strategy should open a spawned strategy deta
  [Done] Spawn Parent Strategy  [MCP 0/0]"
 `;
 
-exports[`TUI shell-use E2E: spawned strategy should open a spawned strategy detail page 3`] = `
+exports[`TUI shell-use E2E: spawned strategy > should open a spawned strategy detail page 3`] = `
 "snapshot: spawned-strategy-returned
  Chat Logs
  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

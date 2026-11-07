@@ -2,15 +2,15 @@
 
 Browser interface prototype for Comma Agents, with the animated ASCII logo and a prompt composer. This private workspace package runs from the repository checkout.
 
-Requires Bun 1.3 or newer.
+Requires Node.js 26 or newer.
 
 ## Run
 
 From the repository root:
 
 ```bash
-bun install
-bun run ui
+pnpm install
+pnpm run ui
 ```
 
 Open the development server URL, normally `http://localhost:5173`.
@@ -186,7 +186,7 @@ Each bucket has independent retention and a `clear()` action. The entry limit mu
 Run the web Storybook from the repository root:
 
 ```bash
-bun run ui:storybook
+pnpm run ui:storybook
 ```
 
 Open `http://localhost:6007`. Foundations document color, typography, spacing, and motion. Component stories show supported states and interactive behavior.
@@ -265,31 +265,31 @@ Settings use the localStorage key `comma-agents.settings` with this versioned JS
 Build the shared packages once before package-local checks, and rebuild them after daemon contract changes:
 
 ```bash
-bun run --cwd packages/core build
-bun run --cwd packages/daemon build
+pnpm --dir packages/core build
+pnpm --dir packages/daemon build
 ```
 
 From `packages/ui`:
 
 ```bash
 bunx playwright install chromium
-bun run format:check
-bun run lint
-bun run typecheck
-bun run test
+pnpm run format:check
+pnpm run lint
+pnpm run typecheck
+pnpm run test
 ```
 
 Root UI launch and build commands build core and the daemon protocol first. Package-local commands consume its built declarations and browser bundle.
 
-Formatting uses oxfmt; linting uses oxlint. Run `bun run format` or `bun run lint:fix` to apply fixes. Interaction tests run Storybook stories in Chromium.
+Formatting uses oxfmt; linting uses oxlint. Run `pnpm run format` or `pnpm run lint:fix` to apply fixes. Interaction tests run Storybook stories in Chromium.
 
 The Chromium installation is needed once per development machine, and again after a Playwright update that changes its browser version.
 
 From the repository root:
 
 ```bash
-bun run ui:build
-bun run ui:storybook:build
+pnpm run ui:build
+pnpm run ui:storybook:build
 ```
 
-The app build writes `packages/ui/dist`; the static Storybook build writes `packages/ui/storybook-static`. To preview the app build, run `bun run preview` from `packages/ui`.
+The app build writes `packages/ui/dist`; the static Storybook build writes `packages/ui/storybook-static`. To preview the app build, run `pnpm run preview` from `packages/ui`.

@@ -11,7 +11,7 @@
  *   - Using hooks for logging, metrics, and message transformation
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/05-hooks.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/05-hooks.ts
  *
  * Concepts:
  *   - SideEffectHook<T>  — observe a value without changing it (logging, metrics)

@@ -15,7 +15,7 @@
  *   - Multiple hookIntoAgent calls stack hooks
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/14-hook-into-agent.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/14-hook-into-agent.ts
  *
  * Concepts:
  *   - Post-creation hook injection with hookIntoAgent

@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { getLogger } from "@logtape/logtape";
 import { dirname, resolve } from "node:path";
 import type { AgentHooks, FlowHooks, LoadedStrategy } from "@comma-agents/core";
@@ -49,7 +50,7 @@ export async function assertProjectCodeApproved(
     return;
   }
   const manifest = CommaProjectManifestSchema.parse(
-    JSON.parse(await Bun.file(manifestPath).text()),
+    JSON.parse(await readFile(manifestPath, "utf8")),
   );
   if (
     manifest.permissions?.executesCode &&

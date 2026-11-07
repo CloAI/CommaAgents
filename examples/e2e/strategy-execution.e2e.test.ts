@@ -17,7 +17,7 @@
  * All tests use mock models registered via registerModel() — no API keys required.
  */
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import type { AgentHooks, FlowHooks } from "@comma-agents/core";
 import {
   defineTool,

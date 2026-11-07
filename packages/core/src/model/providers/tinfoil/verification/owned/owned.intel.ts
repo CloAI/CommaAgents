@@ -11,7 +11,7 @@ import {
   decodeTinfoilBase64,
   parseTinfoilJSON,
   readTinfoilSignedJSONObject,
-} from "./owned.json";
+} from "./owned.json.ts";
 import { hex48 } from "./owned.schemas";
 import type { TinfoilIntelQuote } from "./owned.types";
 

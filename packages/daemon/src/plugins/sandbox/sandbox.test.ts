@@ -1,5 +1,6 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { RunOutcomeStatus } from "../runs/state/state.schemas";
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, describe, expect, vi, test } from "vitest";
 import { join } from "node:path";
 import { realpathSync } from "node:fs";
 import type { Sandbox } from "@comma-agents/core/sandbox";
@@ -140,7 +141,7 @@ describe("sandbox plugin", () => {
     first.unsubscribe();
     const second = requestApproval(sandbox, sandboxes.get("root")!, "root");
     // Subscription replays the first outstanding request; wait for both to be pending.
-    await Bun.sleep(0);
+    await delay(0);
     const pending = sandbox.getPendingPermissions("root");
     expect(pending).toHaveLength(2);
     expect(new Set(pending.map((request) => request.requestId)).size).toBe(2);
@@ -283,7 +284,7 @@ describe("sandbox plugin", () => {
           "write_file",
         );
         const call = scope.strategy.flow.call;
-        spyOn(scope.strategy.flow, "call").mockImplementation((input) => {
+        vi.spyOn(scope.strategy.flow, "call").mockImplementation((input) => {
           const flowCall = call(input);
           const authorization = childSandbox.guardFor("write_file").authorize(
             { type: "fs.write", resource: "child.ts" },
@@ -385,7 +386,7 @@ describe("sandbox plugin", () => {
           "write_file",
         );
         const call = scope.strategy.flow.call;
-        spyOn(scope.strategy.flow, "call").mockImplementation((input) => {
+        vi.spyOn(scope.strategy.flow, "call").mockImplementation((input) => {
           const flowCall = call(input);
           const authorization = guard.authorize(
             { type: "fs.write", resource: "output.ts" },
@@ -445,7 +446,7 @@ describe("sandbox plugin", () => {
           "write_file",
         );
         const call = scope.strategy.flow.call;
-        spyOn(scope.strategy.flow, "call").mockImplementation((input) => {
+        vi.spyOn(scope.strategy.flow, "call").mockImplementation((input) => {
           const flowCall = call(input);
           const pending = requestApproval(
             sandbox,
@@ -517,7 +518,7 @@ describe("sandbox plugin", () => {
           "write_file",
         );
         const call = scope.strategy.flow.call;
-        spyOn(scope.strategy.flow, "call").mockImplementation((input) => {
+        vi.spyOn(scope.strategy.flow, "call").mockImplementation((input) => {
           const flowCall = call(input);
           const authorization = guard.authorize(
             { type: "fs.write", resource: "output.ts" },

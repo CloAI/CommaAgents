@@ -1,6 +1,6 @@
 // Tests for RunSummarySchema.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { RunSummarySchema } from "./strategy-list.schema";
 
 describe("RunSummarySchema", () => {

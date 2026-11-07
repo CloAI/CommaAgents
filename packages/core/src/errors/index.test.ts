@@ -1,6 +1,6 @@
 // Tests for domain error classes
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import {
   AgentCallError,
   CommaAgentsError,

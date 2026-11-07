@@ -12,7 +12,7 @@
  * passes the reviewed content to an editor for final polish.
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/08-nested-flows.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/08-nested-flows.ts
  *
  * Concepts:
  *   - Flows implement the Agent interface (composable)

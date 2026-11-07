@@ -1,6 +1,12 @@
-import type { Server, ServerWebSocket } from "bun";
+import uWS from "uWebSockets.js";
+import type { TemplatedApp, WebSocket } from "uWebSockets.js";
 import { createBindingRegistry } from "./registry";
 import { createConnection } from "./connections";
+import { closeSocket, sendSocketMessage } from "./transport";
+import {
+  EXCLUSIVE_LISTEN_OPTIONS,
+  WEBSOCKET_BEHAVIOR,
+} from "./transport/transport.constants";
 import type {
   CreateDaemonServerOptions,
   DaemonServer,
@@ -21,8 +27,9 @@ export function createDaemonServer({
   port = 7422,
 }: CreateDaemonServerOptions): DaemonServer {
   const registry = createBindingRegistry(daemon.plugins);
-  const sockets = new Set<ServerWebSocket<PluginSocketData>>();
-  let server: Server<PluginSocketData> | undefined;
+  const sockets = new Set<WebSocket<PluginSocketData>>();
+  let server: TemplatedApp | undefined;
+  let boundPort = 0;
   let stopping: Promise<void> | undefined;
 
   return {
@@ -30,41 +37,60 @@ export function createDaemonServer({
       if (server || stopping) {
         throw new Error("Server is already running or stopping");
       }
-      server = Bun.serve<PluginSocketData>({
-        hostname: host,
-        port,
-        fetch(request, listener) {
-          if (new URL(request.url).pathname !== "/ws") {
-            return new Response("Not Found", { status: 404 });
-          }
-          if (!listener.upgrade(request, { data: {} })) {
-            return new Response("WebSocket upgrade required", { status: 400 });
-          }
+      const listener = uWS.App();
+      server = listener;
+      listener.ws<PluginSocketData>("/ws", {
+        ...WEBSOCKET_BEHAVIOR,
+        open(socket) {
+          sockets.add(socket);
+          socket.getUserData().connection = createConnection({
+            registry,
+            send(message) {
+              sendSocketMessage(socket, message, () => sockets.has(socket));
+            },
+            close(code, reason) {
+              closeSocket(socket, code, reason, () => sockets.has(socket));
+            },
+          });
         },
-        websocket: {
-          open(socket) {
-            sockets.add(socket);
-            socket.data.connection = createConnection({
-              registry,
-              send: socket.send.bind(socket),
-              close: socket.close.bind(socket),
-            });
-          },
-          message(socket, message) {
-            if (typeof message !== "string") {
-              socket.close(1008, "Expected a JSON text message");
-              void socket.data.connection?.dispose();
-              return;
-            }
-            void socket.data.connection?.receive(message);
-          },
-          close(socket) {
-            sockets.delete(socket);
-            const connection = socket.data.connection;
-            socket.data.connection = undefined;
-            void connection?.dispose();
-          },
+        message(socket, message, isBinary) {
+          if (isBinary) {
+            closeSocket(socket, 1008, "Expected a JSON text message", () =>
+              sockets.has(socket),
+            );
+            return;
+          }
+          void socket
+            .getUserData()
+            .connection?.receive(Buffer.from(message).toString("utf8"));
         },
+        close(socket) {
+          sockets.delete(socket);
+          const data = socket.getUserData();
+          const connection = data.connection;
+          data.connection = undefined;
+          void connection?.dispose();
+        },
+      });
+      listener.any("/ws", (response) => {
+        response
+          .writeStatus("400 Bad Request")
+          .end("WebSocket upgrade required");
+      });
+      listener.any("/*", (response) => {
+        response.writeStatus("404 Not Found").end("Not Found");
+      });
+      await new Promise<void>((resolve, reject) => {
+        listener.listen(host, port, EXCLUSIVE_LISTEN_OPTIONS, (socket) => {
+          if (!socket) {
+            server = undefined;
+            listener.close();
+            reject(new Error(`Failed to listen on ${host}:${port}`));
+            return;
+          }
+          boundPort = uWS.us_socket_local_port(socket);
+          resolve();
+        });
       });
     },
     stop() {
@@ -77,24 +103,29 @@ export function createDaemonServer({
       }
       stopping = (async () => {
         const connections = [...sockets].map(
-          (socket) => socket.data.connection,
+          (socket) => socket.getUserData().connection,
         );
-        // Bun stops listening immediately; awaiting this promise can retain already-closed upgrades.
-        void listener.stop(true);
+        for (const socket of sockets) {
+          closeSocket(socket, 1001, "Server shutting down", () =>
+            sockets.has(socket),
+          );
+        }
+        listener.close();
         const cleanup = connections.map((connection) => connection?.dispose());
         await Promise.allSettled(cleanup);
         sockets.clear();
         server = undefined;
+        boundPort = 0;
       })().finally(() => {
         stopping = undefined;
       });
       return stopping;
     },
     get port() {
-      return server?.port ?? 0;
+      return boundPort;
     },
     get url() {
-      return `ws://${host.includes(":") ? `[${host}]` : host}:${server?.port ?? 0}/ws`;
+      return `ws://${host.includes(":") ? `[${host}]` : host}:${boundPort}/ws`;
     },
   };
 }

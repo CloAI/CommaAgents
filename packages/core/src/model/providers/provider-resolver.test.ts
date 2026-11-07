@@ -1,6 +1,7 @@
+import { spawnSync } from "node:child_process";
 // Tests for the process-wide credential store, provider registry, and resolver.
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -362,21 +363,28 @@ describe("dynamic provider install (setProviderInstallDirectory)", () => {
       JSON.stringify({ name: "test-cache", private: true }),
     );
 
-    const installResult = Bun.spawnSync(
-      ["bun", "add", "@openrouter/ai-sdk-provider"],
+    const installResult = spawnSync(
+      "pnpm",
+      ["add", "@openrouter/ai-sdk-provider"],
       {
         cwd: CACHE_DIR,
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
-    expect(installResult.exitCode).toBe(0);
+    expect(installResult.status).toBe(0);
 
     expect(
       existsSync(
         join(CACHE_DIR, "node_modules", "@openrouter", "ai-sdk-provider"),
       ),
     ).toBe(true);
-    expect(existsSync(join(CACHE_DIR, "node_modules", "zod"))).toBe(true);
+    expect(
+      createRequire(
+        createRequire(join(CACHE_DIR, "package.json")).resolve(
+          "@openrouter/ai-sdk-provider",
+        ),
+      ).resolve("zod"),
+    ).toContain("zod");
 
     const _require = createRequire(join(CACHE_DIR, "package.json"));
     const mod = _require("@openrouter/ai-sdk-provider") as Record<
@@ -438,7 +446,13 @@ describe("dynamic provider install (setProviderInstallDirectory)", () => {
 
     if (resolutionSucceeded) {
       // Verify transitive dep zod is available
-      expect(existsSync(join(CACHE_DIR, "node_modules", "zod"))).toBe(true);
+      expect(
+        createRequire(
+          createRequire(join(CACHE_DIR, "package.json")).resolve(
+            "@openrouter/ai-sdk-provider",
+          ),
+        ).resolve("zod"),
+      ).toContain("zod");
     }
 
     try {

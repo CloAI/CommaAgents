@@ -7,7 +7,9 @@ diff --git a/build/index.js b/build/index.js
  export { default as measureElement } from './measure-element.js';
 +export { default as measureLayout } from './measure-layout.js';
  export { kittyFlags, kittyModifiers } from './kitty-keyboard.js';
- //# sourceMappingURL=index.js.mapdiff --git a/build/index.d.ts b/build/index.d.ts
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff --git a/build/index.d.ts b/build/index.d.ts
 --- a/build/index.d.ts
 +++ b/build/index.d.ts
 @@ -37,6 +37,8 @@

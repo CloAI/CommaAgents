@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { CommaProjectManifestSchema } from "@comma-agents/core/hub";
 import type { LoadedStrategy } from "@comma-agents/core";
@@ -33,7 +34,7 @@ export async function loadRunStrategy({
       );
       if (managed !== undefined) {
         const manifest = CommaProjectManifestSchema.parse(
-          JSON.parse(await Bun.file(manifestPath).text()),
+          JSON.parse(await readFile(manifestPath, "utf8")),
         );
         if (
           manifest.permissions?.executesCode &&

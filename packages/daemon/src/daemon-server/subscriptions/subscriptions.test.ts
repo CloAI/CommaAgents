@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { z } from "zod/v4";
 import { createPlugin, defineChannel } from "../../daemon-plugin";
 import type { ChannelContext, CommandContext } from "../../daemon-plugin";

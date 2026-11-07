@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, vi, test } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -50,7 +50,7 @@ beforeEach(async () => {
   resetCatalog();
   resetProviderRegistry();
   setGlobalCredentialStore(store);
-  globalThis.fetch = mock(async () => {
+  globalThis.fetch = vi.fn(async () => {
     throw new Error("Unexpected network access");
   }) as unknown as typeof fetch;
   // Initialize before overriding a known provider, preserving the core-owned built-ins.
@@ -70,7 +70,7 @@ afterEach(() => {
 describe("provider discovery results", () => {
   test("an empty provider listing falls back to the catalog", async () => {
     const baseline = await listProviderModels("openai");
-    const listModels = mock(async () => []);
+    const listModels = vi.fn(async () => []);
     registerProviderDefinition({
       id: "openai",
       name: "OpenAI",
@@ -184,7 +184,7 @@ describe("provider discovery results", () => {
   });
 
   test("listing providers makes no provider requests", async () => {
-    const listModels = mock(async () => [
+    const listModels = vi.fn(async () => [
       { id: "must-not-run", sources: ["provider"] as const, metadata: {} },
     ]);
     registerProviderDefinition({

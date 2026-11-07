@@ -9,8 +9,8 @@ runs `comma run` headlessly, so strategy and prompt changes are measured before 
 `comma run` executes one strategy without the TUI. It is also how the adapter drives each trial.
 
 ```sh
-bun run cli run -s Build -i "Fix the failing parser test" --approve allow
-bun run cli run -s Plan -i "Add retry support to webfetch" --then Build --approve allow --json
+pnpm run cli run -s Build -i "Fix the failing parser test" --approve allow
+pnpm run cli run -s Plan -i "Add retry support to webfetch" --then Build --approve allow --json
 ```
 
 | Option | Effect |

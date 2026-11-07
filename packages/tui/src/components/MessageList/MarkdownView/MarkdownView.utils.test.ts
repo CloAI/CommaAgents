@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { THINKING_ELLIPSIS_LINE } from "./MarkdownView.constants";
 import {
   inlineSpansToPlainText,

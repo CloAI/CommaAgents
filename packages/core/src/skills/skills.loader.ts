@@ -1,5 +1,5 @@
 import type { Dirent } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
   getGlobalSkillsDirectory,
@@ -121,7 +121,7 @@ async function scanDirectoryInto(
 
     let rawContent: string;
     try {
-      rawContent = await Bun.file(skillFile).text();
+      rawContent = await readFile(skillFile, "utf8");
     } catch (readError) {
       warnings.push({
         sourcePath: skillFile,

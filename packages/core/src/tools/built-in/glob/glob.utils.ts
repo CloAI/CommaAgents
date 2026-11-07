@@ -1,3 +1,4 @@
+import { compileGlob } from "../../../glob/glob";
 import { sep } from "node:path";
 import type { GlobData } from "./glob.types";
 
@@ -10,7 +11,7 @@ export function matchesAnyGlob(
   patterns: readonly string[],
 ): boolean {
   for (const pattern of patterns) {
-    if (new Bun.Glob(pattern).match(relPath)) {
+    if (compileGlob(pattern)(relPath)) {
       return true;
     }
   }

@@ -20,7 +20,7 @@
  *   3. Demonstrates strategy export (JSON ↔ YAML roundtrip)
  *
  * Run:
- *   OPENAI_API_KEY=sk-... bun run examples/11-strategy-files.ts
+ *   OPENAI_API_KEY=sk-... pnpm exec tsx examples/11-strategy-files.ts
  *
  * Concepts:
  *   - loadStrategyFromString(content, format, options) — load from string

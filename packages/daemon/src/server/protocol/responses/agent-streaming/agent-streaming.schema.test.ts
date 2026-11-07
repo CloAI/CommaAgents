@@ -1,6 +1,6 @@
 // Tests for AgentStreamEventSchema.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import type { ConversationRecordWire } from "../shared";
 import {
   AgentStreamEventSchema,

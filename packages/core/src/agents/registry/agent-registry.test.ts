@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { createAgent } from "../agent/agent";
@@ -63,7 +63,7 @@ describe("agent registry", () => {
   });
 
   it("should warn when replacing a registered agent", () => {
-    const warning = spyOn(console, "warn").mockImplementation(() => {});
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     const definition = defineAgentType({
       configSchema: z.object({}).strict(),
       create: ({ name }) =>

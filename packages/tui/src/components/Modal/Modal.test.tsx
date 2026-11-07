@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { Box, Text } from "ink";
 import { render } from "ink-testing-library";
 import type React from "react";

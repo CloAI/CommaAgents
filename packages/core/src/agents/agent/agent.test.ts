@@ -3,7 +3,7 @@
 // These tests cover the `execute` field added in Pass 7, which allows
 // createAgent to be used without a model by providing arbitrary logic.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createPromptTemplate } from "../../prompts/template/prompt-template";
 import { hookIntoAgent } from "../hook-into-agent/hook-into-agent";
 import { createAgent } from "./agent";

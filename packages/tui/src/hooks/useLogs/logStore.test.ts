@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createLogStore } from "./logStore";
 import type { LogEntry, LogStore } from "./useLogs.types";

@@ -643,7 +643,7 @@ them keeps individual tool pages short.
 
 ### 7.5 Build verification
 
-- [x] `bun run build` inside `docs/` passes (validates every
+- [x] `pnpm run build` inside `docs/` passes (validates every
   `AutoTypeTable` path + name).
 - [x] No `.mdx` file references a removed factory name (grep for
   `createReadTool`, `createBashTool`, etc.).

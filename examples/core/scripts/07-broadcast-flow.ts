@@ -10,7 +10,7 @@
  *   - Voting/consensus mechanisms (pick the best answer)
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/07-broadcast-flow.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/07-broadcast-flow.ts
  *
  * Concepts:
  *   - createBroadcastFlow() for parallel agent execution

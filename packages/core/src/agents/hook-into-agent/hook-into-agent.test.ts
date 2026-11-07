@@ -1,6 +1,6 @@
 // Tests for hookIntoAgent (agents/hook-into-agent.ts)
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createAbortablePromise } from "../../abortable/abortable";
 import { createAgent } from "../agent/agent";
 import type { Agent } from "../agent/agent.types";

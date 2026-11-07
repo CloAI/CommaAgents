@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 // Strategy discovery — find available strategies on disk.
 //
 // Promoted from the TUI into core so that the new built-in
@@ -237,7 +238,7 @@ function getBundledProjectManifestCandidates(): readonly string[] {
   return [
     // Bundled layout: packages/core/dist/index.js -> dist.
     resolve(
-      import.meta.dir,
+      import.meta.dirname,
       "strategies",
       "@comma",
       "core-strategies",
@@ -245,7 +246,7 @@ function getBundledProjectManifestCandidates(): readonly string[] {
     ),
     // Source layout: packages/core/src/strategy/discover -> packages/core.
     resolve(
-      import.meta.dir,
+      import.meta.dirname,
       "..",
       "..",
       "..",
@@ -256,7 +257,7 @@ function getBundledProjectManifestCandidates(): readonly string[] {
     ),
     // Published layout: packages/core/dist/strategy/discover -> dist.
     resolve(
-      import.meta.dir,
+      import.meta.dirname,
       "..",
       "..",
       "strategies",
@@ -279,7 +280,7 @@ async function resolveProjectStrategyReference(
 
   try {
     const raw = JSON.parse(
-      stripJsonComments(await Bun.file(manifestPath).text()),
+      stripJsonComments(await readFile(manifestPath, "utf8")),
     );
     const manifest = CommaProjectManifestSchema.parse(raw);
     if (manifest.name !== packageName) {

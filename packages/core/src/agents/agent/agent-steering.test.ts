@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { tool, type LanguageModel } from "ai";
 import { z } from "zod";
 import { registerModel, resetModelRegistry } from "../../model/model";

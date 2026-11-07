@@ -1,4 +1,4 @@
-import { describe, expect, it, spyOn } from "bun:test";
+import { describe, expect, it, vi } from "vitest";
 import { getLogger } from "@logtape/logtape";
 import type { AgentCallResult } from "@comma-agents/core";
 import { createRunStore } from "./run-store";
@@ -24,7 +24,7 @@ function createTestRunStore() {
 describe("createRunStore", () => {
   it("should log lifecycle transitions through its run logging effect", async () => {
     const logger = getLogger(["comma", "daemon", "run-effects"]);
-    const debug = spyOn(logger, "debug").mockReturnValue(undefined);
+    const debug = vi.spyOn(logger, "debug").mockReturnValue(undefined);
     try {
       const runStore = createTestRunStore();
       runStore.subscribeToTransitions(createRunLifecycleEffect());

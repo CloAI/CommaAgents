@@ -5,7 +5,7 @@
 // over the filesystem (no caching, no side effects).
 
 import { existsSync, readdirSync } from "node:fs";
-import { realpath, stat } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import stripJsonComments from "strip-json-comments";
@@ -89,11 +89,10 @@ export async function readStrategyFile(filePath: string): Promise<{
       `Unsupported strategy file extension: .${ext}. Use .json, .jsonc, .yaml, or .yml.`,
     );
   }
-  const file = Bun.file(filePath);
-  if (!(await file.exists())) {
+  if (!existsSync(filePath)) {
     throw new Error(`Strategy file not found: ${filePath}`);
   }
-  const content = await file.text();
+  const content = await readFile(filePath, "utf8");
   const format = formatForExtension(filePath);
   return { content, format };
 }

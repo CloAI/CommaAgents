@@ -1,4 +1,4 @@
-import { mock, spyOn } from "bun:test";
+import { vi } from "vitest";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as coreMcp from "@comma-agents/core/mcp";
@@ -99,7 +99,7 @@ export async function createMcpFixture() {
   });
   const managers: McpConnectionManager[] = [];
   const configurations: CreateMcpConnectionManagerOptions[] = [];
-  const managerFactory = spyOn(
+  const managerFactory = vi.spyOn(
     coreMcp,
     "createMcpConnectionManager",
   ).mockImplementation(async (options) => {
@@ -132,7 +132,7 @@ export async function createMcpFixture() {
         }
         return { tools, origins };
       },
-      close: mock(async () => {}),
+      close: vi.fn(async () => {}),
     };
     managers.push(manager);
     return manager;

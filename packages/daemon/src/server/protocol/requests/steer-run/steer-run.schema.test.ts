@@ -1,6 +1,6 @@
 // Tests for the steer_run request schema validation.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { SteerRunMessage } from "./steer-run.schema";
 
 describe("SteerRunMessage", () => {

@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 
 import { jsonSchema } from "ai";
@@ -235,13 +237,12 @@ async function buildLLMAgent(
         resolvedPath = resolve(resolvedSystemPrompt);
       }
     }
-    const file = Bun.file(resolvedPath);
-    if (!(await file.exists())) {
+    if (!existsSync(resolvedPath)) {
       throw new StrategyValidationError(
         `System prompt file not found: ${resolvedPath}`,
       );
     }
-    resolvedSystemPrompt = await file.text();
+    resolvedSystemPrompt = await readFile(resolvedPath, "utf8");
   }
 
   let resolvedTemplate = agentDefinition.systemPromptTemplate?.template;
@@ -257,13 +258,12 @@ async function buildLLMAgent(
         resolvedPath = resolve(resolvedTemplate);
       }
     }
-    const file = Bun.file(resolvedPath);
-    if (!(await file.exists())) {
+    if (!existsSync(resolvedPath)) {
       throw new StrategyValidationError(
         `System prompt template file not found: ${resolvedPath}`,
       );
     }
-    resolvedTemplate = await file.text();
+    resolvedTemplate = await readFile(resolvedPath, "utf8");
   }
 
   // Prompt order: base, run-time context blocks, skills, tool contributions.

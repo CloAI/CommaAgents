@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -248,7 +248,7 @@ describe("createCorePlugin", () => {
         const command = plugin.server.commands.find(
           (entry) => entry.name === `core.providers.${testCase.name}`,
         )!;
-        const method = spyOn(plugin.providers, testCase.name);
+        const method = vi.spyOn(plugin.providers, testCase.name);
         method.mockResolvedValue(testCase.output);
         try {
           const result = await command.invoke(testCase.arguments);
@@ -300,7 +300,7 @@ describe("createCorePlugin", () => {
     const started = new Promise<void>((resolve) => {
       markStarted = resolve;
     });
-    const request = spyOn(globalThis, "fetch").mockImplementation(
+    const request = vi.spyOn(globalThis, "fetch").mockImplementation(
       Object.assign(
         (
           _input: Parameters<typeof fetch>[0],
@@ -319,7 +319,7 @@ describe("createCorePlugin", () => {
             );
           });
         },
-        { preconnect: fetch.preconnect },
+        {},
       ),
     );
     try {

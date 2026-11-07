@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import type { MockInstance } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import { generateKeyPair, exportJWK, SignJWT, type JWTPayload } from "jose";
 import {
@@ -26,7 +27,7 @@ let nodeKey: string;
 let calls: string[];
 let requestContext: RequestContext | null;
 let manifest: ReturnType<typeof makeManifest>;
-let cpu: ReturnType<typeof spyOn<typeof tinfoilVerifier, "verify">>;
+let cpu: MockInstance<typeof tinfoilVerifier.verify>;
 let keyPair: Awaited<ReturnType<typeof generateKeyPair>>;
 let modes: {
   plaintext?: boolean;
@@ -286,7 +287,7 @@ beforeEach(async () => {
   nodeKey = await (await Identity.generate()).getPublicKeyHex();
   manifest = makeManifest();
   keyPair = await generateKeyPair("ES384", { extractable: true });
-  cpu = spyOn(tinfoilVerifier, "verify").mockImplementation(
+  cpu = vi.spyOn(tinfoilVerifier, "verify").mockImplementation(
     async (_bytes, expected) => {
       expect(expected.profile).toBe("model");
       expect(expected.reference).toBe("tinfoilsh/model@v1");
@@ -301,7 +302,7 @@ beforeEach(async () => {
       };
     },
   );
-  spyOn(Identity.prototype, "encryptRequestWithContext").mockImplementation(
+  vi.spyOn(Identity.prototype, "encryptRequestWithContext").mockImplementation(
     async function (this: Identity, r) {
       expect(await r.clone().text()).toBe("{}");
       const encrypted = await originalEncrypt.call(this, r);
@@ -357,7 +358,7 @@ beforeEach(async () => {
       }
       throw new Error("Unexpected endpoint");
     },
-    { preconnect: originalFetch.preconnect },
+    {},
   );
 });
 afterEach(() => {

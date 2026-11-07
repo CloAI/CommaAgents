@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -9,7 +10,7 @@ import {
   synchronizeReleaseManifest,
 } from "./release-version.utils";
 
-const repositoryRoot = resolve(import.meta.dir, "..");
+const repositoryRoot = resolve(import.meta.dirname, "..");
 
 /** Run a command and fail with its exit status when it does not succeed. */
 function runCommand(
@@ -17,26 +18,24 @@ function runCommand(
   commandArguments: ReadonlyArray<string>,
   workingDirectory = repositoryRoot,
 ): void {
-  const commandResult = Bun.spawnSync([command, ...commandArguments], {
+  const commandResult = spawnSync(command, [...commandArguments], {
     cwd: workingDirectory,
-    stdout: "inherit",
-    stderr: "inherit",
+    stdio: "inherit",
   });
-  if (commandResult.exitCode !== 0) {
+  if (commandResult.status !== 0) {
     throw new Error(
-      `${command} ${commandArguments.join(" ")} failed with exit code ${commandResult.exitCode}`,
+      `${command} ${commandArguments.join(" ")} failed with exit code ${commandResult.status}`,
     );
   }
 }
 
 /** Run Git and return its trimmed standard output. */
 function readGit(commandArguments: ReadonlyArray<string>): string {
-  const commandResult = Bun.spawnSync(["git", ...commandArguments], {
+  const commandResult = spawnSync("git", [...commandArguments], {
     cwd: repositoryRoot,
-    stdout: "pipe",
-    stderr: "pipe",
+    stdio: "pipe",
   });
-  if (commandResult.exitCode !== 0) {
+  if (commandResult.status !== 0) {
     throw new Error(new TextDecoder().decode(commandResult.stderr).trim());
   }
 
@@ -122,8 +121,8 @@ function checkReleaseTag(tag: string): void {
       commit,
     ]);
     worktreeAdded = true;
-    runCommand("bun", ["install", "--frozen-lockfile"], temporaryDirectory);
-    runCommand("bun", ["run", "build"], temporaryDirectory);
+    runCommand("pnpm", ["install", "--frozen-lockfile"], temporaryDirectory);
+    runCommand("pnpm", ["run", "build"], temporaryDirectory);
   } finally {
     if (worktreeAdded) {
       runCommand("git", ["worktree", "remove", "--force", temporaryDirectory]);

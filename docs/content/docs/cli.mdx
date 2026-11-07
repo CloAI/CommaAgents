@@ -12,13 +12,13 @@ The `comma` command is the primary entrypoint for CommaAgents. It launches the T
 Install from npm:
 
 ```bash
-npm install -g @comma-agents/cli@next
+pnpm add --global @comma-agents/cli@next
 comma install
 ```
 
-The npm package requires Bun 1.3 or newer. It contains a bundled launcher, so it does not install the TUI, daemon, and core as separate global packages.
+The npm package requires Node.js 26 or newer. It installs the TUI, daemon, and core as package dependencies; only the CLI needs to be installed globally.
 
-For a one-line installer, run the platform bootstrap script for your operating system and it will install the CLI package before opening `comma install`.
+With Node.js 26 and pnpm installed, run the platform bootstrap script for your operating system and it will install the CLI package before opening `comma install`.
 
 ```bash
 curl -fsSL https://commaagents.com/install | bash

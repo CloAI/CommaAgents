@@ -1,5 +1,5 @@
 import type { HubManager } from "@comma-agents/core/hub";
-import type { ServerWebSocket } from "bun";
+import type { WebSocket } from "uWebSockets.js";
 import type { DaemonRunState } from "../../../daemon-run-state";
 import type { DaemonStore } from "../../daemon-store";
 import type { WsData } from "../../createDaemon.types";
@@ -113,5 +113,5 @@ export interface CreateDispatcherOptions {
   /** Centralized daemon state for client subscriptions. */
   readonly daemonStore: DaemonStore;
   /** Connected WebSocket clients keyed by their daemon client ID. */
-  readonly clients: Map<string, ServerWebSocket<WsData>>;
+  readonly clients: Map<string, WebSocket<WsData>>;
 }

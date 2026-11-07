@@ -18,7 +18,7 @@ removed.
 
 Verification lives in
 `packages/tui/src/components/ScrollableView/measureLayout.test.tsx` and the
-scrollable-view integration tests. After changing the patch, run `bun install`
+scrollable-view integration tests. After changing the patch, run `pnpm install`
 and those tests. Keep Ink and React versions aligned across terminal workspace
 packages so their components and test renderer share a React instance.
 

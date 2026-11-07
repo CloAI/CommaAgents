@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import type { AgentCallResult, LoadedStrategy } from "@comma-agents/core";
 import { createSystemRunContext } from "../systems.test.utils";
 import type { StrategyLoadedContext } from "../systems.types";

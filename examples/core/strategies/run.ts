@@ -1,11 +1,12 @@
+import { existsSync } from "node:fs";
 /**
  * Core Example Runner
  *
  * Shared entry point for running any core example strategy.
  *
  * Usage:
- *   bun run example <alias>
- *   bun run example --list
+ *   pnpm run example <alias>
+ *   pnpm run example --list
  *
  * Loads the strategy file, validates it, instantiates agents + flows,
  * and executes the entry flow via loadStrategy().
@@ -89,7 +90,7 @@ if (argv.list || !argv.alias) {
     console.log(`  ${name}`);
     console.log(`    ${entry.description}\n`);
   }
-  console.log("Usage: bun run example <alias>");
+  console.log("Usage: pnpm run example <alias>");
   if (!argv.alias) {
     process.exit(1);
   }
@@ -109,9 +110,8 @@ if (!entry) {
 }
 
 const strategyPath = path.resolve(EXAMPLES_DIR, entry.path);
-const file = Bun.file(strategyPath);
 
-if (!(await file.exists())) {
+if (!existsSync(strategyPath)) {
   console.error(`Strategy file not found: ${strategyPath}`);
   process.exit(1);
 }

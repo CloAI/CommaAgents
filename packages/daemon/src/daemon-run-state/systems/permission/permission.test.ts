@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import type { PermissionRequest } from "@comma-agents/core/sandbox";
 import { createSystemRunContext } from "../systems.test.utils";
 import { createPermissionSystem } from "./permission";

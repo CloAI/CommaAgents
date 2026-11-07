@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, spyOn } from "bun:test";
+import { describe, expect, it, vi } from "vitest";
 import * as core from "@comma-agents/core";
 import type { PrivacyEvent, PrivacyReport } from "@comma-agents/core";
 import { withConfig, type LogRecord } from "@logtape/logtape";
@@ -44,7 +44,7 @@ async function capture(run: () => Promise<void>): Promise<LogRecord[]> {
 describe("createExecutionPrivacyRuntime", () => {
   it("should log independently verified model CPU and GPU scope", async () => {
     let observe: ((event: PrivacyEvent) => void) | undefined;
-    const factory = spyOn(core, "createPrivacyRuntime").mockImplementation(
+    const factory = vi.spyOn(core, "createPrivacyRuntime").mockImplementation(
       (options) => {
         observe = options?.onEvent;
         return {
@@ -105,7 +105,7 @@ describe("createExecutionPrivacyRuntime", () => {
   });
   it("should retain provider verification steps in operation and rejection logs", async () => {
     let observe: ((event: PrivacyEvent) => void) | undefined;
-    const factory = spyOn(core, "createPrivacyRuntime").mockImplementation(
+    const factory = vi.spyOn(core, "createPrivacyRuntime").mockImplementation(
       (options) => {
         observe = options?.onEvent;
         return {
@@ -180,7 +180,7 @@ describe("createExecutionPrivacyRuntime", () => {
 
   it("should enable the receipt exception only through the explicit environment setting", () => {
     const previous = process.env.COMMA_VENICE_ALLOW_UNBOUND_RECEIPTS;
-    const factory = spyOn(core, "createPrivacyRuntime").mockImplementation(
+    const factory = vi.spyOn(core, "createPrivacyRuntime").mockImplementation(
       () => ({
         async resolveModel() {
           throw new Error("unused");
@@ -242,7 +242,7 @@ describe("createExecutionPrivacyRuntime", () => {
         ],
       };
       writeFileSync(file, JSON.stringify(approved));
-      const factory = spyOn(core, "createPrivacyRuntime");
+      const factory = vi.spyOn(core, "createPrivacyRuntime");
       try {
         createExecutionPrivacyRuntime(scope);
         expect(factory.mock.calls[0]?.[0]?.trustedWorkloads).toEqual(approved);
@@ -261,7 +261,7 @@ describe("createExecutionPrivacyRuntime", () => {
 
   it("should distinguish verified TEE/E2EE, TEE-only and rejected partial verification", async () => {
     let observe: ((event: PrivacyEvent) => void) | undefined;
-    const runtime = spyOn(core, "createPrivacyRuntime").mockImplementation(
+    const runtime = vi.spyOn(core, "createPrivacyRuntime").mockImplementation(
       (options) => {
         observe = options?.onEvent;
         return {
@@ -383,12 +383,11 @@ describe("createExecutionPrivacyRuntime", () => {
   it.each([401, 502, "network"] as const)(
     "should identify attestation HTTP and transport failures (%s) without leaking payloads",
     async (failure) => {
-      const originalFetch = globalThis.fetch;
-      const credential = spyOn(
+        const credential = vi.spyOn(
         core.getGlobalCredentialStore(),
         "resolve",
       ).mockResolvedValue({ type: "api", key: "secret-key" });
-      const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
         Object.assign(
           async (
             _input: Parameters<typeof fetch>[0],
@@ -406,7 +405,7 @@ describe("createExecutionPrivacyRuntime", () => {
             }
             return new Response("secret provider body", { status: failure });
           },
-          { preconnect: originalFetch.preconnect },
+          {},
         ),
       );
       try {
@@ -471,12 +470,11 @@ describe("createExecutionPrivacyRuntime", () => {
   );
 
   it("should include sanitized structured provider errors in failed operation logs", async () => {
-    const originalFetch = globalThis.fetch;
-    const credential = spyOn(
+    const credential = vi.spyOn(
       core.getGlobalCredentialStore(),
       "resolve",
     ).mockResolvedValue({ type: "api", key: "secret-key" });
-    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
       Object.assign(
         async () =>
           Response.json(
@@ -490,7 +488,7 @@ describe("createExecutionPrivacyRuntime", () => {
             },
             { status: 400 },
           ),
-        { preconnect: originalFetch.preconnect },
+        {},
       ),
     );
     try {
@@ -529,12 +527,11 @@ describe("createExecutionPrivacyRuntime", () => {
   });
 
   it("should log real attestation rejection without prompt, credentials or raw evidence", async () => {
-    const originalFetch = globalThis.fetch;
-    const credential = spyOn(
+    const credential = vi.spyOn(
       core.getGlobalCredentialStore(),
       "resolve",
     ).mockResolvedValue({ type: "api", key: "secret-key" });
-    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
       Object.assign(
         async (input: Parameters<typeof fetch>[0]) => {
           const url = new URL(String(input));
@@ -546,7 +543,7 @@ describe("createExecutionPrivacyRuntime", () => {
             evidence: "secret-evidence",
           });
         },
-        { preconnect: originalFetch.preconnect },
+        {},
       ),
     );
     try {

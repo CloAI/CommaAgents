@@ -1,4 +1,5 @@
-import { describe, expect, it } from "bun:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { describe, expect, it } from "vitest";
 import { Text, useInput } from "ink";
 import { render } from "ink-testing-library";
 import { useContext, useEffect } from "react";
@@ -24,10 +25,10 @@ describe("MouseProvider", () => {
       </MouseProvider>,
     );
     try {
-      await Bun.sleep(20);
+      await delay(20);
       result.stdin.write("\x1b[<0;4;5M\x1b[<65;4;5M");
       result.stdin.write("x");
-      await Bun.sleep(20);
+      await delay(20);
 
       expect(
         events.map(({ kind, column, row }) => ({ kind, column, row })),
@@ -40,7 +41,7 @@ describe("MouseProvider", () => {
       result.stdin.write("\x1b[");
       result.stdin.write("<0;7;");
       result.stdin.write("8m");
-      await Bun.sleep(20);
+      await delay(20);
       expect(events.at(-1)).toMatchObject({
         kind: "release",
         column: 7,

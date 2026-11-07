@@ -1,7 +1,13 @@
 import { getLogger } from "@logtape/logtape";
 import { loadCatalog } from "@comma-agents/core";
 import { createHubManager } from "@comma-agents/core/hub";
-import type { Server, ServerWebSocket } from "bun";
+import uWS from "uWebSockets.js";
+import type { TemplatedApp, WebSocket } from "uWebSockets.js";
+import { closeSocket } from "../daemon-server/transport";
+import {
+  EXCLUSIVE_LISTEN_OPTIONS,
+  WEBSOCKET_BEHAVIOR,
+} from "../daemon-server/transport/transport.constants";
 import { createDaemonRunState } from "../daemon-run-state/daemon-run-state";
 import {
   createCoreService,
@@ -44,9 +50,9 @@ const logger = getLogger(["comma", "daemon", "server"]);
  * ```
  */
 export function createDaemon({ config }: CreateDaemonOptions): Daemon {
-  const wsMap = new Map<string, ServerWebSocket<WsData>>();
+  const wsMap = new Map<string, WebSocket<WsData>>();
   const startTime = Date.now();
-  let server: Server<WsData> | null = null;
+  let server: TemplatedApp | null = null;
   let boundPort = 0;
 
   const daemonStore = createDaemonStore();
@@ -76,92 +82,88 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
     messageSender: dispatcher,
   });
 
-  function handleFetch(
-    request: Request,
-    server: Server<WsData>,
-  ): Response | undefined {
-    const url = new URL(request.url);
-
-    // WebSocket upgrade at /ws
-    if (url.pathname === "/ws") {
-      const clientId = crypto.randomUUID();
-      const upgraded = server.upgrade(request, { data: { clientId } });
-      if (!upgraded) {
-        return new Response("WebSocket upgrade failed", { status: 400 });
-      }
-      // Bun returns undefined on successful upgrade
-      return undefined;
-    }
-
-    // Health check at /health
-    if (url.pathname === "/health" && request.method === "GET") {
-      const runStores = daemonStore.listRunStores();
-      const activeRuns = runStores.filter((runStore) => {
-        const status = runStore.snapshot().status;
-        return status === "pending" || status === "running";
-      }).length;
-      const body = {
-        status: "ok",
-        uptime: Date.now() - startTime,
-        activeRuns,
-        connectedClients: daemonStore.getClients().length,
-      };
-      return new Response(JSON.stringify(body), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Everything else → 404
-    return new Response("Not Found", { status: 404 });
-  }
-
   const daemon: Daemon = {
     async start(): Promise<void> {
       if (server) {
         throw new Error("Daemon is already running");
       }
 
-      server = Bun.serve<WsData>({
-        port: config.port,
-        hostname: config.host,
-        fetch(request, server) {
-          return handleFetch(request, server);
+      const listener = uWS.App();
+      server = listener;
+      listener.ws<WsData>("/ws", {
+        ...WEBSOCKET_BEHAVIOR,
+        upgrade(response, request, context) {
+          response.upgrade(
+            { clientId: crypto.randomUUID() },
+            request.getHeader("sec-websocket-key"),
+            request.getHeader("sec-websocket-protocol"),
+            request.getHeader("sec-websocket-extensions"),
+            context,
+          );
         },
-        websocket: {
-          open(websocket) {
-            const { clientId } = websocket.data;
-            daemonStore.addClient(clientId);
-            wsMap.set(clientId, websocket);
-            logger.info(`Client connected: ${clientId}`);
-          },
-          message(websocket, raw) {
-            const { clientId } = websocket.data;
-            // Verbose visibility into the wire: log every inbound frame
-            // (truncated) before any parsing/validation happens. This is the
-            // ground truth for "did the client's message actually arrive?"
-            const preview =
-              typeof raw === "string" ? raw : raw.toString("utf-8");
-            const truncated =
-              preview.length > 500
-                ? `${preview.slice(0, 500)}...[+${preview.length - 500}]`
-                : preview;
-            logger.debug(
-              `ws.message from ${clientId} (${preview.length} bytes): ${truncated}`,
-            );
-            void serviceRegistry.handleMessage(clientId, raw);
-          },
-          close(websocket) {
-            const { clientId } = websocket.data;
-            daemonStore.removeClient(clientId);
-            wsMap.delete(clientId);
-            logger.info(`Client disconnected: ${clientId}`);
-          },
+        open(websocket) {
+          const { clientId } = websocket.getUserData();
+          daemonStore.addClient(clientId);
+          wsMap.set(clientId, websocket);
+          logger.info(`Client connected: ${clientId}`);
+        },
+        message(websocket, message, isBinary) {
+          const { clientId } = websocket.getUserData();
+          // Native incoming buffers expire when this callback returns.
+          const raw = isBinary
+            ? Buffer.from(new Uint8Array(message))
+            : Buffer.from(message).toString("utf8");
+          const preview = typeof raw === "string" ? raw : raw.toString("utf8");
+          const truncated =
+            preview.length > 500
+              ? `${preview.slice(0, 500)}...[+${preview.length - 500}]`
+              : preview;
+          logger.debug(
+            `ws.message from ${clientId} (${preview.length} bytes): ${truncated}`,
+          );
+          void serviceRegistry.handleMessage(clientId, raw);
+        },
+        close(websocket) {
+          const { clientId } = websocket.getUserData();
+          daemonStore.removeClient(clientId);
+          wsMap.delete(clientId);
+          logger.info(`Client disconnected: ${clientId}`);
         },
       });
-
-      //TODO: Handle Unix Socket connections maybe...
-      boundPort = server.port ?? config.port;
+      listener.any("/ws", (response) => {
+        response.writeStatus("400 Bad Request").end("WebSocket upgrade failed");
+      });
+      listener.get("/health", (response) => {
+        const activeRuns = daemonStore.listRunStores().filter((runStore) => {
+          const status = runStore.snapshot().status;
+          return status === "pending" || status === "running";
+        }).length;
+        response.writeHeader("Content-Type", "application/json").end(
+          JSON.stringify({
+            status: "ok",
+            uptime: Date.now() - startTime,
+            activeRuns,
+            connectedClients: daemonStore.getClients().length,
+          }),
+        );
+      });
+      listener.any("/*", (response) => {
+        response.writeStatus("404 Not Found").end("Not Found");
+      });
+      await new Promise<void>((resolve, reject) => {
+        listener.listen(config.host, config.port, EXCLUSIVE_LISTEN_OPTIONS, (socket) => {
+          if (!socket) {
+            server = null;
+            listener.close();
+            reject(
+              new Error(`Failed to listen on ${config.host}:${config.port}`),
+            );
+            return;
+          }
+          boundPort = uWS.us_socket_local_port(socket);
+          resolve();
+        });
+      });
       logger.info(`Daemon listening on ${config.host}:${boundPort}`);
 
       // Refresh the models.dev catalog in the background so newer models
@@ -188,7 +190,12 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
       // Close all WebSocket connections
       for (const [clientId, websocket] of wsMap) {
         try {
-          websocket.close(1001, "Server shutting down");
+          closeSocket(
+            websocket,
+            1001,
+            "Server shutting down",
+            () => wsMap.get(clientId) === websocket,
+          );
         } catch {
           // Already closed
         }
@@ -197,7 +204,7 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
       wsMap.clear();
 
       // Stop the HTTP server
-      server.stop(true);
+      server.close();
       server = null;
       boundPort = 0;
 
@@ -207,7 +214,7 @@ export function createDaemon({ config }: CreateDaemonOptions): Daemon {
       return boundPort;
     },
     get url(): string {
-      return `ws://${config.host}:${boundPort}/ws`;
+      return `ws://${config.host.includes(":") ? `[${config.host}]` : config.host}:${boundPort}/ws`;
     },
   };
 

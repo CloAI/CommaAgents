@@ -65,6 +65,6 @@ const result = await writer.call(input.text);
 console.log(result.text);
 ```
 
-By default, input is read from stdin (works in both Node.js and Bun). You can pass a custom `inputCollector` function to collect input from other sources, such as a WebSocket or UI.
+By default, input is read from stdin (runs in Node.js). You can pass a custom `inputCollector` function to collect input from other sources, such as a WebSocket or UI.
 
 Use [registerAgent](/docs/core/agents/register-agent) to expose a reusable custom agent implementation to JSON or YAML agent and strategy definitions.

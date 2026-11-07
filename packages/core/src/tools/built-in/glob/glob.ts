@@ -1,3 +1,4 @@
+import { compileGlob } from "../../../glob/glob";
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -141,7 +142,7 @@ export function createGlobTool(
 
 - "All TS files under src/" → \`{ pattern: "**/*.ts", root: "src" }\` → paths come back as \`"src/foo.ts"\`.
 - "Every config file at the root" → \`{ pattern: "*.{json,toml,yaml,yml}", root: "." }\`.
-- "Every component folder" → \`{ pattern: "src/components/*/", root: "." }\` (trailing slash for directories only is not supported by Bun.Glob — match files inside instead: \`"src/components/*/index.ts"\`).`,
+- "Every component folder" → \`{ pattern: "src/components/*/", root: "." }\` (trailing slash for directories only is not supported by workspace globs — match files inside instead: \`"src/components/*/index.ts"\`).`,
     parameters: globParams,
     execute: async (validatedArguments, toolContext) => {
       const { guard, abort, agentName } = toolContext;
@@ -153,7 +154,7 @@ export function createGlobTool(
         maxResultsCap,
       );
 
-      const pathGlob = new Bun.Glob(validatedArguments.pattern);
+      const pathGlob = compileGlob(validatedArguments.pattern);
 
       let absoluteRoot: string;
       try {
@@ -251,7 +252,7 @@ export function createGlobTool(
             continue;
           }
 
-          if (pathGlob.match(relFromRoot)) {
+          if (pathGlob(relFromRoot)) {
             if (matches.length >= maxResults) {
               truncated = true;
               break outer;

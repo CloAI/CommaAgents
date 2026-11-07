@@ -1,6 +1,6 @@
 // Tests for date utilities.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { isoNow } from "./date";
 
 describe("isoNow", () => {

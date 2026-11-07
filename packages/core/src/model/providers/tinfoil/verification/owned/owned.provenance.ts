@@ -6,7 +6,7 @@ import {
 } from "@freedomofpress/sigstore-browser";
 import { z } from "zod";
 import trustRoot from "./roots/sigstore.json";
-import { decodeTinfoilBase64, parseTinfoilJSON } from "./owned.json";
+import { decodeTinfoilBase64, parseTinfoilJSON } from "./owned.json.ts";
 import {
   referenceSchema,
   freshnessSchema,

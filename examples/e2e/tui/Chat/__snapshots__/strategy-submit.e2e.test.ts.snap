@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`TUI shell-use E2E: strategy submission should select a strategy and submit a prompt 1`] = `
+exports[`TUI shell-use E2E: strategy submission > should select a strategy and submit a prompt 1`] = `
 "snapshot: strategy-submit-completed
  Chat Logs
  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

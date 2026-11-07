@@ -1,5 +1,5 @@
-import { describe, expect, it, spyOn } from "bun:test";
-import type { ServerWebSocket } from "bun";
+import { describe, expect, it, vi } from "vitest";
+import type { WebSocket } from "uWebSockets.js";
 import { createDaemonStore } from "../../daemon-store";
 import { getLogger } from "@logtape/logtape";
 import type { WsData } from "../../createDaemon.types";
@@ -7,7 +7,7 @@ import { createDispatcher } from "./dispatcher";
 
 interface TestSocket {
   readonly messages: string[];
-  readonly socket: ServerWebSocket<WsData>;
+  readonly socket: WebSocket<WsData>;
 }
 
 function createTestSocket(throwOnSend = false): TestSocket {
@@ -15,19 +15,22 @@ function createTestSocket(throwOnSend = false): TestSocket {
   return {
     messages,
     socket: {
+      getBufferedAmount() { return 0; },
+      end() {},
       send(message: string) {
         if (throwOnSend) {
           throw new Error("disconnected");
         }
         messages.push(message);
+        return 1;
       },
-    } as unknown as ServerWebSocket<WsData>,
+    } as unknown as WebSocket<WsData>,
   };
 }
 
 function createTestDispatcher() {
   const state = createDaemonStore();
-  const clients = new Map<string, ServerWebSocket<WsData>>();
+  const clients = new Map<string, WebSocket<WsData>>();
   const dispatcher = createDispatcher({
     daemonStore: state,
     clients,
@@ -80,7 +83,7 @@ describe("createDispatcher", () => {
 
   it("logs missing clients and send failures without throwing", () => {
     const { clients, dispatcher } = createTestDispatcher();
-    const debug = spyOn(
+    const debug = vi.spyOn(
       getLogger(["comma", "daemon", "dispatcher"]),
       "debug",
     ).mockReturnValue(undefined);

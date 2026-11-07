@@ -16,7 +16,7 @@
  * All tests use mock models — no API keys required.
  */
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   createAgent,
   createPromptTemplate,

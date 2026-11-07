@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { documentSchema, materialSchema, devicesSchema } from "./owned.schemas";
-import { decodeTinfoilBase64, parseTinfoilJSON } from "./owned.json";
+import { decodeTinfoilBase64, parseTinfoilJSON } from "./owned.json.ts";
 import type { TinfoilReference } from "./owned.types";
 
 /** Parse a caller-owned repository and optional release/digest pin.

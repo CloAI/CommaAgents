@@ -5,7 +5,7 @@ import type { SandboxOptions } from "./sandbox.types";
  * unless the caller explicitly overrides `forbiddenGlobs` on `SandboxOptions`.
  *
  * Covers VCS metadata, dotenv files, common private keys/certs, and
- * package-manager auth files. Patterns are evaluated by Bun.Glob.
+ * package-manager auth files. Patterns are matched against workspace paths, including dotfiles.
  */
 export const DEFAULT_FORBIDDEN_GLOBS: readonly string[] = [
   ".git/**",

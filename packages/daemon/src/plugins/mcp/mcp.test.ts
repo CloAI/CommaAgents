@@ -1,6 +1,6 @@
 import { RunPhase, RunOutcomeStatus } from "../runs/state/state.schemas";
-import { afterEach, describe, expect } from "bun:test";
-import { test, spyOn } from "bun:test";
+import { afterEach, describe, expect } from "vitest";
+import { test, vi } from "vitest";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { McpConnectionManager } from "@comma-agents/core/mcp";
@@ -390,7 +390,7 @@ describe("MCP plugin", () => {
     const originalFactory = managerFactory.getMockImplementation()!;
     managerFactory.mockImplementation(async (options) => {
       const manager: McpConnectionManager = await originalFactory(options);
-      spyOn(manager, "toolsFor").mockImplementation(() => {
+      vi.spyOn(manager, "toolsFor").mockImplementation(() => {
         throw new Error("tool mapping failed");
       });
       return manager;

@@ -91,7 +91,8 @@ Native levels are `trace`, `debug`, `info`, `warning`, `error`, and `fatal`. Exi
 LogTape returns the same named instance, so a test can mock a module's logger directly:
 
 ```ts
-import { expect, spyOn, test } from "bun:test";
+import { expect, vi, test } from "vitest";
+const { spyOn } = vi;
 import { getLogger } from "@logtape/logtape";
 
 test("reports a failed operation", () => {

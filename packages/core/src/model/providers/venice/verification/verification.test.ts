@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { createHash } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
@@ -226,7 +226,7 @@ describe("hardware verification", () => {
               fixture.tokens.devices,
             ]);
       },
-      { preconnect: fetch.preconnect },
+      {},
     );
     const requestContext = context(service);
     await verifyGpuEvidence(
@@ -262,7 +262,7 @@ describe("hardware verification", () => {
         calls.push(String(input));
         return new Response(null, { status: 500 });
       },
-      { preconnect: fetch.preconnect },
+      {},
     );
     await expect(
       verifyCpuEvidence(
@@ -315,7 +315,7 @@ describe("hardware verification", () => {
             },
           }),
         ),
-      { preconnect: fetch.preconnect },
+      {},
     );
     await expect(
       fetchVerificationResponse("https://verifier.example/response", {

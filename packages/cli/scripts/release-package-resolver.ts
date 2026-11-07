@@ -1,42 +1,44 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import type { BunPlugin } from "bun";
 
 const releasePackageEntrypoints: Readonly<Record<string, string>> = {
   "@comma-agents/core/hub": resolve(
-    import.meta.dir,
+    import.meta.dirname,
     "../../core/dist/hub/index.js",
   ),
   "@comma-agents/core/sandbox": resolve(
-    import.meta.dir,
+    import.meta.dirname,
     "../../core/dist/sandbox/index.js",
   ),
   "@comma-agents/core/strategy": resolve(
-    import.meta.dir,
+    import.meta.dirname,
     "../../core/dist/strategy/index.js",
   ),
   "@comma-agents/core/conversation-context": resolve(
-    import.meta.dir,
+    import.meta.dirname,
     "../../core/dist/conversation-context/index.js",
   ),
   "@comma-agents/core/skills": resolve(
-    import.meta.dir,
+    import.meta.dirname,
     "../../core/dist/skills/index.js",
   ),
   "@comma-agents/core/mcp": resolve(
-    import.meta.dir,
+    import.meta.dirname,
     "../../core/dist/mcp/index.js",
   ),
   "@comma-agents/core/language": resolve(
-    import.meta.dir,
+    import.meta.dirname,
     "../../core/dist/language/index.js",
   ),
-  "@comma-agents/core": resolve(import.meta.dir, "../../core/dist/index.js"),
+  "@comma-agents/core": resolve(
+    import.meta.dirname,
+    "../../core/dist/index.js",
+  ),
   "@comma-agents/daemon": resolve(
-    import.meta.dir,
+    import.meta.dirname,
     "../../daemon/dist/index.js",
   ),
-  "@comma-agents/tui": resolve(import.meta.dir, "../../tui/dist/index.js"),
+  "@comma-agents/tui": resolve(import.meta.dirname, "../../tui/dist/index.js"),
 };
 
 export function assertReleasePackageEntrypoints(): void {
@@ -45,22 +47,7 @@ export function assertReleasePackageEntrypoints(): void {
     .map(([specifier]) => specifier);
   if (missingEntrypoints.length > 0) {
     throw new Error(
-      `Missing built release packages: ${missingEntrypoints.join(", ")}. Run bun run build from the repository root.`,
+      `Missing built release packages: ${missingEntrypoints.join(", ")}. Run pnpm build from the repository root.`,
     );
   }
 }
-
-export const releasePackageResolver: BunPlugin = {
-  name: "comma-release-packages",
-  setup(build) {
-    build.onResolve({ filter: /^@comma-agents\// }, (args) => {
-      const path = releasePackageEntrypoints[args.path];
-      if (path === undefined) {
-        throw new Error(
-          `The CLI release build cannot resolve workspace package ${args.path}`,
-        );
-      }
-      return { path };
-    });
-  },
-};

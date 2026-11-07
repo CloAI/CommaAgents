@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { parseTinfoilJSON } from "../verification/owned/owned.json";
+import { parseTinfoilJSON } from "../verification/owned/owned.json.ts";
 import { parseTinfoilReference } from "../verification/owned/owned.document";
 import { hex32 } from "../verification/owned/owned.schemas";
 import { privacyError } from "../../../privacy/privacy.utils";

@@ -44,7 +44,7 @@ The structured payload returned in `data`.
 
 ```ts
 const result = await tool.run_command({
-  command: "bun test packages/core/src",
+  command: "pnpm test packages/core/src",
   timeoutMs: 120_000,
 });
 

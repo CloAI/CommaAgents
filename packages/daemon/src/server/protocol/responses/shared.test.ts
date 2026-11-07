@@ -1,6 +1,6 @@
 // Tests for shared response schemas (UsageSchema, AgentCallResultSchema).
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { AgentCallResultSchema, UsageSchema } from "./shared";
 
 // UsageSchema

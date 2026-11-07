@@ -1,0 +1,717 @@
+{
+  "bunVersion": "1.3.10",
+  "source": "Bun.Glob.match",
+  "paths": [
+    "foo",
+    "bar",
+    "(foo)",
+    "!foo",
+    "!(foo)",
+    "+(foo)",
+    "@(foo)",
+    "?(foo)",
+    "a",
+    "b",
+    "a/b",
+    "a/.env",
+    "a/x/b",
+    "a.ts",
+    ".env",
+    ".env.local",
+    ".git/config",
+    "node_modules/a",
+    "a/node_modules/x",
+    "src/a.ts",
+    "a*",
+    "secret.pem",
+    "x/secret.pem",
+    "x/.ssh/key",
+    "id_rsa",
+    ".npmrc",
+    ".yarnrc",
+    ".ssh/id_rsa",
+    "config/secret.key",
+    "secrets/token",
+    "x/secrets/token",
+    "cert.crt",
+    "a/b.tsx",
+    "a/UPPER.TS",
+    "",
+    ".",
+    "..",
+    "a/",
+    "a/.",
+    "a/..",
+    "a//",
+    "/",
+    "../a",
+    "./a"
+  ],
+  "fixtures": [
+    {
+      "pattern": "*",
+      "matches": [
+        "foo",
+        "bar",
+        "(foo)",
+        "!foo",
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)",
+        "a",
+        "b",
+        "a.ts",
+        ".env",
+        ".env.local",
+        "a*",
+        "secret.pem",
+        "id_rsa",
+        ".npmrc",
+        ".yarnrc",
+        "cert.crt",
+        "",
+        ".",
+        ".."
+      ]
+    },
+    {
+      "pattern": "**",
+      "matches": [
+        "foo",
+        "bar",
+        "(foo)",
+        "!foo",
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)",
+        "a",
+        "b",
+        "a/b",
+        "a/.env",
+        "a/x/b",
+        "a.ts",
+        ".env",
+        ".env.local",
+        ".git/config",
+        "node_modules/a",
+        "a/node_modules/x",
+        "src/a.ts",
+        "a*",
+        "secret.pem",
+        "x/secret.pem",
+        "x/.ssh/key",
+        "id_rsa",
+        ".npmrc",
+        ".yarnrc",
+        ".ssh/id_rsa",
+        "config/secret.key",
+        "secrets/token",
+        "x/secrets/token",
+        "cert.crt",
+        "a/b.tsx",
+        "a/UPPER.TS",
+        "",
+        ".",
+        "..",
+        "a/",
+        "a/.",
+        "a/..",
+        "a//",
+        "/",
+        "../a",
+        "./a"
+      ]
+    },
+    {
+      "pattern": "**/*",
+      "matches": [
+        "foo",
+        "bar",
+        "(foo)",
+        "!foo",
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)",
+        "a",
+        "b",
+        "a/b",
+        "a/.env",
+        "a/x/b",
+        "a.ts",
+        ".env",
+        ".env.local",
+        ".git/config",
+        "node_modules/a",
+        "a/node_modules/x",
+        "src/a.ts",
+        "a*",
+        "secret.pem",
+        "x/secret.pem",
+        "x/.ssh/key",
+        "id_rsa",
+        ".npmrc",
+        ".yarnrc",
+        ".ssh/id_rsa",
+        "config/secret.key",
+        "secrets/token",
+        "x/secrets/token",
+        "cert.crt",
+        "a/b.tsx",
+        "a/UPPER.TS",
+        ".",
+        "..",
+        "a/.",
+        "a/..",
+        "../a",
+        "./a"
+      ]
+    },
+    {
+      "pattern": "**/.env*",
+      "matches": [
+        "a/.env",
+        ".env",
+        ".env.local"
+      ]
+    },
+    {
+      "pattern": ".git/**",
+      "matches": [
+        ".git/config"
+      ]
+    },
+    {
+      "pattern": "**/*.pem",
+      "matches": [
+        "secret.pem",
+        "x/secret.pem"
+      ]
+    },
+    {
+      "pattern": "**/*.key",
+      "matches": [
+        "config/secret.key"
+      ]
+    },
+    {
+      "pattern": "**/id_rsa*",
+      "matches": [
+        "id_rsa",
+        ".ssh/id_rsa"
+      ]
+    },
+    {
+      "pattern": "**/secrets/**",
+      "matches": [
+        "secrets/token",
+        "x/secrets/token"
+      ]
+    },
+    {
+      "pattern": "**/.npmrc",
+      "matches": [
+        ".npmrc"
+      ]
+    },
+    {
+      "pattern": "**/.yarnrc",
+      "matches": [
+        ".yarnrc"
+      ]
+    },
+    {
+      "pattern": "**/*.crt",
+      "matches": [
+        "cert.crt"
+      ]
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "matches": [
+        "node_modules/a",
+        "a/node_modules/x"
+      ]
+    },
+    {
+      "pattern": "*.{ts,tsx}",
+      "matches": [
+        "a.ts"
+      ]
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "matches": [
+        "a.ts",
+        "src/a.ts",
+        "a/b.tsx"
+      ]
+    },
+    {
+      "pattern": "a/**",
+      "matches": [
+        "a/b",
+        "a/.env",
+        "a/x/b",
+        "a/node_modules/x",
+        "a/b.tsx",
+        "a/UPPER.TS",
+        "a/",
+        "a/.",
+        "a/..",
+        "a//"
+      ]
+    },
+    {
+      "pattern": "a/*",
+      "matches": [
+        "a/b",
+        "a/.env",
+        "a/b.tsx",
+        "a/UPPER.TS",
+        "a/",
+        "a/.",
+        "a/.."
+      ]
+    },
+    {
+      "pattern": "!foo",
+      "matches": [
+        "bar",
+        "(foo)",
+        "!foo",
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)",
+        "a",
+        "b",
+        "a/b",
+        "a/.env",
+        "a/x/b",
+        "a.ts",
+        ".env",
+        ".env.local",
+        ".git/config",
+        "node_modules/a",
+        "a/node_modules/x",
+        "src/a.ts",
+        "a*",
+        "secret.pem",
+        "x/secret.pem",
+        "x/.ssh/key",
+        "id_rsa",
+        ".npmrc",
+        ".yarnrc",
+        ".ssh/id_rsa",
+        "config/secret.key",
+        "secrets/token",
+        "x/secrets/token",
+        "cert.crt",
+        "a/b.tsx",
+        "a/UPPER.TS",
+        "",
+        ".",
+        "..",
+        "a/",
+        "a/.",
+        "a/..",
+        "a//",
+        "/",
+        "../a",
+        "./a"
+      ]
+    },
+    {
+      "pattern": "!!foo",
+      "matches": [
+        "foo"
+      ]
+    },
+    {
+      "pattern": "!!!foo",
+      "matches": [
+        "bar",
+        "(foo)",
+        "!foo",
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)",
+        "a",
+        "b",
+        "a/b",
+        "a/.env",
+        "a/x/b",
+        "a.ts",
+        ".env",
+        ".env.local",
+        ".git/config",
+        "node_modules/a",
+        "a/node_modules/x",
+        "src/a.ts",
+        "a*",
+        "secret.pem",
+        "x/secret.pem",
+        "x/.ssh/key",
+        "id_rsa",
+        ".npmrc",
+        ".yarnrc",
+        ".ssh/id_rsa",
+        "config/secret.key",
+        "secrets/token",
+        "x/secrets/token",
+        "cert.crt",
+        "a/b.tsx",
+        "a/UPPER.TS",
+        "",
+        ".",
+        "..",
+        "a/",
+        "a/.",
+        "a/..",
+        "a//",
+        "/",
+        "../a",
+        "./a"
+      ]
+    },
+    {
+      "pattern": "!(foo)",
+      "matches": [
+        "foo",
+        "bar",
+        "!foo",
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)",
+        "a",
+        "b",
+        "a/b",
+        "a/.env",
+        "a/x/b",
+        "a.ts",
+        ".env",
+        ".env.local",
+        ".git/config",
+        "node_modules/a",
+        "a/node_modules/x",
+        "src/a.ts",
+        "a*",
+        "secret.pem",
+        "x/secret.pem",
+        "x/.ssh/key",
+        "id_rsa",
+        ".npmrc",
+        ".yarnrc",
+        ".ssh/id_rsa",
+        "config/secret.key",
+        "secrets/token",
+        "x/secrets/token",
+        "cert.crt",
+        "a/b.tsx",
+        "a/UPPER.TS",
+        "",
+        ".",
+        "..",
+        "a/",
+        "a/.",
+        "a/..",
+        "a//",
+        "/",
+        "../a",
+        "./a"
+      ]
+    },
+    {
+      "pattern": "+(foo)",
+      "matches": [
+        "+(foo)"
+      ]
+    },
+    {
+      "pattern": "@(foo)",
+      "matches": [
+        "@(foo)"
+      ]
+    },
+    {
+      "pattern": "?(foo)",
+      "matches": [
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)"
+      ]
+    },
+    {
+      "pattern": "a/**/b",
+      "matches": [
+        "a/b",
+        "a/x/b"
+      ]
+    },
+    {
+      "pattern": "[abc]",
+      "matches": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "pattern": "a\\*",
+      "matches": [
+        "a*"
+      ]
+    },
+    {
+      "pattern": "**/.git/**",
+      "matches": [
+        ".git/config"
+      ]
+    },
+    {
+      "pattern": "**/.env",
+      "matches": [
+        "a/.env",
+        ".env"
+      ]
+    },
+    {
+      "pattern": "**/id_rsa",
+      "matches": [
+        "id_rsa",
+        ".ssh/id_rsa"
+      ]
+    },
+    {
+      "pattern": "**/.ssh/**",
+      "matches": [
+        "x/.ssh/key",
+        ".ssh/id_rsa"
+      ]
+    },
+    {
+      "pattern": "?",
+      "matches": [
+        "a",
+        "b",
+        "."
+      ]
+    },
+    {
+      "pattern": "??",
+      "matches": [
+        "a*",
+        ".."
+      ]
+    },
+    {
+      "pattern": "?*",
+      "matches": [
+        "foo",
+        "bar",
+        "(foo)",
+        "!foo",
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)",
+        "a",
+        "b",
+        "a.ts",
+        ".env",
+        ".env.local",
+        "a*",
+        "secret.pem",
+        "id_rsa",
+        ".npmrc",
+        ".yarnrc",
+        "cert.crt",
+        ".",
+        ".."
+      ]
+    },
+    {
+      "pattern": "*?",
+      "matches": [
+        "foo",
+        "bar",
+        "(foo)",
+        "!foo",
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)",
+        "a",
+        "b",
+        "a.ts",
+        ".env",
+        ".env.local",
+        "a*",
+        "secret.pem",
+        "id_rsa",
+        ".npmrc",
+        ".yarnrc",
+        "cert.crt",
+        ".",
+        ".."
+      ]
+    },
+    {
+      "pattern": ".*",
+      "matches": [
+        ".env",
+        ".env.local",
+        ".npmrc",
+        ".yarnrc",
+        ".",
+        ".."
+      ]
+    },
+    {
+      "pattern": "..",
+      "matches": [
+        ".."
+      ]
+    },
+    {
+      "pattern": ".",
+      "matches": [
+        "."
+      ]
+    },
+    {
+      "pattern": "**/**",
+      "matches": [
+        "foo",
+        "bar",
+        "(foo)",
+        "!foo",
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)",
+        "a",
+        "b",
+        "a/b",
+        "a/.env",
+        "a/x/b",
+        "a.ts",
+        ".env",
+        ".env.local",
+        ".git/config",
+        "node_modules/a",
+        "a/node_modules/x",
+        "src/a.ts",
+        "a*",
+        "secret.pem",
+        "x/secret.pem",
+        "x/.ssh/key",
+        "id_rsa",
+        ".npmrc",
+        ".yarnrc",
+        ".ssh/id_rsa",
+        "config/secret.key",
+        "secrets/token",
+        "x/secrets/token",
+        "cert.crt",
+        "a/b.tsx",
+        "a/UPPER.TS",
+        "",
+        ".",
+        "..",
+        "a/",
+        "a/.",
+        "a/..",
+        "a//",
+        "/",
+        "../a",
+        "./a"
+      ]
+    },
+    {
+      "pattern": "a/**/*",
+      "matches": [
+        "a/b",
+        "a/.env",
+        "a/x/b",
+        "a/node_modules/x",
+        "a/b.tsx",
+        "a/UPPER.TS",
+        "a/.",
+        "a/.."
+      ]
+    },
+    {
+      "pattern": "a/**/",
+      "matches": [
+        "a/",
+        "a//"
+      ]
+    },
+    {
+      "pattern": "*/",
+      "matches": [
+        "a/",
+        "/"
+      ]
+    },
+    {
+      "pattern": "{*,foo}",
+      "matches": [
+        "foo",
+        "bar",
+        "(foo)",
+        "!foo",
+        "!(foo)",
+        "+(foo)",
+        "@(foo)",
+        "?(foo)",
+        "a",
+        "b",
+        "a.ts",
+        ".env",
+        ".env.local",
+        "a*",
+        "secret.pem",
+        "id_rsa",
+        ".npmrc",
+        ".yarnrc",
+        "cert.crt",
+        "",
+        ".",
+        ".."
+      ]
+    },
+    {
+      "pattern": "*/.*",
+      "matches": [
+        "a/.env",
+        "a/.",
+        "a/.."
+      ]
+    },
+    {
+      "pattern": ".*/*",
+      "matches": [
+        ".git/config",
+        ".ssh/id_rsa",
+        "../a",
+        "./a"
+      ]
+    },
+    {
+      "pattern": ".*/**",
+      "matches": [
+        ".git/config",
+        ".ssh/id_rsa",
+        "../a",
+        "./a"
+      ]
+    }
+  ]
+}

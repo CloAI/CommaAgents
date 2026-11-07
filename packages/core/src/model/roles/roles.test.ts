@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { MissingModelRolesError } from "../../errors/index";
 import { StrategySchema } from "../../strategy/schema";
 import {

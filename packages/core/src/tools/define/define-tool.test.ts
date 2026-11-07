@@ -1,6 +1,6 @@
 // Tests for defineTool helper
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { okResult } from "../result";
 import { makeToolContext } from "../test.utils";

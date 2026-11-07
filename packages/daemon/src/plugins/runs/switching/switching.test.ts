@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -404,7 +404,7 @@ describe("strategy switching", () => {
       await runs.startRun("chat", "Still usable.").completion;
       // Inject only the replacement document write; the original document remains authoritative.
       const originalFactory = storageModule.createRunStorage;
-      const mock = spyOn(storageModule, "createRunStorage").mockImplementation(
+      const mock = vi.spyOn(storageModule, "createRunStorage").mockImplementation(
         (runsDir) => {
           const backing = originalFactory(runsDir);
           return {

@@ -1,6 +1,6 @@
 // Tests for createBroadcastFlow.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import type { Agent } from "../../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../../errors/index";
 import type { FlowResult } from "../../flow/flow.types";

@@ -1,6 +1,6 @@
 // Tests for the credential store: JsonFileBackend + createCredentialStore.
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
   existsSync,
   mkdirSync,
@@ -21,7 +21,7 @@ import type {
 
 // Test helpers
 
-const TEST_DIR = join(import.meta.dir, "__test_credentials__");
+const TEST_DIR = join(import.meta.dirname, "__test_credentials__");
 const TEST_FILE = join(TEST_DIR, "credentials.json");
 
 function cleanup() {

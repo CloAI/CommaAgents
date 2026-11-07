@@ -1,0 +1,17 @@
+packages:
+  - packages/*
+  - examples
+  - examples/e2e
+  - docs
+  - packages/tui/docs
+
+patchedDependencies:
+  ink@8.0.0: patches/ink@8.0.0.patch
+
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - unrs-resolver
+
+linkWorkspacePackages: true
+preferWorkspacePackages: true

@@ -1,6 +1,6 @@
 // Tests for @comma-agents/debug — debugAgent and debugFlow.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createAgent, createSequentialFlow } from "@comma-agents/core";
 import { debugAgent, debugFlow } from "./debug";
 import { breakLines, collapseNewlines, truncateText } from "./debug.utils";

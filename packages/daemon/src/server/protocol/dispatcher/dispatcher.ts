@@ -1,3 +1,4 @@
+import { sendSocketMessage } from "../../../daemon-server/transport";
 import { getLogger } from "@logtape/logtape";
 import type { DaemonMessage } from "../messages";
 import type { CreateDispatcherOptions, Dispatcher } from "./dispatcher.types";
@@ -32,7 +33,11 @@ export function createDispatcher({
     }
 
     try {
-      websocket.send(JSON.stringify(message));
+      sendSocketMessage(
+        websocket,
+        JSON.stringify(message),
+        () => clients.get(clientId) === websocket,
+      );
     } catch {
       logger.debug(`Failed to send to client ${clientId}`);
     }
@@ -51,7 +56,11 @@ export function createDispatcher({
       }
 
       try {
-        websocket.send(serializedMessage);
+        sendSocketMessage(
+          websocket,
+          serializedMessage,
+          () => clients.get(clientId) === websocket,
+        );
       } catch {
         logger.debug(
           `Failed to send to client ${clientId}, likely disconnected`,

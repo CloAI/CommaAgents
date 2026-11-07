@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { fetchPrivacyBytes, tracePrivacyCheck } from "./privacy.utils";
 import type { PrivacyDiagnostic } from "./privacy.types";
 import { fetchVerificationResponse } from "../providers/venice/verification/verification.utils";
@@ -9,7 +9,7 @@ describe("privacy operation diagnostics", () => {
     const diagnostics: PrivacyDiagnostic[] = [];
     const service = Object.assign(
       async () => new Response("private-response"),
-      { preconnect: fetch.preconnect },
+      {},
     );
     const result = await fetchPrivacyBytes(
       `https://user:password@service.test/attestation?model=test-model&nonce=${"ab".repeat(32)}&request_id=completion-1&token=private-token&model=second-model`,
@@ -90,7 +90,7 @@ describe("privacy operation diagnostics", () => {
       },
       {
         fetch: Object.assign(async () => new Response("ok"), {
-          preconnect: fetch.preconnect,
+
         }),
         signal: new AbortController().signal,
         maxBytes: 100,
@@ -139,7 +139,7 @@ describe("privacy operation diagnostics", () => {
         { headers: { Authorization: "Bearer private-key" } },
         {
           fetch: Object.assign(async () => response, {
-            preconnect: fetch.preconnect,
+
           }),
           signal: new AbortController().signal,
           maxBytes: 8192,
@@ -180,7 +180,7 @@ describe("privacy operation diagnostics", () => {
           {
             fetch: Object.assign(
               async () => Response.json({ error: message }, { status: 400 }),
-              { preconnect: fetch.preconnect },
+              {},
             ),
             signal: new AbortController().signal,
             maxBytes: 8192,
@@ -225,7 +225,7 @@ describe("privacy operation diagnostics", () => {
           {},
           {
             fetch: Object.assign(async () => response, {
-              preconnect: fetch.preconnect,
+
             }),
             signal:
               response === stalled
@@ -254,7 +254,7 @@ describe("privacy operation diagnostics", () => {
         {},
         {
           fetch: Object.assign(async () => new Response("too-long"), {
-            preconnect: fetch.preconnect,
+
           }),
           signal: new AbortController().signal,
           maxBytes: 2,
@@ -283,7 +283,7 @@ describe("privacy operation diagnostics", () => {
           );
         });
       },
-      { preconnect: fetch.preconnect },
+      {},
     );
     await expect(
       fetchVerificationResponse("https://verifier.test/quote?private=query", {
@@ -313,7 +313,7 @@ describe("privacy operation diagnostics", () => {
                 code: "private-code",
               });
             },
-            { preconnect: fetch.preconnect },
+            {},
           ),
           signal: new AbortController().signal,
           maxBytes: 100,

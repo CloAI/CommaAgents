@@ -1,4 +1,5 @@
-import { sleep } from "bun";
+import { spawn } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 import { loadDaemonConfig } from "../../../config";
 import {
   DEFAULT_DAEMON_READY_TIMEOUT_MS,
@@ -90,22 +91,30 @@ export async function startDaemonProcess(
   if (command === undefined) {
     throw new Error("Unable to build daemon foreground command");
   }
-  const child = Bun.spawn([command, ...spawnArguments], {
+  const child = spawn(command, spawnArguments, {
     stdio: ["ignore", "ignore", "ignore"],
     detached: true,
     env: { ...process.env, ...buildDaemonProcessEnvOverrides(options) },
   });
+  let spawnError: Error | undefined;
+  child.on("error", (error) => {
+    spawnError = error;
+  });
   child.unref();
+  const childPid = child.pid;
+  if (childPid === undefined) {
+    throw new Error(`Failed to spawn daemon process: ${command}`);
+  }
 
   const deadline =
     Date.now() +
     (options.readinessTimeoutMs ?? DEFAULT_DAEMON_READY_TIMEOUT_MS);
   let ready = false;
   while (Date.now() < deadline) {
-    if (!isRunning(child.pid)) {
+    if (spawnError || !isRunning(childPid)) {
       break;
     }
-    if (readPid(config.pidFile) === child.pid) {
+    if (readPid(config.pidFile) === childPid) {
       ready = true;
       break;
     }
@@ -115,7 +124,10 @@ export async function startDaemonProcess(
     }
   }
 
-  if (!ready && !isRunning(child.pid)) {
+  if (spawnError) {
+    throw new Error("Failed to spawn daemon process", { cause: spawnError });
+  }
+  if (!ready && !isRunning(childPid)) {
     throw new Error(
       `Daemon process exited before startup completed${config.logFile ? `. Check ${config.logFile}` : ""}`,
     );

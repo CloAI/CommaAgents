@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { createHash } from "node:crypto";
 import {
   chmod,
@@ -182,12 +184,12 @@ export async function checkForUpdate({
 }
 
 async function runCommand(command: readonly string[]): Promise<void> {
-  const child = Bun.spawn([...command], {
-    stdin: "inherit",
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  const exitCode = await child.exited;
+  const [executable, ...arguments_] = command;
+  if (!executable) {
+    throw new Error("Update command is empty");
+  }
+  const child = spawn(executable, arguments_, { stdio: "inherit" });
+  const [exitCode] = await once(child, "close");
   if (exitCode !== 0) {
     throw new Error(`Update command exited with status ${exitCode}`);
   }
@@ -241,9 +243,9 @@ Move-Item -LiteralPath $Replacement -Destination $Target -Force
 Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
 `,
   );
-  const child = Bun.spawn(
+  const child = spawn(
+    "powershell.exe",
     [
-      "powershell.exe",
       "-NoProfile",
       "-NonInteractive",
       "-ExecutionPolicy",
@@ -258,12 +260,11 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
       replacementPath,
     ],
     {
-      stdin: "ignore",
-      stdout: "ignore",
-      stderr: "ignore",
+      stdio: "ignore",
       detached: true,
     },
   );
+  await once(child, "spawn");
   child.unref();
 }
 

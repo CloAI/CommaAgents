@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 // Agent loader — parse, validate, and instantiate a single agent
 // from a standalone description file.
 //
@@ -61,14 +63,13 @@ export async function loadAgent(
   }
 
   // Read the file
-  const file = Bun.file(filePath);
-  if (!(await file.exists())) {
+  if (!existsSync(filePath)) {
     throw new StrategyValidationError(
       `Agent description file not found: ${filePath}`,
     );
   }
 
-  const content = await file.text();
+  const content = await readFile(filePath, "utf8");
 
   return await loadAgentFromString(content, format, options);
 }

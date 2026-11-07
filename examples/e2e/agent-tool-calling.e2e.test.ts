@@ -19,7 +19,7 @@
  * by string name, exercising the registry-based resolution path.
  */
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import type { AgentHooks, ToolHooks } from "@comma-agents/core";
 import {
   createAgent,

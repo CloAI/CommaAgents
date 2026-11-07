@@ -14,7 +14,7 @@ import { parseTinfoilDocument } from "../verification/owned/owned.document";
 import {
   parseTinfoilJSON,
   decodeTinfoilBase64,
-} from "../verification/owned/owned.json";
+} from "../verification/owned/owned.json.ts";
 import {
   devicesSchema,
   materialSchema,

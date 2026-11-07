@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { resolveThemeByName } from ".";
 import { darkTheme } from "./dark";
 import { draculaTheme } from "./dracula";

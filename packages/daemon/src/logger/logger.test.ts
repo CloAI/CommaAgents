@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { afterEach, describe, expect, test } from "vitest";
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -39,19 +41,27 @@ describe("application logging", () => {
         const file = logFile();
         const script = `
           import { initializeLogging } from ${JSON.stringify(new URL("./index.ts", import.meta.url).pathname)};
-          import { getLogger } from ${JSON.stringify(import.meta.resolve("@logtape/logtape"))};
+          import { getLogger } from "@logtape/logtape";
           const logging = initializeLogging(${JSON.stringify({ file, consoleFormat, stderr: stderrEnabled, level: "debug" })});
           getLogger(["comma", "test"]).debug("Tool completed", { toolCallId: "tool-1", durationMs: 12 });
           logging.close();
         `;
-        const child = Bun.spawn([process.execPath, "--eval", script], {
-          stdout: "pipe",
-          stderr: "pipe",
-        });
+        const child = spawn(
+          process.execPath,
+          ["--import", "tsx", "--input-type=module", "--eval", script],
+          {
+            stdio: "pipe",
+            cwd: new URL("../../", import.meta.url).pathname,
+          },
+        );
         const [code, stdout, stderr] = await Promise.all([
-          child.exited,
-          new Response(child.stdout).text(),
-          new Response(child.stderr).text(),
+          once(child, "exit").then(([code]) => code),
+          Array.fromAsync(child.stdout!).then((chunks) =>
+            Buffer.concat(chunks).toString(),
+          ),
+          Array.fromAsync(child.stderr!).then((chunks) =>
+            Buffer.concat(chunks).toString(),
+          ),
         ]);
         expect(code).toBe(0);
         expect(stdout).toBe("");
@@ -81,21 +91,29 @@ describe("application logging", () => {
   test("package imports are silent and foreground diagnostics go only to stderr", async () => {
     const script = `
       import { initializeLogging } from ${JSON.stringify(new URL("./index.ts", import.meta.url).pathname)};
-      import { getLogger } from ${JSON.stringify(import.meta.resolve("@logtape/logtape"))};
+      import { getLogger } from "@logtape/logtape";
       const logger = getLogger(["comma", "smoke"]);
       logger.error("before configuration");
       const logging = initializeLogging({ level: "trace" });
       for (const level of ["trace", "debug", "info", "warning", "error", "fatal"]) logger[level](level);
       logging.close();
     `;
-    const child = Bun.spawn([process.execPath, "--eval", script], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const child = spawn(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "--eval", script],
+      {
+        stdio: "pipe",
+        cwd: new URL("../../", import.meta.url).pathname,
+      },
+    );
     const [stdout, stderr, code] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-      child.exited,
+      Array.fromAsync(child.stdout!).then((chunks) =>
+        Buffer.concat(chunks).toString(),
+      ),
+      Array.fromAsync(child.stderr!).then((chunks) =>
+        Buffer.concat(chunks).toString(),
+      ),
+      once(child, "exit").then(([code]) => code),
     ]);
     expect(code).toBe(0);
     expect(stdout).toBe("");
@@ -111,15 +129,20 @@ describe("application logging", () => {
     const file = logFile();
     const script = `
       import { initializeLogging } from ${JSON.stringify(new URL("./index.ts", import.meta.url).pathname)};
-      import { getLogger } from ${JSON.stringify(import.meta.resolve("@logtape/logtape"))};
+      import { getLogger } from "@logtape/logtape";
       const logging = initializeLogging({ file: ${JSON.stringify(file)} });
       getLogger(["comma", "smoke"]).info("background diagnostic");
       logging.close();
     `;
-    const child = Bun.spawn([process.execPath, "--eval", script], {
-      stdio: ["ignore", "ignore", "ignore"],
-    });
-    expect(await child.exited).toBe(0);
+    const child = spawn(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "--eval", script],
+      {
+        stdio: ["ignore", "ignore", "ignore"],
+        cwd: new URL("../../", import.meta.url).pathname,
+      },
+    );
+    expect(await once(child, "exit").then(([code]) => code)).toBe(0);
     expect(readRecords(file)).toMatchObject([
       { message: "background diagnostic" },
     ]);

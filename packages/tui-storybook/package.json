@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "storybook": "storybook dev -p 6006",
-    "build": "bun run check:stories && storybook build",
-    "check:stories": "bun run src/check-story-coverage.ts",
+    "build": "pnpm run check:stories && storybook build",
+    "check:stories": "node --import tsx src/check-story-coverage.ts",
     "lint": "oxlint src .storybook",
     "lint:fix": "oxlint --fix src .storybook",
     "format": "oxfmt src .storybook"

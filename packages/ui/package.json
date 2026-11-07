@@ -6,13 +6,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "bun run typecheck && vite build",
+    "build": "pnpm run typecheck && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src .storybook vite.config.ts vitest.config.ts",
-    "lint:fix": "bun run lint --fix",
+    "lint:fix": "pnpm run lint --fix",
     "format": "oxfmt src .storybook *.ts *.json index.html README.md",
-    "format:check": "bun run format --check",
+    "format:check": "pnpm run format --check",
     "storybook": "storybook dev -p 6007 --host 127.0.0.1 --no-open",
     "storybook:build": "storybook build",
     "test": "vitest run"

@@ -1,6 +1,6 @@
 // Tests for agent loader — parse, validate, and instantiate agents.
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { StrategyValidationError } from "../../errors/index";
 import { registerModel, resetModelRegistry } from "../../model/model";
 import { registerTool, resetToolRegistry } from "../../tools/tool.registry";

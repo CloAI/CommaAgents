@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -77,15 +78,11 @@ export function describeEnvironment(cwd: string): EnvironmentDescription {
     date: localDate(new Date()),
     platform: process.platform,
   };
-  const status = Bun.spawnSync(
-    ["git", "status", "--porcelain=v1", "--branch"],
-    {
-      cwd: absoluteCwd,
-      stdout: "pipe",
-      stderr: "ignore",
-    },
-  );
-  if (status.exitCode !== 0) {
+  const status = spawnSync("git", ["status", "--porcelain=v1", "--branch"], {
+    cwd: absoluteCwd,
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  if (status.status !== 0) {
     return description;
   }
   return { ...description, git: parseGitStatus(status.stdout.toString()) };

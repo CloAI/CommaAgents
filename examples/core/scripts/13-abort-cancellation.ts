@@ -14,7 +14,7 @@
  * with name "AbortError") that can be caught and handled gracefully.
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/13-abort-cancellation.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/13-abort-cancellation.ts
  *
  * Concepts:
  *   - AbortablePromise from agent.call()

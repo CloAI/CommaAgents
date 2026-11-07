@@ -5,7 +5,7 @@
 // connections and mock AI models. They complement the unit-level tests
 // in server.test.ts by focusing on higher-level lifecycle scenarios.
 
-import { afterAll, afterEach, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { resetGlobalDefaults, resetModelRegistry } from "@comma-agents/core";
 
 import {

@@ -13,7 +13,7 @@ export type AccessMode = "allow" | "deny" | "ask";
  * Policy applied to a class of file-system operations (read or write).
  *
  * Evaluation order: deny patterns → allow patterns → default.
- * Patterns are Bun.Glob expressions relative to the sandbox `cwd`.
+ * Patterns are glob expressions relative to the sandbox `cwd`.
  */
 export interface PathPolicy {
   /** Decision when no pattern matches. */

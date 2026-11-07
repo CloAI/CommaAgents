@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { writeFile } from "node:fs/promises";
+import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -45,7 +46,7 @@ describe("user config utils", () => {
     tempDirs.push(directory);
     const missingPath = join(directory, "missing.json");
     const corruptPath = join(directory, "corrupt.json");
-    await Bun.write(corruptPath, "{not-json");
+    await writeFile(corruptPath, "{not-json");
 
     expect(loadUserConfig(missingPath)).toEqual(DEFAULT_USER_CONFIG);
     expect(loadUserConfig(corruptPath)).toEqual(DEFAULT_USER_CONFIG);

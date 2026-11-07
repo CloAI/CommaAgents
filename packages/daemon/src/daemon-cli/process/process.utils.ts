@@ -81,7 +81,7 @@ export function buildDaemonProcessForegroundArgs({
     ? [...foregroundCommand, "start", "--foreground"]
     : [
         process.execPath,
-        "run",
+        ...(import.meta.url.endsWith(".ts") ? ["--import", "tsx"] : []),
         fileURLToPath(
           new URL(
             import.meta.url.endsWith(".ts") ? "../../cli.ts" : "./cli.js",

@@ -7,13 +7,13 @@ Example strategies for `@comma-agents/core`. Each subdirectory contains a `strat
 All strategy examples share a single entry point at `examples/core/strategies/run.ts`. It maintains a registry of aliases mapping to strategy files. Run any example by alias:
 
 ```sh
-bun run example <alias>
+pnpm run example <alias>
 ```
 
 List all available examples:
 
 ```sh
-bun run example --list
+pnpm run example --list
 ```
 
 To add a new example, drop a `strategy.json` in a new subdirectory and register it in the `EXAMPLES` map in `run.ts`.

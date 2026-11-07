@@ -1,6 +1,6 @@
 // Tests for agent hook utilities (agents/hooks.ts)
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { okResult } from "../../tools/result";
 import { buildAgentToolSet } from "../agent/agent.utils";

@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -162,7 +164,9 @@ async function removeManagedUnixPathEntry(
   );
 }
 
-function scheduleUnixRemoval(installation: CliInstallation): boolean {
+async function scheduleUnixRemoval(
+  installation: CliInstallation,
+): Promise<boolean> {
   const removalCommand =
     installation.type === "standalone"
       ? ["rm", "-f", "--", installation.executablePath]
@@ -178,22 +182,15 @@ function scheduleUnixRemoval(installation: CliInstallation): boolean {
     "shift",
     'exec "$@"',
   ].join("\n");
-  const child = Bun.spawn(
-    [
-      "sh",
-      "-c",
-      script,
-      "comma-uninstall",
-      String(process.pid),
-      ...removalCommand,
-    ],
+  const child = spawn(
+    "sh",
+    ["-c", script, "comma-uninstall", String(process.pid), ...removalCommand],
     {
-      stdin: "ignore",
-      stdout: "ignore",
-      stderr: "ignore",
+      stdio: "ignore",
       detached: true,
     },
   );
+  await once(child, "spawn");
   child.unref();
   return true;
 }
@@ -240,9 +237,9 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
     installation.type === "package"
       ? buildPackageRemovalCommand(installation.manager, process.execPath)
       : undefined;
-  const child = Bun.spawn(
+  const child = spawn(
+    "powershell.exe",
     [
-      "powershell.exe",
       "-NoProfile",
       "-NonInteractive",
       "-ExecutionPolicy",
@@ -259,9 +256,7 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
         : (command?.[0] ?? ""),
     ],
     {
-      stdin: "ignore",
-      stdout: "ignore",
-      stderr: "ignore",
+      stdio: "ignore",
       detached: true,
       env: {
         ...process.env,
@@ -269,6 +264,7 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
       },
     },
   );
+  await once(child, "spawn");
   child.unref();
   return true;
 }

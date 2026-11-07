@@ -5,7 +5,7 @@
 // The run system is tested end-to-end with the core loadStrategyFromString
 // pipeline. Model and credential resolution happen via global registries.
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -162,7 +162,7 @@ afterEach(async () => {
   // Clean up temp files
   for (const f of tempFiles) {
     try {
-      await Bun.write(f, ""); // Overwrite to empty
+      await writeFile(f, ""); // Overwrite to empty
     } catch {
       // Ignore cleanup errors
     }
@@ -361,8 +361,8 @@ describe("createDaemonRunState", () => {
     await writeFile(
       join(projectDir, "custom-flow.ts"),
       `
-import { createFlow, defineFlowType, registerFlow } from "${pathToFileURL(resolve(import.meta.dir, "../../../core/dist/index.js")).href}";
-import { z } from "${pathToFileURL(resolve(import.meta.dir, "../../../core/node_modules/zod/index.js")).href}";
+import { createFlow, defineFlowType, registerFlow } from "${pathToFileURL(resolve(import.meta.dirname, "../../../core/dist/index.js")).href}";
+import { z } from "${pathToFileURL(resolve(import.meta.dirname, "../../../core/node_modules/zod/index.js")).href}";
 
 registerFlow(
   "daemon-test-prefix",

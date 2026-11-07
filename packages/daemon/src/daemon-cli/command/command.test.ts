@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -64,7 +64,7 @@ describe("runDaemonCommand", () => {
   it("prints text daemon status", async () => {
     const tempDir = createTempDir();
     setDaemonEnv(tempDir);
-    const consoleLog = spyOn(console, "log").mockImplementation(() => {});
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await runDaemonCommand("status", {});
 
@@ -75,7 +75,7 @@ describe("runDaemonCommand", () => {
   it("prints json daemon status", async () => {
     const tempDir = createTempDir();
     setDaemonEnv(tempDir);
-    const consoleLog = spyOn(console, "log").mockImplementation(() => {});
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await runDaemonCommand("status", { json: true });
 
@@ -91,7 +91,7 @@ describe("runDaemonCommand", () => {
   it("prints configured log file path", async () => {
     const tempDir = createTempDir();
     setDaemonEnv(tempDir);
-    const consoleLog = spyOn(console, "log").mockImplementation(() => {});
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await runDaemonCommand("logs", {});
 

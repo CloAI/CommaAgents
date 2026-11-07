@@ -7,14 +7,14 @@ Runnable examples demonstrating the daemon WebSocket API. Each example connects 
 1. Install dependencies from the workspace root:
 
    ```sh
-   bun install
+   pnpm install
    ```
 
 2. Install a provider package (at least one):
 
    ```sh
-   bun add @ai-sdk/openai            # for openai/* models
-   bun add @ai-sdk/anthropic          # for anthropic/* models
+   pnpm add @ai-sdk/openai            # for openai/* models
+   pnpm add @ai-sdk/anthropic          # for anthropic/* models
    ```
 
 3. Set the corresponding API key environment variable:
@@ -36,16 +36,16 @@ Runnable examples demonstrating the daemon WebSocket API. Each example connects 
 From the project root:
 
 ```sh
-bun run examples/daemon/scripts/01-basic-client.ts
-bun run examples/daemon/scripts/02-streaming-client.ts
-bun run examples/daemon/scripts/03-interactive-flow.ts
-bun run examples/daemon/scripts/04-multi-flow.ts
+pnpm run examples/daemon/scripts/01-basic-client.ts
+pnpm run examples/daemon/scripts/02-streaming-client.ts
+pnpm run examples/daemon/scripts/03-interactive-flow.ts
+pnpm run examples/daemon/scripts/04-multi-flow.ts
 ```
 
 Pass an optional strategy file path as the first argument:
 
 ```sh
-bun run examples/daemon/scripts/01-basic-client.ts examples/core/strategies/simple/strategy.json
+pnpm run examples/daemon/scripts/01-basic-client.ts examples/core/strategies/simple/strategy.json
 ```
 
 ## Examples

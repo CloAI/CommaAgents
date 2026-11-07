@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -73,7 +73,7 @@ describe("createPrivacyRuntime", () => {
       const enclave = generateVeniceKeyPair();
       const reports: PrivacyReport[] = [];
       const events: PrivacyEvent[] = [];
-      const hardware = spyOn(
+      const hardware = vi.spyOn(
         verification,
         "verifyHardwareEvidence",
       ).mockImplementation(async () => {
@@ -82,7 +82,7 @@ describe("createPrivacyRuntime", () => {
         }
       });
       let receipt: unknown;
-      const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
         Object.assign(
           async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
             const url = new URL(String(input));
@@ -148,7 +148,7 @@ describe("createPrivacyRuntime", () => {
             expect(url.pathname).toBe("/api/v1/tee/signature");
             return Response.json(receipt);
           },
-          { preconnect: originalFetch.preconnect },
+          {},
         ),
       );
       try {
@@ -229,11 +229,11 @@ describe("createPrivacyRuntime", () => {
   it("should encrypt combined system instructions and preserve successful decryption when the receipt rejects", async () => {
     const enclave = generateVeniceKeyPair();
     const reports: PrivacyReport[] = [];
-    const hardware = spyOn(
+    const hardware = vi.spyOn(
       verification,
       "verifyHardwareEvidence",
     ).mockResolvedValue(undefined);
-    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
       Object.assign(
         async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
           const url = new URL(String(input));
@@ -277,7 +277,7 @@ describe("createPrivacyRuntime", () => {
           expect(url.pathname).toBe("/api/v1/tee/signature");
           return Response.json({});
         },
-        { preconnect: originalFetch.preconnect },
+        {},
       ),
     );
     try {
@@ -400,14 +400,14 @@ describe("createPrivacyRuntime", () => {
     const contexts: Parameters<
       typeof verification.verifyHardwareEvidence
     >[1][] = [];
-    const hardware = spyOn(
+    const hardware = vi.spyOn(
       verification,
       "verifyHardwareEvidence",
     ).mockImplementation(async (_evidence, context) => {
       contexts.push(context);
       throw privacyError("PRIVACY_WORKLOAD_UNTRUSTED");
     });
-    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
       Object.assign(
         async (input: Parameters<typeof fetch>[0]) => {
           const url = new URL(String(input));
@@ -420,7 +420,7 @@ describe("createPrivacyRuntime", () => {
             signing_key: `04${"00".repeat(64)}`,
           });
         },
-        { preconnect: originalFetch.preconnect },
+        {},
       ),
     );
     try {
@@ -453,7 +453,7 @@ describe("createPrivacyRuntime", () => {
   });
 
   it("should reject providers without a code-owned protected transport", async () => {
-    const fetchMock = spyOn(globalThis, "fetch");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
     await expect(
       createPrivacyRuntime().resolveModel("custom/model", { tee: "required" }),
     ).rejects.toMatchObject({ code: "PRIVACY_UNSUPPORTED_PROVIDER" });
@@ -461,8 +461,8 @@ describe("createPrivacyRuntime", () => {
   });
 
   it("should reject a registered Venice override before resolving credentials or sending requests", async () => {
-    const resolveCredential = spyOn(getGlobalCredentialStore(), "resolve");
-    const fetchMock = spyOn(globalThis, "fetch");
+    const resolveCredential = vi.spyOn(getGlobalCredentialStore(), "resolve");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
     registerProviderDefinition({
       id: "venice",
       name: "Custom Venice",
@@ -484,8 +484,8 @@ describe("createPrivacyRuntime", () => {
   });
 
   it("should honor pre-aborted resolution before resolving credentials or sending requests", async () => {
-    const resolveCredential = spyOn(getGlobalCredentialStore(), "resolve");
-    const fetchMock = spyOn(globalThis, "fetch");
+    const resolveCredential = vi.spyOn(getGlobalCredentialStore(), "resolve");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
     try {
       await expect(
         createPrivacyRuntime().resolveModel(
@@ -503,7 +503,7 @@ describe("createPrivacyRuntime", () => {
   });
 
   it("should accept encrypted local tools and proceed to attestation without transmitting prompt content", async () => {
-    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
       Object.assign(
         async (
           input: Parameters<typeof fetch>[0],
@@ -518,7 +518,7 @@ describe("createPrivacyRuntime", () => {
           expect(String(input)).not.toContain("private-prompt");
           return Response.json({});
         },
-        { preconnect: originalFetch.preconnect },
+        {},
       ),
     );
     const model = await createPrivacyRuntime().resolveModel("venice/model", {
@@ -544,7 +544,7 @@ describe("createPrivacyRuntime", () => {
   it("should reject unverified evidence without inference, retries, or leaked payloads", async () => {
     const events: PrivacyEvent[] = [];
     const reports: PrivacyReport[] = [];
-    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
       Object.assign(
         async (input: Parameters<typeof fetch>[0]) => {
           const url = new URL(String(input));
@@ -557,7 +557,7 @@ describe("createPrivacyRuntime", () => {
             providerSecret: "do-not-leak",
           });
         },
-        { preconnect: originalFetch.preconnect },
+        {},
       ),
     );
     const model = await createPrivacyRuntime({
@@ -608,7 +608,7 @@ describe("createPrivacyRuntime", () => {
         },
       ],
     };
-    const hardware = spyOn(
+    const hardware = vi.spyOn(
       verification,
       "verifyHardwareEvidence",
     ).mockImplementation(async (_evidence, context) => {
@@ -629,7 +629,7 @@ describe("createPrivacyRuntime", () => {
       });
       throw privacyError("PRIVACY_WORKLOAD_UNTRUSTED");
     });
-    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
       Object.assign(
         async (input: Parameters<typeof fetch>[0]) => {
           const url = new URL(String(input));
@@ -642,7 +642,7 @@ describe("createPrivacyRuntime", () => {
             signing_key: `04${"00".repeat(64)}`,
           });
         },
-        { preconnect: originalFetch.preconnect },
+        {},
       ),
     );
     try {
@@ -691,7 +691,7 @@ describe("createPrivacyRuntime", () => {
   });
 
   it("should reject observer failures before transmitting content", async () => {
-    const fetchMock = spyOn(globalThis, "fetch");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
     const model = await createPrivacyRuntime({
       onEvent: () => {
         throw new Error("observer-secret");
@@ -703,7 +703,7 @@ describe("createPrivacyRuntime", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
   it("should reject asynchronous observers without detached rejection or network calls", async () => {
-    const fetchMock = spyOn(globalThis, "fetch");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
     const model = await createPrivacyRuntime({
       onEvent: async () => {
         throw new Error("observer-secret");

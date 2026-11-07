@@ -9,7 +9,7 @@
  * demonstrate different parameter shapes and return patterns.
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/03-custom-tool.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/03-custom-tool.ts
  *
  * Concepts:
  *   - defineTool()    — declare a tool with description, Zod schema, execute fn
