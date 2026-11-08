@@ -4,6 +4,7 @@ import { generalSettingsSchema } from "./GeneralSettings.schemas";
 import { useCallback, useEffect, useId, useState } from "react";
 import type { ChangeEventHandler, Ref } from "react";
 import { Button } from "../../../design-system/Button";
+import { useHost } from "../../../hooks/useHost";
 import { useSettings } from "../../../hooks/useSettings";
 import { SettingsPanel } from "../SettingsPanel";
 import { StrategyModelsSettings } from "../StrategyModelsSettings";
@@ -25,6 +26,8 @@ export interface GeneralSettingsProps {
  */
 export function GeneralSettings({ active, onClose }: GeneralSettingsProps) {
   const { settings, notice, saveSettings } = useSettings();
+  // A host that supplies the connection has no daemon address to edit.
+  const { createSocket } = useHost();
   const { control, handleSubmit, reset } = useForm({
     resolver: zodResolver(generalSettingsSchema),
     defaultValues: { url: settings.daemon.url },
@@ -94,15 +97,17 @@ export function GeneralSettings({ active, onClose }: GeneralSettingsProps) {
             {notice}
           </p>
         )}
-        <GeneralSettingsRender
-          inputId={inputId}
-          inputRef={field.ref}
-          url={field.value}
-          error={fieldState.error?.message ?? null}
-          onChange={handleChange}
-          onBlur={field.onBlur}
-          name={field.name}
-        />
+        {!createSocket && (
+          <GeneralSettingsRender
+            inputId={inputId}
+            inputRef={field.ref}
+            url={field.value}
+            error={fieldState.error?.message ?? null}
+            onChange={handleChange}
+            onBlur={field.onBlur}
+            name={field.name}
+          />
+        )}
         <StrategyModelsSettings />
       </SettingsPanel>
     </form>

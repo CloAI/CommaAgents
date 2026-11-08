@@ -4,7 +4,8 @@
   --sash-size: 8px;
   --sash-hover-size: 4px;
   position: relative;
-  height: 100svh;
+  // A host header reserves its height through --header-height.
+  height: calc(100svh - var(--header-height, 0px));
   min-width: 0;
 }
 // Allotment sizes its views itself, so nested splits fill them by position.

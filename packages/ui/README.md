@@ -23,6 +23,10 @@ The logo animates automatically at 16 frames per second without playback control
 
 The compact icon rail stays on the left, with New Chat at the top and Settings at the bottom. New Chat replaces the focused pane with an empty chat and clears its draft. Other panes keep their conversations and drafts. Settings opens a modal dialog and leaves your prompt unchanged. Hover an icon to see its action name, or reach it with keyboard navigation.
 
+## Hosting the UI in another app
+
+`@comma-agents/ui` exports `App`, `HostProvider` and a few hooks for applications that embed it; `@comma-agents/desktop` is one. Wrap `App` in `HostProvider` with a `HostCapabilities` object to supply the daemon connection (`createSocket`, used instead of the Daemon URL setting). Pass `header` to `App` to show a header above the workspace, and set `--header-height` so the shell subtracts it from the window height. Without a provider the UI behaves as a browser page.
+
 ## Panes and routes
 
 The workspace is a resizable grid of chat panes. Each pane has a small header with its title and actions on the right: split vertical (a new pane beside this one), split horizontal (a new pane below), full screen (fills the workspace; press again to restore the grid) and close. With only one pane, full screen and close are hidden. Drag a pane's header onto an edge of another pane to dock it there as a split. Dividers resize panes; panes keep a minimum size and the grid holds at most eight.

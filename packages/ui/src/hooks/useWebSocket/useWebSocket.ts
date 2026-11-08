@@ -5,6 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { useHost } from "../useHost";
+import type { HostSocket } from "../useHost";
 import {
   CONNECTION_TIMEOUT_MS,
   INITIAL_RECONNECT_DELAY_MS,
@@ -29,8 +31,9 @@ export function useWebSocket({
     error: undefined,
   });
   const callbacks = useRef({ onMessage, onStatus });
+  const { createSocket } = useHost();
   const activeConnection = useRef<{
-    socket: WebSocket;
+    socket: WebSocket | HostSocket;
     fail: (error: Error) => void;
   } | null>(null);
 
@@ -77,7 +80,7 @@ export function useWebSocket({
       if (disposed) {
         return;
       }
-      let socket: WebSocket | undefined;
+      let socket: WebSocket | HostSocket | undefined;
       let attemptFinished = false;
 
       const cleanup = (): void => {
@@ -111,7 +114,7 @@ export function useWebSocket({
         CONNECTION_TIMEOUT_MS,
       );
       try {
-        socket = new WebSocket(url);
+        socket = createSocket?.() ?? new WebSocket(url);
       } catch (error) {
         fail(
           error instanceof Error
@@ -129,13 +132,16 @@ export function useWebSocket({
         retryDelay = INITIAL_RECONNECT_DELAY_MS;
         transition("connected");
       };
-      socket.onmessage = (event: MessageEvent<unknown>) => {
+      socket.onmessage = (event: { readonly data: unknown }) => {
         if (!attemptFinished) {
           callbacks.current.onMessage(event.data);
         }
       };
       socket.onerror = () => fail(new Error("WebSocket connection failed."));
-      socket.onclose = (event) =>
+      socket.onclose = (event: {
+        readonly code: number;
+        readonly reason: string;
+      }) =>
         fail(new Error(event.reason || `WebSocket closed (${event.code}).`));
     };
 
@@ -145,7 +151,7 @@ export function useWebSocket({
       disposed = true;
       disposeAttempt();
     };
-  }, [url]);
+  }, [url, createSocket]);
 
   return { ...state, send };
 }

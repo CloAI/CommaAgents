@@ -1,0 +1,12 @@
+appId: ai.cloai.comma-agents
+productName: Comma Agents
+directories:
+  output: dist
+files:
+  - out/**
+mac:
+  target: dir
+win:
+  target: dir
+linux:
+  target: dir

@@ -9,6 +9,7 @@ import {
   readFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 interface PublicPackageConfig {
   readonly directory: "core" | "daemon" | "tui" | "debug";
@@ -165,15 +166,18 @@ if (packageConfig.directory === "core") {
     );
   }
 
+  // Absolute Windows paths are not valid ESM specifiers; import a file URL.
   const { zodToJsonSchema } = await import(
-    join(
-      packageDirectory,
-      "node_modules",
-      "zod-to-json-schema",
-      "dist",
-      "esm",
-      "index.js",
-    )
+    pathToFileURL(
+      join(
+        packageDirectory,
+        "node_modules",
+        "zod-to-json-schema",
+        "dist",
+        "esm",
+        "index.js",
+      ),
+    ).href
   );
   const { CommaProjectManifestSchema } =
     await import("../packages/core/src/hub/hub.schema");

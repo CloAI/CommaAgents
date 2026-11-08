@@ -1,15 +1,11 @@
 import { getLogger } from "@logtape/logtape";
 import type { DaemonConfig } from "../../config";
-import { writeConfigModelRoles } from "../../config/config.utils";
-import { createDaemonKernel } from "../../daemon-kernel";
 import type { DaemonKernel } from "../../daemon-kernel";
 import { createDaemonServer } from "../../daemon-server";
 import type { DaemonServer } from "../../daemon-server";
-import { setDaemonModelRoles } from "../../defaults";
 import { initializeLogging } from "../../logger";
-import { attachExecutionLogging } from "../../plugins/runs/execution/logging";
-import { createExecutionPrivacyRuntime } from "../../plugins/runs/execution/logging/privacy";
 import { removePid, writePid } from "../process/pid/pid";
+import { createConfiguredKernel } from "./kernel";
 import type { DaemonRuntime } from "./runtime.types";
 
 const logger = getLogger(["comma", "daemon", "runtime"]);
@@ -82,32 +78,7 @@ export async function startDaemonRuntime(
   }
 
   try {
-    const kernel = await createDaemonKernel({
-      initialize: (plugins) => {
-        plugins.runs.registerRunPreparation({
-          name: "privacy",
-          prepare: (context) => ({
-            strategyInputs: {
-              privacyRuntime: createExecutionPrivacyRuntime(context),
-            },
-          }),
-        });
-        plugins.runs.registerStrategyHooks({
-          name: "logging",
-          attach: (context) =>
-            attachExecutionLogging(context, config.logPayloads),
-        });
-      },
-      runs: {
-        runsDir: config.runsDir,
-        harness: { instructionFiles: config.instructionFiles },
-      },
-      modelRoles: config.modelRoles,
-      persistModelRoles: (modelRoles) => {
-        writeConfigModelRoles(config.configFile, modelRoles);
-        setDaemonModelRoles(modelRoles);
-      },
-    });
+    const kernel = await createConfiguredKernel(config);
     daemon = kernel;
     server = createDaemonServer({
       daemon: kernel,

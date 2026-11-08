@@ -4,6 +4,9 @@
   "private": true,
   "description": "Web UI and design system for Comma Agents",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "pnpm run typecheck && vite build",

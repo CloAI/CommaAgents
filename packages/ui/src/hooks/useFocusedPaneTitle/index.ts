@@ -1,0 +1,1 @@
+export { useFocusedPaneTitle } from "./useFocusedPaneTitle";

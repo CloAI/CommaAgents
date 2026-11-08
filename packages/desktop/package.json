@@ -1,0 +1,35 @@
+{
+  "name": "@comma-agents/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Electron desktop app for Comma Agents",
+  "type": "module",
+  "main": "out/main/main.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "pnpm run typecheck && electron-vite build",
+    "package": "pnpm run build && electron-builder --dir",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.renderer.json",
+    "lint": "oxlint src electron.vite.config.ts vitest.config.ts",
+    "format": "oxfmt src *.ts *.json README.md",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@comma-agents/core": "workspace:*",
+    "@comma-agents/ui": "workspace:*",
+    "@types/node": "^24",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0",
+    "electron-vite": "6.0.0",
+    "lucide-react": "1.61.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "sass": "^1.106.1",
+    "typescript": "6.0.2",
+    "vite": "6.4.3",
+    "vitest": "3.2.7",
+    "zod": "3.25.76"
+  }
+}

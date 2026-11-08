@@ -1,0 +1,36 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ESNext"],
+    "types": ["node", "vitest/globals"],
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "rootDir": "../..",
+    "paths": {
+      "@daemon-src/*": ["../daemon/src/*"],
+      "@comma-agents/core": ["../core/src/index.ts"],
+      "@comma-agents/core/hub": ["../core/src/hub/index.ts"],
+      "@comma-agents/core/sandbox": ["../core/src/sandbox/index.ts"],
+      "@comma-agents/core/strategy": ["../core/src/strategy/index.ts"],
+      "@comma-agents/core/skills": ["../core/src/skills/index.ts"],
+      "@comma-agents/core/mcp": ["../core/src/mcp/index.ts"],
+      "@comma-agents/core/language": ["../core/src/language/index.ts"],
+      "@comma-agents/core/conversation-context": [
+        "../core/src/conversation-context/index.ts"
+      ],
+      "@comma-agents/daemon/protocol": [
+        "../daemon/src/daemon-server/protocol.ts"
+      ]
+    }
+  },
+  "include": [
+    "src/main",
+    "src/preload",
+    "src/shared",
+    "electron.vite.config.ts",
+    "vitest.config.ts",
+    "source-aliases.ts"
+  ]
+}

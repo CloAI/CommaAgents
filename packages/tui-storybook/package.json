@@ -25,13 +25,13 @@
     "readable-stream": "^4.7.0"
   },
   "devDependencies": {
-    "@storybook/addon-docs": "^10.4.6",
-    "@storybook/react": "^10.4.6",
-    "@storybook/react-vite": "^10.4.6",
+    "@storybook/addon-docs": "10.4.6",
+    "@storybook/react": "10.4.6",
+    "@storybook/react-vite": "10.4.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@types/readable-stream": "^4.0.23",
-    "storybook": "^10.4.6",
+    "storybook": "10.4.6",
     "typescript": "6.0.2",
     "vite": "^6.4.3"
   }

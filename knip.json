@@ -23,6 +23,15 @@
         "@types/react"
       ]
     },
+    "packages/desktop": {
+      "entry": [
+        "electron.vite.config.ts",
+        "src/main/main.ts",
+        "src/preload/preload.ts",
+        "src/renderer/main.tsx"
+      ],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
     "examples": {
       "entry": [
         "auth/**/*.ts",
