@@ -7,7 +7,7 @@ import { createSandbox } from "../../../sandbox/sandbox";
 import type { AuditSink } from "../../io/audit.types";
 import { createMemoryAuditSink } from "../../io/audit-sink";
 import { sha256OfBuffer } from "../../io/hash";
-import { trashWorkspaceDir } from "../../io/trash";
+import { getDeletedFilesDirectory } from "./deletion";
 import { makeToolContext } from "../../test.utils";
 import type { ToolContext } from "../../tool.types";
 import { createDeleteFileTool, type DeleteFileData } from "./index";
@@ -22,7 +22,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
   // Clean this workspace's trash bucket so tests don't leak.
-  await rm(trashWorkspaceDir(workspaceRoot), { recursive: true, force: true });
+  await rm(getDeletedFilesDirectory(workspaceRoot), { recursive: true, force: true });
 });
 
 function makeCtx(overrides?: {

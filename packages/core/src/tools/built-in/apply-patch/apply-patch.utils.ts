@@ -11,13 +11,13 @@ import { dirname } from "node:path";
 import type { StructuredPatch, StructuredPatchHunk } from "diff";
 import { applyPatch as diffApplyPatch } from "diff";
 import {
-  moveToTrash,
   STALE_FILE_RECOVERY_HINT,
   sha256OfBuffer,
   unifiedDiff,
 } from "../../io";
+import { deleteFile } from "../delete-file/deletion";
 import type { AuditEntry, AuditSink } from "../../io/audit.types";
-import type { TrashMetadata } from "../../io/trash";
+import type { DeletedFileMetadata } from "../delete-file/deletion";
 import { okResult, toolError } from "../../result";
 import type { ToolResult } from "../../tool.types";
 import {
@@ -336,12 +336,12 @@ export async function commitStagedFiles(
   workspaceRoot: string,
   options: {
     readonly atomic: boolean;
-    readonly trashMetadata?: Partial<
-      Pick<TrashMetadata, "sessionId" | "runId" | "agentName">
+    readonly deletionMetadata?: Partial<
+      Pick<DeletedFileMetadata, "sessionId" | "runId" | "agentName">
     >;
   },
 ): Promise<void> {
-  const { atomic, trashMetadata } = options;
+  const { atomic, deletionMetadata } = options;
   const committedFiles: StagedFile[] = [];
   try {
     for (const staged of stagedFiles) {
@@ -355,7 +355,7 @@ export async function commitStagedFiles(
     }
 
     for (const staged of stagedFiles) {
-      await commitOne(staged, workspaceRoot, trashMetadata);
+      await commitOne(staged, workspaceRoot, deletionMetadata);
       staged.committed = true;
       committedFiles.push(staged);
     }
@@ -1085,16 +1085,16 @@ async function stageWrite(
 async function commitOne(
   staged: StagedFile,
   workspaceRoot: string,
-  trashMetadata?: Partial<
-    Pick<TrashMetadata, "sessionId" | "runId" | "agentName">
+  deletionMetadata?: Partial<
+    Pick<DeletedFileMetadata, "sessionId" | "runId" | "agentName">
   >,
 ): Promise<void> {
   if (staged.operation === "delete") {
-    staged.trashedTo = await moveToTrash(
+    ({ archivePath: staged.trashedTo } = await deleteFile(
       workspaceRoot,
       staged.absolutePath,
-      trashMetadata,
-    );
+      { metadata: deletionMetadata },
+    ));
     return;
   }
   if (staged.operation === "move") {

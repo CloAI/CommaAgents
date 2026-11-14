@@ -35,7 +35,7 @@ try {
 
 ## CreateMcpPluginOptions
 
-Supply the runs plugin and its configuration repository when constructing the MCP plugin individually. Use the same runs directory for both services.
+Supply the current runs plugin when constructing the MCP plugin individually. Run-specific selections are saved with the run configuration.
 
 <AutoTypeTable
   path="../packages/daemon/src/plugins/mcp/mcp.types.ts"
@@ -43,16 +43,11 @@ Supply the runs plugin and its configuration repository when constructing the MC
 />
 
 ```ts
-import {
-  createRunsPlugin,
-  createMcpPlugin,
-  createRunRepository,
-} from "@comma-agents/daemon";
+import { createRunsPlugin, createMcpPlugin } from "@comma-agents/daemon";
 
 const runsDir = "./runs";
 const runs = createRunsPlugin({ runsDir });
-const runRepository = createRunRepository({ runsDir });
-const mcp = createMcpPlugin({ dependencies: { runs, runRepository } });
+const mcp = createMcpPlugin({ dependencies: { runs } });
 
 try {
   console.log(await mcp.listServers({ cwd: process.cwd() }));
@@ -82,7 +77,7 @@ Server listings expose configuration provenance, assignment, and connection outc
 
 ## Server selections
 
-Workspace definitions override global definitions, and strategy definitions override shared servers with the same ID. Assigned strategy-private servers start enabled. Shared servers start enabled when their definition sets `enabledByDefault`. A saved execution selection takes precedence over these defaults.
+Workspace definitions override global definitions, and strategy definitions override shared servers with the same ID. Assigned strategy-private servers start enabled. Shared servers start enabled when their definition sets `enabledByDefault`. Only explicit run overrides take precedence over these defaults. Servers without an override follow the current defaults at each preparation.
 
 ```ts
 await daemon.plugins.mcp.updateServer({
@@ -92,6 +87,19 @@ await daemon.plugins.mcp.updateServer({
   enabled: false,
 });
 ```
+
+Reset a run's override with `enabled: null`:
+
+```ts
+await daemon.plugins.mcp.updateServer({
+  scope: "run",
+  runId,
+  serverId: "github",
+  enabled: null,
+});
+```
+
+Overrides are saved as `configuration.mcpServerOverrides` in the run's `run.json`, survive restart and strategy switching, and are preserved in copied checkpoints. Existing legacy `<runId>.config.json` files are ignored and left untouched. Requests for missing runs are rejected. Run updates use the run's saved workspace and strategy.
 
 Selection changes apply on the next preparation. Existing connections and tools stay available until the execution ends. `enabled` shows the next selection, while `connected` shows the current connection. A continuation reconnects using the saved selection.
 

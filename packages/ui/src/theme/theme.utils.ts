@@ -69,7 +69,9 @@ export function isAppearanceSettings(
     "themeId" in value &&
     typeof value.themeId === "string" &&
     "mode" in value &&
-    (value.mode === "dark" || value.mode === "light") &&
+    (value.mode === "dark" ||
+      value.mode === "light" ||
+      value.mode === "system") &&
     "customThemes" in value &&
     Array.isArray(value.customThemes) &&
     value.customThemes.every(isTheme)

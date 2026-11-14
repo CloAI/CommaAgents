@@ -119,8 +119,8 @@ async function main() {
     ].join("\n"),
     tools: [
       "read_file",
-      "list_directory",
-      "search_files",
+      "glob",
+      "grep",
       "run_command",
       "weather",
       "calculator",

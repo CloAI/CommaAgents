@@ -1,5 +1,5 @@
 import { getLogger } from "@logtape/logtape";
-import { loadSkills } from "@comma-agents/core/skills";
+import { discoverSkills } from "../queries";
 import type { RunPreparationContext, RunPreparationResult } from "../../runs";
 import type { SkillsContext } from "../state/state.types";
 
@@ -24,7 +24,9 @@ export async function prepareRunSkills(
     throw new DOMException("Run aborted", "AbortError");
   }
 
-  const { registry, warnings } = await loadSkills(preparation.cwd);
+  const { registry, warnings } = await discoverSkills(context, {
+    cwd: preparation.cwd,
+  });
 
   if (context.disposed) {
     throw new Error("Skills plugin has been disposed");
@@ -43,8 +45,11 @@ export async function prepareRunSkills(
   logger.debug(
     `Loaded ${registry.list().length} skills for ${preparation.cwd}`,
   );
+  const snapshot = { registry, warnings };
   const activate = (): void => {
-    context.registries.set(preparation.runId, registry);
+    if (!context.disposed && !preparation.signal.aborted) {
+      context.registries.set(preparation.runId, snapshot);
+    }
   };
   if (!preparation.staged) {
     activate();
@@ -54,7 +59,7 @@ export async function prepareRunSkills(
     ...(preparation.staged ? { activate } : {}),
     strategyInputs: { skillRegistry: registry },
     dispose: (): void => {
-      if (context.registries.get(preparation.runId) === registry) {
+      if (context.registries.get(preparation.runId) === snapshot) {
         context.registries.delete(preparation.runId);
       }
     },

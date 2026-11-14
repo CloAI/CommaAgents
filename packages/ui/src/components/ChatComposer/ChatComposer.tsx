@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronsLeft, ChevronsRight, X } from "lucide-react";
 import { IconButton } from "../../design-system/IconButton";
+import type { ChatComposerWarning } from "./ChatComposer.types";
 import styles from "./ChatComposer.module.scss";
 
 /** Input, strategy controls, and current composer notices. */
@@ -9,7 +10,7 @@ export interface ChatComposerProps {
   /** Controls above the input. */
   readonly controls?: ReactNode;
   /** Current issues; resolved issues are removed by the caller. */
-  readonly warnings?: readonly string[];
+  readonly warnings?: readonly (string | ChatComposerWarning)[];
   /** Input and any recipient controls. */
   readonly children: ReactNode;
 }
@@ -38,18 +39,24 @@ export function ChatComposer({
 
 interface ComposerWarningsProps {
   /** Active warning messages. */
-  readonly warnings: readonly string[];
+  readonly warnings: readonly (string | ChatComposerWarning)[];
 }
 
 function ComposerWarnings({ warnings }: ComposerWarningsProps) {
   const [index, setIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
-  if (dismissed || warnings.length === 0) {
+  const warning = warnings[index];
+  if (dismissed || warning === undefined) {
     return null;
   }
   return (
-    <div className={styles.warning}>
-      <p role="alert">{warnings[index]}</p>
+    <div
+      className={styles.warning}
+      data-severity={typeof warning === "string" ? "warning" : warning.severity}
+    >
+      <p role="alert">
+        {typeof warning === "string" ? warning : warning.message}
+      </p>
       <div className={styles.pager}>
         {warnings.length > 1 && (
           <>

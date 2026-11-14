@@ -51,6 +51,12 @@ export interface DiscoverMcpConfigOptions {
   readonly dataDir?: string;
 }
 
+/** Change the default in the effective shared MCP configuration file. */
+export interface UpdateMcpServerDefaultOptions extends DiscoverMcpConfigOptions {
+  readonly serverId: string;
+  readonly enabled: boolean;
+}
+
 /** Resolved HTTP/SSE MCP transport configuration. */
 export interface ResolvedMcpHttpServer {
   readonly transport: "http" | "sse";

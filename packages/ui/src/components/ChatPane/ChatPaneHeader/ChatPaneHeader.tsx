@@ -3,6 +3,7 @@ import {
   FoldHorizontal,
   Maximize2,
   Minimize2,
+  PictureInPicture2,
   Rows2,
   UnfoldHorizontal,
   X,
@@ -15,6 +16,14 @@ import styles from "./ChatPaneHeader.module.scss";
 
 /** What the header shows and does. */
 export interface ChatPaneHeaderProps {
+  readonly onNewChat?: () => void;
+  readonly onMarkDone?: () => void;
+  /** A submission must settle before transferring this chat. */
+  readonly transferPending?: boolean;
+  /** Move this chat into a new window. */
+  readonly onPopOut?: () => void;
+  /** Hide the pop-out action when this window has only one chat. */
+  readonly detached?: boolean;
   /** Selected hue or the default theme. */
   readonly hue?: number;
   /** Save the pane hue. */
@@ -55,6 +64,8 @@ export interface ChatPaneHeaderProps {
  * @returns {React.ReactElement} The pane header.
  */
 export function ChatPaneHeader({
+  onNewChat,
+  onMarkDone,
   hue,
   onHueChange,
   colorError,
@@ -71,6 +82,9 @@ export function ChatPaneHeader({
   onClose,
   onDragStart,
   onDragEnd,
+  onPopOut,
+  detached = false,
+  transferPending = false,
 }: ChatPaneHeaderProps) {
   return (
     // A div, not <header>: a banner landmark would repeat in every pane.
@@ -83,6 +97,39 @@ export function ChatPaneHeader({
     >
       <h2 className={styles.title}>{title}</h2>
       <div className={styles.actions}>
+        {onNewChat && (
+          <details className={styles.chatMenu}>
+            <summary aria-label="New chat menu">
+              New chat <span aria-hidden="true">▾</span>
+            </summary>
+            <div role="menu">
+              <button
+                role="menuitem"
+                disabled={transferPending}
+                onClick={(event) => {
+                  onNewChat();
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
+                }}
+              >
+                New chat
+              </button>
+              <button
+                role="menuitem"
+                disabled={transferPending || !onMarkDone}
+                onClick={(event) => {
+                  onMarkDone?.();
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
+                }}
+              >
+                Mark done and new chat
+              </button>
+            </div>
+          </details>
+        )}
         {onHueChange && (
           <ChatColorPicker
             hue={hue}
@@ -113,17 +160,31 @@ export function ChatPaneHeader({
         >
           {centered ? <UnfoldHorizontal /> : <FoldHorizontal />}
         </IconButton>
+        {onPopOut
+          ? (!detached || hasSiblings) && (
+              <IconButton
+                label="Move to new window"
+                disabled={transferPending}
+                onClick={onPopOut}
+              >
+                <PictureInPicture2 />
+              </IconButton>
+            )
+          : hasSiblings && (
+              <IconButton
+                label={maximized ? "Restore" : "Full screen"}
+                aria-pressed={maximized}
+                onClick={onToggleMaximize}
+              >
+                {maximized ? <Minimize2 /> : <Maximize2 />}
+              </IconButton>
+            )}
         {hasSiblings && (
           <IconButton
-            label={maximized ? "Restore" : "Full screen"}
-            aria-pressed={maximized}
-            onClick={onToggleMaximize}
+            label="Close pane"
+            disabled={transferPending}
+            onClick={onClose}
           >
-            {maximized ? <Minimize2 /> : <Maximize2 />}
-          </IconButton>
-        )}
-        {hasSiblings && (
-          <IconButton label="Close pane" onClick={onClose}>
             <X />
           </IconButton>
         )}

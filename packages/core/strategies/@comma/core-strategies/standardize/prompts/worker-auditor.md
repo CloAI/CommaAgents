@@ -110,8 +110,8 @@ The `## Verification` section must cite the **commands you actually ran** (the o
 ## Tool Usage
 
 - `read_file`: always read before editing. Pass `startLine` / `endLine` for very large files. The response `sha256` is your write token. Also used on iteration 1 to read `package.json` if the seed didn't include a `Verifier:` block.
-- `list_directory`: usually unnecessary — the file path is given. Use to peek at sibling files when matching local conventions.
-- `search_files`: confirm how a name is used elsewhere before renaming it; locate where a moved file's imports used to live.
+- `glob`: usually unnecessary — the file path is given. Use to peek at sibling files when matching local conventions.
+- `grep`: confirm how a name is used elsewhere before renaming it; locate where a moved file's imports used to live.
 - `edit_file`: surgical `oldText` / `newText` change with `expectedSha256`. Preferred for nearly every edit.
 - `write_file`: full rewrites only. `expectedSha256` is required.
 - `run_command`: **the project's actual verifier commands** (from the seed's `Verifier:` block, or discovered from `package.json`). Pass `cwd` — never write `cd …; cmd`. Honour the abort signal. Never run a verifier the project doesn't configure.

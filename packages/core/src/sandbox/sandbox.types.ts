@@ -1,5 +1,5 @@
 import type { Guard, Policy } from "../guard/guard.types";
-import type { SandboxTrashMetadata } from "../tools/io/trash";
+import type { SandboxDeletionMetadata } from "../tools/built-in/delete-file/deletion";
 
 /**
  * Decision mode for a path or operation.
@@ -49,7 +49,7 @@ export interface SandboxOptions {
   /** Write-access policy applied to every FS write operation. @default { default: "allow" } */
   readonly write?: PathPolicy;
   /** Metadata for trash archive identification (runId, sessionId). Injected by the daemon executor. */
-  readonly trashMetadata?: SandboxTrashMetadata;
+  readonly deletionMetadata?: SandboxDeletionMetadata;
 }
 
 /** Access operation evaluated by a tool guard. */

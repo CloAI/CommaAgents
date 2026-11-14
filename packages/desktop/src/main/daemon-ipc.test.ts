@@ -37,6 +37,10 @@ const echo = createPlugin<"echo", EchoPlugin, Record<string, never>>({
 });
 
 const TRUSTED = "app://trusted/";
+const OpenResultSchema = z.union([
+  z.object({ ok: z.literal(true), id: z.number() }),
+  z.object({ ok: z.literal(false), reason: z.string() }),
+]);
 
 /**
  * A window's web contents: records what the main process sends to it.
@@ -61,7 +65,7 @@ type FakeSender = ReturnType<typeof fakeSender>;
 function fakeIpcMain() {
   const handlers = new Map<
     string,
-    (event: IpcSenderEvent) => Promise<OpenResult>
+    (event: IpcSenderEvent, ...args: unknown[]) => Promise<object>
   >();
   const listeners = new Map<
     string,
@@ -81,8 +85,10 @@ function fakeIpcMain() {
     ipcMain,
     handlers,
     listeners,
-    open: (sender: FakeSender, url?: string) =>
-      handlers.get(IPC_CHANNELS.daemonOpen)!(event(sender, url)),
+    open: async (sender: FakeSender, url?: string): Promise<OpenResult> =>
+      OpenResultSchema.parse(
+        await handlers.get(IPC_CHANNELS.daemonOpen)!(event(sender, url)),
+      ),
     send: (sender: FakeSender, id: number, text: string, url?: string) =>
       listeners.get(IPC_CHANNELS.daemonSend)?.(event(sender, url), id, text),
     close: (sender: FakeSender, id: number) =>

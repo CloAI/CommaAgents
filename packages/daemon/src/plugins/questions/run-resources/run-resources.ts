@@ -1,7 +1,7 @@
 import type { RunPreparationContext, RunPreparationResult } from "../../runs";
 import type { QuestionsContext } from "../state/state.types";
 import type { QuestionRunResources } from "./run-resources.types";
-import { cleanupRunQuestions, requestQuestion } from "../requests";
+import { cleanupRunQuestions, requestQuestions } from "../requests";
 
 /**
  * Release one execution's question resources exactly once.
@@ -76,8 +76,8 @@ export function prepareQuestionRunResources(
   return {
     ...(preparation.staged ? { activate } : {}),
     strategyInputs: {
-      questionRequester: (request) =>
-        requestQuestion(context, runResources, request),
+      questionsRequester: (request) =>
+        requestQuestions(context, runResources, request),
     },
     dispose: () => disposeQuestionRunResources(context, runResources),
   };

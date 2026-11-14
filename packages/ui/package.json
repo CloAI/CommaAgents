@@ -5,7 +5,8 @@
   "description": "Web UI and design system for Comma Agents",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./workspace": "./src/workspace.ts"
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -21,6 +22,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@comma-agents/core": "workspace:*",
     "@comma-agents/daemon": "workspace:*",
     "@floating-ui/react-dom": "2.1.9",
     "@fontsource-variable/geist-mono": "5.3.0",

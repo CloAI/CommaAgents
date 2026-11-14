@@ -1,6 +1,8 @@
 import { Allotment } from "allotment";
 import "allotment/dist/style.css";
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+import { useHost } from "../../hooks/useHost";
+import { Button } from "../../design-system/Button";
 import {
   containsPane,
   hashFromPath,
@@ -15,13 +17,34 @@ import styles from "./Workspace.module.scss";
 const MIN_PANE_WIDTH = 240;
 /** Smallest height of a pane in a column, in pixels. */
 const MIN_PANE_HEIGHT = 160;
+const subscribeBrowser = () => () => {};
+const browserSnapshot = () => undefined;
 
 /**
  * Show the grid of chat panes and keep the address bar on the focused pane's route.
  * @returns {React.ReactElement} The workspace.
  */
 export function Workspace() {
-  const { layout } = useLayout();
+  const { layout, paneCount, newChat } = useLayout();
+  const { workspace } = useHost();
+  const snapshot = useSyncExternalStore(
+    workspace?.subscribe ?? subscribeBrowser,
+    workspace?.getSnapshot ?? browserSnapshot,
+  );
+  useEffect(() => {
+    if (!snapshot?.selectingDock) {
+      return;
+    }
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        workspace?.send({ type: "cancelDock" });
+      }
+    };
+    window.addEventListener("keydown", cancel, true);
+    return () => window.removeEventListener("keydown", cancel, true);
+  }, [snapshot?.selectingDock, workspace]);
   const activePath =
     listPanes(layout.root).find((pane) => pane.id === layout.activeId)?.path ??
     "/";
@@ -34,7 +57,37 @@ export function Workspace() {
   }, [activePath]);
   return (
     <div className={styles.workspace}>
-      <WorkspaceNode node={layout.root} />
+      {snapshot?.closeError && (
+        <div className={styles.closeError}>
+          <p role="alert">{snapshot.closeError}</p>
+          <Button onClick={() => workspace?.send({ type: "close" })}>
+            Retry close
+          </Button>
+        </div>
+      )}
+      {snapshot?.selectingDock && (
+        <p role="status" className={styles.dockNotice}>
+          Choose where to return this chat. Escape cancels.
+        </p>
+      )}
+      {paneCount === 0 ? (
+        <div
+          className={styles.empty}
+          onDragOver={(event) => {
+            if (workspace && snapshot?.state.draggingId) {
+              event.preventDefault();
+            }
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            workspace?.send({ type: "dock", targetId: "", zone: "right" });
+          }}
+        >
+          <Button onClick={newChat}>New chat</Button>
+        </div>
+      ) : (
+        <WorkspaceNode node={layout.root} />
+      )}
     </div>
   );
 }

@@ -31,12 +31,3 @@ export {
 } from "./session-file-state";
 
 export { STALE_FILE_RECOVERY_HINT } from "./stale-file";
-
-export type { TrashEntry, TrashMetadata } from "./trash";
-export {
-  clearTrash,
-  listTrash,
-  moveToTrash,
-  restoreFromTrash,
-  trashWorkspaceDir,
-} from "./trash";

@@ -27,8 +27,7 @@ let registeredTypeScriptLoader = false;
 
 const FILESYSTEM_TOOLS = new Set([
   "read_file",
-  "list_directory",
-  "search_files",
+  "grep",
   "glob",
   "create_file",
   "write_file",

@@ -4,8 +4,8 @@ export type {
   ApplyPatchToolConfig,
 } from "./apply-patch";
 export { createApplyPatchTool } from "./apply-patch";
-export type { AskQuestionData } from "./ask-question";
-export { askQuestionParams, createAskQuestionTool } from "./ask-question";
+export type { AskQuestionsData } from "./ask-questions";
+export { askQuestionsParams, createAskQuestionsTool } from "./ask-questions";
 export type { CreateFileData, CreateFileToolConfig } from "./create-file";
 export { createCreateFileTool } from "./create-file";
 export type { DeleteFileData, DeleteFileToolConfig } from "./delete-file";
@@ -52,12 +52,6 @@ export type { NotesData, ResearchNote } from "./notes";
 export { createNotesAddTool, createNotesGetTool, resetAllNotes } from "./notes";
 export type { LaunchStrategyData } from "./launch-strategy";
 export { createLaunchStrategyTool } from "./launch-strategy";
-export type {
-  ListDirectoryData,
-  ListDirectoryEntry,
-  ListDirectoryToolConfig,
-} from "./list-directory";
-export { createListDirectoryTool } from "./list-directory";
 export type { ListSkillsData, ListSkillsEntry } from "./list-skills";
 export { createListSkillsTool } from "./list-skills";
 export type { ListStrategyData, ListStrategyEntry } from "./list-strategy";
@@ -79,11 +73,11 @@ export type {
 } from "./run-command";
 export { createRunCommandTool } from "./run-command";
 export type {
-  SearchFilesData,
-  SearchFilesMatch,
-  SearchFilesToolConfig,
-} from "./search-files";
-export { createSearchFilesTool } from "./search-files";
+  GrepData,
+  GrepMatch,
+  GrepToolConfig,
+} from "./grep";
+export { createGrepTool } from "./grep";
 export {
   createTodoAddTool,
   createTodoClearTool,
@@ -95,3 +89,5 @@ export {
 export { createWebFetchTool } from "./webfetch";
 export type { WriteFileData, WriteFileToolConfig } from "./write-file";
 export { createWriteFileTool } from "./write-file";
+
+export { createSearchSkillsTool } from "./search-skills";

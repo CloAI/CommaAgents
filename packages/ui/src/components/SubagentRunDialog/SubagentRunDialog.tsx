@@ -85,7 +85,12 @@ export function SubagentRunDialogRender({
       onClose={onClose}
       className={styles.subagentRunDialog}
     >
-      <div className={styles.content}>
+      <div
+        className={styles.content}
+        role="group"
+        aria-label="Subagent output"
+        tabIndex={0}
+      >
         {onBack && (
           <Button className={styles.back} onClick={onBack}>
             Back

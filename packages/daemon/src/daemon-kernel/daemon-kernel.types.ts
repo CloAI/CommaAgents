@@ -1,3 +1,5 @@
+import type { ProjectsPlugin } from "../plugins/projects";
+import type { LoadSkillsOptions } from "@comma-agents/core/skills";
 import type { CreateRunsPluginOptions, RunsPlugin } from "../plugins/runs";
 import type { SandboxPlugin } from "../plugins/sandbox";
 import type { QuestionsPlugin } from "../plugins/questions";
@@ -13,6 +15,8 @@ export interface DaemonPlugins extends Readonly<Record<string, Plugin>> {
   readonly status: StatusPlugin;
   /** Service for all strategy run operations. */
   readonly runs: RunsPlugin;
+  /** Durable project membership and archives, independent of client layouts. */
+  readonly projects: ProjectsPlugin;
   /** Sandboxes and permission decisions for root and child runs. */
   readonly sandbox: SandboxPlugin;
   /** Tool questions and user responses for root and child runs. */
@@ -29,6 +33,8 @@ export interface DaemonPlugins extends Readonly<Record<string, Plugin>> {
 export interface CreateDaemonKernelOptions {
   /** Run storage and feature dependencies. */
   readonly runs: CreateRunsPluginOptions;
+  /** Core discovery roots reused by workspace queries and each run preparation. */
+  readonly skills?: LoadSkillsOptions;
   /** Models for `@role` references at startup. @default {} */
   readonly modelRoles?: Readonly<Record<string, string>>;
   /** Saves roles changed through `core.modelRoles.set`. @default roles last only until restart */

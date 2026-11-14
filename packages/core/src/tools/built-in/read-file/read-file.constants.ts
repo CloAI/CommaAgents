@@ -1,1 +1,2 @@
-export const DEFAULT_MAX_BYTES = 256 * 1024;
+export const DEFAULT_MAX_FILE_BYTES = 4 * 1024 * 1024;
+export const DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024;

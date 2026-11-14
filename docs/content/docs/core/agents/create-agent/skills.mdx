@@ -1,58 +1,31 @@
 ---
 title: Skills
-description: Expose discovered skills to an agent through skill-aware tools and prompt metadata.
+description: Give agents access to relevant reusable instructions.
 ---
 
 # Skills
 
-`skillRegistry` makes skills available to `list_skills` and `load_skill`. A directly created agent also needs the compact skills summary in its system prompt so the model knows what it can load.
+Pass a discovered registry through the agent's runtime options. Skill tools are included with the default built-ins; an explicit tool list limits them.
 
 ```ts
-import {
-  buildSkillsPromptHeader,
-  createAgent,
-  loadSkills,
-} from "@comma-agents/core";
+import { createAgent } from "@comma-agents/core";
+import { loadSkills } from "@comma-agents/core/skills";
 
-const { registry, warnings } = await loadSkills(process.cwd());
-const skillsPrompt = buildSkillsPromptHeader(registry);
-
-for (const warning of warnings) {
-  console.warn(`${warning.sourcePath}: ${warning.message}`);
-}
-
+const { registry } = await loadSkills(process.cwd());
 const coder = createAgent(
   {
     name: "coder",
     model: "openai/gpt-4o",
-    systemPrompt: [
-      "Implement changes using this repository's conventions.",
-      skillsPrompt,
-    ]
-      .filter(Boolean)
-      .join("\n\n"),
-    tools: ["list_skills", "load_skill", "read_file", "edit_file"],
+    systemPrompt:
+      "Search for relevant skills before working. Load a matching skill by its exact name and follow its instructions.",
+    tools: ["search_skills", "load_skill", "read_file", "edit_file"],
   },
   { skillRegistry: registry },
 );
 ```
 
-Strategy loading supplies the registry and skills prompt automatically.
+Use `search_skills` for ranked candidates, `list_skills` for the full metadata list, and `load_skill` to retrieve instructions. Neither listing nor search returns the instruction body. The agent decides whether a candidate applies.
 
-## Skill tools
+Strategy loading supplies the registry and tool-aware skill guidance automatically. It includes required strategy skills in full without inserting every optional skill into the initial prompt. A directly created agent can supply its own concise guidance, as above. `buildSkillsPromptHeader(registry)` remains available for callers that explicitly want a complete metadata index.
 
-Include both skill tools when the agent should discover skills and load their instructions on demand.
-
-```ts
-const agent = createAgent(
-  {
-    name: "skill-aware-agent",
-    model: "openai/gpt-4o",
-    tools: ["list_skills", "load_skill"],
-    systemPrompt: buildSkillsPromptHeader(registry),
-  },
-  { skillRegistry: registry },
-);
-```
-
-See [Skills](/docs/core/skills) for discovery roots, precedence, required strategy skills, and `SKILL.md` format.
+See [Skills](/docs/core/skills) for locations, merging, file format, and snapshot behavior.

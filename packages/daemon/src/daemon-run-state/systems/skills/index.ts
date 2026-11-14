@@ -1,1 +1,0 @@
-export { createSkillsSystem } from "./skills";

@@ -1,4 +1,10 @@
-import { createContext, useCallback, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import { loadSettings, saveSettings } from "../../settings";
 import type { Settings } from "../../settings";
@@ -19,6 +25,15 @@ export interface SettingsProviderProps {
  */
 export function SettingsProvider({ children }: SettingsProviderProps) {
   const [snapshot, setSnapshot] = useState(loadSettings);
+  useEffect(() => {
+    const reload = (event: StorageEvent) => {
+      if (event.key === "comma-agents.settings" || event.key === null) {
+        setSnapshot(loadSettings());
+      }
+    };
+    window.addEventListener("storage", reload);
+    return () => window.removeEventListener("storage", reload);
+  }, []);
   const handleSave = useCallback((settings: Settings) => {
     const result = saveSettings(settings);
     if (result.type === "success") {

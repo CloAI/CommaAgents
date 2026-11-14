@@ -54,9 +54,7 @@ async function connectRunMcp(
     resolveMcpConfiguration({
       strategyPath: preparation.strategyPath,
       cwd: preparation.cwd,
-      runId: preparation.runId,
-      runRepository: context.repository,
-      persistDefaults: !preparation.staged,
+      overrides: preparation.mcpServerOverrides,
     }),
   );
   if (context.disposed || preparation.signal.aborted) {

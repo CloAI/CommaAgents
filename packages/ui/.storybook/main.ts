@@ -2,7 +2,12 @@ import type { StorybookConfig } from "@storybook/react-vite";
 
 const config: StorybookConfig = {
   framework: "@storybook/react-vite",
-  stories: ["../src/**/*.storybook.tsx"],
+  stories: [
+    "../src/design-system/**/*.storybook.tsx",
+    "../src/components/**/*.storybook.tsx",
+    "../src/pages/**/*.storybook.tsx",
+    "../src/App/**/*.storybook.tsx",
+  ],
   experimental_indexers: async (indexers = []) =>
     indexers.map((indexer) =>
       indexer.test.test("Component.stories.tsx")

@@ -7,15 +7,15 @@ import {
   createMockRunsPlugin,
   directories,
   fakeLoader,
-  repository,
+  createRunDirectory,
 } from "../test.utils";
 afterEach(cleanupRunFixtures);
 describe("run persistence", () => {
   it("should restore conversation separately from indexed display history after restart", async () => {
-    const legacy = repository();
+    const runsDir = createRunDirectory();
     const observed = { loads: [] as string[], restored: [] as string[][] };
     const runs = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader(observed),
     });
     await runs.prepareRun({
@@ -32,7 +32,7 @@ describe("run persistence", () => {
     )!.messageId;
     await runs.dispose();
     const restarted = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader(observed),
     });
     const snapshot = await restarted.getRun("saved");
@@ -65,7 +65,7 @@ describe("run persistence", () => {
   });
   it("should recover a persisted prepared run as interrupted without loading resources", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     await runs.prepareRun({

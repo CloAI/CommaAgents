@@ -23,7 +23,7 @@ import { agentMessageText, resolveStrategy } from "./run.utils";
  * The first user turn receives `input`. When the strategy asks for another user turn
  * after `maxUserTurns` have been used, the run is stopped and the stage is treated as
  * finished. Each `then` strategy is then selected with a strategy switch in the same
- * conversation and continued with `thenInput`. Tool questions are answered
+ * conversation and continued with `thenInput`. Tool questionnaires are explicitly skipped
  * automatically, and sandbox permission requests receive the configured approval.
  *
  * @param {HeadlessRunOptions} options - Strategy, input, and unattended-run policy.
@@ -141,10 +141,11 @@ export async function runHeadless({
         runId,
         (request) => {
           autoAnsweredQuestions += 1;
-          questions.resolveQuestion(
+          questions.submitAnswers(
             request.runId,
             request.requestId,
-            AUTO_ANSWER,
+            crypto.randomUUID(),
+            { answers: request.questions.map((question) => ({ questionId: question.id, type: "skipped" })) },
           );
         },
       ),

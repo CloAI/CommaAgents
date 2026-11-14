@@ -4,7 +4,20 @@ import type {
   SendRunResult,
 } from "./switching";
 import type { RunHistoryOptions, RunHistoryPage } from "./history";
-import type { RunNotifications } from "./runs.notifications";
+import type {
+  CopiedRun,
+  CopyRunOptions,
+  RunCopyCheckpoint,
+} from "./copying/copying.types";
+export type {
+  CopiedRun,
+  CopyRunOptions,
+  RunCopyCheckpoint,
+} from "./copying/copying.types";
+import type {
+  RunNotifications,
+  RunInputRequestStatus,
+} from "./runs.notifications";
 
 export type { RunIdentity } from "./state/state.types";
 import type { NotifyingPlugin } from "../../daemon-plugin";
@@ -20,7 +33,7 @@ export type StrategyLoaderInputs = Pick<
   LoadStrategyOptions,
   | "sandbox"
   | "skillRegistry"
-  | "questionRequester"
+  | "questionsRequester"
   | "languageService"
   | "mcpToolsByAgent"
   | "privacyRuntime"
@@ -42,6 +55,7 @@ export { RunPhase, RunOutcomeStatus } from "./state/state.schemas";
 export { RunErrorCode } from "./errors";
 export type { RunError } from "./errors";
 export type {
+  ActiveRun,
   RunSnapshot,
   RunStrategyDescription,
   RunPreparingSnapshot,
@@ -52,6 +66,7 @@ export type {
   RunResultSummary,
 } from "./state/state.types";
 import type {
+  ActiveRun,
   RunIdentity,
   RunSnapshot,
   RunTerminalOutcome,
@@ -77,7 +92,8 @@ export interface RunChildPreparationContext extends RunPreparationContextBase {
 }
 /** Fully resolved settings and ownership supplied to feature preparation. */
 export type RunPreparationContext =
-  RunRootPreparationContext | RunChildPreparationContext;
+  | RunRootPreparationContext
+  | RunChildPreparationContext;
 
 /** Run-scoped services and cleanup returned by a preparation provider. */
 export interface RunPreparationResult {
@@ -157,6 +173,12 @@ export interface HarnessSettings {
 
 /** Direct API for preparing, executing, observing, and continuing runs. */
 export interface RunsPlugin extends NotifyingPlugin<"runs", RunNotifications> {
+  /** Read the last complete root response available to copy, including its delegated tree. */
+  getCopyCheckpoint(runId: string): Promise<RunCopyCheckpoint | undefined>;
+  /** Independently copy a pinned complete response without starting any execution. */
+  copyRun(options: CopyRunOptions): Promise<CopiedRun>;
+  /** Roll back newly copied trees only; refuses original runs and active copied resources. */
+  removeCopiedRuns(rootIds: readonly string[]): Promise<void>;
   /** Read this execution and its ancestors after preparation or reading saved metadata. */
   getRunLineage(runId: string): readonly RunIdentity[];
   /** Register services to acquire when preparing a run. */
@@ -181,6 +203,16 @@ export interface RunsPlugin extends NotifyingPlugin<"runs", RunNotifications> {
   resolveInput(runId: string, inputId: string, text: string): Promise<void>;
   /** Read current state or saved metadata without preparing execution resources or modifying storage. */
   getRun(runId: string): Promise<RunSnapshot | undefined>;
+  /** Persist an explicit MCP choice for the next preparation; null resets to its configured default. */
+  setMcpServerOverride(
+    runId: string,
+    serverId: string,
+    enabled: boolean | null,
+  ): Promise<void>;
+  /** List runs executing now; prepared and finished runs are excluded. */
+  listActiveRuns(): readonly ActiveRun[];
+  /** Read pending interactive inputs for this execution and its descendants. */
+  getPendingInputs(runId: string): readonly RunInputRequestStatus[];
   /** Read this conversation's display history; omit options for all finished entries. */
   getHistory(
     runId: string,

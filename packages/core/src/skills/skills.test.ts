@@ -73,14 +73,14 @@ describe("parseSkillFile", () => {
       "---",
       "Body",
     ].join("\n");
-    expect(() => parseSkillFile(raw)).toThrow(/does not support YAML lists/);
+    expect(() => parseSkillFile(raw)).toThrow(/invalid YAML frontmatter/);
   });
 });
 
 describe("getGlobalSkillsDirectory", () => {
-  it("should resolve global skills from the shared data directory", () => {
+  it("should resolve global skills from the Comma config directory", () => {
     expect(getGlobalSkillsDirectory()).toBe(
-      join(homedir(), ".comma", "skills"),
+      join(homedir(), ".config", "comma", "skills"),
     );
   });
 });
@@ -161,7 +161,9 @@ describe("loadSkills", () => {
       globalSkillsDir: globalDir,
       projectSkillsDir: projectDir,
     });
-    expect(warnings).toEqual([]);
+    expect(warnings).toEqual([
+      expect.objectContaining({ code: "SKILL_SHADOWED" }),
+    ]);
     expect(registry.list().map((skill) => skill.name)).toEqual([
       "global-only",
       "project-only",

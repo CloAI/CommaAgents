@@ -51,12 +51,12 @@ if (!result.ok) {
 
 | `error.kind` | Typical cause | Recoverable? | Suggested action |
 |---|---|---|---|
-| `not_found` | A path does not exist (or is the wrong kind — file vs. directory). | Sometimes | Call `read_file` or `list_directory` to confirm what exists, then retry with the correct path. |
+| `not_found` | A path does not exist (or is the wrong kind — file vs. directory). | Sometimes | Call `read_file` or `glob` to confirm what exists, then retry with the correct path. |
 | `already_exists` | A destination path is occupied (`create_file`, `move_file` without `overwrite`, `*** Add File`). | Yes | Switch to `write_file` or `edit_file`, or move the existing file aside first. |
 | `permission_denied` | A path matches `forbiddenGlobs` or the guard's policy chain denied the operation. | No | Use a different path, or grant access via an `update_policy` message to the guard's chain. |
 | `outside_workspace` | A path crosses the workspace boundary, or absolute paths are disabled. | No | Use a workspace-relative path. |
-| `binary_file` | `read_file` detected binary content without `allowBinary: true`. | Yes | Re-call `read_file` with `allowBinary: true`. |
-| `file_too_large` | A file exceeds the sandbox-configured size limit. | No | Read or write the file in slices, or raise the configured cap. |
+| `binary_file` | `read_file` detected binary content. | No | Use a text file; binary reads are unsupported. |
+| `file_too_large` | A file exceeds the configured size limit. | No | Raise the host-configured cap or use a smaller file; line slicing does not bypass the read size limit. |
 | `stale_file` | `expectedSha256` does not match the on-disk content. | Yes | Re-read the file to obtain the current sha256 and re-apply your edit. |
 | `old_text_not_found` | An `edit_file` edit's `oldText` was not present in the file. | Yes | Re-read the file and pick text that exists. |
 | `multiple_matches` | An `edit_file` edit's `oldText` matched more than once and `replaceAll` was not set. | Yes | Make `oldText` more specific, or pass `replaceAll: true`. |

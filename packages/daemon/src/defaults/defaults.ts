@@ -101,6 +101,23 @@ export function setDaemonInstructionFiles(
   daemonDefaultOverrides = { ...daemonDefaultOverrides, instructionFiles };
 }
 
+/** Return resolved additional skill discovery roots, defaulting to none.
+ * @returns {DaemonConfig["skills"]} Current daemon skill discovery settings.
+ */
+export function getDaemonSkills(): DaemonConfig["skills"] {
+  return daemonDefaultOverrides.skills ?? { additionalDirectories: [] };
+}
+
+/** Override resolved skill discovery settings for the daemon process.
+ * @param {DaemonConfig["skills"] | undefined} skills - Settings, or undefined to restore defaults.
+ * @returns {void} Returns after updating process defaults.
+ */
+export function setDaemonSkills(
+  skills: DaemonConfig["skills"] | undefined,
+): void {
+  daemonDefaultOverrides = { ...daemonDefaultOverrides, skills };
+}
+
 export function getDaemonConfig(): DaemonConfig {
   return {
     port: getDaemonPort(),
@@ -112,6 +129,7 @@ export function getDaemonConfig(): DaemonConfig {
     runsDir: getDaemonRunsDirectory(),
     modelRoles: getDaemonModelRoles(),
     instructionFiles: getDaemonInstructionFiles(),
+    skills: getDaemonSkills(),
   };
 }
 

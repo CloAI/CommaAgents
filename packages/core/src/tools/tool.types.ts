@@ -1,3 +1,4 @@
+import type { QuestionsRequester } from "../questions";
 import type { z } from "zod";
 import type { InputCollector } from "../agents/built-in/user/user-agent.types";
 import type { Guard, Policy } from "../guard/guard.types";
@@ -8,20 +9,29 @@ import type { SubagentTarget } from "./built-in/delegate/delegate.types";
 import type { StrategySwitchHandle } from "./built-in/request-strategy-switch/request-strategy-switch.types";
 import type { LaunchStrategyHandle } from "./launch-strategy.types";
 
-/** User question emitted by a tool during an agent call. */
-export interface QuestionRequest {
-  /** Name of the agent requesting input. */
-  readonly agentName: string;
-  /** Name of the tool requesting input. */
-  readonly toolName: string;
-  /** Question presented to the user. */
-  readonly question: string;
-  /** Signal that aborts the pending question. */
-  readonly signal?: AbortSignal;
+/** Why a file search did not examine or return every eligible result. */
+export type FileSearchIssue =
+  | "result_limit"
+  | "output_limit"
+  | "depth_limit"
+  | "unreadable_path"
+  | "file_too_large";
+
+/** @internal One filesystem entry yielded by the shared file walker. */
+export interface WalkFileEntry {
+  readonly absolutePath: string;
+  readonly path: string;
+  readonly relativePath: string;
+  readonly type: "file" | "directory" | "symlink";
 }
 
-/** Present a tool-originated question and return the user's response. */
-export type QuestionRequester = (request: QuestionRequest) => Promise<string>;
+/** @internal Traversal options shared by glob and grep. */
+export interface WalkFilesOptions {
+  readonly root: string;
+  readonly excludeGlobs?: readonly string[];
+  readonly maxDepth: number;
+  readonly toolName: string;
+}
 
 /**
  * Context passed to tool execute functions.
@@ -47,7 +57,7 @@ export interface ToolContext {
    */
   readonly guard: Guard;
   /** Callback used by tools that request clarification from the user. */
-  readonly requestQuestion?: QuestionRequester;
+  readonly requestQuestions?: QuestionsRequester;
   /**
    * Optional session identifier. When present, mutations are written to a
    * session-scoped audit log and `SessionFileState` can be reconstructed
@@ -76,7 +86,7 @@ export interface ToolContext {
    */
   readonly auditSink?: AuditSink;
   /**
-   * Optional skill registry exposed to the `load_skill` tool.
+   * Optional skill snapshot exposed to search_skills, list_skills, and load_skill.
    */
   readonly skillRegistry?: SkillRegistry;
   /**

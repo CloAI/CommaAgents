@@ -1,8 +1,5 @@
 import type { DiscoveredStrategy } from "@comma-agents/core/strategy";
-import type {
-  RequestPermissionMessage,
-  RequestQuestionMessage,
-} from "@comma-agents/daemon";
+import type { RequestPermissionMessage } from "@comma-agents/daemon";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ChatMessage } from "../../hooks/useChat";
 import { ChatPageRender } from "./ChatPage";
@@ -78,20 +75,10 @@ const PERMISSION_REQUEST: RequestPermissionMessage = {
   reason: "policy-ask",
 };
 
-const QUESTION_REQUEST: RequestQuestionMessage = {
-  type: "request_question",
-  ts: "2026-06-28T16:16:00.000Z",
-  requestId: "question_page_story",
-  runId: "run_page_story",
-  agentName: "reviewer",
-  question: "Should completed runs expose the continuation composer?",
-};
-
 type ChatPageScenario =
   | "running"
   | "waiting-input"
   | "waiting-permission"
-  | "waiting-question"
   | "completed";
 
 interface ChatPageStoryProps {
@@ -105,9 +92,7 @@ function ChatPageStory({ scenario }: ChatPageStoryProps): React.ReactElement {
       ? "waiting_input"
       : scenario === "waiting-permission"
         ? "waiting_permission"
-        : scenario === "waiting-question"
-          ? "waiting_question"
-          : scenario;
+        : scenario;
 
   return (
     <ChatPageRender
@@ -119,9 +104,6 @@ function ChatPageStory({ scenario }: ChatPageStoryProps): React.ReactElement {
       pendingPermissionRequest={
         scenario === "waiting-permission" ? PERMISSION_REQUEST : null
       }
-      pendingQuestionRequest={
-        scenario === "waiting-question" ? QUESTION_REQUEST : null
-      }
       activeStrategyPath={STRATEGIES[0]!.path}
       canContinue={scenario === "completed"}
       strategies={STRATEGIES}
@@ -131,7 +113,6 @@ function ChatPageStory({ scenario }: ChatPageStoryProps): React.ReactElement {
       onSteerSubmit={() => {}}
       onContinueSubmit={() => {}}
       onPermissionDecide={() => {}}
-      onQuestionSubmit={() => {}}
       onAbort={() => {}}
       onOpenSubStrategy={() => {}}
     />
@@ -145,13 +126,7 @@ const meta: Meta<typeof ChatPageStory> = {
   argTypes: {
     scenario: {
       control: "select",
-      options: [
-        "running",
-        "waiting-input",
-        "waiting-permission",
-        "waiting-question",
-        "completed",
-      ],
+      options: ["running", "waiting-input", "waiting-permission", "completed"],
     },
   },
   parameters: { xterm: { cols: 100, rows: 30 } },
@@ -169,10 +144,6 @@ export const WaitingForInput: Story = {
 
 export const WaitingForPermission: Story = {
   args: { scenario: "waiting-permission" },
-};
-
-export const WaitingForQuestion: Story = {
-  args: { scenario: "waiting-question" },
 };
 
 export const Completed: Story = {

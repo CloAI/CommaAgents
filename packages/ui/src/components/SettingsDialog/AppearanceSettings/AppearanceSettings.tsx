@@ -34,6 +34,7 @@ export function AppearanceSettings({ onClose }: AppearanceSettingsProps) {
   const {
     theme,
     mode,
+    modePreference,
     themes,
     setMode,
     selectTheme,
@@ -104,34 +105,40 @@ export function AppearanceSettings({ onClose }: AppearanceSettingsProps) {
         />
       ) : (
         <div className={styles.editor}>
-          <div className={styles.field}>
-            <span id="theme-label">Theme</span>
-            <Select
-              label="Theme"
-              placeholder="Choose a theme"
-              value={theme.id}
-              options={themes.map((entry) => ({
-                value: entry.id,
-                label: entry.name,
-                group: isCustomThemeId(entry.id) ? "Custom" : "Built in",
-              }))}
-              groupOrder={["Built in", "Custom"]}
-              onChange={(id) => {
-                setConfirmDelete(false);
-                report(selectTheme(id));
-              }}
-            />
-          </div>
-          <div className={styles.modes} role="group" aria-label="Mode">
-            {(["dark", "light"] as const).map((entry) => (
-              <Button
-                key={entry}
-                aria-pressed={mode === entry}
-                onClick={() => report(setMode(entry))}
-              >
-                {entry === "dark" ? "Dark" : "Light"}
-              </Button>
-            ))}
+          <div className={styles.selection}>
+            <div className={styles.field}>
+              <span id="theme-label">Theme</span>
+              <Select
+                label="Theme"
+                placeholder="Choose a theme"
+                value={theme.id}
+                options={themes.map((entry) => ({
+                  value: entry.id,
+                  label: entry.name,
+                  group: isCustomThemeId(entry.id) ? "Custom" : "Built in",
+                }))}
+                groupOrder={["Built in", "Custom"]}
+                onChange={(id) => {
+                  setConfirmDelete(false);
+                  report(selectTheme(id));
+                }}
+              />
+            </div>
+            <div className={styles.modes} role="group" aria-label="Mode">
+              {(["light", "dark", "system"] as const).map((entry) => (
+                <Button
+                  key={entry}
+                  aria-pressed={modePreference === entry}
+                  onClick={() => report(setMode(entry))}
+                >
+                  {entry === "dark"
+                    ? "Dark"
+                    : entry === "light"
+                      ? "Light"
+                      : "System"}
+                </Button>
+              ))}
+            </div>
           </div>
           <div className={styles.actions}>
             {custom && (

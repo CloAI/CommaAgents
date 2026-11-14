@@ -95,7 +95,7 @@ export const ConversationContextSchema = z
  * systemPrompt: You are a research assistant.
  * tools:
  *   - read_file
- *   - search_files
+ *   - grep
  * ```
  */
 export const LLMAgentDescriptionSchema = z

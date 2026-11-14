@@ -8,7 +8,7 @@
       "maxSteps": 40,
       "systemPrompt": "./prompts/explore.md",
       "context": { "instructions": true, "environment": true },
-      "tools": ["read_file", "list_directory", "search_files", "glob", "lsp_request"]
+      "tools": ["read_file", "glob", "grep", "lsp_request"]
     }
   },
   "flow": {

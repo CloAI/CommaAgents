@@ -21,7 +21,7 @@ pnpm run cli run -s Plan -i "Add retry support to webfetch" --then Build --appro
 | `--then-input` | Message sent to each `--then` strategy. |
 | `--json` | Print the run ID, outcome, every agent message, and token usage. |
 
-Tool questions (`ask_question`) are answered with "proceed with your recommended option".
+Tool questionnaires (`ask_questions`) receive explicit skipped outcomes in headless runs; recommendations are never accepted automatically.
 
 ## Tiers
 

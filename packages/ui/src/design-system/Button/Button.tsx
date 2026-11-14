@@ -12,7 +12,7 @@ export interface ButtonProps extends ComponentPropsWithoutRef<"button"> {
 }
 
 /**
- * Render a keyboard-accessible action with shared focus and disabled styles.
+ * Render a keyboard-accessible action with shared interaction and disabled styles.
  * @param {ButtonProps} props - Component properties.
  * @returns {React.ReactElement} The rendered component.
  */

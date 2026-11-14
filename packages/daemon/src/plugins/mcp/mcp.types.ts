@@ -1,5 +1,4 @@
 import type { McpServerEntry, McpServerSource } from "@comma-agents/core/mcp";
-import type { RunRepository } from "../../daemon-run-state/run-repository";
 import type { NotifyingPlugin } from "../../daemon-plugin";
 import type { RunsPlugin } from "../runs";
 import type { McpNotifications } from "./mcp.notifications";
@@ -37,14 +36,16 @@ export interface ListMcpServersOptions {
 }
 
 /** Persist a server's shared default or execution-specific selection. */
-export interface UpdateMcpServerOptions extends ListMcpServersOptions {
-  /** Server to enable or disable. */
+export type UpdateMcpServerOptions = ListMcpServersOptions & {
   readonly serverId: string;
-  /** Selection to persist for future preparation. */
-  readonly enabled: boolean;
-  /** Shared default, or an execution override requiring runId. */
-  readonly scope: "default" | "run";
-}
+} & (
+    | { readonly scope: "default"; readonly enabled: boolean }
+    | {
+        readonly scope: "run";
+        readonly runId: string;
+        readonly enabled: boolean | null;
+      }
+  );
 
 /** Dependencies for execution preparation and persisted server choices. */
 export interface CreateMcpPluginOptions {
@@ -52,8 +53,6 @@ export interface CreateMcpPluginOptions {
   readonly dependencies: {
     /** Preparation, snapshots, and execution ancestry APIs. */
     readonly runs: RunsPlugin;
-    /** Repository storing per-execution server choices. */
-    readonly runRepository: RunRepository;
   };
 }
 

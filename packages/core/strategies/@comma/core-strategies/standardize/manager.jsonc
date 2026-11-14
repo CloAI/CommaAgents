@@ -18,9 +18,8 @@
       "maxSteps": 500,
       "tools": [
         "read_file",
-        "list_directory",
         "glob",
-        "search_files",
+        "grep",
         "create_file",
         "write_file",
         "edit_file",
@@ -37,7 +36,7 @@
         "todo_get",
         "todo_get_next",
         "todo_clear",
-        "ask_question"
+        "ask_questions"
       ]
     }
   },

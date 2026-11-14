@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
   discoverMcpConfig,
+  updateMcpServerDefault,
   resolveMcpServer,
   resolveMcpValue,
 } from "./mcp.config";
@@ -136,5 +137,93 @@ describe("resolveMcpValue", () => {
       args: ["--token", "secret"],
       cwd: "/workspace/tools",
     });
+  });
+});
+
+describe("updateMcpServerDefault", () => {
+  it("should update the winning project file while preserving other servers and environment references", () => {
+    const root = createTemporaryDirectory();
+    const cwd = join(root, "project");
+    const dataDir = join(root, "global");
+    mkdirSync(join(cwd, ".comma"), { recursive: true });
+    mkdirSync(join(cwd, "nested"));
+    mkdirSync(dataDir);
+    const globalPath = join(dataDir, "mcp.json");
+    const projectPath = join(cwd, ".comma", "mcp.json");
+    const original = JSON.stringify({
+      mcpServers: {
+        docs: {
+          transport: "http",
+          url: "https://global.invalid/mcp",
+          enabledByDefault: true,
+        },
+      },
+    });
+    writeFileSync(globalPath, original);
+    writeFileSync(
+      projectPath,
+      JSON.stringify({
+        mcpServers: {
+          docs: {
+            transport: "http",
+            url: { env: "MCP_URL" },
+            headers: { Authorization: { env: "MCP_AUTH" } },
+          },
+          other: { transport: "stdio", command: "never-started" },
+        },
+      }),
+    );
+    updateMcpServerDefault({
+      cwd: join(cwd, "nested"),
+      dataDir,
+      serverId: "docs",
+      enabled: true,
+    });
+    expect(readFileSync(globalPath, "utf8")).toBe(original);
+    expect(JSON.parse(readFileSync(projectPath, "utf8"))).toMatchObject({
+      mcpServers: {
+        docs: {
+          enabledByDefault: true,
+          url: { env: "MCP_URL" },
+          headers: { Authorization: { env: "MCP_AUTH" } },
+        },
+        other: { command: "never-started" },
+      },
+    });
+    updateMcpServerDefault({ cwd, dataDir, serverId: "other", enabled: false });
+    expect(
+      discoverMcpConfig({ cwd, dataDir }).servers.get("docs")?.definition
+        .enabledByDefault,
+    ).toBe(true);
+    expect(
+      discoverMcpConfig({ cwd, dataDir }).servers.get("other")?.definition
+        .enabledByDefault,
+    ).toBe(false);
+  });
+  it("should leave malformed files untouched and reject unknown shared servers", () => {
+    const root = createTemporaryDirectory();
+    const cwd = join(root, "project");
+    mkdirSync(join(cwd, ".comma"), { recursive: true });
+    const path = join(cwd, ".comma", "mcp.json");
+    writeFileSync(path, "invalid-json");
+    expect(() =>
+      updateMcpServerDefault({
+        cwd,
+        dataDir: root,
+        serverId: "docs",
+        enabled: false,
+      }),
+    ).toThrow();
+    expect(readFileSync(path, "utf8")).toBe("invalid-json");
+    writeFileSync(path, '{"mcpServers":{}}');
+    expect(() =>
+      updateMcpServerDefault({
+        cwd,
+        dataDir: root,
+        serverId: "missing",
+        enabled: false,
+      }),
+    ).toThrow("Unknown shared MCP server");
+    expect(readFileSync(path, "utf8")).toBe('{"mcpServers":{}}');
   });
 });

@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
-import { Input } from "../../../design-system/Input";
-import { IconButton } from "../../../design-system/IconButton";
-import type { DiscoveredProvider } from "../ModelBrowser.types";
-import { SearchHighlight } from "../SearchHighlight";
+import { Input } from "../../../../design-system/Input";
+import { IconButton } from "../../../../design-system/IconButton";
+import type { DiscoveredProvider } from "../../../ModelPicker/ModelPicker.types";
+import { SearchHighlight } from "../../../SearchHighlight";
 import styles from "./ProviderFilter.module.scss";
 
 /** Searchable provider selection for the model catalog. */
@@ -40,8 +40,9 @@ export function ProviderFilter({
   const active = Math.min(activeIndex, options.length - 1);
 
   useEffect(() => {
-    if (open)
+    if (open) {
       listRef.current?.children[active]?.scrollIntoView({ block: "nearest" });
+    }
   }, [active, open, query]);
 
   const choose = (id: string): void => {
@@ -92,7 +93,9 @@ export function ProviderFilter({
         }
         onFocus={show}
         onClick={() => {
-          if (!open) show();
+          if (!open) {
+            show();
+          }
         }}
         onChange={(event) => {
           setQuery(event.target.value);
@@ -100,7 +103,9 @@ export function ProviderFilter({
           setOpen(true);
         }}
         onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing) return;
+          if (event.nativeEvent.isComposing) {
+            return;
+          }
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault();
             if (!open) {
@@ -114,8 +119,11 @@ export function ProviderFilter({
             );
           } else if (event.key === "Enter") {
             event.preventDefault();
-            if (open) choose(options[active]!.id);
-            else show();
+            if (open) {
+              choose(options[active]!.id);
+            } else {
+              show();
+            }
           } else if (event.key === "Escape" && open) {
             event.preventDefault();
             event.stopPropagation();

@@ -5,7 +5,7 @@
   flex-direction: column;
   gap: var(--space-2);
   overflow: hidden;
-  padding: var(--space-2) var(--space-1);
+  padding: var(--space-3) var(--space-2) var(--space-8);
 
   .sections,
   .composerFrame {
@@ -56,6 +56,8 @@
 
     &[data-status="failed"] {
       color: var(--color-error);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
   }
 

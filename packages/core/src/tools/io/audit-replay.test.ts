@@ -19,7 +19,7 @@ import type { ToolContext } from "../tool.types";
 import { createFileAuditSink } from "./audit-sink";
 import { sha256OfBuffer } from "./hash";
 import { buildSessionFileState } from "./session-file-state";
-import { trashWorkspaceDir } from "./trash";
+import { getDeletedFilesDirectory } from "../built-in/delete-file/deletion";
 
 let workspaceRoot: string;
 
@@ -30,7 +30,10 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
-  await rm(trashWorkspaceDir(workspaceRoot), { recursive: true, force: true });
+  await rm(getDeletedFilesDirectory(workspaceRoot), {
+    recursive: true,
+    force: true,
+  });
 });
 
 function makeCtx(

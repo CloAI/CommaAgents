@@ -360,7 +360,7 @@ describe("agent instantiation", () => {
     expect(result.agents.user?.name).toBe("user");
   });
 
-  it("loads required skills while advertising every available skill", async () => {
+  it("loads required skills while keeping optional instructions out of the initial prompt", async () => {
     setupMockModels();
     const skillRegistry = createSkillRegistry();
     skillRegistry.register({
@@ -402,7 +402,8 @@ describe("agent instantiation", () => {
 
     const prompt = result.agents.assistant?.config?.systemPrompt;
     expect(prompt).toBeDefined();
-    expect(JSON.stringify(prompt)).toContain("optional-skill");
+    expect(JSON.stringify(prompt)).not.toContain("optional-skill");
+    expect(JSON.stringify(prompt)).toContain("load_skill");
     expect(JSON.stringify(prompt)).toContain(
       "Always follow the required convention.",
     );
@@ -427,6 +428,7 @@ describe("agent instantiation", () => {
           assistant: {
             model: "openai/gpt-4o",
             systemPrompt: "Answer briefly.",
+            tools: [],
           },
         },
         flow: {
@@ -707,7 +709,7 @@ describe("tool resolution", () => {
             "read_file",
             "write_file",
             "edit_file",
-            "search_files",
+            "grep",
           ],
         },
       },
@@ -1542,8 +1544,8 @@ describe("JSONC support and systemPrompt file path loading", () => {
       const textAgentPrompt = result.agents.textAgent!.config?.systemPrompt;
       const mdAgentPrompt = result.agents.mdAgent!.config?.systemPrompt;
 
-      expect(textAgentPrompt).toBe("Hello from text file!");
-      expect(mdAgentPrompt).toBe("Hello from markdown file!");
+      expect(textAgentPrompt).toContain("Hello from text file!");
+      expect(mdAgentPrompt).toContain("Hello from markdown file!");
     } finally {
       // Clean up
       await unlink(txtPath).catch(() => {});
@@ -1688,4 +1690,52 @@ registerAgent("project-echo", defineAgentType({
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+});
+
+describe("skill tool prompt availability", () => {
+  for (const tools of [
+    undefined,
+    [],
+    ["list_skills"],
+    ["search_skills"],
+    ["load_skill"],
+  ]) {
+    it(`should describe only available skill actions for ${JSON.stringify(tools)}`, async () => {
+      setupMockModels();
+      const skillRegistry = createSkillRegistry();
+      skillRegistry.register({
+        name: "private-skill",
+        description: "Private description",
+        content: "Private instructions",
+        origin: "global",
+        sourcePath: "/skills/private/SKILL.md",
+      });
+      const loaded = await loadStrategyFromString(
+        JSON.stringify({
+          name: "Tools",
+          version: "1.0",
+          agents: {
+            worker: { model: "openai/gpt-4o", ...(tools ? { tools } : {}) },
+          },
+          flow: {
+            name: "Main",
+            type: "sequential",
+            steps: [{ agent: "worker" }],
+          },
+        }),
+        "json",
+        { skillRegistry },
+      );
+      const prompt = JSON.stringify(
+        loaded.agents.worker?.config?.systemPrompt ?? "",
+      );
+      expect(prompt).not.toContain("private-skill");
+      expect(prompt).not.toContain("Private instructions");
+      for (const name of ["search_skills", "load_skill", "list_skills"]) {
+        if (tools === undefined || tools.includes(name))
+          expect(prompt).toContain(`Use ${name}`);
+        else expect(prompt).not.toContain(`Use ${name}`);
+      }
+    });
+  }
 });

@@ -72,9 +72,9 @@ function Foundations() {
         <h2 id="shape">Shape and focus</h2>
         <p>
           Controls use 4px corners. Inputs, text areas, and selects keep their
-          normal borders on focus without an outline. Buttons use a 2px lavender
-          keyboard focus outline and a compact minimum height of 28px, with 4px
-          vertical and 8px horizontal padding.
+          normal borders on focus without an outline. Buttons highlight their
+          background on keyboard focus and use a compact minimum height of 28px,
+          with 4px vertical and 8px horizontal padding.
         </p>
       </section>
       <section aria-labelledby="motion">

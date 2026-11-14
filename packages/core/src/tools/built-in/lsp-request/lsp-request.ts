@@ -95,7 +95,7 @@ Good uses:
 - \`textDocument/documentSymbol\`: summarize symbols in a file.
 - \`workspace/symbol\`: search symbols by name across the workspace.
 
-Use \`read_file\` or \`search_files\` for raw text inspection. Use \`lsp_request\` when symbol identity, types, or compiler diagnostics matter.
+Use \`read_file\` or \`grep\` for raw text inspection. Use \`lsp_request\` when symbol identity, types, or compiler diagnostics matter.
 
 Positions are 1-indexed: line 1, character 1 is the first character of the file. The daemon chooses the language service from the file path/workspace; only pass \`languageId\` when you need to disambiguate.`,
     parameters: lspRequestParams,

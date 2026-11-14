@@ -1,5 +1,8 @@
 import { vi } from "vitest";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { createRunsPlugin } from "../runs";
+import * as runLoader from "../runs/preparation/loading/strategy-loader";
 import { join } from "node:path";
 import * as coreMcp from "@comma-agents/core/mcp";
 import type {
@@ -10,10 +13,8 @@ import type {
 import { z } from "zod";
 import {
   cleanupRunFixtures,
-  createMockRunsPlugin,
   directories,
   fakeLoader,
-  repository,
 } from "../runs/test.utils";
 import { createMcpPlugin } from "./mcp";
 
@@ -48,8 +49,8 @@ export const strategy = {
  * @returns {Promise<object>} Plugin, runs, workspace, and observable mock clients.
  */
 export async function createMcpFixture() {
-  const runRepository = repository();
-  const cwd = directories.at(-1)!;
+  const cwd = await mkdtemp(join(tmpdir(), "mcp-plugin-"));
+  directories.push(cwd);
   await mkdir(join(cwd, ".comma"), { recursive: true });
   await writeFile(
     join(cwd, ".comma", "mcp.json"),
@@ -80,71 +81,73 @@ export async function createMcpFixture() {
     string,
     Readonly<Record<string, McpAgentToolSet>>
   >();
-  const runs = createMockRunsPlugin({
-    repository: runRepository,
-    async loadStrategy(options) {
-      toolsByRun.set(
-        options.runId,
-        options.strategyInputs.mcpToolsByAgent ?? {},
-      );
-      return loader({
-        ...options,
-        launchStrategy: (request) =>
-          options.launchStrategy({
-            ...request,
-            strategyPath: join(cwd, "child.json"),
-          }),
-      });
-    },
-  });
+  const runs = createRunsPlugin({ runsDir: cwd });
+  connectionMocks.push(
+    vi
+      .spyOn(runLoader, "loadRunStrategy")
+      .mockImplementation(async (options) => {
+        toolsByRun.set(
+          options.runId,
+          options.strategyInputs.mcpToolsByAgent ?? {},
+        );
+        return loader({
+          ...options,
+          launchStrategy: (request) =>
+            options.launchStrategy({
+              ...request,
+              strategyPath: join(cwd, "child.json"),
+            }),
+        });
+      }),
+  );
   const managers: McpConnectionManager[] = [];
   const configurations: CreateMcpConnectionManagerOptions[] = [];
-  const managerFactory = vi.spyOn(
-    coreMcp,
-    "createMcpConnectionManager",
-  ).mockImplementation(async (options) => {
-    configurations.push(options);
-    const enabled = new Set(options.enabledServerIds);
-    const manager: McpConnectionManager = {
-      statuses: [...options.servers.values()].map((entry) => ({
-        id: entry.id,
-        source: entry.source,
-        transport: entry.definition.transport,
-        enabled: enabled.has(entry.id),
-        connected: enabled.has(entry.id),
-        toolCount: enabled.has(entry.id) ? 1 : 0,
-      })),
-      toolsFor(serverIds) {
-        const tools: McpAgentToolSet["tools"] = {};
-        const origins: Record<string, { serverId: string; toolName: string }> =
-          {};
-        for (const serverId of serverIds) {
-          if (enabled.has(serverId)) {
-            const name = coreMcp.namespaceMcpToolName(serverId, "inspect");
-            Object.assign(tools, {
-              [name]: {
-                inputSchema: z.object({}),
-                execute: async () => "mock result",
-              },
-            });
-            origins[name] = { serverId, toolName: "inspect" };
+  const managerFactory = vi
+    .spyOn(coreMcp, "createMcpConnectionManager")
+    .mockImplementation(async (options) => {
+      configurations.push(options);
+      const enabled = new Set(options.enabledServerIds);
+      const manager: McpConnectionManager = {
+        statuses: [...options.servers.values()].map((entry) => ({
+          id: entry.id,
+          source: entry.source,
+          transport: entry.definition.transport,
+          enabled: enabled.has(entry.id),
+          connected: enabled.has(entry.id),
+          toolCount: enabled.has(entry.id) ? 1 : 0,
+        })),
+        toolsFor(serverIds) {
+          const tools: McpAgentToolSet["tools"] = {};
+          const origins: Record<
+            string,
+            { serverId: string; toolName: string }
+          > = {};
+          for (const serverId of serverIds) {
+            if (enabled.has(serverId)) {
+              const name = coreMcp.namespaceMcpToolName(serverId, "inspect");
+              Object.assign(tools, {
+                [name]: {
+                  inputSchema: z.object({}),
+                  execute: async () => "mock result",
+                },
+              });
+              origins[name] = { serverId, toolName: "inspect" };
+            }
           }
-        }
-        return { tools, origins };
-      },
-      close: vi.fn(async () => {}),
-    };
-    managers.push(manager);
-    return manager;
-  });
+          return { tools, origins };
+        },
+        close: vi.fn(async () => {}),
+      };
+      managers.push(manager);
+      return manager;
+    });
   connectionMocks.push(managerFactory);
-  const mcp = createMcpPlugin({ dependencies: { runs, runRepository } });
+  const mcp = createMcpPlugin({ dependencies: { runs } });
   return {
     runs,
     mcp,
     cwd,
     strategyPath,
-    runRepository,
     managers,
     configurations,
     toolsByRun,

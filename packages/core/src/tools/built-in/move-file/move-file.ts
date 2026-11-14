@@ -8,12 +8,12 @@ import { SandboxViolationError } from "../../../errors";
 import { defineTool } from "../../define/define-tool";
 import {
   createMemoryAuditSink,
-  moveToTrash,
   STALE_FILE_RECOVERY_HINT,
   sandboxErrorToToolError,
   sha256OfBuffer,
   sha256OfFile,
 } from "../../io";
+import { deleteFile } from "../delete-file/deletion";
 import type { AuditEntry } from "../../io/audit.types";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
@@ -147,7 +147,7 @@ export function createMoveFileTool(
 
 - Rename: \`fromPath: "src/oldName.ts", toPath: "src/newName.ts"\`.
 - Move to a new folder: \`fromPath: "src/foo.ts", toPath: "src/components/foo.ts"\`.
-- PascalCase folder rename: combine with \`list_directory\` to walk children, then several \`move_file\` calls (one per child).
+- PascalCase folder rename: combine with \`glob\` to walk children, then several \`move_file\` calls (one per child).
 
 **Post-move verification (MANDATORY) — moves break imports silently:**
 
@@ -285,11 +285,13 @@ After every \`move_file\` call, **run the project's configured verifier with \`r
             ),
           );
         }
-        overwroteTrashedTo = await moveToTrash(guard.cwd, toAbs, {
-          sessionId,
-          agentName,
-          ...guard.trashMetadata,
-        });
+        ({ archivePath: overwroteTrashedTo } = await deleteFile(
+          guard.cwd,
+          toAbs,
+          {
+            metadata: { sessionId, agentName, ...guard.deletionMetadata },
+          },
+        ));
       } catch (caughtError) {
         const code = (caughtError as NodeJS.ErrnoException).code;
         if (code !== "ENOENT" && code !== "ENOTDIR") {

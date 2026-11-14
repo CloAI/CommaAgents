@@ -141,13 +141,17 @@ export const ShowsWhenARunFails: Story = {
         data: runSnapshot("run-1", "terminal", {
           outcome: {
             status: "failed",
-            error: { code: "EXECUTION_ERROR", metadata: { runId: "run-1" } },
+            error: {
+              code: "EXECUTION_ERROR",
+              message: "Provider rejected the request: quota exceeded.",
+              metadata: { runId: "run-1" },
+            },
           },
         }),
       }),
     );
     await expect(canvas.getByRole("alert")).toHaveTextContent(
-      "Run failed (EXECUTION_ERROR).",
+      "Run failed (EXECUTION_ERROR): Provider rejected the request: quota exceeded.",
     );
   },
 };
@@ -467,7 +471,7 @@ export const RestoresSteeringInterruption: Story = {
                   {
                     type: "tool",
                     toolCallId: "tool-1",
-                    toolName: "search_files",
+                    toolName: "grep",
                     arguments: {},
                     status: "stopped",
                     cancellationReason: "user_steering",

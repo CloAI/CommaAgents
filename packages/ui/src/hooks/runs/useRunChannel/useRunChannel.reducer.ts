@@ -2,6 +2,7 @@ import { NO_ACTIVITY } from "./useRunChannel.constants";
 import type { RunEventMap, RunFeedState } from "./useRunChannel.types";
 import {
   appendLatest,
+  formatRunError,
   finishedAgentMessage,
   strategyMessage,
   streamedAgentMessage,
@@ -120,7 +121,7 @@ const HANDLERS: RunEventHandlers = {
   "run.error": (state, { error }) => ({
     ...state,
     ...NO_ACTIVITY,
-    failure: `Run failed (${error.code}).`,
+    failure: formatRunError(error),
   }),
 };
 

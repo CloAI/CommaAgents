@@ -2,7 +2,7 @@ import { realpathSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { SandboxViolationError } from "../errors/index";
 import type { AccessMode, PermissionDecision } from "../sandbox/sandbox.types";
-import type { SandboxTrashMetadata } from "../tools/io/trash";
+import type { SandboxDeletionMetadata } from "../tools/built-in/delete-file/deletion";
 import type {
   AccessRequest,
   AuthorizationContext,
@@ -96,7 +96,7 @@ export function createGuard(
   outsideWorkspace: AccessMode,
   policies: readonly Policy[],
   callbacks?: GuardCallbacks,
-  trashMetadata?: SandboxTrashMetadata,
+  deletionMetadata?: SandboxDeletionMetadata,
 ): Guard {
   const policyChain = [
     ...new Map(policies.map((policy) => [policy.name, policy])).values(),
@@ -384,7 +384,7 @@ export function createGuard(
   return {
     toolName,
     cwd,
-    trashMetadata,
+    deletionMetadata,
     authorize,
     canAccess,
     addPolicy,

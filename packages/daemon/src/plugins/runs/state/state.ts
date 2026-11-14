@@ -1,3 +1,4 @@
+import { runError, RunErrorCode } from "../errors";
 import { createRunHistoryStorage } from "../history/storage";
 import { createRunStorage } from "./storage/storage";
 import type { PluginNotifications } from "../../../daemon-plugin";
@@ -5,6 +6,7 @@ import type { CreateRunsPluginOptions } from "../runs.types";
 import type { RunNotifications } from "../runs.notifications";
 import type { RunConfiguration } from "../preparation/preparation.types";
 import type {
+  ActiveRun,
   RunEntry,
   RunIdentity,
   RunSnapshot,
@@ -28,6 +30,7 @@ export function createRunsContext(
   notifications: PluginNotifications<RunNotifications>,
 ): RunsContext {
   return {
+    runsDir,
     runs: new Map(),
     operations: new Set(),
     stagedStrategies: new Map(),
@@ -89,6 +92,17 @@ export async function publishRunState(
   await updateChildReference(context, snapshot);
 }
 /**
+ * List runs that are executing now, including delegated child runs.
+ * @param {RunsContext} context - Private runs state.
+ * @returns {readonly ActiveRun[]} Running runs; prepared, preparing and finished runs are excluded.
+ * @internal
+ */
+export function listActiveRuns(context: RunsContext): readonly ActiveRun[] {
+  return [...context.runs.values()]
+    .filter((entry) => entry.state.phase === RunPhase.running)
+    .map(({ runId, parentRunId }) => ({ runId, parentRunId }));
+}
+/**
  * Read current runtime state or saved metadata without allocating execution resources or writing storage.
  * @param {RunsContext} context - Private runs state.
  * @param {string} runId - Stable conversation identity.
@@ -125,4 +139,90 @@ export async function getRunSnapshot(
     phase: RunPhase.terminal,
     outcome: { status: RunOutcomeStatus.interrupted },
   };
+}
+
+/** Persist a future MCP choice with the run, leaving active connection resources alone.
+ * @param {RunsContext} context - Current run state and storage.
+ * @param {string} runId - Existing conversation identity.
+ * @param {string} serverId - Server whose override is changed.
+ * @param {boolean | null} enabled - Explicit choice, or null to follow the default.
+ * @returns {Promise<void>} Resolves after the run configuration is saved.
+ * @internal
+ */
+export async function setMcpServerOverride(
+  context: RunsContext,
+  runId: string,
+  serverId: string,
+  enabled: boolean | null,
+): Promise<void> {
+  if (!serverId || (enabled !== null && typeof enabled !== "boolean")) {
+    throw runError({ code: RunErrorCode.INVALID_ARGUMENTS });
+  }
+  if (context.operations.has(runId)) {
+    throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+  }
+  // Running metadata writes are tracked below; finalization owns its own reservation.
+  let reserved = context.runs.get(runId)?.state.phase !== RunPhase.running;
+  if (reserved) {
+    context.operations.add(runId);
+  }
+  try {
+    const saved = await getRunSnapshot(context, runId);
+    if (!saved) {
+      throw runError({ code: RunErrorCode.RUN_NOT_FOUND, metadata: { runId } });
+    }
+    if (!reserved && context.operations.has(runId)) {
+      throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+    }
+    const entry = context.runs.get(runId);
+    if (!reserved && entry?.state.phase !== RunPhase.running) {
+      context.operations.add(runId);
+      reserved = true;
+    }
+    if (entry?.state.phase === RunPhase.preparing) {
+      throw runError({ code: RunErrorCode.RUN_BUSY, metadata: { runId } });
+    }
+    const previous = entry?.configuration ?? saved.configuration;
+    const overrides =
+      enabled === null
+        ? { ...previous.mcpServerOverrides }
+        : { ...previous.mcpServerOverrides, [serverId]: enabled };
+    if (enabled === null) {
+      delete overrides[serverId];
+    }
+    const { mcpServerOverrides: _previousOverrides, ...configuration } =
+      previous;
+    const updated = {
+      ...configuration,
+      ...(Object.keys(overrides).length
+        ? { mcpServerOverrides: overrides }
+        : {}),
+    };
+    if (entry) {
+      // Publish the new configuration synchronously so lifecycle writes queued
+      // during persistence also retain this choice.
+      entry.configuration = updated;
+      const snapshot = runSnapshot(entry);
+      try {
+        await persistRunWrite(entry, context.storage.save(snapshot));
+      } catch (error) {
+        if (entry.configuration === updated) {
+          entry.configuration = previous;
+        }
+        throw error;
+      }
+      // A lifecycle transition publishes its own newer snapshot; do not replay an older phase.
+      if (entry.state.phase === snapshot.phase) {
+        context.notifications.notify(runId, { type: "run_snapshot", snapshot });
+      }
+    } else {
+      const snapshot = { ...saved, configuration: updated };
+      await context.storage.save(snapshot);
+      context.notifications.notify(runId, { type: "run_snapshot", snapshot });
+    }
+  } finally {
+    if (reserved) {
+      context.operations.delete(runId);
+    }
+  }
 }

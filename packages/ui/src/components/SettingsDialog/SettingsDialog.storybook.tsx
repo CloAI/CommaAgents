@@ -91,10 +91,16 @@ export const Sections: Story = {
       canvas.getByRole("button", { name: "Open settings" }),
     );
     await expect(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
+    await expect(
       canvas.getByRole("dialog", { name: "Settings / General Settings" }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("textbox", { name: "Daemon WebSocket URL" }),
+      canvas.getByRole("textbox", { name: "WebSocket URL" }),
     ).toHaveValue("ws://127.0.0.1:7422/ws");
     for (const label of ["Hub", "Privacy"]) {
       await userEvent.click(canvas.getByRole("button", { name: label }));
@@ -127,7 +133,10 @@ export const SavePersists: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Open settings" }),
     );
-    const input = canvas.getByRole("textbox", { name: "Daemon WebSocket URL" });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
+    const input = canvas.getByRole("textbox", { name: "WebSocket URL" });
     await userEvent.clear(input);
     await userEvent.type(input, "  wss://daemon.example/proxy?mode=local  ");
     await userEvent.click(canvas.getByRole("button", { name: "Appearance" }));
@@ -135,7 +144,7 @@ export const SavePersists: Story = {
       canvas.getByRole("button", { name: "General Settings" }),
     );
     const restoredInput = canvas.getByRole("textbox", {
-      name: "Daemon WebSocket URL",
+      name: "WebSocket URL",
     });
     await expect(restoredInput).toHaveValue(
       "  wss://daemon.example/proxy?mode=local  ",
@@ -163,7 +172,10 @@ export const CancelDiscardsDraft: Story = {
     const canvas = within(canvasElement);
     const trigger = canvas.getByRole("button", { name: "Open settings" });
     await userEvent.click(trigger);
-    const input = canvas.getByRole("textbox", { name: "Daemon WebSocket URL" });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
+    const input = canvas.getByRole("textbox", { name: "WebSocket URL" });
     await userEvent.clear(input);
     await userEvent.type(input, "ws://unsaved.example/ws");
     await userEvent.click(canvas.getByRole("button", { name: "Privacy" }));
@@ -172,8 +184,11 @@ export const CancelDiscardsDraft: Story = {
     await expect(trigger).toHaveFocus();
     await expect(localStorage.getItem("comma-agents.settings")).toBeNull();
     await userEvent.click(trigger);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
     await expect(
-      canvas.getByRole("textbox", { name: "Daemon WebSocket URL" }),
+      canvas.getByRole("textbox", { name: "WebSocket URL" }),
     ).toHaveValue("ws://127.0.0.1:7422/ws");
   },
 };
@@ -184,7 +199,10 @@ export const InvalidEndpoints: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Open settings" }),
     );
-    const input = canvas.getByRole("textbox", { name: "Daemon WebSocket URL" });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
+    const input = canvas.getByRole("textbox", { name: "WebSocket URL" });
     for (const value of [
       "",
       "https://daemon.example/ws",
@@ -212,7 +230,10 @@ export const WriteFailure: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Open settings" }),
     );
-    const input = canvas.getByRole("textbox", { name: "Daemon WebSocket URL" });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
+    const input = canvas.getByRole("textbox", { name: "WebSocket URL" });
     await userEvent.clear(input);
     await userEvent.type(input, "ws://next.example/ws");
     const write = spyOn(Storage.prototype, "setItem").mockImplementation(() => {
@@ -247,6 +268,9 @@ export const MalformedStorage: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Open settings" }),
     );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
     await expect(canvas.getByText(/could not be read/)).toBeVisible();
     await expect(localStorage.getItem("comma-agents.settings")).toBe("{broken");
     await userEvent.click(canvas.getByRole("button", { name: "Save" }));
@@ -271,9 +295,12 @@ export const UnsupportedVersion: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Open settings" }),
     );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
     await expect(canvas.getByText(/unsupported version/)).toBeVisible();
     await expect(
-      canvas.getByRole("textbox", { name: "Daemon WebSocket URL" }),
+      canvas.getByRole("textbox", { name: "WebSocket URL" }),
     ).toHaveValue("ws://127.0.0.1:7422/ws");
     await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
     await expect(
@@ -295,9 +322,12 @@ export const ReadFailure: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Open settings" }),
     );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
     await expect(canvas.getByText(/could not be read/)).toBeVisible();
     await expect(
-      canvas.getByRole("textbox", { name: "Daemon WebSocket URL" }),
+      canvas.getByRole("textbox", { name: "WebSocket URL" }),
     ).toHaveValue("ws://127.0.0.1:7422/ws");
   },
 };
@@ -311,6 +341,9 @@ export const ProviderWorkflows: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(
       canvas.getByRole("button", { name: "Open settings" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
     );
     await userEvent.click(canvas.getByRole("button", { name: "Providers" }));
     const socket = MockWebSocket.instances.at(-1)!;
@@ -357,7 +390,10 @@ export const LocalizedSections: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Open settings" }),
     );
-    const input = canvas.getByRole("textbox", { name: "Daemon WebSocket URL" });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
+    const input = canvas.getByRole("textbox", { name: "WebSocket URL" });
     await userEvent.clear(input);
     await userEvent.type(input, "https://invalid.example");
     await userEvent.click(canvas.getByRole("button", { name: "Save" }));
@@ -372,7 +408,7 @@ export const LocalizedSections: Story = {
       canvas.getByRole("button", { name: "General Settings" }),
     );
     await expect(
-      canvas.getByRole("textbox", { name: "Daemon WebSocket URL" }),
+      canvas.getByRole("textbox", { name: "WebSocket URL" }),
     ).toHaveValue("https://invalid.example");
     await expect(canvas.getByRole("alert")).toBeVisible();
     await expect(
@@ -391,6 +427,9 @@ export const ThemeChoicePersists: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Open settings" }),
     );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
     await userEvent.click(canvas.getByRole("button", { name: "Appearance" }));
     await userEvent.click(canvas.getByRole("button", { name: "Light" }));
     await expect(document.documentElement.style.colorScheme).toBe("light");
@@ -405,5 +444,55 @@ export const ThemeChoicePersists: Story = {
     await expect(
       loadSettings().settings.appearance?.customThemes[0]?.name,
     ).toBe("Comma copy");
+  },
+};
+
+export const SystemAppearancePersists: Story = {
+  beforeEach: () => {
+    const original = window.matchMedia;
+    const query = original.call(window, "(prefers-color-scheme: dark)");
+    window.matchMedia = (media) =>
+      media === query.media ? query : original.call(window, media);
+    return () => {
+      window.matchMedia = original;
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Open settings" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Daemon Settings" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Appearance" }));
+    await userEvent.click(canvas.getByRole("button", { name: "System" }));
+    await expect(
+      canvas.getByRole("button", { name: "System" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(loadSettings().settings.appearance?.mode).toBe("system");
+    await expect(document.documentElement.style.colorScheme).toBe(
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light",
+    );
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const nextDark = !query.matches;
+    Object.defineProperty(query, "matches", {
+      configurable: true,
+      value: nextDark,
+    });
+    await act(() => {
+      query.dispatchEvent(
+        new MediaQueryListEvent("change", { matches: nextDark }),
+      );
+    });
+    await expect(document.documentElement.style.colorScheme).toBe(
+      nextDark ? "dark" : "light",
+    );
+    await expect(loadSettings().settings.appearance?.mode).toBe("system");
+    await userEvent.click(canvas.getByRole("button", { name: "Dark" }));
+    await expect(document.documentElement.style.colorScheme).toBe("dark");
+    await expect(loadSettings().settings.appearance?.mode).toBe("dark");
   },
 };

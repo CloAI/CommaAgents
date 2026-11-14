@@ -1,1 +1,2 @@
-export { StopControl } from "./StopControl";
+export { StopControl, StopControlRender } from "./StopControl";
+export type { StopControlRenderProps } from "./StopControl";

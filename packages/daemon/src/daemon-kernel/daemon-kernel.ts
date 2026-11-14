@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { createProjectsPlugin } from "../plugins/projects";
 import { createCorePlugin } from "../plugins/core";
 import { createRunsPlugin } from "../plugins/runs/runs";
 import { createSandboxPlugin } from "../plugins/sandbox";
@@ -6,7 +8,6 @@ import { createSkillsPlugin } from "../plugins/skills";
 import { createMcpPlugin } from "../plugins/mcp";
 import { createStatusPlugin } from "../plugins/status";
 import { createLspPlugin } from "../plugins/lsp";
-import { createRunRepository } from "../daemon-run-state/run-repository";
 import type { CreateDaemonKernelOptions } from "./daemon-kernel.types";
 
 /**
@@ -22,6 +23,7 @@ import type { CreateDaemonKernelOptions } from "./daemon-kernel.types";
  */
 export async function createDaemonKernel({
   runs,
+  skills,
   modelRoles,
   persistModelRoles,
   initialize,
@@ -39,19 +41,40 @@ export async function createDaemonKernel({
     dependencies: { runs: runsPlugin },
   });
   const skillsPlugin = createSkillsPlugin({
+    discovery: skills,
     dependencies: { runs: runsPlugin },
   });
   const mcpPlugin = createMcpPlugin({
     dependencies: {
       runs: runsPlugin,
-      runRepository: createRunRepository({ runsDir: runs.runsDir }),
     },
   });
   const lspPlugin = createLspPlugin({ dependencies: { runs: runsPlugin } });
+  const projectsPlugin = await createProjectsPlugin({
+    catalogFile: join(runs.runsDir, ".projects", "catalog.json"),
+    dependencies: { runs: runsPlugin, questions: questionsPlugin, sandbox: sandboxPlugin },
+  }).catch(async (error: unknown) => {
+    status.setPhase("stopping");
+    const failures: unknown[] = [error];
+    for (const plugin of [runsPlugin, lspPlugin, mcpPlugin, skillsPlugin, questionsPlugin, sandboxPlugin, corePlugin]) {
+      try {
+        await plugin.dispose();
+      } catch (cleanupError) {
+        failures.push(cleanupError);
+      }
+    }
+    status.setPhase("stopped");
+    await status.plugin.dispose();
+    if (failures.length > 1) {
+      throw new AggregateError(failures, "Project initialization and plugin cleanup failed");
+    }
+    throw error;
+  });
   const plugins = {
     core: corePlugin,
     status: status.plugin,
     runs: runsPlugin,
+    projects: projectsPlugin,
     sandbox: sandboxPlugin,
     questions: questionsPlugin,
     skills: skillsPlugin,
@@ -63,6 +86,7 @@ export async function createDaemonKernel({
     status.setPhase("stopping");
     const failures: unknown[] = [];
     for (const plugin of [
+      projectsPlugin,
       runsPlugin,
       lspPlugin,
       mcpPlugin,

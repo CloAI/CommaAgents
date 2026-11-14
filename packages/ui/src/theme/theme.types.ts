@@ -37,6 +37,9 @@ export type ThemePalette = Readonly<Record<ThemeColorKey, string>>;
 /** Whether the interface is light or dark. */
 export type ThemeMode = "dark" | "light";
 
+/** Saved mode choice; System follows the operating system appearance. */
+export type ThemeModePreference = ThemeMode | "system";
+
 /** A named theme with a palette for each mode. */
 export interface Theme {
   /** Stable identifier; custom themes start with `custom-`. */
@@ -53,8 +56,8 @@ export interface Theme {
 export interface AppearanceSettings {
   /** Selected theme id, built in or custom. */
   readonly themeId: string;
-  /** Selected light or dark mode. */
-  readonly mode: ThemeMode;
+  /** Selected light, dark, or system mode. */
+  readonly mode: ThemeModePreference;
   /** Themes the user created in this browser. */
   readonly customThemes: readonly Theme[];
 }

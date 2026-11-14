@@ -6,7 +6,6 @@
     "tool-guards",
     "tool-registry",
     "audit-log",
-    "trash",
     "patch-envelope",
     "error-kinds"
   ]

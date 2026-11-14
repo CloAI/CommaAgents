@@ -3,7 +3,6 @@ import { useCallback } from "react";
 import type { ChatRunId } from "./useChat.types";
 import { useChatInputRequests } from "./useChatInputRequests";
 import { useChatPermissionRequests } from "./useChatPermissionRequests";
-import { useChatQuestionRequests } from "./useChatQuestionRequests";
 import { useChatRunLifecycle } from "./useChatRunLifecycle";
 import { useChatSteering } from "./useChatSteering";
 
@@ -13,7 +12,6 @@ export interface UseChatActionsResult {
   readonly sendPermissionDecision: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
-  readonly sendQuestionResponse: (response: string) => void;
   readonly reset: () => void;
   readonly stop: () => void;
 }
@@ -25,8 +23,6 @@ export function useChatActions(
   const { sendSteer: sendSteerForRun } = useChatSteering();
   const { sendPermissionDecision: sendPermissionDecisionForRun } =
     useChatPermissionRequests();
-  const { sendQuestionResponse: sendQuestionResponseForRun } =
-    useChatQuestionRequests();
   const { resetChatRun, stopChatRun } = useChatRunLifecycle();
 
   const sendInput = useCallback(
@@ -59,15 +55,6 @@ export function useChatActions(
     [chatRunId, sendPermissionDecisionForRun],
   );
 
-  const sendQuestionResponse = useCallback(
-    (response: string): void => {
-      if (!chatRunId) {
-        return;
-      }
-      sendQuestionResponseForRun(chatRunId, response);
-    },
-    [chatRunId, sendQuestionResponseForRun],
-  );
 
   const reset = useCallback((): void => {
     if (!chatRunId) {
@@ -87,7 +74,6 @@ export function useChatActions(
     sendInput,
     sendSteer,
     sendPermissionDecision,
-    sendQuestionResponse,
     reset,
     stop,
   };

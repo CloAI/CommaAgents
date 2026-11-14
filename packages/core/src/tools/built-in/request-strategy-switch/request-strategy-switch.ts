@@ -5,7 +5,11 @@ import { defineTool } from "../../define/define-tool";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
-import { APPROVAL_PATTERN } from "./request-strategy-switch.constants";
+import {
+  QuestionsSchema,
+  QuestionsResponseSchema,
+  validateQuestionsResponse,
+} from "../../../questions";
 import type { RequestStrategySwitchData } from "./request-strategy-switch.types";
 
 export const requestStrategySwitchParams = z.object({
@@ -76,14 +80,14 @@ export function createRequestStrategySwitchTool(): ToolDefinition<
     async execute({ strategy, reason }, toolContext) {
       const {
         requestStrategySwitch,
-        requestQuestion,
+        requestQuestions,
         agentName,
         abort,
         guard,
       } = toolContext;
       if (
         requestStrategySwitch === undefined ||
-        requestQuestion === undefined
+        requestQuestions === undefined
       ) {
         return errorResult<RequestStrategySwitchData>(
           toolError("unknown", "This run cannot switch strategies.", {
@@ -114,13 +118,54 @@ export function createRequestStrategySwitchTool(): ToolDefinition<
         );
       }
       try {
-        const response = await requestQuestion({
-          agentName,
-          toolName: "request_strategy_switch",
-          question: `Switch this conversation to ${target.name}? ${reason} (yes/no)`,
-          signal: abort,
+        const questionnaire = QuestionsSchema.parse({
+          questions: [
+            {
+              id: "strategy-switch",
+              prompt: `Switch this conversation to ${target.name}? ${reason}`,
+              fields: [
+                {
+                  id: "decision",
+                  type: "choice",
+                  label: "Decision",
+                  options: [
+                    { id: "switch", label: "Switch" },
+                    { id: "stay", label: "Stay" },
+                  ],
+                },
+                {
+                  id: "feedback",
+                  type: "text",
+                  label: "Feedback",
+                  required: false,
+                },
+              ],
+            },
+          ],
         });
-        const approved = APPROVAL_PATTERN.test(response);
+        const response = QuestionsResponseSchema.parse(
+          await requestQuestions({
+            ...questionnaire,
+            agentName,
+            toolName: "request_strategy_switch",
+            signal: abort,
+          }),
+        );
+        const issues = validateQuestionsResponse(questionnaire, response);
+        if (issues.length > 0) {
+          return errorResult<RequestStrategySwitchData>(
+            toolError("unknown", "Invalid strategy-switch response", {
+              recoverable: false,
+              details: { issues },
+            }),
+          );
+        }
+        const answer = response.answers[0];
+        const approved =
+          answer?.type === "answered" &&
+          Array.isArray(answer.values.decision) &&
+          answer.values.decision.length === 1 &&
+          answer.values.decision[0] === "switch";
         if (approved) {
           await requestStrategySwitch({
             strategyPath: target.path,
@@ -133,7 +178,7 @@ export function createRequestStrategySwitchTool(): ToolDefinition<
         return okResult<RequestStrategySwitchData>(
           approved
             ? `The user approved. The conversation continues in ${target.name} after your turn ends; finish your answer now.`
-            : `The user declined switching to ${target.name}: "${response}". Continue in the current strategy.`,
+            : `The user declined switching to ${target.name}: ${JSON.stringify(response)}. Continue in the current strategy.`,
           { data },
         );
       } catch (caught) {

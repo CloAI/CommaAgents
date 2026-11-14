@@ -18,8 +18,8 @@
       "maxSteps": 100,
       "tools": [
         "read_file",
-        "list_directory",
-        "search_files",
+        "glob",
+        "grep",
         "write_file",
         "edit_file",
         "run_command",
@@ -39,7 +39,7 @@
       "maxSteps": 20,
       "tools": [
         "read_file",
-        "search_files",
+        "grep",
         "run_command",
         "load_skill"
       ]

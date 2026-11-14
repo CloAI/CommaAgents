@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  MAX_PANES,
   canSplit,
   closePane,
   containsPane,
@@ -117,15 +116,15 @@ describe("splitPane", () => {
     expect(asSplit(layout.root).sizes).toBeUndefined();
   });
 
-  it("should ignore a missing pane and stop at the pane limit", () => {
+  it("should ignore a missing pane and allow more than eight panes", () => {
     const id = ids();
     let layout = layoutWith((l) => l);
     expect(splitPane(layout, "missing", "row", id)).toBe(layout);
-    while (canSplit(layout)) {
+    for (let index = 0; index < 20; index++) {
       layout = splitPane(layout, layout.activeId, "row", id);
     }
-    expect(listPanes(layout.root)).toHaveLength(MAX_PANES);
-    expect(splitPane(layout, layout.activeId, "column", id)).toBe(layout);
+    expect(listPanes(layout.root)).toHaveLength(21);
+    expect(canSplit(layout)).toBe(true);
   });
 });
 

@@ -1,2 +1,2 @@
-export { RunComposer } from "./RunComposer";
-export type { RunComposerProps } from "./RunComposer";
+export { RunComposer, RunComposerRender } from "./RunComposer";
+export type { RunComposerProps, RunComposerRenderProps } from "./RunComposer";

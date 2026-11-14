@@ -6,7 +6,7 @@ import {
   createMockRunsPlugin,
   directories,
   fakeLoader,
-  repository,
+  createRunDirectory,
 } from "../test.utils";
 import { RunErrorCode } from "../errors";
 import { createAgent } from "../../../../../core/src/agents/agent/agent";
@@ -99,7 +99,7 @@ describe("run execution", () => {
   });
   it("should reject a start during prepared cleanup and make concurrent stops await the same resources", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const cleaning = Promise.withResolvers<void>();
@@ -147,7 +147,7 @@ describe("run execution", () => {
 
   it("should enforce the same lifecycle and input rules without the server", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     await runs.prepareRun({
@@ -193,7 +193,7 @@ describe("run execution", () => {
   it("should consume the first prompt once, wait for the next human answer and display each submission once", async () => {
     const expertInputs: string[] = [];
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       async loadStrategy({ inputCollector }) {
         const userAgent = createUserAgent({
           name: "user",
@@ -332,7 +332,7 @@ describe("run execution", () => {
     };
     registerModel("mock/steered-run", model);
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       async loadStrategy() {
         const writerAgent = createAgent({
           name: "writer",
@@ -410,19 +410,19 @@ describe("run execution", () => {
     }
   });
   it("should fail visibly and refuse restoration when canonical persistence fails", async () => {
-    const legacy = repository();
+    const runsDir = createRunDirectory();
     const backing = storageModule.createRunStorage(directories.at(-1)!);
     const failing: RunStorage = {
       ...backing,
       async append() {
-        throw new Error("Private filesystem diagnosis");
+        throw new Error("Disk full while saving the run");
       },
     };
-    const mock = vi.spyOn(storageModule, "createRunStorage").mockReturnValue(
-      failing,
-    );
+    const mock = vi
+      .spyOn(storageModule, "createRunStorage")
+      .mockReturnValue(failing);
     const runs = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     try {
@@ -435,8 +435,8 @@ describe("run execution", () => {
         error: { code: RunErrorCode.PERSISTENCE_ERROR },
       });
       const snapshot = await runs.getRun("broken");
-      expect(JSON.stringify(snapshot)).not.toContain(
-        "Private filesystem diagnosis",
+      expect(JSON.stringify(snapshot)).toContain(
+        "Disk full while saving the run",
       );
       await expect(runs.prepareRun({ runId: "broken" })).rejects.toMatchObject({
         code: RunErrorCode.PERSISTENCE_ERROR,
@@ -447,7 +447,7 @@ describe("run execution", () => {
     }
   });
   it("should wait for canonical persistence before final display delivery", async () => {
-    const legacy = repository();
+    const runsDir = createRunDirectory();
     const backing = storageModule.createRunStorage(directories.at(-1)!);
     const entered = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
@@ -460,7 +460,7 @@ describe("run execution", () => {
       },
     });
     const runs = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     try {

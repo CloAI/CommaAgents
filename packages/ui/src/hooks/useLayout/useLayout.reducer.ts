@@ -1,6 +1,8 @@
 import {
   closePane,
-  replaceActivePane,
+  createLayout,
+  dockPane,
+  randomId,
   containsPane,
   listPanes,
   movePane,
@@ -14,7 +16,13 @@ import type { LayoutState } from "./useLayout.types";
 
 /** A change to the layout state. */
 export type LayoutAction =
+  | { readonly type: "replace"; readonly state: LayoutState }
   | { readonly type: "newChat"; readonly id: string }
+  | {
+      readonly type: "restore";
+      readonly paneId: string;
+      readonly runId: string;
+    }
   | {
       readonly type: "split";
       readonly id: string;
@@ -49,9 +57,6 @@ export type LayoutAction =
  */
 function prune(state: LayoutState): LayoutState {
   const ids = new Set(listPanes(state.layout.root).map((pane) => pane.id));
-  const choices = Object.entries(state.strategyChoices).filter(([id]) =>
-    ids.has(id),
-  );
   return {
     ...state,
     draggingId:
@@ -62,10 +67,6 @@ function prune(state: LayoutState): LayoutState {
       state.maximizedId !== undefined && ids.has(state.maximizedId)
         ? state.maximizedId
         : undefined,
-    strategyChoices:
-      choices.length === Object.keys(state.strategyChoices).length
-        ? state.strategyChoices
-        : Object.fromEntries(choices),
   };
 }
 
@@ -80,15 +81,70 @@ export function layoutReducer(
   action: LayoutAction,
 ): LayoutState {
   switch (action.type) {
-    case "newChat":
-      return prune({
+    case "replace":
+      return action.state;
+    case "newChat": {
+      if (listPanes(state.layout.root).length === 0) {
+        return { ...state, layout: createLayout("/", () => action.id) };
+      }
+      const pane = listPanes(state.layout.root).find(
+        (entry) => entry.id === state.layout.activeId,
+      )!;
+      const runId = /^\/runs\/([^/]+)/.exec(pane.path)?.[1];
+      const collection = state.paneCollections?.[pane.id];
+      const withHistory = {
         ...state,
-        layout: replaceActivePane(state.layout, action.id),
-        maximizedId:
-          state.maximizedId === state.layout.activeId
-            ? action.id
-            : state.maximizedId,
-      });
+        paneCollections: {
+          ...state.paneCollections,
+          [pane.id]: {
+            paneId: pane.id,
+            chatIds: [
+              ...new Set([
+                ...(collection?.chatIds ?? []),
+                ...(runId ? [runId] : []),
+              ]),
+            ],
+            selectedChatId: undefined,
+            draftId: action.id,
+            closed: false,
+          },
+        },
+      };
+      return {
+        ...withHistory,
+        layout: setPanePath(state.layout, pane.id, "/"),
+      };
+    }
+    case "restore": {
+      const existing = state.paneCollections?.[action.paneId];
+      const paneId = action.paneId || state.layout.activeId;
+      const restoredLayout = containsPane(state.layout.root, paneId)
+        ? state.layout
+        : dockPane(
+            state.layout,
+            { type: "pane", id: paneId, path: `/runs/${action.runId}` },
+            state.layout.activeId,
+            "right",
+          );
+      return layoutReducer(
+        {
+          ...state,
+          layout: setActivePane(restoredLayout, paneId),
+          paneCollections: {
+            ...state.paneCollections,
+            [paneId]: {
+              paneId,
+              chatIds: [
+                ...new Set([...(existing?.chatIds ?? []), action.runId]),
+              ],
+              selectedChatId: action.runId,
+              closed: false,
+            },
+          },
+        },
+        { type: "path", id: paneId, path: `/runs/${action.runId}` },
+      );
+    }
     case "split": {
       const layout = splitPane(state.layout, action.id, action.direction);
       // A new pane next to a maximized one would be hidden, so return to the grid.
@@ -98,7 +154,22 @@ export function layoutReducer(
     }
     case "close": {
       const layout = closePane(state.layout, action.id);
-      return layout === state.layout ? state : prune({ ...state, layout });
+      return layout === state.layout
+        ? state
+        : prune({
+            ...state,
+            layout,
+            paneCollections: {
+              ...state.paneCollections,
+              [action.id]: {
+                paneId: action.id,
+                chatIds: state.paneCollections?.[action.id]?.chatIds ?? [],
+                closed: true,
+                selectedChatId:
+                  state.paneCollections?.[action.id]?.selectedChatId,
+              },
+            },
+          });
     }
     case "move": {
       const layout = movePane(
@@ -115,7 +186,36 @@ export function layoutReducer(
     }
     case "path": {
       const layout = setPanePath(state.layout, action.id, action.path);
-      return layout === state.layout ? state : { ...state, layout };
+      const runId = /^\/runs\/([^/]+)/.exec(action.path)?.[1];
+      const previous = state.paneCollections?.[action.id];
+      if (
+        layout === state.layout &&
+        previous?.selectedChatId === runId &&
+        !previous?.closed &&
+        previous
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        layout,
+        paneCollections: {
+          ...state.paneCollections,
+          [action.id]: {
+            ...(action.path === "/" && previous?.selectedChatId
+              ? { draftId: randomId() }
+              : previous?.draftId
+                ? { draftId: previous.draftId }
+                : {}),
+            paneId: action.id,
+            chatIds: runId
+              ? [...new Set([...(previous?.chatIds ?? []), runId])]
+              : (previous?.chatIds ?? []),
+            selectedChatId: runId,
+            closed: false,
+          },
+        },
+      };
     }
     case "sizes": {
       const layout = setSplitSizes(state.layout, action.splitId, action.sizes);

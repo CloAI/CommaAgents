@@ -8,10 +8,7 @@ description: Expose daemon plugin commands and channels through an independent W
 Create a kernel to use its plugins directly. Attach `createDaemonServer` when you want WebSocket access. Stopping the server disconnects clients and cleans their subscriptions; the kernel keeps running until you dispose it separately.
 
 ```ts
-import {
-  createDaemonKernel,
-  createDaemonServer,
-} from "@comma-agents/daemon";
+import { createDaemonKernel, createDaemonServer } from "@comma-agents/daemon";
 
 const daemon = await createDaemonKernel({
   runs: { runsDir: "/tmp/comma-runs" },
@@ -25,19 +22,25 @@ await server.stop();
 await daemon.dispose();
 ```
 
-This server exposes status and [runs](/docs/daemon/server/runs). The daemon CLI starts this kernel and server. Other feature bindings will follow separately. The existing `createDaemon` API continues to use its existing protocol.
+This server exposes the kernel's registered plugin commands and channels, including status, [runs](/docs/daemon/server/runs), providers, and projects. The daemon CLI starts this same kernel and server.
 
 ## CreateDaemonServerOptions
 
 Listener configuration and the kernel whose bindings are exposed.
 
-<AutoTypeTable path="../packages/daemon/src/daemon-server/daemon-server.types.ts" name="CreateDaemonServerOptions" />
+<AutoTypeTable
+  path="../packages/daemon/src/daemon-server/daemon-server.types.ts"
+  name="CreateDaemonServerOptions"
+/>
 
 ## DaemonServer
 
 Controls the WebSocket listener independently of the kernel.
 
-<AutoTypeTable path="../packages/daemon/src/daemon-server/daemon-server.types.ts" name="DaemonServer" />
+<AutoTypeTable
+  path="../packages/daemon/src/daemon-server/daemon-server.types.ts"
+  name="DaemonServer"
+/>
 
 ## Commands
 
@@ -46,12 +49,14 @@ Connect to `/ws` and send JSON text messages. Generate a UUIDv4 with `crypto.ran
 ```ts
 const socket = new WebSocket(server.url);
 socket.addEventListener("open", () => {
-  socket.send(JSON.stringify({
-    type: "command",
-    requestId: crypto.randomUUID(),
-    command: "status.get",
-    arguments: {},
-  }));
+  socket.send(
+    JSON.stringify({
+      type: "command",
+      requestId: crypto.randomUUID(),
+      command: "status.get",
+      arguments: {},
+    }),
+  );
 });
 ```
 
@@ -124,4 +129,7 @@ The server rejects duplicate command or channel names when it is constructed. In
 
 The daemon owns lifecycle transitions through `starting`, `running`, `stopping`, and `stopped`. The status plugin exposes read-only status and notifications.
 
-<AutoTypeTable path="../packages/daemon/src/plugins/status/status.types.ts" name="DaemonStatus" />
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/status/status.types.ts"
+  name="DaemonStatus"
+/>

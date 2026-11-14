@@ -1,6 +1,7 @@
 import { ArrowUp } from "lucide-react";
 import {
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -14,11 +15,14 @@ import type {
 } from "react";
 import { IconButton } from "../../design-system/IconButton";
 import styles from "./ChatInput.module.scss";
+import { ChatPaneContext } from "../../hooks/useChatPane";
 
 /** Submission callback for the local prompt composer. */
 export interface ChatInputProps {
   /** Receive a nonempty prompt with outer whitespace removed; resolving with an error message keeps the draft and shows it. */
   readonly onSubmit: (prompt: string) => void | Promise<string | undefined>;
+  /** Report submission errors to a surrounding notice area instead of showing them below the input. */
+  readonly onSubmissionErrorChange?: (error: string | undefined) => void;
   /** Prevent editing and submitting while the run is unavailable. */
   readonly disabled?: boolean;
   /** Clear a successfully acknowledged message. */
@@ -38,58 +42,116 @@ export interface ChatInputProps {
  */
 export function ChatInput({
   onSubmit,
+  onSubmissionErrorChange,
   disabled = false,
   clearOnSuccess = false,
   placeholder = "Enter your prompt...",
   autoFocus = false,
   actions,
 }: ChatInputProps) {
-  const [draft, setDraft] = useState("");
+  const pane = useContext(ChatPaneContext);
+  const draftKey = pane?.runId
+    ? `comma-agents.draft.run.${pane.runId}`
+    : pane
+      ? `comma-agents.draft.${pane.paneId}${pane.draftId ? `.blank.${pane.draftId}` : ""}`
+      : undefined;
+  const [draft, setDraft] = useState(() => {
+    try {
+      return draftKey ? (window.localStorage.getItem(draftKey) ?? "") : "";
+    } catch {
+      return "";
+    }
+  });
+  useEffect(() => {
+    try {
+      setDraft(draftKey ? (localStorage.getItem(draftKey) ?? "") : "");
+    } catch {
+      setDraft("");
+    }
+  }, [draftKey]);
+  const saveDraft = useCallback(
+    (text: string) => {
+      setDraft(text);
+      if (draftKey) {
+        try {
+          window.localStorage.setItem(draftKey, text);
+        } catch {
+          /* Keep the editable draft when storage is unavailable. */
+        }
+      }
+    },
+    [draftKey],
+  );
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string>();
   const handleChange = useCallback<ChangeEventHandler<HTMLTextAreaElement>>(
     (event) => {
-      setDraft(event.target.value);
+      saveDraft(event.target.value);
     },
-    [],
+    [saveDraft],
   );
   const handleSubmit = useCallback<FormEventHandler<HTMLFormElement>>(
     (event) => {
       event.preventDefault();
       const prompt = draft.trim();
       // Submitting disables the field and Send, so a second press cannot arrive before this state renders.
-      if (!prompt || disabled || submitting) {
+      if (!prompt || disabled || submitting || pane?.interactionBlocked) {
         return;
       }
       setSubmitting(true);
+      pane?.setTransferPending?.(true);
       setSubmissionError(undefined);
-      Promise.resolve(onSubmit(prompt))
+      onSubmissionErrorChange?.(undefined);
+      Promise.resolve()
+        .then(async () => {
+          const result = await onSubmit(prompt);
+          return result || undefined;
+        })
         .then((error) => {
           if (error) {
             setSubmissionError(error);
+            onSubmissionErrorChange?.(error);
           } else if (clearOnSuccess) {
-            setDraft("");
+            saveDraft("");
           }
+        })
+        .catch((failure: unknown) => {
+          const message =
+            failure instanceof Error ? failure.message : String(failure);
+          setSubmissionError(message);
+          onSubmissionErrorChange?.(message);
         })
         .finally(() => {
           setSubmitting(false);
+          pane?.setTransferPending?.(false);
         });
     },
-    [draft, onSubmit, disabled, submitting, clearOnSuccess],
+    [
+      draft,
+      onSubmit,
+      onSubmissionErrorChange,
+      disabled,
+      submitting,
+      clearOnSuccess,
+      saveDraft,
+      pane,
+    ],
   );
 
   return (
     <>
       <ChatInputRender
         draft={draft}
-        disabled={disabled || submitting}
+        disabled={disabled || submitting || pane?.interactionBlocked}
         placeholder={placeholder}
         autoFocus={autoFocus}
         onChange={handleChange}
         onSubmit={handleSubmit}
         actions={actions}
       />
-      {submissionError && <p role="alert">{submissionError}</p>}
+      {!onSubmissionErrorChange && submissionError && (
+        <p role="alert">{submissionError}</p>
+      )}
     </>
   );
 }
@@ -245,6 +307,7 @@ export function ChatInputRender({
         placeholder={placeholder}
         disabled={disabled}
         rows={1}
+        spellCheck
         value={draft}
         onChange={onChange}
         onKeyDown={onKeyDown}

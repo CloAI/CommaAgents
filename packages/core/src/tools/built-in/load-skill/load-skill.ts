@@ -11,7 +11,7 @@ export const loadSkillParams = z.object({
     .string()
     .min(1)
     .describe(
-      "Name of the skill to load. Must match one of the names advertised in the agent's system prompt under '## Available Skills'.",
+      "Name of the skill to load. Use the exact name supplied by search_skills, list_skills, or the user.",
     ),
 });
 
@@ -35,14 +35,13 @@ export function createLoadSkillTool(): ToolDefinition<
   return defineTool<typeof loadSkillParams, LoadSkillData>({
     description: describeTool({
       purpose:
-        "Load the full instructions of a named skill. Skills are reusable instruction bundles (TypeScript conventions, React patterns, review checklists, etc.) advertised in the system prompt header under '## Available Skills'. Load a skill before doing related work so you follow its conventions; do not load skills speculatively.",
+        "Load the full instructions of a named skill. Skills are reusable instruction bundles (TypeScript conventions, React patterns, review checklists, etc.) discoverable through search_skills and list_skills. Load a skill before doing related work so you follow its conventions; do not load skills speculatively.",
       inputs: [
         {
           name: "name",
           type: "string",
           required: true,
-          description:
-            "Identifier of the skill, exactly as listed under '## Available Skills' in your system prompt.",
+          description: "Exact skill name from a discovery result or the user.",
         },
       ],
       outputs:
@@ -51,7 +50,7 @@ export function createLoadSkillTool(): ToolDefinition<
         {
           kind: "not_found",
           description:
-            "No skill is registered under that name. Re-read the '## Available Skills' list and try a name that appears there.",
+            "No skill is registered under that name. Search or list skills and choose a returned exact name.",
         },
         {
           kind: "skill_unavailable",
@@ -91,7 +90,7 @@ export function createLoadSkillTool(): ToolDefinition<
               recoverable: available.length > 0,
               suggestedNextAction:
                 available.length > 0
-                  ? "Re-check the '## Available Skills' list in your system prompt and call load_skill with one of those names."
+                  ? "Use an available skill discovery tool and call load_skill with an exact returned name."
                   : undefined,
             },
           ),

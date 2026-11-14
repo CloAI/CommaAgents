@@ -30,7 +30,7 @@ export function createSandbox(
   const forbiddenGlobs = options.forbiddenGlobs ?? [];
   const read = options.read ?? { default: "allow" };
   const write = options.write ?? { default: "allow" };
-  const trashMetadata = options.trashMetadata;
+  const deletionMetadata = options.deletionMetadata;
 
   const guards = new Map<string, Guard>();
   const sharedPolicies = new Map<string, Policy>();
@@ -59,7 +59,7 @@ export function createSandbox(
         ...(policiesByTool.get(toolName)?.values() ?? []),
       ],
       callbacks,
-      trashMetadata,
+      deletionMetadata,
     );
 
     // Add tool-specific policies on creation

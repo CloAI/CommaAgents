@@ -204,10 +204,10 @@ export function createApplyPatchTool(
       try {
         await commitStagedFiles(stagedFiles, guard.cwd, {
           atomic,
-          trashMetadata: {
+          deletionMetadata: {
             ...(sessionId !== undefined ? { sessionId } : {}),
             agentName,
-            ...guard.trashMetadata,
+            ...guard.deletionMetadata,
           },
         });
       } catch (caughtError) {

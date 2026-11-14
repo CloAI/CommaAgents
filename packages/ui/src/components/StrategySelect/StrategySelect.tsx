@@ -11,6 +11,7 @@ import {
   ORIGIN_TAGS,
   STATUS_PLACEHOLDERS,
 } from "./StrategySelect.constants";
+import styles from "./StrategySelect.module.scss";
 
 /**
  * Show the strategy chosen for new runs and let the user change it.
@@ -66,6 +67,7 @@ export function StrategySelectRender({
   if (!connected) {
     return (
       <span
+        className={styles.waiting}
         role="status"
         aria-label="Daemon connection"
         aria-busy={!showWaiting}

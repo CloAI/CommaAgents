@@ -1,8 +1,8 @@
 import { useId, useState } from "react";
 import { ChevronRight, Wrench } from "lucide-react";
-import { childStatus } from "../../../hooks/runs";
-import type { RunChild } from "../../../hooks/runs";
-import type { RunTool } from "../RunSection.types";
+import { childStatus } from "../../../../hooks/runs";
+import type { RunChild } from "../../../../hooks/runs";
+import type { RunTool } from "../../RunSection.types";
 import { ToolBlock, ToolChildren } from "../ToolBlock";
 import styles from "./ToolGroup.module.scss";
 

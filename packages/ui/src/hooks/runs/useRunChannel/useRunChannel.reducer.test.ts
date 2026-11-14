@@ -284,6 +284,53 @@ describe("selectRunStatus", () => {
     ).toBe("loading");
   });
 
+  it("should display the diagnostic from live errors and restored snapshots", () => {
+    const error = {
+      code: RunErrorCode.EXECUTION_ERROR as const,
+      message: "Agent failed\nCaused by: Provider quota exceeded",
+      metadata: { runId: "run-1" },
+    };
+    const expected = {
+      status: "failed",
+      error:
+        "Run failed (EXECUTION_ERROR): Agent failed\nCaused by: Provider quota exceeded",
+    };
+    expect(
+      selectRunStatus(
+        reduceRunFeed(INITIAL_RUN_FEED, {
+          type: "run.error",
+          data: { runId: "run-1", error },
+        }),
+      ),
+    ).toEqual(expected);
+    expect(
+      selectRunStatus({
+        ...INITIAL_RUN_FEED,
+        snapshot: {
+          ...terminal,
+          outcome: { status: "failed" as RunOutcomeStatus.failed, error },
+        },
+      }),
+    ).toEqual(expected);
+  });
+
+  it("should name missing model roles", () => {
+    expect(
+      selectRunStatus(
+        reduceRunFeed(INITIAL_RUN_FEED, {
+          type: "run.error",
+          data: {
+            runId: "run-1",
+            error: {
+              code: RunErrorCode.MISSING_MODEL_ROLES,
+              metadata: { runId: "run-1", roles: ["default", "reasoning"] },
+            },
+          },
+        }),
+      ).error,
+    ).toContain("@default, @reasoning");
+  });
+
   it("should keep a reported failure when the terminal snapshot follows it", () => {
     const failed = reduceRunFeed(
       { ...INITIAL_RUN_FEED, activeAgents: [activeAgent] },
@@ -292,7 +339,7 @@ describe("selectRunStatus", () => {
         data: {
           runId: "run-1",
           error: {
-            code: RunErrorCode.EXECUTION_ERROR,
+            code: RunErrorCode.EXECUTION_ERROR as const,
             metadata: { runId: "run-1" },
           },
         },

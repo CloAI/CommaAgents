@@ -41,8 +41,9 @@ export function groupNames(
 ): string[] {
   const others = new Set<string>();
   for (const option of options) {
-    if (option.group !== undefined && !groupOrder.includes(option.group))
+    if (option.group !== undefined && !groupOrder.includes(option.group)) {
       others.add(option.group);
+    }
   }
   return [...groupOrder, ...[...others].sort()];
 }

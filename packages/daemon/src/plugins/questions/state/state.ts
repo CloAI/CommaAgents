@@ -22,6 +22,7 @@ export function createQuestionsContext(
     notifications,
     runResources: new Map(),
     pending: new Map(),
+    receipts: new Map(),
     disposed: false,
   };
 }
@@ -43,5 +44,5 @@ export function getPendingQuestions(
         .getRunLineage(pending.request.runId)
         .some((identity) => identity.runId === runId),
     )
-    .map((pending) => pending.request);
+    .map((pending) => structuredClone(pending.request));
 }

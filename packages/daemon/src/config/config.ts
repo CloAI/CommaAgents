@@ -4,6 +4,7 @@ import {
   setDaemonConfigFile,
   setDaemonHost,
   setDaemonInstructionFiles,
+  setDaemonSkills,
   setDaemonModelRoles,
   setDaemonLogFile,
   setDaemonLogLevel,
@@ -12,7 +13,11 @@ import {
   setDaemonRunsDirectory,
 } from "../defaults";
 import type { DaemonConfig } from "./config.types";
-import { readConfigFile, resolveLoggingConfig } from "./config.utils";
+import {
+  readConfigFile,
+  resolveLoggingConfig,
+  resolveSkillsConfig,
+} from "./config.utils";
 
 /** Options for selecting daemon configuration inputs. */
 export interface LoadConfigOptions {
@@ -44,6 +49,8 @@ export function loadDaemonConfig(options?: LoadConfigOptions): DaemonConfig {
 
   // Handle all the file overrides if present, and globally update the values.
   const fileOverrides = readConfigFile(configFile);
+  // Each load resolves skill roots independently so an omitted setting cannot leak a previous file's roots.
+  setDaemonSkills(resolveSkillsConfig(fileOverrides.skills, configFile));
   if (fileOverrides.port !== undefined) {
     setDaemonPort(fileOverrides.port);
   }

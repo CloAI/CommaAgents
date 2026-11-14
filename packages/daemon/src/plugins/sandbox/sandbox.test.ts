@@ -9,7 +9,7 @@ import {
   createMockRunsPlugin,
   directories,
   fakeLoader,
-  repository,
+  createRunDirectory,
 } from "../runs/test.utils";
 import { createSandboxPlugin } from "./sandbox";
 import type {
@@ -23,7 +23,7 @@ function fixture() {
   const sandboxes = new Map<string, Sandbox>();
   const loader = fakeLoader({ loads: [], restored: [] });
   const runs = createMockRunsPlugin({
-    repository: repository(),
+    runsDir: createRunDirectory(),
     async loadStrategy(options) {
       const sandbox = options.strategyInputs.sandbox;
       if (!sandbox) {

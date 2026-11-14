@@ -74,6 +74,11 @@ export interface RunIdentity {
   readonly runId: string;
   readonly parentRunId?: string;
 }
+/** A run that is executing now, with its immediate parent when it is a delegated child. */
+export interface ActiveRun {
+  readonly runId: string;
+  readonly parentRunId?: string;
+}
 /** @internal A pending preparation owns its completion promise. */
 export interface RunPreparingState {
   readonly phase: RunPhase.preparing;
@@ -135,6 +140,7 @@ export interface RunEntry extends RunIdentity {
 export type PluginRunsState = Map<string, RunEntry>;
 /** @internal Private feature state. */
 export interface RunsContext {
+  readonly runsDir: string;
   readonly runs: PluginRunsState;
   readonly operations: Set<string>;
   readonly stagedStrategies: Map<

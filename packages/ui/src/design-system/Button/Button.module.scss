@@ -21,7 +21,8 @@
     background-color var(--motion-duration),
     border-color var(--motion-duration),
     color var(--motion-duration);
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
     background: color-mix(
       in srgb,
       var(--color-primary) 24%,
@@ -38,9 +39,6 @@
     );
     border-color: var(--color-primary);
     color: var(--color-text);
-  }
-  &:focus-visible {
-    outline-offset: 2px;
   }
   &:disabled {
     background: var(--color-surface-raised);

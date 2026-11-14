@@ -8,6 +8,8 @@ import type { Layout } from "./layout.types";
  */
 export function isolateLayoutStorage(seed?: Layout): () => void {
   const previous = localStorage.getItem(LAYOUT_STORAGE_KEY);
+  const previousWorkspaces = localStorage.getItem("comma-agents.workspaces");
+  localStorage.removeItem("comma-agents.workspaces");
   if (seed === undefined) {
     localStorage.removeItem(LAYOUT_STORAGE_KEY);
   } else {
@@ -17,6 +19,11 @@ export function isolateLayoutStorage(seed?: Layout): () => void {
     );
   }
   return () => {
+    if (previousWorkspaces === null) {
+      localStorage.removeItem("comma-agents.workspaces");
+    } else {
+      localStorage.setItem("comma-agents.workspaces", previousWorkspaces);
+    }
     if (previous === null) {
       localStorage.removeItem(LAYOUT_STORAGE_KEY);
     } else {

@@ -18,7 +18,7 @@ import styles from "./NewChat.module.scss";
  */
 export function NewChat() {
   const { paneId } = useChatPane();
-  const { strategyChoices, chooseStrategy } = useLayout();
+  const { strategyChoices, chooseStrategy, setPanePath } = useLayout();
   const strategy = useSelectedStrategy({
     path: strategyChoices[paneId],
     onChange: (path) => chooseStrategy(paneId, path),
@@ -28,18 +28,22 @@ export function NewChat() {
   const { selected } = strategy;
   const lastPrompt = useRef("");
   const handleSubmit = useCallback(
-    (prompt: string) => {
+    async (prompt: string) => {
       lastPrompt.current = prompt;
-      void start(selected, prompt).then(
-        (runId) => runId && navigate(`/runs/${runId}`, { replace: true }),
-      );
+      const runId = await start(selected, prompt);
+      if (runId) {
+        const path = `/runs/${runId}`;
+        setPanePath(paneId, path);
+        navigate(path, { replace: true });
+      }
+      return undefined;
     },
-    [start, selected, navigate],
+    [start, selected, navigate, paneId, setPanePath],
   );
   // Roles are saved on the daemon, so starting the same prompt again now succeeds.
   const handleRolesSaved = useCallback(() => {
     dismissMissingRoles();
-    handleSubmit(lastPrompt.current);
+    void handleSubmit(lastPrompt.current);
   }, [dismissMissingRoles, handleSubmit]);
   return (
     <>
@@ -62,7 +66,7 @@ export function NewChat() {
 /** Submission handler and the content around the prompt composer. */
 export interface NewChatRenderProps {
   /** Receive a submitted prompt. */
-  readonly onSubmit: (prompt: string) => void;
+  readonly onSubmit: (prompt: string) => void | Promise<string | undefined>;
   /** Strategy controls shown above the input. */
   readonly controls?: ReactNode;
   /** Why the last attempt to start a run failed. */

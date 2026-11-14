@@ -1,3 +1,0 @@
-export const DEFAULT_ABSOLUTE_MAX_DEPTH = 32;
-export const DEFAULT_RECURSIVE_DEPTH = 8;
-export const DEFAULT_MAX_ENTRIES = 5_000;

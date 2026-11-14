@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import type { CSSProperties, DragEvent, ReactNode } from "react";
 import { MemoryRouter, useLocation } from "react-router";
 import { useSettings } from "../../hooks/useSettings";
@@ -10,6 +16,11 @@ import { DropZones } from "../DropZones";
 import { ChatPaneHeader } from "./ChatPaneHeader";
 import { paneTitle } from "./ChatPane.utils";
 import styles from "./ChatPane.module.scss";
+import { useOptionalWorkspaces } from "../../hooks/useWorkspaces";
+import { useHost } from "../../hooks/useHost";
+
+const subscribeBrowser = () => () => {};
+const browserSnapshot = () => undefined;
 
 /** The pane to show. */
 export interface ChatPaneProps {
@@ -23,6 +34,51 @@ export interface ChatPaneProps {
  * @returns {React.ReactElement} The pane.
  */
 export function ChatPane({ id }: ChatPaneProps) {
+  const { workspace } = useHost();
+  const workspaces = useOptionalWorkspaces();
+  const snapshot = useSyncExternalStore(
+    workspace?.subscribe ?? subscribeBrowser,
+    workspace?.getSnapshot ?? browserSnapshot,
+  );
+  const dragCancelled = useRef(false);
+  const [transferPending, setTransferPending] = useState(false);
+  const handleTransferPending = useCallback(
+    (pending: boolean) => {
+      setTransferPending(pending);
+      workspace?.send({ type: "busy", paneId: id, pending });
+    },
+    [id, workspace],
+  );
+  const [centered, setCentered] = useState(() => {
+    try {
+      return (
+        window.localStorage.getItem(`comma-agents.centered.${id}`) === "true"
+      );
+    } catch {
+      return false;
+    }
+  });
+  const toggleWidth = () => {
+    const next = !centered;
+    setCentered(next);
+    try {
+      window.localStorage.setItem(`comma-agents.centered.${id}`, String(next));
+    } catch {
+      /* Keep the visual preference for this session. */
+    }
+  };
+  useEffect(() => {
+    if (!workspace) {
+      return;
+    }
+    const cancelDrag = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        dragCancelled.current = true;
+      }
+    };
+    window.addEventListener("keydown", cancelDrag, true);
+    return () => window.removeEventListener("keydown", cancelDrag, true);
+  }, [workspace]);
   const { settings, saveSettings } = useSettings();
   const [colorError, setColorError] = useState<string>();
   const handleHueChange = (hue: number | undefined) => {
@@ -37,6 +93,8 @@ export function ChatPane({ id }: ChatPaneProps) {
   };
   const {
     layout,
+    newChat,
+    paneCollections,
     paneCount,
     canSplit,
     maximizedId,
@@ -52,7 +110,14 @@ export function ChatPane({ id }: ChatPaneProps) {
     listPanes(layout.root).find((pane) => pane.id === id)?.path ?? "/";
 
   // The pane's router starts at the saved route and is the source of truth afterward.
-  const [initialPath] = useState(path);
+  const currentChat = workspaces?.chats.find(
+    (chat) => `/runs/${chat.runId}` === path,
+  );
+  const canMarkDone =
+    currentChat &&
+    !currentChat.attention.running &&
+    !currentChat.attention.question &&
+    !currentChat.attention.permission;
   const maximized = maximizedId === id;
   const hasSiblings = paneCount > 1;
 
@@ -74,35 +139,84 @@ export function ChatPane({ id }: ChatPaneProps) {
       event.dataTransfer.effectAllowed = "move";
       // Browsers only start a drag that carries data.
       event.dataTransfer.setData("text/plain", id);
-      setDragging(id);
+      dragCancelled.current = false;
+      if (workspace) {
+        workspace.send({ type: "drag", paneId: id });
+      } else {
+        setDragging(id);
+      }
     },
-    [setDragging, id],
+    [setDragging, id, workspace],
   );
   const handleDragEnd = useCallback(
-    () => setDragging(undefined),
-    [setDragging],
+    (event: DragEvent<HTMLElement>) => {
+      if (workspace) {
+        workspace.send({
+          type: "endDrag",
+          paneId: id,
+          x: Math.round(event.screenX),
+          y: Math.round(event.screenY),
+          cancelled:
+            dragCancelled.current ||
+            (event.screenX === 0 && event.screenY === 0),
+        });
+      } else {
+        setDragging(undefined);
+      }
+    },
+    [setDragging, workspace, id],
   );
   const handleDrop = useCallback(
     (zone: DropZone) => {
+      if (workspace) {
+        workspace.send({ type: "dock", targetId: id, zone });
+        return;
+      }
       if (draggingId !== undefined) {
         movePane(draggingId, id, zone);
       }
       setDragging(undefined);
     },
-    [draggingId, movePane, setDragging, id],
+    [draggingId, movePane, setDragging, id, workspace],
   );
 
   return (
     <ChatPaneRender
+      onNewChat={
+        transferPending || workspaces?.pending
+          ? undefined
+          : () => {
+              activatePane(id);
+              newChat();
+            }
+      }
+      onMarkDone={
+        canMarkDone
+          ? () => void workspaces?.archiveChat(currentChat.runId)
+          : undefined
+      }
       title={paneTitle(path)}
+      centered={centered}
+      onToggleWidth={toggleWidth}
+      detached={snapshot?.detached}
+      transferPending={transferPending || snapshot?.closing}
+      onPopOut={
+        workspace
+          ? () => workspace.send({ type: "detach", paneId: id })
+          : undefined
+      }
       hue={settings.paneHues?.[id]}
       onHueChange={handleHueChange}
       colorError={colorError}
       active={layout.activeId === id}
       maximized={maximized}
       hasSiblings={hasSiblings}
-      canSplit={canSplit}
-      draggable={hasSiblings && !maximized}
+      canSplit={canSplit && !snapshot?.closing}
+      draggable={
+        !transferPending &&
+        !snapshot?.closing &&
+        (workspace ? true : hasSiblings && !maximized)
+      }
       onSplit={handleSplit}
       onToggleMaximize={handleToggleMaximize}
       onClose={handleClose}
@@ -111,12 +225,23 @@ export function ChatPane({ id }: ChatPaneProps) {
       onDragEnd={handleDragEnd}
       overlay={
         draggingId !== undefined && draggingId !== id ? (
-          <DropZones onDrop={handleDrop} />
+          <DropZones onDrop={handleDrop} selectable={snapshot?.selectingDock} />
         ) : undefined
       }
     >
-      <ChatPaneContext.Provider value={{ paneId: id }}>
-        <MemoryRouter initialEntries={[initialPath]}>
+      <ChatPaneContext.Provider
+        value={{
+          paneId: id,
+          runId: /^\/runs\/([^/]+)/.exec(path)?.[1],
+          draftId: paneCollections?.[id]?.draftId,
+          setTransferPending: handleTransferPending,
+          interactionBlocked: snapshot?.closing,
+        }}
+      >
+        <MemoryRouter
+          key={`${path}:${path === "/" ? (paneCollections?.[id]?.draftId ?? "") : ""}`}
+          initialEntries={[path]}
+        >
           <LocationReporter paneId={id} />
           <ChatPaneRoutes />
         </MemoryRouter>
@@ -142,6 +267,18 @@ function LocationReporter({ paneId }: { readonly paneId: string }) {
 
 /** Presentation state and handlers for a pane. */
 export interface ChatPaneRenderProps {
+  readonly onNewChat?: () => void;
+  readonly onMarkDone?: () => void;
+  /** Wait for an acknowledged submission before moving between renderers. */
+  readonly transferPending?: boolean;
+  /** Host-provided action to move this chat into a new window. */
+  readonly onPopOut?: () => void;
+  /** Whether this chat is in a detached native window. */
+  readonly detached?: boolean;
+  /** Persisted reading width; previews can own it locally. */
+  readonly centered?: boolean;
+  /** Update the persisted reading width. */
+  readonly onToggleWidth?: () => void;
   /** Saved hue for this pane; unset uses the main theme. */
   readonly hue?: number;
   /** Persist this pane's color or restore the main theme. */
@@ -184,6 +321,13 @@ export interface ChatPaneRenderProps {
  * @returns {React.ReactElement} The pane frame.
  */
 export function ChatPaneRender({
+  onNewChat,
+  onMarkDone,
+  transferPending,
+  onPopOut,
+  detached,
+  centered: savedCentered,
+  onToggleWidth,
   hue,
   onHueChange,
   colorError,
@@ -202,7 +346,8 @@ export function ChatPaneRender({
   overlay,
   children,
 }: ChatPaneRenderProps) {
-  const [centered, setCentered] = useState(false);
+  const [localCentered, setCentered] = useState(false);
+  const centered = savedCentered ?? localCentered;
 
   return (
     // A group, not a landmark: panes repeat and may share a title.
@@ -219,7 +364,12 @@ export function ChatPaneRender({
       onFocusCapture={onActivate}
     >
       <ChatPaneHeader
+        onNewChat={onNewChat}
+        onMarkDone={onMarkDone}
         hue={hue}
+        onPopOut={onPopOut}
+        detached={detached}
+        transferPending={transferPending}
         onHueChange={onHueChange}
         colorError={colorError}
         active={active && hasSiblings}
@@ -229,7 +379,7 @@ export function ChatPaneRender({
         hasSiblings={hasSiblings}
         canSplit={canSplit}
         draggable={draggable}
-        onToggleWidth={() => setCentered((value) => !value)}
+        onToggleWidth={onToggleWidth ?? (() => setCentered((value) => !value))}
         onSplit={onSplit}
         onToggleMaximize={onToggleMaximize}
         onClose={onClose}

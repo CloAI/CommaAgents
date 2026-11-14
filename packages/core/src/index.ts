@@ -125,13 +125,13 @@ export {
   getHubDirectory,
   getPackagesDirectory,
   getProjectAuditDirectory,
+  findCommaProjectRoot,
   getProjectDirectory,
   getProjectMcpConfigPath,
   getProjectSkillsDirectory,
   getProjectStrategiesDirectory,
   getProviderInstallDirectory,
   getStrategiesDirectory,
-  getTrashDirectory,
   resetCoreLocationOverrides,
   setApplicationDataDirectory,
   setCatalogCachePath,
@@ -152,7 +152,6 @@ export {
   DEFAULT_PROJECT_DIRECTORY_NAME,
   DEFAULT_PROVIDERS_DIRECTORY_NAME,
   DEFAULT_STRATEGIES_DIRECTORY_NAME,
-  DEFAULT_TRASH_DIRECTORY_NAME,
   PROCESS_ENV_COMMA_AGENTS_CATALOG_CACHE_FILENAME,
   PROCESS_ENV_COMMA_AGENTS_CREDENTIALS_FILENAME,
   PROCESS_ENV_COMMA_AGENTS_DATA_DIRECTORY,
@@ -344,11 +343,11 @@ export type {
   ApplyPatchToolConfig,
 } from "./tools/built-in/apply-patch";
 export { createApplyPatchTool } from "./tools/built-in/apply-patch";
-export type { AskQuestionData } from "./tools/built-in/ask-question";
+export type { AskQuestionsData } from "./tools/built-in/ask-questions";
 export {
-  askQuestionParams,
-  createAskQuestionTool,
-} from "./tools/built-in/ask-question";
+  askQuestionsParams,
+  createAskQuestionsTool,
+} from "./tools/built-in/ask-questions";
 export type {
   CreateFileData,
   CreateFileToolConfig,
@@ -402,12 +401,6 @@ export type {
 } from "./tools/built-in/request-strategy-switch";
 export { createRequestStrategySwitchTool } from "./tools/built-in/request-strategy-switch";
 export type {
-  ListDirectoryData,
-  ListDirectoryEntry,
-  ListDirectoryToolConfig,
-} from "./tools/built-in/list-directory";
-export { createListDirectoryTool } from "./tools/built-in/list-directory";
-export type {
   ListSkillsData,
   ListSkillsEntry,
 } from "./tools/built-in/list-skills";
@@ -440,11 +433,11 @@ export type {
 } from "./tools/built-in/run-command";
 export { createRunCommandTool } from "./tools/built-in/run-command";
 export type {
-  SearchFilesData,
-  SearchFilesMatch,
-  SearchFilesToolConfig,
-} from "./tools/built-in/search-files";
-export { createSearchFilesTool } from "./tools/built-in/search-files";
+  GrepData,
+  GrepMatch,
+  GrepToolConfig,
+} from "./tools/built-in/grep";
+export { createGrepTool } from "./tools/built-in/grep";
 export {
   createTodoAddTool,
   createTodoClearTool,
@@ -471,19 +464,38 @@ export {
   unregisterTool,
 } from "./tools/tool.registry";
 export type {
+  FileSearchIssue,
   ToolContext,
   ToolDefinition as ToolDef,
   ToolResult,
 } from "./tools/tool.types";
 
 export {
-  clearTrash,
-  listTrash,
-  moveToTrash,
-  restoreFromTrash,
-  trashWorkspaceDir,
-} from "./tools/io";
-export type { QuestionRequester } from "./tools/tool.types";
+  clearDeletedFiles,
+  listDeletedFiles,
+  deleteFile,
+  restoreDeletedFile,
+  getDeletedFilesDirectory,
+} from "./tools/built-in/delete-file/deletion";
+export {
+  QuestionFieldSchema,
+  QuestionSchema,
+  QuestionsSchema,
+  QuestionsResponseSchema,
+  validateQuestionsResponse,
+} from "./questions";
+export type {
+  Question,
+  QuestionField,
+  Questionnaire,
+  QuestionsInput,
+  QuestionsRequest,
+  QuestionsRequester,
+  QuestionsResponse,
+  QuestionAnswer,
+  QuestionValue,
+  QuestionIssue,
+} from "./questions";
 
 export {
   getProviderSettings,
@@ -562,3 +574,31 @@ export type {
   TinfoilPrivacyOptions,
   TinfoilMeasurementPins,
 } from "./model/providers/tinfoil/tinfoil.types";
+
+export type {
+  DeletedFileMetadata,
+  DeletedFileEntry,
+  SandboxDeletionMetadata,
+  DeleteFileOptions,
+  RestoreDeletedFileOptions,
+} from "./tools/built-in/delete-file/deletion";
+
+export { createSearchSkillsTool } from "./tools/built-in/search-skills";
+
+export {
+  loadSkills,
+  createSkillRegistry,
+  buildSkillsPromptHeader,
+  searchSkills,
+} from "./skills";
+export type {
+  Skill,
+  SkillMetadata,
+  SkillRegistry,
+  SkillSummary,
+  SkillLoadResult,
+  SkillLoadWarning,
+  LoadSkillsOptions,
+  SkillSearchOptions,
+  SkillSearchResult,
+} from "./skills";

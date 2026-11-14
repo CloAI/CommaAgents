@@ -1,0 +1,110 @@
+.questionCollection {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-compact);
+  line-height: var(--line-height-compact);
+
+  .header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .tool {
+    color: var(--color-muted);
+  }
+
+  .pager {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .question {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+
+    button[aria-pressed="true"] {
+      border-color: var(--color-warning);
+    }
+  }
+
+  .field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+
+    legend {
+      padding: 0 var(--space-1);
+    }
+    p {
+      margin: 0;
+      white-space: pre-wrap;
+    }
+  }
+
+  .option {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    cursor: pointer;
+
+    &[data-recommended] {
+      border-color: var(--color-warning);
+    }
+    input {
+      flex: none;
+      accent-color: var(--color-warning);
+    }
+    span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    small {
+      display: block;
+      color: var(--color-muted);
+    }
+  }
+
+  .recommendation {
+    margin: 0;
+    color: var(--color-muted);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+
+    button {
+      margin-top: var(--space-1);
+    }
+  }
+
+  .sliderLabels {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    color: var(--color-muted);
+  }
+}

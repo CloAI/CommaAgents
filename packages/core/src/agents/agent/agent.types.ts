@@ -28,7 +28,7 @@ import type { SkillRegistry } from "../../skills/skills.types";
 import type { SubagentTarget } from "../../tools/built-in/delegate/delegate.types";
 import type { StrategySwitchHandle } from "../../tools/built-in/request-strategy-switch/request-strategy-switch.types";
 import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
-import type { QuestionRequester } from "../../tools/tool.types";
+import type { QuestionsRequester } from "../../questions";
 import type { InputCollector } from "../built-in/user/user-agent.types";
 import type {
   PrivacyRequirements,
@@ -75,7 +75,7 @@ export interface AgentRuntime {
   readonly messageId?: string;
   /** Access controls applied to tools invoked by this agent. */
   readonly sandbox?: Sandbox;
-  /** Skills available to the `list_skills` and `load_skill` tools. */
+  /** Skills available to the search, list, and load skill tools. */
   readonly skillRegistry?: SkillRegistry;
   /** Identifier shared with tools for the current strategy invocation. */
   readonly runId?: string;
@@ -86,7 +86,7 @@ export interface AgentRuntime {
   /** Workspace language service available to language-aware tools. */
   readonly languageService?: LanguageService;
   /** Callback used by tools that request clarification from the user. */
-  readonly questionRequester?: QuestionRequester;
+  readonly questionsRequester?: QuestionsRequester;
   /** Connected MCP tools available to this agent for the current run. */
   readonly mcpTools?: Readonly<ToolSet>;
   /** Subagent strategies this agent may use through the `delegate` tool. */

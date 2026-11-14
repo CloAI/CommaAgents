@@ -1,4 +1,4 @@
-/** Stable run failures; descriptions are generated rather than persisted. */
+/** Stable run failure categories. */
 export enum RunErrorCode {
   RUN_NOT_FOUND = "RUN_NOT_FOUND",
   RUN_BUSY = "RUN_BUSY",
@@ -25,8 +25,10 @@ export interface RunInputError {
   readonly code: RunErrorCode.INPUT_NOT_FOUND;
   readonly metadata: { readonly runId: string; readonly inputId: string };
 }
-/** A storage or runtime failure whose diagnostic is logged separately. */
+/** A storage or runtime failure with optional diagnostic text. */
 export interface RunOperationError {
+  /** Original failure message and nested causes, without stack traces. */
+  readonly message?: string;
   readonly code:
     | RunErrorCode.PREPARATION_ERROR
     | RunErrorCode.EXECUTION_ERROR
@@ -46,7 +48,7 @@ export interface RunMissingModelRolesError {
 export interface RunArgumentError {
   readonly code: RunErrorCode.INVALID_ARGUMENTS | RunErrorCode.INVALID_CURSOR;
 }
-/** Persistable failure data without repeated human-readable descriptions. */
+/** Persistable failure data with diagnostic text when available. */
 export type RunError =
   | RunRequestError
   | RunInputError

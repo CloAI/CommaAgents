@@ -26,6 +26,6 @@ export const deleteFileParams = z.object({
     .optional()
     .describe(
       "When true, the file is unlinked directly with no recovery path. When false (default), " +
-        "the file is moved to a workspace-scoped trash bucket under the OS temp directory.",
+        "the file is moved to a workspace-scoped trash bucket under the application data directory.",
     ),
 });

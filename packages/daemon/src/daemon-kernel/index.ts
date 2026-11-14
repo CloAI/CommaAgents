@@ -80,10 +80,14 @@ export type {
 export type {
   CreateSkillsPluginOptions,
   SkillsPlugin,
+  SkillsWorkspaceOptions,
+  SkillsListResult,
+  RunSkillsResult,
 } from "../plugins/skills";
 export type {
   CreateQuestionsPluginOptions,
   QuestionsPlugin,
+  QuestionsSubmissionResult,
   QuestionsNotifications,
   QuestionRequested,
 } from "../plugins/questions";
@@ -117,3 +121,6 @@ export type {
 
 export { createCorePlugin } from "../plugins/core";
 export type { CorePlugin, ProvidersSnapshot } from "../plugins/core";
+
+export { createProjectsPlugin, GENERAL_PROJECT_ID } from "../plugins/projects";
+export type { ProjectsPlugin, Project, ProjectChat, ProjectChatStatus, ProjectCatalog, CreateProjectOptions, CreateProjectResult, CreateProjectsPluginOptions, ChatAttention, ProjectArchivePage, AssignProjectChatOptions, ProjectActivityOptions, ArchiveProjectChatOptions, SearchProjectArchiveOptions } from "../plugins/projects";

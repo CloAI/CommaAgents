@@ -205,3 +205,34 @@ export const ChangesAndResetsThePaneColor: Story = {
     await waitFor(() => expect(popout).not.toBeVisible());
   },
 };
+
+export const DesktopPopOut: Story = {
+  args: { hasSiblings: true, onPopOut: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.queryByRole("button", { name: "Full screen" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Move to new window" }),
+    );
+    await expect(args.onPopOut).toHaveBeenCalledOnce();
+  },
+};
+
+export const DetachedChat: Story = {
+  args: { detached: true, canSplit: true, onPopOut: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "Split vertical" }),
+    ).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", { name: "Split horizontal" }),
+    ).toBeEnabled();
+    await expect(
+      canvas.queryByRole("button", { name: "Move to new window" }),
+    ).not.toBeInTheDocument();
+    await expect(args.onPopOut).not.toHaveBeenCalled();
+  },
+};

@@ -27,7 +27,8 @@
   background: transparent;
   color: var(--color-muted);
   font-weight: 400;
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
     background: var(--color-surface-raised);
     color: var(--color-text);
   }
@@ -35,9 +36,6 @@
     background: var(--color-surface-raised);
     border-inline-start-color: var(--color-primary);
     color: var(--color-primary);
-  }
-  &:focus-visible {
-    outline-offset: -2px;
   }
 }
 .sections,

@@ -31,8 +31,9 @@
     background-color var(--motion-duration),
     color var(--motion-duration);
   &:hover:not(:disabled),
+  &:focus-visible:not(:disabled),
   &[aria-expanded="true"] {
-    background: var(--select-surface);
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
     color: var(--color-text);
   }
   &:disabled {
@@ -114,7 +115,8 @@
   font-size: var(--font-size-small);
   line-height: 1.6;
   cursor: pointer;
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
     color: var(--color-text);
   }
   &[aria-checked="true"] {

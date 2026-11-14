@@ -1,38 +1,20 @@
-import { compileGlob } from "../../../glob/glob";
-import { sep } from "node:path";
 import type { GlobData } from "./glob.types";
 
-export function toForwardSlash(pathString: string): string {
-  return sep === "/" ? pathString : pathString.split(sep).join("/");
-}
-
-export function matchesAnyGlob(
-  relPath: string,
-  patterns: readonly string[],
-): boolean {
-  for (const pattern of patterns) {
-    if (compileGlob(pattern)(relPath)) {
-      return true;
-    }
-  }
-  return false;
-}
-
+/**
+ * Format paths with explicit completion information.
+ * @param {GlobData} data - Matched entries and completeness information.
+ * @returns {string} Model-facing paths and completion summary.
+ */
 export function formatGlobResults(data: GlobData): string {
-  if (data.matches.length === 0) {
-    return `No matches for glob "${data.pattern}" under "${data.root}".`;
-  }
-
-  const lines = data.matches.map((match) => {
-    const suffix = match.type === "directory" ? "/" : "";
-    return `  ${match.path}${suffix} (${match.type})`;
-  });
-
-  const header = `Matched ${data.matches.length} entr${
-    data.matches.length === 1 ? "y" : "ies"
-  } for glob "${data.pattern}" under "${data.root}"${
-    data.truncated ? " (truncated)" : ""
-  }:`;
-
-  return `${header}\n${lines.join("\n")}`;
+  const status = data.truncated
+    ? `Incomplete: ${data.incompleteReasons.join(", ")}. Narrow the pattern or root.`
+    : "Complete.";
+  const header = `${data.matches.length} matches. ${status}`;
+  return [
+    header,
+    ...data.matches.map(
+      (match) =>
+        `${match.path}${match.type === "directory" ? "/" : ""} (${match.type})`,
+    ),
+  ].join("\n");
 }

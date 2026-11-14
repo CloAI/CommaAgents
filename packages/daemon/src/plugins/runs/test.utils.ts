@@ -4,9 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentCallResult, LoadedStrategy } from "@comma-agents/core";
 import { resetModelRegistry } from "../../../../core/src/model/model";
-import { createRunRepository } from "../../daemon-run-state/run-repository";
-import type { RunRepository } from "../../daemon-run-state/run-repository";
-import * as repositoryModule from "../../daemon-run-state/run-repository/run-repository";
 import * as runLoader from "./preparation/loading/strategy-loader";
 import { createRunsPlugin } from "./runs";
 
@@ -23,25 +20,22 @@ export function cleanupRunFixtures(): void {
   }
 }
 
-export function repository() {
+export function createRunDirectory() {
   const runsDir = mkdtempSync(join(tmpdir(), "runs-plugin-"));
   directories.push(runsDir);
-  return createRunRepository({ runsDir });
+  return runsDir;
 }
 
 export function createMockRunsPlugin(options: {
-  readonly repository: RunRepository;
+  readonly runsDir: string;
   readonly loadStrategy: typeof runLoader.loadRunStrategy;
 }) {
   dependencyMocks.push(
-    vi.spyOn(repositoryModule, "createRunRepository").mockReturnValue(
-      options.repository,
-    ),
-    vi.spyOn(runLoader, "loadRunStrategy").mockImplementation(
-      options.loadStrategy,
-    ),
+    vi
+      .spyOn(runLoader, "loadRunStrategy")
+      .mockImplementation(options.loadStrategy),
   );
-  return createRunsPlugin({ runsDir: directories.at(-1)! });
+  return createRunsPlugin({ runsDir: options.runsDir });
 }
 
 function result(text: string): AgentCallResult {

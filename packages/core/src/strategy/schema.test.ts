@@ -696,8 +696,7 @@ describe("BUILT_IN_TOOL_NAMES", () => {
   it("contains exactly the expected tool names", () => {
     expect([...BUILT_IN_TOOL_NAMES]).toEqual([
       "read_file",
-      "list_directory",
-      "search_files",
+      "grep",
       "glob",
       "create_file",
       "write_file",
@@ -723,7 +722,7 @@ describe("BUILT_IN_TOOL_NAMES", () => {
       "todo_get_next",
       "todo_remove",
       "todo_clear",
-      "ask_question",
+      "ask_questions",
       "lsp_request",
     ]);
   });

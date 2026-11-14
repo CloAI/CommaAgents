@@ -1,3 +1,4 @@
+import type { PluginCommandMap } from "../../daemon-server/messages/messages.contracts.types";
 import { describe, expect, it } from "vitest";
 import { createStatusPlugin } from "./status";
 
@@ -55,4 +56,15 @@ describe("createStatusPlugin", () => {
     expect(messages.length).toBe(1);
     await plugin.dispose();
   });
+});
+
+type StatusCommands = PluginCommandMap<{
+  status: ReturnType<typeof createStatusPlugin>["plugin"];
+}>;
+
+it("should preserve the status result contract", () => {
+  // @ts-expect-error Status responses retain their lifecycle phase union.
+  const invalidPhase: StatusCommands["status.get"]["result"]["phase"] =
+    "invalid";
+  void invalidPhase;
 });

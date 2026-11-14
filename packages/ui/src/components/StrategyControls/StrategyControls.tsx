@@ -1,3 +1,6 @@
+import { Mic, Paperclip } from "lucide-react";
+import type { ReactNode } from "react";
+import { IconButton } from "../../design-system/IconButton";
 import type { SelectedStrategy } from "../../hooks/useSelectedStrategy";
 import { useDaemonConnectionStatus } from "../../hooks/useCommaAgentsDaemon";
 import { useStrategyModelRoles } from "../../hooks/useStrategyModelRoles";
@@ -23,15 +26,54 @@ export function StrategyControls({
   const binding = useStrategyModelRoles(selected?.path);
   const connected = useDaemonConnectionStatus() === "connected";
   return (
+    <StrategyControlsRender
+      models={
+        <StrategyModels strategyPath={selected?.path} binding={binding} />
+      }
+      selector={
+        <StrategySelectRender
+          connected={connected}
+          status={status}
+          strategies={strategies}
+          selected={selected}
+          onSelect={select}
+        />
+      }
+    />
+  );
+}
+
+/** Presentation slots for the strategy toolbar. */
+export interface StrategyControlsRenderProps {
+  /** Strategy picker shown at the start of the toolbar. */
+  readonly selector: ReactNode;
+  /** Model role controls beside the strategy picker. */
+  readonly models?: ReactNode;
+}
+
+/**
+ * Render strategy choices and placeholders for future composer actions.
+ * @param {StrategyControlsRenderProps} props - Strategy and model control slots.
+ * @returns {React.ReactElement} The strategy toolbar.
+ */
+export function StrategyControlsRender({
+  selector,
+  models,
+}: StrategyControlsRenderProps) {
+  return (
     <div className={styles.controls}>
-      <StrategySelectRender
-        connected={connected}
-        status={status}
-        strategies={strategies}
-        selected={selected}
-        onSelect={select}
-      />
-      <StrategyModels strategyPath={selected?.path} binding={binding} />
+      <div className={styles.selection}>
+        {selector}
+        {models}
+      </div>
+      <div className={styles.actions}>
+        <IconButton label="Attach file (coming soon)" disabled>
+          <Paperclip />
+        </IconButton>
+        <IconButton label="Dictation (coming soon)" disabled>
+          <Mic />
+        </IconButton>
+      </div>
     </div>
   );
 }

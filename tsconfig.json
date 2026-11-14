@@ -4,6 +4,9 @@
       "@comma-agents/core": [
         "./packages/core/src/index.ts"
       ],
+      "@comma-agents/core/questions": [
+        "./packages/core/src/questions/index.ts"
+      ],
       "@comma-agents/core/hub": [
         "./packages/core/src/hub/index.ts"
       ],

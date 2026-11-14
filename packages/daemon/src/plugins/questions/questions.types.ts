@@ -1,3 +1,4 @@
+import type { QuestionsResponse } from "@comma-agents/core";
 import type { NotifyingPlugin } from "../../daemon-plugin";
 import type { RunsPlugin } from "../runs";
 import type {
@@ -19,8 +20,21 @@ export interface QuestionsPlugin extends NotifyingPlugin<
   "questions",
   QuestionsNotifications
 > {
-  /** Answer a question belonging to this execution. Returns false for stale or mismatched requests. */
-  resolveQuestion(runId: string, requestId: string, response: string): boolean;
+  /** Atomically complete one questionnaire, replaying an identical successful submission safely. */
+  submitAnswers(
+    runId: string,
+    requestId: string,
+    submissionId: string,
+    response: QuestionsResponse,
+  ): QuestionsSubmissionResult;
   /** Read unresolved questions for this execution and its descendants. */
   getPendingQuestions(runId: string): readonly QuestionRequested[];
+}
+
+/** Receipt for an accepted complete questionnaire response. */
+export interface QuestionsSubmissionResult {
+  /** The complete response has been accepted. */
+  readonly accepted: true;
+  /** Whether this repeats the same successful submission. */
+  readonly replayed: boolean;
 }

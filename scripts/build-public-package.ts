@@ -30,6 +30,7 @@ const PACKAGE_CONFIGS: ReadonlyArray<PublicPackageConfig> = [
       "src/skills/index.ts",
       "src/mcp/index.ts",
       "src/language/index.ts",
+      "src/questions/index.ts",
     ],
   },
   {

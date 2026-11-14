@@ -7,7 +7,7 @@ import {
   createMockRunsPlugin,
   fakeLoader,
   directories,
-  repository,
+  createRunDirectory,
 } from "../../../test.utils";
 import type { RunsChannelMessage } from "./runs.types";
 import * as storageModule from "../../../state/storage/storage";
@@ -18,22 +18,22 @@ afterEach(cleanupRunFixtures);
 describe("runs channel initialization", () => {
   it("should read history once and deliver completed messages that arrive during the read", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const prepared = await runs.prepareRun({
       configuration: { strategyPath: "example.json" },
     });
     const getHistory = runs.getHistory;
-    const reading = vi.spyOn(runs, "getHistory").mockImplementationOnce(
-      async (runId, options) => {
+    const reading = vi
+      .spyOn(runs, "getHistory")
+      .mockImplementationOnce(async (runId, options) => {
         const stale = await getHistory(runId, options);
         await runs.startRun(runId, "during hydration").completion;
         await runs.prepareRun({ runId });
         await runs.startRun(runId, "next execution").completion;
         return stale;
-      },
-    );
+      });
     const messages: RunsChannelMessage[] = [];
     const controller = new AbortController();
     try {
@@ -98,19 +98,19 @@ describe("runs channel initialization", () => {
 
   it("should omit buffered text and final outputs already represented by history", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const prepared = await runs.prepareRun({
       configuration: { strategyPath: "example.json" },
     });
     const getHistory = runs.getHistory;
-    const reading = vi.spyOn(runs, "getHistory").mockImplementationOnce(
-      async (runId, options) => {
+    const reading = vi
+      .spyOn(runs, "getHistory")
+      .mockImplementationOnce(async (runId, options) => {
         await runs.startRun(runId, "already saved").completion;
         return getHistory(runId, options);
-      },
-    );
+      });
     const messages: RunsChannelMessage[] = [];
     const controller = new AbortController();
     try {
@@ -152,7 +152,7 @@ describe("runs channel initialization", () => {
   it("should connect during streaming and hand current text over to subsequent live updates", async () => {
     const loader = fakeLoader({ loads: [], restored: [] });
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       async loadStrategy(options) {
         const strategy = await loader(options);
         return {
@@ -187,14 +187,14 @@ describe("runs channel initialization", () => {
     });
     const getHistory = runs.getHistory;
     let execution: ReturnType<typeof runs.startRun> | undefined;
-    const reading = vi.spyOn(runs, "getHistory").mockImplementationOnce(
-      async (runId, options) => {
+    const reading = vi
+      .spyOn(runs, "getHistory")
+      .mockImplementationOnce(async (runId, options) => {
         const page = await getHistory(runId, options);
         execution = runs.startRun(runId, "answer");
         await streamed.promise;
         return page;
-      },
-    );
+      });
     const messages: RunsChannelMessage[] = [];
     const controller = new AbortController();
     try {
@@ -250,20 +250,22 @@ describe("runs channel initialization", () => {
   });
 
   it("should open without waiting for a pending conversation write", async () => {
-    const legacy = repository();
+    const runsDir = createRunDirectory();
     const backing = storageModule.createRunStorage(directories.at(-1)!);
     const saving = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const storage = vi.spyOn(storageModule, "createRunStorage").mockReturnValue({
-      ...backing,
-      async append(runId, event) {
-        saving.resolve();
-        await release.promise;
-        await backing.append(runId, event);
-      },
-    });
+    const storage = vi
+      .spyOn(storageModule, "createRunStorage")
+      .mockReturnValue({
+        ...backing,
+        async append(runId, event) {
+          saving.resolve();
+          await release.promise;
+          await backing.append(runId, event);
+        },
+      });
     const runs = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     let execution: ReturnType<typeof runs.startRun> | undefined;
@@ -296,9 +298,9 @@ describe("runs channel initialization", () => {
   });
 
   it("should let two clients inspect an archived run and follow a later preparation", async () => {
-    const legacy = repository();
+    const runsDir = createRunDirectory();
     const original = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     await original.prepareRun({
@@ -311,7 +313,7 @@ describe("runs channel initialization", () => {
     const saved = readFileSync(path, "utf8");
     const observed = { loads: [] as string[], restored: [] as string[][] };
     const runs = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader(observed),
     });
     const clients: RunsChannelMessage[][] = [[], []];
@@ -361,7 +363,7 @@ describe("runs channel initialization", () => {
 
   it("should release a listener acquired after cancellation and stop registering listeners", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const prepared = await runs.prepareRun({
@@ -370,16 +372,15 @@ describe("runs channel initialization", () => {
     const registering = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
     let cleanups = 0;
-    const subscribing = vi.spyOn(
-      runs.notifications,
-      "subscribe",
-    ).mockImplementationOnce(async () => {
-      registering.resolve();
-      await release.promise;
-      return () => {
-        cleanups++;
-      };
-    });
+    const subscribing = vi
+      .spyOn(runs.notifications, "subscribe")
+      .mockImplementationOnce(async () => {
+        registering.resolve();
+        await release.promise;
+        return () => {
+          cleanups++;
+        };
+      });
     const controller = new AbortController();
     try {
       const opening = runs.server!.channels![0]!.open(

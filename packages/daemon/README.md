@@ -35,7 +35,7 @@ socket.addEventListener("message", (event) => {
 
 `ArgumentsSchema` is also exported for validating JSON argument objects before sending requests. Binding-specific argument types come from the command and channel maps.
 
-Command and channel contracts follow the built-in plugins' registered bindings. The main package entry point targets Bun; browser applications should use `/protocol`.
+Command and channel contracts follow the built-in plugins' registered bindings. The main package entry point targets Node.js; browser applications should use `/protocol`.
 
 Plugins are constructed with one `createPlugin(configuration)` call. Keep command and channel registrations inline in `configuration.server`; the constructor returns the plugin immediately. Existing explicit generic calls remain supported. When retaining concrete server contracts for inference, let the call infer its configuration and use `satisfies CreateNotifyingPluginOptions<...>` on the configuration object for notification and owner type checking. This preserves the literal binding names and schemas without a separate registration catalog.
 
@@ -75,3 +75,7 @@ Provider settings persist in `.comma/provider-settings.json`, with model objects
 `verify` makes one explicit authenticated model-list request for OpenAI, Anthropic, or Gemini, with no generation, retries, polling, or stored verification result. Other providers return `unsupported`; `verified` establishes endpoint access, not credit or generation permissions. An empty or failed provider listing leaves models.dev and manual models.
 
 Removing a custom provider removes its global credential before removing its definition and models. If the settings write then fails, the operation reports `PROVIDER_REMOVAL_PARTIAL`; retry removal. Environment and strategy-scoped credentials remain unchanged.
+
+## Runtime API
+
+Embed the daemon with `createDaemonKernel` and `createDaemonServer`. The old `createDaemon`, daemon stores, execution systems, and request-handler API have been removed. New clients use `@comma-agents/daemon/protocol`.

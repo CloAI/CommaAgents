@@ -11,3 +11,14 @@ export const SKILL_MAX_BYTES = 256 * 1024;
 
 /** Regular expression that valid skill names must match (kebab-case, 1–64 chars). */
 export const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+/** Accepted filenames, in preference order. */
+export const SKILL_FILENAMES = ["SKILL.md", "SKILL.MD"] as const;
+/** Shared global compatibility roots, lowest conflict priority first; relative to home. */
+export const RECOMMENDED_GLOBAL_SKILL_DIRECTORIES = [
+  ".agents/skills",
+  ".comma/skills",
+  ".config/comma/skills",
+] as const;
+/** Comma project roots are discovered through this marker, independently of Git. */
+export const PROJECT_SKILL_DIRECTORY = ".comma/skills";

@@ -20,6 +20,11 @@ function removePermission(
   }
   context.pending.delete(requestId);
   pending.detachAbort();
+  context.notifications.notify(pending.request.runId, {
+    type: "run_permission_resolved",
+    runId: pending.request.runId,
+    requestId,
+  });
   return pending;
 }
 

@@ -1,10 +1,32 @@
-// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`ModalRender — title variations > should render without a title 1`] = `
+exports[`ModalRender — CommandPaletteRender (home view) > should render the command palette home view inside a modal 1`] = `
 "┌──────────────────────────────────────┐
 │                                      │
-│ body content                         │
+│ Command Palette                      │
+│ ╭──────────────────────────────────╮ │
+│ │ › Type a command...              │ │
+│ ╰──────────────────────────────────╯ │
 │                                      │
+└──────────────────────────────────────┘"
+`;
+
+exports[`ModalRender — content edge cases > should render an empty content body within the border 1`] = `
+"┌──────────────────────────────────────┐
+│                                      │
+│ Empty                                │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+└──────────────────────────────────────┘"
+`;
+
+exports[`ModalRender — title variations > should render with a long title 1`] = `
+"┌──────────────────────────────────────┐
+│                                      │
+│ A Very Long Modal Title That Could … │
+│ body content                         │
 │                                      │
 │                                      │
 │                                      │
@@ -22,35 +44,13 @@ exports[`ModalRender — title variations > should render with a title 1`] = `
 └──────────────────────────────────────┘"
 `;
 
-exports[`ModalRender — title variations > should render with a long title 1`] = `
+exports[`ModalRender — title variations > should render without a title 1`] = `
 "┌──────────────────────────────────────┐
 │                                      │
-│ A Very Long Modal Title That Could … │
 │ body content                         │
 │                                      │
 │                                      │
 │                                      │
-└──────────────────────────────────────┘"
-`;
-
-exports[`ModalRender — content edge cases > should render an empty content body within the border 1`] = `
-"┌──────────────────────────────────────┐
-│                                      │
-│ Empty                                │
-│                                      │
-│                                      │
-│                                      │
-│                                      │
-└──────────────────────────────────────┘"
-`;
-
-exports[`ModalRender — CommandPaletteRender (home view) > should render the command palette home view inside a modal 1`] = `
-"┌──────────────────────────────────────┐
-│                                      │
-│ Command Palette                      │
-│ ╭──────────────────────────────────╮ │
-│ │ › Type a command...              │ │
-│ ╰──────────────────────────────────╯ │
 │                                      │
 └──────────────────────────────────────┘"
 `;

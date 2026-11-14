@@ -1,3 +1,4 @@
+import type { Question } from "@comma-agents/core";
 /** A tool-originated question awaiting a user response. */
 export interface QuestionRequested {
   /** Notification discriminator. */
@@ -13,7 +14,7 @@ export interface QuestionRequested {
   /** Tool asking the question. */
   readonly toolName: string;
   /** Question presented to the user. */
-  readonly question: string;
+  readonly questions: readonly Question[];
   /** Time at which the question was requested. */
   readonly ts: string;
 }

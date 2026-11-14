@@ -14,7 +14,7 @@ const agent = createAgent({
   name: "assistant",
   model: "openai/gpt-4o",
   systemPrompt: "You are a concise coding assistant.",
-  tools: ["read_file", "search_files", "edit_file"],
+  tools: ["read_file", "grep", "edit_file"],
 });
 
 const result = await agent.call("Find and fix the failing parser test.");
@@ -119,7 +119,7 @@ registerTool(
 const triage = createAgent({
   name: "triage",
   model: "openai/gpt-4o",
-  tools: ["lookup_issue", "read_file", "search_files"],
+  tools: ["lookup_issue", "read_file", "grep"],
 });
 ```
 
@@ -131,7 +131,7 @@ See [Tools](/docs/core/tools) for built-in tools and [registerTool](/docs/core/t
 const investigator = createAgent({
   name: "investigator",
   model: "openai/gpt-4o",
-  tools: ["search_files", "read_file", "run_command"],
+  tools: ["grep", "read_file", "run_command"],
   maxSteps: 20,
 });
 ```
@@ -157,7 +157,7 @@ const configuredAgent = createAgent({
   name: "repository-agent",
   model: "openai/gpt-4o",
   systemPrompt: "Work only within the current repository.",
-  tools: ["read_file", "search_files", "edit_file", "run_command"],
+  tools: ["read_file", "grep", "edit_file", "run_command"],
   modelOptions: { temperature: 0.2, maxOutputTokens: 4_096 },
   maxSteps: 20,
   context: { rollingWindow: 40 },

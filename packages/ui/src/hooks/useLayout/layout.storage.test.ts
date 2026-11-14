@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_PANES, splitPane } from "./layout";
+import { splitPane } from "./layout";
 import { parseLayout, serializeLayout } from "./layout.storage";
 import type { Layout, LayoutNode, SplitNode } from "./layout.types";
 
@@ -86,23 +86,20 @@ describe("layout storage", () => {
     }
   });
 
-  it("should reject a layout with more panes than allowed", () => {
+  it("should restore layouts with more than eight panes", () => {
     let n = 0;
     let layout = start;
-    for (let i = 0; i < MAX_PANES - 1; i++) {
+    for (let index = 0; index < 20; index++) {
       layout = splitPane(layout, layout.activeId, "row", () => `n${++n}`);
     }
-    expect(parseLayout(serializeLayout(layout))).toBeDefined();
-    const panes = Array.from({ length: MAX_PANES + 1 }, (_, index) => ({
-      type: "pane",
-      id: `p${index}`,
-      path: "/",
-    }));
-    const tooMany = JSON.stringify({
-      version: 1,
-      activeId: "p0",
-      root: { type: "split", id: "s", direction: "row", children: panes },
-    });
-    expect(parseLayout(tooMany)).toBeUndefined();
+    expect(parseLayout(serializeLayout(layout))).toEqual(layout);
+  });
+
+  it("should restore an empty main workspace", () => {
+    const empty: Layout = {
+      root: { type: "split", id: "empty", direction: "row", children: [] },
+      activeId: "",
+    };
+    expect(parseLayout(serializeLayout(empty))).toEqual(empty);
   });
 });

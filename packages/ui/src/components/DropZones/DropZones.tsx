@@ -6,6 +6,8 @@ import styles from "./DropZones.module.scss";
 
 /** Reaction to a pane being dropped on this one. */
 export interface DropZonesProps {
+  /** Returning by button allows clicking or keyboard-selecting an edge. */
+  readonly selectable?: boolean;
   /** Receive the part of the pane the drop landed on. */
   readonly onDrop: (zone: DropZone) => void;
 }
@@ -15,7 +17,7 @@ export interface DropZonesProps {
  * @param {DropZonesProps} props - Component properties.
  * @returns {React.ReactElement} The drop overlay.
  */
-export function DropZones({ onDrop }: DropZonesProps) {
+export function DropZones({ onDrop, selectable = false }: DropZonesProps) {
   const [zone, setZone] = useState<DropZone>();
   const locate = useCallback((event: DragEvent<HTMLDivElement>): DropZone => {
     const box = event.currentTarget.getBoundingClientRect();
@@ -51,6 +53,20 @@ export function DropZones({ onDrop }: DropZonesProps) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {selectable &&
+        (["left", "right", "top", "bottom"] as const).map((edge) => (
+          <button
+            key={edge}
+            className={styles.destination}
+            data-edge={edge}
+            aria-label={`Return chat to ${edge}`}
+            onClick={() => onDrop(edge)}
+            onMouseEnter={() => setZone(edge)}
+            onFocus={() => setZone(edge)}
+          >
+            {edge}
+          </button>
+        ))}
       {zone && <div className={styles.preview} data-zone={zone} />}
     </div>
   );

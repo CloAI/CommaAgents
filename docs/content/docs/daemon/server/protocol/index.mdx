@@ -1,127 +1,30 @@
 ---
 title: Protocol
-description: WebSocket protocol overview — message envelopes, request/response pairs, and error handling.
+description: Typed commands and subscriptions for the plugin daemon.
 ---
 
-The daemon communicates with clients over a WebSocket connection at `/ws`. All messages are JSON objects validated against the protocol schemas. Each message has a `type` field that identifies its kind.
+# Protocol
 
-## Connection Lifecycle
-
-1. Client opens a WebSocket to `ws://host:port/ws`.
-2. The daemon assigns a `clientId` and tracks the connection.
-3. Client sends JSON messages (requests). Daemon replies with JSON messages (responses/events).
-4. On disconnect, the daemon removes the client from all subscriptions.
-
-A health check is available at `GET /health`, returning `{ status, uptime, activeRuns, connectedClients }`.
-
-## Message Envelopes
-
-Every message extends a base envelope.
-
-### Client Messages
-
-All client-to-daemon messages include an optional `requestId`. When provided, the daemon echoes it back on the response so the client can correlate request/response pairs.
-
-```json
-{
-  "type": "ping",
-  "requestId": "abc-123"
-}
-```
-
-### Daemon Messages
-
-All daemon-to-client messages include a `ts` field (ISO-8601 timestamp) and an optional `requestId` echoed from the triggering request.
-
-```json
-{
-  "type": "pong",
-  "requestId": "abc-123",
-  "ts": "2025-01-15T10:30:00.000Z"
-}
-```
-
-## TypeScript parsing
-
-Use the package parsers before handling messages received from an untyped transport or fixture.
+Connect to `/ws` and send a command or subscription with a UUIDv4 request ID. Import validation schemas and inferred command/channel types from `@comma-agents/daemon/protocol`.
 
 ```ts
-import { parseClientMessage, parseDaemonMessage } from "@comma-agents/daemon";
+import { ServerMessageSchema } from "@comma-agents/daemon/protocol";
 
-const clientPayload = '{"type":"ping","requestId":"ping-1"}';
-const daemonPayload = '{"type":"pong","requestId":"ping-1","ts":"2026-07-04T12:00:00.000Z"}';
-
-const clientResult = parseClientMessage(JSON.parse(clientPayload));
-if (clientResult.success) {
-  console.log(clientResult.data.type);
-}
-
-const daemonResult = parseDaemonMessage(JSON.parse(daemonPayload));
-if (!daemonResult.success) {
-  console.error(daemonResult.error.message);
-}
+const socket = new WebSocket("ws://127.0.0.1:7422/ws");
+socket.addEventListener("open", () => {
+  socket.send(
+    JSON.stringify({
+      type: "command",
+      requestId: crypto.randomUUID(),
+      command: "status.get",
+      arguments: {},
+    }),
+  );
+});
+socket.addEventListener("message", ({ data }) => {
+  const message = ServerMessageSchema.safeParse(JSON.parse(String(data)));
+  if (message.success) console.log(message.data);
+});
 ```
 
-Successful results contain a typed `ClientMessage` or `DaemonMessage` in `data`. Failed results contain validation details in `error`.
-
-## Message Pairs Summary
-
-| Client Request | Daemon Response | Pattern |
-|---|---|---|
-| [`ping`](/docs/daemon/server/protocol/ping) | `pong` | Request/Reply |
-| [`prepare_run`](/docs/daemon/server/protocol/strategy-execution) | `run_prepared` | Request/Reply |
-| [`start_run`](/docs/daemon/server/protocol/strategy-execution) | `strategy_started`, `strategy_completed`, `strategy_error` | Fire-and-forget + async events |
-| [`continue_run`](/docs/daemon/server/protocol/strategy-execution) | `strategy_started`, `strategy_completed`, `strategy_error` | Fire-and-forget + async events |
-| [`stop_run`](/docs/daemon/server/protocol/strategy-execution) | `strategy_error` (code: `CANCELLED`) | Fire-and-forget |
-| [`list_strategies`](/docs/daemon/server/protocol/list-and-subscribe) | `strategy_list` | Request/Reply |
-| [`list_runs`](/docs/daemon/server/protocol/list-and-subscribe#persisted-runs) | `run_list` | Request/Reply |
-| [`list_mcp_servers`](/docs/daemon/server/protocol/mcp) | `mcp_server_list` | Request/Reply |
-| [`update_mcp_server`](/docs/daemon/server/protocol/mcp#update-a-server) | `mcp_server_list` | Request/Reply |
-| [`subscribe`](/docs/daemon/server/protocol/list-and-subscribe) | `error` (only on failure) | Silent success |
-| [`unsubscribe`](/docs/daemon/server/protocol/list-and-subscribe) | _(none)_ | Silent |
-| [`user_input`](/docs/daemon/server/protocol/user-input) | `error` (only if no pending request) | Silent success |
-| [`question_response`](/docs/daemon/server/protocol/questions) | `error` (only if no pending request) | Silent success |
-| [`permission_decision`](/docs/daemon/server/protocol/sandbox-permissions) | `error` (only if no pending request) | Silent success |
-| [`update_policy`](/docs/daemon/server/protocol/sandbox-permissions) | `policy_updated` | Async event |
-| [`steer_run`](/docs/daemon/server/protocol/steering) | `steer_queued` (or `error` if not steerable) | Fire-and-forget + async event |
-| [`trash_list`](/docs/daemon/server/protocol/trash) | `trash_list_result` | Request/Reply |
-| [`trash_restore`](/docs/daemon/server/protocol/trash) | `trash_restore_result` | Request/Reply |
-| [`trash_clear`](/docs/daemon/server/protocol/trash) | `trash_clear_result` | Request/Reply |
-| [`hub_list`](/docs/daemon/server/protocol/hub-packages) | `hub_packages` | Request/Reply |
-| [`hub_install`](/docs/daemon/server/protocol/hub-packages) | `hub_packages` | Request/Reply |
-| [`hub_update`](/docs/daemon/server/protocol/hub-packages) | `hub_packages` | Request/Reply |
-| [`hub_remove`](/docs/daemon/server/protocol/hub-packages) | `hub_packages` | Request/Reply |
-
-During strategy execution, subscribers receive [observation events](/docs/daemon/server/protocol/strategy-observation), interactive requests, and lifecycle events.
-
-## Error Handling
-
-The daemon sends an `error` message for protocol-level failures. Every error includes a machine-readable `code` and a human-readable `message`:
-
-```json
-{
-  "type": "error",
-  "code": "VALIDATION_ERROR",
-  "message": "Missing required field: strategyPath",
-  "ts": "2025-01-15T10:30:00.000Z"
-}
-```
-
-### Error Codes
-
-| Code | When |
-|---|---|
-| `PARSE_ERROR` | Invalid JSON received on the WebSocket |
-| `VALIDATION_ERROR` | JSON is valid but fails schema validation |
-| `INTERNAL_ERROR` | An unexpected daemon operation failed |
-| `NO_PENDING_INPUT` | `user_input` sent but no agent is waiting for input |
-| `NO_PENDING_PERMISSION` | `permission_decision` does not match a pending request |
-| `NO_PENDING_QUESTION` | `question_response` does not match a pending request |
-| `SUBSCRIBE_ERROR` | `subscribe` failed (run not found or client not registered) |
-| `EXECUTION_ERROR` | Strategy file not found, parse error, or model resolution failure |
-| `PREPARE_FAILED` | Strategy or run systems could not be prepared |
-| `START_FAILED` | The requested run is unknown or was already started |
-| `CANCELLED` | Run was explicitly stopped via `stop_run` |
-| `RUN_NOT_STEERABLE` | `steer_run` sent for a run that is not found or has already finished |
-| `RESTORE_FAILED` | A trash entry could not be restored |
-| `HUB_ERROR` | A Hub list, install, update, or remove operation failed |
+Commands return a response with the same request ID. Subscriptions receive their registered channel's domain events until unsubscribed or disconnected. See [Plugin server](/docs/daemon/server/plugin-server) for envelopes and errors, [Runs API](/docs/daemon/server/runs) for execution and history, and [Projects protocol](/docs/daemon/server/protocol/projects) for workspace organization.

@@ -1,6 +1,9 @@
 export { createRunsPlugin } from "./runs";
 export type {
   CreateRunsPluginOptions,
+  CopiedRun,
+  CopyRunOptions,
+  RunCopyCheckpoint,
   PrepareRunOptions,
   PrepareRunResult,
   RunError,

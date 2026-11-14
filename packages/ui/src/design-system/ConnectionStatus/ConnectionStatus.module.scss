@@ -14,9 +14,6 @@
   line-height: inherit;
   cursor: pointer;
 
-  &:focus-visible {
-    outline-offset: -2px;
-  }
 
   &:hover .label,
   &:focus .label {

@@ -11,4 +11,5 @@ export interface DaemonDefaultOverrides {
   readonly runsDir?: string;
   readonly modelRoles?: Readonly<Record<string, string>>;
   readonly instructionFiles?: readonly string[];
+  readonly skills?: DaemonConfig["skills"];
 }

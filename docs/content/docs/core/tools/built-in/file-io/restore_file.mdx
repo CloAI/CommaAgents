@@ -5,7 +5,7 @@ description: Restore a previously trashed file from its .tar.gz archive.
 
 # restore_file
 
-Restore a file from a trash archive. The file is extracted from the `.tar.gz` and placed at its original workspace-relative path (or an optional override). The archive is removed from the trash directory after a successful restore.
+Restore a file from a trash archive. The file is extracted from the `.tar.gz` and placed at its original workspace-relative path (or an optional override). The archive must belong to the current workspace. Its metadata and full content hash are checked before writing. Existing destinations and paths escaping the workspace, including through symlinks, are refused. The archive is removed only after a successful restore.
 
 ```ts
 import { createAgent } from "@comma-agents/core";
@@ -21,7 +21,10 @@ const agent = createAgent({
 
 The structured payload returned on success.
 
-<AutoTypeTable path="../packages/core/src/tools/built-in/restore-file/restore-file.types.ts" name="RestoreFileData" />
+<AutoTypeTable
+  path="../packages/core/src/tools/built-in/restore-file/restore-file.types.ts"
+  name="RestoreFileData"
+/>
 
 ## Usage
 
@@ -42,15 +45,15 @@ await tool.restore_file({
 
 ## Errors
 
-| Kind | When |
-|---|---|
-| `not_found` | The trash archive does not exist or its metadata is corrupted. |
-| `already_exists` | A file already exists at the restore target path. |
-| `permission_denied` | The restore target is write-blocked by sandbox policy. |
-| `outside_workspace` | The restore target path escapes the sandbox. |
-| `command_failed` | Decompression or extraction failed. |
+| Kind                | When                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `not_found`         | The archive does not exist, or its metadata/content is missing or corrupted.        |
+| `already_exists`    | A file already exists at the restore target path.                                   |
+| `permission_denied` | The restore target is write-blocked by sandbox policy.                              |
+| `outside_workspace` | The archive belongs to another workspace or the restore target escapes the sandbox. |
+| `command_failed`    | Decompression or extraction failed.                                                 |
 
 ## Related
 
-- [Trash](/docs/core/tools/trash) — how recoverable deletes are stored.
+- [Deletion recovery](/docs/core/tools/built-in/file-io/delete_file#recoverable-deletion) — how recoverable deletes are stored.
 - [delete_file](/docs/core/tools/built-in/file-io/delete_file) — produces the trash archives this tool reads from.

@@ -1,3 +1,4 @@
+import { formatRunError } from "./useRunChannel.utils";
 import type {
   RunChild,
   RunFeedState,
@@ -31,7 +32,7 @@ export function selectRunStatus({
     case "failed":
       return {
         status: "failed",
-        error: `Run failed (${snapshot.outcome.error.code}).`,
+        error: formatRunError(snapshot.outcome.error),
       };
     default:
       return { status: "stopped" };

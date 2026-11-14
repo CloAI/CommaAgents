@@ -1,3 +1,4 @@
+import type { QuestionsResponse } from "../../../questions";
 /** A confirmed request to continue the conversation in another strategy. */
 export interface StrategySwitchRequest {
   /** Absolute path to the selected strategy file. */
@@ -21,5 +22,5 @@ export interface RequestStrategySwitchData {
   /** Whether the user approved; an approved switch takes effect before the user's next message. */
   readonly approved: boolean;
   /** The user's answer to the confirmation question. */
-  readonly response: string;
+  readonly response: QuestionsResponse;
 }

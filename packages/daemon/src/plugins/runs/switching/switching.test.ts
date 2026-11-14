@@ -404,8 +404,9 @@ describe("strategy switching", () => {
       await runs.startRun("chat", "Still usable.").completion;
       // Inject only the replacement document write; the original document remains authoritative.
       const originalFactory = storageModule.createRunStorage;
-      const mock = vi.spyOn(storageModule, "createRunStorage").mockImplementation(
-        (runsDir) => {
+      const mock = vi
+        .spyOn(storageModule, "createRunStorage")
+        .mockImplementation((runsDir) => {
           const backing = originalFactory(runsDir);
           return {
             ...backing,
@@ -416,8 +417,7 @@ describe("strategy switching", () => {
               await backing.save(snapshot);
             },
           };
-        },
-      );
+        });
       const other = createRunsPlugin({ runsDir: join(directory, "runs") });
       try {
         await expect(
@@ -526,7 +526,10 @@ describe("strategy switching", () => {
       for (const contextChoice of [undefined, "full"] as const) {
         await expect(
           runs.sendRun({ runId: "chat", input: "Implement.", contextChoice }),
-        ).rejects.toMatchObject({ code: "EXECUTION_ERROR" });
+        ).rejects.toMatchObject({
+          code: "EXECUTION_ERROR",
+          message: expect.stringContaining("Provider unavailable"),
+        });
       }
       setup.reject(false);
       expect(

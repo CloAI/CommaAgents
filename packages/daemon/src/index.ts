@@ -32,33 +32,6 @@ export {
   removePid,
   writePid,
 } from "./daemon-cli/process/pid/pid";
-export type {
-  CreateDaemonRunStateOptions,
-  DaemonRunState,
-  ProviderResolver,
-  RunConfig,
-  RunOverview,
-  RunRepository,
-} from "./daemon-run-state";
-export {
-  createDaemonRunState,
-  createRunRepository,
-  extractProviderIds,
-} from "./daemon-run-state";
-export type {
-  CreateRunStoreOptions,
-  DaemonStore,
-  RunError,
-  RunSnapshot,
-  RunLifecycleStatus,
-  RunStore,
-  RunTransition,
-  RunTransitionEffect,
-  RunTransitionEffectError,
-  RunTransitionEvent,
-  RunTransitionResult,
-} from "./server/daemon-store";
-export { createDaemonStore, createRunStore } from "./server/daemon-store";
 export type { DaemonDefaultOverrides } from "./defaults";
 export {
   getDaemonConfigFile,
@@ -126,6 +99,9 @@ export type {
   CreateQuestionsPluginOptions,
   CreateSkillsPluginOptions,
   SkillsPlugin,
+  SkillsWorkspaceOptions,
+  SkillsListResult,
+  RunSkillsResult,
   CreateMcpPluginOptions,
   CreateLspPluginOptions,
   LspPlugin,
@@ -138,6 +114,7 @@ export type {
   McpNotifications,
   McpServersUpdated,
   QuestionsPlugin,
+  QuestionsSubmissionResult,
   QuestionsNotifications,
   QuestionRequested,
   SandboxPlugin,
@@ -172,30 +149,6 @@ export type {
   StrategyHookRegistration,
   StrategyLoaderInputs,
 } from "./daemon-kernel";
-export type { CreateDaemonOptions, Daemon } from "./server";
-export { createDaemon } from "./server";
-export type {
-  AgentCallResultWire,
-  AgentStreamEventWire,
-  ClientMessage,
-  ContextUsageWire,
-  ConversationHistoryWire,
-  ConversationRecordWire,
-  ConversationRetentionEventWire,
-  DaemonMessage,
-  Dispatcher,
-  ErrorInfo,
-  HandlerContext,
-  McpServerStatusWire,
-  MessageSender,
-  RequestPermissionMessage,
-  RequestQuestionMessage,
-  RequestResponseMap,
-  RunOverviewWire,
-  RunSummary,
-  Usage,
-} from "./server/protocol";
-export { parseClientMessage, parseDaemonMessage } from "./server/protocol";
 
 export {
   RunPhase,
@@ -218,3 +171,21 @@ export type {
 
 export { createCorePlugin } from "./plugins/core";
 export type { CorePlugin, ProvidersSnapshot } from "./plugins/core";
+
+export { createProjectsPlugin, GENERAL_PROJECT_ID } from "./plugins/projects";
+export type {
+  ProjectsPlugin,
+  Project,
+  ProjectChat,
+  ProjectChatStatus,
+  ProjectCatalog,
+  CreateProjectOptions,
+  CreateProjectResult,
+  CreateProjectsPluginOptions,
+  ChatAttention,
+  ProjectArchivePage,
+  AssignProjectChatOptions,
+  ProjectActivityOptions,
+  ArchiveProjectChatOptions,
+  SearchProjectArchiveOptions,
+} from "./plugins/projects";

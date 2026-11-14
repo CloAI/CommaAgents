@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
+import { homedir } from "node:os";
 import { type DaemonConfig, DaemonConfigFileSchema } from ".";
 
 export function readConfigFile(filePath: string): Partial<DaemonConfig> {
@@ -25,6 +26,7 @@ export function readConfigFile(filePath: string): Partial<DaemonConfig> {
  * Save `modelRoles` in the config file, keeping every other setting as written.
  * @param {string} filePath - Config file to create or update.
  * @param {Readonly<Record<string, string>>} modelRoles - Models keyed by role name.
+ * @returns {void} Returns after the configuration file is written.
  */
 export function writeConfigModelRoles(
   filePath: string,
@@ -76,5 +78,30 @@ export function resolveLoggingConfig(
     consoleFormat: consoleFormat ?? (consoleEnabled === true ? "text" : "json"),
     logPayloads:
       booleanSettings.COMMA_DAEMON_LOG_PAYLOADS ?? file.logPayloads ?? false,
+  };
+}
+
+/** Resolve skill roots relative to the daemon configuration file, expanding the user's home.
+ * @param {DaemonConfig["skills"] | undefined} skills - Declarative optional discovery settings.
+ * @param {string} configFile - Loaded daemon configuration file location.
+ * @returns {DaemonConfig["skills"]} Absolute additional discovery roots.
+ * @internal
+ */
+export function resolveSkillsConfig(
+  skills: DaemonConfig["skills"] | undefined,
+  configFile: string,
+): DaemonConfig["skills"] {
+  return {
+    additionalDirectories: (skills?.additionalDirectories ?? []).map(
+      (directory) => {
+        const expanded =
+          directory === "~"
+            ? homedir()
+            : directory.startsWith("~/")
+              ? resolve(homedir(), directory.slice(2))
+              : directory;
+        return resolve(dirname(configFile), expanded);
+      },
+    ),
   };
 }

@@ -16,7 +16,7 @@ const meta = {
   beforeEach: () => window.localStorage.removeItem("comma-agents.settings"),
   args: {
     roles: ["simple", "complex"],
-    values: { simple: "openai/gpt-5-mini", complex: "openai/gpt-5" },
+    values: { simple: "openai/gpt-6-luna", complex: "openai/gpt-6.1-sol" },
     onChange: fn(),
   },
 } satisfies Meta<typeof ModelRolePresets>;
@@ -33,8 +33,8 @@ export const SavesAppliesAndDeletes: Story = {
     });
     await userEvent.selectOptions(picker, "OpenAI balanced");
     await expect(args.onChange).toHaveBeenLastCalledWith({
-      simple: "openai/gpt-5-mini",
-      complex: "openai/gpt-5",
+      simple: "openai/gpt-6-luna",
+      complex: "openai/gpt-6.1-sol",
     });
     await userEvent.click(
       canvas.getByRole("button", { name: "Save configuration" }),

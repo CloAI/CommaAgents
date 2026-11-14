@@ -1,4 +1,3 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { discoverMcpConfig } from "@comma-agents/core/mcp";
 import {
@@ -21,9 +20,7 @@ import type { RunMcpServerStatus } from "../mcp.types";
 export async function resolveMcpConfiguration({
   strategyPath,
   cwd,
-  runId,
-  runRepository,
-  persistDefaults = false,
+  overrides = {},
 }: ResolveMcpConfigurationOptions): Promise<ResolvedMcpConfiguration> {
   const shared = discoverMcpConfig({ cwd });
   const servers = new Map(shared.servers);
@@ -65,69 +62,17 @@ export async function resolveMcpConfiguration({
     }
   }
 
-  const existingConfig = runId
-    ? await runRepository.getRunConfig(runId)
-    : undefined;
-  const defaultCandidates = strategyPath
-    ? Array.from(assignments.keys())
-    : Array.from(servers.keys());
-  const defaultEnabledIds = defaultCandidates.filter((serverId) => {
-    const entry = servers.get(serverId);
-    return (
-      entry?.source === "strategy" ||
-      entry?.definition.enabledByDefault === true
-    );
+  const candidates = [...servers.keys()];
+  const enabledServerIds = candidates.filter((serverId) => {
+    const entry = servers.get(serverId)!;
+    return Object.hasOwn(overrides, serverId)
+      ? overrides[serverId]
+      : (!strategyPath || assignments.has(serverId)) &&
+          (entry.source === "strategy" ||
+            entry.definition.enabledByDefault === true);
   });
-  const enabledServerIds = existingConfig
-    ? [...existingConfig.enabledMcpServerIds]
-    : defaultEnabledIds;
-
-  if (persistDefaults && runId && !existingConfig) {
-    await runRepository.saveRunConfig(runId, {
-      enabledMcpServerIds: enabledServerIds,
-    });
-  }
 
   return { servers, assignments, enabledServerIds };
-}
-
-/**
- * Persist a shared server's global/workspace default enablement.
- *
- * @param {ResolvedMcpConfiguration} config - Resolved configuration containing the server.
- * @param {string} serverId - Shared server whose default is updated.
- * @param {boolean} enabled - Whether the server is enabled by default.
- * @returns {void} Nothing; writes the shared MCP configuration.
- */
-export function updateMcpDefault(
-  config: ResolvedMcpConfiguration,
-  serverId: string,
-  enabled: boolean,
-): void {
-  const entry = config.servers.get(serverId);
-  if (!entry) {
-    throw new Error(`Unknown MCP server: ${serverId}`);
-  }
-  if (entry.source === "strategy" || !entry.configPath) {
-    throw new Error(
-      `Strategy-private MCP server "${serverId}" has no shared default.`,
-    );
-  }
-
-  const parsed = JSON.parse(readFileSync(entry.configPath, "utf8")) as {
-    mcpServers?: Record<string, Record<string, unknown>>;
-  };
-  const definition = parsed.mcpServers?.[serverId];
-  if (!definition) {
-    throw new Error(
-      `MCP server "${serverId}" is missing from ${entry.configPath}`,
-    );
-  }
-  definition.enabledByDefault = enabled;
-  mkdirSync(dirname(entry.configPath), { recursive: true });
-  const temporaryPath = `${entry.configPath}.${crypto.randomUUID()}.tmp`;
-  writeFileSync(temporaryPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
-  renameSync(temporaryPath, entry.configPath);
 }
 
 /**

@@ -1,13 +1,17 @@
-import type { Skill } from "@comma-agents/core/skills";
+import { SkillSummarySchema } from "@comma-agents/core/skills";
+import type { LoadSkillsOptions, Skill } from "@comma-agents/core/skills";
 import type { SkillsContext } from "./state.types";
 
 /**
  * Allocate the skills plugin's private state.
+ * @param {LoadSkillsOptions} discovery - Core-owned discovery options.
  * @returns {SkillsContext} Execution registries and disposal state.
  * @internal
  */
-export function createSkillsContext(): SkillsContext {
-  return { registries: new Map(), disposed: false };
+export function createSkillsContext(
+  discovery: LoadSkillsOptions = {},
+): SkillsContext {
+  return { registries: new Map(), discovery, disposed: false };
 }
 
 /**
@@ -21,7 +25,7 @@ export function listRunSkills(
   context: SkillsContext,
   runId: string,
 ): readonly Skill[] {
-  return context.registries.get(runId)?.list() ?? [];
+  return context.registries.get(runId)?.registry.list() ?? [];
 }
 
 /**
@@ -33,4 +37,22 @@ export function listRunSkills(
 export function disposeSkills(context: SkillsContext): void {
   context.disposed = true;
   context.registries.clear();
+}
+
+/** Read metadata and diagnostics from the preparation snapshot without scanning.
+ * @param {SkillsContext} context - Owning feature state.
+ * @param {string} runId - Requested execution identity.
+ * @returns {RunSkillsResult} Availability and the captured metadata/diagnostics.
+ * @internal
+ */
+export function listSkillsForRun(context: SkillsContext, runId: string) {
+  const snapshot = context.registries.get(runId);
+  return {
+    available: snapshot !== undefined,
+    skills:
+      snapshot?.registry
+        .list()
+        .map((skill) => SkillSummarySchema.parse(skill)) ?? [],
+    warnings: snapshot?.warnings ?? [],
+  };
 }

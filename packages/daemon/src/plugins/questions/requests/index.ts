@@ -1,5 +1,5 @@
 export {
-  requestQuestion,
-  resolveQuestion,
+  requestQuestions,
+  submitAnswers,
   cleanupRunQuestions,
 } from "./requests";

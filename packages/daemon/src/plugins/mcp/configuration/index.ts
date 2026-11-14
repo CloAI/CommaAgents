@@ -1,5 +1,1 @@
-export {
-  resolveMcpConfiguration,
-  updateMcpDefault,
-  listMcpStatuses,
-} from "./configuration";
+export { resolveMcpConfiguration, listMcpStatuses } from "./configuration";

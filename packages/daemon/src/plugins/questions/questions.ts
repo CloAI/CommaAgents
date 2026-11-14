@@ -1,8 +1,8 @@
 import { createPlugin } from "../../daemon-plugin";
 import type { CreateNotifyingPluginOptions } from "../../daemon-plugin/notifications/notifications.types";
-import { answerQuestionCommand, watchQuestionsChannel } from "./server";
+import { submitAnswersCommand, watchQuestionsChannel } from "./server";
 import { createQuestionsContext, getPendingQuestions } from "./state";
-import { resolveQuestion } from "./requests";
+import { submitAnswers } from "./requests";
 import { prepareQuestionRunResources, disposeQuestions } from "./run-resources";
 import type { QuestionsContext } from "./state/state.types";
 import type { QuestionsNotifications } from "./questions.notifications";
@@ -19,7 +19,7 @@ import type {
  * ```ts
  * const questions = createQuestionsPlugin({ dependencies: { runs } });
  * await questions.notifications.subscribe("run_question_requested", runId, (request) => {
- *   questions.resolveQuestion(request.runId, request.requestId, "Use the existing configuration.");
+ *   questions.submitAnswers(request.runId, request.requestId, crypto.randomUUID(), { answers: request.questions.map((question) => ({ questionId: question.id, type: "skipped" })) });
  * });
  * ```
  */
@@ -30,7 +30,7 @@ export function createQuestionsPlugin({
     name: "questions",
     notifications: true,
     server: {
-      commands: [answerQuestionCommand],
+      commands: [submitAnswersCommand],
       channels: [watchQuestionsChannel],
     },
     cleanup: async () => disposeQuestions(context),
@@ -64,8 +64,8 @@ export function createQuestionsPlugin({
     prepare: (preparation) => prepareQuestionRunResources(context, preparation),
   });
   const methods: Omit<QuestionsPlugin, keyof typeof plugin> = {
-    resolveQuestion: (runId, requestId, response) =>
-      resolveQuestion(context, runId, requestId, response),
+    submitAnswers: (runId, requestId, submissionId, response) =>
+      submitAnswers(context, runId, requestId, submissionId, response),
     getPendingQuestions: (runId) => getPendingQuestions(context, runId),
   };
   return Object.assign(plugin, methods);

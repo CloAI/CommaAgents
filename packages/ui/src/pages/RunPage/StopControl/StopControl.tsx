@@ -30,6 +30,39 @@ import styles from "./StopControl.module.scss";
  */
 export function StopControl() {
   const stop = useRunStop();
+  return (
+    <StopControlRender
+      active={stop.active}
+      canStop={stop.canStop}
+      isStopping={stop.isStopping}
+      onStop={stop.stop}
+    />
+  );
+}
+
+/** Availability and action for the run's stop control. */
+export interface StopControlRenderProps {
+  /** Whether the run has active work and the control should be shown. */
+  readonly active: boolean;
+  /** Whether connection and run state allow stopping. */
+  readonly canStop: boolean;
+  /** A stop request is waiting for acknowledgement. */
+  readonly isStopping: boolean;
+  /** Request stopping the run. */
+  readonly onStop: () => void;
+}
+
+/**
+ * Render the stop action and scoped double-Escape hint without reading run state.
+ * @param {StopControlRenderProps} props - Availability and stop action.
+ * @returns {React.ReactElement | null} Stop control and its keyboard hint.
+ */
+export function StopControlRender({
+  active,
+  canStop,
+  isStopping,
+  onStop,
+}: StopControlRenderProps) {
   const controlRef = useRef<HTMLSpanElement>(null);
   const pane = useContext(ChatPaneContext);
   const layout = useContext(LayoutContext);
@@ -45,12 +78,12 @@ export function StopControl() {
   );
   const { armed } = useDoublePress({
     key: "Escape",
-    enabled: stop.canStop && focused,
-    onTrigger: stop.stop,
+    enabled: canStop && focused,
+    onTrigger: onStop,
     scopeRef: controlRef,
     isInScope,
   });
-  const usable = stop.canStop && !stop.isStopping;
+  const usable = canStop && !isStopping;
   useEffect(() => {
     // A disabled composer drops focus to the body; take it once stopping becomes possible.
     const ownerDocument = controlRef.current?.ownerDocument;
@@ -102,17 +135,17 @@ export function StopControl() {
       }
     };
   }, [open, floating, update]);
-  if (!stop.active) {
+  if (!active) {
     return null;
   }
   return (
     <span className={styles.control} ref={setControl}>
       <IconButton
         className={styles.stop}
-        label={stop.isStopping ? "Stopping…" : "Stop"}
+        label={isStopping ? "Stopping…" : "Stop"}
         title="Stop run (Escape twice)"
         data-cancel
-        onClick={stop.stop}
+        onClick={onStop}
         disabled={!usable}
         aria-describedby={open ? hintId : undefined}
       >

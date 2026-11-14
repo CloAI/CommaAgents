@@ -63,14 +63,12 @@ function renderChatPage(
       error={null}
       pendingInputAgent={null}
       pendingPermissionRequest={null}
-      pendingQuestionRequest={null}
       activeStrategyPath="/build.json"
       canContinue={canContinue}
       onReplySubmit={vi.fn()}
       onSteerSubmit={vi.fn()}
       onContinueSubmit={onContinueSubmit}
       onPermissionDecide={vi.fn()}
-      onQuestionSubmit={vi.fn()}
       onAbort={onAbort}
       strategies={STRATEGIES}
       emptyStrategyLabel="No strategies found"

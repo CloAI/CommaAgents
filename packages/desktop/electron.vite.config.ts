@@ -88,6 +88,10 @@ export default defineConfig({
       dedupe: ["react", "react-dom"],
       // The browser-safe wire schemas come from source, so no daemon build is needed.
       alias: {
+        "@comma-agents/core/questions": resolve(
+          import.meta.dirname,
+          "../core/src/questions/index.ts",
+        ),
         "@comma-agents/daemon/protocol": resolve(
           import.meta.dirname,
           "../daemon/src/daemon-server/protocol.ts",

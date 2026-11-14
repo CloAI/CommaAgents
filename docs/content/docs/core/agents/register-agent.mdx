@@ -95,7 +95,7 @@ registerAgent(
           name,
           model: config.model,
           systemPrompt: config.instructions,
-          tools: ["read_file", "search_files"],
+          tools: ["read_file", "grep"],
         },
         runtime,
       ),

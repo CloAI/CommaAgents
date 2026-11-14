@@ -2,6 +2,7 @@
 export const SKILL_TOOL_NAMES: readonly string[] = [
   "load_skill",
   "list_skills",
+  "search_skills",
 ];
 
 /** Template variable carrying run-time context blocks into templated system prompts. */

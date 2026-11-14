@@ -31,6 +31,7 @@ export function createConfiguredKernel(config: DaemonConfig) {
       runsDir: config.runsDir,
       harness: { instructionFiles: config.instructionFiles },
     },
+    skills: config.skills,
     modelRoles: config.modelRoles,
     persistModelRoles: (modelRoles) => {
       writeConfigModelRoles(config.configFile, modelRoles);

@@ -6,6 +6,8 @@ import { runError, operationError, RunErrorCode } from "../errors";
 import { cleanupRunEntry } from "../preparation/resources/resources";
 import { interruptAgentMessages, saveUserMessage } from "../messages";
 import { initialInputAgent, resultSummary } from "./execution.utils";
+import { saveCopyCheckpoint } from "../copying/copying";
+import { persistRunWrite } from "../history/persistence";
 /**
  *  Reserve prepared state synchronously and execute through one path for all conversations.
  * @param {RunsContext} context - Private runs state.
@@ -112,6 +114,8 @@ export function beginRunExecution(
     }
     await Promise.allSettled(entry.children);
     await cleanupRunEntry(entry);
+    // Keep the completed response stable until both its copy boundary and final state are durable.
+    context.operations.add(runId);
     entry.state = {
       phase: RunPhase.terminal,
       outcome:
@@ -120,6 +124,7 @@ export function beginRunExecution(
           : outcome,
     };
     try {
+      await persistRunWrite(entry, saveCopyCheckpoint(context, entry));
       await publishRunState(context, entry);
     } catch (cause) {
       outcome = {
@@ -143,6 +148,8 @@ export function beginRunExecution(
           outcome,
         },
       });
+    } finally {
+      context.operations.delete(runId);
     }
     return outcome;
   }

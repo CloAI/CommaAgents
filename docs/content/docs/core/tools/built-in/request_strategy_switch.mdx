@@ -9,7 +9,7 @@ The `request_strategy_switch` tool lets an agent propose continuing the conversa
 {
   "planner": {
     "model": "@medium",
-    "tools": ["read_file", "search_files", "request_strategy_switch"]
+    "tools": ["read_file", "grep", "request_strategy_switch"]
   }
 }
 ```
@@ -23,6 +23,6 @@ The `request_strategy_switch` tool lets an agent propose continuing the conversa
 
 ## Behavior
 
-- The user sees "Switch this conversation to *Strategy*? *reason* (yes/no)". Answers such as `yes`, `ok`, or `switch` approve; anything else declines and the agent stays in the current strategy.
+- The user sees a Switch/Stay choice and optional feedback. Only an explicit structured Switch selection approves. Stay, a whole-question Other response, or Skip leaves the current strategy active.
 - Only top-level conversations can switch. Subagents never receive the tool's runtime support, and the tool reports an error there.
 - Visible messages carry over to the new strategy; tool output does not. Agents that hand work over this way should put everything the next strategy needs in their final message.

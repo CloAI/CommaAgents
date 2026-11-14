@@ -31,4 +31,6 @@ export interface DaemonConfig {
   readonly modelRoles: Readonly<Record<string, string>>;
   /** Instruction file names checked per directory. @default ["AGENTS.md", "CLAUDE.md"] */
   readonly instructionFiles: readonly string[];
+  /** Extra skill roots shared by workspace queries and run preparation. */
+  readonly skills: { readonly additionalDirectories: readonly string[] };
 }

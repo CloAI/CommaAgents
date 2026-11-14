@@ -22,3 +22,29 @@
     inset: 50% 0 0 0;
   }
 }
+.destination {
+  position: absolute;
+  z-index: 1;
+  padding: 8px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  &[data-edge="left"] {
+    left: 8px;
+    top: 50%;
+  }
+  &[data-edge="right"] {
+    right: 8px;
+    top: 50%;
+  }
+  &[data-edge="top"] {
+    top: 8px;
+    left: 50%;
+  }
+  &[data-edge="bottom"] {
+    bottom: 8px;
+    left: 50%;
+  }
+}

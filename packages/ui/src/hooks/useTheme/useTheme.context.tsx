@@ -1,4 +1,10 @@
-import { createContext, useCallback, useLayoutEffect, useMemo } from "react";
+import {
+  createContext,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import {
   DEFAULT_APPEARANCE,
@@ -7,7 +13,11 @@ import {
   applyTheme,
   paletteFor,
 } from "../../theme";
-import type { AppearanceSettings, Theme, ThemeMode } from "../../theme";
+import type {
+  AppearanceSettings,
+  Theme,
+  ThemeModePreference,
+} from "../../theme";
 import { DEFAULT_THEME_ID } from "../../theme/theme.constants";
 import { useSettings } from "../useSettings";
 import type { ThemeContextValue } from "./useTheme.types";
@@ -29,10 +39,26 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const { settings, saveSettings } = useSettings();
   const appearance = settings.appearance ?? DEFAULT_APPEARANCE;
   const theme = activeTheme(appearance);
-  const palette = paletteFor(theme, appearance.mode);
+  const [systemDark, setSystemDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
   useLayoutEffect(() => {
-    applyTheme(document.documentElement, palette, appearance.mode);
-  }, [palette, appearance.mode]);
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateSystemMode = () => setSystemDark(query.matches);
+    updateSystemMode();
+    query.addEventListener("change", updateSystemMode);
+    return () => query.removeEventListener("change", updateSystemMode);
+  }, []);
+  const mode =
+    appearance.mode === "system"
+      ? systemDark
+        ? "dark"
+        : "light"
+      : appearance.mode;
+  const palette = paletteFor(theme, mode);
+  useLayoutEffect(() => {
+    applyTheme(document.documentElement, palette, mode);
+  }, [palette, mode]);
   const update = useCallback(
     (next: AppearanceSettings) =>
       saveSettings({ ...settings, appearance: next }),
@@ -41,10 +67,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const value = useMemo<ThemeContextValue>(
     () => ({
       theme,
-      mode: appearance.mode,
+      mode,
+      modePreference: appearance.mode,
       palette,
       themes: allThemes(appearance),
-      setMode: (mode: ThemeMode) => update({ ...appearance, mode }),
+      setMode: (mode: ThemeModePreference) => update({ ...appearance, mode }),
       selectTheme: (id: string) => update({ ...appearance, themeId: id }),
       saveCustomTheme: (custom: Theme) =>
         update({
@@ -67,7 +94,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
           ),
         }),
     }),
-    [theme, palette, appearance, update],
+    [theme, mode, palette, appearance, update],
   );
   return (
     <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

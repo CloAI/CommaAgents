@@ -28,7 +28,7 @@
     color: var(--color-warning);
   }
   [data-status="failed"] {
-    color: var(--color-error);
+    color: var(--color-error-text);
   }
   [data-status="stopped"] {
     color: var(--color-muted);

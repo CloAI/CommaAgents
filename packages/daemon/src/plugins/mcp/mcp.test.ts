@@ -20,7 +20,6 @@ describe("MCP plugin", () => {
       mcp,
       cwd,
       strategyPath,
-      runRepository,
       configurations,
       toolsByRun,
       managers,
@@ -38,9 +37,12 @@ describe("MCP plugin", () => {
       "shared",
     ]);
     expect(configurations[0]!.enabledServerIds).toEqual(["shared", "private"]);
-    expect(await runRepository.getRunConfig("root")).toEqual({
-      enabledMcpServerIds: ["shared", "private"],
-    });
+    expect(
+      (await runs.getRun("root"))?.configuration.mcpServerOverrides,
+    ).toBeUndefined();
+    await expect(readFile(join(cwd, "root.config.json"))).rejects.toMatchObject(
+      { code: "ENOENT" },
+    );
     expect(Object.values(toolsByRun.get("root")!.writer!.origins)).toEqual([
       { serverId: "shared", toolName: "inspect" },
       { serverId: "private", toolName: "inspect" },
@@ -69,26 +71,23 @@ describe("MCP plugin", () => {
   });
 
   test("should list before preparation without connecting and preserve selections across restart", async () => {
-    const {
-      runs,
-      mcp,
-      cwd,
-      strategyPath,
-      runRepository,
-      managerFactory,
-      configurations,
-    } = await createMcpFixture();
-    const servers = await mcp.listServers({ runId: "root", strategyPath, cwd });
+    const { runs, mcp, cwd, strategyPath, managerFactory, configurations } =
+      await createMcpFixture();
+    const servers = await mcp.listServers({ strategyPath, cwd });
     expect(servers.find((server) => server.id === "private")?.enabled).toBe(
       true,
     );
     expect(managerFactory).not.toHaveBeenCalled();
-    await runRepository.saveRunConfig("root", { enabledMcpServerIds: [] });
+    await writeFile(
+      join(cwd, "root.config.json"),
+      JSON.stringify({ enabledMcpServerIds: ["shared"] }),
+    );
     await runs.prepareRun({
       runId: "root",
       configuration: {
         strategyPath,
         cwd,
+        mcpServerOverrides: { shared: false, private: false },
       },
     });
     expect(configurations[0]!.enabledServerIds).toEqual([]);
@@ -100,7 +99,7 @@ describe("MCP plugin", () => {
     await mcp.dispose();
     const restartedRuns = createRunsPlugin({ runsDir: cwd });
     const restartedMcp = createMcpPlugin({
-      dependencies: { runs: restartedRuns, runRepository },
+      dependencies: { runs: restartedRuns },
     });
     const replayed: McpServersUpdated[] = [];
     await restartedMcp.notifications.subscribe(
@@ -124,15 +123,8 @@ describe("MCP plugin", () => {
   });
 
   test("should serialize selection updates and keep active tools unchanged until continuation", async () => {
-    const {
-      runs,
-      mcp,
-      cwd,
-      strategyPath,
-      configurations,
-      toolsByRun,
-      runRepository,
-    } = await createMcpFixture();
+    const { runs, mcp, cwd, strategyPath, configurations, toolsByRun } =
+      await createMcpFixture();
     await runs.prepareRun({
       runId: "root",
       configuration: {
@@ -161,9 +153,9 @@ describe("MCP plugin", () => {
         enabled: true,
       }),
     ]);
-    expect(await runRepository.getRunConfig("root")).toEqual({
-      enabledMcpServerIds: ["disabled"],
-    });
+    expect(
+      (await runs.getRun("root"))?.configuration.mcpServerOverrides,
+    ).toEqual({ private: false, shared: false, disabled: true });
     expect(configurations).toHaveLength(1);
     expect(toolsByRun.get("root")).toBe(tools);
     expect(
@@ -209,6 +201,7 @@ describe("MCP plugin", () => {
       }),
     ).rejects.toThrow("no shared default");
     await expect(
+      // @ts-expect-error Verify missing run IDs are rejected at runtime too.
       mcp.updateServer({
         scope: "run",
         cwd,
@@ -217,6 +210,10 @@ describe("MCP plugin", () => {
         enabled: true,
       }),
     ).rejects.toThrow("runId is required");
+    await runs.prepareRun({
+      runId: "root",
+      configuration: { strategyPath, cwd },
+    });
     await expect(
       mcp.updateServer({
         scope: "run",
@@ -455,6 +452,149 @@ describe("MCP plugin", () => {
     expect(toolsByRun.get("root")!.writer).toEqual({ tools: {}, origins: {} });
     await runs.dispose();
     expect(managers[0]!.close).toHaveBeenCalledTimes(1);
+    await mcp.dispose();
+  });
+  test("should follow changed defaults and reset an explicit override without writing legacy sidecars", async () => {
+    const { runs, mcp, cwd, strategyPath, configurations } =
+      await createMcpFixture();
+    await writeFile(
+      join(cwd, "root.config.json"),
+      JSON.stringify({ enabledMcpServerIds: [] }),
+    );
+    await runs.prepareRun({
+      runId: "root",
+      configuration: { strategyPath, cwd },
+    });
+    expect(configurations[0]!.enabledServerIds).toEqual(["shared", "private"]);
+    await mcp.updateServer({
+      scope: "run",
+      runId: "root",
+      serverId: "shared",
+      enabled: false,
+    });
+    expect(
+      (await runs.getRun("root"))?.configuration.mcpServerOverrides,
+    ).toEqual({ shared: false });
+    await mcp.updateServer({
+      scope: "run",
+      runId: "root",
+      serverId: "shared",
+      enabled: null,
+    });
+    expect(
+      (await runs.getRun("root"))?.configuration.mcpServerOverrides,
+    ).toBeUndefined();
+    expect(
+      (await mcp.listServers({ runId: "root" })).find(
+        (server) => server.id === "shared",
+      )?.enabled,
+    ).toBe(true);
+    await mcp.updateServer({
+      scope: "default",
+      runId: "root",
+      serverId: "shared",
+      enabled: false,
+    });
+    await runs.startRun("root", "done").completion;
+    await runs.prepareRun({ runId: "root" });
+    expect(configurations[1]!.enabledServerIds).toEqual(["private"]);
+    expect(
+      JSON.parse(await readFile(join(cwd, "root.config.json"), "utf8")),
+    ).toEqual({ enabledMcpServerIds: [] });
+    await runs.dispose();
+    await mcp.dispose();
+  });
+
+  test("should retain explicit choices across strategy switches while enabling newly assigned private servers", async () => {
+    const { runs, mcp, cwd, strategyPath, configurations } =
+      await createMcpFixture();
+    await runs.prepareRun({
+      runId: "root",
+      configuration: { strategyPath, cwd },
+    });
+    await mcp.updateServer({
+      scope: "run",
+      runId: "root",
+      serverId: "shared",
+      enabled: false,
+    });
+    const nextPath = join(cwd, "next.json");
+    await writeFile(
+      nextPath,
+      JSON.stringify({
+        ...strategy,
+        mcpServers: {
+          ...strategy.mcpServers,
+          later: { transport: "stdio", command: "never-started" },
+        },
+        agents: {
+          writer: {
+            ...strategy.agents.writer,
+            mcpServers: [...strategy.agents.writer.mcpServers, "later"],
+          },
+        },
+      }),
+    );
+    await runs.switchStrategy({ runId: "root", strategyPath: nextPath });
+    expect(
+      (await runs.getRun("root"))?.configuration.mcpServerOverrides,
+    ).toEqual({ shared: false });
+    expect(configurations.at(-1)!.enabledServerIds).toEqual([
+      "private",
+      "later",
+    ]);
+    await runs.dispose();
+    await mcp.dispose();
+  });
+
+  test("should copy overrides with a completed checkpoint and keep copied choices independent", async () => {
+    const { runs, mcp, cwd, strategyPath } = await createMcpFixture();
+    await runs.prepareRun({
+      runId: "root",
+      configuration: { strategyPath, cwd },
+    });
+    await mcp.updateServer({
+      scope: "run",
+      runId: "root",
+      serverId: "private",
+      enabled: false,
+    });
+    await runs.startRun("root", "done").completion;
+    await runs.copyRun({ runId: "root", targetRunId: "copy", cwd });
+    expect(
+      (await runs.getRun("copy"))?.configuration.mcpServerOverrides,
+    ).toEqual({ private: false });
+    await mcp.updateServer({
+      scope: "run",
+      runId: "root",
+      serverId: "private",
+      enabled: true,
+    });
+    expect(
+      (await runs.getRun("copy"))?.configuration.mcpServerOverrides,
+    ).toEqual({ private: false });
+    await runs.dispose();
+    await mcp.dispose();
+  });
+
+  test("should reject mutations of missing runs including path-like identities", async () => {
+    const { runs, mcp, cwd, strategyPath } = await createMcpFixture();
+    for (const runId of ["missing", "../escape"]) {
+      await expect(
+        mcp.updateServer({
+          scope: "run",
+          runId,
+          cwd,
+          strategyPath,
+          serverId: "shared",
+          enabled: true,
+        }),
+      ).rejects.toThrow("Run was not found");
+    }
+    await expect(mcp.listServers({ runId: "missing" })).rejects.toThrow(
+      "Run was not found",
+    );
+    await runs.dispose();
     await mcp.dispose();
   });
 });

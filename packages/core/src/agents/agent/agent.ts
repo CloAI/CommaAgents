@@ -374,13 +374,12 @@ export function createAgent(
                 );
 
                 for await (const part of streamResult.fullStream) {
-                  if (
-                    part.type === "error" &&
-                    (protectedRequest ||
+                  if (part.type === "error") {
+                    throw protectedRequest ||
                       (part.error instanceof Error &&
-                        part.error.name === "PrivacyError"))
-                  ) {
-                    throw sanitizePrivacyError(part.error, signal);
+                        part.error.name === "PrivacyError")
+                      ? sanitizePrivacyError(part.error, signal)
+                      : part.error;
                   }
                   const mappedEvent = mapStreamPart(part);
                   const event = mappedEvent

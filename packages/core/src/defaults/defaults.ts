@@ -1,4 +1,6 @@
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { statSync } from "node:fs";
+import { homedir } from "node:os";
 
 import {
   DEFAULT_AUDIT_DIRECTORY_NAME,
@@ -8,7 +10,6 @@ import {
   DEFAULT_PACKAGES_DIRECTORY_NAME,
   DEFAULT_PROVIDERS_DIRECTORY_NAME,
   DEFAULT_STRATEGIES_DIRECTORY_NAME,
-  DEFAULT_TRASH_DIRECTORY_NAME,
   PROCESS_ENV_COMMA_AGENTS_CATALOG_CACHE_FILENAME,
   PROCESS_ENV_COMMA_AGENTS_CREDENTIALS_FILENAME,
   PROCESS_ENV_COMMA_AGENTS_DATA_DIRECTORY,
@@ -123,7 +124,7 @@ export function setCatalogCachePath(path: string | undefined): void {
 export function getGlobalSkillsDirectory(): string {
   return (
     coreDefaultOverrides.globalSkillsDirectory ??
-    join(getApplicationDataDirectory(), DEFAULT_GLOBAL_SKILLS_DIRECTORY_NAME)
+    join(homedir(), ".config", "comma", DEFAULT_GLOBAL_SKILLS_DIRECTORY_NAME)
   );
 }
 
@@ -190,10 +191,6 @@ export function getHubDirectory(
   return join(dataDirectory, DEFAULT_HUB_DIRECTORY_NAME);
 }
 
-export function getTrashDirectory(): string {
-  return join(getApplicationDataDirectory(), DEFAULT_TRASH_DIRECTORY_NAME);
-}
-
 /** Return the project metadata directory for a workspace. */
 export function getProjectDirectory(workspaceRoot: string): string {
   return join(workspaceRoot, PROCESS_ENV_COMMA_AGENTS_PROJECT_DIRECTORY_NAME);
@@ -202,4 +199,30 @@ export function getProjectDirectory(workspaceRoot: string): string {
 /** Clear all runtime location overrides. Intended for tests and process reset. */
 export function resetCoreLocationOverrides(): void {
   coreDefaultOverrides = {};
+}
+
+/** Find the nearest ancestor containing a .comma directory; a project is optional.
+ * @param {string} cwd - Directory whose Comma project is requested.
+ * @returns {string | undefined} Project root, or undefined without creating a directory.
+ */
+export function findCommaProjectRoot(cwd: string): string | undefined {
+  let directory = resolve(cwd);
+  while (true) {
+    try {
+      const marker = join(directory, ".comma");
+      if (
+        marker !== resolve(getApplicationDataDirectory()) &&
+        statSync(marker).isDirectory()
+      ) {
+        return directory;
+      }
+    } catch {
+      /* Missing or inaccessible project markers do not prevent global discovery. */
+    }
+    const parent = dirname(directory);
+    if (parent === directory) {
+      return undefined;
+    }
+    directory = parent;
+  }
 }

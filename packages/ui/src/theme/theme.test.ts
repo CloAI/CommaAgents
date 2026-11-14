@@ -132,6 +132,16 @@ describe("themes", () => {
     ).toBe("comma");
   });
 
+  it("should accept System as a saved mode", () => {
+    expect(
+      isAppearanceSettings({
+        themeId: "comma",
+        mode: "system",
+        customThemes: [],
+      }),
+    ).toBe(true);
+  });
+
   it("should validate saved appearance including custom themes", () => {
     const custom = cloneTheme(BUILT_IN_THEMES[1]!, "custom-1", "Mine");
     expect(

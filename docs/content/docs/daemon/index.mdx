@@ -1,62 +1,38 @@
 ---
 title: Daemon
-description: Background strategy execution, process control, persistence, and the WebSocket client protocol.
+description: Run strategies through a plugin kernel and typed WebSocket server.
 ---
 
 # Daemon
 
-`@comma-agents/daemon` runs Comma Agents strategies in a long-lived process. It exposes a WebSocket server for clients, persists run timelines, manages interactive requests, and provides APIs for starting or embedding the daemon.
-
-For normal use, start the managed daemon through the CLI:
+`@comma-agents/daemon` runs strategies in a long-lived process. Its plugins own execution, persistence, interactive requests, providers, and projects. Use the CLI for a managed process:
 
 ```bash
 comma daemon start
 comma daemon status
 ```
 
-Embed the server when another application owns the process lifecycle:
+For an embedded host, create a kernel and attach its server:
 
 ```ts
-import {
-  createDaemon,
-  initializeLogging,
-  loadDaemonConfig,
-} from "@comma-agents/daemon";
+import { createDaemonKernel, createDaemonServer } from "@comma-agents/daemon";
 
-const config = loadDaemonConfig();
-const logging = initializeLogging({
-  level: config.logLevel,
-  file: config.logFile,
-});
-const daemon = createDaemon({ config });
-
-await daemon.start();
-console.log(daemon.url);
-
-// When the application is ready to shut down:
+const daemon = await createDaemonKernel({ runs: { runsDir: "./runs" } });
+const server = createDaemonServer({ daemon, host: "127.0.0.1", port: 7422 });
 try {
-  await daemon.stop();
+  await server.start();
+  console.log(server.url);
+  // Run the host until shutdown is requested.
 } finally {
-  logging.close();
+  await server.stop();
+  await daemon.dispose();
 }
 ```
 
-## Module tree
-
-The documentation follows the package's ownership tree:
-
-- [CLI](/docs/daemon/cli) — process commands and service autostart.
-- [Daemon module](/docs/daemon/daemon) — process, runtime, and command APIs.
+- [CLI](/docs/daemon/cli) and [process APIs](/docs/daemon/daemon) — start, stop, and inspect the managed daemon.
 - [Configuration](/docs/daemon/config) — files, environment variables, and resolution priority.
-- [Server](/docs/daemon/server) — the WebSocket and health-check server.
-  - [Protocol](/docs/daemon/server/protocol) — client requests and daemon events.
-- [Daemon run state](/docs/daemon/daemon-run-state) — preparation, execution, continuation, and cancellation.
-  - [Run repository](/docs/daemon/daemon-run-state/run-repository) — persisted run timelines and configuration.
-  - [MCP runtime](/docs/daemon/daemon-run-state/mcp) — per-run server selection and status.
-  - [Execution systems and effects](/docs/daemon/daemon-run-state/systems) — input, permission, streaming, persistence, services, and effects.
-- [LSP plugin](/docs/daemon/lsp) — shared language subprocesses for TypeScript and JavaScript queries.
-- [Logging](/docs/daemon/logger) — structured loggers and output sinks.
-- [Run state](/docs/daemon/state) — shared run lifecycle statuses.
-- [PID files](/docs/daemon/pid) — process identity helpers.
-
-Types and functions documented on these pages are exported from `@comma-agents/daemon` unless a page identifies the API as a protocol message or an architectural submodule.
+- [Plugin server](/docs/daemon/server/plugin-server) and [protocol](/docs/daemon/server/protocol) — typed commands and subscriptions.
+- [Runs](/docs/daemon/server/runs) — prepare, execute, continue, and observe conversations.
+- [Projects](/docs/daemon/projects-plugin) — durable project and chat organization.
+- [Core](/docs/daemon/core-plugin), [sandbox](/docs/daemon/sandbox-plugin), [questions](/docs/daemon/questions-plugin), [skills](/docs/daemon/skills-plugin), [MCP](/docs/daemon/mcp-plugin), and [LSP](/docs/daemon/lsp) — feature APIs.
+- [Logging](/docs/daemon/logger) and [PID files](/docs/daemon/pid) — process resources.

@@ -1,3 +1,7 @@
+import type {
+  PluginCommandMap,
+  PluginChannelMap,
+} from "../../daemon-server/messages/messages.contracts.types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -592,4 +596,44 @@ describe("createCorePlugin", () => {
       await kernel.dispose();
     }
   });
+});
+
+type DaemonCommandMap = PluginCommandMap<{
+  core: ReturnType<typeof createCorePlugin>;
+}>;
+type DaemonChannelMap = PluginChannelMap<{
+  core: ReturnType<typeof createCorePlugin>;
+}>;
+
+it("should preserve this plugin's inferred server contracts", () => {
+  const providerArguments: DaemonCommandMap["core.providers.configure"]["arguments"] =
+    {
+      providerId: "openai",
+      apiKey: "example-key",
+    };
+  const providerOutput: DaemonCommandMap["core.providers.getConfiguration"]["result"]["credentialSource"] =
+    "environment";
+  const providerId: DaemonChannelMap["core.providers.list"]["message"]["data"]["providers"][number]["id"] =
+    "openai";
+  const verificationStatus: DaemonCommandMap["core.providers.verify"]["result"]["status"] =
+    "verified";
+  // @ts-expect-error Configuration requires an API key, not discovery options.
+  const missingProviderKey: DaemonCommandMap["core.providers.configure"]["arguments"] =
+    { providerId: "openai" };
+  // @ts-expect-error A standalone configuration response has no provider-list wrapper.
+  const wrongProviderOutput: DaemonCommandMap["core.providers.getConfiguration"]["result"]["providers"] =
+    [];
+  // @ts-expect-error Provider output fields must retain concrete types.
+  const wrongProviderSource: DaemonCommandMap["core.providers.getConfiguration"]["result"]["credentialSource"] = 42;
+  // @ts-expect-error Verification result must not widen to unrelated command result fields.
+  const wrongVerificationStatus: DaemonCommandMap["core.providers.verify"]["result"]["status"] =
+    "configured";
+  void providerArguments;
+  void providerOutput;
+  void providerId;
+  void verificationStatus;
+  void missingProviderKey;
+  void wrongProviderOutput;
+  void wrongProviderSource;
+  void wrongVerificationStatus;
 });

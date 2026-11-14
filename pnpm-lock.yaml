@@ -258,6 +258,9 @@ importers:
       ehbp:
         specifier: 0.3.3
         version: 0.3.3
+      fuse.js:
+        specifier: 7.5.0
+        version: 7.5.0
       jose:
         specifier: 6.2.13
         version: 6.2.13
@@ -590,6 +593,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@comma-agents/core':
+        specifier: workspace:*
+        version: link:../core
       '@comma-agents/daemon':
         specifier: workspace:*
         version: link:../daemon
@@ -4769,6 +4775,10 @@ packages:
 
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
+
+  fuse.js@7.5.0:
+    resolution: {integrity: sha512-sQtrEfA+ez/3G0cCZecF70oqpCRttCexYUG4mUrtWL49ULUzUyxokt5kyqwtKzj1270RaKih+hcP3qLcumccow==}
+    engines: {node: '>=10'}
 
   gensync@1.0.0-beta.2:
     resolution: {integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==}
@@ -10569,6 +10579,8 @@ snapshots:
       - tailwindcss
 
   function-bind@1.1.2: {}
+
+  fuse.js@7.5.0: {}
 
   gensync@1.0.0-beta.2: {}
 

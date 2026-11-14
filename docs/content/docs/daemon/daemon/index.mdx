@@ -23,28 +23,40 @@ console.log(status.state, status.pid);
 await stopDaemonProcess();
 ```
 
-Use the process APIs when an application needs to start, stop, restart, or inspect the managed daemon. Use `createDaemon` directly when another host owns the server lifecycle.
+Use the process APIs when an application needs to start, stop, restart, or inspect the managed daemon. Use `createDaemonKernel` and `createDaemonServer` when another host owns the [server lifecycle](/docs/daemon/server/plugin-server).
 
 ## DaemonProcessStartOptions
 
 Options shared by process start and restart operations.
 
-<AutoTypeTable path="../packages/daemon/src/daemon-cli/process/actions/start.ts" name="DaemonProcessStartOptions" />
+<AutoTypeTable
+  path="../packages/daemon/src/daemon-cli/process/actions/start.ts"
+  name="DaemonProcessStartOptions"
+/>
 
 ## DaemonProcessStatus
 
 The current process and configuration status.
 
-<AutoTypeTable path="../packages/daemon/src/daemon-cli/process/actions/status.ts" name="DaemonProcessStatus" />
+<AutoTypeTable
+  path="../packages/daemon/src/daemon-cli/process/actions/status.ts"
+  name="DaemonProcessStatus"
+/>
 
 ## DaemonProcessStartResult
 
 The result of starting or restarting the daemon process.
 
-<AutoTypeTable path="../packages/daemon/src/daemon-cli/process/actions/start.ts" name="DaemonProcessStartResult" />
+<AutoTypeTable
+  path="../packages/daemon/src/daemon-cli/process/actions/start.ts"
+  name="DaemonProcessStartResult"
+/>
 
 ## DaemonProcessStopResult
 
 The result of a stop request.
 
-<AutoTypeTable path="../packages/daemon/src/daemon-cli/process/actions/stop.ts" name="DaemonProcessStopResult" />
+<AutoTypeTable
+  path="../packages/daemon/src/daemon-cli/process/actions/stop.ts"
+  name="DaemonProcessStopResult"
+/>

@@ -1,3 +1,4 @@
+import { useOptionalWorkspaces } from "../useWorkspaces";
 import { useEffect } from "react";
 import { useCommaAgentsDaemon } from "../useCommaAgentsDaemon";
 import { daemonLogs } from "../useLogBucket/logger";
@@ -10,9 +11,10 @@ const NO_STRATEGIES: readonly StrategyItem[] = [];
  * @returns {Strategies} List status and strategies in priority order.
  */
 export function useStrategies(): Strategies {
+  const workspaces = useOptionalWorkspaces();
   const { data, errors, clientError } = useCommaAgentsDaemon(
     { command: "core.strategies.list" },
-    {},
+    { cwd: workspaces?.project?.cwd },
   );
   const strategies = data?.strategies ?? NO_STRATEGIES;
   useEffect(() => {

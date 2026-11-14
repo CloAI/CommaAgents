@@ -1,0 +1,76 @@
+---
+title: ask_questions
+description: Ask one or more composed questions and receive all answers together.
+---
+
+# ask_questions
+
+Use `ask_questions` when an agent needs user preferences or decisions before continuing. One call presents a questionnaire; the tool waits for one complete response.
+
+```json
+{
+  "questions": [
+    {
+      "id": "review",
+      "prompt": "What should I review?",
+      "recommendation": "Start with the daemon lifecycle.",
+      "fields": [
+        {
+          "id": "areas",
+          "type": "choice",
+          "label": "Areas",
+          "options": [
+            { "id": "core", "label": "Core" },
+            { "id": "daemon", "label": "Daemon" }
+          ],
+          "minSelections": 1,
+          "maxSelections": 2,
+          "recommendation": {
+            "value": ["daemon"],
+            "explanation": "Cancellation behavior changed there."
+          }
+        },
+        {
+          "id": "confidence",
+          "type": "slider",
+          "label": "Confidence",
+          "min": 0,
+          "max": 100,
+          "step": 5
+        },
+        { "id": "notes", "type": "text", "label": "Notes", "required": false }
+      ]
+    }
+  ]
+}
+```
+
+## Fields and recommendations
+
+Text is multiline and preserves whitespace. A required text field must contain non-whitespace content. Choice answers are arrays of option IDs, including single selections; selection counts default to one. Sliders return numbers within their bounds and aligned with their step. A confidence slider is a labeled slider, not a separate type. Fields are required unless `required` is `false`.
+
+Each field may supply a typed recommendation and explanation. The question may also include overall recommendation text. Recommendations are metadata, not answers: accepting one fills a draft, and the user still submits explicitly. Text suggestions appear as placeholders and choice suggestions are highlighted.
+
+## Complete responses
+
+Every question receives an `answered`, `other`, or `skipped` outcome. Other replaces the whole question with free-form text; it is not a choice option or a field. Other and Skip bypass required fields for that question.
+
+```json
+{
+  "answers": [
+    {
+      "questionId": "review",
+      "type": "answered",
+      "values": { "areas": ["daemon"], "confidence": 80 }
+    }
+  ]
+}
+```
+
+The tool returns this structured response as model-visible JSON and as result data. Human questions have no implicit timeout and are cancelled when their execution or tool is cancelled. Headless CLI runs explicitly skip questionnaires instead of accepting recommendations.
+
+For custom runtimes, implement `QuestionsRequester`; shared schemas and `validateQuestionsResponse` are available from `@comma-agents/core/questions`.
+
+<AutoTypeTable path="../packages/core/src/questions/questions.types.ts" name="QuestionsRequest" />
+
+<AutoTypeTable path="../packages/core/src/questions/questions.types.ts" name="QuestionsResponse" />

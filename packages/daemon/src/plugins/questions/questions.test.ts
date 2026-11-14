@@ -1,3 +1,4 @@
+import { WatchQuestionsMessageSchema } from "./server/channels/watch-questions/watch-questions.schemas";
 import { RunOutcomeStatus } from "../runs/state/state.schemas";
 import { afterEach, describe, expect, vi, test } from "vitest";
 import { realpathSync } from "node:fs";
@@ -6,21 +7,22 @@ import {
   createMockRunsPlugin,
   directories,
   fakeLoader,
-  repository,
+  createRunDirectory,
 } from "../runs/test.utils";
 import { createQuestionsPlugin } from "./questions";
 import type { QuestionRequested } from "./questions.notifications";
-import type { QuestionRequester } from "./state/state.types";
+import { QuestionsSchema } from "@comma-agents/core";
+import type { QuestionsRequester, QuestionsResponse } from "@comma-agents/core";
 
 afterEach(cleanupRunFixtures);
 
 function fixture() {
-  const requesters = new Map<string, QuestionRequester>();
+  const requesters = new Map<string, QuestionsRequester>();
   const loader = fakeLoader({ loads: [], restored: [] });
   const runs = createMockRunsPlugin({
-    repository: repository(),
+    runsDir: createRunDirectory(),
     async loadStrategy(options) {
-      const requester = options.strategyInputs.questionRequester;
+      const requester = options.strategyInputs.questionsRequester;
       if (!requester) {
         throw new Error("Question requester was not supplied");
       }
@@ -39,9 +41,27 @@ function fixture() {
 
 const request = {
   agentName: "writer",
-  toolName: "ask_question",
-  question: "Which configuration should I use?",
+  toolName: "ask_questions",
+  ...QuestionsSchema.parse({
+    questions: [
+      {
+        id: "configuration",
+        prompt: "Which configuration should I use?",
+        fields: [
+          { id: "text", type: "text", label: "Configuration", required: false },
+        ],
+      },
+    ],
+  }),
 };
+
+function textResponse(text: string): QuestionsResponse {
+  return {
+    answers: [
+      { questionId: "configuration", type: "answered", values: { text } },
+    ],
+  };
+}
 
 describe("questions plugin", () => {
   test("should assign distinct IDs and answer only the matching execution's question", async () => {
@@ -73,28 +93,40 @@ describe("questions plugin", () => {
       ...request,
     });
     expect(notifications[0]).not.toHaveProperty("signal");
-    expect(
-      questions.resolveQuestion(
+    expect(() =>
+      questions.submitAnswers(
         "wrong",
         notifications[0]!.requestId,
-        "ignored",
+        crypto.randomUUID(),
+        textResponse("ignored"),
       ),
-    ).toBe(false);
+    ).toThrow();
     expect(
-      questions.resolveQuestion(
+      questions.submitAnswers(
         "root",
         notifications[0]!.requestId,
-        "existing",
+        crypto.randomUUID(),
+        textResponse("existing"),
       ),
-    ).toBe(true);
+    ).toEqual({ accepted: true, replayed: false });
     expect(
-      questions.resolveQuestion("root", notifications[1]!.requestId, ""),
-    ).toBe(true);
-    expect(await first).toBe("existing");
-    expect(await second).toBe("");
-    expect(
-      questions.resolveQuestion("root", notifications[0]!.requestId, "again"),
-    ).toBe(false);
+      questions.submitAnswers(
+        "root",
+        notifications[1]!.requestId,
+        crypto.randomUUID(),
+        textResponse(""),
+      ),
+    ).toEqual({ accepted: true, replayed: false });
+    expect(await first).toEqual(textResponse("existing"));
+    expect(await second).toEqual(textResponse(""));
+    expect(() =>
+      questions.submitAnswers(
+        "root",
+        notifications[0]!.requestId,
+        crypto.randomUUID(),
+        textResponse("again"),
+      ),
+    ).toThrow();
     expect(questions.getPendingQuestions("root")).toEqual([]);
     await runs.dispose();
     await questions.dispose();
@@ -118,15 +150,16 @@ describe("questions plugin", () => {
       "root",
       (notification) => {
         received.push(notification);
-        questions.resolveQuestion(
+        questions.submitAnswers(
           notification.runId,
           notification.requestId,
-          "use defaults",
+          crypto.randomUUID(),
+          textResponse("use defaults"),
         );
       },
     );
     expect(pending).toEqual(received);
-    expect(await response).toBe("use defaults");
+    expect(await response).toEqual(textResponse("use defaults"));
     expect(questions.getPendingQuestions("root")).toEqual([]);
     await runs.dispose();
     await questions.dispose();
@@ -148,19 +181,25 @@ describe("questions plugin", () => {
     controller.abort();
     await expect(response).rejects.toThrow("stopped");
     expect(questions.getPendingQuestions("root")).toEqual([]);
-    expect(questions.resolveQuestion("root", pending.requestId, "late")).toBe(
-      false,
-    );
+    expect(() =>
+      questions.submitAnswers(
+        "root",
+        pending.requestId,
+        crypto.randomUUID(),
+        textResponse("late"),
+      ),
+    ).toThrow();
     await expect(
       requester({ ...request, signal: controller.signal }),
     ).rejects.toThrow("stopped");
     const next = requester(request);
-    questions.resolveQuestion(
+    questions.submitAnswers(
       "root",
       questions.getPendingQuestions("root")[0]!.requestId,
-      "still active",
+      crypto.randomUUID(),
+      textResponse("still active"),
     );
-    expect(await next).toBe("still active");
+    expect(await next).toEqual(textResponse("still active"));
     await runs.dispose();
     await questions.dispose();
   });
@@ -199,12 +238,13 @@ describe("questions plugin", () => {
     const current = requesters.get("root")!;
     expect(current).not.toBe(previous);
     const response = current(request);
-    questions.resolveQuestion(
+    questions.submitAnswers(
       "root",
       questions.getPendingQuestions("root")[0]!.requestId,
-      "continue",
+      crypto.randomUUID(),
+      textResponse("continue"),
     );
-    expect(await response).toBe("continue");
+    expect(await response).toEqual(textResponse("continue"));
     await runs.stopRun("root");
     runs.registerRunPreparation({
       name: "failure",
@@ -247,17 +287,21 @@ describe("questions plugin", () => {
         grandchildId = strategyContext.runId;
         parentId = strategyContext.parentRunId!;
         const call = strategyContext.strategy.flow.call;
-        vi.spyOn(strategyContext.strategy.flow, "call").mockImplementation(() => {
-          let flowCall: ReturnType<typeof call> | undefined;
-          const completion = requesters.get(strategyContext.runId)!({
-            ...request,
-            signal: strategyContext.signal,
-          }).then((response) => {
-            flowCall = call(response);
-            return flowCall;
-          });
-          return Object.assign(completion, { abort: () => flowCall?.abort() });
-        });
+        vi.spyOn(strategyContext.strategy.flow, "call").mockImplementation(
+          () => {
+            let flowCall: ReturnType<typeof call> | undefined;
+            const completion = requesters.get(strategyContext.runId)!({
+              ...request,
+              signal: strategyContext.signal,
+            }).then((response) => {
+              flowCall = call(JSON.stringify(response));
+              return flowCall;
+            });
+            return Object.assign(completion, {
+              abort: () => flowCall?.abort(),
+            });
+          },
+        );
       },
     });
     await runs.prepareRun({
@@ -294,18 +338,26 @@ describe("questions plugin", () => {
       },
     );
     expect(replayed).toEqual([notification]);
-    expect(
-      questions.resolveQuestion("root", notification.requestId, "wrong"),
-    ).toBe(false);
-    questions.resolveQuestion(
+    expect(() =>
+      questions.submitAnswers(
+        "root",
+        notification.requestId,
+        crypto.randomUUID(),
+        textResponse("wrong"),
+      ),
+    ).toThrow();
+    questions.submitAnswers(
       notification.runId,
       notification.requestId,
-      "nested answer",
+      crypto.randomUUID(),
+      textResponse("nested answer"),
     );
     const outcome = await completion;
     expect(outcome.status).toBe(RunOutcomeStatus.completed);
     if (outcome.status === "completed") {
-      expect(outcome.result.text).toBe("nested answer");
+      expect(outcome.result.text).toBe(
+        JSON.stringify(textResponse("nested answer")),
+      );
     }
     expect(questions.getPendingQuestions("root")).toEqual([]);
     await expect(requesters.get(grandchildId)!(request)).rejects.toThrow(
@@ -323,15 +375,17 @@ describe("questions plugin", () => {
         if (!strategyContext.parentRunId) {
           return;
         }
-        vi.spyOn(strategyContext.strategy.flow, "call").mockImplementation(() => {
-          const completion = requesters.get(strategyContext.runId)!({
-            ...request,
-            signal: strategyContext.signal,
-          }).then(() => {
-            throw new Error("Question should be cancelled");
-          });
-          return Object.assign(completion, { abort() {} });
-        });
+        vi.spyOn(strategyContext.strategy.flow, "call").mockImplementation(
+          () => {
+            const completion = requesters.get(strategyContext.runId)!({
+              ...request,
+              signal: strategyContext.signal,
+            }).then(() => {
+              throw new Error("Question should be cancelled");
+            });
+            return Object.assign(completion, { abort() {} });
+          },
+        );
       },
     });
     await runs.prepareRun({
@@ -355,13 +409,14 @@ describe("questions plugin", () => {
     await runs.stopRun("root");
     expect((await completion).status).toBe(RunOutcomeStatus.stopped);
     expect(questions.getPendingQuestions("root")).toEqual([]);
-    expect(
-      questions.resolveQuestion(
+    expect(() =>
+      questions.submitAnswers(
         notification.runId,
         notification.requestId,
-        "late",
+        crypto.randomUUID(),
+        textResponse("late"),
       ),
-    ).toBe(false);
+    ).toThrow();
     await runs.dispose();
     await questions.dispose();
   });
@@ -422,37 +477,318 @@ describe("questions plugin", () => {
     try {
       const later = requesters.get("root")!({
         ...request,
-        question: "Second?",
+        questions: [{ ...request.questions[0]!, prompt: "Second?" }],
+      });
+      expect(channel?.initial).toMatchObject({
+        type: "questions.snapshot",
+        data: { requests: [{ runId: "root", questions: request.questions }] },
       });
       expect(messages).toMatchObject([
         {
           type: "question.requested",
-          data: { runId: "root", question: request.question },
+          data: { questions: [{ prompt: "Second?" }] },
         },
-        { type: "question.requested", data: { question: "Second?" } },
       ]);
       const [first] = questions.getPendingQuestions("root");
       const answered = await questions.server.commands[0]!.invoke({
         runId: "root",
         requestId: first!.requestId,
-        response: "yes",
+        submissionId: crypto.randomUUID(),
+        response: textResponse("yes"),
       });
-      expect(answered).toEqual({ answered: true });
-      expect(await earlier).toBe("yes");
+      expect(answered).toEqual({ accepted: true, replayed: false });
+      expect(await earlier).toEqual(textResponse("yes"));
       expect(messages.at(-1)).toEqual({
         type: "question.resolved",
         data: { runId: "root", requestId: first!.requestId },
       });
-      questions.resolveQuestion(
+      questions.submitAnswers(
         "root",
         questions.getPendingQuestions("root")[0]!.requestId,
-        "no",
+        crypto.randomUUID(),
+        textResponse("no"),
       );
-      expect(await later).toBe("no");
+      expect(await later).toEqual(textResponse("no"));
     } finally {
       controller.abort();
       await channel?.cleanup?.();
       await runs.dispose();
     }
   });
+});
+
+test("should reject a partial questionnaire atomically and replay only an identical submission", async () => {
+  const { runs, questions, requesters, cwd } = fixture();
+  await runs.prepareRun({
+    runId: "root",
+    configuration: { strategyPath: "example.json", cwd },
+  });
+  const questionnaire = {
+    ...request,
+    questions: [
+      request.questions[0]!,
+      { ...request.questions[0]!, id: "second" },
+    ],
+  };
+  const response = requesters.get("root")!(questionnaire);
+  const pending = questions.getPendingQuestions("root")[0]!;
+  const submissionId = crypto.randomUUID();
+  expect(() =>
+    questions.submitAnswers(
+      "root",
+      pending.requestId,
+      submissionId,
+      textResponse("incomplete"),
+    ),
+  ).toThrow("correct");
+  expect(questions.getPendingQuestions("root")).toEqual([pending]);
+  const complete: QuestionsResponse = {
+    answers: [
+      { questionId: "configuration", type: "other", text: "Deployment only." },
+      { questionId: "second", type: "skipped" },
+    ],
+  };
+  expect(
+    questions.submitAnswers("root", pending.requestId, submissionId, complete),
+  ).toEqual({ accepted: true, replayed: false });
+  expect(await response).toEqual(complete);
+  expect(
+    questions.submitAnswers("root", pending.requestId, submissionId, complete),
+  ).toEqual({ accepted: true, replayed: true });
+  expect(() =>
+    questions.submitAnswers(
+      "root",
+      pending.requestId,
+      submissionId,
+      textResponse("changed"),
+    ),
+  ).toThrow("already been submitted");
+  expect(() =>
+    questions.submitAnswers(
+      "root",
+      pending.requestId,
+      crypto.randomUUID(),
+      complete,
+    ),
+  ).toThrow("already been submitted");
+  await runs.stopRun("root");
+  expect(() =>
+    questions.submitAnswers("root", pending.requestId, submissionId, complete),
+  ).toThrow("no longer pending");
+  await runs.dispose();
+  await questions.dispose();
+});
+
+test("should reject malformed requests and preserve a pending request after invalid typed answers", async () => {
+  const { runs, questions, requesters, cwd } = fixture();
+  await runs.prepareRun({
+    runId: "root",
+    configuration: { strategyPath: "example.json", cwd },
+  });
+  const requester = requesters.get("root")!;
+  expect(() => requester({ ...request, questions: [] })).toThrow();
+  const questionnaire = {
+    ...request,
+    ...QuestionsSchema.parse({
+      questions: [
+        {
+          id: "select",
+          prompt: "Choose",
+          fields: [
+            {
+              id: "choice",
+              label: "Choice",
+              type: "choice",
+              options: [{ id: "a", label: "A" }],
+            },
+          ],
+        },
+      ],
+    }),
+  };
+  const response = requester(questionnaire);
+  const pending = questions.getPendingQuestions("root")[0]!;
+  expect(() =>
+    questions.submitAnswers("root", pending.requestId, "invalid", {
+      answers: [
+        {
+          questionId: "select",
+          type: "answered",
+          values: { choice: ["unknown"] },
+        },
+      ],
+    }),
+  ).toThrow("correct");
+  expect(questions.getPendingQuestions("root")).toEqual([pending]);
+  questions.submitAnswers("root", pending.requestId, "skip", {
+    answers: [{ questionId: "select", type: "skipped" }],
+  });
+  expect(await response).toEqual({
+    answers: [{ questionId: "select", type: "skipped" }],
+  });
+  await runs.dispose();
+  await questions.dispose();
+});
+
+test("should keep accepted receipts and validation definitions isolated from consumer mutation", async () => {
+  const { runs, questions, requesters, cwd } = fixture();
+  await runs.prepareRun({
+    runId: "root",
+    configuration: { strategyPath: "example.json", cwd },
+  });
+  const response = requesters.get("root")!(request);
+  const pending = questions.getPendingQuestions("root")[0]!;
+  // A subscriber receives a snapshot rather than the constraints used to validate submissions.
+  (pending.questions[0]!.fields as unknown as unknown[]).splice(0);
+  const original = textResponse("original");
+  const submissionId = crypto.randomUUID();
+  expect(() =>
+    questions.submitAnswers("root", pending.requestId, "invalid", {
+      answers: [
+        {
+          questionId: "configuration",
+          type: "answered",
+          values: { unknown: "value" },
+        },
+      ],
+    }),
+  ).toThrow("correct");
+  questions.submitAnswers("root", pending.requestId, submissionId, original);
+  const result = await response;
+  const answer = result.answers[0];
+  if (answer?.type === "answered") {
+    answer.values.text = "changed by consumer";
+  }
+  expect(
+    questions.submitAnswers("root", pending.requestId, submissionId, original),
+  ).toEqual({ accepted: true, replayed: true });
+  await runs.dispose();
+  await questions.dispose();
+});
+
+type QuestionsCommands =
+  import("../../daemon-server/messages/messages.contracts.types").PluginCommandMap<{
+    questions: ReturnType<typeof createQuestionsPlugin>;
+  }>;
+type SubmitArguments = QuestionsCommands["questions.submit"]["arguments"];
+
+test("should preserve structured submission arguments in this plugin's inferred contract", () => {
+  const valid: SubmitArguments = {
+    runId: "root",
+    requestId: "request",
+    submissionId: "submission",
+    response: textResponse("answer"),
+  };
+  const invalid: SubmitArguments = {
+    runId: "root",
+    requestId: "request",
+    submissionId: "submission",
+    // @ts-expect-error Text-only legacy responses must not compile as questionnaire submissions.
+    response: "answer",
+  };
+  void invalid;
+  expect(valid.response.answers).toHaveLength(1);
+});
+
+test("should not publish an already-resolved request after a synchronous responder has completed it", async () => {
+  const { runs, questions, requesters, cwd } = fixture();
+  await runs.prepareRun({
+    runId: "root",
+    configuration: { strategyPath: "example.json", cwd },
+  });
+  await questions.notifications.subscribe(
+    "run_question_requested",
+    "root",
+    (pending) => {
+      questions.submitAnswers(
+        "root",
+        pending.requestId,
+        crypto.randomUUID(),
+        textResponse("immediate"),
+      );
+    },
+  );
+  const messages: unknown[] = [];
+  const subscription = await questions.server.channels[0]!.open(
+    { runId: "root" },
+    {
+      signal: new AbortController().signal,
+      send: (message) => {
+        messages.push(message);
+      },
+      end() {},
+    },
+  );
+  expect(await requesters.get("root")!(request)).toEqual(
+    textResponse("immediate"),
+  );
+  expect(messages).toEqual([
+    {
+      type: "question.resolved",
+      data: { runId: "root", requestId: expect.any(String) },
+    },
+  ]);
+  await subscription?.cleanup?.();
+  await runs.dispose();
+  await questions.dispose();
+});
+
+test("should replace missed resolutions with an authoritative snapshot when the watch channel reopens", async () => {
+  const { runs, questions, requesters, cwd } = fixture();
+  await runs.prepareRun({
+    runId: "root",
+    configuration: { strategyPath: "example.json", cwd },
+  });
+  const first = requesters.get("root")!(request);
+  const second = requesters.get("root")!(request);
+  const open = () =>
+    questions.server.channels[0]!.open(
+      { runId: "root" },
+      { signal: new AbortController().signal, send() {}, end() {} },
+    );
+  const initial = await open();
+  expect(initial?.initial).toMatchObject({
+    type: "questions.snapshot",
+    data: {
+      requests: [
+        { requestId: expect.any(String) },
+        { requestId: expect.any(String) },
+      ],
+    },
+  });
+  await initial?.cleanup?.();
+  const [resolved, pending] = questions.getPendingQuestions("root");
+  questions.submitAnswers(
+    "root",
+    resolved!.requestId,
+    "first",
+    textResponse("answered offline"),
+  );
+  await first;
+  const reopened = await open();
+  expect(reopened?.initial).toMatchObject({
+    type: "questions.snapshot",
+    data: { requests: [{ requestId: pending!.requestId }] },
+  });
+  const snapshot = WatchQuestionsMessageSchema.parse(reopened?.initial);
+  if (snapshot.type !== "questions.snapshot") {
+    throw new Error("Expected authoritative snapshot");
+  }
+  expect(snapshot.data.requests).toHaveLength(1);
+  await reopened?.cleanup?.();
+  questions.submitAnswers(
+    "root",
+    pending!.requestId,
+    "second",
+    textResponse("finished"),
+  );
+  await second;
+  const empty = await open();
+  expect(empty?.initial).toEqual({
+    type: "questions.snapshot",
+    data: { requests: [] },
+  });
+  await empty?.cleanup?.();
+  await runs.dispose();
+  await questions.dispose();
 });

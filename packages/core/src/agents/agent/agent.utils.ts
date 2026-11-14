@@ -1,3 +1,5 @@
+import { BUILT_IN_TOOL_NAMES } from "../../tools/tool.constants";
+import { findCommaProjectRoot } from "../../defaults/defaults";
 import type { StepResult, TextStreamPart, ToolSet } from "ai";
 import { tool as aiTool, generateText, Output, stepCountIs } from "ai";
 import type {
@@ -172,9 +174,12 @@ export function buildAgentToolSet({
 
   // Resolve the audit sink.
   const workspaceCwd = effectiveSandbox.cwd;
+  const auditRoot = findCommaProjectRoot(workspaceCwd);
   const effectiveAuditSink: AuditSink | undefined =
     auditSink ??
-    (sessionId !== undefined ? createFileAuditSink(workspaceCwd) : undefined);
+    (sessionId !== undefined && auditRoot
+      ? createFileAuditSink(auditRoot)
+      : undefined);
 
   const toolSet: ToolSet = {};
 
@@ -196,7 +201,7 @@ export function buildAgentToolSet({
           messageId: runtime.messageId,
           toolCallId: options.toolCallId,
           guard,
-          abort: options.abortSignal ?? AbortSignal.timeout(30_000),
+          abort: options.abortSignal ?? new AbortController().signal,
           ...(sessionId !== undefined ? { sessionId } : {}),
           ...(runtime.runId !== undefined ? { runId: runtime.runId } : {}),
           ...(effectiveAuditSink !== undefined
@@ -214,8 +219,8 @@ export function buildAgentToolSet({
           ...(runtime.languageService !== undefined
             ? { languageService: runtime.languageService }
             : {}),
-          ...(runtime.questionRequester !== undefined
-            ? { requestQuestion: runtime.questionRequester }
+          ...(runtime.questionsRequester !== undefined
+            ? { requestQuestions: runtime.questionsRequester }
             : {}),
           ...(runtime.subagents !== undefined
             ? { subagents: runtime.subagents }
@@ -436,9 +441,10 @@ export async function buildCallOptions(
   });
 
   // Resolve tool names → ToolDefinition map, then build AI SDK tool set
-  const resolvedToolDefinitions = config.tools
-    ? resolveTools(config.tools, config.name)
-    : undefined;
+  const resolvedToolDefinitions = resolveTools(
+    config.tools ?? BUILT_IN_TOOL_NAMES,
+    config.name,
+  );
 
   const [tools, resolvedSystemPrompt] = await Promise.all([
     Promise.resolve({

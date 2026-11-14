@@ -28,13 +28,8 @@ button {
   background: var(--color-primary);
   color: var(--color-on-primary);
 }
+:focus,
 :focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 4px;
-}
-input:focus,
-textarea:focus,
-select:focus {
   outline: none;
 }
 @media (prefers-reduced-motion: reduce) {

@@ -37,7 +37,6 @@ export function createInitialChatRun(
     pendingMcpConfirmation: false,
     pendingInputAgent: null,
     pendingPermissionRequests: [],
-    pendingQuestionRequests: [],
     messages: [],
     activeLaunchStrategyIds: [],
     createdAt: now,

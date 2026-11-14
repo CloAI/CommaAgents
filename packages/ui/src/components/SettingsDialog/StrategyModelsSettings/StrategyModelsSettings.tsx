@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { Accordion } from "../../../design-system/Accordion";
 import { useModelRoles } from "../../../hooks/useModelRoles";
 import { ModelRolePresets } from "../../ModelRolePresets";
 import { ModelRoleFields } from "../../ModelRoleFields";
@@ -23,10 +24,7 @@ export function StrategyModelsSettings() {
     [save],
   );
   return (
-    <section className={styles.section} aria-labelledby="strategy-models">
-      <h3 id="strategy-models" className={styles.heading}>
-        Strategy models
-      </h3>
+    <Accordion className={styles.section} title="Strategy model aliases">
       <p className={styles.hint}>
         Strategies ask for a tier instead of a specific model. Changes are saved
         to the daemon immediately and apply to the next run.
@@ -53,6 +51,6 @@ export function StrategyModelsSettings() {
           />
         </>
       )}
-    </section>
+    </Accordion>
   );
 }

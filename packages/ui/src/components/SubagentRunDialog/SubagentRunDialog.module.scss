@@ -1,10 +1,12 @@
 dialog.subagentRunDialog {
+  margin-block-start: calc(var(--header-height, 0px) + var(--space-4));
+  margin-block-end: auto;
   max-height: calc(100svh - var(--space-12) * 2);
   .content {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    padding: var(--space-12) var(--space-3);
+    padding: var(--space-3);
   }
 
   .back {

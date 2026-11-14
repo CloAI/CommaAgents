@@ -1,14 +1,11 @@
+import { updateMcpServerDefault } from "@comma-agents/core/mcp";
 import type {
   ListMcpServersOptions,
   RunMcpServerStatus,
   UpdateMcpServerOptions,
 } from "../mcp.types";
 import type { McpContext } from "../state/state.types";
-import {
-  resolveMcpConfiguration,
-  updateMcpDefault,
-  listMcpStatuses,
-} from "../configuration";
+import { resolveMcpConfiguration, listMcpStatuses } from "../configuration";
 import { queueMcpConfiguration, setMcpSnapshot } from "../state";
 
 /**
@@ -29,11 +26,13 @@ export async function listMcpServers(
   const run = options.runId
     ? await context.runs.getRun(options.runId)
     : undefined;
+  if (options.runId && !run) {
+    throw new Error(`Run was not found: ${options.runId}`);
+  }
   const configuration = await resolveMcpConfiguration({
-    cwd: options.cwd ?? run?.configuration.cwd ?? process.cwd(),
-    strategyPath: options.strategyPath ?? run?.configuration.strategyPath,
-    runId: options.runId,
-    runRepository: context.repository,
+    cwd: run?.configuration.cwd ?? options.cwd ?? process.cwd(),
+    strategyPath: run?.configuration.strategyPath ?? options.strategyPath,
+    overrides: run?.configuration.mcpServerOverrides,
   });
   if (context.disposed) {
     throw new Error("MCP plugin has been disposed");
@@ -62,34 +61,39 @@ async function persistMcpUpdate(
   const run = options.runId
     ? await context.runs.getRun(options.runId)
     : undefined;
+  if (options.runId && !run) {
+    throw new Error(`Run was not found: ${options.runId}`);
+  }
+  const cwd = run?.configuration.cwd ?? options.cwd ?? process.cwd();
   const configuration = await resolveMcpConfiguration({
-    cwd: options.cwd ?? run?.configuration.cwd ?? process.cwd(),
-    strategyPath: options.strategyPath ?? run?.configuration.strategyPath,
-    runId: options.runId,
-    runRepository: context.repository,
+    cwd,
+    strategyPath: run?.configuration.strategyPath ?? options.strategyPath,
+    overrides: run?.configuration.mcpServerOverrides,
   });
   if (context.disposed) {
     throw new Error("MCP plugin has been disposed");
   }
+  const entry = configuration.servers.get(options.serverId);
+  if (!entry && options.enabled !== null) {
+    throw new Error(`Unknown MCP server: ${options.serverId}`);
+  }
   if (options.scope === "default") {
-    updateMcpDefault(configuration, options.serverId, options.enabled);
-  } else {
-    if (!configuration.servers.has(options.serverId)) {
-      throw new Error(`Unknown MCP server: ${options.serverId}`);
+    if (entry?.source === "strategy") {
+      throw new Error(
+        `Strategy-private MCP server "${options.serverId}" has no shared default.`,
+      );
     }
-    const enabledIds = new Set(configuration.enabledServerIds);
-    if (options.enabled) {
-      enabledIds.add(options.serverId);
-    } else {
-      enabledIds.delete(options.serverId);
-    }
-    const existingConfig = await context.repository.getRunConfig(
-      options.runId!,
-    );
-    await context.repository.saveRunConfig(options.runId!, {
-      ...existingConfig,
-      enabledMcpServerIds: [...enabledIds],
+    updateMcpServerDefault({
+      cwd,
+      serverId: options.serverId,
+      enabled: options.enabled,
     });
+  } else {
+    await context.runs.setMcpServerOverride(
+      options.runId,
+      options.serverId,
+      options.enabled,
+    );
   }
 }
 

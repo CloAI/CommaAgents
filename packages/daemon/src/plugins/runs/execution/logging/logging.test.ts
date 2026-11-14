@@ -10,7 +10,7 @@ import {
   cleanupRunFixtures,
   createMockRunsPlugin,
   fakeLoader,
-  repository,
+  createRunDirectory,
 } from "../../test.utils";
 
 afterEach(cleanupRunFixtures);
@@ -95,7 +95,7 @@ describe("attachExecutionLogging", () => {
   });
   it("should attach registered logging to root, child and grandchild runs", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     runs.registerStrategyHooks({

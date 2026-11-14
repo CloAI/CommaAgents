@@ -19,9 +19,8 @@ const agent = createAgent({
   model: "openai/gpt-4o",
   tools: [
     "read_file",
-    "list_directory",
-    "search_files",
     "glob",
+    "grep",
     "create_file",
     "write_file",
     "edit_file",
@@ -37,43 +36,42 @@ const agent = createAgent({
 
 ### File Management & IO
 
-| Tool | Purpose |
-|---|---|
-| [`read_file`](/docs/core/tools/built-in/file-io/read_file) | Read a text file with line slicing and a sha256 for stale-file checks. |
-| [`list_directory`](/docs/core/tools/built-in/file-io/list_directory) | Enumerate a directory, optionally recursive. |
-| [`search_files`](/docs/core/tools/built-in/file-io/search_files) | Glob, text, or regex search across many files. |
-| [`glob`](/docs/core/tools/built-in/file-io/glob) | Match files and folders against a glob pattern. |
-| [`create_file`](/docs/core/tools/built-in/file-io/create_file) | Create a new file; fails if it exists. |
-| [`write_file`](/docs/core/tools/built-in/file-io/write_file) | Overwrite an existing file, gated by sha256. |
-| [`edit_file`](/docs/core/tools/built-in/file-io/edit_file) | Apply exact-string edits, gated by sha256. |
-| [`delete_file`](/docs/core/tools/built-in/file-io/delete_file) | Delete a file, recoverable via workspace trash. |
-| [`move_file`](/docs/core/tools/built-in/file-io/move_file) | Move or rename with no-overwrite semantics. |
-| [`apply_patch`](/docs/core/tools/built-in/file-io/apply_patch) | Apply a multi-file unified-diff envelope atomically. |
+| Tool                                                                 | Purpose                                                                |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`read_file`](/docs/core/tools/built-in/file-io/read_file)           | Read a text file with line slicing and a sha256 for stale-file checks. |
+| [`grep`](/docs/core/tools/built-in/file-io/grep)     | Search file contents using literal text or regex.                         |
+| [`glob`](/docs/core/tools/built-in/file-io/glob)                     | Match files and folders against a glob pattern.                        |
+| [`create_file`](/docs/core/tools/built-in/file-io/create_file)       | Create a new file; fails if it exists.                                 |
+| [`write_file`](/docs/core/tools/built-in/file-io/write_file)         | Overwrite an existing file, gated by sha256.                           |
+| [`edit_file`](/docs/core/tools/built-in/file-io/edit_file)           | Apply exact-string edits, gated by sha256.                             |
+| [`delete_file`](/docs/core/tools/built-in/file-io/delete_file)       | Delete a file, recoverable via workspace trash.                        |
+| [`move_file`](/docs/core/tools/built-in/file-io/move_file)           | Move or rename with no-overwrite semantics.                            |
+| [`apply_patch`](/docs/core/tools/built-in/file-io/apply_patch)       | Apply a multi-file unified-diff envelope atomically.                   |
 
 ### TODO List System
 
-| Tool | Purpose |
-|---|---|
-| [`todo_add`](/docs/core/tools/built-in/todo-system/todo_add) | Add a new pending item. |
+| Tool                                                                   | Purpose                                      |
+| ---------------------------------------------------------------------- | -------------------------------------------- |
+| [`todo_add`](/docs/core/tools/built-in/todo-system/todo_add)           | Add a new pending item.                      |
 | [`todo_complete`](/docs/core/tools/built-in/todo-system/todo_complete) | Mark an item done, get the next pending one. |
-| [`todo_get`](/docs/core/tools/built-in/todo-system/todo_get) | List all items with their statuses. |
-| [`todo_get_next`](/docs/core/tools/built-in/todo-system/todo_get_next) | Peek at the next pending item. |
-| [`todo_clear`](/docs/core/tools/built-in/todo-system/todo_clear) | Remove all items, resetting the list. |
+| [`todo_get`](/docs/core/tools/built-in/todo-system/todo_get)           | List all items with their statuses.          |
+| [`todo_get_next`](/docs/core/tools/built-in/todo-system/todo_get_next) | Peek at the next pending item.               |
+| [`todo_clear`](/docs/core/tools/built-in/todo-system/todo_clear)       | Remove all items, resetting the list.        |
 
 ### Skill Tools
 
-| Tool | Purpose |
-|---|---|
+| Tool                                                             | Purpose                                                                                           |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | [`load_skill`](/docs/core/tools/built-in/skill-tools/load_skill) | Load the full instructions of a named [skill](/docs/core/skills) advertised in the system prompt. |
 
 ### Other built-ins
 
-| Tool | Purpose |
-|---|---|
+| Tool                                                   | Purpose                                                                |
+| ------------------------------------------------------ | ---------------------------------------------------------------------- |
 | [`run_command`](/docs/core/tools/built-in/run_command) | Execute a shell command with timeout, output caps, and approval gates. |
-| [`webfetch`](/docs/core/tools/built-in/webfetch) | Fetch a URL and return its content. |
+| [`webfetch`](/docs/core/tools/built-in/webfetch)       | Fetch a URL and return its content.                                    |
 
-Cross-cutting reference: [audit log](/docs/core/tools/audit-log), [trash](/docs/core/tools/trash), [patch envelope](/docs/core/tools/patch-envelope), [error kinds](/docs/core/tools/error-kinds).
+Cross-cutting reference: [audit log](/docs/core/tools/audit-log), [recoverable deletion](/docs/core/tools/built-in/file-io/delete_file#recoverable-deletion), [patch envelope](/docs/core/tools/patch-envelope), [error kinds](/docs/core/tools/error-kinds).
 
 To add a custom tool, define it with `defineTool`, register it in the [tool registry](/docs/core/tools/tool-registry), and reference it by name:
 
@@ -113,7 +111,7 @@ const fetchTool = defineTool({
   description: "Fetch a URL and return its text content.",
   parameters: z.object({ url: z.string().url() }),
   execute: async ({ url }) => ({
-    output: await fetch(url).then(response => response.text()),
+    output: await fetch(url).then((response) => response.text()),
   }),
 });
 ```
@@ -122,10 +120,16 @@ const fetchTool = defineTool({
 
 The interface for defining a tool.
 
-<AutoTypeTable path="../packages/core/src/tools/tool.types.ts" name="ToolDefinition" />
+<AutoTypeTable
+  path="../packages/core/src/tools/tool.types.ts"
+  name="ToolDefinition"
+/>
 
 ## ToolResult
 
 The result returned from a tool execution.
 
-<AutoTypeTable path="../packages/core/src/tools/tool.types.ts" name="ToolResult" />
+<AutoTypeTable
+  path="../packages/core/src/tools/tool.types.ts"
+  name="ToolResult"
+/>

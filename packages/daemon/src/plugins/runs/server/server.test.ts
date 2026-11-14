@@ -1,3 +1,8 @@
+import type { createRunsPlugin } from "../runs";
+import type {
+  PluginCommandMap,
+  PluginChannelMap,
+} from "../../../daemon-server/messages/messages.contracts.types";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +15,7 @@ import {
   directories,
   createMockRunsPlugin,
   fakeLoader,
-  repository,
+  createRunDirectory,
 } from "../test.utils";
 import * as storageModule from "../state/storage/storage";
 import { RunOutcomeStatus, RunPhase } from "../state/state.schemas";
@@ -39,7 +44,7 @@ describe("runs WebSocket API", () => {
   it("should persist a strategy selection over the wire and start it only on the next send", async () => {
     const observed = { loads: [] as string[], restored: [] as string[][] };
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader(observed),
     });
     await runs.prepareRun({
@@ -119,7 +124,7 @@ describe("runs WebSocket API", () => {
   });
   it("should accept per-agent model overrides when preparing a run and report them in its snapshot", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const server = createDaemonServer({
@@ -168,7 +173,7 @@ describe("runs WebSocket API", () => {
     }
   });
   it("should hydrate one run without waiting for another run's pending writes", async () => {
-    const legacy = repository();
+    const runsDir = createRunDirectory();
     const backing = storageModule.createRunStorage(directories.at(-1)!);
     const saving = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
@@ -183,7 +188,7 @@ describe("runs WebSocket API", () => {
       },
     });
     const runs = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     let preparing: ReturnType<typeof runs.prepareRun> | undefined;
@@ -216,7 +221,7 @@ describe("runs WebSocket API", () => {
 
   it("should hydrate midway, stream cumulative blocks, finalize the same message and continue on the existing subscription", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const firstChunk = Promise.withResolvers<void>();
@@ -407,7 +412,7 @@ describe("runs WebSocket API", () => {
 
   it("should acknowledge stop, retain partial output, and keep the subscription open", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const streamed = Promise.withResolvers<void>();
@@ -507,7 +512,7 @@ describe("runs WebSocket API", () => {
 
   it("should keep child messages separate and expose parent launch references", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const parent = await runs.prepareRun({
@@ -563,7 +568,7 @@ describe("runs WebSocket API", () => {
 
   it("should refuse a launch below the requested maximum depth", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const parent = await runs.prepareRun({
@@ -583,7 +588,7 @@ describe("runs WebSocket API", () => {
 
   it("should apply an agent-requested switch when the run next waits for the user", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     await runs.prepareRun({
@@ -628,7 +633,7 @@ describe("runs WebSocket API", () => {
   });
   it("should accept one start and correlate pending input answers independently of transport requests", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const commands = new Map(
@@ -677,6 +682,9 @@ describe("runs WebSocket API", () => {
       expect(
         await commands.get("runs.get")!.invoke({ runId: "interactive" }),
       ).toMatchObject({ phase: "running" });
+      expect(await commands.get("runs.listActive")!.invoke({})).toEqual({
+        runs: [{ runId: "interactive" }],
+      });
       expect(
         await commands.get("runs.get")!.invoke({ runId: "interactive" }),
       ).not.toHaveProperty("conversation");
@@ -730,4 +738,32 @@ describe("runs WebSocket API", () => {
       await runs.dispose();
     }
   });
+});
+
+type DaemonCommandMap = PluginCommandMap<{
+  runs: ReturnType<typeof createRunsPlugin>;
+}>;
+type DaemonChannelMap = PluginChannelMap<{
+  runs: ReturnType<typeof createRunsPlugin>;
+}>;
+
+it("should preserve this plugin's inferred server contracts", () => {
+  const argumentsValue: DaemonCommandMap["runs.get"]["arguments"] = {
+    runId: "run",
+  };
+  const defaultArguments: DaemonCommandMap["runs.history"]["arguments"] = {
+    runId: "run",
+  };
+  // @ts-expect-error A known command requires its own arguments.
+  const missingArguments: DaemonCommandMap["runs.get"]["arguments"] = {};
+  // @ts-expect-error Unknown commands do not appear in the map.
+  const unknownCommand: keyof DaemonCommandMap = "runs.unknown";
+  // @ts-expect-error Channel messages retain the domain discriminator.
+  const invalidMessage: DaemonChannelMap["runs"]["message"]["type"] = "unknown";
+
+  void argumentsValue;
+  void defaultArguments;
+  void missingArguments;
+  void unknownCommand;
+  void invalidMessage;
 });

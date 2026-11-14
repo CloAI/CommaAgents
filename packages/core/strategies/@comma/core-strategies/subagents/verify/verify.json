@@ -10,9 +10,8 @@
       "context": { "instructions": true, "environment": true },
       "tools": [
         "read_file",
-        "list_directory",
-        "search_files",
         "glob",
+        "grep",
         "lsp_request",
         "run_command",
         "load_skill"

@@ -1,3 +1,4 @@
+import { BUILT_IN_TOOL_NAMES } from "../../tools/tool.constants";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
@@ -132,7 +133,7 @@ function createMinimalGuard(cwd: string): Guard {
   return {
     toolName: "unknown",
     cwd,
-    trashMetadata: undefined,
+    deletionMetadata: undefined,
     authorize: async () => {
       throw new Error("Minimal guard - not for authorization");
     },
@@ -174,9 +175,9 @@ async function buildLLMAgent(
     name,
     agentDefinition.skills,
     options.skillRegistry,
-    agentDefinition.tools?.some((toolName) =>
+    (agentDefinition.tools ?? BUILT_IN_TOOL_NAMES).filter((toolName) =>
       SKILL_TOOL_NAMES.includes(toolName),
-    ) ?? false,
+    ),
   );
   const { instructions, environment, ...conversationContext } =
     agentDefinition.context ?? {};
@@ -195,9 +196,10 @@ async function buildLLMAgent(
     : undefined;
 
   // Resolve tool definitions early so we can collect system prompt contributions
-  const toolDefinitions = agentDefinition.tools
-    ? resolveTools(agentDefinition.tools, name)
-    : undefined;
+  const toolDefinitions = resolveTools(
+    agentDefinition.tools ?? BUILT_IN_TOOL_NAMES,
+    name,
+  );
 
   // Collect tool system prompt contributions
   let toolSystemPrompt: string | undefined;
@@ -341,7 +343,7 @@ async function buildLLMAgent(
       launchStrategy: options.launchStrategy,
       requestStrategySwitch: options.requestStrategySwitch,
       languageService: options.languageService,
-      questionRequester: options.questionRequester,
+      questionsRequester: options.questionsRequester,
       runId: options.runId,
       mcpTools: options.mcpToolsByAgent?.[name]?.tools,
       subagents,
@@ -406,7 +408,7 @@ function buildAgentSkillsPrompt(
   agentName: string,
   requiredSkillNames: readonly string[] | undefined,
   registry: SkillRegistry | undefined,
-  canLoadSkills: boolean,
+  skillTools: readonly string[],
 ): string {
   if (!registry) {
     if (requiredSkillNames && requiredSkillNames.length > 0) {
@@ -417,9 +419,25 @@ function buildAgentSkillsPrompt(
     return "";
   }
 
-  // Listing skills an agent cannot load only invites calls to tools it does not have.
-  const availableSkills = canLoadSkills
-    ? buildSkillsPromptHeader(registry)
+  // Describe available actions without injecting the entire optional skill index.
+  const guidance: string[] = [];
+  if (skillTools.includes("search_skills")) {
+    guidance.push(
+      "Use search_skills to find skills relevant to your task by name and description.",
+    );
+  }
+  if (skillTools.includes("list_skills")) {
+    guidance.push(
+      "Use list_skills to inspect the available skill names and descriptions.",
+    );
+  }
+  if (skillTools.includes("load_skill")) {
+    guidance.push(
+      "Use load_skill with an exact skill name to read its full instructions before doing related work. Search results are candidates; decide whether their descriptions apply.",
+    );
+  }
+  const availableSkills = guidance.length
+    ? ["## Skill Tools", ...guidance].join("\n")
     : "";
   if (!requiredSkillNames || requiredSkillNames.length === 0) {
     return availableSkills;

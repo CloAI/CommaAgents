@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { ChatPaneContext } from "../../hooks/useChatPane";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import {
   expect,
@@ -245,5 +247,72 @@ export const FocusesWhenAvailable: Story = {
         within(canvasElement).getByRole("textbox", { name: "Message" }),
       ).toHaveFocus(),
     );
+  },
+};
+
+function DraftSwitcher({
+  onSubmit,
+}: {
+  readonly onSubmit: (prompt: string) => void | Promise<string | undefined>;
+}) {
+  const [runId, setRunId] = useState<string | undefined>("draft-a");
+  const [blankId, setBlankId] = useState(0);
+  return (
+    <div>
+      <button onClick={() => setRunId("draft-a")}>Chat A</button>
+      <button onClick={() => setRunId("draft-b")}>Chat B</button>
+      <button
+        onClick={() => {
+          setRunId(undefined);
+          setBlankId((previous) => previous + 1);
+        }}
+      >
+        New blank chat
+      </button>
+      <ChatPaneContext.Provider
+        value={{ paneId: "draft-pane", runId, draftId: `blank-${blankId}` }}
+      >
+        <ChatInput onSubmit={onSubmit} />
+      </ChatPaneContext.Provider>
+    </div>
+  );
+}
+export const KeepsDraftsPerChatInTheSamePane: Story = {
+  render: (args) => <DraftSwitcher onSubmit={args.onSubmit} />,
+  beforeEach: () => {
+    const keys = [
+      "comma-agents.draft.run.draft-a",
+      "comma-agents.draft.run.draft-b",
+      "comma-agents.draft.draft-pane.blank.blank-1",
+      "comma-agents.draft.draft-pane.blank.blank-2",
+    ];
+    const previous = keys.map((key) => localStorage.getItem(key));
+    keys.forEach((key) => localStorage.removeItem(key));
+    return () =>
+      keys.forEach((key, index) =>
+        previous[index] == null
+          ? localStorage.removeItem(key)
+          : localStorage.setItem(key, previous[index]!),
+      );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const input = canvas.getByRole("textbox", { name: "Message" });
+    await userEvent.type(input, "Draft for A");
+    await userEvent.click(canvas.getByRole("button", { name: "Chat B" }));
+    await expect(input).toHaveValue("");
+    await userEvent.type(input, "Draft for B");
+    await userEvent.click(canvas.getByRole("button", { name: "Chat A" }));
+    await expect(input).toHaveValue("Draft for A");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "New blank chat" }),
+    );
+    await userEvent.type(input, "Unsent blank draft");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "New blank chat" }),
+    );
+    await expect(input).toHaveValue("");
+    await userEvent.click(canvas.getByRole("button", { name: "Chat B" }));
+    await expect(input).toHaveValue("Draft for B");
   },
 };

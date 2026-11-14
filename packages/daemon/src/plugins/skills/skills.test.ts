@@ -9,7 +9,7 @@ import {
   createMockRunsPlugin,
   directories,
   fakeLoader,
-  repository,
+  createRunDirectory,
 } from "../runs/test.utils";
 import { createSkillsPlugin } from "./skills";
 
@@ -26,7 +26,7 @@ function fixture() {
   const registries = new Map<string, SkillRegistry>();
   const loader = fakeLoader({ loads: [], restored: [] });
   const runs = createMockRunsPlugin({
-    repository: repository(),
+    runsDir: createRunDirectory(),
     async loadStrategy(options) {
       const registry = options.strategyInputs.skillRegistry;
       if (!registry) {
@@ -36,7 +36,10 @@ function fixture() {
       return loader(options);
     },
   });
-  const skills = createSkillsPlugin({ dependencies: { runs } });
+  const skills = createSkillsPlugin({
+    dependencies: { runs },
+    discovery: { globalSkillsDir: null },
+  });
   return { runs, skills, registries, cwd: directories.at(-1)! };
 }
 
@@ -203,13 +206,13 @@ describe("skills plugin", () => {
     const gate = Promise.withResolvers<void>();
     const loadSkills = skillsModule.loadSkills;
     loaderMocks.push(
-      vi.spyOn(skillsModule, "loadSkills").mockImplementation(
-        async (workspaceRoot, options) => {
+      vi
+        .spyOn(skillsModule, "loadSkills")
+        .mockImplementation(async (workspaceRoot, options) => {
           entered.resolve();
           await gate.promise;
           return loadSkills(workspaceRoot, options);
-        },
-      ),
+        }),
     );
     const preparation = runs.prepareRun({
       runId: "root",
@@ -237,13 +240,13 @@ describe("skills plugin", () => {
     const gate = Promise.withResolvers<void>();
     const loadSkills = skillsModule.loadSkills;
     loaderMocks.push(
-      vi.spyOn(skillsModule, "loadSkills").mockImplementation(
-        async (workspaceRoot, options) => {
+      vi
+        .spyOn(skillsModule, "loadSkills")
+        .mockImplementation(async (workspaceRoot, options) => {
           entered.resolve();
           await gate.promise;
           return loadSkills(workspaceRoot, options);
-        },
-      ),
+        }),
     );
     const preparation = runs.prepareRun({
       runId: "root",
@@ -272,5 +275,97 @@ describe("skills plugin", () => {
       }),
     ).rejects.toMatchObject({ code: "PREPARATION_ERROR" });
     await runs.dispose();
+  });
+  test("should expose fresh workspace reads and retain the preparation's metadata and diagnostics", async () => {
+    const { runs, skills, cwd } = fixture();
+    await writeSkill(cwd, "project-checks", "Original instructions.");
+    await mkdir(join(cwd, ".comma", "skills", "invalid"), { recursive: true });
+    await writeFile(
+      join(cwd, ".comma", "skills", "invalid", "SKILL.md"),
+      "No frontmatter.",
+    );
+    const initial = await skills.list({ cwd });
+    expect(
+      initial.skills.find((skill) => skill.name === "project-checks"),
+    ).not.toHaveProperty("content");
+    expect(initial.warnings).toHaveLength(1);
+    await runs.prepareRun({
+      runId: "root",
+      configuration: { strategyPath: "example.json", cwd },
+    });
+    expect(skills.listForRun({ runId: "root" })).toMatchObject({
+      available: true,
+      warnings: initial.warnings,
+    });
+    await writeSkill(cwd, "project-checks", "Updated instructions.");
+    expect(
+      (await skills.get({ cwd, name: "project-checks" })).skill.content,
+    ).toBe("Updated instructions.");
+    expect(
+      skills.listSkills("root").find((skill) => skill.name === "project-checks")
+        ?.content,
+    ).toBe("Original instructions.");
+    await expect(skills.get({ cwd, name: "missing" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await runs.dispose();
+    expect(skills.listForRun({ runId: "root" })).toEqual({
+      available: false,
+      skills: [],
+      warnings: [],
+    });
+    expect(skills.listForRun({ runId: "unknown" })).toEqual({
+      available: false,
+      skills: [],
+      warnings: [],
+    });
+    await skills.dispose();
+  });
+
+  test("should share configured additional roots between queries and run preparation", async () => {
+    const { runs, skills: originalSkills, cwd } = fixture();
+    const additional = join(cwd, "shared");
+    await mkdir(join(additional, "shared-checks"), { recursive: true });
+    await writeFile(
+      join(additional, "shared-checks", "SKILL.md"),
+      "---\nname: shared-checks\ndescription: Shared checks.\n---\nShared instructions.",
+    );
+    // Use a separate runs fixture because a preparation name has exactly one owner.
+    const additionalRuns = createMockRunsPlugin({
+      runsDir: createRunDirectory(),
+      loadStrategy: fakeLoader({ loads: [], restored: [] }),
+    });
+    const skills = createSkillsPlugin({
+      dependencies: { runs: additionalRuns },
+      discovery: { globalSkillsDir: null, additionalDirectories: [additional] },
+    });
+    expect(
+      (await skills.list({ cwd })).skills.map((skill) => skill.name),
+    ).toContain("shared-checks");
+    await additionalRuns.prepareRun({
+      runId: "shared",
+      configuration: { strategyPath: "example.json", cwd },
+    });
+    expect(
+      skills.listForRun({ runId: "shared" }).skills.map((skill) => skill.name),
+    ).toContain("shared-checks");
+    await additionalRuns.dispose();
+    await skills.dispose();
+    await runs.dispose();
+    await originalSkills.dispose();
+  });
+
+  test("should fuzzy-search only metadata and bound results without exposing instructions", async () => {
+    const { runs, skills, cwd } = fixture();
+    await writeSkill(cwd, "project-checks", "Hidden body.");
+    await writeSkill(cwd, "project-planning", "Another hidden body.");
+    const result = await skills.search({ cwd, query: "project", limit: 1 });
+    expect(result.matches).toHaveLength(1);
+    expect(result.totalMatches).toBeGreaterThanOrEqual(2);
+    expect(result.matches[0]).toHaveProperty("score");
+    expect(result.matches[0]).not.toHaveProperty("content");
+    await expect(skills.search({ cwd, query: " " })).rejects.toThrow();
+    await runs.dispose();
+    await skills.dispose();
   });
 });

@@ -7,11 +7,11 @@ import type { McpContext } from "./state/state.types";
 
 /**
  * Register execution-owned MCP tools and expose persisted server selection.
- * @param {CreateMcpPluginOptions} options - Runs and configuration repository dependencies.
+ * @param {CreateMcpPluginOptions} options - Current runs plugin dependency.
  * @returns {McpPlugin} Server controls, subscriptions, and connection cleanup.
  * @example
  * ```ts
- * const mcp = createMcpPlugin({ dependencies: { runs, runRepository } });
+ * const mcp = createMcpPlugin({ dependencies: { runs } });
  * const servers = await mcp.listServers({ runId });
  * ```
  */
@@ -43,7 +43,6 @@ export function createMcpPlugin({
   });
   const context: McpContext = {
     runs: dependencies.runs,
-    repository: dependencies.runRepository,
     notifications,
     resources: new Map(),
     snapshots: new Map(),

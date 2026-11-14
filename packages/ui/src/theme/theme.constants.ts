@@ -74,7 +74,7 @@ export const THEME_COLOR_FIELDS: Readonly<
     label: "Focus ring",
     group: "App",
     cssVariable: "--color-focus",
-    description: "Keyboard focus outline.",
+    description: "Keyboard focus accent.",
   },
   success: {
     label: "Success",

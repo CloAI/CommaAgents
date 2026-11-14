@@ -1,7 +1,4 @@
 {
   "title": "Skill Tools",
-  "pages": [
-    "list_skills",
-    "load_skill"
-  ]
+  "pages": ["search_skills", "list_skills", "load_skill"]
 }

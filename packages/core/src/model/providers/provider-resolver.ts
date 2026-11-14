@@ -400,6 +400,19 @@ export function getGlobalProviderResolver(): ProviderResolver {
       return await resolveCopilotProvider(credential);
     }
     if (
+      providerId === "alibaba" &&
+      registration?.origin !== "registered" &&
+      registration?.origin !== "user"
+    ) {
+      const { createOpenAICompatible } =
+        await import("@ai-sdk/openai-compatible");
+      return createOpenAICompatible({
+        name: "alibaba",
+        baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        apiKey: extractApiKey(credential),
+      });
+    }
+    if (
       providerId === "tinfoil" &&
       registration?.origin !== "registered" &&
       registration?.origin !== "user"

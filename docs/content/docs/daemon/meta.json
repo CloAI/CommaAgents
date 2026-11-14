@@ -4,16 +4,15 @@
     "cli",
     "daemon",
     "core-plugin",
+    "projects-plugin",
     "sandbox-plugin",
     "questions-plugin",
     "skills-plugin",
     "mcp-plugin",
     "config",
     "server",
-    "daemon-run-state",
     "lsp",
     "logger",
-    "state",
     "pid"
   ]
 }

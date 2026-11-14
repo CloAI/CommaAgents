@@ -50,7 +50,7 @@ agents:
     tools:
       - read_file
       - glob
-      - search_files
+      - grep
     providerOptions:
       openai:
         reasoningEffort: high
@@ -378,7 +378,7 @@ agents:
     tools:
       - read_file
       - glob
-      - search_files
+      - grep
 flow:
   name: Explore
   type: sequential
@@ -386,4 +386,4 @@ flow:
     - agent: explorer
 ```
 
-Tools are referenced by their registered name. Common built-ins include `read_file`, `list_directory`, `search_files`, `glob`, `write_file`, `edit_file`, and `run_command`. Custom tools must be registered via `registerTool` before loading the strategy.
+Tools are referenced by their registered name. Common built-ins include `read_file`, `glob`, `grep`, `glob`, `write_file`, `edit_file`, and `run_command`. Custom tools must be registered via `registerTool` before loading the strategy.

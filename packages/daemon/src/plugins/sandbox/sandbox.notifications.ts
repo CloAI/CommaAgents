@@ -37,7 +37,14 @@ export interface SandboxPolicyUpdate {
 }
 
 /** Live notifications owned by the sandbox feature. */
-export type SandboxStatus = SandboxPermissionRequest | SandboxPolicyUpdate;
+/** A permission request removed by a decision, cancellation, or scope cleanup. */
+export interface SandboxPermissionResolved {
+  readonly type: "run_permission_resolved";
+  readonly runId: string;
+  readonly requestId: string;
+}
+
+export type SandboxStatus = SandboxPermissionRequest | SandboxPolicyUpdate | SandboxPermissionResolved;
 
 /** Declared sandbox notification collection, indexed by event discriminator. */
 export type SandboxNotifications = {

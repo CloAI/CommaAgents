@@ -1,1 +1,6 @@
-export { createSkillsContext, listRunSkills, disposeSkills } from "./state";
+export {
+  createSkillsContext,
+  listRunSkills,
+  listSkillsForRun,
+  disposeSkills,
+} from "./state";

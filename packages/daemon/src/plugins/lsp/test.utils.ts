@@ -5,7 +5,7 @@ import {
   createMockRunsPlugin,
   directories,
   fakeLoader,
-  repository,
+  createRunDirectory,
 } from "../runs/test.utils";
 import { createLspPlugin } from "./lsp";
 
@@ -17,7 +17,7 @@ export function createLspFixture() {
   const services = new Map<string, LanguageService>();
   const loader = fakeLoader({ loads: [], restored: [] });
   const runs = createMockRunsPlugin({
-    repository: repository(),
+    runsDir: createRunDirectory(),
     async loadStrategy(options) {
       const service = options.strategyInputs.languageService;
       if (!service) {

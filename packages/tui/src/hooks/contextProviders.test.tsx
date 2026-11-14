@@ -25,7 +25,6 @@ import { ChatRunsContextProvider } from "./useChat/useChat.context";
 import { createInitialChatRun } from "./useChat/useChat.utils";
 import { useChatActions } from "./useChat/useChatActions";
 import { useChatPermissionRequests } from "./useChat/useChatPermissionRequests";
-import { useChatQuestionRequests } from "./useChat/useChatQuestionRequests";
 import { useChatRunStore } from "./useChat/useChatRunStore";
 import { useChatSteering } from "./useChat/useChatSteering";
 import { usePersistedRunList } from "./useChat/usePersistedRunList";
@@ -225,14 +224,12 @@ describe("context providers", () => {
     let permissionActions:
       | ReturnType<typeof useChatPermissionRequests>
       | undefined;
-    let questionActions: ReturnType<typeof useChatQuestionRequests> | undefined;
     let steeringActions: ReturnType<typeof useChatSteering> | undefined;
     let unboundActions: ReturnType<typeof useChatActions> | undefined;
 
     function Probe() {
       store = useChatRunStore();
       permissionActions = useChatPermissionRequests();
-      questionActions = useChatQuestionRequests();
       steeringActions = useChatSteering();
       unboundActions = useChatActions(null);
       return <Text>{store.chatRuns.size}</Text>;
@@ -249,7 +246,6 @@ describe("context providers", () => {
     unboundActions?.sendInput("ignored");
     unboundActions?.sendSteer("ignored");
     unboundActions?.sendPermissionDecision("deny");
-    unboundActions?.sendQuestionResponse("ignored");
     unboundActions?.reset();
     unboundActions?.stop();
     expect(sent).toEqual([]);
@@ -274,15 +270,6 @@ describe("context providers", () => {
       resource: "/workspace/file.ts",
       reason: "policy-ask",
     } satisfies Extract<DaemonMessage, { type: "request_permission" }>);
-    listeners.get("request_question")?.({
-      type: "request_question",
-      ts: "2026-06-25T00:00:00.000Z",
-      requestId: "question-1",
-      runId: chatRun.id,
-      agentName: "reviewer",
-      toolName: "request_user_input",
-      question: "Proceed?",
-    } satisfies Extract<DaemonMessage, { type: "request_question" }>);
     listeners.get("steer_queued")?.({
       type: "steer_queued",
       ts: "2026-06-25T00:00:00.000Z",
@@ -293,7 +280,6 @@ describe("context providers", () => {
       () =>
         store?.chatRuns.get(chatRun.id)?.pendingPermissionRequests.length ===
           1 &&
-        store?.chatRuns.get(chatRun.id)?.pendingQuestionRequests.length === 1 &&
         store?.chatRuns.get(chatRun.id)?.messages.at(-1)?.text ===
           "Use the shared contract",
     );
@@ -301,15 +287,11 @@ describe("context providers", () => {
     expect(
       store?.chatRuns.get(chatRun.id)?.pendingPermissionRequests,
     ).toHaveLength(1);
-    expect(
-      store?.chatRuns.get(chatRun.id)?.pendingQuestionRequests,
-    ).toHaveLength(1);
     expect(store?.chatRuns.get(chatRun.id)?.messages.at(-1)?.text).toBe(
       "Use the shared contract",
     );
 
     permissionActions?.sendPermissionDecision(chatRun.id, "allow");
-    questionActions?.sendQuestionResponse(chatRun.id, "yes");
     await delay(0);
 
     expect(sent).toEqual(
@@ -318,11 +300,6 @@ describe("context providers", () => {
           type: "permission_decision",
           permissionRequestId: "permission-1",
           decision: "allow",
-        }),
-        expect.objectContaining({
-          type: "question_response",
-          questionRequestId: "question-1",
-          response: "yes",
         }),
         expect.objectContaining({
           type: "steer_run",

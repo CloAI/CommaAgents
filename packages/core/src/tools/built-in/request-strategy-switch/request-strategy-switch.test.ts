@@ -1,3 +1,4 @@
+import type { QuestionsRequest } from "../../../questions";
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -40,9 +41,19 @@ describe("createRequestStrategySwitchTool", () => {
       { strategy: "build", reason: "The plan is approved." },
       makeToolContext({
         sandbox: createSandbox({ cwd }),
-        requestQuestion: async ({ question }: { question: string }) => {
-          questions.push(question);
-          return "yes";
+        requestQuestions: async ({
+          questions: questionnaire,
+        }: QuestionsRequest) => {
+          questions.push(questionnaire[0]!.prompt);
+          return {
+            answers: [
+              {
+                questionId: "strategy-switch",
+                type: "answered",
+                values: { decision: ["switch"] },
+              },
+            ],
+          };
         },
         requestStrategySwitch: async (request: StrategySwitchRequest) => {
           queued.push(request);
@@ -51,7 +62,7 @@ describe("createRequestStrategySwitchTool", () => {
     );
 
     expect(questions).toEqual([
-      "Switch this conversation to Build? The plan is approved. (yes/no)",
+      "Switch this conversation to Build? The plan is approved.",
     ]);
     expect(queued).toEqual([
       { strategyPath: join(cwd, ".comma", "strategies", "build.json") },
@@ -59,7 +70,15 @@ describe("createRequestStrategySwitchTool", () => {
     expect(result.data).toEqual({
       strategyName: "Build",
       approved: true,
-      response: "yes",
+      response: {
+        answers: [
+          {
+            questionId: "strategy-switch",
+            type: "answered",
+            values: { decision: ["switch"] },
+          },
+        ],
+      },
     });
   });
 
@@ -70,7 +89,15 @@ describe("createRequestStrategySwitchTool", () => {
       { strategy: "Build", reason: "Ready." },
       makeToolContext({
         sandbox: createSandbox({ cwd }),
-        requestQuestion: async () => "not yet, revise step 2",
+        requestQuestions: async () => ({
+          answers: [
+            {
+              questionId: "strategy-switch",
+              type: "other",
+              text: "not yet, revise step 2",
+            },
+          ],
+        }),
         requestStrategySwitch: async (request: StrategySwitchRequest) => {
           queued.push(request);
         },
@@ -84,9 +111,43 @@ describe("createRequestStrategySwitchTool", () => {
   it("should refuse when the runtime cannot switch", async () => {
     const result = await createRequestStrategySwitchTool().execute(
       { strategy: "Build", reason: "Ready." },
-      makeToolContext({ requestQuestion: async () => "yes" }),
+      makeToolContext({
+        requestQuestions: async () => ({
+          answers: [{ questionId: "strategy-switch", type: "skipped" }],
+        }),
+      }),
     );
 
     expect(result.ok).toBe(false);
   });
+});
+
+it("should decline skips and reject incomplete structured approvals", async () => {
+  const cwd = workspaceWithStrategy();
+  const queued: StrategySwitchRequest[] = [];
+  for (const response of [
+    { answers: [{ questionId: "strategy-switch", type: "skipped" as const }] },
+    {
+      answers: [
+        {
+          questionId: "strategy-switch",
+          type: "answered" as const,
+          values: {},
+        },
+      ],
+    },
+  ]) {
+    const result = await createRequestStrategySwitchTool().execute(
+      { strategy: "Build", reason: "Ready." },
+      makeToolContext({
+        sandbox: createSandbox({ cwd }),
+        requestQuestions: async () => response,
+        requestStrategySwitch: async (request: StrategySwitchRequest) => {
+          queued.push(request);
+        },
+      }),
+    );
+    expect(result.data?.approved ?? false).toBe(false);
+  }
+  expect(queued).toEqual([]);
 });

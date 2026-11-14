@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { ChatComposer } from "../../../components/ChatComposer";
+import type { ChatComposerWarning } from "../../../components/ChatComposer";
 import { ChatInput } from "../../../components/ChatInput";
 import { ContextOverflowDialog } from "../../../components/ContextOverflowDialog";
-import { QuestionPrompt } from "../../../components/QuestionPrompt";
+import { QuestionCollection } from "../../../components/QuestionCollection";
 import { RecipientSelect } from "../../../components/RecipientSelect";
 import { StrategyModels } from "../../../components/StrategyModels";
 import { StrategySelectRender } from "../../../components/StrategySelect";
@@ -13,10 +15,17 @@ import {
   useRunStrategy,
   useRunSubmission,
 } from "../../../hooks/runs";
+import type {
+  RunComposer as ComposerState,
+  RunStrategy,
+  RunSubmission,
+  RunStop,
+} from "../../../hooks/runs";
 import { useDaemonConnectionStatus } from "../../../hooks/useCommaAgentsDaemon";
 import { usePendingQuestions } from "../../../hooks/usePendingQuestions";
+import type { PendingQuestion } from "../../../hooks/usePendingQuestions";
 import { COMPOSER_PLACEHOLDERS } from "../RunPage.constants";
-import { StopControl } from "../StopControl";
+import { StopControlRender } from "../StopControl";
 import styles from "../RunPage.module.scss";
 
 /** The run being composed for. */
@@ -39,6 +48,60 @@ export function RunComposer({ runId }: RunComposerProps) {
   const questions = usePendingQuestions(runId);
   const connected = useDaemonConnectionStatus() === "connected";
   return (
+    <RunComposerRender
+      composer={composer}
+      strategy={strategy}
+      submission={submission}
+      connected={connected}
+      savedStrategyName={
+        snapshot
+          ? (snapshot.strategy?.name ?? snapshot.configuration.strategyPath)
+          : undefined
+      }
+      stop={stop}
+      questions={questions}
+      modelRoles={snapshot?.configuration.modelRoles ?? {}}
+    />
+  );
+}
+
+/** Run-owned state needed to render the composer. */
+export interface RunComposerRenderProps {
+  /** Mode, recipients, submission gate, and message actions. */
+  readonly composer: ComposerState;
+  /** Discovered strategies and strategy-switch actions. */
+  readonly strategy: RunStrategy;
+  /** Context decisions and pending submission state. */
+  readonly submission: RunSubmission;
+  /** Whether the shared daemon connection is available. */
+  readonly connected: boolean;
+  /** Saved strategy's name or path, once the run snapshot arrives. */
+  readonly savedStrategyName?: string;
+  /** Availability, action, and failure of the run's stop control. */
+  readonly stop: RunStop;
+  /** Pending questions from this run's agents. */
+  readonly questions: readonly PendingQuestion[];
+  /** This conversation's model-role overrides. */
+  readonly modelRoles: Readonly<Record<string, string>>;
+}
+
+/**
+ * Render the run's message editor, strategy decisions, and notices from run-owned state.
+ * @param {RunComposerRenderProps} props - Run state and interaction callbacks.
+ * @returns {React.ReactElement} The composer and its decision dialogs.
+ */
+export function RunComposerRender({
+  composer,
+  strategy,
+  submission,
+  connected,
+  savedStrategyName,
+  stop,
+  questions,
+  modelRoles,
+}: RunComposerRenderProps) {
+  const [submissionError, setSubmissionError] = useState<string>();
+  return (
     <div className={styles.composerFrame}>
       <div className={styles.composer}>
         {composer.mode !== "continue" && composer.recipients.length > 1 && (
@@ -49,20 +112,29 @@ export function RunComposer({ runId }: RunComposerProps) {
             onChange={composer.selectRecipient}
           />
         )}
-        {questions.map((question) => (
-          <QuestionPrompt key={question.requestId} question={question} />
-        ))}
+        <QuestionCollection questions={questions} />
+        {/* // AI: Rename this to warning and erros. Also, we should move our conditional logic above and outside this */}
         <ChatComposer
           warnings={[
-            connected &&
-            strategy.status === "ready" &&
-            !strategy.selected &&
-            snapshot
-              ? `Strategy unavailable: ${snapshot.strategy?.name ?? snapshot.configuration.strategyPath}. Choose another strategy before sending.`
-              : undefined,
-            connected && !strategy.pending ? strategy.error : undefined,
-            stop.error,
-          ].filter((warning): warning is string => Boolean(warning))}
+            ...(submissionError
+              ? [
+                  {
+                    message: submissionError,
+                    severity: "error",
+                  } satisfies ChatComposerWarning,
+                ]
+              : []),
+            ...[
+              connected &&
+              strategy.status === "ready" &&
+              !strategy.selected &&
+              savedStrategyName !== undefined
+                ? `Strategy unavailable: ${savedStrategyName}. Choose another strategy before sending.`
+                : undefined,
+              connected && !strategy.pending ? strategy.error : undefined,
+              stop.error,
+            ].filter((warning): warning is string => Boolean(warning)),
+          ]}
           controls={
             <fieldset
               className={styles.strategyControls}
@@ -81,7 +153,7 @@ export function RunComposer({ runId }: RunComposerProps) {
               <StrategyModels
                 strategyPath={strategy.selected?.path}
                 binding={{
-                  roles: snapshot?.configuration.modelRoles ?? {},
+                  roles: modelRoles,
                   onChange: strategy.changeModels,
                   onReset: strategy.resetModels,
                 }}
@@ -90,8 +162,16 @@ export function RunComposer({ runId }: RunComposerProps) {
           }
         >
           <ChatInput
-            actions={<StopControl />}
+            actions={
+              <StopControlRender
+                active={stop.active}
+                canStop={stop.canStop}
+                isStopping={stop.isStopping}
+                onStop={stop.stop}
+              />
+            }
             onSubmit={composer.submit}
+            onSubmissionErrorChange={setSubmissionError}
             disabled={!composer.canSubmit}
             clearOnSuccess
             autoFocus

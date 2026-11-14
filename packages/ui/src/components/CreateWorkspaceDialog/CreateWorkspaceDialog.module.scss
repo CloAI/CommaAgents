@@ -1,0 +1,40 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: min(26rem, 75vw);
+}
+.form label {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.form > label {
+  align-items: stretch;
+  flex-direction: column;
+}
+.form input:not([type="checkbox"]):not([type="radio"]) {
+  min-width: 0;
+  flex: 1;
+  padding: var(--space-2);
+  color: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+.form fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 16rem;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+}
+.directory,
+.form footer {
+  display: flex;
+  gap: var(--space-2);
+}
+.form footer {
+  justify-content: flex-end;
+}

@@ -1,2 +1,5 @@
-export { StrategyControls } from "./StrategyControls";
-export type { StrategyControlsProps } from "./StrategyControls";
+export { StrategyControls, StrategyControlsRender } from "./StrategyControls";
+export type {
+  StrategyControlsProps,
+  StrategyControlsRenderProps,
+} from "./StrategyControls";

@@ -475,3 +475,43 @@ describe("loadDaemonConfig config file path resolution", () => {
     expect(config.port).toBe(2222);
   });
 });
+
+describe("skill discovery configuration", () => {
+  test("should resolve additional roots relative to the config file and expand home paths", () => {
+    const directory = createTempDir();
+    try {
+      const configFile = writeJsonConfig(directory, {
+        skills: {
+          additionalDirectories: [
+            "shared-skills",
+            "~/skills",
+            "/opt/team-skills",
+          ],
+        },
+      });
+      const config = loadDaemonConfig({ configFile, env: cleanEnv() });
+      expect(config.skills.additionalDirectories).toEqual([
+        join(directory, "shared-skills"),
+        join(homedir(), "skills"),
+        "/opt/team-skills",
+      ]);
+      writeJsonConfig(directory, {});
+      expect(
+        loadDaemonConfig({ configFile, env: cleanEnv() }).skills
+          .additionalDirectories,
+      ).toEqual([]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+  test("should reject blank roots and unknown skill settings", () => {
+    expect(
+      DaemonConfigFileSchema.safeParse({
+        skills: { additionalDirectories: [" "] },
+      }).success,
+    ).toBe(false);
+    expect(
+      DaemonConfigFileSchema.safeParse({ skills: { unknown: true } }).success,
+    ).toBe(false);
+  });
+});

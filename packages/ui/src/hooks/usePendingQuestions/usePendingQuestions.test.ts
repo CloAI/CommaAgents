@@ -7,7 +7,15 @@ const question: PendingQuestion = {
   requestId: "q-1",
   agentName: "planner",
   toolName: "request_strategy_switch",
-  question: "Switch this conversation to Build? Plan approved. (yes/no)",
+  questions: [
+    {
+      id: "switch",
+      prompt: "Switch strategy?",
+      fields: [
+        { id: "feedback", type: "text", label: "Feedback", required: true },
+      ],
+    },
+  ],
   ts: "2026-10-26T12:00:00.000Z",
 };
 
@@ -32,4 +40,20 @@ describe("reducePendingQuestions", () => {
       }),
     ).toEqual([]);
   });
+});
+
+it("should replace stale requests on reconnect and accept an empty authoritative snapshot", () => {
+  const stale = { ...question, requestId: "resolved-while-offline" };
+  const snapshot = { ...question, questions: [...question.questions] };
+  const reconnected = reducePendingQuestions([stale, question], {
+    type: "questions.snapshot",
+    data: { requests: [snapshot] },
+  });
+  expect(reconnected).toEqual([snapshot]);
+  expect(
+    reducePendingQuestions(reconnected, {
+      type: "questions.snapshot",
+      data: { requests: [] },
+    }),
+  ).toEqual([]);
 });

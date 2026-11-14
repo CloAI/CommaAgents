@@ -30,5 +30,12 @@ export const DaemonConfigFileSchema = z
     modelRoles: z.record(z.string().min(1), z.string().min(1)).optional(),
     /** Instruction file names checked per directory, first match wins. */
     instructionFiles: z.array(z.string().min(1)).optional(),
+    /** Extra skill directories; relative paths use this configuration file's directory. */
+    skills: z
+      .object({
+        additionalDirectories: z.array(z.string().trim().min(1)).default([]),
+      })
+      .strict()
+      .optional(),
   })
   .strict();

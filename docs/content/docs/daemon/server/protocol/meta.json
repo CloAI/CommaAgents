@@ -1,17 +1,4 @@
 {
   "title": "Protocol",
-  "pages": [
-    "strategy-execution",
-    "strategy-observation",
-    "user-input",
-    "questions",
-    "steering",
-    "sandbox-permissions",
-    "mcp",
-    "list-and-subscribe",
-    "trash",
-    "hub-packages",
-    "ping",
-    "shared-types"
-  ]
+  "pages": ["projects"]
 }

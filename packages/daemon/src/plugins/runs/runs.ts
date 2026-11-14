@@ -7,7 +7,9 @@ import {
   steerRunCommand,
   resolveInputCommand,
   getRunCommand,
+  getCopyCheckpointCommand,
   getHistoryCommand,
+  listActiveRunsCommand,
   runsChannel,
 } from "./server";
 import { createPlugin } from "../../daemon-plugin";
@@ -18,11 +20,20 @@ import type { RunsContext } from "./state/state.types";
 import { createRunsContext } from "./state";
 import { beginRunExecution, disposeRuns, steerRun, stopRun } from "./execution";
 import { getDisplayHistory } from "./history";
-import { getRunSnapshot } from "./state/state";
+import {
+  getRunSnapshot,
+  listActiveRuns,
+  setMcpServerOverride,
+} from "./state/state";
 import { resolveRunInput } from "./input/input";
 import { switchStrategy, sendRun } from "./switching";
 import { prepareRun } from "./preparation";
 import { getRunLineage } from "./identity";
+import {
+  copyRun,
+  getCopyCheckpoint,
+  removeCopiedRuns,
+} from "./copying/copying";
 
 /**
  * Create a serverless service for preparing, executing, and continuing runs.
@@ -55,7 +66,9 @@ export function createRunsPlugin(options: CreateRunsPluginOptions) {
         steerRunCommand,
         resolveInputCommand,
         getRunCommand,
+        getCopyCheckpointCommand,
         getHistoryCommand,
+        listActiveRunsCommand,
       ],
       channels: [runsChannel],
     },
@@ -74,6 +87,9 @@ export function createRunsPlugin(options: CreateRunsPluginOptions) {
   >);
   const context: RunsContext = createRunsContext(options, notifications);
   const methods: Omit<RunsPlugin, keyof typeof plugin> = {
+    getCopyCheckpoint: (runId) => getCopyCheckpoint(context, runId),
+    copyRun: (options) => copyRun(context, options),
+    removeCopiedRuns: (rootIds) => removeCopiedRuns(context, rootIds),
     getRunLineage: (runId) => getRunLineage(context, runId),
     prepareRun: (options) => prepareRun(context, options),
     switchStrategy: (options) => switchStrategy(context, options),
@@ -85,6 +101,26 @@ export function createRunsPlugin(options: CreateRunsPluginOptions) {
     resolveInput: (runId, inputId, text) =>
       resolveRunInput(context, runId, inputId, text),
     getRun: (runId) => getRunSnapshot(context, runId),
+    setMcpServerOverride: (runId, serverId, enabled) =>
+      setMcpServerOverride(context, runId, serverId, enabled),
+    listActiveRuns: () => listActiveRuns(context),
+    getPendingInputs: (runId) =>
+      [...context.runs.values()]
+        .filter((entry) =>
+          getRunLineage(context, entry.runId).some(
+            (identity) => identity.runId === runId,
+          ),
+        )
+        .flatMap((entry) =>
+          [...entry.pendingInput].map(([inputId, pending]) => ({
+            type: "run_input_requested" as const,
+            runId: entry.runId,
+            parentRunId: entry.parentRunId,
+            inputId,
+            agentName: pending.agentName,
+            prompt: pending.prompt,
+          })),
+        ),
     getHistory: (runId, options) => getDisplayHistory(context, runId, options),
     registerRunPreparation: (registration): void => {
       if (

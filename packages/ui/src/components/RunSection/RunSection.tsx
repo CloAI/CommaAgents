@@ -38,7 +38,7 @@ export const RunSection = memo(function RunSection({
   const accent = agent ? agentColor(name) : undefined;
   // The bar can stay bright, but text must keep contrast on light and dark themes alike.
   const accentText = accent
-    ? `color-mix(in srgb, ${accent} 50%, var(--color-text))`
+    ? `color-mix(in srgb, ${accent} 10%, var(--color-text))`
     : undefined;
   const elapsed = useElapsed(
     message.createdAt,

@@ -71,7 +71,7 @@ async function main() {
     model,
     systemPrompt:
       "You are a file explorer. Use tools to answer questions about the project.",
-    tools: ["read_file", "list_directory", "search_files", "run_command"],
+    tools: ["read_file", "glob", "grep", "run_command"],
   });
 
   console.log("Streaming response with tool calls:");

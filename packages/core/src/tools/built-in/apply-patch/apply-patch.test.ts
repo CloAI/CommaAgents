@@ -7,7 +7,7 @@ import { createSandbox } from "../../../sandbox/sandbox";
 import type { AuditSink } from "../../io/audit.types";
 import { createMemoryAuditSink } from "../../io/audit-sink";
 import { sha256OfBuffer } from "../../io/hash";
-import { trashWorkspaceDir } from "../../io/trash";
+import { getDeletedFilesDirectory } from "../delete-file/deletion";
 import { makeToolContext } from "../../test.utils";
 import type { ToolContext } from "../../tool.types";
 import { type ApplyPatchData, createApplyPatchTool } from "./index";
@@ -21,7 +21,10 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
-  await rm(trashWorkspaceDir(workspaceRoot), { recursive: true, force: true });
+  await rm(getDeletedFilesDirectory(workspaceRoot), {
+    recursive: true,
+    force: true,
+  });
 });
 
 function makeCtx(overrides?: {

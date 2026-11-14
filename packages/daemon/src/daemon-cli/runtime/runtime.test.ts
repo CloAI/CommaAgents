@@ -124,6 +124,7 @@ for (const failure of [
         configFile: join(directory, "config.json"),
         modelRoles: {},
         instructionFiles: [],
+        skills: { additionalDirectories: [] },
         logLevel: "info",
         logFile: join(directory, "daemon.log"),
       };

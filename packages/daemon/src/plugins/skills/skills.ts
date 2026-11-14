@@ -1,5 +1,21 @@
 import { createPlugin } from "../../daemon-plugin";
-import { createSkillsContext, listRunSkills, disposeSkills } from "./state";
+import {
+  createSkillsContext,
+  listRunSkills,
+  listSkillsForRun,
+  disposeSkills,
+} from "./state";
+import {
+  listWorkspaceSkills,
+  getWorkspaceSkill,
+  searchWorkspaceSkills,
+} from "./queries";
+import {
+  listSkillsCommand,
+  getSkillsCommand,
+  searchSkillsCommand,
+  listForRunSkillsCommand,
+} from "./server";
 import { prepareRunSkills } from "./preparation";
 import type { CreateSkillsPluginOptions, SkillsPlugin } from "./skills.types";
 
@@ -16,10 +32,19 @@ import type { CreateSkillsPluginOptions, SkillsPlugin } from "./skills.types";
  */
 export function createSkillsPlugin({
   dependencies,
-}: CreateSkillsPluginOptions): SkillsPlugin {
-  const context = createSkillsContext();
+  discovery,
+}: CreateSkillsPluginOptions) {
+  const context = createSkillsContext(discovery);
   const plugin = createPlugin({
     name: "skills",
+    server: {
+      commands: [
+        listSkillsCommand,
+        getSkillsCommand,
+        searchSkillsCommand,
+        listForRunSkillsCommand,
+      ],
+    },
     cleanup: async () => disposeSkills(context),
   });
 
@@ -28,5 +53,12 @@ export function createSkillsPlugin({
     prepare: (preparation) => prepareRunSkills(context, preparation),
   });
 
-  return { ...plugin, listSkills: (runId) => listRunSkills(context, runId) };
+  const methods: Omit<SkillsPlugin, keyof typeof plugin> = {
+    list: (options = {}) => listWorkspaceSkills(context, options),
+    get: (options) => getWorkspaceSkill(context, options),
+    search: (options) => searchWorkspaceSkills(context, options),
+    listForRun: ({ runId }) => listSkillsForRun(context, runId),
+    listSkills: (runId) => listRunSkills(context, runId),
+  };
+  return Object.assign(plugin, methods);
 }

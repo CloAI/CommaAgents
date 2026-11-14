@@ -6,8 +6,6 @@ import type {
   SplitDirection,
 } from "./layout.types";
 
-/** Most panes the grid can hold. */
-export const MAX_PANES = 8;
 /** Route of an empty new chat. */
 export const NEW_CHAT_PATH = "/";
 
@@ -57,10 +55,10 @@ export function containsPane(node: LayoutNode, id: string): boolean {
 /**
  * Check whether another pane can be added.
  * @param {Layout} layout - Current layout.
- * @returns {boolean} Whether the pane count is below the limit.
+ * @returns {boolean} Whether there is a pane to split; pane count is unlimited.
  */
 export function canSplit(layout: Layout): boolean {
-  return listPanes(layout.root).length < MAX_PANES;
+  return listPanes(layout.root).length > 0;
 }
 
 /**
@@ -166,7 +164,7 @@ function insertBeside(
  * @param {string} id - Pane to split.
  * @param {SplitDirection} direction - "row" puts the new pane beside, "column" below.
  * @param {() => string} makeId - Identifier source.
- * @returns {Layout} The new layout, or the same one when the pane is missing or the limit is reached.
+ * @returns {Layout} The new layout, or the same one when the pane is missing.
  */
 export function splitPane(
   layout: Layout,
@@ -353,6 +351,9 @@ function sameTree(a: LayoutNode, b: LayoutNode): boolean {
  * @returns {Layout} The grid with only the focused pane replaced.
  */
 export function replaceActivePane(layout: Layout, newId: string): Layout {
+  if (listPanes(layout.root).length === 0) {
+    return createLayout(NEW_CHAT_PATH, () => newId);
+  }
   const replace = (node: LayoutNode): LayoutNode => {
     if (node.type === "pane") {
       return node.id === layout.activeId
@@ -362,4 +363,59 @@ export function replaceActivePane(layout: Layout, newId: string): Layout {
     return { ...node, children: node.children.map(replace) };
   };
   return { ...layout, root: replace(layout.root), activeId: newId };
+}
+
+/**
+ * Move a pane out of a grid, allowing the main workspace to become empty.
+ * @param {Layout} layout - Source grid.
+ * @param {string} id - Pane to extract.
+ * @returns {Layout} Remaining grid, possibly empty.
+ */
+export function extractPane(layout: Layout, id: string): Layout {
+  const root = removePane(layout.root, id);
+  if (!root) {
+    return {
+      root: { type: "split", id: randomId(), direction: "row", children: [] },
+      activeId: "",
+    };
+  }
+  const tidy = normalize(root);
+  return {
+    root: tidy,
+    activeId: containsPane(tidy, layout.activeId)
+      ? layout.activeId
+      : listPanes(tidy)[0]!.id,
+  };
+}
+
+/**
+ * Insert a transferred pane at the chosen edge, or into an empty workspace.
+ * @param {Layout} layout - Destination grid.
+ * @param {PaneNode} pane - Chat to insert.
+ * @param {string} targetId - Target pane; ignored for an empty grid.
+ * @param {DropZone} zone - Destination edge.
+ * @returns {Layout} The edited grid, or the original when the destination is invalid.
+ */
+export function dockPane(
+  layout: Layout,
+  pane: PaneNode,
+  targetId: string,
+  zone: DropZone,
+): Layout {
+  if (listPanes(layout.root).length === 0) {
+    return { root: pane, activeId: pane.id };
+  }
+  if (
+    !containsPane(layout.root, targetId) ||
+    containsPane(layout.root, pane.id)
+  ) {
+    return layout;
+  }
+  const { direction, placement } = ZONE_PLACEMENT[zone];
+  return {
+    root: normalize(
+      insertBeside(layout.root, targetId, pane, direction, placement, randomId),
+    ),
+    activeId: pane.id,
+  };
 }

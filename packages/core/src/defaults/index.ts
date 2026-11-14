@@ -1,4 +1,5 @@
 export {
+  findCommaProjectRoot,
   getApplicationDataDirectory,
   getCatalogCachePath,
   getCredentialsPath,
@@ -14,7 +15,6 @@ export {
   getProviderInstallDirectory,
   getProviderSettingsPath,
   getStrategiesDirectory,
-  getTrashDirectory,
   resetCoreLocationOverrides,
   setApplicationDataDirectory,
   setCatalogCachePath,
@@ -36,7 +36,6 @@ export {
   DEFAULT_PROJECT_DIRECTORY_NAME,
   DEFAULT_PROVIDERS_DIRECTORY_NAME,
   DEFAULT_STRATEGIES_DIRECTORY_NAME,
-  DEFAULT_TRASH_DIRECTORY_NAME,
   PROCESS_ENV_COMMA_AGENTS_CATALOG_CACHE_FILENAME,
   PROCESS_ENV_COMMA_AGENTS_CREDENTIALS_FILENAME,
   PROCESS_ENV_COMMA_AGENTS_DATA_DIRECTORY,

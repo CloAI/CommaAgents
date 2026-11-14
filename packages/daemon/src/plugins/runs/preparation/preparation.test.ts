@@ -5,7 +5,7 @@ import {
   createMockRunsPlugin,
   fakeLoader,
   directories,
-  repository,
+  createRunDirectory,
 } from "../test.utils";
 import { MissingModelRolesError } from "@comma-agents/core";
 import { RunErrorCode } from "../errors";
@@ -13,7 +13,7 @@ import * as storageModule from "../state/storage/storage";
 afterEach(cleanupRunFixtures);
 describe("run preparation", () => {
   it("should reserve preparation until its successful configuration is durable", async () => {
-    const legacy = repository();
+    const runsDir = createRunDirectory();
     const backing = storageModule.createRunStorage(directories.at(-1)!);
     const saving = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
@@ -28,7 +28,7 @@ describe("run preparation", () => {
       },
     });
     const runs = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     try {
@@ -57,9 +57,9 @@ describe("run preparation", () => {
   });
 
   it("should allow reads during saved-run preparation while rejecting a second preparation", async () => {
-    const legacy = repository();
+    const runsDir = createRunDirectory();
     const original = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     await original.prepareRun({
@@ -70,7 +70,7 @@ describe("run preparation", () => {
     await original.dispose();
     const observed = { loads: [] as string[], restored: [] as string[][] };
     const runs = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader(observed),
     });
     const entered = Promise.withResolvers<void>();
@@ -118,7 +118,7 @@ describe("run preparation", () => {
 
   it("should resolve saved settings and allow clearing optional overrides", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     await runs.prepareRun({
@@ -149,7 +149,7 @@ describe("run preparation", () => {
   });
   it("should reject competing preparation and retain stopped state with no loaded strategy", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const entered = Promise.withResolvers<void>();
@@ -193,7 +193,7 @@ describe("run preparation", () => {
   });
   it("should report every missing model role when preparation cannot resolve them", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy() {
         throw new MissingModelRolesError(["medium", "compaction"]);
       },
@@ -213,7 +213,7 @@ describe("run preparation", () => {
     const seen: Array<Readonly<Record<string, string>> | undefined> = [];
     const loader = fakeLoader({ loads: [], restored: [] });
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy(options) {
         seen.push(options.modelRoles);
         return loader(options);
@@ -256,10 +256,10 @@ describe("run preparation", () => {
   it("should keep last successful configuration after replacement preparation fails", async () => {
     const loader = fakeLoader({ loads: [], restored: [] });
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy(options) {
         if (options.strategyPath === "broken.json") {
-          throw new Error("External diagnostic should not be persisted");
+          throw new Error("Strategy file could not be loaded");
         }
         return loader(options);
       },
@@ -288,12 +288,14 @@ describe("run preparation", () => {
         },
       },
     });
-    expect(JSON.stringify(snapshot)).not.toContain("External diagnostic");
+    expect(snapshot).toMatchObject({
+      outcome: { error: { message: "Strategy file could not be loaded" } },
+    });
     await runs.dispose();
   });
   it("should release providers in reverse order when loader inputs conflict", async () => {
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     const cleanup: string[] = [];
@@ -320,7 +322,7 @@ describe("run preparation", () => {
     let supplied: string[] = [];
     const loader = fakeLoader({ loads: [], restored: [] });
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       loadStrategy(options) {
         supplied = Object.keys(
           options.strategyInputs.mcpToolsByAgent?.writer?.tools ?? {},
@@ -354,7 +356,7 @@ describe("optional agent instrumentation", () => {
   it("should allow lightweight agents while omitting unsupported per-agent observation", async () => {
     const loader = fakeLoader({ loads: [], restored: [] });
     const runs = createMockRunsPlugin({
-      repository: repository(),
+      runsDir: createRunDirectory(),
       async loadStrategy(options) {
         const strategy = await loader(options);
         delete strategy.agents.writer!.appendHook;

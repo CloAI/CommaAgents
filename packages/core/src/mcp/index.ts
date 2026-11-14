@@ -5,6 +5,7 @@ export {
 } from "./mcp";
 export {
   discoverMcpConfig,
+  updateMcpServerDefault,
   resolveMcpServer,
   resolveMcpValue,
 } from "./mcp.config";
@@ -19,6 +20,7 @@ export {
 export type {
   CreateMcpConnectionManagerOptions,
   DiscoverMcpConfigOptions,
+  UpdateMcpServerDefaultOptions,
   McpAgentToolSet,
   McpConfigDiscovery,
   McpConfigFile,

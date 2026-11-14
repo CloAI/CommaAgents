@@ -8,6 +8,8 @@ import { SettingsProvider } from "../hooks/useSettings";
 import { ThemeProvider } from "../hooks/useTheme";
 import { Workspace } from "../components/Workspace";
 import styles from "./App.module.scss";
+import { WorkspacesProvider } from "../hooks/useWorkspaces";
+import { useHost } from "../hooks/useHost";
 
 /** Optional chrome supplied by the host application. */
 export interface AppProps {
@@ -21,6 +23,7 @@ export interface AppProps {
  * @returns {React.ReactElement} The rendered component.
  */
 export function App({ header }: AppProps) {
+  const { workspace } = useHost();
   // The route in the address bar at launch opens in the focused pane.
   const [initialPath] = useState(() => pathFromHash(window.location.hash));
 
@@ -29,10 +32,13 @@ export function App({ header }: AppProps) {
       <ThemeProvider>
         <CommaAgentsDaemonProvider>
           <LayoutProvider initialPath={initialPath}>
-            <AppRender
-              header={header}
-              connectionStatus={<DaemonConnectionStatus />}
-            />
+            <WorkspacesProvider>
+              <AppRender
+                header={header}
+                connectionStatus={<DaemonConnectionStatus />}
+                showSidebar={!workspace?.getSnapshot().detached}
+              />
+            </WorkspacesProvider>
           </LayoutProvider>
         </CommaAgentsDaemonProvider>
       </ThemeProvider>
@@ -42,6 +48,8 @@ export function App({ header }: AppProps) {
 
 /** Content for the application shell. */
 export interface AppRenderProps {
+  /** Navigation belongs only to the main window. @default true */
+  readonly showSidebar?: boolean;
   /** Host-supplied header above the workspace. */
   readonly header?: ReactNode;
   /** Connection indicator anchored at the bottom-right edge. */
@@ -53,12 +61,16 @@ export interface AppRenderProps {
  * @param {AppRenderProps} props - Application shell content.
  * @returns {React.ReactElement} The application shell.
  */
-export function AppRender({ header, connectionStatus }: AppRenderProps) {
+export function AppRender({
+  header,
+  connectionStatus,
+  showSidebar = true,
+}: AppRenderProps) {
   return (
     <div className={styles.app}>
       {header}
       <div className={styles.body}>
-        <Sidebar />
+        {showSidebar && <Sidebar />}
         <div className={styles.content}>
           <Workspace />
         </div>

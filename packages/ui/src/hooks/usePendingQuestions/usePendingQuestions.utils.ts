@@ -14,6 +14,8 @@ export function reducePendingQuestions(
   message: QuestionChannelMessage,
 ): readonly PendingQuestion[] {
   switch (message.type) {
+    case "questions.snapshot":
+      return message.data.requests;
     case "question.requested":
       return [
         ...questions.filter(

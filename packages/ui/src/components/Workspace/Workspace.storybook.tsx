@@ -245,7 +245,7 @@ export const OpensTheAddressBarRouteInTheFocusedPane: Story = {
   },
 };
 
-export const StopsSplittingAtTheLimit: Story = {
+export const SplitsBeyondEightPanes: Story = {
   beforeEach: () =>
     prepareStory({
       layout: {
@@ -263,8 +263,14 @@ export const StopsSplittingAtTheLimit: Story = {
     for (const button of canvas.getAllByRole("button", {
       name: "Split vertical",
     })) {
-      await expect(button).toBeDisabled();
+      await expect(button).toBeEnabled();
     }
+    await userEvent.click(
+      canvas.getAllByRole("button", { name: "Split vertical" })[0]!,
+    );
+    await expect(
+      canvas.getAllByRole("group", { name: "New chat" }),
+    ).toHaveLength(9);
   },
 };
 

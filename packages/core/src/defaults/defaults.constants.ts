@@ -13,7 +13,6 @@ export const DEFAULT_AUDIT_DIRECTORY_NAME = "audit";
 export const DEFAULT_STRATEGIES_DIRECTORY_NAME = "strategies";
 export const DEFAULT_PACKAGES_DIRECTORY_NAME = "packages";
 export const DEFAULT_HUB_DIRECTORY_NAME = "hub";
-export const DEFAULT_TRASH_DIRECTORY_NAME = "trash";
 
 /** Initial application data directory. Override with `COMMA_AGENTS_DATA_DIRECTORY`. */
 export const PROCESS_ENV_COMMA_AGENTS_DATA_DIRECTORY =

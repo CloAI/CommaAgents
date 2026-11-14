@@ -172,3 +172,20 @@ export function strategyMessage(change: {
     ],
   };
 }
+
+/**
+ * Describe a run failure consistently for live events and restored snapshots.
+ * @param {RunEventMap["run.error"]["error"]} error - Reported run failure.
+ * @returns {string} Diagnostic text with its stable error code.
+ */
+export function formatRunError(
+  error: RunEventMap["run.error"]["error"],
+): string {
+  if ("message" in error && error.message?.trim()) {
+    return `Run failed (${error.code}): ${error.message}`;
+  }
+  if (error.code === "MISSING_MODEL_ROLES") {
+    return `Run failed (${error.code}): Configure the missing model roles: ${error.metadata.roles.map((role) => `@${role}`).join(", ")}.`;
+  }
+  return `Run failed (${error.code}).`;
+}

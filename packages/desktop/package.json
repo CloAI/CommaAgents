@@ -6,8 +6,8 @@
   "type": "module",
   "main": "out/main/main.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "pnpm run typecheck && electron-vite build",
+    "dev": "install-electron && electron-vite dev",
+    "build": "install-electron && pnpm run typecheck && electron-vite build",
     "package": "pnpm run build && electron-builder --dir",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.renderer.json",
     "lint": "oxlint src electron.vite.config.ts vitest.config.ts",

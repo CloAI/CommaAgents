@@ -1,7 +1,6 @@
 import type {
   McpServerStatusWire,
   RequestPermissionMessage,
-  RequestQuestionMessage,
 } from "@comma-agents/daemon";
 import { useMemo } from "react";
 
@@ -21,7 +20,6 @@ export interface UseChatStateResult {
   readonly strategyName: string | null;
   readonly strategyPath: string | null;
   readonly pendingPermissionRequest: RequestPermissionMessage | null;
-  readonly pendingQuestionRequest: RequestQuestionMessage | null;
   readonly runId: string | null;
   readonly connectionStatus: WebSocketStatus;
   readonly mcpServers: readonly McpServerStatusWire[];
@@ -46,7 +44,6 @@ export function useChatState(chatRunId: ChatRunId | null): UseChatStateResult {
       strategyName: chatRun?.strategyName ?? null,
       strategyPath: chatRun?.strategyPath ?? null,
       pendingPermissionRequest: chatRun?.pendingPermissionRequests[0] ?? null,
-      pendingQuestionRequest: chatRun?.pendingQuestionRequests[0] ?? null,
       runId: chatRun?.daemonRunId ?? null,
       mcpServers: chatRun?.mcpServers ?? [],
       pendingMcpConfirmation: chatRun?.pendingMcpConfirmation ?? false,

@@ -10,7 +10,7 @@
  *
  * Concepts:
  *   - Passing tools as string names to createAgent via the `tools` config
- *   - Built-in tools: "read_file", "list_directory", "search_files",
+ *   - Built-in tools: "read_file", "glob", "grep",
  *     "create_file", "write_file", "edit_file", "delete_file",
  *     "move_file", "apply_patch", "run_command"
  *   - The agent autonomously decides which tools to call
@@ -24,7 +24,7 @@ async function main() {
   const model = getModelString();
 
   // Tools are referenced by name as strings. Built-in tools include
-  // "read_file", "list_directory", "search_files", "run_command", etc.
+  // "read_file", "glob", "grep", "run_command", etc.
   // They are resolved internally by createAgent() via the tool registry.
   const agent = createAgent({
     name: "explorer",
@@ -34,11 +34,11 @@ async function main() {
       "Use the available tools to answer questions about the project.",
       "When reading files, always cite the filename.",
     ].join("\n"),
-    tools: ["read_file", "list_directory", "search_files", "run_command"],
+    tools: ["read_file", "glob", "grep", "run_command"],
   });
 
   // Ask the agent something that requires tool use.
-  // It will autonomously call list_directory / read_file / search_files
+  // It will autonomously call glob / read_file / grep
   // to find the answer.
   const result = await agent.call(
     "What is the name and version of this project? Look at the package.json file in the project root (two levels up from this examples directory).",

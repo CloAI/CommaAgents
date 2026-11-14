@@ -25,9 +25,9 @@ export interface IpcSenderEvent {
 
 /** The part of Electron's `ipcMain` used here. */
 export interface IpcHub {
-  handle(
+  handle<Result extends object>(
     channel: string,
-    handler: (event: IpcSenderEvent) => Promise<OpenResult>,
+    handler: (event: IpcSenderEvent, ...args: unknown[]) => Promise<Result>,
   ): void;
   on(
     channel: string,

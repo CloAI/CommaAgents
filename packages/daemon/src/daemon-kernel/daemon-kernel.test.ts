@@ -1,10 +1,31 @@
 import { describe, expect, vi, test } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDaemonKernel } from "./daemon-kernel";
+import * as runsModule from "../plugins/runs/runs";
 
 describe("daemon kernel", () => {
+  test("disposes constructed services if the project catalog cannot initialize", async () => {
+    const runsDir = mkdtempSync(join(tmpdir(), "daemon-kernel-invalid-projects-"));
+    const createRunsPlugin = runsModule.createRunsPlugin;
+    let disposal: ReturnType<typeof vi.spyOn> | undefined;
+    const creating = vi.spyOn(runsModule, "createRunsPlugin").mockImplementation((options) => {
+      const plugin = createRunsPlugin(options);
+      disposal = vi.spyOn(plugin, "dispose");
+      return plugin;
+    });
+    try {
+      mkdirSync(join(runsDir, ".projects"));
+      writeFileSync(join(runsDir, ".projects", "catalog.json"), JSON.stringify({ projects: [], chats: [], requests: [] }));
+      await expect(createDaemonKernel({ runs: { runsDir } })).rejects.toThrow("missing General");
+      expect(disposal).toHaveBeenCalledTimes(1);
+    } finally {
+      creating.mockRestore();
+      rmSync(runsDir, { recursive: true, force: true });
+    }
+  });
+
   test("stops runs before features and cleans every plugin even when one cleanup fails", async () => {
     const runsDir = mkdtempSync(join(tmpdir(), "daemon-kernel-"));
     try {
@@ -26,6 +47,7 @@ describe("daemon kernel", () => {
       });
       await expect(kernel.dispose()).rejects.toThrow("MCP cleanup failed");
       expect(order).toEqual([
+        "projects",
         "runs",
         "lsp",
         "mcp",
@@ -52,6 +74,7 @@ describe("daemon kernel", () => {
           });
         },
       });
+      expect(kernel.plugins.projects.name).toBe("projects");
       expect(kernel.plugins.core.name).toBe("core");
       expect(kernel.plugins.runs.name).toBe("runs");
       expect(kernel.plugins.sandbox.name).toBe("sandbox");

@@ -232,7 +232,6 @@ export function useChatRunLifecycleSubscriptions(): void {
         status: "completed",
         runStatus: "completed",
         pendingPermissionRequests: [],
-        pendingQuestionRequests: [],
         activeLaunchStrategyIds: [],
         messages: [...chatRun.messages, systemMessage],
         updatedAt: Date.now(),

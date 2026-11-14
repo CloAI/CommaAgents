@@ -1,11 +1,11 @@
 ---
 title: delete_file
-description: Remove a workspace file, recoverable by default via a per-workspace trash directory.
+description: Delete a workspace file with recovery enabled by default.
 ---
 
 # delete_file
 
-Delete a file from the workspace. By default the file is moved into a per-workspace trash directory instead of being unlinked outright, so the operation is recoverable. Pass `permanent: true` to skip the trash. Recursive directory deletion is supported via `recursive: true` but is **never** the default — a missing flag against a directory returns an error.
+Delete a regular file from the workspace. The original bytes are retained for recovery unless you pass `permanent: true`. Directories are not supported.
 
 ```ts
 import { createAgent } from "@comma-agents/core";
@@ -13,7 +13,7 @@ import { createAgent } from "@comma-agents/core";
 const agent = createAgent({
   name: "janitor",
   model: "openai/gpt-4o",
-  tools: ["delete_file"],
+  tools: ["delete_file", "restore_file"],
 });
 ```
 
@@ -21,43 +21,73 @@ const agent = createAgent({
 
 Optional configuration for the factory.
 
-<AutoTypeTable path="../packages/core/src/tools/built-in/delete-file/delete-file.types.ts" name="DeleteFileToolConfig" />
+<AutoTypeTable
+  path="../packages/core/src/tools/built-in/delete-file/delete-file.types.ts"
+  name="DeleteFileToolConfig"
+/>
 
 ## DeleteFileData
 
-The structured payload returned on success.
+The structured payload returned on success. `trashedTo` identifies the recovery archive; it is omitted for permanent deletion.
 
-<AutoTypeTable path="../packages/core/src/tools/built-in/delete-file/delete-file.types.ts" name="DeleteFileData" />
+<AutoTypeTable
+  path="../packages/core/src/tools/built-in/delete-file/delete-file.types.ts"
+  name="DeleteFileData"
+/>
 
-## Trash semantics
+## Recoverable deletion
 
-Recoverable deletes compress the target into a `.tar.gz` archive at `<dataDir>/trash/<sha256(workspaceRoot)>/<timestamp>-<sessionId>-<runId>-<basename>.tar.gz`. The archive contains the file at its original workspace-relative path and a `metadata.json` record. Trash entries persist until explicitly cleared via the daemon or `restore_file`.
+Recoverable deletion applies to `delete_file`, existing destinations replaced by `move_file`, and delete operations in `apply_patch`. Ordinary reads, writes, and edits do not create recovery copies.
+
+Read the file first and pass its `sha256` as `expectedSha256` when you need stale-file detection. To restore the deleted file, pass its returned `trashedTo` value as `trashedPath` to `restore_file`.
+
+Files remain recoverable until explicitly restored or cleared. Recovery archives remain under `<dataDir>/trash/<sha256(workspaceRoot)>/`, normally inside `~/.comma`. Each new archive has a timestamp, unique identifier, and original basename. Previously created archives remain readable. Session, run, and agent identifiers are retained as metadata.
+
+Restoration checks the archive's workspace ownership and content hash, refuses an existing destination, and rejects paths that escape the workspace. The archive is removed only after its file has been successfully restored. New archives retain original file permissions; older archives without permission metadata restore with owner-only access.
+
+## Use deletion directly
+
+The same recovery API is available to projects using core:
 
 ```ts
-// Recoverable (default).
-await tool.delete_file({ path: "tmp/scratch.log" });
+import {
+  deleteFile,
+  restoreDeletedFile,
+  listDeletedFiles,
+  clearDeletedFiles,
+} from "@comma-agents/core";
 
-// Permanent — no trash.
-await tool.delete_file({ path: "tmp/scratch.log", permanent: true });
+const workspaceRoot = "/workspace";
+const { archivePath } = await deleteFile(workspaceRoot, "src/old.ts", {
+  metadata: { runId: "run-1", agentName: "janitor" },
+});
 
-// Recursive directory delete.
-await tool.delete_file({ path: "build", recursive: true });
+const deleted = await listDeletedFiles(workspaceRoot);
+if (archivePath) {
+  await restoreDeletedFile(workspaceRoot, archivePath, {
+    targetPath: "src/recovered.ts",
+  });
+}
+
+await deleteFile(workspaceRoot, "temporary.log", { permanent: true });
+const cleared = await clearDeletedFiles(workspaceRoot);
+console.log(deleted.length, cleared.cleared);
 ```
 
-## Cross-device fallback
-
-If the trash directory lives on a different filesystem than the target (an `EXDEV` rename error), `delete_file` falls back to copy-then-unlink. The deleted bytes still reach the trash and the operation appears atomic to the caller.
+`clearDeletedFiles` permanently removes the workspace's recovery directory. There is no automatic cleanup. The standalone trash functions have been replaced by these deletion APIs; tool result fields and legacy daemon message names retain their existing names.
 
 ## Errors
 
-| Kind | When |
-|---|---|
-| `not_found` | The path does not exist. |
-| `permission_denied` | The path is write-blocked by `forbiddenGlobs` or sandbox policy. |
-| `outside_workspace` | The path escapes the sandbox or absolute paths are disabled. |
-| `command_failed` | The target is a directory and `recursive: true` was not passed. |
+| Kind                | When                                                           |
+| ------------------- | -------------------------------------------------------------- |
+| `not_found`         | The path does not exist or is a directory.                     |
+| `stale_file`        | The supplied content hash differs from the current file.       |
+| `permission_denied` | Sandbox policy blocks deletion.                                |
+| `outside_workspace` | The path escapes the workspace or absolute paths are disabled. |
+| `command_failed`    | The file could not be archived or deleted.                     |
 
 ## Related
 
-- [Trash](/docs/core/tools/trash) — how recoverable deletes are stored and reclaimed.
-- [move_file](/docs/core/tools/built-in/file-io/move_file) — to relocate instead of delete.
+- [restore_file](/docs/core/tools/built-in/file-io/restore_file) — recover a deleted file.
+- [move_file](/docs/core/tools/built-in/file-io/move_file) — relocate a file.
+- [Audit log](/docs/core/tools/audit-log) — inspect file operation records.

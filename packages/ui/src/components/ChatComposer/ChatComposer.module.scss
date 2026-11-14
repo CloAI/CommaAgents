@@ -16,14 +16,19 @@
   }
   .warning {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
-    padding: var(--space-2);
+    padding: var(--space-1);
+    padding-left: var(--space-2);
     border-radius: var(--space-3) var(--space-3) 0 0;
     background: color-mix(in srgb, var(--color-warning) 24%, transparent);
     color: var(--color-warning);
     font-size: var(--font-size-small);
+    &[data-severity="error"] {
+      background: color-mix(in srgb, var(--color-error) 24%, transparent);
+      color: var(--color-text);
+    }
     p {
       margin: 0;
       overflow-wrap: anywhere;
@@ -32,6 +37,7 @@
       display: flex;
       flex: none;
       align-items: center;
+      gap: var(--space-1);
       button {
         color: inherit;
       }

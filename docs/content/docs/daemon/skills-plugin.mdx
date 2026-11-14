@@ -1,73 +1,112 @@
 ---
 title: Skills Plugin
-description: Discover and inspect the skills available to prepared root and child executions.
+description: Discover, search, and inspect workspace skills and prepared-run skill snapshots.
 ---
 
 # Skills Plugin
 
-The daemon kernel provides `daemon.plugins.skills`. Each preparation discovers global skills and project skills in the execution's working directory. Project skills take precedence when names match.
+Use `daemon.plugins.skills` to browse skills before starting a run and inspect the skills available to a prepared execution. Skill files and their parsing are owned by core; the daemon exposes the same discovery behavior to clients.
 
 ```ts
 import { createDaemonKernel } from "@comma-agents/daemon";
 
-const daemon = await createDaemonKernel({ runs: { runsDir: "./runs" } });
+const daemon = await createDaemonKernel({
+  runs: { runsDir: "./runs" },
+  skills: { additionalDirectories: ["/shared/team-skills"] },
+});
 
 try {
-  const prepared = await daemon.plugins.runs.prepareRun({
-    configuration: {
-      strategyPath: "./strategy.json",
-      cwd: process.cwd(),
-    },
+  const listed = await daemon.plugins.skills.list({ cwd: process.cwd() });
+  const searched = await daemon.plugins.skills.search({
+    cwd: process.cwd(),
+    query: "code review",
+    limit: 5,
   });
-
-  console.log(daemon.plugins.skills.listSkills(prepared.runId));
+  console.log(listed.skills, listed.warnings, searched.matches);
+  const selected = searched.matches[0];
+  if (selected) {
+    const { skill } = await daemon.plugins.skills.get({
+      cwd: process.cwd(),
+      name: selected.name,
+    });
+    console.log(skill.content);
+  }
 } finally {
   await daemon.dispose();
 }
 ```
 
+## Workspace inspection
+
+`list({ cwd })` returns resolved skill metadata and discovery warnings. `get({ cwd, name })` returns the full instructions for one exact name and the scan's warnings; an unavailable name produces `NOT_FOUND`. Omitting `cwd` uses the daemon process's working directory.
+
+`search({ cwd, query, limit })` searches names and descriptions without including instruction bodies. It returns ranked metadata with a score, the total matching count before limiting, and discovery warnings. Lower scores indicate closer matches. Queries must contain non-whitespace text; the default limit is 10 and allowed limits are 1 through 50.
+
+Each workspace operation reads current files. There is no background watcher, polling, installation, or file mutation. A missing project root is logged by the daemon and does not add a warning to the reply. Invalid skill files and other recoverable discovery problems remain visible in `warnings`.
+
+## Prepared-run snapshots
+
+`listForRun({ runId })` reads the registry captured for that preparation. It returns `available: true` with metadata and diagnostics while that registry exists, including when it contains no skills. Unknown, completed, cancelled, or cleaned-up executions return `available: false` with empty arrays. It does not re-scan or prepare the run.
+
+```ts
+const prepared = await daemon.plugins.runs.prepareRun({
+  configuration: { strategyPath: "./strategy.json", cwd: process.cwd() },
+});
+const snapshot = daemon.plugins.skills.listForRun({ runId: prepared.runId });
+console.log(snapshot.available, snapshot.skills, snapshot.warnings);
+```
+
+Root and child executions discover skills independently, using the same configured roots. A continuation discovers skills again so it sees subsequent file changes. `listSkills(runId)` remains available for existing callers that need full loaded skills; it returns an empty list when the registry is unavailable. Historical skill snapshots are not persisted.
+
+## WebSocket commands
+
+The methods are exposed as `skills.list`, `skills.get`, `skills.search`, and `skills.listForRun`. They use the standard daemon command envelope and request-ID correlation.
+
+```json
+{
+  "type": "command",
+  "requestId": "50000000-0000-4000-8000-000000000001",
+  "command": "skills.search",
+  "arguments": {
+    "cwd": "/workspace/my-project",
+    "query": "review",
+    "limit": 5
+  }
+}
+```
+
+Listings and searches contain only metadata; use `skills.get` to retrieve instructions. No skills channel is required for these explicit reads.
+
+## Additional directories
+
+Set additional roots in the daemon configuration file:
+
+```json
+{
+  "skills": {
+    "additionalDirectories": ["./team-skills", "~/shared-skills"]
+  }
+}
+```
+
+Relative paths resolve from the directory containing that configuration file. `~` and `~/` expand to the user's home directory. These roots are applied consistently to workspace queries and run preparation. Core library callers can instead supply discovery options directly.
+
 ## CreateSkillsPluginOptions
 
-Supply the runs plugin as a dependency when constructing the skills plugin individually.
+Supply the runs plugin and optional discovery settings when constructing the plugin independently.
 
 <AutoTypeTable
   path="../packages/daemon/src/plugins/skills/skills.types.ts"
   name="CreateSkillsPluginOptions"
 />
 
-```ts
-import { createRunsPlugin, createSkillsPlugin } from "@comma-agents/daemon";
-
-const runs = createRunsPlugin({ runsDir: "./runs" });
-const skills = createSkillsPlugin({ dependencies: { runs } });
-
-try {
-  const prepared = await runs.prepareRun({ configuration: { strategyPath: "./strategy.json" } });
-  console.log(skills.listSkills(prepared.runId).map((skill) => skill.name));
-} finally {
-  await runs.dispose();
-  await skills.dispose();
-}
-```
-
 ## SkillsPlugin
 
-List loaded skills by execution ID without exposing a mutable registry.
+The complete inspection and compatibility API.
 
 <AutoTypeTable
   path="../packages/daemon/src/plugins/skills/skills.types.ts"
   name="SkillsPlugin"
 />
 
-## Discovery and lifetime
-
-Missing skill directories are allowed. Malformed and oversized skill files are skipped with warnings so valid skills remain available. Each child execution loads its own registry, and continuations rediscover skills to pick up file changes.
-
-```ts
-await daemon.plugins.runs.prepareRun({ runId });
-const loadedSkills = daemon.plugins.skills.listSkills(runId);
-```
-
-Listings are available while the execution is prepared or running. Cleanup releases the retained registry. `listSkills` returns an empty list for a completed, cancelled, or unknown execution. Skill discovery that finishes after cancellation or plugin disposal does not restore retained state.
-
-See [Core skills](/docs/core/skills) for discovery locations and the `SKILL.md` format. The skill APIs are also available through `@comma-agents/core/skills`.
+See [Core skills](/docs/core/skills) for discovery precedence, supported frontmatter, and the `SKILL.md` format.

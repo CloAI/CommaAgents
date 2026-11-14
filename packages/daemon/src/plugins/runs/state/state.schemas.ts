@@ -28,6 +28,7 @@ export const RunErrorSchema = z.union([
         RunErrorCode.EXECUTION_ERROR,
         RunErrorCode.PERSISTENCE_ERROR,
       ]),
+      message: z.string().optional(),
       metadata: z.object({ runId: z.string() }).strict(),
     })
     .strict(),

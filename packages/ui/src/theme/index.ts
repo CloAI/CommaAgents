@@ -11,6 +11,7 @@ export type {
   Theme,
   ThemeColorKey,
   ThemeMode,
+  ThemeModePreference,
   ThemePalette,
 } from "./theme.types";
 export {

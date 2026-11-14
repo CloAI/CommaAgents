@@ -1,16 +1,13 @@
 # UI TODOs
 
-[] The chat needs a specific area for warnings, I was thinking we can have a capsule like component ontop of the chat input, that has a yellow background and basically rounded top left and right only, and displays issues (like delay client etc). We should almost support multiple with << 1/2 >> controls in the top right or an x to dismiss all...
-[] I want to move the strategy selector and model role settings to be on top of the chatinput, and have it encapsulated.
-[] We need to have preconfigured @model role settings save configurations, that the user can switch between. We should provide default ones for OpenAI for example. Basically the ability to set templates. We should have a basic dropdown on the top left of the config and then on the right we should have "save" or "delete" with confirmation.
-[] The modal selector for "Strategy models" needs to be under the text. ```
-Model Role Name
-model role description
-dropdown selector
+[x] I don't like the Focus outline support we have in our UI components.
+[x] I don't think hooks need storybooks, we should just be using the "Render" of components.
 
-```
-[] Chat header add a "color picker" option for setting the color schema for that window, basically should follow the saturation pattern as the main theme.
+-- Mock
+[x] Currently the backend does not support this, but I would like to mock two icon buttons that are in the strategy selector, on the right is attach file and a mic, one for attaching files and one for the future dictation.
 
-```
+# Backend TODO:
 
-[] Move "Overriden" to the top in the Strategy Models modal. Also put the reset button on the right, with an "Save" on the bottom right too that closes the model.
+[] We should add support for a setting to "Generate Chat Titles" in general, use the @simple model to generate run names... This might need some backend support such as updating the runs to support run-set-name, and displaying it. We should make a super simple strategy perhaps.
+
+[] We need to review the backend "custom" providers. For example Ollama should take in some password etc for local ones, and I think it has a \models endpoint

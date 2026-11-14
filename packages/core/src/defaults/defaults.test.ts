@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { join } from "node:path";
 
@@ -27,7 +28,9 @@ describe("Core locations", () => {
     expect(getCredentialsPath()).toBe("/tmp/comma/credentials.json");
     expect(getProviderInstallDirectory()).toBe("/tmp/comma/providers");
     expect(getCatalogCachePath()).toBe("/tmp/comma/cache/models-catalog.json");
-    expect(getGlobalSkillsDirectory()).toBe("/tmp/comma/skills");
+    expect(getGlobalSkillsDirectory()).toBe(
+      join(homedir(), ".config", "comma", "skills"),
+    );
   });
 
   it("uses explicit location setters ahead of derived defaults", () => {

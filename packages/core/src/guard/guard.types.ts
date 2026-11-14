@@ -2,7 +2,7 @@ import type {
   AccessOperation,
   PermissionDecision,
 } from "../sandbox/sandbox.types";
-import type { SandboxTrashMetadata } from "../tools/io/trash";
+import type { SandboxDeletionMetadata } from "../tools/built-in/delete-file/deletion";
 
 /** Closed set of access categories that a tool can request. */
 export type AccessType = AccessOperation;
@@ -94,7 +94,7 @@ export interface Guard {
   /** Workspace root for path resolution. */
   readonly cwd: string;
   /** Trash metadata for archive identification (runId, sessionId). */
-  readonly trashMetadata?: SandboxTrashMetadata;
+  readonly deletionMetadata?: SandboxDeletionMetadata;
 
   /**
    * Full authorization through the policy chain.

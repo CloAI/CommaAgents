@@ -39,3 +39,21 @@ try {
 This example expects a `github` server in the effective MCP configuration.
 
 See [Model Context Protocol](/docs/core/mcp) for configuration discovery, transports, secrets, and strategy assignment.
+
+## Shared configuration defaults
+
+Global definitions are read from `~/.comma/mcp.json` by default. A project's `.comma/mcp.json` overrides global definitions with matching IDs, including when discovery starts in a project subdirectory.
+
+Use the core configuration API to change a shared server's default without connecting to it:
+
+```ts
+import { updateMcpServerDefault } from "@comma-agents/core/mcp";
+
+updateMcpServerDefault({
+  cwd: process.cwd(),
+  serverId: "github",
+  enabled: true,
+});
+```
+
+The effective project or global definition is updated atomically. Other server definitions and environment-variable references are retained. Missing servers and invalid files are rejected. Strategy-private definitions are configured in the strategy itself.

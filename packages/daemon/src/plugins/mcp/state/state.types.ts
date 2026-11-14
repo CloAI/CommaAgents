@@ -1,7 +1,6 @@
 import type { McpConnectionManager } from "@comma-agents/core/mcp";
 import type { PluginNotifications } from "../../../daemon-plugin";
 import type { RunPreparationResult, RunsPlugin } from "../../runs";
-import type { RunRepository } from "../../../daemon-run-state/run-repository";
 import type { McpNotifications, McpServersUpdated } from "../mcp.notifications";
 import type { ResolvedMcpConfiguration } from "../configuration/configuration.types";
 import type { RunMcpServerStatus } from "../mcp.types";
@@ -19,7 +18,6 @@ export interface McpRunResources {
 /** @internal MCP resources, current notifications, and serialized configuration work. */
 export interface McpContext {
   readonly runs: RunsPlugin;
-  readonly repository: RunRepository;
   readonly notifications: PluginNotifications<McpNotifications>;
   readonly resources: Map<string, McpRunResources>;
   readonly snapshots: Map<string, McpServersUpdated>;

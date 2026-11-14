@@ -4,11 +4,14 @@ import { generalSettingsSchema } from "./GeneralSettings.schemas";
 import { useCallback, useEffect, useId, useState } from "react";
 import type { ChangeEventHandler, Ref } from "react";
 import { Button } from "../../../design-system/Button";
+import { Accordion } from "../../../design-system/Accordion";
 import { useHost } from "../../../hooks/useHost";
 import { useSettings } from "../../../hooks/useSettings";
 import { SettingsPanel } from "../SettingsPanel";
 import { StrategyModelsSettings } from "../StrategyModelsSettings";
 import { Input } from "../../../design-system/Input";
+import { SkillsSettings } from "./SkillsSettings";
+import { DesktopSettings } from "./DesktopSettings";
 import styles from "./GeneralSettings.module.scss";
 
 /** General section lifecycle and modal dismissal. */
@@ -27,7 +30,7 @@ export interface GeneralSettingsProps {
 export function GeneralSettings({ active, onClose }: GeneralSettingsProps) {
   const { settings, notice, saveSettings } = useSettings();
   // A host that supplies the connection has no daemon address to edit.
-  const { createSocket } = useHost();
+  const { createSocket, desktopSettings } = useHost();
   const { control, handleSubmit, reset } = useForm({
     resolver: zodResolver(generalSettingsSchema),
     defaultValues: { url: settings.daemon.url },
@@ -108,7 +111,9 @@ export function GeneralSettings({ active, onClose }: GeneralSettingsProps) {
             name={field.name}
           />
         )}
+        {desktopSettings && <DesktopSettings settings={desktopSettings} />}
         <StrategyModelsSettings />
+        <SkillsSettings />
       </SettingsPanel>
     </form>
   );
@@ -147,29 +152,31 @@ export function GeneralSettingsRender({
   name,
 }: GeneralSettingsRenderProps) {
   return (
-    <div className={styles.field}>
-      <label htmlFor={inputId}>Daemon WebSocket URL</label>
-      <Input
-        ref={inputRef}
-        id={inputId}
-        value={url}
-        onChange={onChange}
-        onBlur={onBlur}
-        name={name}
-        inputMode="url"
-        autoComplete="url"
-        spellCheck={false}
-        aria-invalid={Boolean(error)}
-        aria-describedby={`${inputId}-hint${error ? ` ${inputId}-error` : ""}`}
-      />
-      <p id={`${inputId}-hint`} className={styles.hint}>
-        Enter the full ws:// or wss:// endpoint.
-      </p>
-      {error && (
-        <p id={`${inputId}-error`} className={styles.error} role="alert">
-          {error}
+    <Accordion title="Daemon Settings">
+      <div className={styles.field}>
+        <label htmlFor={inputId}>WebSocket URL</label>
+        <Input
+          ref={inputRef}
+          id={inputId}
+          value={url}
+          onChange={onChange}
+          onBlur={onBlur}
+          name={name}
+          inputMode="url"
+          autoComplete="url"
+          spellCheck={false}
+          aria-invalid={Boolean(error)}
+          aria-describedby={`${inputId}-hint${error ? ` ${inputId}-error` : ""}`}
+        />
+        <p id={`${inputId}-hint`} className={styles.hint}>
+          Enter the full ws:// or wss:// endpoint.
         </p>
-      )}
-    </div>
+        {error && (
+          <p id={`${inputId}-error`} className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </Accordion>
   );
 }

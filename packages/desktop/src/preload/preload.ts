@@ -5,8 +5,11 @@ import type {
   DaemonClosedEvent,
   DaemonMessageEvent,
   DesktopBridge,
+  DesktopSettings,
+  DesktopSettingsPatch,
   OpenResult,
   WindowCommand,
+  WindowAppearance,
 } from "../shared/ipc";
 
 /**
@@ -36,6 +39,14 @@ function platformOf(platform: NodeJS.Platform): DesktopBridge["platform"] {
 
 // Fixed, typed entry points only; the renderer never sees `ipcRenderer`.
 const bridge: DesktopBridge = {
+  chooseDirectory: (initialDirectory) =>
+    ipcRenderer.invoke(IPC_CHANNELS.chooseDirectory, initialDirectory),
+  workspace: {
+    get: () => ipcRenderer.invoke(IPC_CHANNELS.workspaceGet),
+    ready: () => ipcRenderer.send(IPC_CHANNELS.workspaceReady),
+    send: (command) => ipcRenderer.send(IPC_CHANNELS.workspaceCommand, command),
+    onChanged: (listener) => listen(IPC_CHANNELS.workspaceChanged, listener),
+  },
   platform: platformOf(process.platform),
   daemon: {
     open: (): Promise<OpenResult> =>
@@ -47,7 +58,17 @@ const bridge: DesktopBridge = {
     onClosed: (listener) =>
       listen<DaemonClosedEvent>(IPC_CHANNELS.daemonClosed, listener),
   },
+  settings: {
+    get: (): Promise<DesktopSettings> =>
+      ipcRenderer.invoke(IPC_CHANNELS.settingsGet),
+    set: (patch: DesktopSettingsPatch): Promise<DesktopSettings> =>
+      ipcRenderer.invoke(IPC_CHANNELS.settingsSet, patch),
+  },
   windowControls: {
+    getAppearance: (): Promise<WindowAppearance> =>
+      ipcRenderer.invoke(IPC_CHANNELS.windowAppearanceGet),
+    setAppearance: (patch): Promise<WindowAppearance> =>
+      ipcRenderer.invoke(IPC_CHANNELS.windowAppearanceSet, patch),
     run: (command: WindowCommand) =>
       ipcRenderer.send(IPC_CHANNELS.windowControl, command),
     isMaximized: (): Promise<boolean> =>

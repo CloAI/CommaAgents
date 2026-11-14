@@ -248,7 +248,6 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
         pendingExecution: null,
         pendingInputAgent: null,
         pendingPermissionRequests: [],
-        pendingQuestionRequests: [],
         mcpServers: [],
         pendingMcpConfirmation: false,
         activeLaunchStrategyIds: [],

@@ -6,14 +6,14 @@ import {
   createMockRunsPlugin,
   directories,
   fakeLoader,
-  repository,
+  createRunDirectory,
 } from "../test.utils";
 afterEach(cleanupRunFixtures);
 describe("run ancestry", () => {
   it("should store each descendant independently and load parent links after restart", async () => {
-    const legacy = repository();
+    const runsDir = createRunDirectory();
     const runs = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     await runs.prepareRun({
@@ -47,7 +47,7 @@ describe("run ancestry", () => {
     }
     await runs.dispose();
     const restarted = createMockRunsPlugin({
-      repository: legacy,
+      runsDir,
       loadStrategy: fakeLoader({ loads: [], restored: [] }),
     });
     await restarted.getHistory(grandchild.childRunId);

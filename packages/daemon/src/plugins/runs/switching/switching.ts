@@ -75,6 +75,7 @@ export async function switchStrategy(
     const configuration = RunConfigurationSchema.parse({
       ...target,
       cwd: previous.configuration.cwd,
+      mcpServerOverrides: previous.configuration.mcpServerOverrides,
       modelRoles:
         selection.modelRoles === null
           ? undefined

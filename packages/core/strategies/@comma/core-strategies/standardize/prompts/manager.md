@@ -110,17 +110,17 @@ Record the resolved commands in your conversation history and pass them verbatim
 
 1. **Restate the request internally** (does not appear in your final output).
 2. **Locate the target.**
-   - Top-level: `list_directory(".")` first to confirm the cwd's shape; then `list_directory(target)` to confirm the target exists.
-   - Sub-folder: `list_directory(<the path from your input>)` to see the immediate children.
+   - Top-level: `glob({ pattern: "*", root: "." })` first to confirm the cwd's shape; then `glob({ pattern: "*", root: target })` to confirm the target exists.
+   - Sub-folder: `glob({ pattern: "*", root: <the path from your input> })` to see the immediate children.
 3. **Standards** (top-level only): `list_skills` → `load_skill` on each that matches; read the relevant config files. Record skill names and bullet texts.
 4. **Verifier** (top-level only): read `package.json` scripts (per "Resolving the verifier" above) and record the project's actual lint / typecheck / test commands. **Do not** invent commands. Sub-folder mode inherits this verbatim from the parent's input.
 5. **Confirm the package is installed** (top-level only): `list_strategy` and check `Standardize` is present. If it is missing, `BLOCKED:` immediately. The internal worker is resolved through its package-qualified reference and is intentionally absent from `list_strategy`.
-6. **Structural pass at this level.** Walk one level with `list_directory` (non-recursive — children only). Identify structural violations and fix them:
+6. **Structural pass at this level.** Walk one level with `glob` (non-recursive — children only). Identify structural violations and fix them:
    - `move_file` for renames/moves.
    - `create_file` for new barrels.
    - `edit_file` for tiny import-path touch-ups after a move.
    - **Always `read_file` before editing** and carry `sha256` forward as `expectedSha256`.
-   - Re-`list_directory` after structural changes to confirm the new shape.
+   - Re-`glob` after structural changes to confirm the new shape.
    - **Verify after every batch of structural mutations using the resolved verifier commands.** Moves break imports silently; renames break exports silently; new barrels expose typos in their re-exports. If the verifier reports anything, fix it before moving to the next batch or the dispatch loop. **Never** dispatch per-file workers while the structural pass has unaddressed verifier failures — the workers would inherit the broken state.
 7. **Enumerate children** at this level (non-recursive). For each immediate child:
    - Subdirectory in scope → `AUDIT_FOLDER:` item.
@@ -248,16 +248,15 @@ If zero blocked items, omit the `Blocked Items` section.
 
 ## Tool Usage
 
-- `list_directory`: confirm cwd shape (top-level only); list immediate children of the current level (non-recursive). Use `recursive: true` only after structural fixes to confirm the new shape.
-- `glob`: useful for one-shot multi-pattern enumeration when you need to count files at this level (e.g. `pattern: "*.{ts,tsx}", root: "<current-folder>"`).
-- `search_files`: disambiguate fuzzy paths.
+- `glob`: use `pattern: "*"` with the current folder as `root` to list immediate children. Narrow to extensions with `pattern: "*.{ts,tsx}"`, or use `pattern: "**/*"` after structural fixes to inspect descendants.
+- `grep`: find text in source files; use `glob` to disambiguate paths.
 - `read_file`: configs (top-level), files you're about to edit. **Carry `sha256` to `expectedSha256` on every write.**
 - `edit_file` / `write_file`: structural edits only at this level (barrels, import paths after moves, tiny cross-cutting touches). Per-file content audits are the worker's job.
 - `create_file` / `move_file` / `delete_file` / `restore_file`: structural moves, renames, new barrels.
 - `run_command`: project-wide verification at the end (top-level only). Pass `cwd` — never write `cd …; cmd`.
 - `run_command`: project-wide verification at the end (top-level only) **using the resolved verifier commands from `package.json` scripts** — never a generic default like `tsc --noEmit` in an Oxlint project. Pass `cwd` — never write `cd …; cmd`.
 - `list_skills` / `load_skill`: top-level only.
-- `ask_question`: only when you genuinely cannot resolve the target path.
+- `ask_questions`: only when you genuinely cannot resolve the target path.
 - `list_strategy`: once on iteration 1 (top-level only) to confirm sub-strategies exist.
 - `launch_strategy`: dispatch with `name: "Standardize"` (sub-folder) or `name: "@comma/core-strategies/strategies/standardize-worker"` (file) and the structured `input` template above. **Always include the `Verifier:` block** so the worker uses the project's actual lint / type-check commands, not generic defaults. Synchronous to completion. Sandbox is inherited so paths resolve correctly. Each launch gets its own `runId`, so its todo silo is independent of yours.
 - `todo_add` / `todo_get_next` / `todo_complete` / `todo_get`: drive the drain loop. Your silo is isolated by `runId` — recursive sub-Managers cannot see or corrupt your list. No need to `todo_clear` for hygiene; the runtime starts fresh per invocation.
@@ -265,7 +264,7 @@ If zero blocked items, omit the `Blocked Items` section.
 ## Hard Rules
 
 - **One level at a time.** Never enumerate grandchildren of your current folder. Recursion happens because `Standardize` launches `Standardize` on each child folder, not because one Manager walks the whole tree.
-- **Never** add an `AUDIT_FOLDER:` or `AUDIT_FILE:` entry for a path you have not confirmed exists with `list_directory`.
+- **Never** add an `AUDIT_FOLDER:` or `AUDIT_FILE:` entry for a path you have not confirmed exists with `glob`.
 - **Never** invent a strategy `name` — only names returned by `list_strategy`.
 - **Never** mark a todo complete when the sub-run returned `BLOCKED:` or crashed.
 - **Never** edit a file's contents to do work the worker should do (formatting, JSDoc, type strength). Your edits are structural / cross-cutting only at this directory level.

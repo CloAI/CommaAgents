@@ -28,6 +28,7 @@ import stripJsonComments from "strip-json-comments";
 import {
   getApplicationDataDirectory,
   getPackagesDirectory,
+  findCommaProjectRoot,
   getProjectDirectory,
   getProjectStrategiesDirectory,
   getStrategiesDirectory,
@@ -124,19 +125,25 @@ export async function discoverStrategies(
     }
   }
 
-  // 1. Cwd single-file strategies.
-  const cwdStrategiesDir = getProjectStrategiesDirectory(cwd);
-  await collectSingleFiles(cwdStrategiesDir, "cwd");
+  const projectRoot = findCommaProjectRoot(cwd);
+  if (projectRoot) {
+    // 1. Cwd single-file strategies.
+    const cwdStrategiesDir = getProjectStrategiesDirectory(projectRoot);
+    await collectSingleFiles(cwdStrategiesDir, "cwd");
 
-  // 2. Cwd project strategies (subdirs of `.comma/strategies/`).
-  for (const manifestPath of listProjectManifests(cwdStrategiesDir)) {
-    await collectProjectManifest(manifestPath, "cwd-project");
-  }
+    // 2. Cwd project strategies (subdirs of `.comma/strategies/`).
+    for (const manifestPath of listProjectManifests(cwdStrategiesDir)) {
+      await collectProjectManifest(manifestPath, "cwd-project");
+    }
 
-  // 3. Cwd root project (`.comma/comma-project.json`).
-  const cwdRootManifest = join(getProjectDirectory(cwd), "comma-project.json");
-  if (existsSync(cwdRootManifest)) {
-    await collectProjectManifest(cwdRootManifest, "cwd-root-project");
+    // 3. Cwd root project (`.comma/comma-project.json`).
+    const cwdRootManifest = join(
+      getProjectDirectory(projectRoot),
+      "comma-project.json",
+    );
+    if (existsSync(cwdRootManifest)) {
+      await collectProjectManifest(cwdRootManifest, "cwd-root-project");
+    }
   }
 
   if (dataDir) {

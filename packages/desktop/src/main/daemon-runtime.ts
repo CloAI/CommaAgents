@@ -5,8 +5,20 @@ import { initializeLogging } from "@daemon-src/logger";
 import { createDaemonElectronIPC } from "./daemon-ipc";
 import type { CreateDaemonElectronIPCOptions } from "./daemon-ipc";
 
+/** Where the in-process daemon is in its start. */
+export type DaemonRuntimeStatus =
+  | { readonly kind: "starting" }
+  | { readonly kind: "running" }
+  | { readonly kind: "failed"; readonly message: string };
+
 /** Application-owned lifetime of the in-process daemon. */
 interface DaemonElectronRuntime {
+  /** Stop one chat before its detached window closes. */
+  stopRun(runId: string): Promise<void>;
+  /** Where the daemon is in its start. */
+  status(): DaemonRuntimeStatus;
+  /** Number of top-level runs executing now; delegated child runs are not counted. */
+  activeRuns(): number;
   /** Disconnect clients, dispose the kernel and release logging once. */
   stop(): Promise<void>;
 }
@@ -36,6 +48,8 @@ export function startDaemonElectronRuntime(
       config.consoleFormat ?? (config.console === true ? "text" : "json"),
   });
 
+  let status: DaemonRuntimeStatus = { kind: "starting" };
+  let created: Awaited<ReturnType<typeof createConfiguredKernel>> | undefined;
   const kernel = (async () => {
     // This guards only against a standalone daemon that is already running. A
     // standalone daemon started after the app is not detected, so both can then
@@ -46,16 +60,32 @@ export function startDaemonElectronRuntime(
         "A standalone daemon is running. Stop it, or use the web UI.",
       );
     }
-    const created = await createConfiguredKernel(config);
+    const started = await createConfiguredKernel(config);
+    created = started;
+    status = { kind: "running" };
     // Call provider APIs in the background; the list channel publishes each update.
-    void created.plugins.core.providers.load();
-    return created;
+    void started.plugins.core.providers.load();
+    return started;
   })();
+  kernel.catch((failure) => {
+    status = {
+      kind: "failed",
+      message: failure instanceof Error ? failure.message : String(failure),
+    };
+  });
   // IPC is registered immediately so a failed start reaches windows as a close reason.
   const server = createDaemonElectronIPC({ ...ipc, kernel });
 
   let stopping: Promise<void> | undefined;
   return {
+    stopRun: async (runId) => {
+      await (await kernel).plugins.runs.stopRun(runId);
+    },
+    status: () => status,
+    activeRuns: () =>
+      created?.plugins.runs
+        .listActiveRuns()
+        .filter((run) => run.parentRunId === undefined).length ?? 0,
     stop() {
       stopping ??= (async () => {
         try {
