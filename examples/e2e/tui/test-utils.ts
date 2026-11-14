@@ -1,4 +1,6 @@
-import { describe, it } from "bun:test";
+import { existsSync } from "node:fs";
+import { setTimeout as delay } from "node:timers/promises";
+import { describe, it } from "vitest";
 import {
   mkdirSync,
   mkdtempSync,
@@ -114,7 +116,9 @@ async function runTuiE2eTest(
   } finally {
     await interruptShellUseSession(sessionName);
     await closeShellUseSession(sessionName);
-    if (passed) rmSync(artifactDir, { recursive: true, force: true });
+    if (passed) {
+      rmSync(artifactDir, { recursive: true, force: true });
+    }
   }
 }
 
@@ -188,8 +192,10 @@ export async function waitForFile(
 ): Promise<void> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    if (await Bun.file(filePath).exists()) return;
-    await Bun.sleep(50);
+    if (await existsSync(filePath)) {
+      return;
+    }
+    await delay(50);
   }
   throw new Error(`Timed out waiting for file: ${filePath}`);
 }

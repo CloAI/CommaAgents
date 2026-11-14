@@ -1,5 +1,6 @@
-import { stat } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { z } from "zod";
+
 import { SandboxViolationError } from "../../../errors";
 import { defineTool } from "../../define/define-tool";
 import {
@@ -7,342 +8,273 @@ import {
   sandboxErrorToToolError,
   sha256OfBuffer,
 } from "../../io";
-import { hasBom, stripBom } from "../../io/bom";
-import { detectNewline, toLF } from "../../io/newline";
+import { stripBom } from "../../io/bom";
+import { toLF } from "../../io/newline";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
-import { describeTool } from "../describe-tool";
-import { DEFAULT_MAX_BYTES } from "./read-file.constants";
+import {
+  DEFAULT_MAX_FILE_BYTES,
+  DEFAULT_MAX_OUTPUT_BYTES,
+} from "./read-file.constants";
 import type { ReadFileData, ReadFileToolConfig } from "./read-file.types";
-import { formatTextSummary, truncateUtf8 } from "./read-file.utils";
+import { describeTool } from "../describe-tool";
+import { fitReadOutput, formatReadOutput } from "./read-file.utils";
 
-export const readFileParams = z.object({
-  path: z
-    .string()
-    .min(1)
-    .describe(
-      "Workspace-relative path to the file. Absolute paths are rejected unless the sandbox " +
-        "is configured with `allowAbsolutePaths: true`.",
-    ),
-  startLine: z
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .describe("1-indexed inclusive line to start at. Defaults to 1."),
-  endLine: z
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .describe(
-      "1-indexed inclusive line to end at. Clamped to the file's lineCount when larger. " +
-        "Defaults to the end of the file.",
-    ),
-  maxBytes: z
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .describe(
-      "Maximum UTF-8 byte length of the returned content. When the slice exceeds this, " +
-        "content is truncated and `data.truncated` is set to true. Defaults to 262144.",
-    ),
-  allowBinary: z
-    .boolean()
-    .optional()
-    .describe(
-      "Opt in to receiving the contents of a binary file as base64. Required for any file " +
-        "whose first 8 KiB contains a NUL byte. Defaults to false.",
-    ),
-});
+export const readFileParams = z
+  .object({
+    path: z.string().min(1).describe("Workspace-relative text file path."),
+    startLine: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("1-indexed inclusive start line. Defaults to 1."),
+    endLine: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        "1-indexed inclusive end line. Defaults to EOF; clamped at EOF.",
+      ),
+  })
+  .strict();
 
 /**
- * Create the `read_file` tool.
- *
- * @param config - Optional configuration overriding the default max-bytes cap.
+ * Create a text reader with bounded file and output sizes.
+ * @param {ReadFileToolConfig} [config] - File and formatted output byte limits.
+ * @returns {ToolDefinition} The text-reading tool.
  * @example
- * ```ts
- * const readFile = createReadFileTool();
- * ```
+ * const reader = createReadFileTool({ maxFileBytes: 4 * 1024 * 1024 });
  */
 export function createReadFileTool(
   config?: ReadFileToolConfig,
 ): ToolDefinition<typeof readFileParams, ReadFileData> {
-  const defaultMaxBytes = config?.defaultMaxBytes ?? DEFAULT_MAX_BYTES;
-
-  return defineTool<typeof readFileParams, ReadFileData>({
+  const maxFileBytes = config?.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES;
+  const maxOutputBytes = config?.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
+  if (
+    !Number.isSafeInteger(maxFileBytes) ||
+    maxFileBytes < 1 ||
+    !Number.isSafeInteger(maxOutputBytes) ||
+    maxOutputBytes < 1
+  ) {
+    throw new Error("read_file byte limits must be positive safe integers.");
+  }
+  return defineTool({
     description: describeTool({
       purpose:
-        "Read a workspace file and return its UTF-8 content plus a sha256 over the whole on-disk bytes for stale-file detection.",
+        "Read text as whole lines with a full raw-file SHA-256 for stale-write checks.",
       inputs: [
         {
           name: "path",
           type: "string",
           required: true,
-          description: "Workspace-relative path to the file.",
+          description: "Workspace-relative file path.",
         },
         {
           name: "startLine",
           type: "number",
           required: false,
-          description:
-            "1-indexed inclusive start line for slicing large files.",
+          defaultValue: "1",
+          description: "1-indexed inclusive first line.",
         },
         {
           name: "endLine",
           type: "number",
           required: false,
+          defaultValue: "EOF",
           description:
-            "1-indexed inclusive end line; clamped to the file's lineCount.",
-        },
-        {
-          name: "maxBytes",
-          type: "number",
-          required: false,
-          defaultValue: `${defaultMaxBytes}`,
-          description:
-            "Cap on the UTF-8 byte length of the returned slice; oversized slices set `data.truncated`.",
-        },
-        {
-          name: "allowBinary",
-          type: "boolean",
-          required: false,
-          defaultValue: "false",
-          description:
-            "Opt in to reading binary content as base64. The first call on a binary file always returns `binary_file`.",
+            "Inclusive last line, at least startLine; clamped at EOF.",
         },
       ],
       outputs:
-        "`{ content?, contentBase64?, startLine, endLine, lineCount, sizeBytes, sha256, truncated, binary, newlineStyle, hasBom, encoding }`. `sha256` always reflects the full file so it can be passed verbatim as `expectedSha256`.",
+        "{ content, startLine, endLine, lineCount, sizeBytes, sha256, truncated }. Text is LF-normalized without BOM; sha256 covers original bytes. endLine is the actual last returned line. Continue truncated reads at endLine + 1.",
       errors: [
         {
-          kind: "not_found",
-          description:
-            "File missing, or path resolves to a directory — use `list_directory` instead.",
-        },
-        {
-          kind: "outside_workspace",
-          description:
-            "Path escapes the sandbox root or is absolute when not allowed.",
-        },
-        {
-          kind: "permission_denied",
-          description:
-            "Path matches a forbidden glob or is otherwise read-blocked by the sandbox.",
+          kind: "file_too_large",
+          description: `Raw files over ${maxFileBytes} bytes are refused. Whole-line output including summary is capped at ${maxOutputBytes} bytes; a first line that cannot fit is refused. Inspect a bounded portion with a command.`,
         },
         {
           kind: "binary_file",
           description:
-            "File is binary and `allowBinary` was not set. `data.sizeBytes` and `data.sha256` are still returned. Re-call with `allowBinary: true` to receive base64.",
+            "Text only; use a format-aware tool or command for binary files.",
+        },
+        {
+          kind: "not_found",
+          description:
+            "Missing file or directory path. List directories using glob with pattern *.",
+        },
+        {
+          kind: "outside_workspace",
+          description: "Path is outside the permitted workspace.",
+        },
+        {
+          kind: "permission_denied",
+          description: "Path is blocked or unreadable.",
         },
       ],
-      notes: [
-        "Slicing operates on LF-normalized content; `sha256` is computed on the raw bytes (BOM and CRLF preserved).",
-      ],
     }),
-    systemPrompt: `### Using read_file
-
-\`read_file\` is the **starting point of every file modification**. Always read before you write or edit.
-
-**Reading specific sections of large files:**
-
-For large files, use \`startLine\` and \`endLine\` (1-indexed, inclusive) to read only the section you need instead of the entire file. This is more efficient and keeps your context focused. For example:
-- Read lines 10-50: \`{ path: "src/file.ts", startLine: 10, endLine: 50 }\`
-- Read from line 100 to end: \`{ path: "src/file.ts", startLine: 100 }\`
-- Read first 20 lines: \`{ path: "src/file.ts", endLine: 20 }\`
-
-The \`sha256\` is **always** the hash of the full file, never the slice — so chaining writes still works.
-
-**The sha256 chain:**
-
-Every \`read_file\` response includes a \`sha256\` field — a 64-char lowercase hex hash of the file's current bytes. **Save it.** You will pass it as \`expectedSha256\` to your next \`edit_file\` / \`write_file\` / \`move_file\` / \`delete_file\` call on the same file. This is how the tools detect concurrent edits and refuse stale writes.
-
-If a subsequent edit/write returns \`stale_file\`, the file changed under you — re-call \`read_file\` to get a fresh \`sha256\` and retry.
-
-**Required:**
-
-- \`path\`: workspace-relative file path (e.g. \`"src/App.tsx"\`). Use \`./relative/path\` or just \`"src/foo.ts"\` — absolute paths are rejected unless the sandbox explicitly permits them.
-
-**Useful optional arguments:**
-
-- \`startLine\` / \`endLine\`: read only a slice of a large file (see examples above).
-- \`allowBinary: true\`: return binary content as base64 instead of \`binary_file\` error. Rarely needed for source-code work.
-
-**Never** edit, write, move, or delete a file without first reading it to obtain a fresh \`sha256\`.`,
+    systemPrompt:
+      "Read files before editing. Use startLine/endLine for focused reads. Preserve sha256 for write_file and stale-file checks. If truncated, continue at endLine + 1. Find paths with glob and search contents with grep.",
     parameters: readFileParams,
-    execute: async (validatedArguments, toolContext) => {
-      const { guard, abort, agentName } = toolContext;
-
-      let absolutePath: string;
-      try {
-        absolutePath = await guard.authorize(
-          { type: "fs.read", resource: validatedArguments.path },
-          { agentName, toolName: "read_file", signal: abort },
-        );
-      } catch (caught) {
-        if (caught instanceof SandboxViolationError) {
-          return errorResult<ReadFileData>(sandboxErrorToToolError(caught));
-        }
-        throw caught;
-      }
-
-      let statResult: Awaited<ReturnType<typeof stat>>;
-      try {
-        statResult = await stat(absolutePath);
-      } catch (statError) {
-        const code = (statError as NodeJS.ErrnoException).code;
-        if (code === "ENOENT" || code === "ENOTDIR") {
-          return errorResult<ReadFileData>(
-            toolError(
-              "not_found",
-              `File does not exist: ${validatedArguments.path}`,
-              {
-                path: validatedArguments.path,
-                recoverable: false,
-              },
-            ),
-          );
-        }
-        if (code === "EACCES" || code === "EPERM") {
-          return errorResult<ReadFileData>(
-            toolError(
-              "permission_denied",
-              `Cannot stat file: ${validatedArguments.path}`,
-              {
-                path: validatedArguments.path,
-                recoverable: false,
-              },
-            ),
-          );
-        }
-        throw statError;
-      }
-
-      if (statResult.isDirectory()) {
-        return errorResult<ReadFileData>(
+    execute: async (args, { guard, abort, agentName }) => {
+      abort?.throwIfAborted();
+      if (args.endLine !== undefined && args.endLine < (args.startLine ?? 1)) {
+        return errorResult(
           toolError(
-            "not_found",
-            `Path is a directory, not a file: ${validatedArguments.path}. Use list_directory instead.`,
-            {
-              path: validatedArguments.path,
-              recoverable: true,
-              suggestedNextAction: `Call list_directory with path="${validatedArguments.path}".`,
-            },
+            "unknown",
+            "endLine must be greater than or equal to startLine.",
+            { recoverable: true },
           ),
         );
       }
-
-      const file = Bun.file(absolutePath);
-      const buffer = new Uint8Array(await file.arrayBuffer());
-      const sizeBytes = buffer.byteLength;
-      const sha256 = sha256OfBuffer(buffer);
-      const binary = isLikelyBinary(buffer);
-
-      if (binary) {
-        if (!validatedArguments.allowBinary) {
-          return errorResult<ReadFileData>(
+      try {
+        const path = await guard.authorize(
+          { type: "fs.read", resource: args.path },
+          { agentName, toolName: "read_file", signal: abort },
+        );
+        abort?.throwIfAborted();
+        const file = await open(path, "r");
+        let buffer: Buffer;
+        try {
+          const details = await file.stat();
+          abort?.throwIfAborted();
+          if (details.isDirectory()) {
+            return errorResult(
+              toolError("not_found", `Path is a directory: ${args.path}.`, {
+                recoverable: true,
+                suggestedNextAction: `Use glob with root="${args.path}" and pattern="*".`,
+              }),
+            );
+          }
+          if (!details.isFile()) {
+            return errorResult(
+              toolError(
+                "binary_file",
+                "read_file only reads regular text files.",
+                { recoverable: false },
+              ),
+            );
+          }
+          if (details.size > maxFileBytes) {
+            return oversizedFile(args.path, maxFileBytes);
+          }
+          const chunks: Buffer[] = [];
+          let length = 0;
+          while (length <= maxFileBytes) {
+            abort?.throwIfAborted();
+            const chunk = Buffer.alloc(
+              Math.min(64 * 1024, maxFileBytes + 1 - length),
+            );
+            const { bytesRead } = await file.read(chunk, 0, chunk.length, null);
+            abort?.throwIfAborted();
+            if (bytesRead === 0) {
+              break;
+            }
+            chunks.push(chunk.subarray(0, bytesRead));
+            length += bytesRead;
+          }
+          if (length > maxFileBytes) {
+            return oversizedFile(args.path, maxFileBytes);
+          }
+          buffer = Buffer.concat(chunks, length);
+        } finally {
+          await file.close();
+        }
+        abort?.throwIfAborted();
+        if (isLikelyBinary(buffer)) {
+          return errorResult(
             toolError(
               "binary_file",
-              `File is binary: ${validatedArguments.path}. Pass allowBinary:true to receive base64 content.`,
+              `File is binary: ${args.path}. read_file supports text only.`,
               {
-                path: validatedArguments.path,
-                recoverable: true,
+                recoverable: false,
                 suggestedNextAction:
-                  "This file is binary. Decide whether you actually need its raw bytes; if so, " +
-                  "call read_file again with allowBinary: true. Most edits should use a " +
-                  "text-aware tool instead.",
+                  "Use a tool or command that understands this file format.",
               },
             ),
-            {
-              data: {
-                encoding: "base64",
-                binary: true,
-                sizeBytes,
-                sha256,
-                startLine: 0,
-                endLine: 0,
-                lineCount: 0,
-                truncated: false,
-              },
-            },
           );
         }
-
-        const contentBase64 = Buffer.from(buffer).toString("base64");
-        const data: ReadFileData = {
-          contentBase64,
-          encoding: "base64",
-          binary: true,
-          sizeBytes,
-          sha256,
-          startLine: 0,
-          endLine: 0,
-          lineCount: 0,
-          truncated: false,
-        };
-        return okResult<ReadFileData>(
-          `Read ${validatedArguments.path} — binary, ${sizeBytes} bytes, sha256=${sha256}`,
-          { data },
+        const lines = toLF(
+          stripBom(
+            new TextDecoder("utf-8", { ignoreBOM: true }).decode(buffer),
+          ),
+        ).split("\n");
+        const startLine = args.startLine ?? 1;
+        const selected = lines.slice(
+          startLine - 1,
+          Math.min(args.endLine ?? lines.length, lines.length),
         );
+        const data = fitReadOutput(
+          args.path,
+          selected,
+          {
+            startLine,
+            lineCount: lines.length,
+            sizeBytes: buffer.byteLength,
+            sha256: sha256OfBuffer(buffer),
+          },
+          maxOutputBytes,
+        );
+        if (!data) {
+          return errorResult(
+            toolError(
+              "file_too_large",
+              "The first requested line and summary exceed the read_file output limit.",
+              {
+                recoverable: true,
+                suggestedNextAction:
+                  "Use grep to locate shorter lines, or use a command to inspect a portion of the long line.",
+              },
+            ),
+          );
+        }
+        abort?.throwIfAborted();
+        return okResult(formatReadOutput(args.path, data), { data });
+      } catch (caught) {
+        abort?.throwIfAborted();
+        if (caught instanceof SandboxViolationError) {
+          return errorResult(sandboxErrorToToolError(caught));
+        }
+        const code = (caught as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") {
+          return errorResult(
+            toolError("not_found", `File does not exist: ${args.path}`, {
+              path: args.path,
+              recoverable: false,
+            }),
+          );
+        }
+        if (code === "EACCES" || code === "EPERM") {
+          return errorResult(
+            toolError("permission_denied", `Cannot read file: ${args.path}`, {
+              path: args.path,
+              recoverable: false,
+            }),
+          );
+        }
+        throw caught;
       }
-
-      const rawText = new TextDecoder("utf-8", { ignoreBOM: true }).decode(
-        buffer,
-      );
-      const fileHadBom = hasBom(rawText);
-      const textNoBom = stripBom(rawText);
-      const newlineStyle = detectNewline(textNoBom);
-      const normalised = toLF(textNoBom);
-
-      const allLines = normalised.split("\n");
-      const lineCount = allLines.length;
-
-      const requestedStart = validatedArguments.startLine ?? 1;
-      const requestedEnd = validatedArguments.endLine ?? lineCount;
-      const startLine = Math.min(
-        Math.max(1, requestedStart),
-        Math.max(lineCount, 1),
-      );
-      const endLine = Math.min(
-        Math.max(startLine, requestedEnd),
-        Math.max(lineCount, 1),
-      );
-
-      const sliceLines =
-        requestedStart > lineCount
-          ? []
-          : allLines.slice(startLine - 1, endLine);
-      const sliceText = sliceLines.join("\n");
-
-      const cap = validatedArguments.maxBytes ?? defaultMaxBytes;
-      const { content, truncated } = truncateUtf8(sliceText, cap);
-
-      const data: ReadFileData = {
-        content,
-        encoding: "utf8",
-        startLine: requestedStart > lineCount ? requestedStart : startLine,
-        endLine: requestedStart > lineCount ? requestedStart : endLine,
-        lineCount,
-        sizeBytes,
-        sha256,
-        truncated,
-        binary: false,
-        newlineStyle,
-        hasBom: fileHadBom,
-      };
-
-      return okResult<ReadFileData>(
-        formatTextSummary(validatedArguments.path, {
-          startLine: data.startLine,
-          endLine: data.endLine,
-          lineCount,
-          sizeBytes,
-          sha256,
-          truncated,
-        }) + (content.length > 0 ? `\n\n${content}` : ""),
-        { data },
-      );
     },
   });
+}
+
+/**
+ * Explain the raw-file limit without suggesting a slice that still exceeds it.
+ * @param {string} path - Requested file path.
+ * @param {number} maxFileBytes - Raw file byte limit.
+ * @returns {ToolResult<ReadFileData>} An actionable file-size error.
+ */
+function oversizedFile(path: string, maxFileBytes: number) {
+  return errorResult<ReadFileData>(
+    toolError(
+      "file_too_large",
+      `File exceeds the ${maxFileBytes}-byte read_file limit: ${path}`,
+      {
+        recoverable: true,
+        suggestedNextAction:
+          "Use a command that reads a bounded portion of this file, or increase the application maxFileBytes setting.",
+      },
+    ),
+  );
 }

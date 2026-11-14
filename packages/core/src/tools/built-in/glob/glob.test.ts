@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { realpathSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSandbox } from "../../../sandbox/sandbox";
@@ -23,15 +23,15 @@ afterEach(async () => {
 });
 
 function makePrimaryContext(overrides?: {
-  jail?: boolean;
-  allowAbsolutePaths?: boolean;
+  outsideWorkspace?: "allow" | "deny";
+  absolutePaths?: "allow" | "deny";
   forbiddenGlobs?: readonly string[];
 }): ToolContext {
   return makeToolContext({
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: overrides?.jail ?? true,
-      allowAbsolutePaths: overrides?.allowAbsolutePaths ?? false,
+      outsideWorkspace: overrides?.outsideWorkspace ?? "deny",
+      absolutePaths: overrides?.absolutePaths ?? "deny",
       forbiddenGlobs: overrides?.forbiddenGlobs ?? [],
     }),
   });
@@ -45,7 +45,9 @@ async function getOk(
       `expected ok, got error: ${result.error?.kind} ${result.error?.message}`,
     );
   }
-  if (!result.data) throw new Error("expected data");
+  if (!result.data) {
+    throw new Error("expected data");
+  }
   return result.data;
 }
 
@@ -148,7 +150,7 @@ describe("createGlobTool", () => {
     const tool = createGlobTool();
     const result = await tool.execute(
       { pattern: "*.ts", root: "../../etc" },
-      makePrimaryContext({ jail: true }),
+      makePrimaryContext({ outsideWorkspace: "deny" }),
     );
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("outside_workspace");
@@ -164,5 +166,96 @@ describe("createGlobTool", () => {
     );
     expect(data.matches.length).toBe(3);
     expect(data.truncated).toBe(true);
+  });
+
+  it("should list immediate children without an incomplete depth warning", async () => {
+    await mkdir(join(workspaceRoot, "src", "nested"), { recursive: true });
+    await writeFile(join(workspaceRoot, "src", "nested", "file.ts"), "");
+    const data = await getOk(
+      await createGlobTool().execute({ pattern: "*" }, makePrimaryContext()),
+    );
+    expect(data).toEqual({
+      matches: [{ path: "src", type: "directory" }],
+      truncated: false,
+      incompleteReasons: [],
+    });
+  });
+
+  it("should match and exclude relative to a nested root and return workspace paths", async () => {
+    await mkdir(join(workspaceRoot, "src", "nested"), { recursive: true });
+    await writeFile(join(workspaceRoot, "src", "a.ts"), "");
+    await writeFile(join(workspaceRoot, "src", "nested", "b.ts"), "");
+    const data = await getOk(
+      await createGlobTool().execute(
+        { pattern: "**/*.ts", root: "src", excludeGlobs: ["nested/**"] },
+        makePrimaryContext(),
+      ),
+    );
+    expect(data.matches).toEqual([{ path: "src/a.ts", type: "file" }]);
+  });
+
+  it("should include hidden entries and report symlinks without following them", async () => {
+    await mkdir(join(workspaceRoot, ".hidden"));
+    await writeFile(join(workspaceRoot, ".hidden", "a.ts"), "");
+    await writeFile(join(outsideRoot, "secret.ts"), "");
+    await symlink(join(workspaceRoot, ".hidden"), join(workspaceRoot, "link"));
+    const data = await getOk(
+      await createGlobTool().execute({ pattern: "**/*" }, makePrimaryContext()),
+    );
+    expect(data.matches).toEqual([
+      { path: ".hidden", type: "directory" },
+      { path: "link", type: "symlink" },
+      { path: ".hidden/a.ts", type: "file" },
+    ]);
+  });
+
+  it("should prune guard-blocked directories before visiting their children", async () => {
+    await mkdir(join(workspaceRoot, "secret"));
+    await writeFile(join(workspaceRoot, "secret", "visible.ts"), "");
+    const data = await getOk(
+      await createGlobTool().execute(
+        { pattern: "**/*.ts" },
+        makePrimaryContext({ forbiddenGlobs: ["**/secret"] }),
+      ),
+    );
+    expect(data).toEqual({
+      matches: [],
+      truncated: false,
+      incompleteReasons: [],
+    });
+  });
+
+  it("should report depth and output limits explicitly", async () => {
+    await mkdir(join(workspaceRoot, "nested"));
+    await writeFile(join(workspaceRoot, "nested", "a.ts"), "");
+    const depth = await getOk(
+      await createGlobTool({ maxDepth: 1 }).execute(
+        { pattern: "**/*.ts" },
+        makePrimaryContext(),
+      ),
+    );
+    expect(depth.incompleteReasons).toEqual(["depth_limit"]);
+    for (let index = 0; index < 10; index++) {
+      await writeFile(join(workspaceRoot, `${index}-${"a".repeat(80)}.ts`), "");
+    }
+    const result = await createGlobTool({ maxOutputBytes: 300 }).execute(
+      { pattern: "*.ts" },
+      makePrimaryContext(),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.data?.incompleteReasons).toContain("output_limit");
+    expect(result.output).toContain("output_limit");
+    expect(Buffer.byteLength(result.output)).toBeLessThanOrEqual(300);
+  });
+
+  it("should abort rather than return successful partial results", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      createGlobTool().execute(
+        { pattern: "**/*" },
+        { ...makePrimaryContext(), abort: controller.signal },
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
   });
 });

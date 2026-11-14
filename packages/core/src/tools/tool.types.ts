@@ -1,10 +1,37 @@
+import type { QuestionsRequester } from "../questions";
 import type { z } from "zod";
 import type { InputCollector } from "../agents/built-in/user/user-agent.types";
 import type { Guard, Policy } from "../guard/guard.types";
 import type { LanguageService } from "../language";
 import type { SkillRegistry } from "../skills/skills.types";
 import type { AuditSink } from "./io/audit.types";
+import type { SubagentTarget } from "./built-in/delegate/delegate.types";
+import type { StrategySwitchHandle } from "./built-in/request-strategy-switch/request-strategy-switch.types";
 import type { LaunchStrategyHandle } from "./launch-strategy.types";
+
+/** Why a file search did not examine or return every eligible result. */
+export type FileSearchIssue =
+  | "result_limit"
+  | "output_limit"
+  | "depth_limit"
+  | "unreadable_path"
+  | "file_too_large";
+
+/** @internal One filesystem entry yielded by the shared file walker. */
+export interface WalkFileEntry {
+  readonly absolutePath: string;
+  readonly path: string;
+  readonly relativePath: string;
+  readonly type: "file" | "directory" | "symlink";
+}
+
+/** @internal Traversal options shared by glob and grep. */
+export interface WalkFilesOptions {
+  readonly root: string;
+  readonly excludeGlobs?: readonly string[];
+  readonly maxDepth: number;
+  readonly toolName: string;
+}
 
 /**
  * Context passed to tool execute functions.
@@ -13,6 +40,10 @@ import type { LaunchStrategyHandle } from "./launch-strategy.types";
  * and optional session/audit/skill state.
  */
 export interface ToolContext {
+  /** Agent message that issued this invocation. */
+  readonly messageId?: string;
+  /** Model tool invocation that issued this operation. */
+  readonly toolCallId?: string;
   /** Name of the agent that invoked this tool. */
   readonly agentName: string;
   /** Name of the flow currently executing, when invoked within one. */
@@ -20,11 +51,13 @@ export interface ToolContext {
   /** AbortSignal for cancellation propagation. */
   readonly abort: AbortSignal;
   /**
-   * Per-tool guard that handles path resolution, jail enforcement,
+   * Per-tool guard that handles path resolution, workspace boundaries,
    * policy chain evaluation, and interactive "ask" dispatch.
    * Always present — defaults to a permissive guard when none is configured.
    */
   readonly guard: Guard;
+  /** Callback used by tools that request clarification from the user. */
+  readonly requestQuestions?: QuestionsRequester;
   /**
    * Optional session identifier. When present, mutations are written to a
    * session-scoped audit log and `SessionFileState` can be reconstructed
@@ -53,7 +86,7 @@ export interface ToolContext {
    */
   readonly auditSink?: AuditSink;
   /**
-   * Optional skill registry exposed to the `load_skill` tool.
+   * Optional skill snapshot exposed to search_skills, list_skills, and load_skill.
    */
   readonly skillRegistry?: SkillRegistry;
   /**
@@ -81,6 +114,10 @@ export interface ToolContext {
    * adapters later).
    */
   readonly languageService?: LanguageService;
+  /** Subagent strategies the invoking agent may use through `delegate`. */
+  readonly subagents?: readonly SubagentTarget[];
+  /** Queue a user-approved strategy switch; present only in runs that can switch. */
+  readonly requestStrategySwitch?: StrategySwitchHandle;
 }
 
 /**

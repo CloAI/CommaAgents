@@ -1,39 +1,46 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { realpathSync } from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { createSandbox } from "../../../sandbox/sandbox";
 import { sha256OfBuffer } from "../../io";
 import { makeToolContext } from "../../test.utils";
 import type { ToolContext } from "../../tool.types";
 import { createReadFileTool, type ReadFileData } from "./index";
 
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, open: vi.fn(actual.open) };
+});
+
 let workspaceRoot: string;
 let outsideRoot: string;
 
 beforeEach(async () => {
-  // realpath to dodge macOS /tmp → /private/tmp symlink in jail checks
+  // realpath avoids the macOS /tmp to /private/tmp symlink crossing the boundary.
   const base = realpathSync(tmpdir());
   workspaceRoot = await mkdtemp(join(base, "read-file-ws-"));
   outsideRoot = await mkdtemp(join(base, "read-file-outside-"));
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await rm(workspaceRoot, { recursive: true, force: true });
   await rm(outsideRoot, { recursive: true, force: true });
 });
 
 function makeCtx(overrides?: {
-  jail?: boolean;
-  allowAbsolutePaths?: boolean;
+  outsideWorkspace?: "allow" | "deny";
+  absolutePaths?: "allow" | "deny";
   forbiddenGlobs?: readonly string[];
 }): ToolContext {
   return makeToolContext({
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: overrides?.jail ?? true,
-      allowAbsolutePaths: overrides?.allowAbsolutePaths ?? false,
+      outsideWorkspace: overrides?.outsideWorkspace ?? "deny",
+      absolutePaths: overrides?.absolutePaths ?? "deny",
       forbiddenGlobs: overrides?.forbiddenGlobs ?? [],
     }),
   });
@@ -47,7 +54,9 @@ async function getOk(
       `expected ok, got error: ${result.error?.kind} ${result.error?.message}`,
     );
   }
-  if (!result.data) throw new Error("expected data");
+  if (!result.data) {
+    throw new Error("expected data");
+  }
   return result.data;
 }
 
@@ -69,8 +78,6 @@ describe("createReadFileTool", () => {
       const tool = createReadFileTool();
       const data = await getOk(await tool.execute({ path }, makeCtx()));
 
-      expect(data.encoding).toBe("utf8");
-      expect(data.binary).toBe(false);
       expect(data.content).toBe(text);
       expect(data.sha256).toBe(sha256OfBuffer(text));
       expect(data.sizeBytes).toBe(Buffer.byteLength(text, "utf8"));
@@ -79,7 +86,6 @@ describe("createReadFileTool", () => {
       expect(data.startLine).toBe(1);
       expect(data.endLine).toBe(4);
       expect(data.truncated).toBe(false);
-      expect(data.hasBom).toBe(false);
     });
 
     it("slices by startLine/endLine inclusive (1-indexed)", async () => {
@@ -127,90 +133,175 @@ describe("createReadFileTool", () => {
       expect(data.startLine).toBe(99);
     });
 
-    it("truncates content when slice exceeds maxBytes", async () => {
+    it("should cap the complete output at whole lines and report its actual range", async () => {
       const path = "big.txt";
-      const text = "x".repeat(10_000);
+      const text = Array.from({ length: 20 }, () => "🙂".repeat(10)).join("\n");
       await writeFile(join(workspaceRoot, path), text);
-
-      const tool = createReadFileTool();
-      const data = await getOk(
-        await tool.execute({ path, maxBytes: 100 }, makeCtx()),
+      const result = await createReadFileTool({ maxOutputBytes: 240 }).execute(
+        { path },
+        makeCtx(),
       );
-
+      const data = await getOk(result);
       expect(data.truncated).toBe(true);
-      expect(Buffer.byteLength(data.content!, "utf8")).toBeLessThanOrEqual(100);
-      // Still hashes the full file
+      expect(Buffer.byteLength(result.output!)).toBeLessThanOrEqual(240);
+      expect(data.endLine).toBe(data.content.split("\n").length);
+      expect(
+        data.content.split("\n").every((line) => line === "🙂".repeat(10)),
+      ).toBe(true);
       expect(data.sha256).toBe(sha256OfBuffer(text));
-      expect(data.sizeBytes).toBe(10_000);
-    });
-  });
-
-  describe("newline detection", () => {
-    it.each<["lf" | "crlf" | "mixed" | "none", string]>([
-      ["lf", "a\nb\nc\n"],
-      ["crlf", "a\r\nb\r\nc\r\n"],
-      ["mixed", "a\nb\r\nc"],
-      ["none", "single-line"],
-    ])("reports newlineStyle=%s", async (style, text) => {
-      const path = `newline-${style}.txt`;
-      await writeFile(join(workspaceRoot, path), text);
-
-      const tool = createReadFileTool();
-      const data = await getOk(await tool.execute({ path }, makeCtx()));
-      expect(data.newlineStyle).toBe(style);
-    });
-  });
-
-  describe("BOM", () => {
-    it("strips BOM from content but reports hasBom=true", async () => {
-      const path = "bom.txt";
-      const text = "\uFEFFhello";
-      await writeFile(join(workspaceRoot, path), text);
-
-      const tool = createReadFileTool();
-      const data = await getOk(await tool.execute({ path }, makeCtx()));
-
-      expect(data.hasBom).toBe(true);
-      expect(data.content).toBe("hello");
-    });
-  });
-
-  describe("binary policy", () => {
-    it("returns binary_file error with size+sha256 and no content on first call", async () => {
-      const path = "image.bin";
-      const buf = Buffer.from([0x89, 0x50, 0x4e, 0x00, 0x01, 0x02, 0x03]);
-      await writeFile(join(workspaceRoot, path), buf);
-
-      const tool = createReadFileTool();
-      const result = await tool.execute({ path }, makeCtx());
-
-      expect(result.ok).toBe(false);
-      expect(result.error?.kind).toBe("binary_file");
-      expect(result.error?.recoverable).toBe(true);
-      expect(result.error?.suggestedNextAction).toContain("allowBinary");
-      expect(result.data?.binary).toBe(true);
-      expect(result.data?.sizeBytes).toBe(buf.byteLength);
-      expect(result.data?.sha256).toBe(sha256OfBuffer(buf));
-      expect(result.data?.content).toBeUndefined();
-      expect(result.data?.contentBase64).toBeUndefined();
-    });
-
-    it("returns base64 content when allowBinary is true", async () => {
-      const path = "image.bin";
-      const buf = Buffer.from([0x89, 0x50, 0x4e, 0x00, 0x01, 0x02, 0x03]);
-      await writeFile(join(workspaceRoot, path), buf);
-
-      const tool = createReadFileTool();
-      const data = await getOk(
-        await tool.execute({ path, allowBinary: true }, makeCtx()),
+      const next = await getOk(
+        await createReadFileTool().execute(
+          { path, startLine: data.endLine + 1 },
+          makeCtx(),
+        ),
       );
-
-      expect(data.binary).toBe(true);
-      expect(data.encoding).toBe("base64");
-      expect(data.contentBase64).toBe(buf.toString("base64"));
-      expect(data.content).toBeUndefined();
-      expect(data.sha256).toBe(sha256OfBuffer(buf));
+      expect(next.startLine).toBe(data.endLine + 1);
     });
+
+    it("should reject a first line that cannot fit instead of splitting it", async () => {
+      await writeFile(join(workspaceRoot, "long.txt"), "x".repeat(500));
+      const result = await createReadFileTool({ maxOutputBytes: 200 }).execute(
+        { path: "long.txt" },
+        makeCtx(),
+      );
+      expect(result.error?.kind).toBe("file_too_large");
+      expect(result.error?.suggestedNextAction).toBeTruthy();
+    });
+
+    it("should reject a reversed line range", async () => {
+      const tool = createReadFileTool();
+      expect(
+        (await tool.execute({ path: "a", startLine: 4, endLine: 2 }, makeCtx()))
+          .ok,
+      ).toBe(false);
+    });
+
+    it("should remove binary and caller byte-limit parameters", () => {
+      const params = createReadFileTool().parameters;
+      expect(params.safeParse({ path: "a", allowBinary: true }).success).toBe(
+        false,
+      );
+      expect(params.safeParse({ path: "a", maxBytes: 100 }).success).toBe(
+        false,
+      );
+    });
+
+    it("should enforce the configured file limit even for line slices", async () => {
+      await writeFile(join(workspaceRoot, "large.txt"), "a\n".repeat(30));
+      const result = await createReadFileTool({ maxFileBytes: 50 }).execute(
+        { path: "large.txt", endLine: 1 },
+        makeCtx(),
+      );
+      expect(result.error?.kind).toBe("file_too_large");
+    });
+
+    it("should accept files exactly at the configured file limit", async () => {
+      await writeFile(join(workspaceRoot, "exact.txt"), "a".repeat(50));
+      const result = await createReadFileTool({ maxFileBytes: 50 }).execute(
+        { path: "exact.txt" },
+        makeCtx(),
+      );
+      expect(result.ok).toBe(true);
+      expect(result.data?.sizeBytes).toBe(50);
+    });
+
+    it("should preserve empty-file content and metadata", async () => {
+      await writeFile(join(workspaceRoot, "empty.txt"), "");
+      const data = await getOk(
+        await createReadFileTool().execute({ path: "empty.txt" }, makeCtx()),
+      );
+      expect(data.content).toBe("");
+      expect(data.startLine).toBe(1);
+      expect(data.endLine).toBe(1);
+      expect(data.sizeBytes).toBe(0);
+      expect(data.truncated).toBe(false);
+    });
+
+    it("should stop after maxFileBytes plus one when the file grows", async () => {
+      await writeFile(join(workspaceRoot, "growing.txt"), "a");
+      let bytesRead = 0;
+      const close = vi.fn(async () => undefined);
+      const handle = {
+        stat: async () => ({
+          size: 1,
+          isDirectory: () => false,
+          isFile: () => true,
+        }),
+        read: async (buffer: Buffer, offset: number, length: number) => {
+          bytesRead += length;
+          buffer.fill(97, offset, offset + length);
+          return { bytesRead: length, buffer };
+        },
+        close,
+      };
+      vi.mocked(fsPromises.open).mockResolvedValueOnce(
+        handle as unknown as Awaited<ReturnType<typeof fsPromises.open>>,
+      );
+      const result = await createReadFileTool({ maxFileBytes: 100 }).execute(
+        { path: "growing.txt" },
+        makeCtx(),
+      );
+      expect(result.error?.kind).toBe("file_too_large");
+      expect(bytesRead).toBe(101);
+      expect(close).toHaveBeenCalledOnce();
+    });
+
+    it("should propagate cancellation during reading and close the handle", async () => {
+      await writeFile(join(workspaceRoot, "abort.txt"), "a");
+      const controller = new AbortController();
+      const close = vi.fn(async () => undefined);
+      const handle = {
+        stat: async () => ({
+          size: 1,
+          isDirectory: () => false,
+          isFile: () => true,
+        }),
+        read: async () => {
+          controller.abort();
+          return { bytesRead: 0 };
+        },
+        close,
+      };
+      vi.mocked(fsPromises.open).mockResolvedValueOnce(
+        handle as unknown as Awaited<ReturnType<typeof fsPromises.open>>,
+      );
+      await expect(
+        createReadFileTool().execute(
+          { path: "abort.txt" },
+          { ...makeCtx(), abort: controller.signal },
+        ),
+      ).rejects.toMatchObject({ name: "AbortError" });
+      expect(close).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("should normalize BOM and CRLF while hashing the original bytes", async () => {
+    const raw = "\uFEFFa\r\nb\r\n";
+    await writeFile(join(workspaceRoot, "bom.txt"), raw);
+    const data = await getOk(
+      await createReadFileTool().execute({ path: "bom.txt" }, makeCtx()),
+    );
+    expect(data.content).toBe("a\nb\n");
+    expect(data.sha256).toBe(sha256OfBuffer(raw));
+    expect(Object.keys(data).sort()).toEqual([
+      "content",
+      "endLine",
+      "lineCount",
+      "sha256",
+      "sizeBytes",
+      "startLine",
+      "truncated",
+    ]);
+  });
+
+  it("should refuse binary content without returning base64", async () => {
+    await writeFile(join(workspaceRoot, "binary.bin"), Buffer.from([0, 1, 2]));
+    const result = await createReadFileTool().execute(
+      { path: "binary.bin" },
+      makeCtx(),
+    );
+    expect(result.error?.kind).toBe("binary_file");
+    expect(result.data).toBeUndefined();
   });
 
   describe("error mapping", () => {
@@ -222,7 +313,7 @@ describe("createReadFileTool", () => {
       expect(result.error?.kind).toBe("not_found");
     });
 
-    it("returns not_found with list_directory hint when path is a directory", async () => {
+    it("returns not_found with glob hint when path is a directory", async () => {
       const dirPath = "subdir";
       await mkdir(join(workspaceRoot, dirPath));
 
@@ -231,21 +322,21 @@ describe("createReadFileTool", () => {
 
       expect(result.ok).toBe(false);
       expect(result.error?.kind).toBe("not_found");
-      expect(result.error?.suggestedNextAction).toContain("list_directory");
+      expect(result.error?.suggestedNextAction).toContain("glob");
     });
 
-    it("rejects path traversal with outside_workspace when jail is on", async () => {
+    it("rejects path traversal when outside-workspace access is denied", async () => {
       const tool = createReadFileTool();
       const result = await tool.execute(
         { path: "../../etc/hosts" },
-        makeCtx({ jail: true }),
+        makeCtx({ outsideWorkspace: "deny" }),
       );
 
       expect(result.ok).toBe(false);
       expect(result.error?.kind).toBe("outside_workspace");
     });
 
-    it("rejects absolute paths when allowAbsolutePaths is false", async () => {
+    it("rejects absolute paths when absolute paths are disabled", async () => {
       const path = join(workspaceRoot, "ok.txt");
       await writeFile(path, "x");
 
@@ -253,7 +344,7 @@ describe("createReadFileTool", () => {
       // absolute path → blocked even though it points inside the workspace
       const result = await tool.execute(
         { path },
-        makeCtx({ allowAbsolutePaths: false, jail: true }),
+        makeCtx({ absolutePaths: "deny", outsideWorkspace: "deny" }),
       );
 
       expect(result.ok).toBe(false);
@@ -283,7 +374,7 @@ describe("createReadFileTool", () => {
       const tool = createReadFileTool();
       const result = await tool.execute(
         { path: "escape.txt" },
-        makeCtx({ jail: true }),
+        makeCtx({ outsideWorkspace: "deny" }),
       );
 
       expect(result.ok).toBe(false);
@@ -305,8 +396,8 @@ describe("createReadFileTool — sha256 reference vector", () => {
       const ctx = makeToolContext({
         sandbox: createSandbox({
           cwd: ws,
-          jail: true,
-          allowAbsolutePaths: false,
+          outsideWorkspace: "deny",
+          absolutePaths: "deny",
           forbiddenGlobs: [],
         }),
       });
@@ -320,6 +411,3 @@ describe("createReadFileTool — sha256 reference vector", () => {
     }
   });
 });
-
-// Silence unused-import warnings when no symlink test runs in this file
-void dirname;

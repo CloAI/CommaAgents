@@ -66,6 +66,17 @@ Official strategies are bundled with Core for first-run availability and are als
 
 ## Loading executable registrations
 
+Executable registrations must use ES modules. Use `.mts` or `.mjs` files, or add a `package.json` beside your `.ts`, `.tsx`, or `.js` modules:
+
+```json
+{
+  "type": "module"
+}
+```
+
+CommonJS modules (`.cts`, `.cjs`, or files in a CommonJS package) are rejected with instructions to convert them. Declarative strategy and agent files are unaffected. TypeScript modules support type annotations, enums, JSX, and project import aliases without a separate compilation step.
+
+
 ```ts
 import { loadProject } from "@comma-agents/core";
 

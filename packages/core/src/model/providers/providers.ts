@@ -1,109 +1,141 @@
+import { listOpenAISubscriptionModels } from "./authentication/openai";
+import { getProviderSettingsPath } from "../../defaults/defaults";
+import {
+  getProviderSettings,
+  providerSettingsError,
+} from "./settings/settings";
+import type { ProviderSettings } from "./settings/settings.types";
 import type {
   Credential,
   CredentialStore,
 } from "../../credentials/credentials.types";
 import {
-  getCatalogModels,
+  loadCatalog,
+  toModelInfo,
   getCatalogProviderSync,
   listCatalogProviders,
 } from "./catalog/index";
-import { listCopilotModels, listOllamaModels } from "./listers/index";
+import { BUILT_IN_OVERRIDES } from "./providers.constant";
 import type {
   ListModelsContext,
-  ListModelsResult,
+  ModelInfo,
   ProviderDefinition,
 } from "./providers.types";
-import { mergeCatalogWithLive, sortModels } from "./providers.utils";
+import {
+  createDefaultProviderDefinition,
+  mergeModelInfo,
+  mergeCatalogWithProvider,
+  sortModels,
+} from "./providers.utils";
 
-/** Per-lister timeout. Callers may override via the passed AbortSignal. */
-const LIVE_LIST_TIMEOUT_MS = 5_000;
+/** Per-provider timeout for its own model listing. */
+const PROVIDER_LIST_TIMEOUT_MS = 5_000;
+
+/** Models last returned by each provider's own listing, keyed by provider ID. */
+let providerModels = new Map<string, readonly ModelInfo[]>();
 
 let providerRegistry = new Map<string, ProviderDefinition>();
-let initialized = false;
+let initializedPath: string | undefined;
+let initialization: Promise<void> | undefined;
 
 async function ensureInitialized(): Promise<void> {
-  if (initialized) return;
-  initialized = true;
-  await registerCatalogProviders();
-  attachBuiltInListers();
+  const path = getProviderSettingsPath();
+  if (initializedPath === path) {
+    return;
+  }
+  if (initialization) {
+    return initialization;
+  }
+  initialization = (async () => {
+    await registerCatalogProviders();
+    for (const override of BUILT_IN_OVERRIDES) {
+      const existing = providerRegistry.get(override.id);
+      if (existing?.origin === "registered" || existing?.origin === "user") {
+        continue;
+      }
+      providerRegistry.set(override.id, {
+        ...existing,
+        ...override,
+        name: existing?.name ?? override.name,
+        origin: "builtin",
+      });
+    }
+    synchronizeProviderSettings(getProviderSettings());
+    initializedPath = path;
+  })();
+  try {
+    await initialization;
+  } finally {
+    initialization = undefined;
+  }
+}
+
+/** @internal Validate ownership before replacing the persisted-provider runtime view.
+ * @param {ProviderSettings} settings - Validated declarative configuration.
+ * @returns {void} Nothing; throws before changing state on ownership conflicts.
+ */
+export function synchronizeProviderSettings(settings: ProviderSettings): void {
+  providerRegistry = prepareProviderSettings(settings);
+}
+
+/** @internal Prepare a registry update without mutating the active registry.
+ * @param {ProviderSettings} settings - Replacement declarative settings.
+ * @returns {Map<string, ProviderDefinition>} Validated next provider registry.
+ */
+export function prepareProviderSettings(
+  settings: ProviderSettings,
+): Map<string, ProviderDefinition> {
+  const next = new Map(
+    [...providerRegistry].filter(
+      ([, definition]) => definition.origin !== "user",
+    ),
+  );
+  for (const provider of settings.providers) {
+    if (provider.kind !== "custom") {
+      continue;
+    }
+    if (next.has(provider.id)) {
+      throw providerSettingsError(
+        "CONFLICT",
+        "Custom provider ID conflicts with an existing provider.",
+      );
+    }
+    next.set(provider.id, {
+      id: provider.id,
+      name: provider.definition.name,
+      baseURL: provider.definition.baseURL,
+      credentialType: provider.definition.credentialType,
+      origin: "user",
+      packageName: "@ai-sdk/openai-compatible",
+      factoryName: "createOpenAICompatible",
+    });
+  }
+  for (const provider of settings.providers) {
+    if (provider.kind === "existing" && !next.has(provider.id)) {
+      throw providerSettingsError(
+        "NOT_FOUND",
+        "Model settings reference an unknown provider.",
+      );
+    }
+  }
+  return next;
 }
 
 async function registerCatalogProviders(): Promise<void> {
   const providers = await listCatalogProviders();
   for (const catalogProvider of providers) {
-    if (providerRegistry.has(catalogProvider.id)) continue;
-    providerRegistry.set(catalogProvider.id, {
-      id: catalogProvider.id,
-      name: catalogProvider.name,
-      packageName: catalogProvider.npm,
-    });
+    if (
+      ["registered", "user"].includes(
+        providerRegistry.get(catalogProvider.id)?.origin ?? "",
+      )
+    ) {
+      continue;
+    }
+    const definition = createDefaultProviderDefinition(catalogProvider.id);
+    if (definition) {
+      providerRegistry.set(catalogProvider.id, definition);
+    }
   }
-}
-
-/**
- * Built-in provider definitions that are either missing from the catalog or
- * need to override catalog metadata (typically `packageName`).
- *
- * - `ollama` is absent from models.dev (local runtime); hardcode the npm package.
- * - `deepseek` exists in the catalog but is listed as `@ai-sdk/openai-compatible`;
- *   we prefer the dedicated `@ai-sdk/deepseek` package.
- */
-const BUILT_IN_OVERRIDES: readonly ProviderDefinition[] = [
-  {
-    id: "ollama",
-    name: "Ollama",
-    packageName: "ollama-ai-provider",
-    credentialType: "none",
-    listModels: listOllamaModels,
-  },
-  {
-    id: "deepseek",
-    name: "DeepSeek",
-    packageName: "@ai-sdk/deepseek",
-    credentialType: "api",
-  },
-  {
-    id: "github-copilot",
-    name: "GitHub Copilot",
-    credentialType: "oauth",
-    listModels: listCopilotModels,
-  },
-];
-
-function attachBuiltInListers(): void {
-  for (const override of BUILT_IN_OVERRIDES) {
-    const existing = providerRegistry.get(override.id);
-    // Override wins on packageName/listModels; catalog wins on display name when present.
-    providerRegistry.set(override.id, {
-      ...(existing ?? {}),
-      ...override,
-      name: existing?.name ?? override.name,
-    });
-  }
-}
-
-function createDefaultProviderDefinition(
-  providerId: string,
-): ProviderDefinition | undefined {
-  const catalogProvider = getCatalogProviderSync(providerId);
-  const override = BUILT_IN_OVERRIDES.find((entry) => entry.id === providerId);
-
-  if (catalogProvider === undefined && override === undefined) {
-    return undefined;
-  }
-
-  return {
-    ...(catalogProvider !== undefined
-      ? {
-          id: catalogProvider.id,
-          name: catalogProvider.name,
-          packageName: catalogProvider.npm,
-        }
-      : {}),
-    ...override,
-    id: catalogProvider?.id ?? override?.id ?? providerId,
-    name: catalogProvider?.name ?? override?.name ?? providerId,
-  };
 }
 
 /**
@@ -116,19 +148,21 @@ function createDefaultProviderDefinition(
  *   id: "acme",
  *   name: "Acme Labs",
  *   packageName: "@acme/ai-sdk",
- *   listModels: async () => [{ id: "acme-1" }],
+ *   listModels: async () => [{ id: "acme-1", sources: ["provider"], metadata: {} }],
  * });
  * ```
  */
 export function registerProviderDefinition(
   definition: ProviderDefinition,
 ): void {
-  providerRegistry.set(definition.id, { ...definition, isCustom: true });
+  providerRegistry.set(definition.id, { ...definition, origin: "registered" });
 }
 
 /** Remove a previously registered provider, restoring catalog metadata when available. */
 export function unregisterProviderDefinition(providerId: string): boolean {
-  if (!providerRegistry.has(providerId)) return false;
+  if (!providerRegistry.has(providerId)) {
+    return false;
+  }
 
   const defaultDefinition = createDefaultProviderDefinition(providerId);
   if (defaultDefinition === undefined) {
@@ -143,7 +177,9 @@ export function unregisterProviderDefinition(providerId: string): boolean {
 /** Reset all provider registrations. Primarily for tests. */
 export function resetProviderRegistry(): void {
   providerRegistry = new Map();
-  initialized = false;
+  providerModels = new Map();
+  initializedPath = undefined;
+  initialization = undefined;
 }
 
 /** Look up a single provider definition by id. */
@@ -159,68 +195,119 @@ export async function listProviderDefinitions(): Promise<
   readonly ProviderDefinition[]
 > {
   await ensureInitialized();
+  await registerCatalogProviders();
   return [...providerRegistry.values()].sort((left, right) =>
     left.id.localeCompare(right.id),
   );
 }
 
 /**
- * Resolve the model list for a single provider.
- *
- * When `options.live` is false, only catalog data is returned. When `live`
- * is true and the provider defines `listModels`, the live response is
- * merged with the catalog baseline. Live errors fall back to catalog
- * (if any) and are reported via `result.error`.
+ * Resolve one provider's models from models.dev, its last provider listing, and manual entries.
+ * Never makes a network request; `refreshProviderModels()` updates the provider listing.
+ * @param {string} providerId - Exact provider identity.
+ * @returns {Promise<readonly ModelInfo[]>} Merged models, sorted by ID.
  */
 export async function listProviderModels(
   providerId: string,
-  credential: Credential | undefined,
-  options?: { readonly live?: boolean; readonly signal?: AbortSignal },
-): Promise<ListModelsResult> {
-  const definition = await getProviderDefinition(providerId);
-  const catalogModels = await getCatalogModels(providerId);
-  const live = options?.live ?? true;
+): Promise<readonly ModelInfo[]> {
+  await loadCatalog();
+  return listProviderModelsSync(providerId);
+}
 
-  if (!live || !definition?.listModels) {
-    return {
-      models: sortModels(catalogModels),
-      source: "catalog",
+/**
+ * Read merged model metadata already available to the runtime without I/O.
+ * @param {string} providerId - Exact provider identity.
+ * @returns {readonly ModelInfo[]} Cached catalog, provider, and manual models.
+ * @internal
+ */
+export function listProviderModelsSync(
+  providerId: string,
+): readonly ModelInfo[] {
+  const byId = new Map(
+    mergeCatalogWithProvider(
+      Object.values(getCatalogProviderSync(providerId)?.models ?? {}).map(
+        toModelInfo,
+      ),
+      providerModels.get(providerId) ?? [],
+    ).map((model) => [model.id, model]),
+  );
+  const manual =
+    getProviderSettings().providers.find((entry) => entry.id === providerId)
+      ?.models ?? [];
+  for (const model of manual) {
+    const known = byId.get(model.id);
+    const manualModel = {
+      id: model.id,
+      sources: ["user"] as const,
+      metadata: model.metadata ?? {},
     };
+    byId.set(
+      model.id,
+      known ? mergeModelInfo(manualModel, known) : manualModel,
+    );
   }
+  return sortModels([...byId.values()]);
+}
 
-  const context: ListModelsContext = {
-    ...(credential ? { credential } : {}),
-    signal: options?.signal ?? AbortSignal.timeout(LIVE_LIST_TIMEOUT_MS),
-  };
+/**
+ * Ask providers for their model lists and keep the results for `listProviderModels()`.
+ * A provider without a lister, a required credential, or a successful response keeps
+ * only its models.dev and manual models.
+ * @param {CredentialStore} credentialStore - Resolves each provider's credential.
+ * @param {{providerId?: string}} [options] - One provider, or every registered provider.
+ * @returns {Promise<void>} Resolves once every listing has settled.
+ */
+export async function refreshProviderModels(
+  credentialStore: CredentialStore,
+  options?: { readonly providerId?: string },
+): Promise<void> {
+  const providerIds = options?.providerId
+    ? [options.providerId]
+    : (await listProviderDefinitions()).map(({ id }) => id);
+  await Promise.all(
+    providerIds.map(async (providerId) => {
+      const models = await fetchProviderModels(
+        providerId,
+        await resolveCredentialForProvider(credentialStore, providerId),
+      );
+      if (models?.length) {
+        providerModels.set(providerId, models);
+      } else {
+        providerModels.delete(providerId);
+      }
+    }),
+  );
+}
 
+/**
+ * Call a provider's own model listing, when it has one and can be authenticated.
+ * @param {string} providerId - Exact provider identity.
+ * @param {Credential | undefined} credential - Resolved credential, if any.
+ * @returns {Promise<readonly ModelInfo[] | undefined>} Listed models, or undefined when unavailable or failed.
+ */
+async function fetchProviderModels(
+  providerId: string,
+  credential: Credential | undefined,
+): Promise<readonly ModelInfo[] | undefined> {
+  const definition = await getProviderDefinition(providerId);
+  if (!definition || (!credential && definition.credentialType !== "none")) {
+    return undefined;
+  }
+  const listModels =
+    providerId === "openai" &&
+    credential?.type === "oauth" &&
+    definition.origin !== "registered" &&
+    definition.origin !== "user"
+      ? ({ signal }: ListModelsContext) =>
+          listOpenAISubscriptionModels(credential, signal)
+      : definition.listModels;
   try {
-    const liveModels = await definition.listModels(context);
-    const merged =
-      catalogModels.length > 0
-        ? mergeCatalogWithLive(catalogModels, liveModels)
-        : liveModels;
-    const source =
-      catalogModels.length > 0 && liveModels.length > 0 ? "merged" : "live";
-    return {
-      models: sortModels(merged),
-      source,
-      fetchedAt: new Date().toISOString(),
-    };
-  } catch (caughtError) {
-    const message =
-      caughtError instanceof Error ? caughtError.message : String(caughtError);
-    if (catalogModels.length > 0) {
-      return {
-        models: sortModels(catalogModels),
-        source: "catalog",
-        error: message,
-      };
-    }
-    return {
-      models: [],
-      source: "error",
-      error: message,
-    };
+    return await listModels?.({
+      ...(credential ? { credential } : {}),
+      signal: AbortSignal.timeout(PROVIDER_LIST_TIMEOUT_MS),
+    });
+  } catch {
+    return undefined;
   }
 }
 
@@ -237,37 +324,36 @@ export async function resolveCredentialForProvider(
   return await credentialStore.resolve(providerId, scope);
 }
 
-/** Convenience re-export: every provider definition paired with its models. */
-export interface ProviderWithModels {
-  readonly definition: ProviderDefinition;
-  readonly result: ListModelsResult;
-}
-
-/** Resolve models for every registered provider in parallel. */
-export async function listAllProviderModels(
-  credentialStore: CredentialStore,
-  options?: { readonly live?: boolean; readonly scope?: string },
-): Promise<readonly ProviderWithModels[]> {
-  const definitions = await listProviderDefinitions();
-
-  return await Promise.all(
-    definitions.map(async (definition): Promise<ProviderWithModels> => {
-      const credential = await resolveCredentialForProvider(
-        credentialStore,
-        definition.id,
-        options?.scope,
-      );
-      const result = await listProviderModels(definition.id, credential, {
-        live: options?.live ?? true,
-      });
-      return { definition, result };
-    }),
-  );
-}
-
 /** Expose a snapshot of the current registry for inspection (test helper). */
 export function getRegisteredProviderIds(): readonly string[] {
   return [...providerRegistry.keys()].sort();
+}
+
+/**
+ * Synchronously look up a provider definition without triggering catalog
+ * initialization. Custom registrations (via `registerProviderDefinition()`)
+ * are written to the registry immediately, so this reliably finds them even
+ * before the async catalog has loaded. Catalog-derived entries are only
+ * found once initialization has completed elsewhere.
+ *
+ * Used by the provider resolver, which must never block model resolution
+ * on a network fetch to the models.dev catalog.
+ */
+export function getRegisteredProviderSync(
+  providerId: string,
+): ProviderDefinition | undefined {
+  return providerRegistry.get(providerId);
+}
+
+/** IDs of providers explicitly registered via `registerProviderDefinition()`, sorted. */
+export function getCustomProviderIdsSync(): readonly string[] {
+  return [...providerRegistry.entries()]
+    .filter(
+      ([, definition]) =>
+        definition.origin === "registered" || definition.origin === "user",
+    )
+    .map(([id]) => id)
+    .sort();
 }
 
 /**
@@ -284,13 +370,17 @@ export function getProviderPackageNameSync(
   providerId: string,
 ): string | undefined {
   const override = BUILT_IN_OVERRIDES.find((entry) => entry.id === providerId);
-  if (override?.packageName) return override.packageName;
+  if (override?.packageName) {
+    return override.packageName;
+  }
   return getCatalogProviderSync(providerId)?.npm;
 }
 
 /** Check whether a provider is known to the runtime (catalog or built-in). */
 export function isKnownProviderSync(providerId: string): boolean {
-  if (BUILT_IN_OVERRIDES.some((entry) => entry.id === providerId)) return true;
+  if (BUILT_IN_OVERRIDES.some((entry) => entry.id === providerId)) {
+    return true;
+  }
   return getCatalogProviderSync(providerId) !== undefined;
 }
 

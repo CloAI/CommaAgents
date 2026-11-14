@@ -1,44 +1,54 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { createServer, type Server } from "node:http";
+import { once } from "node:events";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { makeToolContext } from "../../test.utils";
 import { createWebFetchTool } from "./index";
 
 const toolContext = makeToolContext({ abort: AbortSignal.timeout(15_000) });
 
 // Lightweight local HTTP server for deterministic tests.
-let server: ReturnType<typeof Bun.serve> | undefined;
+let server: Server | undefined;
 let baseUrl = "";
 
-beforeAll(() => {
-  server = Bun.serve({
-    port: 0,
-    fetch(request) {
-      const url = new URL(request.url);
-      if (url.pathname === "/html") {
-        return new Response(
-          "<html><body><h1>Hello</h1><p>World <strong>bold</strong></p></body></html>",
-          { headers: { "content-type": "text/html; charset=utf-8" } },
-        );
-      }
-      if (url.pathname === "/large") {
-        const big = `<p>${"x".repeat(200)}</p>`;
-        return new Response(`<html><body>${big.repeat(500)}</body></html>`, {
-          headers: { "content-type": "text/html" },
-        });
-      }
-      if (url.pathname === "/notfound") {
-        return new Response("<html><body>missing</body></html>", {
-          status: 404,
-          headers: { "content-type": "text/html" },
-        });
-      }
-      return new Response("not found", { status: 404 });
-    },
+beforeAll(async () => {
+  async function fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname === "/html") {
+      return new Response(
+        "<html><body><h1>Hello</h1><p>World <strong>bold</strong></p></body></html>",
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+    if (url.pathname === "/large") {
+      const big = `<p>${"x".repeat(200)}</p>`;
+      return new Response(`<html><body>${big.repeat(500)}</body></html>`, {
+        headers: { "content-type": "text/html" },
+      });
+    }
+    if (url.pathname === "/notfound") {
+      return new Response("<html><body>missing</body></html>", {
+        status: 404,
+        headers: { "content-type": "text/html" },
+      });
+    }
+    return new Response("not found", { status: 404 });
+  }
+  server = createServer(async (request, response) => {
+    const result = await fetch(new Request(`http://localhost${request.url}`));
+    response.writeHead(result.status, Object.fromEntries(result.headers));
+    response.end(Buffer.from(await result.arrayBuffer()));
   });
-  baseUrl = `http://localhost:${server.port}`;
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 });
 
-afterAll(() => {
-  server?.stop(true);
+afterAll(async () => {
+  if (server) {
+    await new Promise<void>((resolve, reject) =>
+      server!.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
 });
 
 describe("createWebFetchTool", () => {
@@ -90,6 +100,22 @@ describe("createWebFetchTool", () => {
     );
     expect(result.metadata?.truncated).toBe(true);
     expect(result.output).toContain("[Content truncated");
+  });
+
+  it("should continue from the offset given in the truncation notice", async () => {
+    const tool = createWebFetchTool({ maxContentLength: 200 });
+    const first = await tool.execute(
+      { url: `${baseUrl}/large`, format: "text" },
+      toolContext,
+    );
+    const nextOffset = first.metadata?.nextOffset;
+    expect(nextOffset).toBe(200);
+    expect(first.output).toContain("offset=200");
+    const second = await tool.execute(
+      { url: `${baseUrl}/large`, format: "text", offset: 200 },
+      toolContext,
+    );
+    expect(second.metadata?.offset).toBe(200);
   });
 
   it("should include HTTP status header for non-OK responses", async () => {

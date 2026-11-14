@@ -9,7 +9,6 @@ import type {
 import { useChatAgentMessages } from "./useChatAgentMessages";
 import { useChatInputRequests } from "./useChatInputRequests";
 import { useChatPermissionRequestSubscriptions } from "./useChatPermissionRequests/useChatPermissionRequestSubscriptions";
-import { useChatQuestionRequestSubscriptions } from "./useChatQuestionRequests/useChatQuestionRequestSubscriptions";
 import { useChatRunLifecycleSubscriptions } from "./useChatRunLifecycle/useChatRunLifecycleSubscriptions";
 import { useChatSteering } from "./useChatSteering";
 import { useChatStepMessages } from "./useChatStepMessages";
@@ -21,7 +20,6 @@ function ChatRunSubscriptions(): null {
   useChatInputRequests(true);
   useChatSteering(true);
   useChatPermissionRequestSubscriptions();
-  useChatQuestionRequestSubscriptions();
   useChatAgentMessages();
   useChatStepMessages();
   return null;

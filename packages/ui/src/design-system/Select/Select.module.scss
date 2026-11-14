@@ -1,0 +1,229 @@
+.select {
+  // Between canvas and surface so the picker recedes behind its content in any theme.
+  --select-surface: color-mix(
+    in srgb,
+    var(--color-canvas) 50%,
+    var(--color-surface)
+  );
+  --select-active: var(--color-surface-raised);
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+  min-width: 0;
+  max-width: min(100%, var(--select-max-width, 24rem));
+}
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  min-height: 1.75rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: var(--font-size-small);
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration),
+    color var(--motion-duration);
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled),
+  &[aria-expanded="true"] {
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+    color: var(--color-text);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.75;
+  }
+}
+.value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chevron {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.panel {
+  // Floating UI positions the native popover against the viewport, outside pane clipping.
+  position: fixed;
+  z-index: 10;
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  width: max-content;
+  min-width: min(14rem, calc(100vw - 2 * var(--space-4)));
+  max-width: min(
+    var(--select-max-width, 24rem),
+    calc(100vw - 2 * var(--space-4))
+  );
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--select-surface);
+}
+.header {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+.search {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 1.75rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-small);
+  line-height: 1.4;
+  &::placeholder {
+    color: var(--color-muted);
+    opacity: 1;
+  }
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.chip {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: var(--font-size-small);
+  line-height: 1.6;
+  cursor: pointer;
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
+    color: var(--color-text);
+  }
+  &[aria-checked="true"] {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+.list {
+  min-height: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  padding: var(--space-1);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+.groupName {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  color: var(--color-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+  &[data-divider="true"] {
+    margin-top: var(--space-1);
+    border-top: 1px solid var(--color-border);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+  &[data-active="true"] {
+    background: var(--select-active);
+  }
+  &[aria-disabled="true"] {
+    cursor: not-allowed;
+    .label,
+    .description {
+      opacity: 0.55;
+    }
+  }
+  &[aria-selected="true"] .label {
+    color: var(--color-primary);
+  }
+}
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.match {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  color: inherit;
+}
+.tag {
+  flex: none;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-muted);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+.description {
+  overflow: hidden;
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2);
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+.clear {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.reason {
+  color: var(--color-warning);
+  font-size: 0.75rem;
+}

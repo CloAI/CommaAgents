@@ -3,82 +3,189 @@ export type {
   DaemonConfigFile,
   LoadConfigOptions,
 } from "./config";
-export {
-  DaemonConfigFileSchema,
-  loadDaemonConfig,
-} from "./config";
+export { DaemonConfigFileSchema, loadDaemonConfig } from "./config";
+export { writeConfigModelRoles } from "./config/config.utils";
 export type {
-  DaemonRunState,
-  DaemonStartOptions,
-  DaemonStartResult,
+  DaemonCommandAction,
+  DaemonCommandArguments,
+  DaemonCommandOptions,
+  DaemonProcessRunState,
+  DaemonProcessStartOptions,
+  DaemonProcessStartResult,
+  DaemonProcessStatus,
+  DaemonProcessStopResult,
+} from "./daemon-cli";
+export {
+  daemonStartOptions,
+  daemonStatusOptions,
+  getDaemonProcessStatus,
+  restartDaemonProcess,
+  runDaemonCommand,
+  runStandaloneDaemonCli,
+  startDaemonProcess,
+  startDaemonRuntime,
+  stopDaemonProcess,
+} from "./daemon-cli";
+export {
+  isRunning,
+  readPid,
+  removePid,
+  writePid,
+} from "./daemon-cli/process/pid/pid";
+export type { DaemonDefaultOverrides } from "./defaults";
+export {
+  getDaemonConfigFile,
+  getDaemonConfig,
+  getDaemonHost,
+  getDaemonLogFile,
+  getDaemonLogLevel,
+  getDaemonPidFile,
+  getDaemonPort,
+  getDaemonRunsDirectory,
+  resetDaemonDefaultOverrides,
+  setDaemonConfigFile,
+  setDaemonHost,
+  setDaemonLogFile,
+  setDaemonLogLevel,
+  setDaemonPidFile,
+  setDaemonPort,
+  setDaemonRunsDirectory,
+} from "./defaults";
+export { initializeLogging, type LoggingOptions } from "./logger";
+export {
+  createDaemonKernel,
+  createPlugin,
+  defineCommand,
+  defineChannel,
+  createRunsPlugin,
+  createSandboxPlugin,
+  createQuestionsPlugin,
+  createSkillsPlugin,
+  createMcpPlugin,
+  createLspPlugin,
+} from "./daemon-kernel";
+export type {
+  CreatePluginOptions,
+  CommandContext,
+  ChannelMessage,
+  ChannelContext,
+  ChannelOpenResult,
+  BindingError,
+  PluginServer,
+  PluginServerDefinitions,
   DaemonStatus,
-  DaemonStopResult,
-  DaemonWaitOptions,
-} from "./daemon-control";
+  StatusPlugin,
+  StatusNotifications,
+} from "./daemon-kernel";
+export { createDaemonServer } from "./daemon-server";
+export type { CreateDaemonServerOptions, DaemonServer } from "./daemon-server";
 export {
-  getDaemonStatus,
-  restartDaemon,
-  runDaemonForeground,
-  startDaemon,
-  stopDaemon,
-  waitForDaemonReady,
-} from "./daemon-control";
-export {
-  createTypeScriptLanguageService,
-  type TypeScriptLanguageServiceOptions,
-} from "./language";
+  RequestIdSchema,
+  ClientMessageSchema,
+  ServerMessageSchema,
+} from "./daemon-server";
+export type { PluginClientMessage, PluginServerMessage } from "./daemon-server";
 export type {
-  CreateLoggerOptions,
-  LogEntry,
-  Logger,
-  LogLevel,
-  LogSink,
-} from "./logger";
+  CreateDaemonKernelOptions,
+  RunHistoryOptions,
+  RunHistoryPage,
+  RunContent,
+  RunMessage,
+  RunHistoryEntry,
+  ChildRunEntry,
+  RunsChannelMessage,
+  CreateRunsPluginOptions,
+  CreateSandboxPluginOptions,
+  CreateQuestionsPluginOptions,
+  CreateSkillsPluginOptions,
+  SkillsPlugin,
+  SkillsWorkspaceOptions,
+  SkillsListResult,
+  RunSkillsResult,
+  CreateMcpPluginOptions,
+  CreateLspPluginOptions,
+  LspPlugin,
+  LspProcessPhase,
+  LspProcessStatus,
+  McpPlugin,
+  RunMcpServerStatus,
+  ListMcpServersOptions,
+  UpdateMcpServerOptions,
+  McpNotifications,
+  McpServersUpdated,
+  QuestionsPlugin,
+  QuestionsSubmissionResult,
+  QuestionsNotifications,
+  QuestionRequested,
+  SandboxPlugin,
+  SandboxStatus,
+  SandboxNotifications,
+  SandboxPermissionRequest,
+  SandboxPolicyUpdate,
+  DaemonKernel,
+  DaemonPlugins,
+  Plugin,
+  NotifyingPlugin,
+  PluginSubscriptions,
+  NotificationListener,
+  PluginPrepareRunOptions,
+  PluginPrepareRunResult,
+  PluginRunSnapshot,
+  RunExecutionHandle,
+  RunOutcome,
+  RunIdentity,
+  RunPreparationContext,
+  RunPreparationRegistration,
+  RunPreparationResult,
+  RunResultSummary,
+  RunsPlugin,
+  RunStatus,
+  RunNotifications,
+  RunSnapshotStatus,
+  RunInputRequestStatus,
+  RunStepStatus,
+  RunSteerQueuedStatus,
+  StrategyHookContext,
+  StrategyHookRegistration,
+  StrategyLoaderInputs,
+} from "./daemon-kernel";
+
 export {
-  createFileSink,
-  createLogger,
-  createStderrSink,
-  createSystemSink,
-  describeSystemLogging,
-} from "./logger";
-export { isRunning, readPid, removePid, writePid } from "./pid";
+  RunPhase,
+  RunOutcomeStatus,
+  RunErrorCode,
+  RunMessageStatus,
+  RunToolStatus,
+} from "./plugins/runs";
 export type {
-  CreateRunSystemOptions,
-  EventSink,
-  ProviderResolver,
-  RunConfig,
-  RunOverview,
-  RunStore,
-  RunSystem,
-} from "./run-system";
-export {
-  createRunSystem,
-  extractProviderIds,
-} from "./run-system";
+  RunConfiguration,
+  NewRunConfiguration,
+  RunConfigurationOverrides,
+  RunStrategyDescription,
+  RunPreparingSnapshot,
+  RunPreparedSnapshot,
+  RunRunningSnapshot,
+  RunTerminalSnapshot,
+  RunTerminalOutcome,
+} from "./plugins/runs";
+
+export { createCorePlugin } from "./plugins/core";
+export type { CorePlugin, ProvidersSnapshot } from "./plugins/core";
+
+export { createProjectsPlugin, GENERAL_PROJECT_ID } from "./plugins/projects";
 export type {
-  AgentCallResultWire,
-  AgentStreamEventWire,
-  ClientMessage,
-  ContextUsageWire,
-  ConversationHistoryWire,
-  ConversationRecordWire,
-  ConversationRetentionEventWire,
-  DaemonMessage,
-  ErrorInfo,
-  HandlerContext,
-  McpServerStatusWire,
-  MessageDispatcher,
-  RequestPermissionMessage,
-  RequestQuestionMessage,
-  RequestResponseMap,
-  RunOverviewWire,
-  RunSummary,
-  Usage,
-} from "./server/protocol";
-export {
-  parseClientMessage,
-  parseDaemonMessage,
-} from "./server/protocol";
-export { createDaemon } from "./server/server";
-export type { CreateDaemonOptions, Daemon } from "./server/server.types";
-export type { RunStatus } from "./state";
+  ProjectsPlugin,
+  Project,
+  ProjectChat,
+  ProjectChatStatus,
+  ProjectCatalog,
+  CreateProjectOptions,
+  CreateProjectResult,
+  CreateProjectsPluginOptions,
+  ChatAttention,
+  ProjectArchivePage,
+  AssignProjectChatOptions,
+  ProjectActivityOptions,
+  ArchiveProjectChatOptions,
+  SearchProjectArchiveOptions,
+} from "./plugins/projects";

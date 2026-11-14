@@ -1,6 +1,6 @@
 // Tests for abortable wrapper factories.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createAbortableGenerator, createAbortablePromise } from "./abortable";
 
 describe("createAbortablePromise", () => {

@@ -3,7 +3,7 @@
 // Uses a temp dir for cwd and dataDir so we don't depend on the host's
 // real `.comma/` or `<dataDir>/`.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -225,7 +225,7 @@ describe("discoverStrategies", () => {
         dataDir,
       );
       expect(internal?.origin).toBe("bundled");
-      expect(internal?.path).toEndWith("standardize/worker.jsonc");
+      expect(internal?.path).toMatch(/standardize\/worker\.jsonc$/);
     } finally {
       rmSync(cwd, { recursive: true, force: true });
       rmSync(dataDir, { recursive: true, force: true });

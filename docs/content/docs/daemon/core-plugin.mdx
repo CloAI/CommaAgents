@@ -1,0 +1,255 @@
+---
+title: Core Plugin
+description: Discover providers and manage core provider settings and credentials through the daemon.
+---
+
+# Core Plugin
+
+Use the daemon's `core` plugin to discover providers, save credentials, verify access, and manage custom endpoints and model metadata. Provider configuration belongs to core and can also be used directly from any project through `@comma-agents/core`.
+
+```ts
+import { createCorePlugin } from "@comma-agents/daemon";
+
+const core = createCorePlugin();
+try {
+  await core.providers.load();
+  const { providers } = core.providers.snapshot();
+  const configuration = await core.providers.getConfiguration({
+    providerId: "openai",
+  });
+  console.log(providers.length, configuration.credentialSource);
+} finally {
+  await core.dispose();
+}
+```
+
+When using a daemon kernel, use `kernel.plugins.core.providers`.
+
+## Provider operations
+
+Each operation is available as a plugin method and a WebSocket command with the `core.providers.` prefix. The provider list is a channel, `core.providers.list`, rather than a command.
+
+| Method / command suffix     | Purpose                                                                     |
+| --------------------------- | --------------------------------------------------------------------------- |
+| `refresh`                   | Re-download models.dev and call every provider's API. Returns `{}`.         |
+| `getConfiguration`          | Read secret-free credential state and editable custom configuration.        |
+| `configure`                 | Save or replace a global API key without checking access.                   |
+| `beginSignIn`               | Begin local OpenAI subscription sign-in and return the browser URL.         |
+| `getSignInStatus`           | Read a sign-in attempt without contacting OpenAI.                           |
+| `cancelSignIn`              | Cancel a pending sign-in, preserving existing credentials.                  |
+| `verify`                    | Make one non-generation access check.                                       |
+| `removeCredential`          | Remove the saved global credential and return the remaining configuration.  |
+| `addCustomProvider`         | Add a uniquely identified compatible endpoint.                              |
+| `updateCustomProvider`      | Update a user-owned endpoint's name, API prefix, or authentication mode.    |
+| `removeCustomProvider`      | Remove a user-owned endpoint, its manual models, and its global credential. |
+| `addCustomProviderModel`    | Add a provider-local model with optional metadata.                          |
+| `removeCustomProviderModel` | Remove only a manually added model ID.                                      |
+
+Custom-provider additions/updates and custom-model mutations return the resulting provider metadata. Custom-provider removal returns `{ providerId, removed }`; removing an already-absent custom provider returns `removed: false`. Catalog, built-in, and independently registered provider definitions cannot be removed through this API.
+
+## WebSocket commands
+
+Every command uses a UUID request ID. A successful response returns its result in `data` with the same request ID; failures use the standard daemon error structure.
+
+```json
+{
+  "type": "command",
+  "requestId": "50000000-0000-4000-8000-000000000001",
+  "command": "core.providers.getConfiguration",
+  "arguments": {
+    "providerId": "openai"
+  }
+}
+```
+
+Configuration reads, API-key writes, and credential removals return credential availability and source, whether a global credential is saved, verification support, `customProvider`, and `customModels`. `customModels` contains objects with an `id` and optional nested `metadata`, rather than string IDs. Credential values, including masked keys, are never returned. Environment credentials take precedence over saved global credentials; removing a global key can therefore leave `authStatus: "configured"`.
+
+```json
+{
+  "type": "command",
+  "requestId": "50000000-0000-4000-8000-000000000002",
+  "command": "core.providers.configure",
+  "arguments": {
+    "providerId": "openai",
+    "apiKey": "your-api-key"
+  }
+}
+```
+
+## Provider list
+
+Each provider's models combine three sources: models.dev, the provider's own API, and manual entries. The daemon keeps one list in memory and builds it in the background at startup. Listing never calls a provider API.
+
+Subscribe to the `core.providers.list` channel to receive the list. It takes no arguments. The first message is the current list; another follows after every change. Each message carries the full list:
+
+```ts
+{ type: "providers.updated", data: { providers: ProviderInfo[]; refreshing: boolean } }
+```
+
+`refreshing` is `true` while provider APIs are being called. The list is rebuilt:
+
+| Trigger                                                         | Rebuild                                              |
+| --------------------------------------------------------------- | ---------------------------------------------------- |
+| Daemon startup                                                  | Call every configured provider's API.                |
+| `core.providers.refresh`                                        | Re-download models.dev, then call every provider's API. |
+| `configure`, `removeCredential`, completed sign-in              | Call that provider's API again.                      |
+| `addCustomProvider`, `updateCustomProvider`, `removeCustomProvider` | Call that provider's API again, or drop it.      |
+| `addCustomProviderModel`, `removeCustomProviderModel`           | Merge again without network requests.                |
+
+Providers are called only when they have a model lister and, unless they need no credential, a resolved global credential. A failed or empty response leaves that provider with its models.dev and manual models. If the models.dev download fails, the most recently loaded catalog or disk cache is kept, with the bundled snapshot as the final fallback.
+
+Daemon hosts can read the list with `kernel.plugins.core.providers.snapshot()`, wait for the first list with `ready()`, and start the startup build with `load()`.
+
+Metadata resolves per field with priority provider, then models.dev, then user settings; explicit `false`, zero, and empty arrays are retained. Unknown capabilities are omitted.
+
+Resolved providers include `origin` (`builtin`, `catalog`, `registered`, or `user`), authentication status, and `models`. Each model has `id`, contributing `sources` (`provider`, `models.dev`, `user`), and nested `metadata`. Manual-only models have `sources: ["user"]`. Metadata includes all capability flags, including advertised `teeAttestation` and `e2ee` support; those flags do not establish request verification.
+
+The UI reads names, capabilities, pricing, and limits from model `metadata`; it uses provider `origin` for custom endpoint controls. Legacy provider messages have been removed; use `core.providers.*` commands and the `core.providers.list` channel.
+
+## Verification
+
+`authStatus: "configured"` means credentials are available. To check access explicitly:
+
+```ts
+const result = await core.providers.verify({ providerId: "openai" });
+console.log(result.status, result.checkedAt);
+```
+
+Verification supports OpenAI, Anthropic, and Google Gemini. It sends one authenticated model-list request, never a generation request, and does not consume generation tokens. It makes no retries, follows no redirects, and stops after five seconds or plugin disposal. Other providers return `unsupported`; missing credentials return `unconfigured`. Verification does not run when credentials are saved or models are listed, and its result is not persisted.
+
+A `verified` result establishes access to that endpoint at that moment, not generation permissions or available credit. Expected failures are typed statuses such as `invalid_credentials`, `access_denied`, `rate_limited`, `timeout`, `unavailable`, or `invalid_response`.
+
+## OpenAI subscription sign-in
+
+For a local daemon, choose **ChatGPT subscription** in OpenAI's connection form, then **Continue with ChatGPT**. The browser must run on the same computer as the daemon. Remote-daemon sign-in and Anthropic subscription sign-in are not available in this version.
+
+The reusable core API is also available outside the daemon:
+
+```ts
+import { createProviderAuthentication } from "@comma-agents/core";
+
+const authentication = createProviderAuthentication();
+const attempt = await authentication.beginSignIn({ providerId: "openai" });
+// Open attempt.authorizationURL in the user's browser.
+const progress = authentication.getSignInStatus({
+  attemptId: attempt.attemptId,
+});
+console.log(progress.status);
+// Dispose when the owning application closes.
+authentication.dispose();
+```
+
+Through the daemon, use the corresponding `core.providers.beginSignIn`, `getSignInStatus`, and `cancelSignIn` commands. A begin response contains `attemptId` and `authorizationURL`. Read progress using `{ attemptId }`; statuses are `pending`, `connected`, `cancelled`, or `error`, with safe feedback in `message`. An unfinished attempt expires after five minutes. Only one attempt per plugin can be pending.
+
+Sign-in validates identity and the granted ChatGPT plan permission before replacing the saved global credential. Declined or invalid authorization preserves the previous credential. Tokens stay on the daemon, are saved with owner-only permissions, and renew when needed. Configuration reads include the effective `authenticationMethod` and an optional account email without returning tokens. Environment API keys still take precedence: remove an environment key separately to use the saved subscription credential.
+
+This version retains one ChatGPT registration per installation and reconnects that account; an account switcher is not included. Removing the saved credential clears its local tokens while retaining the installation identity and issued registration for reconnect. It does not revoke remote access; use **Manage ChatGPT usage** to disconnect the app remotely. API-key verification is separate from subscription sign-in, and no test generation is performed. Provider listing uses the account's visible models.
+
+See [OpenAI's registration guide](https://developers.openai.com/siwc/token-sharing-open-source/sign-in) for eligibility and the local sign-in flow.
+
+## Strategy discovery
+
+`core.strategies.list` returns the strategies a new run can be configured with. It scans `<cwd>/.comma/strategies/`, the platform data directory, installed Hub packages, and the strategies bundled with Core. It is read-only and has no plugin method.
+
+| Argument | Type     | Description                                                          |
+| -------- | -------- | -------------------------------------------------------------------- |
+| `cwd`    | `string` | Optional directory to scan. Defaults to the daemon's working directory. |
+
+The result is `{ strategies, warnings }`. Strategies are in source-priority order: working directory, data directory, Hub packages, then bundled. Each has `name`, `version`, `label`, `path`, `origin`, and optional `description` and `manifestPath`. Pass `path` as `strategyPath`, and `manifestPath` when present, to `runs.prepare`. `warnings` lists candidate files that were skipped, each with its `path` and `reason`.
+
+```json
+{
+  "type": "command",
+  "requestId": "50000000-0000-4000-8000-000000000003",
+  "command": "core.strategies.list",
+  "arguments": {}
+}
+```
+
+### Describing a strategy
+
+`core.strategies.describe` reads one strategy file and returns its agents and the order they run, so a client can show or override the models a strategy uses. It validates the file but builds no agents and runs no tools.
+
+| Argument       | Type     | Description                                      |
+| -------------- | -------- | ------------------------------------------------ |
+| `strategyPath` | `string` | Path of the strategy file, such as a discovered `path`. |
+
+The result has `name`, `version`, an optional `description`, `agents`, and `steps`.
+
+- `agents` lists every registry entry with `name`, `kind` (`llm`, `user`, or `custom`), and an optional `description`. LLM agents include their declared `model` (`providerID/modelID`) and any `privacy` requirements.
+- `steps` lists agent references in flow order with `flow`, `flowType`, `depth` (the entry flow is `0`), `agent`, `role`, and an optional `description`. A cycle's `observer` follows that flow's steps with `role: "observer"`. One agent can appear in several steps.
+
+A missing, unreadable, or invalid file returns the standard command error.
+
+## Custom providers and models
+
+Create an endpoint with its complete API prefix; include `/v1` when the service requires it. Choose `credentialType: "api"` or `"none"`. Adding or updating configuration makes no provider request.
+
+```ts
+await core.providers.addCustomProvider({
+  id: "local",
+  name: "Local Server",
+  baseURL: "http://localhost:1234/v1",
+  credentialType: "none",
+  models: [{ id: "org/my-model", metadata: { name: "My Model", contextWindow: 32768 } }],
+});
+
+await core.providers.addCustomProviderModel({
+  providerId: "openai",
+  modelId: "my-deployment",
+  metadata: {
+    name: "My Deployment",
+    capabilities: { tools: true },
+    cost: { input: 0.5, output: 1.5 },
+  },
+});
+
+await core.providers.removeCustomProviderModel({
+  providerId: "openai",
+  modelId: "my-deployment",
+});
+```
+
+User models are additive. Adding an existing manual ID is a no-op and does not overwrite saved metadata. Removing an entry does not hide a model still supplied by models.dev or the provider's API. Use provider-qualified model IDs for inference; user entries do not change bare-model automatic provider selection.
+
+The equivalent add-model command accepts `metadata` as an optional object:
+
+```json
+{
+  "type": "command",
+  "requestId": "50000000-0000-4000-8000-000000000003",
+  "command": "core.providers.addCustomProviderModel",
+  "arguments": {
+    "providerId": "openai",
+    "modelId": "my-deployment",
+    "metadata": {
+      "name": "My Deployment",
+      "maxOutputTokens": 8192,
+      "capabilities": { "tools": true },
+      "cost": { "input": 0.5, "output": 1.5 }
+    }
+  }
+}
+```
+
+`getConfiguration` then includes the saved model object in `customModels`:
+
+```json
+{
+  "customModels": [
+    {
+      "id": "my-deployment",
+      "name": "My Deployment",
+      "maxOutputTokens": 8192,
+      "capabilities": { "tools": true },
+      "cost": { "input": 0.5, "output": 1.5 }
+    }
+  ]
+}
+```
+
+Provider settings accept only version 3 with tagged provider entries and nested model metadata. Versions 1 and 2, and string model entries, are unsupported. See [provider settings](/docs/core/credentials/providers#declarative-provider-settings) for the file format.
+
+Removing a custom provider removes its saved global credential first. If saving the provider-settings removal subsequently fails, the command returns `PROVIDER_REMOVAL_PARTIAL`: the definition remains, but its global key has been removed. Retry removal. Environment and strategy-scoped credentials remain untouched, and existing model instances and runs retain their configuration.
+
+See [Supported Providers](/docs/core/credentials/providers) for the declarative settings file and direct core API examples.

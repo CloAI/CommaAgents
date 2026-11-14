@@ -1,0 +1,135 @@
+---
+title: Plugin server
+description: Expose daemon plugin commands and channels through an independent WebSocket server.
+---
+
+# Plugin server
+
+Create a kernel to use its plugins directly. Attach `createDaemonServer` when you want WebSocket access. Stopping the server disconnects clients and cleans their subscriptions; the kernel keeps running until you dispose it separately.
+
+```ts
+import { createDaemonKernel, createDaemonServer } from "@comma-agents/daemon";
+
+const daemon = await createDaemonKernel({
+  runs: { runsDir: "/tmp/comma-runs" },
+});
+const server = createDaemonServer({ daemon, port: 7422 });
+await server.start();
+console.log(server.url);
+console.log(daemon.plugins.status.getStatus());
+
+await server.stop();
+await daemon.dispose();
+```
+
+This server exposes the kernel's registered plugin commands and channels, including status, [runs](/docs/daemon/server/runs), providers, and projects. The daemon CLI starts this same kernel and server.
+
+## CreateDaemonServerOptions
+
+Listener configuration and the kernel whose bindings are exposed.
+
+<AutoTypeTable
+  path="../packages/daemon/src/daemon-server/daemon-server.types.ts"
+  name="CreateDaemonServerOptions"
+/>
+
+## DaemonServer
+
+Controls the WebSocket listener independently of the kernel.
+
+<AutoTypeTable
+  path="../packages/daemon/src/daemon-server/daemon-server.types.ts"
+  name="DaemonServer"
+/>
+
+## Commands
+
+Connect to `/ws` and send JSON text messages. Generate a UUIDv4 with `crypto.randomUUID()` for each command or new subscription. Every server message echoes the associated `requestId` and includes an ISO timestamp in `ts`.
+
+```ts
+const socket = new WebSocket(server.url);
+socket.addEventListener("open", () => {
+  socket.send(
+    JSON.stringify({
+      type: "command",
+      requestId: crypto.randomUUID(),
+      command: "status.get",
+      arguments: {},
+    }),
+  );
+});
+```
+
+A command produces one `response`, containing either `{ ok: true, data }` or `{ ok: false, error: { code, message, metadata? } }` alongside its `type`, `requestId`, and `ts`.
+
+## Channels
+
+`status.watch` reports the current daemon status followed by lifecycle changes. Subscribe with an empty `arguments` object:
+
+```json
+{
+  "type": "subscribe",
+  "requestId": "d66996b1-8837-45c0-9a16-c76dfdf01304",
+  "channel": "status.watch",
+  "arguments": {}
+}
+```
+
+The server sends a successful response before any channel events:
+
+```json
+{
+  "type": "response",
+  "requestId": "d66996b1-8837-45c0-9a16-c76dfdf01304",
+  "ts": "2026-10-17T12:00:00.000Z",
+  "ok": true,
+  "data": null
+}
+```
+
+```json
+{
+  "type": "status.updated",
+  "requestId": "d66996b1-8837-45c0-9a16-c76dfdf01304",
+  "ts": "2026-10-17T12:00:00.001Z",
+  "data": {
+    "phase": "running",
+    "version": "2.0.0-rc.1",
+    "startedAt": "2026-10-17T11:59:00.000Z"
+  }
+}
+```
+
+Unsubscribe using that same subscription `requestId`. No additional target identifier is needed:
+
+```json
+{
+  "type": "unsubscribe",
+  "requestId": "d66996b1-8837-45c0-9a16-c76dfdf01304"
+}
+```
+
+The server acknowledges the unsubscribe, cleans the subscription, and sends `subscription_end` with `reason: "unsubscribed"`. A channel can also end with `reason: "completed"`, or `reason: "failed"` with error details. A channel sends at most one terminal message.
+
+Channels send messages from the server to the client. Send commands for changes to daemon state. Unsubscribing or disconnecting does not stop daemon work or affect other clients.
+
+## Plugin bindings
+
+A plugin may supply `server: { commands, channels }` to `createPlugin`. The entire `server` object and each array are optional. Commands and channels receive their owning plugin, its private context, and validated arguments. A channel also receives `send`, `end`, and a subscription abort signal.
+
+Use `defineCommand` and `defineChannel` to declare schemas and behavior. Import `z` from `"zod/v4"` for binding schemas; use `z.json()` for arbitrary JSON values. Keep each command or channel in its own folder, with its schemas in a colocated `*.schemas.ts` file. Extend the instance returned by `createPlugin` with `Object.assign` so handlers receive the same public instance.
+
+Channel messages have the shape `{ type, data }`. The plugin defines the root `type`; the server adds `requestId` and `ts`. Keep domain payloads inside `data`.
+
+Channel setup may return nothing, or an object containing an optional `initial` message and optional `cleanup` function. Setup emissions are buffered until acknowledgement and the optional initial message have been sent. Setup code must release partially acquired resources if it throws; the subscription signal is aborted on failure, unsubscribe, completion, or disconnect. Returned cleanup runs once, including when setup finishes after a disconnect.
+
+The server rejects duplicate command or channel names when it is constructed. Invalid envelopes, invalid arguments, binary messages, and duplicate active request IDs close the connection with code `1008`. Valid requests for unknown bindings receive an error response. Binding schemas also validate outgoing command results and channel messages.
+
+## DaemonStatus
+
+The daemon owns lifecycle transitions through `starting`, `running`, `stopping`, and `stopped`. The status plugin exposes read-only status and notifications.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/status/status.types.ts"
+  name="DaemonStatus"
+/>

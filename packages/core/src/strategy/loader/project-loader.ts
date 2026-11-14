@@ -1,5 +1,16 @@
-import { realpath, stat } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { register } from "tsx/esm/api";
+import { pathToFileURL } from "node:url";
+import { readFile, realpath, stat } from "node:fs/promises";
+import {
+  basename,
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 
 import stripJsonComments from "strip-json-comments";
 import YAML from "yaml";
@@ -12,10 +23,11 @@ import {
 import { readStrategyFile } from "../discover/discover.utils";
 import { StrategySchema } from "../schema";
 
+let registeredTypeScriptLoader = false;
+
 const FILESYSTEM_TOOLS = new Set([
   "read_file",
-  "list_directory",
-  "search_files",
+  "grep",
   "glob",
   "create_file",
   "write_file",
@@ -75,10 +87,50 @@ async function resolveProjectFile(
       `${label} must be a regular file: ${candidate}`,
     );
   }
-  if (!(await Bun.file(resolvedPath).exists())) {
+  if (!existsSync(resolvedPath)) {
     throw new StrategyValidationError(`${label} not found: ${candidate}`);
   }
   return resolvedPath;
+}
+
+/**
+ * Reject module formats that can load a second CommonJS copy of the core registries.
+ * @param {string} filePath - Resolved executable project module path.
+ * @returns {Promise<void>} Resolves when the module declares ESM semantics.
+ */
+async function assertProjectModuleIsEsm(filePath: string): Promise<void> {
+  const extension = extname(filePath);
+  if (extension === ".mts" || extension === ".mjs") {
+    return;
+  }
+  if ([".ts", ".tsx", ".js", ".jsx"].includes(extension)) {
+    let directory = dirname(filePath);
+    while (true) {
+      const packagePath = join(directory, "package.json");
+      if (existsSync(packagePath)) {
+        const packageManifest = JSON.parse(
+          await readFile(packagePath, "utf8"),
+        ) as {
+          type?: unknown;
+        } | null;
+        if (packageManifest?.type === "module") {
+          return;
+        }
+        break;
+      }
+      const parentDirectory = dirname(directory);
+      if (
+        parentDirectory === directory ||
+        basename(directory) === "node_modules"
+      ) {
+        break;
+      }
+      directory = parentDirectory;
+    }
+  }
+  throw new StrategyValidationError(
+    `Executable project module "${filePath}" must use ESM. Use .mts or .mjs, or set {"type":"module"} in the nearest package.json for .ts, .tsx, .js, or .jsx modules. Convert .cts and .cjs modules to ESM; CommonJS can create separate CommaAgents registries.`,
+  );
 }
 
 async function importProjectFile(
@@ -86,7 +138,12 @@ async function importProjectFile(
   label: string,
 ): Promise<void> {
   try {
-    await import(filePath);
+    await assertProjectModuleIsEsm(filePath);
+    if (!registeredTypeScriptLoader) {
+      register();
+      registeredTypeScriptLoader = true;
+    }
+    await import(pathToFileURL(filePath).href);
   } catch (importError) {
     throw new StrategyValidationError(
       `Failed to import ${label} "${filePath}": ${importError instanceof Error ? importError.message : String(importError)}`,
@@ -98,14 +155,13 @@ async function importProjectFile(
 export async function loadProject(
   manifestPath: string,
 ): Promise<LoadedProject> {
-  const file = Bun.file(manifestPath);
-  if (!(await file.exists())) {
+  if (!existsSync(manifestPath)) {
     throw new StrategyValidationError(
       `Project manifest not found: ${manifestPath}`,
     );
   }
 
-  const content = await file.text();
+  const content = await readFile(manifestPath, "utf8");
   let raw: unknown;
   try {
     raw = JSON.parse(stripJsonComments(content));
@@ -167,7 +223,9 @@ export async function loadProject(
     }
     for (const agent of Object.values(strategy.data.agents)) {
       if ("tools" in agent && Array.isArray(agent.tools)) {
-        for (const tool of agent.tools) usedTools.add(tool);
+        for (const tool of agent.tools) {
+          usedTools.add(tool);
+        }
       }
     }
   }

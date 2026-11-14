@@ -1,0 +1,50 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+.preview {
+  position: absolute;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  pointer-events: none;
+  &[data-zone="left"] {
+    inset: 0 50% 0 0;
+  }
+  &[data-zone="right"] {
+    inset: 0 0 0 50%;
+  }
+  &[data-zone="top"] {
+    inset: 0 0 50% 0;
+  }
+  &[data-zone="bottom"] {
+    inset: 50% 0 0 0;
+  }
+}
+.destination {
+  position: absolute;
+  z-index: 1;
+  padding: 8px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  &[data-edge="left"] {
+    left: 8px;
+    top: 50%;
+  }
+  &[data-edge="right"] {
+    right: 8px;
+    top: 50%;
+  }
+  &[data-edge="top"] {
+    top: 8px;
+    left: 50%;
+  }
+  &[data-edge="bottom"] {
+    bottom: 8px;
+    left: 50%;
+  }
+}

@@ -24,6 +24,8 @@ export type ToolCallViewStatus = "running" | ToolResultEvent["status"];
 export function deriveToolCallViewStatus(
   result: Pick<ToolResultEvent, "status"> | undefined,
 ): ToolCallViewStatus {
-  if (result === undefined) return "running";
+  if (result === undefined) {
+    return "running";
+  }
   return result.status;
 }

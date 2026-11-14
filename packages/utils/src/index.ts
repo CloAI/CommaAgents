@@ -11,14 +11,10 @@ export type {
   AbortablePromise,
 } from "./abortable.types";
 
-// Async
-export { sleep } from "./async";
 // Date
 export { isoNow } from "./date";
 // Platform
 export { isLinux, isSystemd } from "./platform";
-// Process
-export { isRunning, readPid, removePid, writePid } from "./process";
 // String
 export {
   breakLines,

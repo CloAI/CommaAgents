@@ -1,0 +1,328 @@
+import { ArrowUp } from "lucide-react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import type {
+  ChangeEventHandler,
+  FormEventHandler,
+  KeyboardEventHandler,
+  ReactNode,
+} from "react";
+import { IconButton } from "../../design-system/IconButton";
+import styles from "./ChatInput.module.scss";
+import { ChatPaneContext } from "../../hooks/useChatPane";
+
+/** Submission callback for the local prompt composer. */
+export interface ChatInputProps {
+  /** Receive a nonempty prompt with outer whitespace removed; resolving with an error message keeps the draft and shows it. */
+  readonly onSubmit: (prompt: string) => void | Promise<string | undefined>;
+  /** Report submission errors to a surrounding notice area instead of showing them below the input. */
+  readonly onSubmissionErrorChange?: (error: string | undefined) => void;
+  /** Prevent editing and submitting while the run is unavailable. */
+  readonly disabled?: boolean;
+  /** Clear a successfully acknowledged message. */
+  readonly clearOnSuccess?: boolean;
+  /** Describe whether the message answers or steers the run. */
+  readonly placeholder?: string;
+  /** Focus the field whenever it becomes available, so a conversation can continue without clicking. */
+  readonly autoFocus?: boolean;
+  /** Extra controls placed before Send, such as Stop; they stay usable while sending is disabled. */
+  readonly actions?: ReactNode;
+}
+
+/**
+ * Own the draft, prevent duplicate sends, and optionally clear after acknowledgement.
+ * @param {ChatInputProps} props - Component properties.
+ * @returns {React.ReactElement} The rendered component.
+ */
+export function ChatInput({
+  onSubmit,
+  onSubmissionErrorChange,
+  disabled = false,
+  clearOnSuccess = false,
+  placeholder = "Enter your prompt...",
+  autoFocus = false,
+  actions,
+}: ChatInputProps) {
+  const pane = useContext(ChatPaneContext);
+  const draftKey = pane?.runId
+    ? `comma-agents.draft.run.${pane.runId}`
+    : pane
+      ? `comma-agents.draft.${pane.paneId}${pane.draftId ? `.blank.${pane.draftId}` : ""}`
+      : undefined;
+  const [draft, setDraft] = useState(() => {
+    try {
+      return draftKey ? (window.localStorage.getItem(draftKey) ?? "") : "";
+    } catch {
+      return "";
+    }
+  });
+  useEffect(() => {
+    try {
+      setDraft(draftKey ? (localStorage.getItem(draftKey) ?? "") : "");
+    } catch {
+      setDraft("");
+    }
+  }, [draftKey]);
+  const saveDraft = useCallback(
+    (text: string) => {
+      setDraft(text);
+      if (draftKey) {
+        try {
+          window.localStorage.setItem(draftKey, text);
+        } catch {
+          /* Keep the editable draft when storage is unavailable. */
+        }
+      }
+    },
+    [draftKey],
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string>();
+  const handleChange = useCallback<ChangeEventHandler<HTMLTextAreaElement>>(
+    (event) => {
+      saveDraft(event.target.value);
+    },
+    [saveDraft],
+  );
+  const handleSubmit = useCallback<FormEventHandler<HTMLFormElement>>(
+    (event) => {
+      event.preventDefault();
+      const prompt = draft.trim();
+      // Submitting disables the field and Send, so a second press cannot arrive before this state renders.
+      if (!prompt || disabled || submitting || pane?.interactionBlocked) {
+        return;
+      }
+      setSubmitting(true);
+      pane?.setTransferPending?.(true);
+      setSubmissionError(undefined);
+      onSubmissionErrorChange?.(undefined);
+      Promise.resolve()
+        .then(async () => {
+          const result = await onSubmit(prompt);
+          return result || undefined;
+        })
+        .then((error) => {
+          if (error) {
+            setSubmissionError(error);
+            onSubmissionErrorChange?.(error);
+          } else if (clearOnSuccess) {
+            saveDraft("");
+          }
+        })
+        .catch((failure: unknown) => {
+          const message =
+            failure instanceof Error ? failure.message : String(failure);
+          setSubmissionError(message);
+          onSubmissionErrorChange?.(message);
+        })
+        .finally(() => {
+          setSubmitting(false);
+          pane?.setTransferPending?.(false);
+        });
+    },
+    [
+      draft,
+      onSubmit,
+      onSubmissionErrorChange,
+      disabled,
+      submitting,
+      clearOnSuccess,
+      saveDraft,
+      pane,
+    ],
+  );
+
+  return (
+    <>
+      <ChatInputRender
+        draft={draft}
+        disabled={disabled || submitting || pane?.interactionBlocked}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        onChange={handleChange}
+        onSubmit={handleSubmit}
+        actions={actions}
+      />
+      {!onSubmissionErrorChange && submissionError && (
+        <p role="alert">{submissionError}</p>
+      )}
+    </>
+  );
+}
+
+/** Controlled fields and event handlers for the composer preview. */
+export interface ChatInputRenderProps {
+  /** Current editable prompt. */
+  readonly draft: string;
+  /** Prevent editing and submission. */
+  readonly disabled?: boolean;
+  /** Contextual prompt hint. */
+  readonly placeholder?: string;
+  /** Focus the field whenever it becomes available. */
+  readonly autoFocus?: boolean;
+  /** Update the prompt. */
+  readonly onChange: ChangeEventHandler<HTMLTextAreaElement>;
+  /** Handle form submission. */
+  readonly onSubmit: FormEventHandler<HTMLFormElement>;
+  /** Extra controls placed before Send. */
+  readonly actions?: ReactNode;
+}
+
+/**
+ * Render the editing surface with one-to-three-line sizing and an inset send action.
+ * @param {ChatInputRenderProps} props - Component properties.
+ * @returns {React.ReactElement} The rendered component.
+ */
+export function ChatInputRender({
+  draft,
+  onChange,
+  onSubmit,
+  disabled = false,
+  placeholder = "Enter your prompt...",
+  autoFocus = false,
+  actions,
+}: ChatInputRenderProps) {
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    // Disabling a focused field drops focus to the body, so only reclaim focus nobody else holds.
+    if (
+      autoFocus &&
+      input &&
+      (document.activeElement === document.body ||
+        !document.activeElement ||
+        document.activeElement ===
+          formRef.current?.querySelector("[data-cancel]"))
+    ) {
+      if (!disabled) {
+        input.focus();
+      } else {
+        formRef.current
+          ?.querySelector<HTMLButtonElement>("[data-cancel]:enabled")
+          ?.focus();
+      }
+    }
+  }, [autoFocus, disabled]);
+
+  const resizeInput = useCallback(() => {
+    const input = inputRef.current;
+    if (!input) {
+      return;
+    }
+    const computedStyle = window.getComputedStyle(input);
+    const lineHeight = Number.parseFloat(computedStyle.lineHeight);
+    const padding =
+      Number.parseFloat(computedStyle.paddingTop) +
+      Number.parseFloat(computedStyle.paddingBottom);
+    const maximumHeight = lineHeight * 3 + padding;
+    const scrollPosition = input.scrollTop;
+
+    // Reset height so scrollHeight measures the content even after text is deleted.
+    input.form?.style.setProperty("--scrollbar-offset", "0px");
+    input.style.height = "0px";
+    input.style.overflowY = "hidden";
+    const contentHeight = input.scrollHeight;
+    const overflowing = contentHeight > Math.ceil(maximumHeight);
+
+    input.style.height = `${Math.min(maximumHeight, Math.max(lineHeight + padding, contentHeight))}px`;
+    input.style.overflowY = overflowing ? "auto" : "hidden";
+    input.form?.style.setProperty(
+      "--scrollbar-offset",
+      overflowing
+        ? `${Math.max(10, input.offsetWidth - input.clientWidth)}px`
+        : "0px",
+    );
+    input.scrollTop = scrollPosition;
+  }, []);
+
+  const onKeyDown = useCallback<KeyboardEventHandler<HTMLTextAreaElement>>(
+    (event) => {
+      // Safari may report the final IME Enter as keyCode 229 after composition ends.
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey &&
+        !event.nativeEvent.isComposing &&
+        event.keyCode !== 229
+      ) {
+        event.preventDefault();
+        event.currentTarget.form?.requestSubmit();
+      }
+    },
+    [],
+  );
+
+  useLayoutEffect(() => resizeInput(), [draft, resizeInput]);
+
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    if (!input) {
+      return;
+    }
+    let previousWidth = 0;
+    let resizeFrame = 0;
+    let mounted = true;
+    const observer = new ResizeObserver(() => {
+      const width = input.getBoundingClientRect().width;
+      if (width !== previousWidth) {
+        previousWidth = width;
+        // Measure after observer delivery so changing height cannot trigger a resize loop.
+        window.cancelAnimationFrame(resizeFrame);
+        resizeFrame = window.requestAnimationFrame(resizeInput);
+      }
+    });
+    observer.observe(input);
+    void document.fonts.ready.then(() => {
+      if (mounted) {
+        resizeInput();
+      }
+    });
+    document.fonts.addEventListener("loadingdone", resizeInput);
+    return () => {
+      mounted = false;
+      observer.disconnect();
+      window.cancelAnimationFrame(resizeFrame);
+      document.fonts.removeEventListener("loadingdone", resizeInput);
+    };
+  }, [resizeInput]);
+
+  return (
+    <form
+      ref={formRef}
+      className={styles.composer}
+      onSubmit={onSubmit}
+      data-actions={actions ? "" : undefined}
+    >
+      <textarea
+        ref={inputRef}
+        className={styles.input}
+        aria-label="Message"
+        placeholder={placeholder}
+        disabled={disabled}
+        rows={1}
+        spellCheck
+        value={draft}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+      />
+      <div className={styles.actions}>
+        {actions}
+        <IconButton
+          className={styles.send}
+          label="Send"
+          type="submit"
+          disabled={disabled || !draft.trim()}
+        >
+          <ArrowUp />
+        </IconButton>
+      </div>
+    </form>
+  );
+}

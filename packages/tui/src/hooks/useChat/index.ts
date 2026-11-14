@@ -12,10 +12,9 @@ export type {
   MessageSegment,
   PendingChatExecution,
   PendingPermissionRequest,
-  PendingQuestionRequest,
   PersistedRunMeta,
   RunOverview,
-  RunStatus,
+  RunLifecycleStatus,
   RunSummary,
   UseChatState,
 } from "./useChat.types";
@@ -27,8 +26,6 @@ export type { UseChatLifecycleResult } from "./useChatLifecycle";
 export { useChatLifecycle } from "./useChatLifecycle";
 export type { ChatPermissionRequestResult } from "./useChatPermissionRequests";
 export { useChatPermissionRequests } from "./useChatPermissionRequests";
-export type { ChatQuestionRequestResult } from "./useChatQuestionRequests";
-export { useChatQuestionRequests } from "./useChatQuestionRequests";
 export type { ChatRunLifecycle } from "./useChatRunLifecycle";
 export { useChatRunLifecycle } from "./useChatRunLifecycle";
 export { useChatRuns } from "./useChatRuns";

@@ -1,4 +1,10 @@
 {
   "title": "Agents",
-  "pages": ["create-agent", "create-user-agent", "agent-hooks", "load-agent"]
+  "pages": [
+    "create-agent",
+    "register-agent",
+    "create-user-agent",
+    "agent-hooks",
+    "load-agent"
+  ]
 }

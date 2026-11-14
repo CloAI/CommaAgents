@@ -101,14 +101,18 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
 
   const handleProviderSelect = (item: { label: string; value: string }) => {
     const provider = PROVIDERS.find((p) => p.providerID === item.value);
-    if (!provider) return;
+    if (!provider) {
+      return;
+    }
     setSelectedProvider(provider);
     setModelInput(provider.defaultModel);
     setStep("model");
   };
 
   const handleModelSubmit = async () => {
-    if (!selectedProvider) return;
+    if (!selectedProvider) {
+      return;
+    }
     const model = modelInput.trim() || selectedProvider.defaultModel;
 
     // Try to resolve an existing credential (env → store, with refresh)
@@ -132,15 +136,21 @@ export function ProviderSelect({ onSelect }: ProviderSelectProps) {
   };
 
   const handleApiKeySubmit = () => {
-    if (!selectedProvider) return;
+    if (!selectedProvider) {
+      return;
+    }
     const key = apiKeyInput.trim();
-    if (!key) return;
+    if (!key) {
+      return;
+    }
     setPendingApiKey(key);
     setStep("saveKey");
   };
 
   const handleSaveResponse = async (item: { label: string; value: string }) => {
-    if (!selectedProvider) return;
+    if (!selectedProvider) {
+      return;
+    }
     const model = modelInput.trim() || selectedProvider.defaultModel;
 
     if (item.value === "yes") {

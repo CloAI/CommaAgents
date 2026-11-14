@@ -3,7 +3,7 @@
 // Verifies that tools with `systemPrompt` field have their contributions
 // injected ONCE into the agent's system prompt at creation time.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   buildToolSystemPrompt,
@@ -19,9 +19,8 @@ describe("Tool System Prompt Injection - Integration", () => {
     guard: {
       toolName: "test",
       cwd: "/workspace",
-      trashMetadata: undefined,
+      deletionMetadata: undefined,
       authorize: async () => "/workspace/test",
-      askQuestion: async () => "test",
       canAccess: () => true,
       addPolicy: () => {},
       removePolicy: () => false,
@@ -63,7 +62,7 @@ describe("Tool System Prompt Injection - Integration", () => {
 
   it("should inject dynamic systemPrompt (function) from tools", async () => {
     const toolDefs: Record<string, ToolDefinition> = {
-      search_files: defineTool({
+      grep: defineTool({
         description: "Search files",
         parameters: z.object({ pattern: z.string() }),
         systemPrompt: (ctx: ToolContext) => {
@@ -78,7 +77,7 @@ describe("Tool System Prompt Injection - Integration", () => {
       toolContext: mockToolContext,
     });
 
-    expect(toolPrompt).toContain("## search_files");
+    expect(toolPrompt).toContain("## grep");
     expect(toolPrompt).toContain(
       "Searching in: /workspace. Use glob patterns.",
     );

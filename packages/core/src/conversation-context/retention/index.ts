@@ -1,4 +1,8 @@
-export { applyCompaction } from "./compaction";
+export {
+  applyCompaction,
+  buildCompactionInstruction,
+  CompactionSummaryRejectedError,
+} from "./compaction";
 export { prepareContextRecords } from "./retention";
 export type {
   CompactionOptions,

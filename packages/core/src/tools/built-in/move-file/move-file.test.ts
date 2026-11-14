@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync, realpathSync } from "node:fs";
 import * as fsp from "node:fs/promises";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -8,10 +8,15 @@ import { createSandbox } from "../../../sandbox/sandbox";
 import type { AuditSink } from "../../io/audit.types";
 import { createMemoryAuditSink } from "../../io/audit-sink";
 import { sha256OfBuffer } from "../../io/hash";
-import { trashWorkspaceDir } from "../../io/trash";
+import { getDeletedFilesDirectory } from "../delete-file/deletion";
 import { makeToolContext } from "../../test.utils";
 import type { ToolContext } from "../../tool.types";
 import { createMoveFileTool, type MoveFileData } from "./index";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const filesystem = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...filesystem, rename: vi.fn(filesystem.rename) };
+});
 
 let workspaceRoot: string;
 
@@ -22,12 +27,15 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
-  await rm(trashWorkspaceDir(workspaceRoot), { recursive: true, force: true });
+  await rm(getDeletedFilesDirectory(workspaceRoot), {
+    recursive: true,
+    force: true,
+  });
 });
 
 function makeCtx(overrides?: {
-  jail?: boolean;
-  allowAbsolutePaths?: boolean;
+  outsideWorkspace?: "allow" | "deny";
+  absolutePaths?: "allow" | "deny";
   forbiddenGlobs?: readonly string[];
   auditSink?: AuditSink;
   sessionId?: string;
@@ -37,8 +45,8 @@ function makeCtx(overrides?: {
     agentName: overrides?.agentName ?? "test-agent",
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: overrides?.jail ?? true,
-      allowAbsolutePaths: overrides?.allowAbsolutePaths ?? false,
+      outsideWorkspace: overrides?.outsideWorkspace ?? "deny",
+      absolutePaths: overrides?.absolutePaths ?? "deny",
       forbiddenGlobs: overrides?.forbiddenGlobs ?? [],
     }),
     ...(overrides?.auditSink !== undefined
@@ -72,7 +80,9 @@ async function getOk(
       `expected ok, got error: ${result.error?.kind} ${result.error?.message}`,
     );
   }
-  if (!result.data) throw new Error("expected data");
+  if (!result.data) {
+    throw new Error("expected data");
+  }
   return result.data;
 }
 
@@ -146,7 +156,7 @@ describe("createMoveFileTool", () => {
       ),
     );
     expect(typeof data.overwroteTrashedTo).toBe("string");
-    expect(data.overwroteTrashedTo).toEndWith(".tar.gz");
+    expect(data.overwroteTrashedTo).toMatch(/\.tar\.gz$/);
     expect(await readFile(join(workspaceRoot, "b.txt"), "utf8")).toBe("new\n");
     expect(existsSync(data.overwroteTrashedTo!)).toBe(true);
   });
@@ -248,7 +258,7 @@ describe("createMoveFileTool", () => {
         toPath: "x.txt",
         expectedSha256: sha256OfBuffer(""),
       },
-      makeCtx({ jail: true }),
+      makeCtx({ outsideWorkspace: "deny" }),
     );
     expect(r1.error?.kind).toBe("outside_workspace");
 
@@ -260,7 +270,7 @@ describe("createMoveFileTool", () => {
         toPath: "../escape.txt",
         expectedSha256: sha,
       },
-      makeCtx({ jail: true }),
+      makeCtx({ outsideWorkspace: "deny" }),
     );
     expect(r2.error?.kind).toBe("outside_workspace");
   });
@@ -361,7 +371,7 @@ describe("createMoveFileTool", () => {
     const controller = new AbortController();
     controller.abort();
     const primaryContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspaceRoot, jail: true }),
+      sandbox: createSandbox({ cwd: workspaceRoot, outsideWorkspace: "deny" }),
       abort: controller.signal,
     });
     const tool = createMoveFileTool();
@@ -382,7 +392,7 @@ describe("createMoveFileTool", () => {
     const exdev = Object.assign(new Error("EXDEV: cross-device link"), {
       code: "EXDEV",
     });
-    const renameSpy = spyOn(fsp, "rename").mockRejectedValueOnce(exdev);
+    const renameSpy = vi.spyOn(fsp, "rename").mockRejectedValueOnce(exdev);
 
     try {
       const tool = createMoveFileTool();

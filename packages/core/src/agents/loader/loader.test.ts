@@ -1,20 +1,10 @@
 // Tests for agent loader — parse, validate, and instantiate agents.
 
-import { afterEach, describe, expect, it } from "bun:test";
-import type { Schema } from "ai";
-import { z } from "zod";
+import { afterEach, describe, expect, it } from "vitest";
 import { StrategyValidationError } from "../../errors/index";
 import { registerModel, resetModelRegistry } from "../../model/model";
-import { okResult } from "../../tools/result";
 import { registerTool, resetToolRegistry } from "../../tools/tool.registry";
 import type { ToolDefinition } from "../../tools/tool.types";
-import { createAgent } from "../agent/agent";
-import {
-  defineAgentType,
-  registerAgent,
-  resetAgentRegistry,
-} from "../registry/agent-registry";
-import type { AgentTypeRuntime } from "../registry/agent-registry.types";
 import { loadAgent, loadAgentFromString } from "./loader";
 import { AgentDescriptionSchema } from "./loader.schema";
 
@@ -90,7 +80,6 @@ function setupMockModels(): void {
 afterEach(() => {
   resetModelRegistry();
   resetToolRegistry();
-  resetAgentRegistry();
 });
 
 // Minimal description strings
@@ -225,16 +214,13 @@ describe("AgentDescriptionSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("should accept maxSteps", () => {
+  it("should reject maxSteps (removed field)", () => {
     const result = AgentDescriptionSchema.safeParse({
       name: "test",
       model: "openai/gpt-4o",
       maxSteps: 3,
     });
-    expect(result.success).toBe(true);
-    if (result.success && "model" in result.data) {
-      expect(result.data.maxSteps).toBe(3);
-    }
+    expect(result.success).toBe(false);
   });
 
   it("should reject unknown fields (strict mode)", () => {
@@ -243,93 +229,6 @@ describe("AgentDescriptionSchema", () => {
       model: "openai/gpt-4o",
       unknownField: true,
     });
-    expect(result.success).toBe(false);
-  });
-
-  it("should accept providerOptions", () => {
-    const result = AgentDescriptionSchema.safeParse({
-      name: "test",
-      model: "openai/gpt-4o",
-      providerOptions: {
-        anthropic: { thinking: { type: "enabled", budgetTokens: 8000 } },
-      },
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("should accept modelOptions", () => {
-    const result = AgentDescriptionSchema.safeParse({
-      name: "test",
-      model: "openai/gpt-4o",
-      modelOptions: { temperature: 0.7, maxOutputTokens: 4096 },
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("should accept an outputSchema JSON Schema object", () => {
-    const result = AgentDescriptionSchema.safeParse({
-      name: "test",
-      model: "openai/gpt-4o",
-      outputSchema: {
-        type: "object",
-        properties: { answer: { type: "string" } },
-        required: ["answer"],
-      },
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("should accept serializable context retention options", () => {
-    const result = AgentDescriptionSchema.safeParse({
-      name: "test",
-      model: "openai/gpt-4o",
-      context: {
-        rollingWindow: 40,
-        compaction: { keepRecent: 8, threshold: 20 },
-      },
-    });
-
-    expect(result.success).toBe(true);
-  });
-
-  it("should accept both providerOptions and modelOptions", () => {
-    const result = AgentDescriptionSchema.safeParse({
-      name: "test",
-      model: "openai/gpt-4o",
-      providerOptions: {
-        anthropic: { thinking: { type: "enabled", budgetTokens: 8000 } },
-      },
-      modelOptions: { temperature: 0.7 },
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("should reject invalid modelOptions field types", () => {
-    const result = AgentDescriptionSchema.safeParse({
-      name: "test",
-      model: "openai/gpt-4o",
-      modelOptions: { temperature: "hot" },
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("should accept a registered custom agent description shape", () => {
-    const result = AgentDescriptionSchema.safeParse({
-      name: "echoer",
-      type: "echo",
-      config: { prefix: "custom: " },
-    });
-
-    expect(result.success).toBe(true);
-  });
-
-  it("should reject custom fields outside the config object", () => {
-    const result = AgentDescriptionSchema.safeParse({
-      name: "echoer",
-      type: "echo",
-      prefix: "custom: ",
-    });
-
     expect(result.success).toBe(false);
   });
 });
@@ -410,80 +309,6 @@ describe("loadAgentFromString", () => {
     });
   });
 
-  describe("custom agent types", () => {
-    it("should construct a registered custom agent with runtime services", async () => {
-      let receivedRuntime: AgentTypeRuntime | undefined;
-      const inputCollector = async (): Promise<string> => "input";
-      registerAgent(
-        "echo",
-        defineAgentType({
-          configSchema: z.object({ prefix: z.string() }).strict(),
-          create: async ({ name, config, runtime }) => {
-            receivedRuntime = runtime;
-            return createAgent({
-              name,
-              execute: async (message) => `${config.prefix}${message}`,
-            });
-          },
-        }),
-      );
-
-      const agent = await loadAgentFromString(
-        JSON.stringify({
-          name: "echoer",
-          type: "echo",
-          config: { prefix: "custom: " },
-        }),
-        "json",
-        {
-          inputCollector,
-          modelOverride: "openai/gpt-4o",
-          strategyDir: "/tmp/strategy",
-          runId: "run-1",
-        },
-      );
-
-      expect((await agent.call("hello")).text).toBe("custom: hello");
-      expect(receivedRuntime?.inputCollector).toBe(inputCollector);
-      expect(receivedRuntime?.modelOverride).toBe("openai/gpt-4o");
-      expect(receivedRuntime?.strategyDir).toBe("/tmp/strategy");
-      expect(receivedRuntime?.runId).toBe("run-1");
-    });
-
-    it("should reject invalid registered configuration", async () => {
-      registerAgent(
-        "echo",
-        defineAgentType({
-          configSchema: z.object({ prefix: z.string() }).strict(),
-          create: ({ name }) =>
-            createAgent({ name, execute: async (message) => message }),
-        }),
-      );
-
-      await expect(
-        loadAgentFromString(
-          JSON.stringify({
-            name: "echoer",
-            type: "echo",
-            config: { prefix: 42 },
-          }),
-          "json",
-        ),
-      ).rejects.toThrow("config.prefix");
-    });
-
-    it("should report unknown agent types", async () => {
-      await expect(
-        loadAgentFromString(
-          JSON.stringify({ name: "missing", type: "unknown" }),
-          "json",
-        ),
-      ).rejects.toThrow(
-        'Agent "missing" references unknown agent type "unknown"',
-      );
-    });
-  });
-
   describe("model resolution", () => {
     it("should store model string in agent config", async () => {
       setupMockModels();
@@ -530,7 +355,7 @@ describe("loadAgentFromString", () => {
           type: "object",
           properties: {},
         } as unknown as ToolDefinition["parameters"],
-        execute: async () => okResult("done"),
+        execute: async () => ({ output: "done" }),
       };
       registerTool("my-tool", customTool);
 
@@ -547,88 +372,6 @@ describe("loadAgentFromString", () => {
       setupMockModels();
       const agent = await loadAgentFromString(MINIMAL_JSON, "json");
       expect(agent.config?.tools).toBeUndefined();
-    });
-  });
-
-  describe("provider / model options", () => {
-    it("should pass providerOptions to agent config", async () => {
-      setupMockModels();
-      const json = JSON.stringify({
-        name: "test",
-        model: "openai/gpt-4o",
-        providerOptions: {
-          openai: { reasoningEffort: "high" },
-        },
-      });
-      const agent = await loadAgentFromString(json, "json");
-      expect(agent.config?.providerOptions).toEqual({
-        openai: { reasoningEffort: "high" },
-      });
-    });
-
-    it("should pass modelOptions to agent config", async () => {
-      setupMockModels();
-      const json = JSON.stringify({
-        name: "test",
-        model: "openai/gpt-4o",
-        modelOptions: { temperature: 0.7, maxOutputTokens: 4096 },
-      });
-      const agent = await loadAgentFromString(json, "json");
-      expect(agent.config?.modelOptions).toEqual({
-        temperature: 0.7,
-        maxOutputTokens: 4096,
-      });
-    });
-
-    it("should leave providerOptions undefined when not provided", async () => {
-      setupMockModels();
-      const agent = await loadAgentFromString(MINIMAL_JSON, "json");
-      expect(agent.config?.providerOptions).toBeUndefined();
-    });
-
-    it("should leave modelOptions undefined when not provided", async () => {
-      setupMockModels();
-      const agent = await loadAgentFromString(MINIMAL_JSON, "json");
-      expect(agent.config?.modelOptions).toBeUndefined();
-    });
-
-    it("should convert outputSchema to an AI SDK schema", async () => {
-      setupMockModels();
-      const outputSchema = {
-        type: "object",
-        properties: { answer: { type: "string" } },
-        required: ["answer"],
-      };
-      const agent = await loadAgentFromString(
-        JSON.stringify({
-          name: "test",
-          model: "openai/gpt-4o",
-          outputSchema,
-        }),
-        "json",
-      );
-
-      expect(
-        await (agent.config?.outputSchema as Schema | undefined)?.jsonSchema,
-      ).toEqual(outputSchema);
-    });
-
-    it("should pass context retention options to agent config", async () => {
-      setupMockModels();
-      const context = {
-        rollingWindow: { maxRecords: 20 },
-        compaction: true,
-      };
-      const agent = await loadAgentFromString(
-        JSON.stringify({
-          name: "test",
-          model: "openai/gpt-4o",
-          context,
-        }),
-        "json",
-      );
-
-      expect(agent.config?.context).toEqual(context);
     });
   });
 
@@ -649,9 +392,9 @@ describe("loadAgentFromString", () => {
       const agent = await loadAgentFromString(TEMPLATE_YAML, "yaml");
       // Loader converts systemPromptTemplate to a PromptTemplate stored in the unified systemPrompt field
       expect(agent.config?.systemPrompt).toBeDefined();
-      expect(typeof agent.config?.systemPrompt).not.toBe("string");
+      expect(typeof agent.config!.systemPrompt).not.toBe("string");
       const rendered = await (
-        agent.config?.systemPrompt as { render: () => Promise<string> }
+        agent.config!.systemPrompt as { render: () => Promise<string> }
       ).render();
       expect(rendered).toBe(
         "You are a senior engineer who writes TypeScript code.",
@@ -671,9 +414,9 @@ describe("loadAgentFromString", () => {
       });
       const agent = await loadAgentFromString(json, "json");
       // When template is present, systemPrompt should be the PromptTemplate (not the static string)
-      expect(typeof agent.config?.systemPrompt).not.toBe("string");
+      expect(typeof agent.config!.systemPrompt).not.toBe("string");
       const rendered = await (
-        agent.config?.systemPrompt as { render: () => Promise<string> }
+        agent.config!.systemPrompt as { render: () => Promise<string> }
       ).render();
       expect(rendered).toBe("Dynamic template prompt");
     });

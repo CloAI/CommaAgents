@@ -1,0 +1,83 @@
+---
+title: Projects
+description: Project membership, completed-response copies, archive search, and live attention through plugin commands.
+---
+
+# Projects
+
+Use the plugin request envelope for project commands. Project timestamps are ISO strings, and directories are absolute paths on the daemon machine. The catalog always includes General with `projectId: "general"`.
+
+```json
+{
+  "type": "command",
+  "requestId": "c4fc37ce-9fc9-47d1-9c83-02da9098eca0",
+  "command": "projects.list",
+  "arguments": {}
+}
+```
+
+## Commands
+
+| Command | Arguments | Result |
+|---|---|---|
+| `projects.list` | `{}` | `{ projects, chats }` |
+| `projects.create` | `requestId`, `name`, `cwd`, `mode`; optional `sourceProjectId`, `runIds`, `checkpoints` | `{ project, runIdMap }` |
+| `projects.assign` | `projectId`, `runId`; optional `title` | Conversation membership and attention |
+| `projects.activity` | `runId`; optional `title` | Updated membership and attention |
+| `projects.archive` | `runId`; optional `done` | Updated membership and attention |
+| `projects.restore` | `runId` | Updated membership and attention |
+| `projects.search` | `projectId`; optional `query`, `offset`, `limit` | `{ chats, total, nextOffset? }` |
+
+`mode` is `fresh`, `copy`, or `move`. Creating from General requires `move` and transfers all unarchived conversations, leaving archives in General. Other source projects use the selected `runIds`. Moves retain root identities; `runIdMap` maps each source ID to itself. Copies map source IDs to newly created root IDs.
+
+`projects.create.arguments.requestId` is a durable operation identity, separate from the request envelope's correlation ID. Retain it across reconnects to replay the same creation without duplicates. All selected copies succeed before the new project becomes visible; failed creation does not publish a partial project.
+
+`checkpoints` maps source run IDs to completed-response checkpoint IDs returned by `runs.getCopyCheckpoint`. Passing a reviewed checkpoint ensures the copied conversation matches what the user confirmed, even if the source keeps running. Sources without a completed checkpoint reject copying.
+
+## Catalog shape
+
+Projects contain `projectId`, `name`, `cwd`, and `createdAt`. Conversations contain `runId`, `projectId`, `title`, `lastActivityAt`, optional `doneAt` and `archivedAt`, and `attention`.
+
+```json
+{
+  "projects": [{
+    "projectId": "general",
+    "name": "General",
+    "cwd": "/home/user/project",
+    "createdAt": "2026-11-13T12:00:00.000Z"
+  }],
+  "chats": [{
+    "runId": "search-run",
+    "projectId": "general",
+    "title": "Implement search",
+    "lastActivityAt": "2026-11-13T12:10:00.000Z",
+    "attention": {
+      "running": true,
+      "question": false,
+      "permission": false,
+      "failed": false
+    }
+  }]
+}
+```
+
+Only root runs can be assigned. Attention includes pending input, questionnaires, and permission requests in descendant runs. `failed` reports the root execution's failure. Archival and completion do not change run phase.
+
+## Watch projects
+
+Subscribe to `projects.watch` with `{}`. It sends `projects.updated` with the full catalog initially and after changes. Replace local catalog data with each payload; it is not a patch. Unsubscribing or disconnecting releases observation resources.
+
+```json
+{
+  "type": "subscribe",
+  "requestId": "d4fc37ce-9fc9-47d1-9c83-02da9098eca1",
+  "channel": "projects.watch",
+  "arguments": {}
+}
+```
+
+## Archive behavior
+
+`projects.archive` refuses running or preparing conversations and unresolved user decisions. `done: true` also records explicit completion. `projects.restore` clears both markers and updates activity. Clients protect displayed conversations and apply inactivity rules; the daemon has no age-based archival policy.
+
+Search includes archived conversations in the requested project only. It matches case-insensitive titles and finalized visible text, excluding reasoning and tool payloads. Pagination defaults to `offset: 0`, `limit: 30`; the maximum limit is 100. Pass `nextOffset` as the next request's offset until it is absent.

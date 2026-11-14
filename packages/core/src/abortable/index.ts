@@ -1,7 +1,4 @@
-export {
-  createAbortableGenerator,
-  createAbortablePromise,
-} from "./abortable";
+export { createAbortableGenerator, createAbortablePromise } from "./abortable";
 
 export type {
   AbortableAsyncGenerator,

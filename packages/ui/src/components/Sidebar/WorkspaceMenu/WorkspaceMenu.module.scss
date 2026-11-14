@@ -1,0 +1,33 @@
+.menu {
+  inset: auto;
+  max-height: calc(100svh - 16px);
+  overflow: auto;
+  font-size: 0.8rem;
+  margin: 0;
+  min-width: 10rem;
+  max-width: calc(100vw - 16px);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.menu .menuItem:is(:hover, :focus-visible) {
+  background: var(--color-border);
+}

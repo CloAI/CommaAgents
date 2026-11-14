@@ -1,0 +1,60 @@
+---
+title: Runtime Services
+description: Provide access control, run identity, interaction, child strategies, MCP tools, and language intelligence.
+---
+
+# Runtime Services
+
+The second `createAgent` argument contains services supplied by the current execution environment. Keep these values separate from the authored model, prompt, tools, and generation settings in `AgentConfig`.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent(
+  {
+    name: "workspace-agent",
+    model: "openai/gpt-4o",
+    tools: ["lsp_request", "launch_strategy", "todo_add", "todo_get"],
+  },
+  {
+    sandbox,
+    runId: crypto.randomUUID(),
+    inputCollector,
+    questionsRequester,
+    launchStrategy,
+    languageService,
+  },
+);
+```
+
+Only provide services used by the selected tools.
+
+## AgentRuntime
+
+Runtime services accepted by `createAgent` and agent loaders.
+
+<AutoTypeTable path="../packages/core/src/agents/agent/agent.types.ts" name="AgentRuntime" />
+
+## Registered agent factories
+
+Custom declarative agent factories receive runtime services through `runtime`. Pass that object to the agent you return.
+
+```ts
+import { createAgent, defineAgentType } from "@comma-agents/core";
+import { z } from "zod";
+
+const workspaceAgentType = defineAgentType({
+  configSchema: z.object({ model: z.string() }).strict(),
+  create: ({ name, config, runtime }) =>
+    createAgent(
+      {
+        name,
+        model: config.model,
+        tools: ["lsp_request", "todo_add"],
+      },
+      runtime,
+    ),
+});
+```
+
+See [`registerAgent`](/docs/core/agents/register-agent#runtime-services) for the complete factory contract.

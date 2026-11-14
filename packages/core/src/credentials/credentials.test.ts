@@ -1,6 +1,6 @@
 // Tests for the credential store: JsonFileBackend + createCredentialStore.
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
   existsSync,
   mkdirSync,
@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { createJsonFileBackend } from "./backends/json-file";
+import { createJsonFileCredentialBackend } from "./backends/json-file";
 import { createCredentialStore } from "./credentials";
 import { WELL_KNOWN_ENV_VARS } from "./credentials.constants";
 import type { Credential } from "./credentials.schema";
@@ -21,7 +21,7 @@ import type {
 
 // Test helpers
 
-const TEST_DIR = join(import.meta.dir, "__test_credentials__");
+const TEST_DIR = join(import.meta.dirname, "__test_credentials__");
 const TEST_FILE = join(TEST_DIR, "credentials.json");
 
 function cleanup() {
@@ -42,7 +42,11 @@ const customCred: Credential = {
   data: { token: "abc", region: "us-east-1" },
 };
 
-/** In-memory backend for store tests (avoids filesystem coupling). */
+/**
+ * In-memory backend for store tests (avoids filesystem coupling).
+ * @param {CredentialStoreData} initial - Initial credential data copied into memory.
+ * @returns {CredentialBackend} A backend that copies data on reads and writes.
+ */
 function createMemoryBackend(
   initial: CredentialStoreData = {},
 ): CredentialBackend {
@@ -64,20 +68,20 @@ describe("JsonFileBackend", () => {
   afterEach(cleanup);
 
   test("readAll returns empty object when file does not exist", async () => {
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     expect(await backend.readAll()).toEqual({});
   });
 
   test("writeAll creates parent directories", async () => {
     const nested = join(TEST_DIR, "deep", "nested", "credentials.json");
-    const backend = createJsonFileBackend({ filePath: nested });
+    const backend = createJsonFileCredentialBackend({ filePath: nested });
     await backend.writeAll({ $global: { openai: apiKey } });
     expect(existsSync(nested)).toBe(true);
   });
 
   test("writeAll + readAll round-trips data", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
 
     const data: CredentialStoreData = {
       $global: { openai: apiKey, anthropic: oauthCred },
@@ -89,9 +93,11 @@ describe("JsonFileBackend", () => {
   });
 
   test("writeAll sets file permissions to 0o600 on Unix", async () => {
-    if (process.platform === "win32") return; // skip on Windows
+    if (process.platform === "win32") {
+      return;
+    } // skip on Windows
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     await backend.writeAll({ $global: { openai: apiKey } });
 
     const stats = statSync(TEST_FILE);
@@ -100,21 +106,25 @@ describe("JsonFileBackend", () => {
     expect(perms).toBe(0o600);
   });
 
-  test("readAll returns empty for empty file", async () => {
+  test("readAll rejects empty files", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
     writeFileSync(TEST_FILE, "", "utf-8");
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
-    expect(await backend.readAll()).toEqual({});
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
+    await expect(backend.readAll()).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+    });
   });
 
-  test("readAll returns empty for invalid JSON", async () => {
+  test("readAll rejects invalid JSON", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
     writeFileSync(TEST_FILE, "not-json{{{", "utf-8");
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
-    expect(await backend.readAll()).toEqual({});
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
+    await expect(backend.readAll()).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+    });
   });
 
-  test("readAll returns empty for valid JSON but invalid schema", async () => {
+  test("readAll rejects valid JSON with invalid credential schema", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
     // Valid JSON but wrong shape — credentials should have a type field
     writeFileSync(
@@ -122,13 +132,61 @@ describe("JsonFileBackend", () => {
       JSON.stringify({ $global: { openai: "just-a-string" } }),
       "utf-8",
     );
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
-    expect(await backend.readAll()).toEqual({});
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
+    await expect(backend.readAll()).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+    });
+  });
+
+  test("unreadable storage fails safely instead of returning empty data", async () => {
+    mkdirSync(TEST_FILE, { recursive: true });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
+    await expect(backend.readAll()).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+      message: "Unable to read credential storage.",
+    });
+  });
+
+  test.each(["", "not-json-secret-key", '{"$global":{"openai":"secret-key"}}'])(
+    "failed mutation preserves invalid storage: %s",
+    async (contents) => {
+      mkdirSync(TEST_DIR, { recursive: true });
+      writeFileSync(TEST_FILE, contents);
+      const store = createCredentialStore({
+        backend: createJsonFileCredentialBackend({ filePath: TEST_FILE }),
+        env: {},
+      });
+      await expect(
+        store.set("openai", "$global", apiKey),
+      ).rejects.toMatchObject({
+        code: "CREDENTIAL_STORAGE_ERROR",
+        message: "Unable to read credential storage.",
+      });
+      await expect(store.remove("openai", "$global")).rejects.toMatchObject({
+        code: "CREDENTIAL_STORAGE_ERROR",
+      });
+      expect(readFileSync(TEST_FILE, "utf8")).toBe(contents);
+    },
+  );
+
+  test("invalid writes preserve existing storage and do not expose credential data", async () => {
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
+    await backend.writeAll({ $global: { openai: apiKey } });
+    const previousContents = readFileSync(TEST_FILE, "utf8");
+    await expect(
+      backend.writeAll({
+        $global: { openai: { type: "secret-key" } },
+      } as unknown as CredentialStoreData),
+    ).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+      message: "Unable to write credential storage.",
+    });
+    expect(readFileSync(TEST_FILE, "utf8")).toBe(previousContents);
   });
 
   test("writeAll validates data before writing", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     // Pass invalid data — should throw
     await expect(
       backend.writeAll({
@@ -139,7 +197,7 @@ describe("JsonFileBackend", () => {
 
   test("writeAll produces readable JSON", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     await backend.writeAll({ $global: { openai: apiKey } });
 
     const raw = readFileSync(TEST_FILE, "utf-8");
@@ -150,7 +208,7 @@ describe("JsonFileBackend", () => {
 
   test("readAll handles all credential types", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const data: CredentialStoreData = {
       $global: {
         provider1: apiKey,
@@ -432,13 +490,13 @@ describe("getAuthStatus", () => {
   afterEach(cleanup);
 
   test("returns 'none' when no credential exists in any source", async () => {
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
     expect(await store.getAuthStatus("openai")).toBe("none");
   });
 
   test("returns 'configured' when env var is set", async () => {
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({
       backend,
       env: { OPENAI_API_KEY: "sk-env" },
@@ -447,14 +505,14 @@ describe("getAuthStatus", () => {
   });
 
   test("returns 'configured' when global-scope credential exists", async () => {
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
     await store.set("anthropic", "$global", { type: "api", key: "sk-a" });
     expect(await store.getAuthStatus("anthropic")).toBe("configured");
   });
 
   test("returns 'configured' when strategy-scoped credential exists", async () => {
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
     await store.set("openai", "my-strategy", { type: "api", key: "sk-s" });
     expect(await store.getAuthStatus("openai", "my-strategy")).toBe(
@@ -462,5 +520,125 @@ describe("getAuthStatus", () => {
     );
     // Without scope, still 'none' because strategy-scoped requires scope match.
     expect(await store.getAuthStatus("openai")).toBe("none");
+  });
+});
+
+describe("global credential source", () => {
+  test("reports effective source without exposing credentials and respects env overrides", async () => {
+    const environment: Record<string, string | undefined> = {
+      CUSTOM_KEY: "environment-secret",
+    };
+    const store = createCredentialStore({
+      backend: createMemoryBackend({
+        $global: { openai: apiKey },
+        strategy: { anthropic: oauthCred },
+      }),
+      env: environment,
+      envVarOverrides: { openai: ["CUSTOM_KEY"] },
+    });
+    expect(await store.getSource("openai")).toBe("environment");
+    expect(await store.getSource("anthropic")).toBe("none");
+    expect(await store.resolve("anthropic", "strategy")).toEqual(oauthCred);
+    environment.CUSTOM_KEY = "";
+    expect(await store.getSource("openai")).toBe("global");
+    await store.remove("openai", "$global");
+    expect(await store.getSource("openai")).toBe("none");
+  });
+
+  test("recognizes environment aliases", async () => {
+    const store = createCredentialStore({
+      backend: createMemoryBackend(),
+      env: { GOOGLE_API_KEY: "alias-key" },
+    });
+    expect(await store.getSource("google")).toBe("environment");
+  });
+});
+
+describe("credential mutation ordering", () => {
+  test("concurrent mutations retain unrelated credentials in invocation order", async () => {
+    const store = createCredentialStore({
+      backend: createMemoryBackend(),
+      env: {},
+    });
+    await Promise.all([
+      store.set("openai", "$global", apiKey),
+      store.set("anthropic", "$global", oauthCred),
+      store.remove("openai", "$global"),
+      store.set("groq", "strategy", apiKey),
+      store.set("openai", "$global", customCred),
+    ]);
+    expect(await store.get("openai", "$global")).toEqual(customCred);
+    expect(await store.get("anthropic", "$global")).toEqual(oauthCred);
+    expect(await store.get("groq", "strategy")).toEqual(apiKey);
+  });
+
+  test("failed writes are safe and do not poison subsequent queued mutations", async () => {
+    const memory = createMemoryBackend({ $global: { openai: apiKey } });
+    let failWrite = true;
+    const store = createCredentialStore({
+      backend: {
+        readAll: memory.readAll,
+        async writeAll(data) {
+          if (failWrite) {
+            failWrite = false;
+            throw new Error("secret-key-in-backend-error");
+          }
+          await memory.writeAll(data);
+        },
+      },
+      env: {},
+    });
+    const removal = store.remove("openai", "$global");
+    const save = store.set("anthropic", "$global", oauthCred);
+    await expect(removal).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+      message: "Unable to write credential storage.",
+    });
+    await save;
+    expect(await store.get("openai", "$global")).toEqual(apiKey);
+    expect(await store.get("anthropic", "$global")).toEqual(oauthCred);
+  });
+
+  test("failed reads cannot leak backend errors and the queue recovers", async () => {
+    const memory = createMemoryBackend();
+    let failRead = true;
+    const store = createCredentialStore({
+      backend: {
+        async readAll() {
+          if (failRead) {
+            failRead = false;
+            throw new Error("secret-key-in-read-error");
+          }
+          return memory.readAll();
+        },
+        writeAll: memory.writeAll,
+      },
+    });
+    const failure = store.set("openai", "$global", apiKey);
+    const success = store.set("anthropic", "$global", oauthCred);
+    await expect(failure).rejects.toMatchObject({
+      code: "CREDENTIAL_STORAGE_ERROR",
+      message: "Unable to read credential storage.",
+    });
+    await success;
+    expect(await store.get("anthropic", "$global")).toEqual(oauthCred);
+  });
+});
+
+describe("conditional credential replacement", () => {
+  test("should never restore credentials removed while a refresh was pending", async () => {
+    const store = createCredentialStore({
+      backend: createMemoryBackend(),
+      env: {},
+    });
+    await store.set("openai", "$global", apiKey);
+    const previous = await store.get("openai", "$global");
+    await store.remove("openai", "$global");
+    await expect(
+      store.set("openai", "$global", oauthCred, previous!),
+    ).rejects.toMatchObject({ code: "CREDENTIAL_CHANGED" });
+    expect(await store.get("openai", "$global")).toBeUndefined();
+    await store.set("openai", "$global", oauthCred, null);
+    expect(await store.get("openai", "$global")).toEqual(oauthCred);
   });
 });

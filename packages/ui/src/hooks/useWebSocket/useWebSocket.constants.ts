@@ -1,0 +1,3 @@
+export const CONNECTION_TIMEOUT_MS = 10_000;
+export const INITIAL_RECONNECT_DELAY_MS = 2_000;
+export const MAX_RECONNECT_DELAY_MS = 30_000;

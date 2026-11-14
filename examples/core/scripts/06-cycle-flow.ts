@@ -9,7 +9,7 @@
  * An optional observer agent can inspect each cycle's output.
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/06-cycle-flow.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/06-cycle-flow.ts
  *
  * Concepts:
  *   - createCycleFlow() for iterative agent loops

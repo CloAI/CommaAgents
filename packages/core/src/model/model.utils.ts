@@ -1,7 +1,6 @@
-import type {
-  AuthStatus,
-  CredentialStore,
-} from "../credentials/credentials.types";
+import type { PrivacyRequirements } from "./privacy/privacy.types";
+import { listProviderModelsSync } from "./providers/providers";
+import type { CredentialStore } from "../credentials/credentials.types";
 import { ModelResolutionError } from "../errors/index";
 import type { ParsedModel, ProviderInfo } from "./model.types";
 import {
@@ -10,9 +9,8 @@ import {
   getProviderPackageNameSync,
   getProvidersForModel,
   isKnownProviderSync,
-  listAllProviderModels,
+  listProviderDefinitions,
   listProviderModels,
-  resolveCredentialForProvider,
   toModelInfo,
 } from "./providers/index";
 import type { ModelCapabilities, ModelInfo } from "./providers/providers.types";
@@ -116,11 +114,15 @@ export function extractProviderIds(raw: Record<string, unknown>): Set<string> {
   const agents = raw.agents as
     | Record<string, Record<string, unknown>>
     | undefined;
-  if (!agents) return providerIds;
+  if (!agents) {
+    return providerIds;
+  }
 
   for (const agentDefinition of Object.values(agents)) {
     const model = agentDefinition.model;
-    if (typeof model !== "string") continue;
+    if (typeof model !== "string") {
+      continue;
+    }
     try {
       providerIds.add(parseModel(model).providerId);
     } catch {
@@ -134,53 +136,31 @@ export function extractProviderIds(raw: Record<string, unknown>): Set<string> {
 /**
  * Aggregate metadata for a single provider.
  *
- * Resolves the provider's models from the models.dev catalog (and,
- * when `live === true` and credentials are present, the provider's
- * live API). Auth status is a configuration-level check only.
+ * Models come from the models.dev catalog, the provider's last listing from
+ * `refreshProviderModels()`, and manual entries. Never makes a network request;
+ * auth status is a configuration-level check only.
  *
  * @param providerId - The provider ID to inspect.
  * @param credentialStore - The credential store used to check auth status.
- * @param options - `scope` for scoped credential resolution; `live` to enable live discovery.
  *
  * @example
  * ```ts
- * const info = await getProviderInfo("openai", credentialStore, { live: true });
- * // => { id: "openai", name: "OpenAI", authStatus: "configured", models: [...], modelsSource: "merged", isCustom: false }
+ * const info = await getProviderInfo("openai", credentialStore);
+ * // => { id: "openai", name: "OpenAI", authStatus: "configured", models: [...], origin: "builtin" }
  * ```
  */
 export async function getProviderInfo(
   providerId: string,
   credentialStore: CredentialStore,
-  options?: { readonly scope?: string; readonly live?: boolean },
 ): Promise<ProviderInfo> {
-  const authStatus: AuthStatus = await credentialStore.getAuthStatus(
-    providerId,
-    options?.scope,
-  );
-  const credential =
-    authStatus === "configured"
-      ? await resolveCredentialForProvider(
-          credentialStore,
-          providerId,
-          options?.scope,
-        )
-      : undefined;
-
   const definition = await getProviderDefinition(providerId);
-  const result = await listProviderModels(providerId, credential, {
-    live: options?.live ?? false,
-  });
-
   return {
     id: providerId,
     name: definition?.name ?? formatProviderName(providerId),
     credentialType: definition?.credentialType ?? "api",
-    authStatus,
-    models: result.models,
-    modelsSource: result.source,
-    ...(result.fetchedAt ? { fetchedAt: result.fetchedAt } : {}),
-    ...(result.error ? { error: result.error } : {}),
-    isCustom: definition?.isCustom === true,
+    authStatus: await credentialStore.getAuthStatus(providerId),
+    models: await listProviderModels(providerId),
+    origin: definition?.origin ?? "catalog",
   };
 }
 
@@ -189,48 +169,26 @@ export async function getProviderInfo(
  *
  * Returns every provider derived from the models.dev catalog, plus any
  * built-in overrides (Ollama, DeepSeek) and user-registered custom
- * providers. Auth status is a configuration-level check (env var /
- * credential store presence) and never performs network calls unless
- * `live === true` is passed.
+ * providers. Never makes a network request; call `refreshProviderModels()`
+ * to update provider-listed models.
  *
  * @param credentialStore - The credential store used to check auth status.
- * @param options - `scope` for scoped credential resolution; `live` to enable live model discovery.
  *
  * @example
  * ```ts
- * const providers = await listProviders(credentialStore, { live: true });
+ * await refreshProviderModels(credentialStore);
+ * const providers = await listProviders(credentialStore);
  * for (const provider of providers) {
- *   console.log(`${provider.name}: ${provider.authStatus} (${provider.models.length} models, ${provider.modelsSource})`);
+ *   console.log(`${provider.name}: ${provider.authStatus} (${provider.models.length} models)`);
  * }
  * ```
  */
 export async function listProviders(
   credentialStore: CredentialStore,
-  options?: { readonly scope?: string; readonly live?: boolean },
 ): Promise<readonly ProviderInfo[]> {
-  const entries = await listAllProviderModels(credentialStore, {
-    live: options?.live ?? false,
-    ...(options?.scope ? { scope: options.scope } : {}),
-  });
-
-  return await Promise.all(
-    entries.map(async ({ definition, result }): Promise<ProviderInfo> => {
-      const authStatus: AuthStatus = await credentialStore.getAuthStatus(
-        definition.id,
-        options?.scope,
-      );
-      return {
-        id: definition.id,
-        name: definition.name,
-        credentialType: definition.credentialType ?? "api",
-        authStatus,
-        models: result.models,
-        modelsSource: result.source,
-        ...(result.fetchedAt ? { fetchedAt: result.fetchedAt } : {}),
-        ...(result.error ? { error: result.error } : {}),
-        isCustom: definition.isCustom === true,
-      };
-    }),
+  const definitions = await listProviderDefinitions();
+  return Promise.all(
+    definitions.map(({ id }) => getProviderInfo(id, credentialStore)),
   );
 }
 
@@ -245,28 +203,30 @@ export async function listProviders(
  * @example
  * ```ts
  * const info = getModelMetadata("gpt-4o");
- * console.log(info?.capabilities?.reasoning); // true
- * console.log(info?.contextWindow);           // 128000
+ * console.log(info?.metadata.capabilities?.reasoning); // true
+ * console.log(info?.metadata.contextWindow);           // 128000
  * ```
  */
 export function getModelMetadata(modelId: string): ModelInfo | undefined {
   const providerIds = getProvidersForModel(modelId);
   for (const providerId of providerIds) {
     const provider = getCatalogProviderSync(providerId);
-    if (!provider?.models[modelId]) continue;
+    if (!provider?.models[modelId]) {
+      continue;
+    }
     return toModelInfo(provider.models[modelId]);
   }
   return undefined;
 }
 
 /**
- * Look up normalized metadata for a provider-qualified model string.
+ * Look up merged catalog, provider-listed, and manual metadata for a provider-qualified model string.
  *
  * @param model - Model identifier in "providerID/modelID" format.
  * @example
  * ```ts
  * const info = getQualifiedModelMetadata("openai/gpt-4o");
- * console.log(info?.contextWindow);
+ * console.log(info?.metadata.contextWindow);
  * ```
  */
 export function getQualifiedModelMetadata(
@@ -274,9 +234,9 @@ export function getQualifiedModelMetadata(
 ): ModelInfo | undefined {
   try {
     const { providerId, modelId } = parseModel(model);
-    const provider = getCatalogProviderSync(providerId);
-    const catalogModel = provider?.models[modelId];
-    return catalogModel ? toModelInfo(catalogModel) : undefined;
+    return listProviderModelsSync(providerId).find(
+      (model) => model.id === modelId,
+    );
   } catch {
     return undefined;
   }
@@ -303,7 +263,7 @@ export function getQualifiedModelMetadata(
 export function getModelCapabilities(
   modelId: string,
 ): ModelCapabilities | undefined {
-  return getModelMetadata(modelId)?.capabilities;
+  return getModelMetadata(modelId)?.metadata.capabilities;
 }
 
 /**
@@ -320,4 +280,26 @@ export function formatProviderName(providerId: string): string {
       token.length === 0 ? token : token[0]?.toUpperCase() + token.slice(1),
     )
     .join(" ");
+}
+
+/**
+ * Derive required protections from the model’s advertised capabilities.
+ * @param {string} model - Provider-qualified model identity.
+ * @returns {PrivacyRequirements | undefined} Advertised requirements, including TEE for E2EE.
+ * @internal
+ */
+export function getModelPrivacyRequirements(
+  model: string,
+): PrivacyRequirements | undefined {
+  if (model.startsWith("tinfoil/")) {
+    return { tee: "required", e2ee: "required" };
+  }
+  const capabilities = getQualifiedModelMetadata(model)?.metadata.capabilities;
+  if (capabilities?.e2ee === true) {
+    return { tee: "required", e2ee: "required" };
+  }
+  if (capabilities?.teeAttestation === true) {
+    return { tee: "required" };
+  }
+  return undefined;
 }

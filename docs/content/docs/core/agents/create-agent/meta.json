@@ -1,0 +1,14 @@
+{
+  "title": "createAgent",
+  "pages": [
+    "generation-options",
+    "structured-output",
+    "conversation-context",
+    "mcp",
+    "skills",
+    "sandbox",
+    "runtime-services",
+    "custom-execution",
+    "calls-and-results"
+  ]
+}

@@ -12,6 +12,9 @@
 
 /** Input to a {@link LaunchStrategyHandle}. */
 export interface LaunchStrategyRequest {
+  /** Parent message and tool invocation that launched the child. */
+  readonly messageId?: string;
+  readonly toolCallId?: string;
   /** Absolute path to the strategy file. */
   readonly strategyPath: string;
   /**
@@ -23,10 +26,10 @@ export interface LaunchStrategyRequest {
   /** Initial message passed to the strategy's entry flow. */
   readonly input: string;
   /**
-   * Provider/model override applied to all LLM agents in the
-   * sub-strategy. Format: `"providerID/modelID"`.
+   * Refuse the launch when the parent is already this many levels below the root run.
+   * Omitted means no limit.
    */
-  readonly modelOverride?: string;
+  readonly maxDepth?: number;
 }
 
 /** Output of a successful sub-strategy run. */

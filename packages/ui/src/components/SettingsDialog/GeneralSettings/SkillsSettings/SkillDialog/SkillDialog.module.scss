@@ -1,0 +1,15 @@
+.dialog {
+  max-width: 56rem;
+}
+.text {
+  margin: 0;
+  padding: var(--space-2);
+  max-height: min(60dvh, 32rem);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: var(--font-size-small);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) var(--color-surface);
+}

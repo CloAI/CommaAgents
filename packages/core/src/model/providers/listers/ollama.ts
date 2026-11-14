@@ -51,11 +51,14 @@ export const listOllamaModels: ListModelsFn = async (
     const id = entry.model ?? entry.name;
     return {
       id,
-      name: entry.name,
-      ...(entry.details?.family ? { family: entry.details.family } : {}),
-      ...(entry.modified_at
-        ? { lastUpdated: entry.modified_at.slice(0, 10) }
-        : {}),
+      sources: ["provider"],
+      metadata: {
+        name: entry.name,
+        ...(entry.details?.family ? { family: entry.details.family } : {}),
+        ...(entry.modified_at
+          ? { lastUpdated: entry.modified_at.slice(0, 10) }
+          : {}),
+      },
     };
   });
 };

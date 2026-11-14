@@ -24,7 +24,7 @@ const createFileParams = z.object({
     .min(1)
     .describe(
       "Workspace-relative path of the file to create. Absolute paths are rejected unless " +
-        "the sandbox is configured with `allowAbsolutePaths: true`.",
+        "the sandbox is configured with `absolutePaths: 'allow'`.",
     ),
   content: z
     .string()
@@ -173,7 +173,9 @@ After every successful \`create_file\` call, **run the project's configured veri
         );
       } catch (statError) {
         const code = (statError as NodeJS.ErrnoException).code;
-        if (code !== "ENOENT" && code !== "ENOTDIR") throw statError;
+        if (code !== "ENOENT" && code !== "ENOTDIR") {
+          throw statError;
+        }
       }
 
       const parent = dirname(absolutePath);
@@ -190,7 +192,9 @@ After every successful \`create_file\` call, **run the project's configured veri
         }
       } catch (statError) {
         const code = (statError as NodeJS.ErrnoException).code;
-        if (code !== "ENOENT") throw statError;
+        if (code !== "ENOENT") {
+          throw statError;
+        }
         if (!validatedArguments.createParentDirectories) {
           return errorResult<CreateFileData>(
             toolError(

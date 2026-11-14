@@ -1,6 +1,6 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`TUI shell-use E2E: tool and context info should open tool and context usage modals 1`] = `
+exports[`TUI shell-use E2E: tool and context info > should open tool and context usage modals 1`] = `
 "snapshot: tool-info-chat
  Chat Logs
  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ exports[`TUI shell-use E2E: tool and context info should open tool and context u
  [Done] Tool Info Strategy  [MCP 0/0]"
 `;
 
-exports[`TUI shell-use E2E: tool and context info should open tool and context usage modals 2`] = `
+exports[`TUI shell-use E2E: tool and context info > should open tool and context usage modals 2`] = `
 "snapshot: tool-info-output-modal
  Chat Logs
  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ exports[`TUI shell-use E2E: tool and context info should open tool and context u
  [Done] Tool Info Strategy  [MCP 0/0]"
 `;
 
-exports[`TUI shell-use E2E: tool and context info should open tool and context usage modals 3`] = `
+exports[`TUI shell-use E2E: tool and context info > should open tool and context usage modals 3`] = `
 "snapshot: tool-info-context-modal
  Chat Logs
  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

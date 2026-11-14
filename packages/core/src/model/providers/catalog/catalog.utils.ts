@@ -1,5 +1,3 @@
-import { join } from "node:path";
-import { resolveDataDir } from "../../../data-directory";
 import type {
   Modality,
   ModelCapabilities,
@@ -27,7 +25,9 @@ const KNOWN_STATUSES: ReadonlySet<ModelStatus> = new Set([
 function filterModalities(
   raw: readonly string[] | undefined,
 ): readonly Modality[] | undefined {
-  if (!raw || raw.length === 0) return undefined;
+  if (!raw || raw.length === 0) {
+    return undefined;
+  }
   const filtered = raw.filter((modality): modality is Modality =>
     KNOWN_MODALITIES.has(modality as Modality),
   );
@@ -36,7 +36,9 @@ function filterModalities(
 
 /** Convert models.dev status strings to our ModelStatus enum, dropping unknown values. */
 function normalizeStatus(raw: string | undefined): ModelStatus | undefined {
-  if (!raw) return undefined;
+  if (!raw) {
+    return undefined;
+  }
   return KNOWN_STATUSES.has(raw as ModelStatus)
     ? (raw as ModelStatus)
     : undefined;
@@ -86,37 +88,32 @@ export function toModelInfo(catalogModel: CatalogModel): ModelInfo {
 
   return {
     id: catalogModel.id,
-    name: catalogModel.name,
-    ...(catalogModel.family ? { family: catalogModel.family } : {}),
-    ...(catalogModel.limit?.context !== undefined
-      ? { contextWindow: catalogModel.limit.context }
-      : {}),
-    ...(catalogModel.limit?.input !== undefined
-      ? { maxInputTokens: catalogModel.limit.input }
-      : {}),
-    ...(catalogModel.limit?.output !== undefined
-      ? { maxOutputTokens: catalogModel.limit.output }
-      : {}),
-    ...(catalogModel.knowledge
-      ? { knowledgeCutoff: catalogModel.knowledge }
-      : {}),
-    ...(catalogModel.release_date
-      ? { releaseDate: catalogModel.release_date }
-      : {}),
-    ...(catalogModel.last_updated
-      ? { lastUpdated: catalogModel.last_updated }
-      : {}),
-    ...(status ? { status } : {}),
-    ...(modalities ? { modalities } : {}),
-    capabilities,
-    ...(cost ? { cost } : {}),
+    sources: ["models.dev"],
+    metadata: {
+      name: catalogModel.name,
+      ...(catalogModel.family ? { family: catalogModel.family } : {}),
+      ...(catalogModel.limit?.context !== undefined
+        ? { contextWindow: catalogModel.limit.context }
+        : {}),
+      ...(catalogModel.limit?.input !== undefined
+        ? { maxInputTokens: catalogModel.limit.input }
+        : {}),
+      ...(catalogModel.limit?.output !== undefined
+        ? { maxOutputTokens: catalogModel.limit.output }
+        : {}),
+      ...(catalogModel.knowledge
+        ? { knowledgeCutoff: catalogModel.knowledge }
+        : {}),
+      ...(catalogModel.release_date
+        ? { releaseDate: catalogModel.release_date }
+        : {}),
+      ...(catalogModel.last_updated
+        ? { lastUpdated: catalogModel.last_updated }
+        : {}),
+      ...(status ? { status } : {}),
+      ...(modalities ? { modalities } : {}),
+      capabilities,
+      ...(cost ? { cost } : {}),
+    },
   };
-}
-
-/** Filename used for the on-disk catalog snapshot. */
-export const CATALOG_CACHE_FILENAME = "models-catalog.json";
-
-/** Resolve the model catalog cache inside the shared user data directory. */
-export function resolveCatalogCachePath(): string {
-  return join(resolveDataDir(), "cache", CATALOG_CACHE_FILENAME);
 }

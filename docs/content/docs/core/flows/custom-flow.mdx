@@ -1,8 +1,11 @@
 ---
 title: createFlow
-description: Custom flow with a user-provided executor function for bespoke orchestration.
+description: Create a one-off custom flow with inline orchestration logic.
 ---
-`createFlow` creates a flow with a custom executor function. Use it when the built-in sequential, cycle, and broadcast patterns don't fit your orchestration needs — for example, conditional branching, dynamic step selection, or partial execution.
+
+# createFlow
+
+`createFlow` creates a flow from a name, a set of steps, and an executor function. Use it for one-off branching or dynamic step selection when the built-in sequential, cycle, and broadcast patterns do not fit.
 
 ```ts
 import { createAgent, createFlow } from "@comma-agents/core";
@@ -10,19 +13,17 @@ import { createAgent, createFlow } from "@comma-agents/core";
 const classifier = createAgent({
   name: "classifier",
   model: "openai/gpt-4o",
-  systemPrompt: "Classify the input as 'technical' or 'creative'. Reply with only the category.",
+  systemPrompt: "Reply with either technical or creative.",
 });
-
 const technicalWriter = createAgent({
   name: "technical-writer",
   model: "openai/gpt-4o",
-  systemPrompt: "Write a detailed technical explanation.",
+  systemPrompt: "Write a technical explanation.",
 });
-
 const creativeWriter = createAgent({
   name: "creative-writer",
   model: "openai/gpt-4o",
-  systemPrompt: "Write a creative, engaging piece.",
+  systemPrompt: "Write an engaging story.",
 });
 
 const flow = createFlow({
@@ -30,113 +31,83 @@ const flow = createFlow({
   steps: [classifier, technicalWriter, creativeWriter],
   execute: async (steps, message, flowContext) => {
     const classification = await flowContext.runStep(steps[0]!, message);
-
-    if (classification.text.includes("technical")) {
-      const result = await flowContext.runStep(steps[1]!, message);
-      return result.text;
-    } else {
-      const result = await flowContext.runStep(steps[2]!, message);
-      return result.text;
-    }
+    const writer = classification.text.includes("technical")
+      ? steps[1]!
+      : steps[2]!;
+    const result = await flowContext.runStep(writer, message);
+    return result.text;
   },
 });
 
-const result = await flow.call("Explain monads");
+const result = await flow.call("Explain monads.");
 console.log(result.text);
 ```
 
 ## CustomFlowConfig
 
+The name, available steps, and executor passed to `createFlow`.
+
 <AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="CustomFlowConfig" />
 
 ## FlowExecutor
 
-The `execute` function receives the step list, the input message, and a context object. Call `flowContext.runStep()` to execute steps — this tracks results for aggregation into the `FlowResult` and fires `beforeStep`/`afterStep` hooks.
+The function that selects and runs steps and returns the flow's final text.
 
 <AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="FlowExecutor" />
 
-The executor must return the final output text as a string. The context also exposes `flowContext.results` for inspecting collected step results mid-flow.
-
-## buildFlowAgent
-
-`buildFlowAgent` builds a flow from a config, typed name, and executor function. Use it to create reusable flow factories with custom orchestration logic:
+Call `flowContext.runStep()` instead of calling a step directly. Results produced through `runStep()` are included in `FlowResult.stepResults`, contribute to aggregate usage, and participate in step hooks.
 
 ```ts
-import { createAgent, buildFlowAgent } from "@comma-agents/core";
-import type { FlowHooks } from "@comma-agents/core";
-
-function createMyCustomFlow(config) {
-  return buildFlowAgent(
-    config,
-    "my-custom",
-    {},
-    async (steps, message, flowContext) => {
-      // your orchestration logic
-      let output = message;
-      for (const step of steps) {
-        const result = await flowContext.runStep(step, output);
-        output = result.text;
-      }
-      return output;
-    },
-  );
-}
+const firstUsefulAnswer = createFlow({
+  name: "first-useful-answer",
+  steps: [classifier, technicalWriter, creativeWriter],
+  execute: async (steps, message, flowContext) => {
+    for (const step of steps) {
+      const result = await flowContext.runStep(step, message);
+      if (result.text.trim().length > 0) return result.text;
+    }
+    return "No answer was produced.";
+  },
+});
 ```
 
-## Declarative Custom Flow Types
+## FlowContext
 
-Use `defineFlowType` and `registerFlow` when JSON or YAML strategies need to reference a reusable custom implementation by name. The configuration schema validates the flow's `config` object before the factory runs.
+The step runner and collected results available while the executor is running.
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="FlowContext" />
 
 ```ts
-import {
-  createFlow,
-  defineFlowType,
-  registerFlow,
-} from "@comma-agents/core";
-import { z } from "zod";
+const flow = createFlow({
+  name: "inspect-progress",
+  steps: [technicalWriter, classifier],
+  execute: async (steps, message, flowContext) => {
+    const draft = await flowContext.runStep(steps[0]!, message);
+    console.log(`Completed results: ${flowContext.results.length}`);
+    const review = await flowContext.runStep(steps[1]!, draft.text);
+    return review.text;
+  },
+});
+```
 
-registerFlow(
-  "first-match",
-  defineFlowType({
-    configSchema: z.object({ marker: z.string() }).strict(),
-    create: ({ name, steps, config }) =>
-      createFlow({
-        name,
-        steps,
-        execute: async (availableSteps, message, flowContext) => {
-          for (const step of availableSteps) {
-            const result = await flowContext.runStep(step, message);
-            if (result.text.includes(config.marker)) return result.text;
-          }
-          return message;
-        },
-      }),
-  }),
+## Reusable and declarative flows
+
+Use [`buildFlowAgent`](/docs/core/flows/build-flow-agent) when you are implementing a reusable TypeScript flow factory. Use [`defineFlowType`](/docs/core/flows/define-flow-type) and [`registerFlow`](/docs/core/flows/register-flow) when JSON or YAML definitions need to select that implementation by `type`.
+
+```ts
+import { buildFlowAgent } from "@comma-agents/core";
+
+const reusable = buildFlowAgent(
+  { name: "pipeline", steps: [technicalWriter, creativeWriter] },
+  "pipeline",
+  {},
+  async (steps, message, flowContext) => {
+    let currentMessage = message;
+    for (const step of steps) {
+      const result = await flowContext.runStep(step, currentMessage);
+      currentMessage = result.text;
+    }
+    return currentMessage;
+  },
 );
 ```
-
-After registration, strategy and standalone flow files can use the registered name as `type`:
-
-```yaml
-name: Routed Review
-type: first-match
-steps:
-  - agent: reviewer-a
-  - agent: reviewer-b
-config:
-  marker: APPROVED
-```
-
-Keep implementation-specific fields inside `config`. Common fields remain `name`, `type`, `description`, and `steps`. An unknown flow type or invalid configuration fails when the flow is loaded.
-
-## FlowTypeDefinition
-
-The schema and factory used to register a declarative custom flow type.
-
-<AutoTypeTable path="../packages/core/src/flows/registry/flow-registry.types.ts" name="FlowTypeDefinition" />
-
-## FlowTypeContext
-
-The resolved steps, validated configuration, and agent resolver passed to the custom factory.
-
-<AutoTypeTable path="../packages/core/src/flows/registry/flow-registry.types.ts" name="FlowTypeContext" />

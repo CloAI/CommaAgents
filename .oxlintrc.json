@@ -1,0 +1,61 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["import", "react", "typescript", "jsdoc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "curly": ["error", "all"],
+    "import/no-default-export": "error",
+    "jsdoc/require-param": "error",
+    "jsdoc/require-param-description": "error",
+    "jsdoc/require-param-name": "error",
+    "jsdoc/require-param-type": "error",
+    "jsdoc/require-property": "error",
+    "jsdoc/require-property-description": "error",
+    "jsdoc/require-property-name": "error",
+    "jsdoc/require-property-type": "error",
+    "jsdoc/require-returns": [
+      "error",
+      {
+        "forceRequireReturn": true,
+        "forceReturnsWithAsync": true
+      }
+    ],
+    "jsdoc/require-returns-description": "error",
+    "jsdoc/require-returns-type": "error",
+    "no-const-assign": "error",
+    "prefer-const": "error",
+    "prefer-template": "warn",
+    "react/exhaustive-deps": "warn",
+    "react/rules-of-hooks": "error"
+  },
+  "ignorePatterns": [
+    "**/node_modules",
+    "**/dist",
+    "**/.next",
+    "**/.source",
+    "**/build",
+    "**/coverage",
+    "packages/tui-storybook/storybook-static/**"
+  ],
+  "env": {
+    "builtin": true
+  },
+  "overrides": [
+    {
+      "files": [
+        "packages/*/docs/**/*.{ts,tsx}",
+        "docs/**/*.{ts,tsx}",
+        "packages/*/docs/**",
+        "docs/**",
+        "packages/**/*.stories.tsx",
+        "packages/tui-storybook/**/*.{ts,tsx}",
+        "packages/**/vite.config.ts"
+      ],
+      "rules": {
+        "import/no-default-export": "off"
+      }
+    }
+  ]
+}

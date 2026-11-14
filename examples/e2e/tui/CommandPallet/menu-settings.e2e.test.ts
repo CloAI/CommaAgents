@@ -1,4 +1,5 @@
-import { expect } from "bun:test";
+import { readFile } from "node:fs/promises";
+import { expect } from "vitest";
 import { join } from "node:path";
 
 import { createSimpleSuccessScenario, startMockDaemon } from "../mock-daemon";
@@ -62,7 +63,7 @@ describeTuiE2e("TUI shell-use E2E: menu settings", () => {
           "tui-config.json",
         );
         await waitForFile(configFilePath);
-        const config = JSON.parse(await Bun.file(configFilePath).text()) as {
+        const config = JSON.parse(await readFile(configFilePath, "utf8")) as {
           readonly themeName?: string;
         };
         expect(config.themeName).toBe("light");

@@ -2,8 +2,7 @@
  * useTerminalSize — returns the current terminal dimensions and updates on resize.
  */
 
-import { useStdout } from "ink";
-import { useEffect, useState } from "react";
+import { useWindowSize } from "ink";
 
 export interface TerminalSize {
   columns: number;
@@ -11,26 +10,5 @@ export interface TerminalSize {
 }
 
 export function useTerminalSize(): TerminalSize {
-  const { stdout } = useStdout();
-
-  const [size, setSize] = useState<TerminalSize>({
-    columns: stdout.columns ?? 80,
-    rows: stdout.rows ?? 24,
-  });
-
-  useEffect(() => {
-    const onResize = () => {
-      setSize({
-        columns: stdout.columns ?? 80,
-        rows: stdout.rows ?? 24,
-      });
-    };
-
-    stdout.on("resize", onResize);
-    return () => {
-      stdout.off("resize", onResize);
-    };
-  }, [stdout]);
-
-  return size;
+  return useWindowSize();
 }

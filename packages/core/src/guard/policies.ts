@@ -1,7 +1,6 @@
+import { compileGlob } from "../glob/glob";
 import type { PathPolicy } from "../sandbox/sandbox.types";
 import type { AccessRequest, Policy, PolicyDecision } from "./guard.types";
-
-// ── Glob matching helpers ────────────────────────────────────────────────
 
 function matchesAny(
   absolutePath: string,
@@ -16,7 +15,9 @@ function matchesAny(
   const relative =
     absolutePath === cwd ? "." : absolutePath.slice(cwdWithSep.length);
   for (const pattern of patterns) {
-    if (new Bun.Glob(pattern).match(relative)) return true;
+    if (compileGlob(pattern)(relative)) {
+      return true;
+    }
   }
   return false;
 }
@@ -50,8 +51,6 @@ function decide(
   return "pass";
 }
 
-// ── Domain helpers ────────────────────────────────────────────────────────
-
 function isReadAccess(type: string): boolean {
   return type === "fs.read";
 }
@@ -68,8 +67,6 @@ function isFsAccess(type: string): boolean {
   return isReadAccess(type) || isWriteAccess(type);
 }
 
-// ── Built-in policy factories ─────────────────────────────────────────────
-
 /**
  * Unconditionally deny paths matching secret/sensitive glob patterns.
  * Runs before read/write policies; cannot be overridden.
@@ -80,8 +77,11 @@ export function forbiddenGlobsPolicy(
 ): Policy {
   return {
     name: "forbidden-globs",
+    priority: "mandatory",
     evaluate: (req: AccessRequest): PolicyDecision => {
-      if (!isFsAccess(req.type)) return "pass";
+      if (!isFsAccess(req.type)) {
+        return "pass";
+      }
       return matchesAny(req.resource, globs, cwd) ? "deny" : "pass";
     },
   };
@@ -98,9 +98,14 @@ export function pathPolicy(
 ): Policy {
   return {
     name: `${mode}-path-policy`,
+    priority: "default",
     evaluate: (req: AccessRequest): PolicyDecision => {
-      if (mode === "read" && !isReadAccess(req.type)) return "pass";
-      if (mode === "write" && !isWriteAccess(req.type)) return "pass";
+      if (mode === "read" && !isReadAccess(req.type)) {
+        return "pass";
+      }
+      if (mode === "write" && !isWriteAccess(req.type)) {
+        return "pass";
+      }
       return decide(req.resource, config ?? { default: "allow" }, cwd);
     },
   };
@@ -115,11 +120,16 @@ export function denyCommandsPolicy(
 ): Policy {
   return {
     name: "deny-commands",
+    priority: "mandatory",
     evaluate: (req: AccessRequest): PolicyDecision => {
-      if (!isCommandAccess(req.type)) return "pass";
+      if (!isCommandAccess(req.type)) {
+        return "pass";
+      }
       for (const pattern of patterns) {
         try {
-          if (new RegExp(pattern).test(req.resource)) return "deny";
+          if (new RegExp(pattern).test(req.resource)) {
+            return "deny";
+          }
         } catch {
           // invalid regex → skip
         }
@@ -138,11 +148,16 @@ export function approveCommandsPolicy(
 ): Policy {
   return {
     name: "approve-commands",
+    priority: "tool",
     evaluate: (req: AccessRequest): PolicyDecision => {
-      if (!isCommandAccess(req.type)) return "pass";
+      if (!isCommandAccess(req.type)) {
+        return "pass";
+      }
       for (const pattern of patterns) {
         try {
-          if (new RegExp(pattern).test(req.resource)) return "ask";
+          if (new RegExp(pattern).test(req.resource)) {
+            return "ask";
+          }
         } catch {
           // invalid regex → skip
         }

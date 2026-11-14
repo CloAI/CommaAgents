@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Text } from "ink";
 import { render } from "ink-testing-library";
 import React, { act as reactAct } from "react";
@@ -10,47 +10,59 @@ import type { ChatRunLifecycle } from "./useChatRunLifecycle";
 let subscriptionHandlers: Record<string, (message: unknown) => void> = {};
 
 /** Mock for useDaemonCommand — returns a mock sender per command type. */
-const mockPrepareRunCommand = mock<
+const mockPrepareRunCommand = vi.fn<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-1");
-const mockStartRunCommand = mock<
+const mockStartRunCommand = vi.fn<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-start");
-const mockContinueRunCommand = mock<
+const mockContinueRunCommand = vi.fn<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-continue");
-const mockSendUserInputCommand = mock<
+const mockSendUserInputCommand = vi.fn<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-2");
-const mockStopRunCommand = mock<
+const mockStopRunCommand = vi.fn<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-3");
-const mockListRunsCommand = mock<
+const mockListRunsCommand = vi.fn<
   (payload: Record<string, unknown>) => string | null
 >(() => "req-list");
 
-mock.module("../useDaemon/useDaemon", () => ({
+vi.doMock("../useDaemon/useDaemon", () => ({
   useDaemon: () => ({
     status: "connected",
-    send: mock(() => true),
-    on: mock(() => () => {}),
-    off: mock(() => {}),
+    send: vi.fn(() => true),
+    on: vi.fn(() => () => {}),
+    off: vi.fn(() => {}),
   }),
 }));
 
-mock.module("../useDaemon/useDaemonCommand/useDaemonCommand", () => ({
+vi.doMock("../useDaemon/useDaemonCommand/useDaemonCommand", () => ({
   useDaemonCommand: (type: string) => {
-    if (type === "prepare_run") return mockPrepareRunCommand;
-    if (type === "start_run") return mockStartRunCommand;
-    if (type === "continue_run") return mockContinueRunCommand;
-    if (type === "user_input") return mockSendUserInputCommand;
-    if (type === "stop_run") return mockStopRunCommand;
-    if (type === "list_runs") return mockListRunsCommand;
-    return mock(() => null);
+    if (type === "prepare_run") {
+      return mockPrepareRunCommand;
+    }
+    if (type === "start_run") {
+      return mockStartRunCommand;
+    }
+    if (type === "continue_run") {
+      return mockContinueRunCommand;
+    }
+    if (type === "user_input") {
+      return mockSendUserInputCommand;
+    }
+    if (type === "stop_run") {
+      return mockStopRunCommand;
+    }
+    if (type === "list_runs") {
+      return mockListRunsCommand;
+    }
+    return vi.fn(() => null);
   },
 }));
 
-mock.module("../useDaemon/useDaemonSubscription/useDaemonSubscription", () => ({
+vi.doMock("../useDaemon/useDaemonSubscription/useDaemonSubscription", () => ({
   useDaemonSubscription: (
     type: string,
     callback: (message: unknown) => void,
@@ -677,7 +689,7 @@ describe("useChat", () => {
         inputTokens: 750,
         outputTokens: 50,
       });
-      expect(agentMessages[0]?.completedAt).toBeNumber();
+      expect(agentMessages[0]?.completedAt).toBeTypeOf("number");
 
       cleanup();
     });

@@ -54,6 +54,7 @@ export {
 } from "./tool.registry";
 
 export type {
+  FileSearchIssue,
   ToolContext,
   ToolDefinition as ToolDef,
   ToolError,

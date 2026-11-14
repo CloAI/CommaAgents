@@ -1,6 +1,6 @@
 import type { Guard } from "../guard/guard.types";
 import { createSandbox } from "../sandbox/sandbox";
-import { PERMISSIVE_SANDBOX_CONFIG } from "../sandbox/sandbox.constants";
+import { PERMISSIVE_SANDBOX_OPTIONS } from "../sandbox/sandbox.constants";
 import type { Sandbox } from "../sandbox/sandbox.types";
 import type { ToolContext } from "./tool.types";
 
@@ -15,7 +15,7 @@ export function makeToolContext(
     sandbox?: Sandbox;
   },
 ): ToolContext {
-  const defaultSandbox = createSandbox(PERMISSIVE_SANDBOX_CONFIG);
+  const defaultSandbox = createSandbox(PERMISSIVE_SANDBOX_OPTIONS);
   let guard: Guard;
 
   if (overrides?.guard) {

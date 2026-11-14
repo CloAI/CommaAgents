@@ -19,7 +19,9 @@ export function applyRollingWindow(
   const maxRecords = Math.max(0, options.maxRecords);
   const active = activeRecords(records);
   const overflow = active.length - maxRecords;
-  if (overflow <= 0) return records;
+  if (overflow <= 0) {
+    return records;
+  }
 
   const supersededIds = new Set(
     active.slice(0, overflow).map((record) => record.id),

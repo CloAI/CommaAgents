@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import type { LanguageService } from "../../../language";
 import { makeToolContext } from "../../test.utils";
 import { createLspRequestTool } from "./lsp-request";

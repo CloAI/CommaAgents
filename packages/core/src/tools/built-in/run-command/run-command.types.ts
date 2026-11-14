@@ -1,5 +1,3 @@
-import type { PermissionRequester } from "../../../sandbox/sandbox.types";
-
 /**
  * Snapshot of the host platform captured when the tool factory is
  * created. Surfaced in the tool description so the model knows which
@@ -18,7 +16,7 @@ export interface PlatformInfo {
   readonly shellPath: string;
   /** Argv element used to invoke the shell with a command string. */
   readonly shellFlag: string;
-  /** Runtime identifier: `"bun"` or `"node"` plus version. */
+  /** Runtime identifier: `"node"` plus version. */
   readonly runtime: string;
 }
 
@@ -36,8 +34,8 @@ export interface RunCommandToolConfig {
    */
   readonly denyPatterns?: readonly RegExp[];
   /**
-   * Regex patterns that route commands through the sandbox
-   * PermissionRequester with operation `"fs.exec"`. Empty by default.
+   * Regex patterns that route commands through the sandbox permission
+   * requester. Empty by default.
    */
   readonly requireApprovalPatterns?: readonly RegExp[];
   /** Override stdout capture cap (bytes). */
@@ -46,17 +44,6 @@ export interface RunCommandToolConfig {
   readonly maxStderrBytes?: number;
   /** Override the default timeout (ms). */
   readonly defaultTimeoutMs?: number;
-}
-
-/** Extended config that accepts an injected permission requester. */
-export interface RunCommandToolConfigWithRequester
-  extends RunCommandToolConfig {
-  /**
-   * Permission requester invoked when the command matches a
-   * `requireApprovalPatterns` entry. If absent and an approval is
-   * required, the call fails closed with `permission_denied`.
-   */
-  readonly requestPermission?: PermissionRequester;
 }
 
 /** Structured payload returned by `run_command`. */

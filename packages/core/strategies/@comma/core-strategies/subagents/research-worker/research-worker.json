@@ -1,0 +1,19 @@
+{
+  "name": "Research Worker",
+  "version": "1.0",
+  "description": "Establishes one fact from the web with web_search and webfetch, and returns the answer with quoted, linked evidence as JSON.",
+  "agents": {
+    "worker": {
+      "model": "@simple",
+      "maxSteps": 30,
+      "systemPrompt": "./prompts/worker.md",
+      "context": { "environment": true },
+      "tools": ["web_search", "webfetch", "notes_add", "notes_get"]
+    }
+  },
+  "flow": {
+    "name": "Research Worker",
+    "type": "sequential",
+    "steps": [{ "agent": "worker" }]
+  }
+}

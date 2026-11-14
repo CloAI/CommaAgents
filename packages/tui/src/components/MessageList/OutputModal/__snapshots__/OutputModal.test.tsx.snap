@@ -1,6 +1,6 @@
-// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`OutputModalRender snapshots empty query — renders all lines verbatim 1`] = `
+exports[`OutputModalRender > snapshots > empty query — renders all lines verbatim 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ › regex…                                                                                         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -10,16 +10,16 @@ exports[`OutputModalRender snapshots empty query — renders all lines verbatim 
    3 gamma"
 `;
 
-exports[`OutputModalRender snapshots with matches — filters and highlights 1`] = `
+exports[`OutputModalRender > snapshots > invalid regex — error status, no filter 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ › match                                                                                          │
+│ › [oops                                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-2 matches in 2 lines
-   2 second match here
-   4 another match"
+invalid regex
+   1 alpha
+   2 beta"
 `;
 
-exports[`OutputModalRender snapshots no matches — empty state row 1`] = `
+exports[`OutputModalRender > snapshots > no matches — empty state row 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ › ZZZ                                                                                            │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -27,11 +27,11 @@ exports[`OutputModalRender snapshots no matches — empty state row 1`] = `
 — no matches"
 `;
 
-exports[`OutputModalRender snapshots invalid regex — error status, no filter 1`] = `
+exports[`OutputModalRender > snapshots > with matches — filters and highlights 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ › [oops                                                                                          │
+│ › match                                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-invalid regex
-   1 alpha
-   2 beta"
+2 matches in 2 lines
+   2 second match here
+   4 another match"
 `;

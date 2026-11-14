@@ -58,7 +58,9 @@ export function useChatInputRequests(
     (message) => {
       setChatRuns((previousChatRuns) => {
         const chatRun = previousChatRuns.get(message.runId);
-        if (!chatRun) return previousChatRuns;
+        if (!chatRun) {
+          return previousChatRuns;
+        }
         const chatRunId = chatRun.id;
         let updatedMessages = chatRun.messages;
         if (message.prompt) {

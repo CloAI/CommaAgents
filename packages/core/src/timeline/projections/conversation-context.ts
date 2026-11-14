@@ -27,7 +27,9 @@ export function projectConversationContext(
 ): ProjectedConversationContext {
   const records: ConversationRecord[] = [];
   for (const event of events) {
-    if (event.type !== "agent_call") continue;
+    if (event.type !== "agent_call") {
+      continue;
+    }
     if (agentName !== undefined && event.record.agentName !== agentName) {
       continue;
     }

@@ -2,17 +2,20 @@
 
 import type { InputCollector, InputRequest } from "./user-agent.types";
 
-// Default input collector — uses Bun/Node prompt (stdin)
+// Default input collector — reads from stdin.
 
 export const defaultInputCollector: InputCollector = async (
   request: InputRequest,
 ): Promise<string> => {
-  // In Bun, `prompt()` is a global that reads from stdin
-  if (typeof globalThis.prompt === "function") {
-    return globalThis.prompt(request.prompt) ?? "";
+  const prompt = (
+    globalThis as typeof globalThis & {
+      prompt?: (message: string) => string | null;
+    }
+  ).prompt;
+  if (typeof prompt === "function") {
+    return prompt(request.prompt) ?? "";
   }
 
-  // Fallback: use Node.js readline
   const { createInterface } = await import("node:readline");
   const readlineInterface = createInterface({
     input: process.stdin,

@@ -39,7 +39,9 @@ const subscribers: Set<(tick: number) => void> = new Set();
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
 function ensureIntervalRunning(): void {
-  if (intervalHandle !== null) return;
+  if (intervalHandle !== null) {
+    return;
+  }
   intervalHandle = setInterval(() => {
     sharedTickCount = (sharedTickCount + 1) % TOOL_SPINNER_FRAMES.length;
     for (const notify of subscribers) {
@@ -74,7 +76,9 @@ export function useToolSpinner(running: boolean): string | null {
   const [tick, setTick] = useState(sharedTickCount);
 
   useEffect(() => {
-    if (!running) return;
+    if (!running) {
+      return;
+    }
 
     subscribers.add(setTick);
     ensureIntervalRunning();
@@ -88,6 +92,8 @@ export function useToolSpinner(running: boolean): string | null {
     };
   }, [running]);
 
-  if (!running) return null;
+  if (!running) {
+    return null;
+  }
   return TOOL_SPINNER_FRAMES[tick] ?? TOOL_SPINNER_FRAMES[0];
 }

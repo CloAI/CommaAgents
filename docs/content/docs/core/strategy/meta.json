@@ -1,4 +1,10 @@
 {
   "title": "Strategy",
-  "pages": ["strategy-file", "loading", "projects", "exporting"]
+  "pages": [
+    "strategy-file",
+    "harnesses",
+    "loading",
+    "projects",
+    "exporting"
+  ]
 }

@@ -1,12 +1,18 @@
 {
   "title": "@comma-agents/daemon",
   "pages": [
-    "server",
-    "executor",
-    "protocol",
-    "logger",
     "cli",
-    "sessions",
+    "daemon",
+    "core-plugin",
+    "projects-plugin",
+    "sandbox-plugin",
+    "questions-plugin",
+    "skills-plugin",
+    "mcp-plugin",
+    "config",
+    "server",
+    "lsp",
+    "logger",
     "pid"
   ]
 }

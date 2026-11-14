@@ -11,7 +11,7 @@ import {
   type Credential,
   type CredentialStore,
   createCredentialStore,
-  createJsonFileBackend,
+  createJsonFileCredentialBackend,
   resolveCredentialsPath,
 } from "@comma-agents/core";
 
@@ -31,7 +31,9 @@ let storeInstance: CredentialStore | undefined;
 function getStore(): CredentialStore {
   if (!storeInstance) {
     storeInstance = createCredentialStore({
-      backend: createJsonFileBackend({ filePath: resolveCredentialsPath() }),
+      backend: createJsonFileCredentialBackend({
+        filePath: resolveCredentialsPath(),
+      }),
     });
   }
   return storeInstance;

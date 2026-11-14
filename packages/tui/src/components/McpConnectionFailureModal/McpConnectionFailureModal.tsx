@@ -23,9 +23,14 @@ export function McpConnectionFailureModal({
   );
 
   React.useEffect(() => {
-    if (chatState.pendingMcpConfirmation === modal.isOpen) return;
-    if (chatState.pendingMcpConfirmation) modal.open();
-    else modal.close();
+    if (chatState.pendingMcpConfirmation === modal.isOpen) {
+      return;
+    }
+    if (chatState.pendingMcpConfirmation) {
+      modal.open();
+    } else {
+      modal.close();
+    }
   }, [chatState.pendingMcpConfirmation, modal.isOpen, modal.close, modal.open]);
 
   useInput(

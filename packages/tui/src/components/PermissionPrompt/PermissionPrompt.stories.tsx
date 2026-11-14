@@ -53,7 +53,7 @@ export const FsRead: Story = {
   },
 };
 
-export const FsExecNoTool: Story = {
+export const CommandExecuteNoTool: Story = {
   args: {
     request: {
       type: "request_permission",
@@ -61,9 +61,9 @@ export const FsExecNoTool: Story = {
       requestId: "perm_02EXEC",
       runId: "run_02EXEC",
       agentName: "shell-runner",
-      operation: "fs.exec",
+      operation: "command.execute",
       resource: "git push origin main --force",
-      reason: "policy-deny-override",
+      reason: "policy-ask",
     },
   },
 };

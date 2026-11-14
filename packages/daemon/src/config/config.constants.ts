@@ -1,10 +1,17 @@
 import z from "zod";
-import type { DaemonConfig } from "./config.types";
 
-const LogLevelSchema = z.enum(["debug", "info", "warn", "error"]);
+const LogLevelSchema = z.enum([
+  "trace",
+  "debug",
+  "info",
+  "warn",
+  "warning",
+  "error",
+  "fatal",
+]);
 
 /**
- * Zod schema for the daemon config file.
+ * Validation schema for the daemon config file.
  * All fields are optional — missing fields use defaults.
  */
 export const DaemonConfigFileSchema = z
@@ -13,48 +20,22 @@ export const DaemonConfigFileSchema = z
     host: z.string().optional(),
     logLevel: LogLevelSchema.optional(),
     logFile: z.string().optional(),
-    providerCacheDir: z.string().optional(),
+    console: z.boolean().optional(),
+    consoleFormat: z.enum(["text", "json"]).optional(),
+    logPayloads: z.boolean().optional(),
     pidFile: z.string().optional(),
     configFile: z.string().optional(),
     runsDir: z.string().optional(),
+    /** Models for `@role` references in strategies, e.g. `{ "primary": "openai/gpt-5" }`. */
+    modelRoles: z.record(z.string().min(1), z.string().min(1)).optional(),
+    /** Instruction file names checked per directory, first match wins. */
+    instructionFiles: z.array(z.string().min(1)).optional(),
+    /** Extra skill directories; relative paths use this configuration file's directory. */
+    skills: z
+      .object({
+        additionalDirectories: z.array(z.string().trim().min(1)).default([]),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
-
-/** Map of env var names → config keys + parsers. */
-export const ENV_MAP: Array<{
-  env: string;
-  key: keyof DaemonConfig;
-  parse: (val: string) => unknown;
-}> = [
-  {
-    env: "COMMA_DAEMON_PORT",
-    key: "port",
-    parse: (rawValue) => parseInt(rawValue, 10),
-  },
-  { env: "COMMA_DAEMON_HOST", key: "host", parse: (rawValue) => rawValue },
-  {
-    env: "COMMA_DAEMON_LOG_LEVEL",
-    key: "logLevel",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_LOG_FILE",
-    key: "logFile",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_PROVIDER_CACHE_DIR",
-    key: "providerCacheDir",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_PID_FILE",
-    key: "pidFile",
-    parse: (rawValue) => rawValue,
-  },
-  {
-    env: "COMMA_DAEMON_RUNS_DIR",
-    key: "runsDir",
-    parse: (rawValue) => rawValue,
-  },
-];

@@ -1,12 +1,14 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "rootDir": "src",
+    "paths": {},
     "declarationMap": false,
     "emitDeclarationOnly": true,
     "incremental": false,
     "noCheck": true,
     "noEmit": false
   },
-  "include": ["src/index.ts"],
+  "include": ["src/index.ts", "src/daemon-server/protocol.ts"],
   "exclude": ["src/**/*.test.ts", "src/**/test.utils.ts"]
 }

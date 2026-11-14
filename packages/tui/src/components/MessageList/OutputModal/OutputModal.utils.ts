@@ -29,11 +29,15 @@ export function compileQuery(raw: string): OutputModalQuery {
  * - the pretty-printed version exceeds a generous size limit
  */
 function preprocessBody(body: string): string {
-  if (body.includes("\n")) return body;
+  if (body.includes("\n")) {
+    return body;
+  }
   try {
     const parsed = JSON.parse(body);
     const formatted = JSON.stringify(parsed, null, 2);
-    if (formatted.length > body.length * 5) return body;
+    if (formatted.length > body.length * 5) {
+      return body;
+    }
     return formatted;
   } catch {
     return body;

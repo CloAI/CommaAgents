@@ -1,7 +1,6 @@
-import type { DiscoveredStrategy } from "@comma-agents/core";
+import type { DiscoveredStrategy } from "@comma-agents/core/strategy";
 import type {
   RequestPermissionMessage,
-  RequestQuestionMessage,
 } from "@comma-agents/daemon";
 import { Box, useFocusManager, useInput } from "ink";
 import type React from "react";
@@ -11,12 +10,10 @@ import {
   ChatTextArea,
   MessageList,
   PermissionPrompt,
-  QuestionPrompt,
 } from "../../components";
 import {
   useChatInputRequests,
   useChatPermissionRequests,
-  useChatQuestionRequests,
   useChatRunLifecycle,
   useChatState,
   useChatSteering,
@@ -42,7 +39,6 @@ export function ChatPage(): React.ReactElement {
   const { sendInput } = useChatInputRequests();
   const { sendSteer } = useChatSteering();
   const { sendPermissionDecision } = useChatPermissionRequests();
-  const { sendQuestionResponse } = useChatQuestionRequests();
 
   const theme = useChatPageTheme();
 
@@ -78,12 +74,6 @@ export function ChatPage(): React.ReactElement {
     },
     [chatRunId, sendPermissionDecision],
   );
-  const handleQuestionSubmit = useCallback(
-    (response: string): void => {
-      sendQuestionResponse(chatRunId, response);
-    },
-    [chatRunId, sendQuestionResponse],
-  );
   const handleAbort = useCallback((): void => {
     stopChatRun(chatRunId);
   }, [chatRunId, stopChatRun]);
@@ -96,14 +86,12 @@ export function ChatPage(): React.ReactElement {
       error={chatState.error}
       pendingInputAgent={chatState.pendingInputAgent}
       pendingPermissionRequest={chatState.pendingPermissionRequest}
-      pendingQuestionRequest={chatState.pendingQuestionRequest}
       activeStrategyPath={chatState.strategyPath}
       canContinue={chatState.runId !== null}
       onReplySubmit={handleReplySubmit}
       onSteerSubmit={handleSteerSubmit}
       onContinueSubmit={handleContinueSubmit}
       onPermissionDecide={handlePermissionDecide}
-      onQuestionSubmit={handleQuestionSubmit}
       onAbort={handleAbort}
       onOpenSubStrategy={handleOpenSubStrategy}
       strategies={strategies}
@@ -126,7 +114,6 @@ export interface ChatPageRenderProps {
   readonly error: string | null;
   readonly pendingInputAgent: string | null;
   readonly pendingPermissionRequest: RequestPermissionMessage | null;
-  readonly pendingQuestionRequest: RequestQuestionMessage | null;
   readonly activeStrategyPath: string | null;
   readonly canContinue: boolean;
   readonly strategies: readonly DiscoveredStrategy[];
@@ -141,7 +128,6 @@ export interface ChatPageRenderProps {
   readonly onPermissionDecide: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
-  readonly onQuestionSubmit: (response: string) => void;
   readonly onAbort: () => void;
   readonly onOpenSubStrategy?: (toolCallId: string) => void;
 }
@@ -153,14 +139,12 @@ export function ChatPageRender({
   error: _error,
   pendingInputAgent,
   pendingPermissionRequest,
-  pendingQuestionRequest,
   activeStrategyPath,
   canContinue,
   onReplySubmit,
   onSteerSubmit,
   onContinueSubmit,
   onPermissionDecide,
-  onQuestionSubmit,
   onAbort,
   strategies,
   emptyStrategyLabel,
@@ -169,8 +153,6 @@ export function ChatPageRender({
 }: ChatPageRenderProps): React.ReactElement {
   const showPermission =
     chatStatus === "waiting_permission" && pendingPermissionRequest !== null;
-  const showQuestion =
-    chatStatus === "waiting_question" && pendingQuestionRequest !== null;
 
   const isFinished =
     chatStatus === "completed" ||
@@ -182,7 +164,9 @@ export function ChatPageRender({
 
   useInput(
     (input, key) => {
-      if (isMouseEscape(input)) return;
+      if (isMouseEscape(input)) {
+        return;
+      }
       if (!key.escape) {
         lastEscapeAtRef.current = null;
         return;
@@ -205,12 +189,13 @@ export function ChatPageRender({
   );
 
   useEffect(() => {
-    if (!abortShortcutActive) lastEscapeAtRef.current = null;
+    if (!abortShortcutActive) {
+      lastEscapeAtRef.current = null;
+    }
   }, [abortShortcutActive]);
 
   const showComposer =
     !showPermission &&
-    !showQuestion &&
     (!isFinished || (chatStatus === "completed" && canContinue));
 
   const composerMode: "continue" | "reply" | "steer" =
@@ -231,7 +216,9 @@ export function ChatPageRender({
 
   const { focus } = useFocusManager();
   useEffect(() => {
-    if (showComposer) focus(REPLY_INPUT_ID);
+    if (showComposer) {
+      focus(REPLY_INPUT_ID);
+    }
   }, [focus, showComposer]);
 
   const handleComposerSubmit = (
@@ -260,11 +247,6 @@ export function ChatPageRender({
         <PermissionPrompt
           request={pendingPermissionRequest}
           onDecide={onPermissionDecide}
-        />
-      ) : showQuestion && pendingQuestionRequest ? (
-        <QuestionPrompt
-          request={pendingQuestionRequest}
-          onSubmit={onQuestionSubmit}
         />
       ) : showComposer ? (
         <ChatTextArea

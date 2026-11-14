@@ -1,7 +1,7 @@
 import {
   type DiscoveredStrategy,
   discoverStrategies,
-} from "@comma-agents/core";
+} from "@comma-agents/core/strategy";
 import type React from "react";
 import {
   createContext,

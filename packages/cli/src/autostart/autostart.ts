@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type {
@@ -25,14 +26,14 @@ async function runAction(action: AutostartAction): Promise<void> {
   if (command === undefined) {
     throw new Error("Autostart command is empty");
   }
-  const processResult = Bun.spawnSync([command, ...commandArguments], {
-    stdout: "pipe",
-    stderr: "pipe",
+  const processResult = spawnSync(command, commandArguments, {
+    encoding: "utf8",
   });
-  if (processResult.exitCode !== 0) {
+  if (processResult.status !== 0) {
     throw new Error(
-      new TextDecoder().decode(processResult.stderr).trim() ||
-        `${command} exited with ${processResult.exitCode}`,
+      processResult.error?.message ||
+        processResult.stderr?.trim() ||
+        `${command} exited with ${processResult.status}`,
     );
   }
 }

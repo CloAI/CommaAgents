@@ -3,9 +3,9 @@ import { join, resolve } from "node:path";
 import { PUBLIC_PACKAGE_DIRECTORIES } from "./release-version.constants";
 import { collectReleaseManifestErrors } from "./release-version.utils";
 
-const repositoryRoot = resolve(import.meta.dir, "..");
+const repositoryRoot = resolve(import.meta.dirname, "..");
 const rootManifestPath = join(repositoryRoot, "package.json");
-const rootManifest = await Bun.file(rootManifestPath).json();
+const rootManifest = JSON.parse(readFileSync(rootManifestPath, "utf8"));
 const publicManifestEntries = PUBLIC_PACKAGE_DIRECTORIES.map(
   (packageDirectory) => {
     const path = join(
@@ -19,7 +19,10 @@ const publicManifestEntries = PUBLIC_PACKAGE_DIRECTORIES.map(
 );
 const errors = [
   ...collectReleaseManifestErrors(
-    { path: rootManifestPath, contents: readFileSync(rootManifestPath, "utf8") },
+    {
+      path: rootManifestPath,
+      contents: readFileSync(rootManifestPath, "utf8"),
+    },
     publicManifestEntries,
   ),
 ];
@@ -35,7 +38,9 @@ function walk(directory: string): Array<string> {
 
 for (const packageName of PUBLIC_PACKAGE_DIRECTORIES) {
   const packageDirectory = join(repositoryRoot, "packages", packageName);
-  const manifest = await Bun.file(join(packageDirectory, "package.json")).json();
+  const manifest = JSON.parse(
+    readFileSync(join(packageDirectory, "package.json"), "utf8"),
+  );
 
   const distDirectory = join(packageDirectory, "dist");
   if (!existsSync(distDirectory)) {
@@ -59,7 +64,9 @@ for (const packageName of PUBLIC_PACKAGE_DIRECTORIES) {
 }
 
 if (errors.length > 0) {
-  throw new Error(`Public package validation failed:\n- ${errors.join("\n- ")}`);
+  throw new Error(
+    `Public package validation failed:\n- ${errors.join("\n- ")}`,
+  );
 }
 
 console.log(

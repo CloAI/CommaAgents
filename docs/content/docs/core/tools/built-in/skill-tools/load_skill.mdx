@@ -3,7 +3,7 @@ title: load_skill
 description: Load the full instructions of a named skill discovered from the workspace.
 ---
 
-The `load_skill` tool returns the full markdown body of a [skill](/docs/core/skills) that has been advertised in the agent's system prompt under `## Available Skills`. The framework discovers skills at strategy load time; this tool is how the agent reads them on demand.
+The `load_skill` tool returns the full markdown body of a [skill](/docs/core/skills) selected from `search_skills` or `list_skills` results, or named explicitly by the user. The framework discovers skills at strategy load time; this tool is how the agent reads them on demand.
 
 ```ts
 import { createAgent } from "@comma-agents/core";
@@ -19,15 +19,18 @@ The tool is included in agent tool sets by name like any other built-in. It only
 
 ## Parameters
 
-| Parameter | Type | Description |
-|---|---|---|
-| `name` | `string` | Identifier of the skill, exactly as listed under `## Available Skills` in the agent's system prompt. Kebab-case. |
+| Parameter | Type     | Description                                                      |
+| --------- | -------- | ---------------------------------------------------------------- |
+| `name`    | `string` | Exact skill name from discovery results or the user. Kebab-case. |
 
 ## Returns
 
 On success the tool returns the skill's markdown body as the text output, plus a structured metadata payload:
 
-<AutoTypeTable path="../packages/core/src/tools/built-in/load-skill/load-skill.types.ts" name="LoadSkillData" />
+<AutoTypeTable
+  path="../packages/core/src/tools/built-in/load-skill/load-skill.types.ts"
+  name="LoadSkillData"
+/>
 
 The text output is the skill's body verbatim, prefixed with a short provenance header so the agent can see where the instructions came from:
 
@@ -40,10 +43,10 @@ Loaded skill "ts-patterns" (project, source: /repo/.comma/skills/ts-patterns/SKI
 
 ## Errors
 
-| Error kind | Recoverable | When |
-|---|---|---|
-| `not_found` | When other skills exist | The requested name is not in the registry. The error message lists available skill names so the agent can retry with a valid one. |
-| `skill_unavailable` | No | No skill registry is wired into this agent. The agent should stop attempting to load skills for the rest of the turn. |
+| Error kind          | Recoverable             | When                                                                                                                              |
+| ------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `not_found`         | When other skills exist | The requested name is not in the registry. The error message lists available skill names so the agent can retry with a valid one. |
+| `skill_unavailable` | No                      | No skill registry is wired into this agent. The agent should stop attempting to load skills for the rest of the turn.             |
 
 See [error kinds](/docs/core/tools/error-kinds) for the full taxonomy.
 

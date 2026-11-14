@@ -44,7 +44,7 @@ The structured payload returned in `data`.
 
 ```ts
 const result = await tool.run_command({
-  command: "bun test packages/core/src",
+  command: "pnpm test packages/core/src",
   timeoutMs: 120_000,
 });
 
@@ -72,7 +72,7 @@ On POSIX hosts, `run_command` spawns the shell with its own process group so tim
 
 | Kind | When |
 |---|---|
-| `outside_workspace` | `cwd` escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `outside_workspace` | `cwd` escapes the sandbox or absolute paths are disabled. |
 | `permission_denied` | The command matches a deny pattern, or matches an approval-required pattern without a requester (or the user denied the request). |
 | `command_failed` | The shell could not be spawned, or the operation was aborted. |
 | `timeout` | The command exceeded `timeoutMs` and was killed. |
@@ -80,4 +80,4 @@ On POSIX hosts, `run_command` spawns the shell with its own process group so tim
 ## Related
 
 - [Error kinds](/docs/core/tools/error-kinds) — full table of `ToolErrorKind` values.
-- [sandbox](/docs/core/sandbox) — how `fs.exec` approval is wired up.
+- [sandbox](/docs/core/sandbox) — how `command.execute` approval is wired up.

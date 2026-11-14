@@ -1,4 +1,4 @@
-import type { DiscoveredStrategy } from "@comma-agents/core";
+import type { DiscoveredStrategy } from "@comma-agents/core/strategy";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { IntroPageRender } from "./IntroPage";
 import { useIntroPageTheme } from "./IntroPage.theme";

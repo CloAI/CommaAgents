@@ -117,11 +117,15 @@ export function ScrollableView<ItemType>({
   // it from render would re-enter the same reconciler module and trigger
   // React's "nested updates" diagnostic.
   useLayoutEffect(() => {
-    if (viewportWidth <= 0) return;
+    if (viewportWidth <= 0) {
+      return;
+    }
     let mutated = false;
     for (let index = 0; index < items.length; index += 1) {
       const item = items[index];
-      if (item === undefined) continue;
+      if (item === undefined) {
+        continue;
+      }
       const key = getKey(item, index);
       let entry = cacheRef.current.get(key);
       if (entry === undefined) {
@@ -129,7 +133,9 @@ export function ScrollableView<ItemType>({
         cacheRef.current.set(key, entry);
       }
       const cached = entry.widths.get(viewportWidth);
-      if (cached?.item === item) continue;
+      if (cached?.item === item) {
+        continue;
+      }
       const measured = measureLayout(renderItem(item, index), {
         width: viewportWidth,
       });
@@ -139,7 +145,9 @@ export function ScrollableView<ItemType>({
       });
       mutated = true;
     }
-    if (mutated) bumpMeasureRevision();
+    if (mutated) {
+      bumpMeasureRevision();
+    }
   }, [items, getKey, renderItem, viewportWidth]);
 
   // Synchronous read from the cache. Returns `DEFAULT_ROW_HEIGHT` only when
@@ -149,8 +157,12 @@ export function ScrollableView<ItemType>({
   const rowHeight = useCallback(
     (index: number): number => {
       const item = items[index];
-      if (item === undefined) return 0;
-      if (viewportWidth <= 0) return DEFAULT_ROW_HEIGHT;
+      if (item === undefined) {
+        return 0;
+      }
+      if (viewportWidth <= 0) {
+        return DEFAULT_ROW_HEIGHT;
+      }
       const entry = cacheRef.current.get(getKey(item, index));
       return entry?.widths.get(viewportWidth)?.height ?? DEFAULT_ROW_HEIGHT;
     },
@@ -166,7 +178,7 @@ export function ScrollableView<ItemType>({
   // `measureRevision` is in the deps on purpose. The cache is mutated in
   // place by the measurement effect; the revision counter is the only
   // reactive signal that lets this memo recompute when new heights land.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above.
+  // oxlint-disable-next-line react/exhaustive-deps -- see comment above.
   const rowOffsets = useMemo(() => {
     const offsets: number[] = [0];
     for (let i = 0; i < totalCount; i += 1) {
@@ -234,15 +246,25 @@ export function ScrollableView<ItemType>({
   }, [totalCount, viewportHeight, rowOffsets, rowOffset, totalRows]);
 
   useEffect(() => {
-    if (!stickToBottom) return;
-    if (totalCount === 0 || viewportHeight <= 0) return;
-    if (!isPinnedRef.current) return;
+    if (!stickToBottom) {
+      return;
+    }
+    if (totalCount === 0 || viewportHeight <= 0) {
+      return;
+    }
+    if (!isPinnedRef.current) {
+      return;
+    }
     setRowOffset((current) => (current === maxOffset ? current : maxOffset));
   }, [stickToBottom, maxOffset, totalCount, viewportHeight]);
 
   useEffect(() => {
-    if (scrollToRow === undefined) return;
-    if (totalCount === 0 || viewportHeight <= 0) return;
+    if (scrollToRow === undefined) {
+      return;
+    }
+    if (totalCount === 0 || viewportHeight <= 0) {
+      return;
+    }
     const index = Math.max(0, Math.min(scrollToRow, totalCount - 1));
     const top = rowOffsets[index] ?? 0;
     const height = rowHeight(index);
@@ -269,7 +291,9 @@ export function ScrollableView<ItemType>({
   }, [maxOffset]);
 
   useEffect(() => {
-    if (onScrollChange === undefined) return;
+    if (onScrollChange === undefined) {
+      return;
+    }
     onScrollChange({
       rowOffset,
       totalRows,
@@ -281,7 +305,9 @@ export function ScrollableView<ItemType>({
   useMouseWheelScroll({
     ref: viewportRef,
     onScroll: (event) => {
-      if (totalCount === 0) return;
+      if (totalCount === 0) {
+        return;
+      }
       setRowOffset((current) => {
         // Advance by terminal rows, not by items. The renderer clips the
         // partially-scrolled top item via a negative margin (see the

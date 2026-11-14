@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import type { ResponseMessage } from "./conversation-context.types";
 import {
   contextUsageFromSteps,
@@ -11,6 +11,7 @@ import {
   serializeConversationRecordsJson,
   serializeConversationRecordsYaml,
 } from "./index";
+import { COMPACTION_SUMMARY_REQUEST } from "./retention/compaction/compaction.constants";
 
 function assistantResponse(text: string): ResponseMessage[] {
   return [{ role: "assistant", content: [{ type: "text", text }] }];
@@ -201,7 +202,7 @@ describe("createConversationContext", () => {
       expect(context.messages()).toEqual([
         {
           role: "user",
-          content: "[Earlier conversation compacted - summary follows.]",
+          content: COMPACTION_SUMMARY_REQUEST,
         },
         {
           role: "assistant",

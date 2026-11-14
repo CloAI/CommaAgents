@@ -7,6 +7,15 @@ import {
   DEFAULT_COMPACTION_THRESHOLD_RATIO,
 } from "./compaction.constants";
 import type { ApplyCompactionInput } from "./compaction.types";
+import { recentRecordCountWithinTokens } from "./compaction.utils";
+
+/** Thrown by a summarizer to reject its own output, such as a summary truncated by the output limit. */
+export class CompactionSummaryRejectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CompactionSummaryRejectedError";
+  }
+}
 
 /**
  * Compact older active records into one summary record.
@@ -28,11 +37,11 @@ export async function applyCompaction(input: ApplyCompactionInput): Promise<{
 }> {
   const { records, options, agentName, trigger } = input;
 
-  const keepRecent = Math.max(
-    0,
-    options.keepRecent ?? DEFAULT_COMPACTION_KEEP_RECENT,
-  );
   const active = activeRecords(records);
+  const keepRecent =
+    options.keepRecentTokens !== undefined
+      ? recentRecordCountWithinTokens(active, options.keepRecentTokens)
+      : Math.max(0, options.keepRecent ?? DEFAULT_COMPACTION_KEEP_RECENT);
   const thresholdRatio =
     options.thresholdRatio ?? DEFAULT_COMPACTION_THRESHOLD_RATIO;
   const tokenLimit = trigger.tokenLimit;
@@ -53,7 +62,9 @@ export async function applyCompaction(input: ApplyCompactionInput): Promise<{
     reason = "record-count";
   }
 
-  if (reason === undefined) return { records };
+  if (reason === undefined) {
+    return { records };
+  }
   if (options.summarize === undefined) {
     throw new Error(
       "Conversation context compaction requires a summarize function. " +
@@ -63,10 +74,21 @@ export async function applyCompaction(input: ApplyCompactionInput): Promise<{
 
   const olderRecords = active.slice(0, active.length - keepRecent);
   const recentRecords = active.slice(active.length - keepRecent);
-  if (olderRecords.length === 0) return { records };
+  if (olderRecords.length === 0) {
+    return { records };
+  }
 
   const createdAt = new Date().toISOString();
-  const summaryText = await options.summarize(olderRecords);
+  let summaryText: string;
+  try {
+    summaryText = await options.summarize(olderRecords);
+  } catch (summaryError) {
+    // A rejected summary (for example one cut off by the output limit) leaves history untouched rather than saving a lossy one.
+    if (summaryError instanceof CompactionSummaryRejectedError) {
+      return { records };
+    }
+    throw summaryError;
+  }
   const summaryRecord: ConversationRecord = {
     id: crypto.randomUUID(),
     agentName,

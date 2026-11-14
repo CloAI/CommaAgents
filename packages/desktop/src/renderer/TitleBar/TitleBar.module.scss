@@ -1,0 +1,33 @@
+.titleBar {
+  display: grid;
+  grid-template-columns: minmax(40px, 1fr) minmax(0, auto) minmax(
+      max-content,
+      1fr
+    );
+  align-items: center;
+  flex: none;
+  height: var(--header-height);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.75rem;
+  user-select: none;
+  // The whole bar drags the window; the controls opt out.
+  -webkit-app-region: drag;
+}
+
+.side {
+  display: flex;
+  align-self: stretch;
+  min-width: 0;
+}
+
+.end {
+  justify-content: flex-end;
+}
+
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

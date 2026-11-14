@@ -39,7 +39,7 @@ TUI and web clients without changes.
 | Config / Strategy  | JSON (primary), YAML (opt)| JSON is native to JS; YAML supported as alternative   |
 | Schema Validation  | Zod                       | Runtime validation, AI SDK tool schemas, strategy     |
 | Testing            | `bun test`                | Built-in, Vitest-compatible API                       |
-| Linting/Formatting | Biome                     | Fast all-in-one, minimal config                       |
+| Linting/Formatting | Oxlint / Oxfmt            | Fast, dedicated linting and formatting                |
 
 ---
 
@@ -410,7 +410,8 @@ CommaAgents2/
 ├── package.json              # Root: workspaces, scripts
 ├── bunfig.toml               # Bun config
 ├── tsconfig.json             # Base tsconfig (shared)
-├── biome.json                # Linting / formatting
+├── .oxlintrc.json            # Linting
+├── .oxfmtrc.json             # Formatting
 ├── PLAN.md                   # This file
 ├── docs/                     # Fumadocs-powered docs site (Next.js)
 ├── examples/

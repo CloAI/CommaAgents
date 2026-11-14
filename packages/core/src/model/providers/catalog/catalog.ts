@@ -1,9 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { getCatalogCachePath } from "../../../defaults/defaults";
 import type { ModelInfo } from "../providers.types";
 import bundledSnapshot from "./catalog.data.json" with { type: "json" };
 import type { CatalogData, CatalogProvider } from "./catalog.types";
-import { resolveCatalogCachePath, toModelInfo } from "./catalog.utils";
+import { toModelInfo } from "./catalog.utils";
 
 /** Source URL for the live catalog. */
 export const CATALOG_SOURCE_URL = "https://models.dev/api.json";
@@ -46,7 +47,9 @@ export function resetCatalog(): void {
  * awaiting is not practical.
  */
 export function getCatalogSnapshot(): CatalogData {
-  if (loadedCatalog) return loadedCatalog.data;
+  if (loadedCatalog) {
+    return loadedCatalog.data;
+  }
   return bundledSnapshot as CatalogData;
 }
 
@@ -65,9 +68,11 @@ export function getCatalogProviderSync(
 export async function loadCatalog(options?: {
   readonly forceRefresh?: boolean;
 }): Promise<CatalogData> {
-  if (!options?.forceRefresh && loadedCatalog) return loadedCatalog.data;
+  if (!options?.forceRefresh && loadedCatalog) {
+    return loadedCatalog.data;
+  }
 
-  const cachePath = resolveCatalogCachePath();
+  const cachePath = getCatalogCachePath();
 
   if (!options?.forceRefresh) {
     const cached = readCache(cachePath);
@@ -86,11 +91,26 @@ export async function loadCatalog(options?: {
     const fetchedAt = Date.now();
     writeCache(cachePath, { fetchedAt, data: networkData });
     loadedCatalog = { data: networkData, source: "network", fetchedAt };
+    reverseModelIndex = undefined;
     return networkData;
   }
 
+  if (loadedCatalog) {
+    return loadedCatalog.data;
+  }
+  const cached = readCache(cachePath);
+  if (cached) {
+    loadedCatalog = {
+      data: cached.data,
+      source: "cache",
+      fetchedAt: cached.fetchedAt,
+    };
+    reverseModelIndex = undefined;
+    return cached.data;
+  }
   const fallback = bundledSnapshot as CatalogData;
   loadedCatalog = { data: fallback, source: "bundled" };
+  reverseModelIndex = undefined;
   return fallback;
 }
 
@@ -123,7 +143,9 @@ export async function getCatalogModels(
   providerId: string,
 ): Promise<readonly ModelInfo[]> {
   const provider = await getCatalogProvider(providerId);
-  if (!provider) return [];
+  if (!provider) {
+    return [];
+  }
   return Object.values(provider.models).map(toModelInfo);
 }
 
@@ -156,7 +178,9 @@ function buildReverseModelIndex(snapshot: CatalogData): Map<string, string[]> {
  * Built once from `getCatalogSnapshot()` and invalidated via `resetCatalog()`.
  */
 export function getReverseModelIndex(): Map<string, string[]> {
-  if (reverseModelIndex) return reverseModelIndex;
+  if (reverseModelIndex) {
+    return reverseModelIndex;
+  }
   const snapshot = getCatalogSnapshot();
   const index = buildReverseModelIndex(snapshot);
   // Sort provider lists for deterministic resolution ordering.
@@ -191,8 +215,9 @@ function readCache(cachePath: string): CachedCatalog | undefined {
     if (
       typeof parsed?.fetchedAt !== "number" ||
       typeof parsed?.data !== "object"
-    )
+    ) {
       return undefined;
+    }
     return parsed;
   } catch {
     return undefined;
@@ -215,7 +240,9 @@ async function fetchCatalog(): Promise<CatalogData | undefined> {
     const response = await fetch(CATALOG_SOURCE_URL, {
       signal: AbortSignal.timeout(CATALOG_FETCH_TIMEOUT_MS),
     });
-    if (!response.ok) return undefined;
+    if (!response.ok) {
+      return undefined;
+    }
     return (await response.json()) as CatalogData;
   } catch {
     return undefined;

@@ -1,6 +1,6 @@
 // Tests for string utilities.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import {
   breakLines,
   capitalize,

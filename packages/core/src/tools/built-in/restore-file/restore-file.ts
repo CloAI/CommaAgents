@@ -1,9 +1,10 @@
+import { relative } from "node:path";
 import { stat } from "node:fs/promises";
 import { z } from "zod";
 import { SandboxViolationError } from "../../../errors";
 import { defineTool } from "../../define/define-tool";
-import { restoreFromTrash, sandboxErrorToToolError } from "../../io";
-import { readTrashMetadata } from "../../io/trash";
+import { sandboxErrorToToolError } from "../../io";
+import { restoreDeletedFile } from "../delete-file/deletion";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
@@ -26,7 +27,9 @@ const restoreFileParams = z.object({
     ),
 });
 
-/** Create the `restore_file` tool. */
+/** Create the `restore_file` tool.
+ * @returns {ToolDefinition} Sandbox-authorized deletion recovery tool.
+ */
 export function createRestoreFileTool(): ToolDefinition<
   typeof restoreFileParams,
   RestoreFileData
@@ -94,95 +97,59 @@ export function createRestoreFileTool(): ToolDefinition<
 
       try {
         await stat(validatedArguments.trashedPath);
-      } catch {
-        return errorResult<RestoreFileData>(
-          toolError(
-            "not_found",
-            `Trash archive not found: ${validatedArguments.trashedPath}`,
-            { path: validatedArguments.trashedPath, recoverable: false },
-          ),
-        );
-      }
-
-      const metadata = await readTrashMetadata(validatedArguments.trashedPath);
-      if (!metadata) {
-        return errorResult<RestoreFileData>(
-          toolError(
-            "not_found",
-            `Trash archive metadata is missing or corrupted: ${validatedArguments.trashedPath}`,
-            { path: validatedArguments.trashedPath, recoverable: false },
-          ),
-        );
-      }
-
-      const targetPath = validatedArguments.targetPath ?? metadata.originalPath;
-      let targetAbsolute: string;
-      try {
-        targetAbsolute = await guard.authorize(
-          { type: "fs.write", resource: targetPath },
-          {
-            agentName: toolContext.agentName,
-            toolName: "restore_file",
-            signal: abort,
-          },
-        );
-      } catch (caught) {
-        if (caught instanceof SandboxViolationError) {
-          return errorResult<RestoreFileData>(sandboxErrorToToolError(caught));
-        }
-        throw caught;
-      }
-
-      try {
-        await stat(targetAbsolute);
-        return errorResult<RestoreFileData>(
-          toolError(
-            "already_exists",
-            `Restore target already exists: ${targetPath}`,
-            {
-              path: targetPath,
-              recoverable: true,
-              suggestedNextAction:
-                "Delete or move the existing file before restoring.",
-            },
-          ),
-        );
-      } catch (caughtError) {
-        const code = (caughtError as NodeJS.ErrnoException).code;
-        if (code !== "ENOENT" && code !== "ENOTDIR") throw caughtError;
-      }
-
-      let restoredAbsolute: string;
-      try {
-        restoredAbsolute = await restoreFromTrash(
+        const restoredAbsolute = await restoreDeletedFile(
           guard.cwd,
           validatedArguments.trashedPath,
-          targetPath,
+          {
+            targetPath: validatedArguments.targetPath,
+            authorize: (path) =>
+              guard.authorize(
+                { type: "fs.write", resource: path },
+                {
+                  agentName: toolContext.agentName,
+                  toolName: "restore_file",
+                  signal: abort,
+                },
+              ),
+          },
         );
-
-        const contentStat = await stat(restoredAbsolute);
-        const sizeBytes = contentStat.size;
-
+        const path = relative(guard.cwd, restoredAbsolute);
+        const sizeBytes = (await stat(restoredAbsolute)).size;
         return okResult<RestoreFileData>(
-          `Restored ${validatedArguments.trashedPath} to ${restoredAbsolute} (${sizeBytes} bytes)`,
+          `Restored ${path} (${sizeBytes} bytes)`,
           {
             data: {
               restored: true,
-              path: targetPath,
+              path,
               from: validatedArguments.trashedPath,
               sizeBytes,
             },
           },
         );
-      } catch (caughtError) {
-        const message = (caughtError as Error).message;
+      } catch (error) {
+        if (error instanceof SandboxViolationError) {
+          return errorResult<RestoreFileData>(sandboxErrorToToolError(error));
+        }
+        const code =
+          error instanceof Error && "code" in error ? error.code : undefined;
+        const kind =
+          code === "ENOENT" || code === "INVALID_ARCHIVE"
+            ? "not_found"
+            : code === "EEXIST"
+              ? "already_exists"
+              : code === "OUTSIDE_WORKSPACE"
+                ? "outside_workspace"
+                : "command_failed";
         return errorResult<RestoreFileData>(
           toolError(
-            "command_failed",
-            `Failed to restore from ${validatedArguments.trashedPath}: ${message}`,
+            kind,
+            error instanceof Error
+              ? error.message
+              : "Failed to restore deleted file.",
             {
-              path: validatedArguments.trashedPath,
-              recoverable: false,
+              path:
+                validatedArguments.targetPath ?? validatedArguments.trashedPath,
+              recoverable: kind === "already_exists",
             },
           ),
         );

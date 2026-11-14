@@ -62,7 +62,12 @@ export function buildPackageUpdateCommand(
   const packageVersion = `${CLI_PACKAGE_NAME}@${version}`;
   switch (manager) {
     case "bun":
-      return [executablePath, "add", "--global", packageVersion];
+      return [
+        /[\\/]bun(?:\.exe)?$/.test(executablePath) ? executablePath : "bun",
+        "add",
+        "--global",
+        packageVersion,
+      ];
     case "npm":
       return ["npm", "install", "--global", packageVersion];
     case "pnpm":
@@ -79,7 +84,12 @@ export function buildPackageRemovalCommand(
 ): readonly string[] {
   switch (manager) {
     case "bun":
-      return [executablePath, "remove", "--global", CLI_PACKAGE_NAME];
+      return [
+        /[\\/]bun(?:\.exe)?$/.test(executablePath) ? executablePath : "bun",
+        "remove",
+        "--global",
+        CLI_PACKAGE_NAME,
+      ];
     case "npm":
       return ["npm", "uninstall", "--global", CLI_PACKAGE_NAME];
     case "pnpm":

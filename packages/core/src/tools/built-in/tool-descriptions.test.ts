@@ -1,15 +1,14 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createApplyPatchTool } from "./apply-patch";
 import { createCreateFileTool } from "./create-file";
 import { createDeleteFileTool } from "./delete-file";
 import { describeTool } from "./describe-tool";
 import { createEditFileTool } from "./edit-file";
 import { createGlobTool } from "./glob";
-import { createListDirectoryTool } from "./list-directory";
 import { createMoveFileTool } from "./move-file";
 import { createReadFileTool } from "./read-file";
 import { createRunCommandTool, type PlatformInfo } from "./run-command";
-import { createSearchFilesTool } from "./search-files";
+import { createGrepTool } from "./grep";
 import { createWriteFileTool } from "./write-file";
 
 const FIXED_PLATFORM: PlatformInfo = {
@@ -88,12 +87,8 @@ describe("built-in tool descriptions", () => {
     expect(createReadFileTool().description).toMatchSnapshot();
   });
 
-  it("list_directory description", () => {
-    expect(createListDirectoryTool().description).toMatchSnapshot();
-  });
-
-  it("search_files description", () => {
-    expect(createSearchFilesTool().description).toMatchSnapshot();
+  it("grep description", () => {
+    expect(createGrepTool().description).toMatchSnapshot();
   });
 
   it("glob description", () => {
@@ -133,8 +128,7 @@ describe("built-in tool descriptions", () => {
   it("every built-in description contains all four canonical sections", () => {
     const descriptions: ReadonlyArray<{ name: string; text: string }> = [
       { name: "read_file", text: createReadFileTool().description },
-      { name: "list_directory", text: createListDirectoryTool().description },
-      { name: "search_files", text: createSearchFilesTool().description },
+      { name: "grep", text: createGrepTool().description },
       { name: "glob", text: createGlobTool().description },
       { name: "create_file", text: createCreateFileTool().description },
       { name: "write_file", text: createWriteFileTool().description },

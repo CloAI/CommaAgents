@@ -1,10 +1,11 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { getGlobalSkillsDirectory } from "../defaults/defaults";
 import { buildSkillsPromptHeader, loadSkills } from "./skills.loader";
 import { createSkillRegistry } from "./skills.registry";
-import { parseSkillFile, resolveDefaultGlobalSkillsDir } from "./skills.utils";
+import { parseSkillFile } from "./skills.utils";
 import { createSkillsWorkspace, writeSkillFile } from "./test.utils";
 
 describe("parseSkillFile", () => {
@@ -72,14 +73,14 @@ describe("parseSkillFile", () => {
       "---",
       "Body",
     ].join("\n");
-    expect(() => parseSkillFile(raw)).toThrow(/does not support YAML lists/);
+    expect(() => parseSkillFile(raw)).toThrow(/invalid YAML frontmatter/);
   });
 });
 
-describe("resolveDefaultGlobalSkillsDir", () => {
-  it("should resolve global skills from the shared data directory", () => {
-    expect(resolveDefaultGlobalSkillsDir()).toBe(
-      join(homedir(), ".comma", "skills"),
+describe("getGlobalSkillsDirectory", () => {
+  it("should resolve global skills from the Comma config directory", () => {
+    expect(getGlobalSkillsDirectory()).toBe(
+      join(homedir(), ".config", "comma", "skills"),
     );
   });
 });
@@ -160,7 +161,9 @@ describe("loadSkills", () => {
       globalSkillsDir: globalDir,
       projectSkillsDir: projectDir,
     });
-    expect(warnings).toEqual([]);
+    expect(warnings).toEqual([
+      expect.objectContaining({ code: "SKILL_SHADOWED" }),
+    ]);
     expect(registry.list().map((skill) => skill.name)).toEqual([
       "global-only",
       "project-only",

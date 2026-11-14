@@ -17,7 +17,4 @@ export type {
   CatalogModel,
   CatalogProvider,
 } from "./catalog.types";
-export {
-  resolveCatalogCachePath,
-  toModelInfo,
-} from "./catalog.utils";
+export { toModelInfo } from "./catalog.utils";

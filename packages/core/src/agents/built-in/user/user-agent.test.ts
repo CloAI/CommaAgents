@@ -1,6 +1,6 @@
 // Tests for createUserAgent factory
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { hookIntoAgent } from "../../hook-into-agent/hook-into-agent";
 import type { InputCollector, InputRequest } from "./user-agent";
 import { createUserAgent } from "./user-agent";
@@ -92,7 +92,7 @@ describe("createUserAgent", () => {
       expect(r3.text).toBe("third");
     });
 
-    it("should use a non-empty incoming message without collecting again", async () => {
+    it("should collect fresh input even when previous flow output is nonempty", async () => {
       let collectorCalled = false;
       const agent = createUserAgent({
         name: "user",
@@ -105,8 +105,8 @@ describe("createUserAgent", () => {
 
       const result = await agent.call("initial strategy input");
 
-      expect(result.text).toBe("initial strategy input");
-      expect(collectorCalled).toBe(false);
+      expect(result.text).toBe("collected response");
+      expect(collectorCalled).toBe(true);
     });
   });
 
@@ -356,7 +356,7 @@ describe("createUserAgent", () => {
       expect(r2.text).toBe("[regular] preset");
     });
 
-    it("should use an altered non-empty message without collecting again", async () => {
+    it("should pass altered incoming text as context when collecting fresh input", async () => {
       let collectorCalled = false;
       const collector: InputCollector = async () => {
         collectorCalled = true;
@@ -374,8 +374,8 @@ describe("createUserAgent", () => {
       });
 
       const result = await agent.call("original");
-      expect(result.text).toBe("[prefix] original");
-      expect(collectorCalled).toBe(false);
+      expect(result.text).toBe("response");
+      expect(collectorCalled).toBe(true);
     });
   });
 

@@ -3,11 +3,11 @@
 Unified CommaAgents installer, terminal interface, and daemon manager.
 
 ```bash
-bun add --global @comma-agents/cli@next
+pnpm add --global @comma-agents/cli@next
 comma
 ```
 
-Requires Bun 1.3 or newer. The standalone installer does not require Bun:
+Requires Node.js 26 or newer. You can also use the package bootstrap installer:
 
 ```bash
 curl -fsSL https://commaagents.com/install | bash

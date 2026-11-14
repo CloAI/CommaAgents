@@ -1,0 +1,119 @@
+.picker {
+  position: relative;
+  min-width: 0;
+}
+.selector {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 2rem;
+  padding: 2px 2rem 2px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+}
+.input {
+  flex: 1 1 7rem;
+  width: 0;
+  min-height: 1.625rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+
+  &:focus-visible {
+    outline: none;
+  }
+}
+.toggle {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+.popup {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  box-shadow: 0 4px 16px #0006;
+}
+.options {
+  max-height: min(14rem, 35svh);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) var(--color-surface-raised);
+}
+.option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  small {
+    color: var(--color-muted);
+    font-size: inherit;
+  }
+  &[aria-selected="true"] {
+    color: var(--color-primary);
+  }
+  &[data-active="true"] {
+    background: var(--color-surface);
+  }
+}
+.empty {
+  margin: 0;
+  padding: var(--space-2);
+  color: var(--color-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  overflow-wrap: anywhere;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-raised);
+  color: var(--color-primary);
+
+  > svg {
+    flex: none;
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+.remove {
+  width: 1rem;
+  height: 1rem;
+  min-height: 1rem;
+  padding: 0;
+  border: 0;
+}
+
+.optionLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  svg {
+    flex: none;
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}

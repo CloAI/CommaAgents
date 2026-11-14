@@ -58,11 +58,6 @@ export const useStatusBarTheme = defineTheme((tokens) => ({
       color: tokens.colors.warning,
       spinning: false,
     },
-    waiting_question: {
-      label: "Waiting for answer",
-      color: tokens.colors.waitingInput,
-      spinning: false,
-    },
     completed: {
       label: "Done",
       color: tokens.colors.success,

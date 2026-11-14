@@ -30,18 +30,19 @@ const pid = readPid("/home/user/.comma/daemon.pid");
 
 ## isRunning
 
-Checks whether a process with the given PID is currently alive. Uses `process.kill(pid, 0)` — signal 0 checks existence without actually sending a signal.
+Checks whether a process with the given PID is currently alive.
 
 ```ts
 import { isRunning, readPid } from "@comma-agents/daemon";
 
+const pidFile = "/home/user/.comma/daemon.pid";
 const pid = readPid(pidFile);
 if (pid !== undefined && isRunning(pid)) {
   console.log(`Daemon is running (PID: ${pid})`);
 }
 ```
 
-EPERM is treated as "running" to avoid false negatives when the caller lacks permission to signal.
+A process is considered running when it exists even if the caller does not have permission to signal it.
 
 ## removePid
 
@@ -58,18 +59,21 @@ removePid("/home/user/.comma/daemon.pid");
 Startup writes the PID file, shutdown removes it. The CLI uses this to detect running instances:
 
 ```ts
+import { isRunning, readPid, removePid, writePid } from "@comma-agents/daemon";
+
+const pidFile = "/home/user/.comma/daemon.pid";
+
 // On startup
-writePid(config.pidFile);
+writePid(pidFile);
 
 // Graceful shutdown handler
 process.on("SIGTERM", () => {
-  cleanup();
-  removePid(config.pidFile);
+  removePid(pidFile);
   process.exit(0);
 });
 
 // Prevent duplicate starts
-const existingPid = readPid(config.pidFile);
+const existingPid = readPid(pidFile);
 if (existingPid !== undefined && isRunning(existingPid)) {
   console.error("Daemon is already running");
   process.exit(1);

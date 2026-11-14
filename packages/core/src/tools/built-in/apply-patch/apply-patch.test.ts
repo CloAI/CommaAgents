@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,7 +7,7 @@ import { createSandbox } from "../../../sandbox/sandbox";
 import type { AuditSink } from "../../io/audit.types";
 import { createMemoryAuditSink } from "../../io/audit-sink";
 import { sha256OfBuffer } from "../../io/hash";
-import { trashWorkspaceDir } from "../../io/trash";
+import { getDeletedFilesDirectory } from "../delete-file/deletion";
 import { makeToolContext } from "../../test.utils";
 import type { ToolContext } from "../../tool.types";
 import { type ApplyPatchData, createApplyPatchTool } from "./index";
@@ -21,7 +21,10 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
-  await rm(trashWorkspaceDir(workspaceRoot), { recursive: true, force: true });
+  await rm(getDeletedFilesDirectory(workspaceRoot), {
+    recursive: true,
+    force: true,
+  });
 });
 
 function makeCtx(overrides?: {
@@ -31,7 +34,7 @@ function makeCtx(overrides?: {
 }): ToolContext {
   return makeToolContext({
     agentName: overrides?.agentName ?? "test-agent",
-    sandbox: createSandbox({ cwd: workspaceRoot, jail: true }),
+    sandbox: createSandbox({ cwd: workspaceRoot, outsideWorkspace: "deny" }),
     ...(overrides?.auditSink !== undefined
       ? { auditSink: overrides.auditSink }
       : {}),
@@ -58,7 +61,9 @@ async function getOk(
       `expected ok, got error: ${result.error?.kind} ${result.error?.message}`,
     );
   }
-  if (!result.data) throw new Error("expected data");
+  if (!result.data) {
+    throw new Error("expected data");
+  }
   return result.data;
 }
 

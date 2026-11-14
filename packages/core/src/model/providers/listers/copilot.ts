@@ -1,3 +1,5 @@
+import { refreshCopilotCredential } from "../authentication/copilot";
+import { COPILOT_HEADERS } from "../authentication/copilot.constants";
 import type { Credential } from "../../../credentials/credentials.types";
 import type {
   ListModelsContext,
@@ -43,9 +45,15 @@ interface CopilotModelEntry {
 function extractBearerToken(
   credential: Credential | undefined,
 ): string | undefined {
-  if (!credential) return undefined;
-  if (credential.type === "oauth") return credential.accessToken;
-  if (credential.type === "api") return credential.key;
+  if (!credential) {
+    return undefined;
+  }
+  if (credential.type === "oauth") {
+    return credential.accessToken;
+  }
+  if (credential.type === "api") {
+    return credential.key;
+  }
   return undefined;
 }
 
@@ -83,7 +91,15 @@ function resolveCopilotBase(context: ListModelsContext): string {
 export const listCopilotModels: ListModelsFn = async (
   context: ListModelsContext,
 ): Promise<readonly ModelInfo[]> => {
-  const token = extractBearerToken(context.credential);
+  const credential =
+    context.credential?.type === "oauth"
+      ? await refreshCopilotCredential(
+          context.credential,
+          undefined,
+          context.signal,
+        )
+      : context.credential;
+  const token = extractBearerToken(credential);
   if (!token) {
     throw new Error(
       "GitHub Copilot listing requires an OAuth or API credential",
@@ -92,12 +108,15 @@ export const listCopilotModels: ListModelsFn = async (
 
   const base = resolveCopilotBase(context);
   const url = `${base}/models`;
-  const signal =
-    context.signal ?? AbortSignal.timeout(COPILOT_FETCH_TIMEOUT_MS);
+  const timeout = AbortSignal.timeout(COPILOT_FETCH_TIMEOUT_MS);
+  const signal = context.signal
+    ? AbortSignal.any([context.signal, timeout])
+    : timeout;
 
   const response = await fetch(url, {
     signal,
     headers: {
+      ...COPILOT_HEADERS,
       Authorization: `Bearer ${token}`,
       "User-Agent": COPILOT_USER_AGENT,
     },
@@ -141,20 +160,23 @@ export const listCopilotModels: ListModelsFn = async (
 
     return {
       id: entry.id,
-      ...(entry.name ? { name: entry.name } : {}),
-      ...(entry.capabilities?.family
-        ? { family: entry.capabilities.family }
-        : {}),
-      ...(limits?.max_context_window_tokens !== undefined
-        ? { contextWindow: limits.max_context_window_tokens }
-        : {}),
-      ...(limits?.max_prompt_tokens !== undefined
-        ? { maxInputTokens: limits.max_prompt_tokens }
-        : {}),
-      ...(limits?.max_output_tokens !== undefined
-        ? { maxOutputTokens: limits.max_output_tokens }
-        : {}),
-      capabilities,
+      sources: ["provider"],
+      metadata: {
+        ...(entry.name ? { name: entry.name } : {}),
+        ...(entry.capabilities?.family
+          ? { family: entry.capabilities.family }
+          : {}),
+        ...(limits?.max_context_window_tokens !== undefined
+          ? { contextWindow: limits.max_context_window_tokens }
+          : {}),
+        ...(limits?.max_prompt_tokens !== undefined
+          ? { maxInputTokens: limits.max_prompt_tokens }
+          : {}),
+        ...(limits?.max_output_tokens !== undefined
+          ? { maxOutputTokens: limits.max_output_tokens }
+          : {}),
+        capabilities,
+      },
     };
   });
 };

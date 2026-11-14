@@ -1,10 +1,12 @@
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 
-import { resolveDataDir } from "@comma-agents/core";
-import { stopDaemon } from "@comma-agents/daemon";
+import { getApplicationDataDirectory } from "@comma-agents/core";
+import { stopDaemonProcess } from "@comma-agents/daemon";
 
 import { buildAutostartPlan, disableAutostart } from "../autostart";
 import {
@@ -28,7 +30,9 @@ async function promptForConfirmation(
   const answer = (await terminal.question(`${prompt} ${suffix} `))
     .trim()
     .toLowerCase();
-  if (answer.length === 0) return defaultValue;
+  if (answer.length === 0) {
+    return defaultValue;
+  }
   return answer === "y" || answer === "yes";
 }
 
@@ -136,14 +140,18 @@ async function removeManagedUnixPathEntry(
             line === "# CommaAgents CLI" &&
             lines[lineIndex + 1] === managedLine,
         );
-        if (markerIndex === -1) return;
+        if (markerIndex === -1) {
+          return;
+        }
         lines.splice(markerIndex, 2);
         if (markerIndex > 0 && lines[markerIndex - 1] === "") {
           lines.splice(markerIndex - 1, 1);
         }
         await writeFile(shellPath, lines.join("\n"));
       } catch (caughtError) {
-        if ((caughtError as NodeJS.ErrnoException).code === "ENOENT") return;
+        if ((caughtError as NodeJS.ErrnoException).code === "ENOENT") {
+          return;
+        }
         warnings.push(
           `Could not update ${shellPath}: ${
             caughtError instanceof Error
@@ -156,36 +164,33 @@ async function removeManagedUnixPathEntry(
   );
 }
 
-function scheduleUnixRemoval(installation: CliInstallation): boolean {
+async function scheduleUnixRemoval(
+  installation: CliInstallation,
+): Promise<boolean> {
   const removalCommand =
     installation.type === "standalone"
       ? ["rm", "-f", "--", installation.executablePath]
       : installation.type === "package"
         ? buildPackageRemovalCommand(installation.manager, process.execPath)
         : undefined;
-  if (removalCommand === undefined) return false;
+  if (removalCommand === undefined) {
+    return false;
+  }
 
   const script = [
     'while kill -0 "$1" 2>/dev/null; do sleep 0.1; done',
     "shift",
     'exec "$@"',
   ].join("\n");
-  const child = Bun.spawn(
-    [
-      "sh",
-      "-c",
-      script,
-      "comma-uninstall",
-      String(process.pid),
-      ...removalCommand,
-    ],
+  const child = spawn(
+    "sh",
+    ["-c", script, "comma-uninstall", String(process.pid), ...removalCommand],
     {
-      stdin: "ignore",
-      stdout: "ignore",
-      stderr: "ignore",
+      stdio: "ignore",
       detached: true,
     },
   );
+  await once(child, "spawn");
   child.unref();
   return true;
 }
@@ -193,7 +198,9 @@ function scheduleUnixRemoval(installation: CliInstallation): boolean {
 async function scheduleWindowsRemoval(
   installation: CliInstallation,
 ): Promise<boolean> {
-  if (installation.type === "development") return false;
+  if (installation.type === "development") {
+    return false;
+  }
 
   const scriptPath = join(
     tmpdir(),
@@ -230,9 +237,9 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
     installation.type === "package"
       ? buildPackageRemovalCommand(installation.manager, process.execPath)
       : undefined;
-  const child = Bun.spawn(
+  const child = spawn(
+    "powershell.exe",
     [
-      "powershell.exe",
       "-NoProfile",
       "-NonInteractive",
       "-ExecutionPolicy",
@@ -249,9 +256,7 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
         : (command?.[0] ?? ""),
     ],
     {
-      stdin: "ignore",
-      stdout: "ignore",
-      stderr: "ignore",
+      stdio: "ignore",
       detached: true,
       env: {
         ...process.env,
@@ -259,6 +264,7 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
       },
     },
   );
+  await once(child, "spawn");
   child.unref();
   return true;
 }
@@ -298,8 +304,10 @@ export async function runUninstaller(
   const warnings: string[] = [];
   await removeAutostart(warnings);
   try {
-    const stopResult = await stopDaemon();
-    if (stopResult.stopped) console.log(stopResult.message);
+    const stopResult = await stopDaemonProcess();
+    if (stopResult.stopped) {
+      console.log(stopResult.message);
+    }
   } catch (caughtError) {
     throw new Error(
       `Uninstall stopped before removing data because the daemon could not be stopped: ${
@@ -308,7 +316,7 @@ export async function runUninstaller(
     );
   }
 
-  await removeSelectedData(resolveDataDir(), selections);
+  await removeSelectedData(getApplicationDataDirectory(), selections);
 
   const installation = resolveCliInstallation({
     standaloneBuild: process.env.COMMA_STANDALONE_BUILD === "1",
@@ -326,7 +334,9 @@ export async function runUninstaller(
     );
   }
 
-  for (const warning of warnings) console.warn(`Warning: ${warning}`);
+  for (const warning of warnings) {
+    console.warn(`Warning: ${warning}`);
+  }
   console.log(
     removalScheduled
       ? "CommaAgents will finish uninstalling after this command exits."

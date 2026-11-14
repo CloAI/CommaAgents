@@ -1,0 +1,49 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: var(--button-height);
+  padding: 0.1875rem var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 32%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 14%,
+    var(--color-surface)
+  );
+  color: var(--color-primary);
+  font-size: var(--font-size-compact);
+  line-height: 1.4;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration),
+    border-color var(--motion-duration),
+    color var(--motion-duration);
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
+    background: color-mix(
+      in srgb,
+      var(--color-primary) 24%,
+      var(--color-surface)
+    );
+    border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+    color: var(--color-text);
+  }
+  &:active:not(:disabled) {
+    background: color-mix(
+      in srgb,
+      var(--color-primary) 28%,
+      var(--color-surface)
+    );
+    border-color: var(--color-primary);
+    color: var(--color-text);
+  }
+  &:disabled {
+    background: var(--color-surface-raised);
+    color: var(--color-muted);
+    border-color: var(--color-border);
+    cursor: not-allowed;
+  }
+}

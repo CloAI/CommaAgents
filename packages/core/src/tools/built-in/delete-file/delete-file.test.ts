@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,7 +7,7 @@ import { createSandbox } from "../../../sandbox/sandbox";
 import type { AuditSink } from "../../io/audit.types";
 import { createMemoryAuditSink } from "../../io/audit-sink";
 import { sha256OfBuffer } from "../../io/hash";
-import { trashWorkspaceDir } from "../../io/trash";
+import { getDeletedFilesDirectory } from "./deletion";
 import { makeToolContext } from "../../test.utils";
 import type { ToolContext } from "../../tool.types";
 import { createDeleteFileTool, type DeleteFileData } from "./index";
@@ -22,12 +22,12 @@ beforeEach(async () => {
 afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
   // Clean this workspace's trash bucket so tests don't leak.
-  await rm(trashWorkspaceDir(workspaceRoot), { recursive: true, force: true });
+  await rm(getDeletedFilesDirectory(workspaceRoot), { recursive: true, force: true });
 });
 
 function makeCtx(overrides?: {
-  jail?: boolean;
-  allowAbsolutePaths?: boolean;
+  outsideWorkspace?: "allow" | "deny";
+  absolutePaths?: "allow" | "deny";
   forbiddenGlobs?: readonly string[];
   auditSink?: AuditSink;
   sessionId?: string;
@@ -37,8 +37,8 @@ function makeCtx(overrides?: {
     agentName: overrides?.agentName ?? "test-agent",
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: overrides?.jail ?? true,
-      allowAbsolutePaths: overrides?.allowAbsolutePaths ?? false,
+      outsideWorkspace: overrides?.outsideWorkspace ?? "deny",
+      absolutePaths: overrides?.absolutePaths ?? "deny",
       forbiddenGlobs: overrides?.forbiddenGlobs ?? [],
     }),
     ...(overrides?.auditSink !== undefined
@@ -71,7 +71,9 @@ async function getOk(
       `expected ok, got error: ${result.error?.kind} ${result.error?.message}`,
     );
   }
-  if (!result.data) throw new Error("expected data");
+  if (!result.data) {
+    throw new Error("expected data");
+  }
   return result.data;
 }
 
@@ -94,7 +96,7 @@ describe("createDeleteFileTool", () => {
     expect(data.beforeSha256).toBe(sha);
     expect(data.sizeBytes).toBe(4);
     expect(typeof data.trashedTo).toBe("string");
-    expect(data.trashedTo).toEndWith(".tar.gz");
+    expect(data.trashedTo).toMatch(/\.tar\.gz$/);
     expect(existsSync(join(workspaceRoot, "a.txt"))).toBe(false);
     expect(existsSync(data.trashedTo!)).toBe(true);
   });
@@ -155,7 +157,7 @@ describe("createDeleteFileTool", () => {
     const tool = createDeleteFileTool();
     const result = await tool.execute(
       { path: "../escape.txt", expectedSha256: sha256OfBuffer("") },
-      makeCtx({ jail: true }),
+      makeCtx({ outsideWorkspace: "deny" }),
     );
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("outside_workspace");
@@ -237,7 +239,7 @@ describe("createDeleteFileTool", () => {
     const controller = new AbortController();
     controller.abort();
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspaceRoot, jail: true }),
+      sandbox: createSandbox({ cwd: workspaceRoot, outsideWorkspace: "deny" }),
       abort: controller.signal,
     });
     const tool = createDeleteFileTool();

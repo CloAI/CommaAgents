@@ -57,13 +57,7 @@ export function resolveShell(
 export function detectPlatformInfo(): PlatformInfo {
   const platform = process.platform;
   const { shellPath, shellFlag } = resolveShell(platform);
-  const bunVersion =
-    typeof (globalThis as { Bun?: { version: string } }).Bun !== "undefined"
-      ? (globalThis as { Bun: { version: string } }).Bun.version
-      : undefined;
-  const runtime = bunVersion
-    ? `bun ${bunVersion}`
-    : `node ${process.versions.node}`;
+  const runtime = `node ${process.versions.node}`;
 
   return {
     platform,
@@ -177,7 +171,9 @@ export function matchesAnyPattern(
   patterns: readonly RegExp[],
 ): boolean {
   for (const pattern of patterns) {
-    if (pattern.test(command)) return true;
+    if (pattern.test(command)) {
+      return true;
+    }
   }
   return false;
 }

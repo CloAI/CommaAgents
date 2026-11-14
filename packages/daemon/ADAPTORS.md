@@ -157,7 +157,7 @@ interface LoadStrategyOptions {
   readonly inputCollector?: InputCollector;
   readonly flowHooks?: FlowHooks;
   readonly agentHooks?: AgentHooks;     // ← new
-  readonly modelOverride?: string;
+  readonly modelRoles?: Readonly<Record<string, string>>;
 }
 ```
 
@@ -286,7 +286,7 @@ await withAdaptor("telegram", "chat_12345", async ({ loaderOptions }) => {
 await withAdaptor("telegram", "chat_12345", async ({ loaderOptions }) => {
   const strategy = await loadStrategyFromString(content, "yaml", {
     ...loaderOptions,
-    modelOverride: "openai/gpt-4o",
+    modelRoles: { medium: "openai/gpt-4o" },
     flowHooks: myFlowHooks,
   });
   await strategy.flow.call("prepare questions");

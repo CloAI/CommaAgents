@@ -1,6 +1,5 @@
-export { createJsonFileBackend } from "./backends/json-file";
+export { createJsonFileCredentialBackend } from "./backends/json-file";
 export { createCredentialStore } from "./credentials";
-
 export type {
   ApiCredential,
   Credential,
@@ -18,7 +17,12 @@ export type {
   CreateCredentialStoreOptions,
   CredentialBackend,
   CredentialStore,
+  CredentialSource,
   CredentialStoreData,
   EnvVarMap,
 } from "./credentials.types";
-export { resolveCredentialsPath } from "./credentials.utils";
+export {
+  getGlobalCredentialStore,
+  resetGlobalCredentialStore,
+  setGlobalCredentialStore,
+} from "./global-credential-store";

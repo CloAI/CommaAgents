@@ -32,7 +32,18 @@ export function getTurndown(): TurndownService {
       codeBlockStyle: "fenced",
       bulletListMarker: "-",
     });
-    turndownService.remove(["script", "style", "noscript", "iframe"]);
+    turndownService.remove([
+      "script",
+      "style",
+      "noscript",
+      "iframe",
+      "nav",
+      "header",
+      "footer",
+      "aside",
+      "form",
+      "svg",
+    ]);
   }
   return turndownService;
 }
@@ -63,7 +74,9 @@ export function transformContent(
   html: string,
   format: "text" | "markdown" | "html",
 ): string {
-  if (format === "html") return html;
+  if (format === "html") {
+    return html;
+  }
   const markdown = getTurndown().turndown(html);
   return format === "text" ? stripMarkdown(markdown) : markdown;
 }

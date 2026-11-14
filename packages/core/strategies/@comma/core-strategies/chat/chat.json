@@ -1,0 +1,34 @@
+{
+  "name": "Chat",
+  "version": "3.0",
+  "description": "Talk things through. Codebase questions and research go to subagents; switch to Plan or Build when it is time to do work.",
+  "agents": {
+    "user": {
+      "type": "user",
+      "description": "Your next message.",
+      "config": { "requireInput": true }
+    },
+    "chat": {
+      "description": "Answers directly and delegates codebase and web research.",
+      "model": "@medium",
+      "maxSteps": 20,
+      "systemPromptTemplate": { "template": "./prompts/chat.md" },
+      "context": {
+        "environment": true,
+        "compaction": { "keepRecentTokens": 12000, "model": "@compaction" }
+      },
+      "subagents": {
+        "explore": "../subagents/explore/explore.json",
+        "research": "../subagents/research/research.json"
+      },
+      "tools": ["delegate", "load_skill", "request_strategy_switch"]
+    }
+  },
+  "flow": {
+    "name": "Chat Loop",
+    "type": "cycle",
+    "description": "You send a message; the assistant replies; repeat.",
+    "cycles": "Infinity",
+    "steps": [{ "agent": "user" }, { "agent": "chat" }]
+  }
+}

@@ -7,16 +7,16 @@ Runnable examples demonstrating the core APIs, ordered by progressive complexity
 1. Install dependencies from the workspace root:
 
    ```sh
-   bun install
+   pnpm install
    ```
 
 2. Install a provider package (at least one):
 
    ```sh
-   bun add @ai-sdk/openai            # for openai/* models
-   bun add @ai-sdk/anthropic          # for anthropic/* models
-   bun add @ai-sdk/openai-compatible  # for github-copilot/* models
-   bun add ollama-ai-provider         # for ollama/* (local) models
+   pnpm add @ai-sdk/openai            # for openai/* models
+   pnpm add @ai-sdk/anthropic          # for anthropic/* models
+   pnpm add @ai-sdk/openai-compatible  # for github-copilot/* models
+   pnpm add ollama-ai-provider         # for ollama/* (local) models
    ```
 
 3. Set the corresponding API key environment variable:
@@ -31,7 +31,7 @@ Runnable examples demonstrating the core APIs, ordered by progressive complexity
 From the project root:
 
 ```sh
-MODEL=openai/gpt-4o bun run examples/core/scripts/01-basic-agent.ts
+MODEL=openai/gpt-4o pnpm run examples/core/scripts/01-basic-agent.ts
 ```
 
 Change `MODEL` to any `providerID/modelID` string (e.g., `anthropic/claude-sonnet-4-5`, `github-copilot/gpt-4o`, `ollama/llama3`).
@@ -54,7 +54,7 @@ You can use GitHub Copilot as a provider if you have a Copilot subscription. Cop
 1. Install the OpenAI-compatible provider package:
 
    ```sh
-   bun add @ai-sdk/openai-compatible
+   pnpm add @ai-sdk/openai-compatible
    ```
 
 2. Set your GitHub token. The easiest way is via the GitHub CLI:
@@ -68,8 +68,8 @@ You can use GitHub Copilot as a provider if you have a Copilot subscription. Cop
 3. Run any example with the `github-copilot` provider:
 
    ```sh
-    MODEL=github-copilot/gpt-4o bun run examples/core/scripts/01-basic-agent.ts
-    MODEL=github-copilot/claude-sonnet-4 bun run examples/core/scripts/02-agent-with-tools.ts
+    MODEL=github-copilot/gpt-4o pnpm run examples/core/scripts/01-basic-agent.ts
+    MODEL=github-copilot/claude-sonnet-4 pnpm run examples/core/scripts/02-agent-with-tools.ts
    ```
 
 ### Available Copilot models

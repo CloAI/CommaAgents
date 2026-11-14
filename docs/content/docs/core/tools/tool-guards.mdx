@@ -1,0 +1,90 @@
+---
+title: Tool Guards
+description: Authorize file and command access from custom tools.
+---
+
+# Tool Guards
+
+Every tool receives a per-tool `Guard` through `ToolContext.guard`. Use it to authorize file-system access, command execution, and custom policy checks. The agent's [sandbox](/docs/core/sandbox) supplies the guard; when no sandbox is configured, the guard uses permissive defaults.
+
+## Authorize access
+
+Call `guard.authorize()` before a tool reads or writes a file or executes a command.
+
+```ts
+import { readFile } from "node:fs/promises";
+import { z } from "zod";
+import { defineTool, okResult } from "@comma-agents/core";
+
+const readConfig = defineTool({
+  description: "Read a project configuration file",
+  parameters: z.object({ path: z.string() }),
+  execute: async ({ path }, context) => {
+    const absolutePath = await context.guard.authorize(
+      { type: "fs.read", resource: path },
+      {
+        agentName: context.agentName,
+        toolName: "read_config",
+        signal: context.abort,
+      },
+    );
+
+    return okResult(await readFile(absolutePath, "utf8"));
+  },
+});
+```
+
+For file requests, the guard returns the resolved absolute path. A denied request throws `SandboxViolationError`, which the tool framework reports as a structured `permission_denied` error.
+
+Use `guard.canAccess()` when filtering resources without throwing:
+
+```ts
+const canRead = context.guard.canAccess({
+  type: "fs.read",
+  resource: "src/config.ts",
+});
+```
+
+## Guard responsibilities
+
+| Responsibility | Behavior |
+|---|---|
+| Workspace boundary | Allows, denies, or asks about paths that resolve outside the workspace. |
+| Path policies | Applies ordered read and write deny, allow, and default decisions. |
+| Command approval | Denies commands or routes them through interactive approval. |
+| Forbidden globs | Blocks configured secret, key, and sensitive-path patterns. |
+
+## Tool-level policies
+
+Add `policies` to a tool definition when that tool needs rules beyond the sandbox defaults.
+
+```ts
+import { z } from "zod";
+import {
+  defineTool,
+  okResult,
+} from "@comma-agents/core";
+import { denyCommandsPolicy } from "@comma-agents/core/sandbox";
+
+const runTask = defineTool({
+  description: "Run a project task",
+  parameters: z.object({ command: z.string() }),
+  policies: [denyCommandsPolicy(["rm -rf /", "sudo shutdown"])],
+  execute: async ({ command }, context) => {
+    await context.guard.authorize(
+      { type: "command.execute", resource: command },
+      {
+        agentName: context.agentName,
+        toolName: "run_task",
+        signal: context.abort,
+      },
+    );
+
+    return okResult("Command authorized.");
+  },
+});
+```
+
+Built-in policy factories include `denyCommandsPolicy`, `approveCommandsPolicy`, `forbiddenGlobsPolicy`, and `pathPolicy`. Custom `Policy` implementations can return `"allow"`, `"deny"`, `"ask"`, or `"pass"`.
+
+See [Sandbox](/docs/core/sandbox) for workspace boundaries, path policies, permission callbacks, session decisions, and the complete guard API.

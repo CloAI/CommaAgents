@@ -127,13 +127,13 @@ import {
   getGlobalCredentialStore,
   getGlobalProviderResolver,
   createCredentialStore,
-  createJsonFileBackend,
+  createJsonFileCredentialBackend,
   resolveCredentialsPath,
 } from "@comma-agents/core";
 
 // 1. Configure a custom credential store
 const store = createCredentialStore({
-  backend: createJsonFileBackend({ filePath: resolveCredentialsPath() }),
+  backend: createJsonFileCredentialBackend({ filePath: resolveCredentialsPath() }),
 });
 setGlobalCredentialStore(store);
 
@@ -146,17 +146,3 @@ registerProvider("deepinfra", {
 // 3. Both are now available to all agents and strategies
 // No further configuration needed — createAgent() works directly
 ```
-
-## Types
-
-### GlobalDefaults
-
-Snapshot of the global defaults state returned by `getGlobalDefaults`.
-
-<AutoTypeTable path="../packages/core/src/defaults/defaults.types.ts" name="GlobalDefaults" />
-
-### ProviderRegistration
-
-Configuration for registering a custom provider with the global resolver.
-
-<AutoTypeTable path="../packages/core/src/defaults/defaults.types.ts" name="ProviderRegistration" />

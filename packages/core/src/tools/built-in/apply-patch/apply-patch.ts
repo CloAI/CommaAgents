@@ -165,7 +165,9 @@ export function createApplyPatchTool(
             ? [operation.fromPath, operation.toPath]
             : [operation.path];
         for (const candidatePath of pathsToResolve) {
-          if (resolved.has(candidatePath)) continue;
+          if (resolved.has(candidatePath)) {
+            continue;
+          }
           try {
             resolved.set(
               candidatePath,
@@ -202,14 +204,16 @@ export function createApplyPatchTool(
       try {
         await commitStagedFiles(stagedFiles, guard.cwd, {
           atomic,
-          trashMetadata: {
+          deletionMetadata: {
             ...(sessionId !== undefined ? { sessionId } : {}),
             agentName,
-            ...guard.trashMetadata,
+            ...guard.deletionMetadata,
           },
         });
       } catch (caughtError) {
-        if (!(caughtError instanceof CommitFailedError)) throw caughtError;
+        if (!(caughtError instanceof CommitFailedError)) {
+          throw caughtError;
+        }
 
         await writeAuditFailure({
           sink,

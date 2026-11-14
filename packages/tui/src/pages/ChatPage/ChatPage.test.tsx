@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, vi } from "vitest";
 import { render } from "ink-testing-library";
 
 import { ChatPageRender } from "./ChatPage";
@@ -53,8 +53,8 @@ function renderChatPage(
   status: React.ComponentProps<typeof ChatPageRender>["chatStatus"] = "running",
   canContinue = status === "completed",
 ) {
-  const onAbort = mock();
-  const onContinueSubmit = mock();
+  const onAbort = vi.fn();
+  const onContinueSubmit = vi.fn();
   const result = render(
     <ChatPageRender
       theme={TEST_THEME}
@@ -63,14 +63,12 @@ function renderChatPage(
       error={null}
       pendingInputAgent={null}
       pendingPermissionRequest={null}
-      pendingQuestionRequest={null}
       activeStrategyPath="/build.json"
       canContinue={canContinue}
-      onReplySubmit={mock()}
-      onSteerSubmit={mock()}
+      onReplySubmit={vi.fn()}
+      onSteerSubmit={vi.fn()}
       onContinueSubmit={onContinueSubmit}
-      onPermissionDecide={mock()}
-      onQuestionSubmit={mock()}
+      onPermissionDecide={vi.fn()}
       onAbort={onAbort}
       strategies={STRATEGIES}
       emptyStrategyLabel="No strategies found"

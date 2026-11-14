@@ -1,0 +1,39 @@
+@use "tokens";
+@use "@fontsource-variable/geist-mono/wght.css";
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 0;
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+button,
+textarea {
+  font: inherit;
+}
+button {
+  touch-action: manipulation;
+}
+::selection {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+:focus,
+:focus-visible {
+  outline: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration: 0ms;
+  }
+}

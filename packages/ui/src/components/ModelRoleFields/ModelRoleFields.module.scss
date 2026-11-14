@@ -1,0 +1,66 @@
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--font-size-small);
+
+  .roles {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .role {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-medium);
+  }
+
+  .name {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .description {
+    color: var(--color-muted);
+    overflow-wrap: anywhere;
+  }
+}
+
+.modelSelect {
+  --select-max-width: 20rem;
+  display: inline-flex;
+  min-width: 0;
+  max-width: min(100%, var(--select-max-width));
+
+  > div {
+    min-width: 0;
+  }
+}
+
+.capabilities {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-muted);
+
+  span {
+    display: inline-flex;
+  }
+
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}

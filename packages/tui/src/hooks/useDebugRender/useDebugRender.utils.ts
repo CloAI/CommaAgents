@@ -56,7 +56,7 @@ export function labelLineVisibleWidth(
  * box-drawing characters so existing content inside is preserved.
  */
 export function paintHighlight(
-  stdout: NodeJS.WriteStream,
+  stdout: NodeJS.WritableStream,
   node: DOMElement,
   reasons: readonly RenderReason[],
   labelLine: string,
@@ -64,7 +64,9 @@ export function paintHighlight(
   showBackground: boolean,
 ): void {
   const { top, left, width, height } = getBoundingBox(node);
-  if (width === 0 || height === 0) return;
+  if (width === 0 || height === 0) {
+    return;
+  }
 
   let output = CURSOR_SAVE;
 
@@ -100,7 +102,7 @@ export function paintHighlight(
 
 /** Clear just the label text on the first row. */
 export function clearLabelLine(
-  stdout: NodeJS.WriteStream,
+  stdout: NodeJS.WritableStream,
   node: DOMElement,
   visibleWidth: number,
 ): void {
@@ -113,11 +115,13 @@ export function clearLabelLine(
 
 /** Clear the border outline by overwriting border cells with spaces. */
 export function clearHighlight(
-  stdout: NodeJS.WriteStream,
+  stdout: NodeJS.WritableStream,
   node: DOMElement,
 ): void {
   const { top, left, width, height } = getBoundingBox(node);
-  if (width < 2 || height < 2) return;
+  if (width < 2 || height < 2) {
+    return;
+  }
 
   let output = CURSOR_SAVE;
 
@@ -188,7 +192,9 @@ export function filterReasons(
   reasons: readonly RenderReason[],
   enabled?: Partial<Record<RenderReason, boolean>>,
 ): RenderReason[] {
-  if (!enabled) return [...reasons];
+  if (!enabled) {
+    return [...reasons];
+  }
   return reasons.filter((reason) => enabled[reason] !== false);
 }
 
@@ -196,7 +202,9 @@ export function filterReasons(
 export function mergeBackgroundColors(
   overrides?: Partial<Record<RenderReason, string>>,
 ): Record<RenderReason, string> {
-  if (!overrides) return DEFAULT_BG_COLORS;
+  if (!overrides) {
+    return DEFAULT_BG_COLORS;
+  }
   return { ...DEFAULT_BG_COLORS, ...overrides };
 }
 
@@ -204,6 +212,8 @@ export function mergeBackgroundColors(
 export function mergeLabelColors(
   overrides?: Partial<Record<RenderReason, string>>,
 ): Record<RenderReason, string> {
-  if (!overrides) return DEFAULT_LABEL_COLORS;
+  if (!overrides) {
+    return DEFAULT_LABEL_COLORS;
+  }
   return { ...DEFAULT_LABEL_COLORS, ...overrides };
 }

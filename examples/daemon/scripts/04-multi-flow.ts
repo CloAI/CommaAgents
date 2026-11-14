@@ -11,13 +11,13 @@
  *   - List active strategies with `list_strategies`
  *
  * Prerequisites:
- *   1. Start the daemon: bun run --cwd packages/daemon start
+ *   1. Start the daemon: pnpm --dir packages/daemon start
  *   2. Ensure strategy files exist (or use the defaults below)
  *   3. Set up provider API keys (e.g., OPENAI_API_KEY)
  *
  * Run:
- *   bun run examples/04-multi-flow.ts [strategy-path]
- *   bun run examples/04-multi-flow.ts --daemon-url ws://localhost:8080/ws
+ *   pnpm exec tsx examples/04-multi-flow.ts [strategy-path]
+ *   pnpm exec tsx examples/04-multi-flow.ts --daemon-url ws://localhost:8080/ws
  *
  * Concepts:
  *   - Concurrent strategy execution
@@ -32,7 +32,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 const DEFAULT_STRATEGY = path.resolve(
-  import.meta.dir,
+  import.meta.dirname,
   "../../core/strategies/simple/strategy.json",
 );
 
@@ -55,13 +55,6 @@ const argv = yargs(hideBin(process.argv))
     default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
     describe: "WebSocket URL of the daemon",
   })
-  .option("model-override", {
-    alias: "m",
-    type: "string",
-    default: process.env.MODEL,
-    describe:
-      'Override the model for all agents (e.g. "anthropic/claude-sonnet-4-20250514"). Also reads MODEL env var.',
-  })
   .example("$0", "Run 3 parallel flows with default strategy")
   .example("$0 path/to/strategy.json", "Run with a specific strategy")
   .strict()
@@ -72,7 +65,6 @@ const argv = yargs(hideBin(process.argv))
 
 const DAEMON_URL = argv.daemonUrl as string;
 const STRATEGY_PATH = argv.strategyPath as string;
-const MODEL_OVERRIDE = argv.modelOverride as string | undefined;
 
 // -- Per-flow tracking ------------------------------------------------------
 
@@ -108,7 +100,9 @@ function createTracker(
 
 function findTracker(runId: string): FlowTracker | undefined {
   for (const t of flows.values()) {
-    if (t.runId === runId) return t;
+    if (t.runId === runId) {
+      return t;
+    }
   }
   return undefined;
 }
@@ -130,7 +124,6 @@ async function main() {
   const strategyPath = path.resolve(STRATEGY_PATH);
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
   console.log(`Strategy: ${strategyPath}`);
-  if (MODEL_OVERRIDE) console.log(`Model override: ${MODEL_OVERRIDE}`);
   console.log();
 
   const ws = new WebSocket(DAEMON_URL);
@@ -163,7 +156,6 @@ async function main() {
           runId: id,
           strategyPath,
           requestId: id,
-          ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
         }),
       );
     }
@@ -181,7 +173,9 @@ async function main() {
     switch (msg.type) {
       case "run_prepared": {
         const tracker = flows.get(msg.runId);
-        if (tracker) tracker.runId = msg.runId;
+        if (tracker) {
+          tracker.runId = msg.runId;
+        }
         ws.send(
           JSON.stringify({
             type: "start_run",
@@ -210,7 +204,9 @@ async function main() {
 
       case "step_started": {
         const t = findTracker(msg.runId);
-        if (t) t.stepCount++;
+        if (t) {
+          t.stepCount++;
+        }
         break;
       }
 
@@ -253,7 +249,9 @@ async function main() {
 
       case "strategy_completed": {
         const t = findTracker(msg.runId);
-        if (t) t.status = "completed";
+        if (t) {
+          t.status = "completed";
+        }
         completedCount++;
 
         const label = t?.label ?? msg.runId.slice(0, 8);
@@ -271,7 +269,9 @@ async function main() {
 
       case "strategy_error": {
         const t = findTracker(msg.runId);
-        if (t) t.status = "error";
+        if (t) {
+          t.status = "error";
+        }
         completedCount++;
 
         const label = t?.label ?? msg.runId.slice(0, 8);

@@ -41,7 +41,9 @@ export type Replacer = (
  * kept in the chain so the same code path covers exact and fallback cases.
  */
 export const exactReplacer: Replacer = function* (content, find) {
-  if (content.includes(find)) yield find;
+  if (content.includes(find)) {
+    yield find;
+  }
 };
 
 /**
@@ -58,7 +60,9 @@ export const lineTrimmedReplacer: Replacer = function* (content, find) {
   if (searchLines[searchLines.length - 1] === "") {
     searchLines.pop();
   }
-  if (searchLines.length === 0) return;
+  if (searchLines.length === 0) {
+    return;
+  }
 
   for (let i = 0; i <= originalLines.length - searchLines.length; i++) {
     let matches = true;
@@ -70,18 +74,23 @@ export const lineTrimmedReplacer: Replacer = function* (content, find) {
         break;
       }
     }
-    if (!matches) continue;
+    if (!matches) {
+      continue;
+    }
 
     // Reconstruct the exact substring of `content` from line i, length
     // `searchLines.length`. We walk character positions so newline
     // accounting stays correct.
     let matchStart = 0;
-    for (let k = 0; k < i; k++)
+    for (let k = 0; k < i; k++) {
       matchStart += (originalLines[k]?.length ?? 0) + 1;
+    }
     let matchEnd = matchStart;
     for (let k = 0; k < searchLines.length; k++) {
       matchEnd += originalLines[i + k]?.length ?? 0;
-      if (k < searchLines.length - 1) matchEnd += 1;
+      if (k < searchLines.length - 1) {
+        matchEnd += 1;
+      }
     }
     yield content.substring(matchStart, matchEnd);
   }
@@ -104,14 +113,18 @@ export const blockAnchorReplacer: Replacer = function* (content, find) {
   if (searchLines[searchLines.length - 1] === "") {
     searchLines.pop();
   }
-  if (searchLines.length < 3) return;
+  if (searchLines.length < 3) {
+    return;
+  }
 
   const firstAnchor = searchLines[0]?.trim();
   const lastAnchor = searchLines[searchLines.length - 1]?.trim();
 
   const candidates: Array<{ startLine: number; endLine: number }> = [];
   for (let i = 0; i < originalLines.length; i++) {
-    if (originalLines[i]?.trim() !== firstAnchor) continue;
+    if (originalLines[i]?.trim() !== firstAnchor) {
+      continue;
+    }
     for (let j = i + 2; j < originalLines.length; j++) {
       if (originalLines[j]?.trim() === lastAnchor) {
         candidates.push({ startLine: i, endLine: j });
@@ -123,16 +136,21 @@ export const blockAnchorReplacer: Replacer = function* (content, find) {
   // Only yield when there is a single candidate. Multiple candidates
   // means we'd be guessing which block the LLM meant — refuse and let
   // the LLM disambiguate with a tighter `oldText`.
-  if (candidates.length !== 1) return;
+  if (candidates.length !== 1) {
+    return;
+  }
 
   const { startLine, endLine } = candidates[0]!;
   let matchStart = 0;
-  for (let k = 0; k < startLine; k++)
+  for (let k = 0; k < startLine; k++) {
     matchStart += (originalLines[k]?.length ?? 0) + 1;
+  }
   let matchEnd = matchStart;
   for (let k = startLine; k <= endLine; k++) {
     matchEnd += originalLines[k]?.length ?? 0;
-    if (k < endLine) matchEnd += 1;
+    if (k < endLine) {
+      matchEnd += 1;
+    }
   }
   yield content.substring(matchStart, matchEnd);
 };
@@ -153,8 +171,12 @@ export const whitespaceNormalizedReplacer: Replacer = function* (
 ) {
   const normalize = (text: string): string => text.replace(/\s+/g, " ").trim();
   const normalizedFind = normalize(find);
-  if (normalizedFind.length === 0) return;
-  if (find.includes("\n")) return;
+  if (normalizedFind.length === 0) {
+    return;
+  }
+  if (find.includes("\n")) {
+    return;
+  }
 
   const lines = content.split("\n");
   for (const line of lines) {
@@ -215,9 +237,13 @@ export function findFallbackMatch(
   for (const replacer of replacers) {
     const candidates = new Set<string>();
     for (const candidate of replacer(content, find)) {
-      if (content.includes(candidate)) candidates.add(candidate);
+      if (content.includes(candidate)) {
+        candidates.add(candidate);
+      }
     }
-    if (candidates.size === 0) continue;
+    if (candidates.size === 0) {
+      continue;
+    }
     if (candidates.size === 1) {
       const match = candidates.values().next().value as string;
       return {

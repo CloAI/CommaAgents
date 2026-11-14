@@ -1,4 +1,6 @@
-import { expect } from "bun:test";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { once } from "node:events";
+import { expect } from "vitest";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
@@ -44,7 +46,7 @@ export interface ShellUseDiagnosticsOptions {
 
 const SHELL_USE_COMMAND = "shell-use";
 const TUI_ENTRYPOINT = resolve(
-  import.meta.dir,
+  import.meta.dirname,
   "../../../packages/tui/src/main.tsx",
 );
 const RAW_KEY_SEQUENCES: Readonly<Record<string, string>> = {
@@ -60,7 +62,7 @@ export async function runShellUse(
   {
     sessionName,
     timeoutMs = 10_000,
-    cwd = import.meta.dir,
+    cwd = import.meta.dirname,
   }: ShellUseRunOptions = {},
 ): Promise<ShellUseRunResult> {
   const command = [
@@ -68,14 +70,13 @@ export async function runShellUse(
     ...(sessionName ? ["--session", sessionName] : []),
     ...args,
   ];
-  let subprocess: Bun.Subprocess<"ignore", "pipe", "pipe">;
+  let subprocess: ChildProcessWithoutNullStreams;
   try {
-    subprocess = Bun.spawn(command, {
+    subprocess = spawn(command[0]!, command.slice(1), {
       cwd,
-      stdin: "ignore",
-      stdout: "pipe",
-      stderr: "pipe",
+      stdio: ["pipe", "pipe", "pipe"],
     });
+    await once(subprocess, "spawn");
   } catch (error) {
     return {
       exitCode: 127,
@@ -89,9 +90,13 @@ export async function runShellUse(
   }, timeoutMs);
 
   const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(subprocess.stdout).text(),
-    new Response(subprocess.stderr).text(),
-    subprocess.exited,
+    Array.fromAsync(subprocess.stdout).then((chunks) =>
+      Buffer.concat(chunks).toString(),
+    ),
+    Array.fromAsync(subprocess.stderr).then((chunks) =>
+      Buffer.concat(chunks).toString(),
+    ),
+    once(subprocess, "exit").then(([code]) => code ?? 1),
   ]);
   clearTimeout(timeout);
 
@@ -128,7 +133,9 @@ export async function startTuiSession({
       "--cwd",
       workspaceDir,
       ...envArgs,
-      "bun",
+      process.execPath,
+      "--import",
+      "tsx",
       TUI_ENTRYPOINT,
       "--daemon-url",
       daemonUrl,
@@ -240,7 +247,9 @@ export async function waitForText(
     { sessionName, timeoutMs: timeoutMs + 1_000 },
   );
 
-  if (result.exitCode === 0) return;
+  if (result.exitCode === 0) {
+    return;
+  }
 
   throw new Error(
     `shell-use did not find ${JSON.stringify(text)}.\n${formatShellUseFailure(result)}\n\nTerminal text:\n${await readShellUseText(sessionName, true)}`,
@@ -300,10 +309,14 @@ export async function readShellUseText(
       timeoutMs: 2_000,
     },
   );
-  if (result.exitCode !== 0) return formatShellUseFailure(result);
+  if (result.exitCode !== 0) {
+    return formatShellUseFailure(result);
+  }
 
   const envelope = parseShellUseJson(result.stdout);
-  if (typeof envelope.data === "string") return envelope.data;
+  if (typeof envelope.data === "string") {
+    return envelope.data;
+  }
   if (
     typeof envelope.data === "object" &&
     envelope.data !== null &&
@@ -363,7 +376,9 @@ async function expectShellUse(
   timeoutMs = 10_000,
 ): Promise<void> {
   const result = await runShellUse(args, { sessionName, timeoutMs });
-  if (result.exitCode === 0) return;
+  if (result.exitCode === 0) {
+    return;
+  }
 
   throw new Error(
     `Failed to ${action}.\n${formatShellUseFailure(result)}\n\nTerminal text:\n${await readShellUseText(sessionName, true)}`,

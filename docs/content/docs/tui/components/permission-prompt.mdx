@@ -14,7 +14,7 @@ import { PermissionPrompt } from "@comma-agents/tui";
   request={{
     agentName: "builder",
     toolName: "run_command",
-    operation: "fs.exec",
+    operation: "command.execute",
     resource: "/usr/bin/node",
   }}
   onDecide={(decision) => {
@@ -36,7 +36,7 @@ import { PermissionPrompt } from "@comma-agents/tui";
 |---|---|---|
 | `agentName` | `string` | Agent that triggered the operation |
 | `toolName` | `string?` | Tool that triggered the operation |
-| `operation` | `"fs.read" \| "fs.write" \| "fs.exec"` | Category of operation |
+| `operation` | `"fs.read" \| "fs.write" \| "command.execute"` | Category of operation |
 | `resource` | `string` | Absolute resource path |
 
 ## Decision Buttons

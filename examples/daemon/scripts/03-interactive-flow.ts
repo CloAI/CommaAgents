@@ -10,14 +10,14 @@
  * then sends their input back to the daemon.
  *
  * Prerequisites:
- *   1. Start the daemon: bun run --cwd packages/daemon start
+ *   1. Start the daemon: pnpm --dir packages/daemon start
  *   2. A strategy file with a UserAgent step (e.g., a cycle flow that asks
  *      the user for feedback each iteration). See the strategy YAML below.
  *   3. Set up provider API keys (e.g., OPENAI_API_KEY)
  *
  * Run:
- *   bun run examples/03-interactive-flow.ts [strategy-path]
- *   bun run examples/03-interactive-flow.ts --daemon-url ws://localhost:8080/ws
+ *   pnpm exec tsx examples/03-interactive-flow.ts [strategy-path]
+ *   pnpm exec tsx examples/03-interactive-flow.ts --daemon-url ws://localhost:8080/ws
  *
  * If no strategy-path is given, this example writes a temporary strategy
  * to /tmp and uses it automatically.
@@ -54,13 +54,6 @@ const argv = yargs(hideBin(process.argv))
     default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
     describe: "WebSocket URL of the daemon",
   })
-  .option("model-override", {
-    alias: "m",
-    type: "string",
-    default: process.env.MODEL,
-    describe:
-      'Override the model for all agents (e.g. "anthropic/claude-sonnet-4-20250514"). Also reads MODEL env var.',
-  })
   .example("$0", "Run with auto-generated interactive strategy")
   .example("$0 path/to/strategy.json", "Run a specific interactive strategy")
   .strict()
@@ -70,7 +63,6 @@ const argv = yargs(hideBin(process.argv))
   .parseSync();
 
 const DAEMON_URL = argv.daemonUrl as string;
-const MODEL_OVERRIDE = argv.modelOverride as string | undefined;
 
 // -- Temporary strategy with a UserAgent ------------------------------------
 
@@ -100,7 +92,9 @@ const INTERACTIVE_STRATEGY = {
 
 function getStrategyPath(): string {
   const explicit = argv.strategyPath as string | undefined;
-  if (explicit) return path.resolve(explicit);
+  if (explicit) {
+    return path.resolve(explicit);
+  }
 
   // Write a temporary strategy file
   const tmpPath = path.join(
@@ -137,7 +131,6 @@ async function main() {
   const strategyPath = getStrategyPath();
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
   console.log(`Strategy: ${strategyPath}`);
-  if (MODEL_OVERRIDE) console.log(`Model override: ${MODEL_OVERRIDE}`);
   console.log();
 
   const ws = new WebSocket(DAEMON_URL);
@@ -151,7 +144,6 @@ async function main() {
         type: "prepare_run",
         strategyPath,
         requestId: "prepare-interactive-1",
-        ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
       }),
     );
   };

@@ -14,7 +14,9 @@ export default async function Page(props: {
 }) {
   const params = await props.params;
   const page = source.getPage(params.slug);
-  if (!page) notFound();
+  if (!page) {
+    notFound();
+  }
   const MDX = page.data.body;
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
@@ -36,6 +38,8 @@ export async function generateMetadata(props: {
 }): Promise<Metadata> {
   const params = await props.params;
   const page = source.getPage(params.slug);
-  if (!page) notFound();
+  if (!page) {
+    notFound();
+  }
   return { title: page.data.title, description: page.data.description };
 }

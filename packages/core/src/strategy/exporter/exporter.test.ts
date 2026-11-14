@@ -1,6 +1,6 @@
 // Tests for strategy/exporter.ts — round-trip serialization
 
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { z } from "zod";
 import { createFlow } from "../../flows/flow/flow";

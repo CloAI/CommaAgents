@@ -2,13 +2,15 @@
   "name": "@comma-agents/tui-storybook",
   "version": "0.0.0",
   "private": true,
-  "description": "Storybook playground for @comma-agents/tui — renders Ink components in the browser via xterm.js.",
+  "description": "Storybook playground for @comma-agents/tui \u2014 renders Ink components in the browser via xterm.js.",
   "type": "module",
   "scripts": {
     "storybook": "storybook dev -p 6006",
-    "build": "bun run check:stories && storybook build",
-    "check:stories": "bun run src/check-story-coverage.ts",
-    "lint": "bunx @biomejs/biome check src .storybook"
+    "build": "pnpm run check:stories && storybook build",
+    "check:stories": "node --import tsx src/check-story-coverage.ts",
+    "lint": "oxlint src .storybook",
+    "lint:fix": "oxlint --fix src .storybook",
+    "format": "oxfmt src .storybook"
   },
   "dependencies": {
     "@comma-agents/tui": "workspace:*",
@@ -16,21 +18,21 @@
     "@xterm/xterm": "^5.5.0",
     "buffer": "^6.0.3",
     "events": "^3.3.0",
-    "ink": "7.0.1",
+    "ink": "8.0.0",
     "process": "^0.11.10",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "readable-stream": "^4.7.0"
   },
   "devDependencies": {
-    "@storybook/react": "^10.4.6",
-    "@storybook/react-vite": "^10.4.6",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.0",
+    "@storybook/addon-docs": "10.4.6",
+    "@storybook/react": "10.4.6",
+    "@storybook/react-vite": "10.4.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@types/readable-stream": "^4.0.23",
-    "storybook": "^10.4.6",
+    "storybook": "10.4.6",
     "typescript": "6.0.2",
-    "vite": "^6.4.3",
-    "@storybook/addon-docs": "^10.4.6"
+    "vite": "^6.4.3"
   }
 }

@@ -1,35 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { resolveDataDir } from "@comma-agents/core";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { homedir } from "node:os";
 import { type DaemonConfig, DaemonConfigFileSchema } from ".";
-import { ENV_MAP } from "./config.constants";
-
-export function buildDefaults(): DaemonConfig {
-  const dataDir = resolveDataDir();
-  return {
-    port: 7422,
-    host: "127.0.0.1",
-    logLevel: "info",
-    logFile: join(dataDir, "daemon.log"),
-    providerCacheDir: join(dataDir, "providers"),
-    pidFile: join(dataDir, "daemon.pid"),
-    configFile: join(dataDir, "daemon.json"),
-    runsDir: join(dataDir, "runs"),
-  };
-}
-
-export function readEnvOverrides(
-  env: Record<string, string | undefined>,
-): Partial<DaemonConfig> {
-  const overrides: Record<string, unknown> = {};
-  for (const { env: envKey, key, parse } of ENV_MAP) {
-    const raw = env[envKey];
-    if (raw !== undefined && raw !== "") {
-      overrides[key] = parse(raw);
-    }
-  }
-  return overrides as Partial<DaemonConfig>;
-}
 
 export function readConfigFile(filePath: string): Partial<DaemonConfig> {
   if (!existsSync(filePath)) {
@@ -48,4 +20,88 @@ export function readConfigFile(filePath: string): Partial<DaemonConfig> {
     }
   }
   return result as Partial<DaemonConfig>;
+}
+
+/**
+ * Save `modelRoles` in the config file, keeping every other setting as written.
+ * @param {string} filePath - Config file to create or update.
+ * @param {Readonly<Record<string, string>>} modelRoles - Models keyed by role name.
+ * @returns {void} Returns after the configuration file is written.
+ */
+export function writeConfigModelRoles(
+  filePath: string,
+  modelRoles: Readonly<Record<string, string>>,
+): void {
+  const existing = existsSync(filePath)
+    ? DaemonConfigFileSchema.parse(JSON.parse(readFileSync(filePath, "utf-8")))
+    : {};
+  mkdirSync(dirname(filePath), { recursive: true });
+  writeFileSync(
+    filePath,
+    `${JSON.stringify({ ...existing, modelRoles }, null, 2)}\n`,
+  );
+}
+
+/**
+ * Resolve console and payload settings without retaining values from a previous load.
+ * @param {Partial<DaemonConfig>} file - File configuration settings.
+ * @param {Record<string, string | undefined>} env - Environment overrides.
+ * @returns {Pick<DaemonConfig, "console" | "consoleFormat" | "logPayloads">} Resolved logging settings.
+ * @internal
+ */
+export function resolveLoggingConfig(
+  file: Partial<DaemonConfig>,
+  env: Record<string, string | undefined>,
+): Pick<DaemonConfig, "console" | "consoleFormat" | "logPayloads"> {
+  const booleanSettings: Record<string, boolean | undefined> = {};
+  for (const name of ["COMMA_DAEMON_CONSOLE", "COMMA_DAEMON_LOG_PAYLOADS"]) {
+    const value = env[name];
+    if (value === undefined || value === "") {
+      continue;
+    }
+    if (value !== "true" && value !== "false") {
+      throw new Error(`${name} must be true or false`);
+    }
+    booleanSettings[name] = value === "true";
+  }
+  const consoleEnabled = booleanSettings.COMMA_DAEMON_CONSOLE ?? file.console;
+  const consoleFormat = env.COMMA_DAEMON_CONSOLE_FORMAT || file.consoleFormat;
+  if (
+    consoleFormat !== undefined &&
+    consoleFormat !== "text" &&
+    consoleFormat !== "json"
+  ) {
+    throw new Error("COMMA_DAEMON_CONSOLE_FORMAT must be text or json");
+  }
+  return {
+    console: consoleEnabled ?? true,
+    consoleFormat: consoleFormat ?? (consoleEnabled === true ? "text" : "json"),
+    logPayloads:
+      booleanSettings.COMMA_DAEMON_LOG_PAYLOADS ?? file.logPayloads ?? false,
+  };
+}
+
+/** Resolve skill roots relative to the daemon configuration file, expanding the user's home.
+ * @param {DaemonConfig["skills"] | undefined} skills - Declarative optional discovery settings.
+ * @param {string} configFile - Loaded daemon configuration file location.
+ * @returns {DaemonConfig["skills"]} Absolute additional discovery roots.
+ * @internal
+ */
+export function resolveSkillsConfig(
+  skills: DaemonConfig["skills"] | undefined,
+  configFile: string,
+): DaemonConfig["skills"] {
+  return {
+    additionalDirectories: (skills?.additionalDirectories ?? []).map(
+      (directory) => {
+        const expanded =
+          directory === "~"
+            ? homedir()
+            : directory.startsWith("~/")
+              ? resolve(homedir(), directory.slice(2))
+              : directory;
+        return resolve(dirname(configFile), expanded);
+      },
+    ),
+  };
 }

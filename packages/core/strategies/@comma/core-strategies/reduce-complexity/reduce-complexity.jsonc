@@ -9,7 +9,7 @@
       }
     },
     "assistant": {
-      "model": "openai/gpt-4o",
+      "model": "@medium",
       "systemPrompt": "Simplify the following text while preserving key information."
     }
   },

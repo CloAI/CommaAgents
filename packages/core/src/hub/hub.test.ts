@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { gzipSync } from "node:zlib";
+import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,7 +30,7 @@ async function createArchive(
     archive.once("end", resolve);
     archive.once("error", reject);
   });
-  return Bun.gzipSync(Buffer.concat(chunks));
+  return gzipSync(Buffer.concat(chunks));
 }
 
 describe("createHubManager", () => {
@@ -59,8 +60,12 @@ describe("createHubManager", () => {
     });
     const fetch = async (input: string | URL | Request): Promise<Response> => {
       const url = String(input);
-      if (url.includes("/commits/")) return Response.json({ sha: "sha" });
-      if (url.endsWith("registry.json")) return Response.json(registry);
+      if (url.includes("/commits/")) {
+        return Response.json({ sha: "sha" });
+      }
+      if (url.endsWith("registry.json")) {
+        return Response.json(registry);
+      }
       return new Response(archive);
     };
     const manager = createHubManager({ dataDir, fetch });
@@ -108,8 +113,12 @@ describe("createHubManager", () => {
       dataDir,
       fetch: async (input) => {
         const url = String(input);
-        if (url.includes("/commits/")) return Response.json({ sha: "sha" });
-        if (url.endsWith("registry.json")) return Response.json(registry);
+        if (url.includes("/commits/")) {
+          return Response.json({ sha: "sha" });
+        }
+        if (url.endsWith("registry.json")) {
+          return Response.json(registry);
+        }
         return new Response(archive);
       },
     });
@@ -156,8 +165,12 @@ describe("createHubManager", () => {
       dataDir,
       fetch: async (input) => {
         const url = String(input);
-        if (url.includes("/commits/")) return Response.json({ sha: "sha" });
-        if (url.endsWith("registry.json")) return Response.json(registry);
+        if (url.includes("/commits/")) {
+          return Response.json({ sha: "sha" });
+        }
+        if (url.endsWith("registry.json")) {
+          return Response.json(registry);
+        }
         return new Response(archive);
       },
     });

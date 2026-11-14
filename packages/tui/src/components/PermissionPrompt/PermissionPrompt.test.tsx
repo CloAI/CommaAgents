@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import type { RequestPermissionMessage } from "@comma-agents/daemon";
 import { render } from "ink-testing-library";
 import { PermissionPrompt } from "./PermissionPrompt";
@@ -24,7 +24,7 @@ describe("PermissionPrompt", () => {
   it.each([
     ["fs.read", "read"],
     ["fs.write", "write"],
-    ["fs.exec", "execute"],
+    ["command.execute", "execute"],
   ] as const)("renders the %s operation clearly", (operation, label) => {
     const { lastFrame } = render(
       <PermissionPrompt
@@ -41,7 +41,7 @@ describe("PermissionPrompt", () => {
   it("renders an agent without a tool name", () => {
     const { lastFrame } = render(
       <PermissionPrompt
-        request={createRequest("fs.exec")}
+        request={createRequest("command.execute")}
         onDecide={() => {}}
       />,
     );

@@ -25,8 +25,12 @@ import type { ToolCallViewStatus } from "./ToolCallView.types";
  */
 export function formatArgsPreview(rawArgs: string): string {
   const collapsed = rawArgs.replace(/\s+/g, " ").trim();
-  if (collapsed.length === 0) return "";
-  if (collapsed.length <= TOOL_CALL_ARGS_PREVIEW_LENGTH) return collapsed;
+  if (collapsed.length === 0) {
+    return "";
+  }
+  if (collapsed.length <= TOOL_CALL_ARGS_PREVIEW_LENGTH) {
+    return collapsed;
+  }
   return `${collapsed.slice(0, TOOL_CALL_ARGS_PREVIEW_LENGTH)}${TOOL_CALL_ELLIPSIS}`;
 }
 
@@ -49,11 +53,15 @@ export function formatResultSummary(
   output: string | undefined,
   error: string | undefined,
 ): string {
-  if (status === "running") return "";
+  if (status === "running") {
+    return "";
+  }
 
   if (status === "error") {
     const message = (error ?? "").replace(/\s+/g, " ").trim();
-    if (message.length === 0) return "\u2192 error";
+    if (message.length === 0) {
+      return "\u2192 error";
+    }
     if (message.length <= TOOL_CALL_ERROR_PREVIEW_LENGTH) {
       return `\u2192 ${message}`;
     }
@@ -62,7 +70,9 @@ export function formatResultSummary(
 
   // completed
   const text = output ?? "";
-  if (text.length === 0) return "\u2192 0 lines";
+  if (text.length === 0) {
+    return "\u2192 0 lines";
+  }
   // Count rows the same way Ink will when rendering: every \n introduces
   // a new row, and a trailing \n produces an extra empty row inside a
   // bordered panel.

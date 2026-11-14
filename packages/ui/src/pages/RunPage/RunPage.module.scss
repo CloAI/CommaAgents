@@ -1,0 +1,94 @@
+.page {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow: hidden;
+  padding: var(--space-3) var(--space-2) var(--space-8);
+
+  .sections,
+  .composerFrame {
+    width: 100%;
+    min-width: 0;
+    padding-inline: var(--space-1);
+    scrollbar-gutter: stable both-edges;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  .sections {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .composerFrame {
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .content {
+    width: 100%;
+    max-width: var(--chat-content-width, 100%);
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .composer {
+    width: 100%;
+    max-width: var(--chat-content-width, 100%);
+    margin-inline: auto;
+    min-width: 0;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .status {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--font-size-small);
+
+    &[data-status="failed"] {
+      color: var(--color-error);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  .failure {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--font-size-small);
+  }
+}
+
+.strategyControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

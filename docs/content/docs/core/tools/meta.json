@@ -3,9 +3,9 @@
   "pages": [
     "built-in",
     "define-tool",
+    "tool-guards",
     "tool-registry",
     "audit-log",
-    "trash",
     "patch-envelope",
     "error-kinds"
   ]

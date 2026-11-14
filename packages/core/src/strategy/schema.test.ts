@@ -1,6 +1,6 @@
 // Tests for strategy/schema.ts — Zod schema validation
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { BUILT_IN_TOOL_NAMES } from "../tools/tool.constants";
 import {
   AgentDefSchema,
@@ -696,8 +696,7 @@ describe("BUILT_IN_TOOL_NAMES", () => {
   it("contains exactly the expected tool names", () => {
     expect([...BUILT_IN_TOOL_NAMES]).toEqual([
       "read_file",
-      "list_directory",
-      "search_files",
+      "grep",
       "glob",
       "create_file",
       "write_file",
@@ -708,17 +707,22 @@ describe("BUILT_IN_TOOL_NAMES", () => {
       // "apply_patch",
       "run_command",
       "webfetch",
+      "web_search",
+      "notes_add",
+      "notes_get",
       "load_skill",
       "list_skills",
       "list_strategy",
       "launch_strategy",
+      "delegate",
+      "request_strategy_switch",
       "todo_add",
       "todo_complete",
       "todo_get",
       "todo_get_next",
       "todo_remove",
       "todo_clear",
-      "ask_question",
+      "ask_questions",
       "lsp_request",
     ]);
   });

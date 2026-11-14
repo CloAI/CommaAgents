@@ -5,6 +5,7 @@ export {
   unregisterModel,
 } from "./model";
 export type {
+  ModelResolutionOptions,
   ParsedModel,
   ProviderFactory,
   ProviderInfo,
@@ -28,42 +29,68 @@ export type {
   CatalogProvider,
   ListModelsContext,
   ListModelsFn,
-  ListModelsResult,
   Modality,
   ModelCapabilities,
   ModelCost,
   ModelInfo,
   ModelModalities,
   ModelStatus,
-  ModelsSource,
+  ModelSource,
+  ProviderOrigin,
   ProviderDefinition,
-  ProviderWithModels,
 } from "./providers/index";
 export {
   getCatalogModels,
   getCatalogProvider,
   getCatalogProviderSync,
   getCatalogSnapshot,
+  getGlobalProviderResolver,
   getProviderDefinition,
   getProviderPackageNameSync,
   getProvidersForModel,
   getRegisteredProviderIds,
   getReverseModelIndex,
   isKnownProviderSync,
-  listAllProviderModels,
+  refreshProviderModels,
   listCatalogProviders,
   listProviderDefinitions,
   listProviderModels,
   loadCatalog,
-  mergeCatalogWithLive,
+  mergeCatalogWithProvider,
   mergeModelInfo,
   refreshCatalog,
   registerProviderDefinition,
   resetCatalog,
+  resetGlobalProviderResolver,
   resetProviderRegistry,
-  resolveCatalogCachePath,
   resolveCredentialForProvider,
+  setProviderInstallDirectory,
   sortModels,
   toModelInfo,
   unregisterProviderDefinition,
 } from "./providers/index";
+
+export {
+  ModelInfoSchema,
+  ProviderInfoSchema,
+  ModelSourceSchema,
+  ProviderOriginSchema,
+} from "./providers/providers.schemas";
+export {
+  collectModelRoleReferences,
+  DEFAULT_MODEL_ROLES,
+  findMissingModelRoles,
+  getModelFamily,
+  resolveModelReference,
+} from "./roles";
+export type {
+  ModelFamily,
+  ModelRoleDefinition,
+  ModelRoleSources,
+  ModelRoles,
+} from "./roles";
+
+export type {
+  TinfoilPrivacyOptions,
+  TinfoilMeasurementPins,
+} from "./providers/tinfoil/tinfoil.types";

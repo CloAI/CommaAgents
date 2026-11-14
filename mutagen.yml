@@ -1,0 +1,20 @@
+sync:
+  defaults:
+    ignore:
+      vcs: true
+      paths:
+        - node_modules
+        - dist
+        - target
+        - src-tauri/target
+        - .venv
+        - "**pycache**"
+        - "*.pyc"
+        - .next
+        - .tmp
+        - out
+
+  comma-agents:
+    alpha: "C:\\Users\\NateAGeek\\Development\\TUI\\CommaAgents"
+    beta: "localMini:/Users/sync/VPS/CloAI/CommaAgents2"
+    mode: two-way-safe

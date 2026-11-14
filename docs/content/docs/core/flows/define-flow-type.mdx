@@ -1,0 +1,127 @@
+---
+title: defineFlowType
+description: Define a typed configuration schema and factory for a declarative custom flow.
+---
+
+# defineFlowType
+
+`defineFlowType` pairs a configuration schema with a factory while preserving the schema's inferred output type. Use it to define a custom flow implementation before registering that implementation for JSON or YAML files.
+
+```ts
+import { createFlow, defineFlowType } from "@comma-agents/core";
+import { z } from "zod";
+
+export const firstMatchFlow = defineFlowType({
+  configSchema: z
+    .object({
+      marker: z.string().default("APPROVED"),
+    })
+    .strict(),
+  create: ({ name, steps, config }) =>
+    createFlow({
+      name,
+      steps,
+      execute: async (availableSteps, message, flowContext) => {
+        for (const step of availableSteps) {
+          const result = await flowContext.runStep(step, message);
+          if (result.text.includes(config.marker)) return result.text;
+        }
+        return message;
+      },
+    }),
+});
+```
+
+## FlowTypeDefinition
+
+The validation schema and factory that make up a custom flow type.
+
+<AutoTypeTable path="../packages/core/src/flows/registry/flow-registry.types.ts" name="FlowTypeDefinition" />
+
+## Configuration schema
+
+`configSchema` validates the declarative flow's `config` object before `create` runs. Defaults and transformations become part of the inferred `config` type received by the factory.
+
+```ts
+import { createFlow, defineFlowType } from "@comma-agents/core";
+import { z } from "zod";
+
+const votingFlow = defineFlowType({
+  configSchema: z
+    .object({
+      minimumApprovals: z.number().int().positive().default(2),
+      approvalMarker: z.string().default("APPROVED"),
+    })
+    .strict(),
+  create: ({ name, steps, config }) =>
+    createFlow({
+      name,
+      steps,
+      execute: async (availableSteps, message, flowContext) => {
+        let approvals = 0;
+        for (const step of availableSteps) {
+          const result = await flowContext.runStep(step, message);
+          if (result.text.includes(config.approvalMarker)) approvals += 1;
+        }
+        return approvals >= config.minimumApprovals
+          ? "APPROVED"
+          : "REJECTED";
+      },
+    }),
+});
+```
+
+Use `.strict()` when unknown configuration keys should fail instead of being discarded.
+
+## FlowTypeContext
+
+The resolved flow name, steps, validated configuration, and agent resolver passed to `create`.
+
+<AutoTypeTable path="../packages/core/src/flows/registry/flow-registry.types.ts" name="FlowTypeContext" />
+
+`steps` contains the agent and nested-flow entries declared in the flow definition. `resolveAgent()` lets configuration reference an additional named strategy agent that is not part of the normal step list.
+
+```ts
+import { createFlow, defineFlowType } from "@comma-agents/core";
+import { z } from "zod";
+
+const reviewedFlow = defineFlowType({
+  configSchema: z.object({ reviewer: z.string().min(1) }).strict(),
+  create: ({ name, steps, config, resolveAgent }) => {
+    const reviewer = resolveAgent(config.reviewer);
+
+    return createFlow({
+      name,
+      steps: [...steps, reviewer],
+      execute: async (availableSteps, message, flowContext) => {
+        let currentMessage = message;
+        for (const step of availableSteps) {
+          const result = await flowContext.runStep(step, currentMessage);
+          currentMessage = result.text;
+        }
+        return currentMessage;
+      },
+    });
+  },
+});
+```
+
+## Factory return value
+
+`create` must return an `Agent`. It can return a flow from `createFlow`, `buildFlowAgent`, a built-in flow factory, or another agent-compatible implementation.
+
+```ts
+import { createSequentialFlow, defineFlowType } from "@comma-agents/core";
+import { z } from "zod";
+
+const pipelineFlow = defineFlowType({
+  configSchema: z.object({}).strict(),
+  create: ({ name, steps }) =>
+    createSequentialFlow({
+      name,
+      steps,
+    }),
+});
+```
+
+The returned definition has no global effect until you pass it to [`registerFlow`](/docs/core/flows/register-flow).

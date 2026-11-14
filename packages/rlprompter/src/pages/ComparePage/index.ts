@@ -1,1 +1,0 @@
-export { ComparePage } from "./ComparePage";

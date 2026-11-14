@@ -2,7 +2,7 @@
  * ExampleRunner — spawn the selected example as a subprocess and stream output.
  *
  * Sets the MODEL env var (e.g. "openai/gpt-4o") and the provider's API key
- * env var, then runs the example with Bun. Output is captured line-by-line
+ * env var, then runs the example with Node.js. Output is captured line-by-line
  * and displayed in the terminal with scrollable navigation.
  *
  * Scroll controls:
@@ -72,7 +72,9 @@ export function ExampleRunner({
     if (key.downArrow) {
       setScrollOffset((prev) => {
         const next = Math.min(maxOffset, prev + 1);
-        if (next >= maxOffset) userScrolledRef.current = false;
+        if (next >= maxOffset) {
+          userScrolledRef.current = false;
+        }
         return next;
       });
       return;
@@ -85,7 +87,9 @@ export function ExampleRunner({
     if (key.pageDown) {
       setScrollOffset((prev) => {
         const next = Math.min(maxOffset, prev + pageSize);
-        if (next >= maxOffset) userScrolledRef.current = false;
+        if (next >= maxOffset) {
+          userScrolledRef.current = false;
+        }
         return next;
       });
       return;
@@ -114,7 +118,7 @@ export function ExampleRunner({
   });
 
   useEffect(() => {
-    const examplesDir = path.resolve(import.meta.dir, "../..");
+    const examplesDir = path.resolve(import.meta.dirname, "../..");
     const scriptPath = path.resolve(examplesDir, example.value);
 
     const env: Record<string, string> = {
@@ -124,9 +128,11 @@ export function ExampleRunner({
     };
 
     const args =
-      example.category === "e2e" ? ["test", scriptPath] : ["run", scriptPath];
+      example.category === "e2e"
+        ? ["exec", "vitest", "run", scriptPath]
+        : ["exec", "tsx", scriptPath];
 
-    const child = spawn("bun", args, {
+    const child = spawn("pnpm", args, {
       cwd: examplesDir,
       env,
       stdio: ["ignore", "pipe", "pipe"],

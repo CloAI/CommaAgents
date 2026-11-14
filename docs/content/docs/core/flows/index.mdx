@@ -11,7 +11,7 @@ Three built-in flow types cover common patterns:
 - **Cycle** — repeats a pipeline N times, with optional observer feedback between iterations.
 - **Broadcast** — fans out the same message to all agents and joins their responses.
 
-For anything else, `createFlow` accepts a custom executor function with full control over step ordering and branching.
+For anything else, [`createFlow`](/docs/core/flows/custom-flow) accepts a custom executor function with full control over step ordering and branching. Use [`buildFlowAgent`](/docs/core/flows/build-flow-agent) for reusable TypeScript flow factories, then [`defineFlowType`](/docs/core/flows/define-flow-type) and [`registerFlow`](/docs/core/flows/register-flow) to expose custom flow types to JSON or YAML definitions.
 
 Flows can also be loaded from JSON or YAML description files with [`loadFlow`](/docs/core/flows/load-flow).
 
@@ -84,5 +84,4 @@ for (const stepResult of result.stepResults) {
   console.log(stepResult.text);
 }
 ```
-
 

@@ -25,18 +25,22 @@ import type { McpToolOrigin } from "../../mcp";
 import type { PromptTemplate, TemplateVariables } from "../../prompts";
 import type { Sandbox } from "../../sandbox/sandbox.types";
 import type { SkillRegistry } from "../../skills/skills.types";
+import type { SubagentTarget } from "../../tools/built-in/delegate/delegate.types";
+import type { StrategySwitchHandle } from "../../tools/built-in/request-strategy-switch/request-strategy-switch.types";
 import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
+import type { QuestionsRequester } from "../../questions";
 import type { InputCollector } from "../built-in/user/user-agent.types";
+import type {
+  PrivacyRequirements,
+  PrivacyRuntime,
+  PrivacyReport,
+} from "../../model/privacy";
 
 /**
- * Model-level generation parameters forwarded to `streamText`.
+ * Provider-independent generation settings for an agent.
  *
- * Derived from the AI SDK's `CallSettings` to stay in sync with
- * upstream changes. Provider-specific features (extended thinking,
- * reasoning effort) should use {@link AgentConfig.providerOptions} instead.
- *
- * Excludes runtime-only fields (`abortSignal`, `timeout`, `headers`,
- * `stopSequences`) that are managed by the agent lifecycle, not user config.
+ * Use {@link AgentConfig.providerOptions} for provider-specific capabilities
+ * such as extended thinking or reasoning effort.
  */
 export type ModelOptions = Pick<
   CallSettings,
@@ -53,13 +57,53 @@ export type ModelOptions = Pick<
 /** Schema used to constrain and validate an agent's structured output. */
 export type AgentOutputSchema = FlexibleSchema<unknown>;
 
-/** Configuration for creating an LLM-backed agent via `createAgent()`. */
+/**
+ * Runtime services available to an agent and its tools.
+ *
+ * @example
+ * ```ts
+ * const agent = createAgent(
+ *   { name: "writer", model: "openai/gpt-4o", tools: ["read_file"] },
+ *   { sandbox, runId: crypto.randomUUID() },
+ * );
+ * ```
+ */
+export interface AgentRuntime {
+  /** Trusted runtime used to enforce protected model inference. */
+  readonly privacyRuntime?: PrivacyRuntime;
+  /** Current invocation identity supplied to tools by the agent. */
+  readonly messageId?: string;
+  /** Access controls applied to tools invoked by this agent. */
+  readonly sandbox?: Sandbox;
+  /** Skills available to the search, list, and load skill tools. */
+  readonly skillRegistry?: SkillRegistry;
+  /** Identifier shared with tools for the current strategy invocation. */
+  readonly runId?: string;
+  /** User-input callback available to interactive tools and child strategies. */
+  readonly inputCollector?: InputCollector;
+  /** Runtime callback used by `launch_strategy` to run a child strategy. */
+  readonly launchStrategy?: LaunchStrategyHandle;
+  /** Workspace language service available to language-aware tools. */
+  readonly languageService?: LanguageService;
+  /** Callback used by tools that request clarification from the user. */
+  readonly questionsRequester?: QuestionsRequester;
+  /** Connected MCP tools available to this agent for the current run. */
+  readonly mcpTools?: Readonly<ToolSet>;
+  /** Subagent strategies this agent may use through the `delegate` tool. */
+  readonly subagents?: readonly SubagentTarget[];
+  /** Runtime handle that queues a user-approved strategy switch for this conversation. */
+  readonly requestStrategySwitch?: StrategySwitchHandle;
+}
+
+/** Configuration for creating a model-backed agent or a custom executable agent. */
 export interface AgentConfig {
+  /** Minimum inference protections, augmented by advertised model support and inherited by automatic summarization. */
+  readonly privacy?: PrivacyRequirements;
   /** Unique name for this agent. */
   readonly name: string;
   /**
-   * Model identifier in "providerID/modelID" format (e.g., `"openai/gpt-4o"`).
-   * Resolved internally by `createAgent()` via the model registry and provider system.
+   * Model identifier in `"providerID/modelID"` format, such as
+   * `"openai/gpt-4o"`, or a bare model ID that can be resolved from the catalog.
    * Optional if a custom `execute` override is provided.
    */
   readonly model?: string;
@@ -91,69 +135,11 @@ export interface AgentConfig {
    * ```
    */
   readonly systemPrompt?: string | PromptTemplate;
-  /**
-   * Tool names the agent can invoke during a call.
-   * Resolved internally by `createAgent()` via the tool registry.
-   */
+  /** Names of built-in or registered tools the agent can invoke. */
   readonly tools?: readonly string[];
-  /** Run-scoped MCP tools merged into this agent's model-facing tool set. */
-  readonly mcpTools?: Readonly<ToolSet>;
-  /** MCP origin metadata keyed by namespaced model-facing tool name. */
-  readonly mcpToolOrigins?: Readonly<Record<string, McpToolOrigin>>;
   /**
-   * Sandbox governing file-system access for all tools invoked by this agent.
-   * When omitted, a permissive sandbox (no restrictions, cwd = process.cwd())
-   * is used so that existing strategies remain unaffected.
-   */
-  readonly sandbox?: Sandbox;
-  /**
-   * Skill registry exposed to the `load_skill` tool when included in `tools`.
-   * When omitted, `load_skill` returns `skill_unavailable` for every call.
-   * Typically populated by the strategy loader from
-   * `~/.comma/skills/` plus `./.comma/skills/`.
-   */
-  readonly skillRegistry?: SkillRegistry;
-  /**
-   * Per-invocation run identifier propagated to {@link ToolContext.runId}.
-   *
-   * Distinct from {@link AgentConfig.sessionId} — `runId` identifies one
-   * strategy invocation (top-level run *or* one `launch_strategy`
-   * sub-invocation), while `sessionId` identifies a broader user/daemon
-   * session that may span many runs. The two are deliberately separate:
-   * audit logs are session-scoped, but per-run isolation (notably the
-   * `todo_*` tools' shared run-level silo, which must not leak into
-   * recursive `launch_strategy` calls) keys on `runId`.
-   *
-   * The strategy loader sets this from {@link LoadStrategyOptions.runId};
-   * the daemon executor passes the top-level run id at the entry point
-   * and a fresh derived id for each sub-launch so recursive strategy
-   * invocations get isolated state.
-   *
-   * When omitted, runId-aware tools fall back to `agentName`-only keying
-   * (their original behaviour) — safe for tests and embedded callers
-   * that don't care about cross-launch isolation.
-   */
-  readonly runId?: string;
-  /**
-   * Input collector threaded into the {@link ToolContext} of every tool
-   * call. Used by tools (e.g., `launch_strategy`) that need to forward
-   * the parent strategy's input bridge into a spawned sub-strategy.
-   */
-  readonly inputCollector?: InputCollector;
-  /**
-   * Optional handle for spawning sub-strategies, threaded into every
-   * tool's {@link ToolContext}. Supplied by the strategy loader (which
-   * receives it via {@link LoadStrategyOptions}).
-   */
-  readonly launchStrategy?: LaunchStrategyHandle;
-  /**
-   * Runtime language service exposed to language-aware tools.
-   * Usually supplied by the daemon for a workspace.
-   */
-  readonly languageService?: LanguageService;
-  /**
-   * Per-call provider options forwarded to the model provider. Used to enable
-   * provider-specific behaviour such as reasoning / extended thinking.
+   * Provider-specific settings applied to every model call, such as reasoning
+   * effort or extended thinking.
    *
    * @example
    * ```ts
@@ -168,10 +154,8 @@ export interface AgentConfig {
    */
   readonly providerOptions?: Record<string, Record<string, unknown>>;
   /**
-   * Model-level generation parameters forwarded to `streamText`.
-   *
-   * Provider-agnostic options like `temperature`, `maxOutputTokens`, `topP`, and
-   * `seed`. Provider-specific features should use `providerOptions` instead.
+   * Provider-independent generation settings applied to every model call,
+   * including temperature, output limits, sampling, and retry behavior.
    *
    * @example
    * ```ts
@@ -184,22 +168,19 @@ export interface AgentConfig {
    */
   readonly modelOptions?: ModelOptions;
   /**
-   * Schema for structured agent output.
-   *
-   * Forwarded to `streamText` as `output: Output.object({ schema })`.
-   * Programmatic callers may pass a Zod schema or another AI SDK
-   * `FlexibleSchema`. YAML/JSON agent and strategy definitions accept a JSON
-   * Schema object.
+   * Schema that constrains and validates structured model output.
+   * Programmatic callers can use a Zod schema; declarative agent and strategy
+   * files accept a JSON Schema object.
    */
   readonly outputSchema?: AgentOutputSchema;
   /**
    * Maximum number of LLM round-trips (steps) per call.
    * Each tool-call + response counts as one step.
-   * @default 10
+   * @default 100
    */
   readonly maxSteps?: number;
   /**
-   * Custom execute override — replaces the LLM call with arbitrary logic.
+   * Custom execution function used instead of a model call.
    *
    * When set, `model` is not required. Return a plain `string` (a synthetic
    * result with an `{ role: "assistant" }` message will be created
@@ -215,9 +196,8 @@ export interface AgentConfig {
    */
   readonly execute?: (message: string) => Promise<string | AgentCallResult>;
   /**
-   * Conversation context retention and compaction options. Transformations are
-   * non-destructive: superseded records are kept for export but excluded from
-   * the LLM-visible projection.
+   * Conversation retention and compaction options. Records removed from the
+   * model-visible context remain available when exporting full history.
    *
    * YAML/JSON definitions can use serializable `rollingWindow` and
    * `compaction` values. Programmatic callers may also pass `transformRecords`
@@ -277,6 +257,17 @@ export interface Agent {
    */
   call(message: string): AbortablePromise<AgentCallResult>;
 
+  /**
+   * Interrupt the selected active response and resume the same agent with a correction.
+   * Returns false for a stale identity, empty correction, or a non-model agent.
+   * The optional callback saves accepted input before the agent resumes; write failures fail the call.
+   */
+  steer?(
+    messageId: string,
+    text: string,
+    beforeResume?: () => Promise<void>,
+  ): boolean;
+
   // -- Optional LLM-specific fields (present on createAgent results) --
 
   /**
@@ -327,6 +318,22 @@ export interface Agent {
   appendHook?(hookName: string, callback: unknown): void;
 }
 
+/** Stable identity shared by streaming, persisted conversation, and display history. */
+export interface AgentCallIdentity {
+  /** Identifier allocated before execution begins. */
+  readonly messageId: string;
+  /** ISO timestamp at call start. */
+  readonly createdAt: string;
+}
+
+/** Failure of an identified agent invocation. */
+export interface AgentCallFailure extends AgentCallIdentity {
+  /** Failure raised while processing this invocation. */
+  readonly error: unknown;
+  /** Whether cancellation was requested when the failure was observed. */
+  readonly cancelled: boolean;
+}
+
 /**
  * Result from any agent call.
  *
@@ -344,6 +351,12 @@ export interface Agent {
  * ```
  */
 export interface AgentCallResult {
+  /** Content-free verification reports from every model request in this invocation. */
+  readonly privacyReports?: readonly PrivacyReport[];
+  /** Conversation-record identity, when supplied by the agent implementation. */
+  readonly messageId?: string;
+  /** Invocation start time, when supplied by the agent implementation. */
+  readonly createdAt?: string;
   /** The final text response from the agent. */
   readonly text: string;
   /** Total token usage across all steps. Zero for non-LLM agents. */
@@ -381,45 +394,51 @@ export interface AgentCallResult {
  */
 export type ToolCallStatus = "completed" | "error";
 
-export type AgentStreamEvent =
-  | { readonly type: "retention"; readonly event: ConversationRetentionEvent }
-  | { readonly type: "text"; readonly text: string }
-  | {
-      readonly type: "tool-call";
-      /**
-       * Correlation id assigned by the model. Pairs this call with its eventual
-       * `tool-result` event so consumers can render a single row per call
-       * even when calls run concurrently or interleave with text/thinking.
-       */
-      readonly toolCallId: string;
-      readonly toolName: string;
-      readonly args: string;
-      /** MCP origin when this is a namespaced MCP tool. */
-      readonly mcp?: McpToolOrigin;
-    }
-  | {
-      readonly type: "tool-result";
-      /** Correlates with the `tool-call` event that started this invocation. */
-      readonly toolCallId: string;
-      readonly toolName: string;
-      /**
-       * Raw tool output. For `status: "error"` results this is an empty
-       * string by default — the human-readable failure message lives on
-       * `error`.
-       */
-      readonly output: string;
-      /** Outcome of the tool invocation. */
-      readonly status: ToolCallStatus;
-      /** Failure message when `status === "error"`. */
-      readonly error?: string;
-      /** MCP origin when this is a namespaced MCP tool. */
-      readonly mcp?: McpToolOrigin;
-    }
-  | { readonly type: "thinking-start"; readonly id: string }
-  | { readonly type: "thinking"; readonly id: string; readonly text: string }
-  | { readonly type: "thinking-end"; readonly id: string }
-  | { readonly type: "step-start" }
-  | { readonly type: "done"; readonly result: AgentCallResult };
+export type AgentStreamEvent = Partial<AgentCallIdentity> &
+  (
+    | { readonly type: "retention"; readonly event: ConversationRetentionEvent }
+    | { readonly type: "text"; readonly text: string }
+    | {
+        readonly type: "tool-call";
+        /**
+         * Correlation id assigned by the model. Pairs this call with its eventual
+         * `tool-result` event so consumers can render a single row per call
+         * even when calls run concurrently or interleave with text/thinking.
+         */
+        readonly toolCallId: string;
+        readonly toolName: string;
+        readonly args: string;
+        /** MCP origin when this is a namespaced MCP tool. */
+        readonly mcp?: McpToolOrigin;
+      }
+    | {
+        readonly type: "tool-result";
+        /** Correlates with the `tool-call` event that started this invocation. */
+        readonly toolCallId: string;
+        readonly toolName: string;
+        /**
+         * Raw tool output. For `status: "error"` results this is an empty
+         * string by default — the human-readable failure message lives on
+         * `error`.
+         */
+        readonly output: string;
+        /** Outcome of the tool invocation. */
+        readonly status: ToolCallStatus;
+        /** User steering requested cancellation of this running tool. */
+        readonly cancellationRequestedBy?: "user_steering";
+        /** The tool stopped because of user steering. */
+        readonly cancellationReason?: "user_steering";
+        /** Failure message when `status === "error"`. */
+        readonly error?: string;
+        /** MCP origin when this is a namespaced MCP tool. */
+        readonly mcp?: McpToolOrigin;
+      }
+    | { readonly type: "thinking-start"; readonly id: string }
+    | { readonly type: "thinking"; readonly id: string; readonly text: string }
+    | { readonly type: "thinking-end"; readonly id: string }
+    | { readonly type: "step-start" }
+    | { readonly type: "done"; readonly result: AgentCallResult }
+  );
 
 /** Common options passed to generateText / streamText. */
 export interface CallOptions {
@@ -449,4 +468,22 @@ export interface BuildCallOptionsResult {
   readonly callOptions: CallOptions;
   /** Retention events emitted while preparing conversation context. */
   readonly retentionEvents: readonly ConversationRetentionEvent[];
+}
+
+/** One queued correction and the durable write that must precede resumption. @internal */
+export interface PendingAgentSteering {
+  /** Correction supplied by the user. */
+  readonly text: string;
+  /** Accepted input must be durable before resumption. */
+  readonly persisted: Promise<void>;
+}
+
+/** A model generation segment that can be interrupted independently of its flow. @internal */
+export interface ActiveAgentGeneration {
+  /** Cancellation of this response, independent of the owning call. */
+  readonly controller: AbortController;
+  /** Corrections in acceptance order. */
+  readonly steering: PendingAgentSteering[];
+  /** Whether this identity still accepts corrections. */
+  accepting: boolean;
 }

@@ -1,10 +1,21 @@
 // Tests for agent hook utilities (agents/hooks.ts)
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { okResult } from "../../tools/result";
 import { buildAgentToolSet } from "../agent/agent.utils";
 import { resolveHook } from "./hooks.utils";
+
+function buildTools(
+  toolDefinitions: Parameters<typeof buildAgentToolSet>[0]["toolDefinitions"],
+  toolHooks?: Parameters<typeof buildAgentToolSet>[0]["toolHooks"],
+) {
+  return buildAgentToolSet({
+    toolDefinitions,
+    agentName: "test-agent",
+    toolHooks,
+  });
+}
 
 // resolveHook
 
@@ -52,13 +63,16 @@ describe("buildAgentToolSet with ToolHooks", () => {
   it("should fire beforeToolCall hook with tool name and args", async () => {
     const log: Array<{ name: string; args: string }> = [];
 
-    const toolSet = buildAgentToolSet({ echo: echoTool }, "test-agent", {
-      beforeToolCall: [
-        async (ctx) => {
-          log.push({ name: ctx.name, args: ctx.args });
-        },
-      ],
-    })!;
+    const toolSet = buildTools(
+      { echo: echoTool },
+      {
+        beforeToolCall: [
+          async (ctx) => {
+            log.push({ name: ctx.name, args: ctx.args });
+          },
+        ],
+      },
+    )!;
 
     expect(toolSet).toBeDefined();
     await callTool(toolSet.echo, { text: "hello" });
@@ -69,13 +83,16 @@ describe("buildAgentToolSet with ToolHooks", () => {
   it("should fire afterToolCall hook with tool name, args, and result", async () => {
     const log: Array<{ name: string; args: string; result: string }> = [];
 
-    const toolSet = buildAgentToolSet({ echo: echoTool }, "test-agent", {
-      afterToolCall: [
-        async (ctx) => {
-          log.push({ name: ctx.name, args: ctx.args, result: ctx.result });
-        },
-      ],
-    })!;
+    const toolSet = buildTools(
+      { echo: echoTool },
+      {
+        afterToolCall: [
+          async (ctx) => {
+            log.push({ name: ctx.name, args: ctx.args, result: ctx.result });
+          },
+        ],
+      },
+    )!;
 
     await callTool(toolSet.echo, { text: "world" });
 
@@ -87,18 +104,21 @@ describe("buildAgentToolSet with ToolHooks", () => {
   it("should fire both before and after hooks in order", async () => {
     const log: string[] = [];
 
-    const toolSet = buildAgentToolSet({ echo: echoTool }, "test-agent", {
-      beforeToolCall: [
-        async ({ name }) => {
-          log.push(`before:${name}`);
-        },
-      ],
-      afterToolCall: [
-        async ({ name, result }) => {
-          log.push(`after:${name}:${result}`);
-        },
-      ],
-    })!;
+    const toolSet = buildTools(
+      { echo: echoTool },
+      {
+        beforeToolCall: [
+          async ({ name }) => {
+            log.push(`before:${name}`);
+          },
+        ],
+        afterToolCall: [
+          async ({ name, result }) => {
+            log.push(`after:${name}:${result}`);
+          },
+        ],
+      },
+    )!;
 
     await callTool(toolSet.echo, { text: "test" });
 
@@ -106,11 +126,7 @@ describe("buildAgentToolSet with ToolHooks", () => {
   });
 
   it("should work without tool hooks (undefined)", async () => {
-    const toolSet = buildAgentToolSet(
-      { echo: echoTool },
-      "test-agent",
-      undefined,
-    )!;
+    const toolSet = buildTools({ echo: echoTool })!;
 
     const result = await callTool(toolSet.echo, { text: "hi" });
     expect(result).toBe("echo:hi");
@@ -126,9 +142,8 @@ describe("buildAgentToolSet with ToolHooks", () => {
         okResult(String(args.a + args.b)),
     };
 
-    const toolSet = buildAgentToolSet(
+    const toolSet = buildTools(
       { echo: echoTool, add: addTool },
-      "test-agent",
       {
         beforeToolCall: [
           async ({ name }) => {
@@ -177,7 +192,7 @@ describe("buildAgentToolSet argument validation and error surfacing", () => {
   };
 
   it("rejects calls with empty args and tells the LLM what's missing", async () => {
-    const toolSet = buildAgentToolSet({ strict: strictTool }, "test-agent")!;
+    const toolSet = buildTools({ strict: strictTool })!;
 
     const output = (await callTool(toolSet.strict, {})) as string;
     expect(typeof output).toBe("string");
@@ -191,7 +206,7 @@ describe("buildAgentToolSet argument validation and error surfacing", () => {
   });
 
   it("rejects partial args with a per-field diagnostic", async () => {
-    const toolSet = buildAgentToolSet({ strict: strictTool }, "test-agent")!;
+    const toolSet = buildTools({ strict: strictTool })!;
 
     const output = (await callTool(toolSet.strict, {
       path: "ok.ts",
@@ -214,7 +229,7 @@ describe("buildAgentToolSet argument validation and error surfacing", () => {
       },
     };
 
-    const toolSet = buildAgentToolSet({ throwy: throwingTool }, "test-agent")!;
+    const toolSet = buildTools({ throwy: throwingTool })!;
 
     const output = (await callTool(toolSet.throwy, { x: "ok" })) as string;
     expect(output.length).toBeGreaterThan(0);
@@ -234,10 +249,7 @@ describe("buildAgentToolSet argument validation and error surfacing", () => {
       },
     };
 
-    const toolSet = buildAgentToolSet(
-      { observe: observingTool },
-      "test-agent",
-    )!;
+    const toolSet = buildTools({ observe: observingTool })!;
 
     await callTool(toolSet.observe, { a: 42, b: "hello" });
     expect(receivedArgs).toEqual({ a: 42, b: "hello" });
@@ -254,7 +266,7 @@ describe("buildAgentToolSet argument validation and error surfacing", () => {
       },
     };
 
-    const toolSet = buildAgentToolSet({ counter: tool }, "test-agent")!;
+    const toolSet = buildTools({ counter: tool })!;
     const output = (await callTool(toolSet.counter, { id: "one" })) as string;
     expect(callCount).toBe(1);
     expect(output).toBe("call #1");

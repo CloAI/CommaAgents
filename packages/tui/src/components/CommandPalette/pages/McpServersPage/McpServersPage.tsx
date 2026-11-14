@@ -50,7 +50,9 @@ export function McpServersPage({
   const toggleServer = React.useCallback(
     (serverIndex: number): void => {
       const server = visibleServers[serverIndex];
-      if (!server) return;
+      if (!server) {
+        return;
+      }
       update({
         serverId: server.id,
         enabled: !server.enabled,
@@ -71,9 +73,13 @@ export function McpServersPage({
         onBack();
         return;
       }
-      if (input !== "g" || !runId) return;
+      if (input !== "g" || !runId) {
+        return;
+      }
       const server = visibleServers[selectedIndex];
-      if (!server || server.source === "strategy") return;
+      if (!server || server.source === "strategy") {
+        return;
+      }
       update({
         serverId: server.id,
         enabled: server.enabled,

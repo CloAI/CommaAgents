@@ -1,9 +1,12 @@
 export { createAgent } from "./agent/agent";
 export type {
   Agent,
+  AgentCallIdentity,
+  AgentCallFailure,
   AgentCallResult,
   AgentConfig,
   AgentOutputSchema,
+  AgentRuntime,
   AgentStreamEvent,
 } from "./agent/agent.types";
 export { hookIntoAgent } from "./hook-into-agent/hook-into-agent";

@@ -1,34 +1,39 @@
+import { BUILT_IN_TOOL_NAMES } from "../../tools/tool.constants";
+import { findCommaProjectRoot } from "../../defaults/defaults";
 import type { StepResult, TextStreamPart, ToolSet } from "ai";
 import { tool as aiTool, generateText, Output, stepCountIs } from "ai";
 import type {
+  CompactionOptions,
   ConversationContext,
   ModelMessage,
   ResponseMessage,
   SummarizeRecords,
 } from "../../conversation-context";
 import {
+  buildCompactionInstruction,
+  CompactionSummaryRejectedError,
   contextUsageFromSteps,
   recordsToMessages,
 } from "../../conversation-context";
+import { COMPACTION_SYSTEM_PROMPT } from "../../conversation-context/retention/compaction/compaction.constants";
 import { SandboxViolationError } from "../../errors/index";
 import { runSideEffectHooks, runTransformHooks } from "../../hooks";
 import type { SideEffectHook, TransformHook } from "../../hooks/hooks.types";
-import type { LanguageService } from "../../language";
 import { parseMcpToolName } from "../../mcp";
-import { resolveModel } from "../../model/model";
+import { resolveModel, resolveModelWithPrivacy } from "../../model/model";
+import type { ModelResolutionOptions } from "../../model/model.types";
+import { privacyError } from "../../model/privacy/privacy.utils";
+import type { PrivacyReport } from "../../model/privacy";
 import { getQualifiedModelMetadata } from "../../model/model.utils";
 import {
   buildMessages,
   resolveSystemPrompt,
 } from "../../prompts/message-builder";
 import { createSandbox } from "../../sandbox/sandbox";
-import { PERMISSIVE_SANDBOX_CONFIG } from "../../sandbox/sandbox.constants";
-import type { Sandbox } from "../../sandbox/sandbox.types";
-import type { SkillRegistry } from "../../skills/skills.types";
+import { PERMISSIVE_SANDBOX_OPTIONS } from "../../sandbox/sandbox.constants";
 import type { AuditSink } from "../../tools/io/audit.types";
 import { createFileAuditSink } from "../../tools/io/audit-sink";
 import { sandboxErrorToToolError } from "../../tools/io/sandbox-error";
-import type { LaunchStrategyHandle } from "../../tools/launch-strategy.types";
 import { errorResult } from "../../tools/result";
 import { resolveTools } from "../../tools/tool.registry";
 import type {
@@ -36,18 +41,32 @@ import type {
   ToolDefinition,
   ToolError,
 } from "../../tools/tool.types";
-import type { InputCollector } from "../built-in/user/user-agent.types";
-import type { ToolHooks } from "../hooks";
+import type { AgentHooks, ToolHooks } from "../hooks";
 import { resolveHook } from "../hooks";
 import { DEFAULT_MAX_STEPS } from "./agent.constants";
 import type {
   AgentCallResult,
   AgentConfig,
+  AgentRuntime,
   AgentStreamEvent,
   BuildCallOptionsResult,
 } from "./agent.types";
 
+export interface BuildAgentToolSetOptions {
+  readonly toolDefinitions:
+    | Readonly<Record<string, ToolDefinition>>
+    | undefined;
+  readonly agentName: string;
+  readonly toolHooks?: ToolHooks;
+  readonly runtime?: AgentRuntime;
+  readonly sessionId?: string;
+  readonly auditSink?: AuditSink;
+}
+
 export type AgentHookStore = {
+  onCallCompleted?: AgentHooks["onCallCompleted"];
+  onCallStarted?: AgentHooks["onCallStarted"];
+  onCallFailed?: AgentHooks["onCallFailed"];
   alterFirstCallMessage: Array<TransformHook<string>> | undefined;
   beforeFirstCall: Array<SideEffectHook<string>> | undefined;
   afterFirstCallResult: Array<SideEffectHook<AgentCallResult>> | undefined;
@@ -132,51 +151,35 @@ export async function runPostCallHooks(
  * SandboxViolationError → ToolError catch.
  *
  * Each tool gets its own per-tool Guard from `sandbox.guardFor(toolName)`.
- * Tools call `ctx.guard.authorize()` for path resolution, jail enforcement,
+ * Tools call `ctx.guard.authorize()` for path resolution, workspace boundaries,
  * and policy evaluation.
  *
- * @param toolDefinitions - The tool definitions to wrap.
- * @param agentName - Surfaced on `ToolContext.agentName` and audit entries.
- * @param toolHooks - Optional side-effect hooks invoked around each call.
- * @param sandbox - Guard registry; falls back to a permissive sandbox.
- * @param sessionId - Propagated to `ToolContext.sessionId`. Identifies a
- *   broader user/daemon session; used by audit log / trash metadata.
- * @param auditSink - Explicit audit sink. When omitted but `sessionId` is set,
- *   a `createFileAuditSink(sandbox.cwd)` is constructed automatically.
- * @param skillRegistry - Propagated to `ToolContext.skillRegistry`.
- * @param inputCollector - Propagated to `ToolContext.inputCollector`.
- * @param launchStrategy - Propagated to `ToolContext.launchStrategy`.
- * @param languageService - Propagated to `ToolContext.languageService`.
- * @param runId - Propagated to `ToolContext.runId`. Identifies a single
- *   strategy invocation (top-level run *or* one `launch_strategy`
- *   sub-load). Tools that need per-launch isolation (notably `todo_*`)
- *   silo on this. Kept distinct from `sessionId`.
+ * @param options - Tool definitions, agent identity, hooks, and runtime services.
  */
-export function buildAgentToolSet(
-  toolDefinitions: Readonly<Record<string, ToolDefinition>> | undefined,
-  agentName: string,
-  toolHooks?: ToolHooks,
-  sandbox?: Sandbox,
-  sessionId?: string,
-  auditSink?: AuditSink,
-  skillRegistry?: SkillRegistry,
-  inputCollector?: InputCollector,
-  launchStrategy?: LaunchStrategyHandle,
-  languageService?: LanguageService,
-  runId?: string,
-): ToolSet | undefined {
+export function buildAgentToolSet({
+  toolDefinitions,
+  agentName,
+  toolHooks,
+  runtime = {},
+  sessionId,
+  auditSink,
+}: BuildAgentToolSetOptions): ToolSet | undefined {
   if (!toolDefinitions || Object.keys(toolDefinitions).length === 0) {
     return undefined;
   }
 
   // Fall back to a permissive sandbox so tools always have a guard available
-  const effectiveSandbox = sandbox ?? createSandbox(PERMISSIVE_SANDBOX_CONFIG);
+  const effectiveSandbox =
+    runtime.sandbox ?? createSandbox(PERMISSIVE_SANDBOX_OPTIONS);
 
   // Resolve the audit sink.
   const workspaceCwd = effectiveSandbox.cwd;
+  const auditRoot = findCommaProjectRoot(workspaceCwd);
   const effectiveAuditSink: AuditSink | undefined =
     auditSink ??
-    (sessionId !== undefined ? createFileAuditSink(workspaceCwd) : undefined);
+    (sessionId !== undefined && auditRoot
+      ? createFileAuditSink(auditRoot)
+      : undefined);
 
   const toolSet: ToolSet = {};
 
@@ -184,35 +187,47 @@ export function buildAgentToolSet(
     // Per-tool guard from the sandbox, with tool-level policies
     const guard = effectiveSandbox.guardFor(name, definition.policies);
 
-    // Wire tool-level policies into the guard's chain
-    if (definition.policies) {
-      for (const policy of definition.policies) {
-        guard.addPolicy(policy);
-      }
-    }
-
     toolSet[name] = aiTool({
       description: definition.description,
       inputSchema: definition.parameters,
       execute: async (
         toolArguments: unknown,
-        options: { abortSignal?: AbortSignal },
+        options: { abortSignal?: AbortSignal; toolCallId?: string },
       ) => {
         const argsString = JSON.stringify(toolArguments);
 
         const toolContext: ToolContext = {
           agentName,
+          messageId: runtime.messageId,
+          toolCallId: options.toolCallId,
           guard,
-          abort: options.abortSignal ?? AbortSignal.timeout(30_000),
+          abort: options.abortSignal ?? new AbortController().signal,
           ...(sessionId !== undefined ? { sessionId } : {}),
-          ...(runId !== undefined ? { runId } : {}),
+          ...(runtime.runId !== undefined ? { runId: runtime.runId } : {}),
           ...(effectiveAuditSink !== undefined
             ? { auditSink: effectiveAuditSink }
             : {}),
-          ...(skillRegistry !== undefined ? { skillRegistry } : {}),
-          ...(inputCollector !== undefined ? { inputCollector } : {}),
-          ...(launchStrategy !== undefined ? { launchStrategy } : {}),
-          ...(languageService !== undefined ? { languageService } : {}),
+          ...(runtime.skillRegistry !== undefined
+            ? { skillRegistry: runtime.skillRegistry }
+            : {}),
+          ...(runtime.inputCollector !== undefined
+            ? { inputCollector: runtime.inputCollector }
+            : {}),
+          ...(runtime.launchStrategy !== undefined
+            ? { launchStrategy: runtime.launchStrategy }
+            : {}),
+          ...(runtime.languageService !== undefined
+            ? { languageService: runtime.languageService }
+            : {}),
+          ...(runtime.questionsRequester !== undefined
+            ? { requestQuestions: runtime.questionsRequester }
+            : {}),
+          ...(runtime.subagents !== undefined
+            ? { subagents: runtime.subagents }
+            : {}),
+          ...(runtime.requestStrategySwitch !== undefined
+            ? { requestStrategySwitch: runtime.requestStrategySwitch }
+            : {}),
         };
 
         // AI SDK v6's `tool()` wrapper does NOT validate the
@@ -295,6 +310,9 @@ export function buildAgentToolSet(
 
           return llmOutput;
         } catch (caught) {
+          if (toolContext.abort.aborted) {
+            throw caught;
+          }
           // Convert thrown errors into structured tool results so the
           // LLM always sees a useful message instead of an empty
           // string. Without this, AI SDK v6 surfaces uncaught throws
@@ -337,6 +355,7 @@ export function buildAgentToolSet(
  * then builds messages and system prompt into a single options object.
  *
  * @param config - The agent configuration.
+ * @param runtime - Services available to the agent's tools.
  * @param message - The current user message.
  * @param context - The conversation context.
  * @param toolHooks - Tool hooks from the agent's mutable closure store.
@@ -348,10 +367,12 @@ export function buildAgentToolSet(
  */
 export async function buildCallOptions(
   config: AgentConfig,
+  runtime: AgentRuntime,
   message: string,
   context: ConversationContext,
   toolHooks?: ToolHooks,
   abortSignal?: AbortSignal,
+  onPrivacyReport?: (report: PrivacyReport) => void,
 ): Promise<BuildCallOptionsResult> {
   if (!config.model) {
     throw new Error(
@@ -360,49 +381,80 @@ export async function buildCallOptions(
     );
   }
 
-  const modelMetadata = getQualifiedModelMetadata(config.model);
+  const configuredModel = config.model;
+
+  // Resolve before compaction so bare IDs inherit the selected provider's protection.
+  let resolvedModel = config.privacy?.tee
+    ? undefined
+    : await resolveModelWithPrivacy(configuredModel, {
+        privacy: config.privacy,
+        privacyRuntime: runtime.privacyRuntime,
+        signal: abortSignal,
+        onPrivacyReport,
+      });
+  if (resolvedModel?.privacy?.tee) {
+    if (compactionOptionsOf(config)?.summarize) {
+      throw privacyError("PRIVACY_CONFIGURATION_ERROR");
+    }
+    config = { ...config, privacy: resolvedModel.privacy };
+    runtime = { ...runtime, privacyRuntime: resolvedModel.privacyRuntime };
+  }
+
+  const modelMetadata = getQualifiedModelMetadata(configuredModel);
   const lastActiveRecord = context
     .records(config.name)
     .filter((record) => record.status !== "superseded")
     .at(-1);
   const retentionEvents = await context.prepareForCall({
     agentName: config.name,
-    model: config.model,
+    model: configuredModel,
+    ...(config.privacy?.tee || config.privacy?.e2ee
+      ? {
+          summarize: createModelSummarizer(
+            compactionOptionsOf(config)?.model ?? configuredModel,
+            {
+              privacy: config.privacy,
+              privacyRuntime: runtime.privacyRuntime,
+              signal: abortSignal,
+              onPrivacyReport,
+            },
+            compactionOptionsOf(config)?.extraSections,
+          ),
+        }
+      : {}),
     ...(lastActiveRecord?.contextUsage !== undefined
       ? { contextUsage: lastActiveRecord.contextUsage }
       : {}),
-    ...(modelMetadata?.contextWindow !== undefined
-      ? { contextWindow: modelMetadata.contextWindow }
+    ...(modelMetadata?.metadata.contextWindow !== undefined
+      ? { contextWindow: modelMetadata.metadata.contextWindow }
       : {}),
-    ...(modelMetadata?.maxInputTokens !== undefined
-      ? { maxInputTokens: modelMetadata.maxInputTokens }
+    ...(modelMetadata?.metadata.maxInputTokens !== undefined
+      ? { maxInputTokens: modelMetadata.metadata.maxInputTokens }
       : {}),
   });
 
-  // Resolve model string → LanguageModel
-  const languageModel = await resolveModel(config.model);
+  resolvedModel ??= await resolveModelWithPrivacy(configuredModel, {
+    privacy: config.privacy,
+    privacyRuntime: runtime.privacyRuntime,
+    signal: abortSignal,
+    onPrivacyReport,
+  });
 
   // Resolve tool names → ToolDefinition map, then build AI SDK tool set
-  const resolvedToolDefinitions = config.tools
-    ? resolveTools(config.tools, config.name)
-    : undefined;
+  const resolvedToolDefinitions = resolveTools(
+    config.tools ?? BUILT_IN_TOOL_NAMES,
+    config.name,
+  );
 
   const [tools, resolvedSystemPrompt] = await Promise.all([
     Promise.resolve({
-      ...(buildAgentToolSet(
-        resolvedToolDefinitions,
-        config.name,
+      ...(buildAgentToolSet({
+        toolDefinitions: resolvedToolDefinitions,
+        agentName: config.name,
         toolHooks,
-        config.sandbox,
-        undefined,
-        undefined,
-        config.skillRegistry,
-        config.inputCollector,
-        config.launchStrategy,
-        config.languageService,
-        config.runId,
-      ) ?? {}),
-      ...(config.mcpTools ?? {}),
+        runtime,
+      }) ?? {}),
+      ...(runtime.mcpTools ?? {}),
     }),
     resolveSystemPrompt({ systemPrompt: config.systemPrompt }),
   ]);
@@ -410,7 +462,7 @@ export async function buildCallOptions(
   return {
     retentionEvents,
     callOptions: {
-      model: languageModel,
+      model: resolvedModel.model,
       system: resolvedSystemPrompt,
       messages: buildMessages({ message, context }) as ModelMessage[],
       tools,
@@ -427,31 +479,49 @@ export async function buildCallOptions(
   };
 }
 
-const SUMMARIZER_SYSTEM_PROMPT =
-  "You compress conversation history. Produce a concise summary that preserves " +
-  "key facts, decisions, open questions, and any state later turns depend on. " +
-  "Write in plain prose; do not add commentary or address the user.";
-
-const SUMMARIZER_INSTRUCTION =
-  "Summarize the conversation above for use as compacted context.";
+/**
+ * The agent's compaction settings when they are given as an options object.
+ * @param {AgentConfig} config - Agent configuration.
+ * @returns {CompactionOptions | undefined} Compaction options, if set as an object.
+ */
+export function compactionOptionsOf(
+  config: AgentConfig,
+): CompactionOptions | undefined {
+  const compaction = config.context?.compaction;
+  return typeof compaction === "object" ? compaction : undefined;
+}
 
 /**
  * Build the default summarizer used by context compaction. Resolves the model
- * lazily so unused summarizers cost nothing.
+ * lazily so unused summarizers cost nothing. A summary cut off by the output
+ * limit is rejected, so compaction keeps the original records.
  *
- * @param model - Model identifier in "providerID/modelID" format.
+ * @param {string} model - Model identifier in "providerID/modelID" format.
+ * @param {ModelResolutionOptions} [options] - Inherited privacy requirements, request cancellation, and report collector.
+ * @param {readonly string[]} [extraSections] - Section headings added to the standard summary template.
+ * @returns {SummarizeRecords} Invocation-bound summarizer.
  */
-export function createModelSummarizer(model: string): SummarizeRecords {
+export function createModelSummarizer(
+  model: string,
+  options?: ModelResolutionOptions,
+  extraSections?: readonly string[],
+): SummarizeRecords {
   return async (records) => {
-    const languageModel = await resolveModel(model);
+    const languageModel = await resolveModel(model, options);
     const result = await generateText({
       model: languageModel,
-      system: SUMMARIZER_SYSTEM_PROMPT,
+      abortSignal: options?.signal,
+      system: COMPACTION_SYSTEM_PROMPT,
       messages: [
         ...recordsToMessages(records),
-        { role: "user", content: SUMMARIZER_INSTRUCTION },
+        { role: "user", content: buildCompactionInstruction(extraSections) },
       ],
     });
+    if (result.finishReason === "length") {
+      throw new CompactionSummaryRejectedError(
+        "The compaction summary hit the output limit and was discarded.",
+      );
+    }
     return result.text;
   };
 }
@@ -562,5 +632,90 @@ export function buildStreamCallResult(
     },
     ...(contextUsage !== undefined ? { contextUsage } : {}),
     finishReason: finishReason ?? "stop",
+  };
+}
+
+/**
+ * Build valid partial context, pairing every issued tool call with its settled outcome.
+ * @param {readonly AgentStreamEvent[]} events - Delivered generation and settled tool events.
+ * @returns {AgentCallResult} Interrupted response usable as conversation context.
+ * @internal
+ */
+export function interruptedCallResult(
+  events: readonly AgentStreamEvent[],
+): AgentCallResult {
+  const responseMessages: ResponseMessage[] = [];
+  let assistantContent: Extract<
+    ResponseMessage,
+    { role: "assistant" }
+  >["content"] = [];
+  let partialText = "";
+  const toolResults = new Map<
+    string,
+    Extract<AgentStreamEvent, { type: "tool-result" }>
+  >();
+  for (const event of events) {
+    if (event.type === "tool-result") {
+      toolResults.set(event.toolCallId, event);
+    }
+  }
+  const emittedTools = new Set<string>();
+  for (const event of events) {
+    if (event.type === "text") {
+      partialText += event.text;
+      if (Array.isArray(assistantContent)) {
+        assistantContent.push({ type: "text", text: event.text });
+      }
+    } else if (
+      event.type === "tool-call" &&
+      !emittedTools.has(event.toolCallId)
+    ) {
+      emittedTools.add(event.toolCallId);
+      let toolInput: unknown;
+      try {
+        toolInput = JSON.parse(event.args);
+      } catch {
+        toolInput = event.args;
+      }
+      if (Array.isArray(assistantContent)) {
+        assistantContent.push({
+          type: "tool-call",
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          input: toolInput,
+        });
+      }
+      responseMessages.push({ role: "assistant", content: assistantContent });
+      assistantContent = [];
+      const outcome = toolResults.get(event.toolCallId);
+      responseMessages.push({
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: event.toolCallId,
+            toolName: event.toolName,
+            output: {
+              type: outcome?.status === "completed" ? "text" : "error-text",
+              value:
+                outcome?.status === "completed"
+                  ? outcome.output
+                  : (outcome?.error ??
+                    "Tool cancelled by user steering; its effects may be incomplete. Do not automatically replay it."),
+            },
+          },
+        ],
+      });
+    }
+  }
+  if (assistantContent.length) {
+    responseMessages.push({ role: "assistant", content: assistantContent });
+  }
+  return {
+    text: partialText,
+    responseMessages,
+    steps: [],
+    usage: { promptTokens: 0, completionTokens: 0 },
+    finishReason: "user_steering",
   };
 }

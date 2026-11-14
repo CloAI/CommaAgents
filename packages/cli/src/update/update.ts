@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { createHash } from "node:crypto";
 import {
   chmod,
@@ -12,8 +14,8 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
-import { resolveDataDir } from "@comma-agents/core";
-import { stopDaemon } from "@comma-agents/daemon";
+import { getApplicationDataDirectory } from "@comma-agents/core";
+import { stopDaemonProcess } from "@comma-agents/daemon";
 import { render } from "ink";
 import { createElement } from "react";
 
@@ -54,10 +56,15 @@ function currentVersion(): string {
 async function readCachedReleases(
   maxAgeMs: number,
 ): Promise<readonly ReleaseInfo[] | undefined> {
-  if (maxAgeMs <= 0) return undefined;
+  if (maxAgeMs <= 0) {
+    return undefined;
+  }
   try {
     const cache = JSON.parse(
-      await readFile(join(resolveDataDir(), UPDATE_CHECK_CACHE_FILE), "utf8"),
+      await readFile(
+        join(getApplicationDataDirectory(), UPDATE_CHECK_CACHE_FILE),
+        "utf8",
+      ),
     ) as Partial<ReleaseCache>;
     if (
       typeof cache.checkedAt !== "number" ||
@@ -72,9 +79,13 @@ async function readCachedReleases(
 }
 
 function normalizeCachedReleases(value: unknown): readonly ReleaseInfo[] {
-  if (!Array.isArray(value)) throw new Error("Invalid update cache");
+  if (!Array.isArray(value)) {
+    throw new Error("Invalid update cache");
+  }
   return value.flatMap((release): readonly ReleaseInfo[] => {
-    if (typeof release !== "object" || release === null) return [];
+    if (typeof release !== "object" || release === null) {
+      return [];
+    }
     const candidate = release as Partial<ReleaseInfo>;
     if (
       typeof candidate.version !== "string" ||
@@ -96,7 +107,7 @@ function normalizeCachedReleases(value: unknown): readonly ReleaseInfo[] {
 async function writeReleaseCache(
   releases: readonly ReleaseInfo[],
 ): Promise<void> {
-  const dataDirectory = resolveDataDir();
+  const dataDirectory = getApplicationDataDirectory();
   await mkdir(dataDirectory, { recursive: true });
   await writeFile(
     join(dataDirectory, UPDATE_CHECK_CACHE_FILE),
@@ -173,12 +184,12 @@ export async function checkForUpdate({
 }
 
 async function runCommand(command: readonly string[]): Promise<void> {
-  const child = Bun.spawn([...command], {
-    stdin: "inherit",
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  const exitCode = await child.exited;
+  const [executable, ...arguments_] = command;
+  if (!executable) {
+    throw new Error("Update command is empty");
+  }
+  const child = spawn(executable, arguments_, { stdio: "inherit" });
+  const [exitCode] = await once(child, "close");
   if (exitCode !== 0) {
     throw new Error(`Update command exited with status ${exitCode}`);
   }
@@ -232,9 +243,9 @@ Move-Item -LiteralPath $Replacement -Destination $Target -Force
 Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
 `,
   );
-  const child = Bun.spawn(
+  const child = spawn(
+    "powershell.exe",
     [
-      "powershell.exe",
       "-NoProfile",
       "-NonInteractive",
       "-ExecutionPolicy",
@@ -249,12 +260,11 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
       replacementPath,
     ],
     {
-      stdin: "ignore",
-      stdout: "ignore",
-      stderr: "ignore",
+      stdio: "ignore",
       detached: true,
     },
   );
+  await once(child, "spawn");
   child.unref();
 }
 
@@ -354,13 +364,17 @@ export async function installUpdate(
         process.execPath,
       ),
     );
-    await stopDaemon();
+    await stopDaemonProcess();
     return { version: update.release.version, deferred: false };
   }
 
-  if (process.platform === "win32") await stopDaemon();
+  if (process.platform === "win32") {
+    await stopDaemonProcess();
+  }
   const deferred = await installStandaloneRelease(update.release, fetch);
-  if (!deferred) await stopDaemon();
+  if (!deferred) {
+    await stopDaemonProcess();
+  }
   return { version: update.release.version, deferred };
 }
 
@@ -435,7 +449,9 @@ export async function runUpdater({
 
 /** Check for an update before launching the TUI and offer to install it. */
 export async function offerUpdateBeforeTui(): Promise<boolean> {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    return false;
+  }
   let update: UpdateCheckResult;
   try {
     update = await checkForUpdate({

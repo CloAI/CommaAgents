@@ -39,10 +39,12 @@ Multiple `hookIntoAgent` calls stack — each call appends to the existing hooks
 Hooks run in a predictable sequence around every agent call:
 
 ```
-alterCallMessage → beforeCall → [LLM call] → afterCallResult → alterResponse
+onCallStarted → alterCallMessage → beforeCall → [execution] → onCallCompleted → afterCallResult → alterResponse
 ```
 
-You can think of each stage as answering a different question:
+`onCallStarted` receives a stable message identity before execution. `onCallCompleted` observes each successful invocation after its conversation record exists, even when a first-call hook overrides `afterCallResult`. `onCallFailed` receives the same identity and failure details when invocation processing throws.
+
+You can think of the transformation stages as answering a different question:
 
 - `alterCallMessage`: What should be sent to the model?
 - `beforeCall`: What should happen right before the request is made?

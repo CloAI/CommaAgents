@@ -12,13 +12,13 @@ The `comma` command is the primary entrypoint for CommaAgents. It launches the T
 Install from npm:
 
 ```bash
-npm install -g @comma-agents/cli@next
+pnpm add --global @comma-agents/cli@next
 comma install
 ```
 
-The npm package requires Bun 1.3 or newer. It contains a bundled launcher, so it does not install the TUI, daemon, and core as separate global packages.
+The npm package requires Node.js 26 or newer. It installs the TUI, daemon, and core as package dependencies; only the CLI needs to be installed globally.
 
-For a one-line installer, run the platform bootstrap script for your operating system and it will install the CLI package before opening `comma install`.
+With Node.js 26 and pnpm installed, run the platform bootstrap script for your operating system and it will install the CLI package before opening `comma install`.
 
 ```bash
 curl -fsSL https://commaagents.com/install | bash
@@ -44,6 +44,29 @@ You can pass the same launch options as the TUI:
 comma --strategy Plan --input "Review this repo"
 comma tui --daemon-url ws://127.0.0.1:7422/ws
 ```
+
+## Run A Strategy Headlessly
+
+`comma run` executes a strategy in the current process without the TUI or a running daemon. Use it for scripts, CI, and benchmarks.
+
+```bash
+comma run -s Build -i "Fix the failing parser test" --approve allow
+comma run -s Plan -i "Add retry support to webfetch" --then Build --approve allow --json
+```
+
+| Option | Description |
+|---|---|
+| `-s, --strategy` | Strategy file path, name, or label. |
+| `-i, --input` | First user message. |
+| `--cwd` | Working directory for the run. Defaults to the current directory. |
+| `-m, --model` | `provider/model` used by every agent, including subagents. |
+| `--max-user-turns` | User turns accepted before the run stops. Defaults to 1. |
+| `--approve allow\|deny` | Answer for every sandbox permission request. Defaults to `deny`. |
+| `--then <strategy...>` | Switch to each strategy in order, in the same conversation, after the previous one finishes. |
+| `--then-input` | Message sent to each `--then` strategy. |
+| `--json` | Print the run ID, outcome, agent messages, and token usage as JSON. |
+
+Questions an agent asks during the run are answered with an instruction to proceed with its recommended option. With `--json`, `endedBy` is `turn-limit` when the run stopped because `--max-user-turns` was used up after the work finished.
 
 ## Manage The Daemon
 

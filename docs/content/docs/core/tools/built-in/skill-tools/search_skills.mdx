@@ -1,0 +1,20 @@
+---
+title: search_skills
+description: Find relevant skills by fuzzy name and description matching.
+---
+
+`search_skills` searches the current execution's skill snapshot. Use a short description of the task or a skill keyword, inspect the returned descriptions, and choose whether to call `load_skill` with an exact returned name.
+
+```json
+{ "query": "typescript reveiw", "limit": 10 }
+```
+
+The query must contain non-whitespace text. The optional limit defaults to 10 and accepts integers from 1 through 50.
+
+The structured result contains `matches` and `totalMatches` before limiting. Each match contains its name, description, origin, source path, and a relevance score. Lower scores are closer matches. Instruction bodies are omitted, and no candidate is loaded automatically. An empty match list is a successful result.
+
+Names receive greater ranking weight than descriptions. Matching is case-insensitive and typo-tolerant; equally ranked results use name order.
+
+The tool returns `skill_unavailable` when no registry was supplied. Default built-in tool sets include it. An explicit `tools` list must include `search_skills` when the agent needs search.
+
+See [Skills](/docs/core/skills), [list_skills](/docs/core/tools/built-in/skill-tools/list_skills), and [load_skill](/docs/core/tools/built-in/skill-tools/load_skill).

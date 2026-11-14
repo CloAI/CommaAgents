@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "node"],
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@comma-agents/daemon/protocol": [
+        "../daemon/dist/daemon-server/protocol.d.ts"
+      ]
+    }
+  },
+  "include": ["src", ".storybook", "vite.config.ts", "vitest.config.ts"]
+}

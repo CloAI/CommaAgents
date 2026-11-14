@@ -1,0 +1,73 @@
+---
+title: Questions Plugin
+description: Collect complete typed answers to questionnaires from root and child executions.
+---
+
+# Questions Plugin
+
+Use `daemon.plugins.questions` to receive questionnaires presented by tools. Each request belongs to one tool call and contains an array of questions. Each question can combine text, choice, and slider fields.
+
+Subscribe to `run_question_requested` using a run ID. The subscription replays pending requests and delivers future requests from that execution and its descendants. Reply using the request's own `runId`, which can differ from the watched run ID.
+
+```ts
+const unsubscribe = await daemon.plugins.questions.notifications.subscribe(
+  "run_question_requested",
+  runId,
+  (request) => {
+    console.log(request.agentName, request.questions);
+  },
+);
+```
+
+## Submit a complete response
+
+Submit exactly one outcome for every question: `answered` with typed field values, `other` with replacement text for the whole question, or `skipped`. Optional unanswered fields are omitted. Other and Skip bypass that question's required fields.
+
+```ts
+const submissionId = crypto.randomUUID();
+const response = {
+  answers: [
+    {
+      questionId: "review",
+      type: "answered" as const,
+      values: { areas: ["daemon"], confidence: 80 },
+    },
+    { questionId: "timing", type: "other" as const, text: "After deployment." },
+    { questionId: "notes", type: "skipped" as const },
+  ],
+};
+
+const receipt = daemon.plugins.questions.submitAnswers(
+  request.runId,
+  request.requestId,
+  submissionId,
+  response,
+);
+```
+
+The entire response is validated against the original questionnaire before it is accepted. Missing questions, duplicate outcomes, unknown field or option IDs, invalid selection counts, and invalid slider values reject the submission without resolving the request. `INVALID_ANSWERS` errors identify affected questions and fields where available.
+
+An accepted submission returns `{ accepted: true, replayed: false }`. Retrying identical content with the same submission ID returns `{ accepted: true, replayed: true }`. Different submissions after completion, or changed content using the same ID, return `SUBMISSION_CONFLICT`. A cancelled, released, or wrong-run request returns `QUESTION_NOT_PENDING`. Receipts last until the execution's question resources are released.
+
+## Lifecycle
+
+Questionnaires have no implicit timeout. Tool cancellation, execution cleanup, and plugin disposal reject outstanding requests and remove them from pending state. Each ended request emits `run_question_resolved` with its `runId` and `requestId`.
+
+Pending requests survive client disconnects while the daemon remains alive. Each watch subscription starts with an authoritative `questions.snapshot` containing all currently pending requests, followed by live events. Clients replace their pending list with the snapshot, removing requests resolved while disconnected and retaining drafts for matching request IDs. Drafts are client-local; pending requests and receipts are not restored after a daemon restart. Requests cannot be partially submitted or edited after submission.
+
+User-agent input remains separate and uses `runs.resolveInput`. The retired daemon/TUI question protocol is unsupported.
+
+## Server bindings
+
+| Binding | Arguments | Result or events |
+|---|---|---|
+| `questions.watch` | `runId` | Initial `questions.snapshot` with `{ requests }`, then `question.requested` with request identity, agent/tool identity, `questions`, and timestamp; `question.resolved` with `runId` and `requestId` |
+| `questions.submit` | `runId`, `requestId`, `submissionId`, `response` | `{ accepted: true, replayed }` |
+
+## Public contracts
+
+<AutoTypeTable path="../packages/daemon/src/plugins/questions/questions.types.ts" name="CreateQuestionsPluginOptions" />
+
+<AutoTypeTable path="../packages/daemon/src/plugins/questions/questions.types.ts" name="QuestionsPlugin" />
+
+<AutoTypeTable path="../packages/daemon/src/plugins/questions/questions.notifications.ts" name="QuestionRequested" />

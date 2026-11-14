@@ -1,6 +1,6 @@
-import { Box, type DOMElement, Text, useStdout } from "ink";
+import { Box, type DOMElement, Text, useWindowSize } from "ink";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useDebugRender } from "../../hooks/useDebugRender";
 import { useMouseClick } from "../../hooks/useMouseClick";
 import { useMouseHover } from "../../hooks/useMouseHover";
@@ -47,21 +47,7 @@ export function Frame({
     props: { activeTabPath, tabs },
   });
   const theme = useFrameTheme();
-  const { stdout } = useStdout();
-  const [terminalSize, setTerminalSize] = useState(() => ({
-    rows: stdout?.rows ?? process.stdout.rows,
-    columns: stdout?.columns ?? process.stdout.columns,
-  }));
-
-  useEffect(() => {
-    if (!stdout) return;
-    const handleResize = () =>
-      setTerminalSize({ rows: stdout.rows, columns: stdout.columns });
-    stdout.on("resize", handleResize);
-    return () => {
-      stdout.off("resize", handleResize);
-    };
-  }, [stdout]);
+  const terminalSize = useWindowSize();
 
   // Enable SGR mouse mode so the terminal reports click events.
   useEffect(() => {

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "entryPoints": [
+    "src/index.tsx"
+  ],
+  "ignore": [
+    ".git",
+    ".ruffels",
+    "node_modules",
+    "dist",
+    "build",
+    "coverage"
+  ],
+  "features": {
+    "externalDependencies": true
+  },
+  "maxFiles": 10000
+}

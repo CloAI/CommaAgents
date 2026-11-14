@@ -8,6 +8,7 @@
 // and passing the resulting agents to existing flow factories.
 
 import { z } from "zod";
+import { PrivacyRequirementsSchema } from "../../model/privacy/privacy.schemas";
 
 import { BUILT_IN_AGENT_NAMES } from "../registry/agent-registry.constants";
 
@@ -70,7 +71,13 @@ export const ConversationContextSchema = z
         z
           .object({
             keepRecent: z.number().int().nonnegative().optional(),
+            /** Estimated token budget for the newest records kept verbatim; overrides `keepRecent`. */
+            keepRecentTokens: z.number().int().positive().optional(),
             threshold: z.number().int().positive().optional(),
+            /** Model that writes summaries; in strategies this may be an `@role` reference. */
+            model: z.string().min(1).optional(),
+            /** Section headings added after the standard summary sections. */
+            extraSections: z.array(z.string().min(1)).optional(),
           })
           .strict(),
       ])
@@ -88,7 +95,7 @@ export const ConversationContextSchema = z
  * systemPrompt: You are a research assistant.
  * tools:
  *   - read_file
- *   - search_files
+ *   - grep
  * ```
  */
 export const LLMAgentDescriptionSchema = z
@@ -101,6 +108,8 @@ export const LLMAgentDescriptionSchema = z
     description: z.string().optional(),
     /** Model string in "providerID/modelID" format (e.g., "openai/gpt-4o"). */
     model: z.string().min(1),
+    /** Required provider-independent inference protections. */
+    privacy: PrivacyRequirementsSchema.optional(),
     /** Static system prompt sent to the model. Mutually exclusive with systemPromptTemplate. */
     systemPrompt: z.string().optional(),
     /** Dynamic system prompt using Liquid template syntax. */

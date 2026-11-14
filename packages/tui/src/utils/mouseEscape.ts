@@ -29,9 +29,17 @@ export const SGR_MOUSE_TAIL_PATTERN = /^[\d;]+[Mm]?$/;
  * keystroke than to let mouse noise leak into a text input.
  */
 export function isMouseEscape(input: string): boolean {
-  if (input.length === 0) return false;
-  if (input.startsWith(SGR_MOUSE_PREFIX)) return true;
-  if (input.includes(SGR_MOUSE_PREFIX)) return true;
-  if (SGR_MOUSE_TAIL_PATTERN.test(input) && input.includes(";")) return true;
+  if (input.length === 0) {
+    return false;
+  }
+  if (input.startsWith(SGR_MOUSE_PREFIX)) {
+    return true;
+  }
+  if (input.includes(SGR_MOUSE_PREFIX)) {
+    return true;
+  }
+  if (SGR_MOUSE_TAIL_PATTERN.test(input) && input.includes(";")) {
+    return true;
+  }
   return false;
 }

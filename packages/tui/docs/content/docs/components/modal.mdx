@@ -23,13 +23,13 @@ confirm.open();
 
 ## Props
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `modalId` | `string` | — | Unique identifier that ties this modal to `useModal(id)` controls |
-| `title` | `string` | — | Optional title displayed at the top of the modal |
-| `children` | `ReactNode` | — | Content rendered inside the modal body |
-| `width` | `number` | 50% of terminal width | Width of the modal content box |
-| `height` | `number` | auto | Height of the modal content box |
+`width`, `height`, `minHeight`, and `maxHeight` accept terminal cells or
+parent-relative percentages such as `"60%"`. `minWidth` and `maxWidth` accept
+numbers in terminal columns. The default content width is 40% of its parent.
+
+Use `modalId` to connect the modal to `useModal`. Pass an optional `title` and
+put the dialog body in `children`. Set `closeOnEsc={false}` to disable dismissal
+with Escape.
 
 ## Backdrop
 

@@ -1,20 +1,35 @@
-export { getSandbox, inSandbox } from "./in-sandbox";
+export type {
+  AccessRequest,
+  AccessType,
+  AuthorizationContext,
+  Guard,
+  GuardCallbacks,
+  GuardPermissionRequest,
+  GuardPolicySnapshot,
+  Policy,
+  PolicyDecision,
+  PolicyPriority,
+} from "../guard/guard.types";
+export {
+  approveCommandsPolicy,
+  denyCommandsPolicy,
+  forbiddenGlobsPolicy,
+  pathPolicy,
+} from "../guard/policies";
 export { createSandbox } from "./sandbox";
 export {
-  DEFAULT_DAEMON_SANDBOX_CONFIG,
   DEFAULT_FORBIDDEN_GLOBS,
-  DEFAULT_SANDBOX_CONFIG,
-  PERMISSIVE_SANDBOX_CONFIG,
+  DEFAULT_SANDBOX_OPTIONS,
+  PERMISSIVE_SANDBOX_OPTIONS,
 } from "./sandbox.constants";
-
 export type {
   AccessMode,
+  AccessOperation,
   PathPolicy,
   PermissionDecision,
-  PermissionOperation,
   PermissionRequest,
   PermissionRequester,
   PolicyPatch,
   Sandbox,
-  SandboxConfig,
+  SandboxOptions,
 } from "./sandbox.types";

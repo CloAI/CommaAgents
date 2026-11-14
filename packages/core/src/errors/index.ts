@@ -76,6 +76,28 @@ export class StrategyValidationError extends CommaAgentsError {
 }
 
 /**
+ * Thrown when a strategy references `@role` models that no configuration defines.
+ * Lists every missing role so callers can prompt for all of them at once.
+ */
+export class MissingModelRolesError extends CommaAgentsError {
+  readonly roles: readonly string[];
+  /** JSON detail forwarded to clients so they can prompt for exactly these roles. */
+  readonly metadata: { readonly roles: readonly string[] };
+
+  constructor(roles: readonly string[], options?: ErrorOptions) {
+    super(
+      "MISSING_MODEL_ROLES",
+      `Missing models for roles: ${roles.map((role) => `@${role}`).join(", ")}. ` +
+        `Set them in the daemon's "modelRoles" configuration.`,
+      options,
+    );
+    this.name = "MissingModelRolesError";
+    this.roles = roles;
+    this.metadata = { roles };
+  }
+}
+
+/**
  * Thrown when a sandbox policy rejects a file-system operation.
  *
  * The `reason` field indicates why the operation was blocked:
@@ -88,7 +110,7 @@ export class StrategyValidationError extends CommaAgentsError {
  *   These are always-deny patterns evaluated before the read/write policies and
  *   cannot be overridden by `allow` patterns or session decisions.
  * - `"absolute-path"` — the input was an absolute path while the sandbox has
- *   `allowAbsolutePaths: false` (the default). Tools must use relative paths.
+ *   `absolutePaths: "deny"` (the default). Tools must use relative paths.
  */
 export class SandboxViolationError extends CommaAgentsError {
   readonly path: string;

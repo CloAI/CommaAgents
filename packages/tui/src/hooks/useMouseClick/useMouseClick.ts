@@ -49,12 +49,22 @@ export function useMouseClick({
   }, [buttons]);
 
   useEffect(() => {
-    if (!subscribe) return;
+    if (!subscribe) {
+      return;
+    }
     return subscribe((event: MouseEvent) => {
-      if (event.kind !== "press") return;
-      if (event.button === null) return;
-      if (!buttonsRef.current.includes(event.button)) return;
-      if (!isInsideRef(ref, event.column, event.row)) return;
+      if (event.kind !== "press") {
+        return;
+      }
+      if (event.button === null) {
+        return;
+      }
+      if (!buttonsRef.current.includes(event.button)) {
+        return;
+      }
+      if (!isInsideRef(ref, event.column, event.row)) {
+        return;
+      }
       onClickRef.current(event);
     });
   }, [subscribe, ref]);

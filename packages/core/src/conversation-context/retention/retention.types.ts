@@ -2,7 +2,7 @@ import type {
   ContextUsage,
   ConversationRecord,
 } from "../conversation-context.types";
-import type { CompactionOptions } from "./compaction";
+import type { CompactionOptions, SummarizeRecords } from "./compaction";
 import type { RollingWindowOptions } from "./rolling-window";
 
 export type { CompactionOptions, SummarizeRecords } from "./compaction";
@@ -10,6 +10,8 @@ export type { RollingWindowOptions } from "./rolling-window";
 
 /** Input used when preparing records for an agent call. */
 export interface ContextPrepareInput {
+  /** Invocation-bound summarizer overriding the configured compaction callback. */
+  readonly summarize?: SummarizeRecords;
   readonly agentName: string;
   readonly model?: string;
   readonly contextUsage?: ContextUsage;

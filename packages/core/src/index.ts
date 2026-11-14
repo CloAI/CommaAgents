@@ -1,21 +1,51 @@
-export type {
-  AbortableAsyncGenerator,
-  AbortablePromise,
-} from "./abortable";
-export {
-  createAbortableGenerator,
-  createAbortablePromise,
-} from "./abortable";
+// @comma-agents/core
+// Composable agent orchestration framework
 
+export type { AbortableAsyncGenerator, AbortablePromise } from "./abortable";
+// -- Abortable utilities (re-exported from @comma-agents/utils) --
+export {
+  createPrivacyRuntime,
+  PrivacyRequirementsSchema,
+} from "./model/privacy";
+export type {
+  PrivacyRequirements,
+  PrivacyRuntime,
+  PrivacyRuntimeOptions,
+  PrivacyResolutionOptions,
+  PrivacyReport,
+  PrivacyEvent,
+  PrivacyDiagnostic,
+  PrivacyProviderError,
+  PrivacyWorkloadMeasurements,
+  PrivacyWorkloadPolicy,
+  PrivacyWorkloadMismatch,
+  PrivacyLimits,
+  PrivacyCheckStatus,
+  PrivacyError,
+  PrivacyErrorCode,
+} from "./model/privacy";
+export type {
+  VenicePrivacyOptions,
+  VeniceWorkloadPolicy,
+  VeniceWorkloadMeasurements,
+} from "./model/providers/venice/venice.types";
+export type { ModelResolutionOptions } from "./model/model.types";
+
+export { createAbortableGenerator, createAbortablePromise } from "./abortable";
+
+// -- Agent composition --
 export { createAgent } from "./agents/agent/agent";
+// -- Agents --
+// -- Agent types (the core contracts) --
 export type {
   Agent,
+  AgentCallIdentity,
+  AgentCallFailure,
   AgentCallResult,
   AgentConfig,
-  AgentOutputSchema,
   AgentStreamEvent,
-  ModelOptions,
 } from "./agents/agent/agent.types";
+// -- Agent hook middleware --
 export { createUserAgent } from "./agents/built-in/user/user-agent";
 export type {
   InputCollector,
@@ -23,115 +53,121 @@ export type {
   UserAgentConfig,
 } from "./agents/built-in/user/user-agent.types";
 export { hookIntoAgent } from "./agents/hook-into-agent/hook-into-agent";
+// -- Hooks --
 // Agent-specific hook types (co-located with agent code)
 export type { AgentHooks, ToolHooks } from "./agents/hooks/hooks.types";
-export type {
-  AgentDescription,
-  CustomAgentDescription,
-  LLMAgentDescription,
-  LoadAgentOptions,
-} from "./agents/loader/index";
+export type { AgentDescription } from "./agents/loader/index";
+// -- Agent loader (standalone agent files) --
 export {
   AgentDescriptionSchema,
-  CustomAgentDescriptionSchema,
-  LLMAgentDescriptionSchema,
   loadAgent,
   loadAgentFromString,
 } from "./agents/loader/index";
-export type {
-  AgentTypeContext,
-  AgentTypeDefinition,
-  AgentTypeRuntime,
-} from "./agents/registry";
-export {
-  defineAgentType,
-  getRegisteredAgentNames,
-  registerAgent,
-  resetAgentRegistry,
-  unregisterAgent,
-} from "./agents/registry";
 // Re-export AI SDK message types and our ResponseMessage alias for consumer convenience
 export type {
   AssistantModelMessage,
-  CompactionOptions,
-  ContextPrepareInput,
-  ContextRecordTransform,
-  ContextRetentionOptions,
-  ContextTransformInput,
-  ContextUsage,
-  ConversationHistory,
-  ConversationRecord,
-  ConversationRecordStatus,
-  ConversationRetentionEvent,
-  ConversationUsage,
-  CreateConversationRecordInput,
   ModelMessage,
   ResponseMessage,
-  RollingWindowOptions,
-  SummarizeRecords,
   ToolModelMessage,
   UserModelMessage,
 } from "./conversation-context";
 export type {
+  ConversationHistory,
+  ConversationRecord,
+  ConversationRetentionEvent,
+} from "./conversation-context";
+export type {
+  LaunchStrategyHandle,
+  LaunchStrategyRequest,
+  LaunchStrategyResult,
+} from "./tools/launch-strategy.types";
+export type { TimelineEvent } from "./timeline";
+export type {
   ConversationContext,
   ConversationContextOptions,
-} from "./conversation-context/index";
-export {
-  applyCompaction,
-  applyRollingWindow,
-  contextUsageFromSteps,
-  createConversationContext,
-  createConversationRecord,
-  parseConversationJson,
-  parseConversationJsonl,
-  parseConversationYaml,
-  prepareContextRecords,
-  recordsToMessages,
-  recordToJsonlLine,
-  serializeConversationRecords,
-  serializeConversationRecordsJson,
-  serializeConversationRecordsYaml,
-} from "./conversation-context/index";
+} from "./conversation-context";
+// -- Context (conversation state management) --
+export { createConversationContext } from "./conversation-context";
+export { createJsonFileCredentialBackend } from "./credentials/backends/json-file";
+export { createCredentialStore } from "./credentials/credentials";
 export type {
   ApiCredential,
-  AuthStatus,
-  CreateCredentialStoreOptions,
   Credential,
-  CredentialBackend,
-  CredentialStore,
-  CredentialStoreData,
   CustomCredential,
-  EnvVarMap,
   OAuthCredential,
-} from "./credentials/index";
+} from "./credentials/credentials.schema";
 export {
   ApiCredentialSchema,
   CredentialSchema,
   CustomCredentialSchema,
-  createCredentialStore,
-  createJsonFileBackend,
   OAuthCredentialSchema,
-  resolveCredentialsPath,
-} from "./credentials/index";
-export { resolveDataDir } from "./data-directory";
-export type { GlobalDefaults, ProviderRegistration } from "./defaults/index";
+} from "./credentials/credentials.schema";
+export type {
+  AuthStatus,
+  CreateCredentialStoreOptions,
+  CredentialBackend,
+  CredentialStore,
+  CredentialStoreData,
+  EnvVarMap,
+} from "./credentials/credentials.types";
 export {
   getGlobalCredentialStore,
-  getGlobalDefaults,
-  getGlobalProviderResolver,
-  registerProvider,
-  resetGlobalDefaults,
+  resetGlobalCredentialStore,
   setGlobalCredentialStore,
-  setProviderCacheDir,
-  unregisterProvider,
-} from "./defaults/index";
+} from "./credentials/global-credential-store";
+
+export {
+  getApplicationDataDirectory,
+  getCatalogCachePath,
+  getCredentialsPath,
+  getGlobalMcpConfigPath,
+  getGlobalSkillsDirectory,
+  getHubDirectory,
+  getPackagesDirectory,
+  getProjectAuditDirectory,
+  findCommaProjectRoot,
+  getProjectDirectory,
+  getProjectMcpConfigPath,
+  getProjectSkillsDirectory,
+  getProjectStrategiesDirectory,
+  getProviderInstallDirectory,
+  getStrategiesDirectory,
+  resetCoreLocationOverrides,
+  setApplicationDataDirectory,
+  setCatalogCachePath,
+  setCredentialsPath,
+  setGlobalSkillsDirectory,
+  setProviderInstallDirectory as setProviderInstallDirectoryPath,
+} from "./defaults/defaults";
+export {
+  DEFAULT_APPLICATION_DATA_DIRECTORY_NAME,
+  DEFAULT_AUDIT_DIRECTORY_NAME,
+  DEFAULT_CACHE_DIRECTORY_NAME,
+  DEFAULT_CATALOG_CACHE_FILENAME,
+  DEFAULT_CREDENTIALS_FILENAME,
+  DEFAULT_GLOBAL_SKILLS_DIRECTORY_NAME,
+  DEFAULT_HUB_DIRECTORY_NAME,
+  DEFAULT_MCP_CONFIG_FILENAME,
+  DEFAULT_PACKAGES_DIRECTORY_NAME,
+  DEFAULT_PROJECT_DIRECTORY_NAME,
+  DEFAULT_PROVIDERS_DIRECTORY_NAME,
+  DEFAULT_STRATEGIES_DIRECTORY_NAME,
+  PROCESS_ENV_COMMA_AGENTS_CATALOG_CACHE_FILENAME,
+  PROCESS_ENV_COMMA_AGENTS_CREDENTIALS_FILENAME,
+  PROCESS_ENV_COMMA_AGENTS_DATA_DIRECTORY,
+  PROCESS_ENV_COMMA_AGENTS_MCP_CONFIG_FILENAME,
+  PROCESS_ENV_COMMA_AGENTS_PROJECT_DIRECTORY_NAME,
+} from "./defaults/defaults.constants";
+export type { CoreLocationOverrides } from "./defaults/defaults.types";
+
+// -- Errors --
 export {
   AgentCallError,
   CommaAgentsError,
   FlowExecutionError,
   HookExecutionError,
   ModelResolutionError,
-  SandboxViolationError,
+  MissingModelRolesError,
   StrategyValidationError,
   ToolExecutionError,
 } from "./errors/index";
@@ -145,46 +181,16 @@ export type {
   FlowExecutor,
   FlowHooks,
   FlowResult,
-  FlowTypeContext,
-  FlowTypeDefinition,
 } from "./flows/index";
+// -- Flows (Phase 4) --
 export {
   buildFlowAgent,
   createBroadcastFlow,
   createCycleFlow,
   createFlow,
   createSequentialFlow,
-  defineFlowType,
-  getRegisteredFlowNames,
   hookIntoFlow,
-  registerFlow,
-  resetFlowRegistry,
-  unregisterFlow,
 } from "./flows/index";
-export type { FlowDescription, LoadFlowOptions } from "./flows/loader/index";
-export {
-  FlowDescriptionSchema,
-  loadFlow,
-  loadFlowFromString,
-} from "./flows/loader/index";
-export type {
-  AccessRequest,
-  AccessType,
-  Guard,
-  GuardCallbacks,
-  GuardPermissionRequest,
-  GuardPolicySnapshot,
-  Policy,
-  PolicyDecision,
-} from "./guard/index";
-export {
-  approveCommandsPolicy,
-  buildDefaultPolicies,
-  createGuard,
-  denyCommandsPolicy,
-  forbiddenGlobsPolicy,
-  pathPolicy,
-} from "./guard/index";
 // Shared hook infrastructure
 export type { SideEffectHook, TransformHook } from "./hooks";
 export { runSideEffectHooks, runTransformHooks } from "./hooks";
@@ -196,257 +202,260 @@ export type {
   TokenUsageRecord,
   UseTokenTrackingConfig,
 } from "./hooks/built-in/token-tracking/index";
+// -- Token Tracking --
 export {
   createTokenTracker,
   useTokenTracking,
 } from "./hooks/built-in/token-tracking/index";
-export type {
-  LanguageDiagnostic,
-  LanguageDiagnosticSeverity,
-  LanguageHoverResult,
-  LanguageLocation,
-  LanguagePosition,
-  LanguageRange,
-  LanguageService,
-  LanguageSymbol,
-  LspMethod,
-  LspRequest,
-  LspResponse,
-} from "./language/index";
-export type {
-  CreateMcpConnectionManagerOptions,
-  DiscoverMcpConfigOptions,
-  McpAgentToolSet,
-  McpConfigDiscovery,
-  McpConfigFile,
-  McpConnectionManager,
-  McpServerDefinition,
-  McpServerEntry,
-  McpServerSource,
-  McpServerStatus,
-  McpServerToolSet,
-  McpToolOrigin,
-  McpValue,
-  ResolvedMcpHttpServer,
-  ResolvedMcpServer,
-  ResolvedMcpStdioServer,
-} from "./mcp";
 export {
-  createMcpConnectionManager,
-  discoverMcpConfig,
-  McpConfigFileSchema,
-  McpHttpServerDefinitionSchema,
-  McpServerDefinitionSchema,
-  McpStdioServerDefinitionSchema,
-  McpValueSchema,
-  namespaceMcpToolName,
-  parseMcpToolName,
-  resolveMcpServer,
-  resolveMcpValue,
-} from "./mcp";
+  registerModel,
+  resetModelRegistry,
+  resolveModel,
+  unregisterModel,
+} from "./model/model";
+export type {
+  ParsedModel,
+  ProviderFactory,
+  ProviderInfo,
+  ProviderResolver,
+} from "./model/model.types";
+export {
+  extractProviderIds,
+  formatProviderName,
+  getModelCapabilities,
+  getModelMetadata,
+  getProviderInfo,
+  getProviderPackage,
+  getQualifiedModelMetadata,
+  isKnownProvider,
+  listProviders,
+  parseModel,
+} from "./model/model.utils";
+export {
+  collectModelRoleReferences,
+  DEFAULT_MODEL_ROLES,
+  findMissingModelRoles,
+  getModelFamily,
+  resolveModelReference,
+} from "./model/roles";
+export type {
+  ModelFamily,
+  ModelRoleDefinition,
+  ModelRoleSources,
+  ModelRoles,
+} from "./model/roles";
 export type {
   CatalogData,
   CatalogModel,
   CatalogProvider,
   ListModelsContext,
   ListModelsFn,
-  ListModelsResult,
   Modality,
   ModelCapabilities,
   ModelCost,
   ModelInfo,
   ModelModalities,
   ModelStatus,
-  ModelsSource,
-  ParsedModel,
+  ModelSource,
+  ProviderOrigin,
   ProviderDefinition,
-  ProviderFactory,
-  ProviderInfo,
-  ProviderResolver,
-  ProviderWithModels,
-} from "./model/index";
+} from "./model/providers/index";
 export {
-  extractProviderIds,
   getCatalogModels,
   getCatalogProvider,
   getCatalogProviderSync,
   getCatalogSnapshot,
-  getModelCapabilities,
-  getModelMetadata,
+  getGlobalProviderResolver,
   getProviderDefinition,
-  getProviderInfo,
-  getProviderPackage,
+  getProviderPackageNameSync,
   getProvidersForModel,
-  getQualifiedModelMetadata,
+  getRegisteredProviderIds,
   getReverseModelIndex,
-  isKnownProvider,
-  listAllProviderModels,
+  isKnownProviderSync,
+  refreshProviderModels,
   listCatalogProviders,
   listProviderDefinitions,
   listProviderModels,
-  listProviders,
   loadCatalog,
-  parseModel,
+  mergeCatalogWithProvider,
+  mergeModelInfo,
   refreshCatalog,
-  registerModel,
   registerProviderDefinition,
   resetCatalog,
-  resetModelRegistry,
+  resetGlobalProviderResolver,
   resetProviderRegistry,
-  resolveCatalogCachePath,
-  resolveModel,
+  resolveCredentialForProvider,
+  setProviderInstallDirectory,
+  sortModels,
   toModelInfo,
-  unregisterModel,
   unregisterProviderDefinition,
-} from "./model/index";
+} from "./model/providers/index";
+
 export type {
   BuildMessagesOptions,
-  PromptTemplate,
-  PromptTemplateConfig,
   SystemPromptOptions,
-  TemplateValue,
-  TemplateVariables,
-} from "./prompts/index";
+} from "./prompts/message-builder";
+// -- Prompts --
+export { buildMessages, resolveSystemPrompt } from "./prompts/message-builder";
+export { createPromptTemplate } from "./prompts/template/prompt-template";
 export {
-  buildMessages,
-  createPromptTemplate,
-  resolveSystemPrompt,
-} from "./prompts/index";
+  buildContextBlocks,
+  describeEnvironment,
+  loadProjectInstructions,
+  renderContextBlocks,
+} from "./prompts/context-blocks";
 export type {
-  AccessMode,
-  PathPolicy,
-  PermissionDecision,
-  PermissionOperation,
-  PermissionRequest,
-  PermissionRequester,
-  PolicyPatch,
-  Sandbox,
-  SandboxConfig,
-} from "./sandbox/index";
-export {
-  createSandbox,
-  DEFAULT_DAEMON_SANDBOX_CONFIG,
-  DEFAULT_FORBIDDEN_GLOBS,
-  DEFAULT_SANDBOX_CONFIG,
-  getSandbox,
-  inSandbox,
-  PERMISSIVE_SANDBOX_CONFIG,
-} from "./sandbox/index";
-export type {
-  LoadSkillsOptions,
-  Skill,
-  SkillLoadResult,
-  SkillLoadWarning,
-  SkillMetadata,
-  SkillRegistry,
-} from "./skills/index";
-export {
-  buildSkillsPromptHeader,
-  createSkillRegistry,
-  loadSkills,
-} from "./skills/index";
+  BuildContextBlocksOptions,
+  ContextBlockSelection,
+  EnvironmentDescription,
+  GitSummary,
+  ProjectInstruction,
+} from "./prompts/context-blocks";
 export type {
   AgentDef,
   AgentStep,
   BroadcastFlowDef,
   BuiltInToolName,
-  CustomAgentDef,
-  CustomFlowDef,
   CycleFlowDef,
-  DiscoveredStrategy,
-  DiscoveredStrategyOrigin,
-  DiscoverStrategiesOptions,
-  DiscoverStrategiesResult,
-  DiscoveryWarning,
   ExportStrategyOptions,
   FlowDef,
   LLMAgentDef,
-  LoadedProject,
   LoadedStrategy,
   LoadStrategyOptions,
   SequentialFlowDef,
   Strategy,
   UserAgentDef,
 } from "./strategy/index";
+// -- Strategy (Phase 7) --
 export {
-  CustomAgentDefSchema,
-  CustomFlowDefSchema,
-  discoverStrategies,
   exportStrategy,
   isAgentStep,
-  isCustomAgentDef,
   isFlowDef,
   isLLMAgentDef,
   isUserAgentDef,
-  loadProject,
   loadStrategy,
   loadStrategyFromString,
-  parseStrategyFromString,
-  readStrategyFile,
   StrategySchema,
 } from "./strategy/index";
-// Timeline and unified event timeline types/factories
 export type {
-  ProjectedConversationContext,
-  Timeline,
-  TimelineEvent,
-  TimelineFilter,
-} from "./timeline/index";
+  ApplyPatchChangedFile,
+  ApplyPatchData,
+  ApplyPatchToolConfig,
+} from "./tools/built-in/apply-patch";
+export { createApplyPatchTool } from "./tools/built-in/apply-patch";
+export type { AskQuestionsData } from "./tools/built-in/ask-questions";
 export {
-  createTimeline,
-  projectConversationContext,
-  projectFileState,
-} from "./timeline/index";
+  askQuestionsParams,
+  createAskQuestionsTool,
+} from "./tools/built-in/ask-questions";
+export type {
+  CreateFileData,
+  CreateFileToolConfig,
+} from "./tools/built-in/create-file";
+export { createCreateFileTool } from "./tools/built-in/create-file";
+export type {
+  DeleteFileData,
+  DeleteFileToolConfig,
+} from "./tools/built-in/delete-file";
+export { createDeleteFileTool } from "./tools/built-in/delete-file";
+export type {
+  AppliedEdit,
+  EditFileData,
+  EditFileToolConfig,
+  MatchRange,
+} from "./tools/built-in/edit-file";
+export { createEditFileTool } from "./tools/built-in/edit-file";
+export type {
+  GlobData,
+  GlobMatch,
+  GlobToolConfig,
+} from "./tools/built-in/glob";
+export { createGlobTool, globParams } from "./tools/built-in/glob";
+export type { LaunchStrategyData } from "./tools/built-in/launch-strategy";
+export { createLaunchStrategyTool } from "./tools/built-in/launch-strategy";
+export type {
+  DelegateData,
+  DelegateJsonValue,
+  DelegateTaskResult,
+  SubagentTarget,
+} from "./tools/built-in/delegate";
+export { createDelegateTool } from "./tools/built-in/delegate";
+export type { NotesData, ResearchNote } from "./tools/built-in/notes";
+export { createNotesAddTool, createNotesGetTool } from "./tools/built-in/notes";
+export type {
+  WebSearchData,
+  WebSearchProvider,
+  WebSearchRequest,
+  WebSearchResult,
+  WebSearchToolConfig,
+} from "./tools/built-in/web-search";
 export {
-  buildToolSystemPrompt,
-  mergeSystemPrompts,
-} from "./tools/build-tool-system-prompt";
+  createBraveSearchProvider,
+  createSearxngSearchProvider,
+  createWebSearchTool,
+} from "./tools/built-in/web-search";
+export type {
+  RequestStrategySwitchData,
+  StrategySwitchHandle,
+  StrategySwitchRequest,
+} from "./tools/built-in/request-strategy-switch";
+export { createRequestStrategySwitchTool } from "./tools/built-in/request-strategy-switch";
+export type {
+  ListSkillsData,
+  ListSkillsEntry,
+} from "./tools/built-in/list-skills";
+export { createListSkillsTool } from "./tools/built-in/list-skills";
+export type {
+  ListStrategyData,
+  ListStrategyEntry,
+} from "./tools/built-in/list-strategy";
+export { createListStrategyTool } from "./tools/built-in/list-strategy";
+export type { LoadSkillData } from "./tools/built-in/load-skill";
+export { createLoadSkillTool } from "./tools/built-in/load-skill";
 export type { LspRequestData } from "./tools/built-in/lsp-request";
-export { defineTool } from "./tools/define/define-tool";
+export { createLspRequestTool } from "./tools/built-in/lsp-request";
 export type {
-  AuditEntry,
-  AuditOperation,
-  AuditSink,
-  FileAuditSinkOptions,
-  NewlineStyle,
-  SessionFileEntry,
-  SessionFileState,
-  TrashEntry,
-  TrashMetadata,
-  UnifiedDiffOptions,
-  WriteAtomicOptions,
-} from "./tools/io";
+  MoveFileData,
+  MoveFileToolConfig,
+} from "./tools/built-in/move-file";
+export { createMoveFileTool } from "./tools/built-in/move-file";
+export type {
+  ReadFileData,
+  ReadFileToolConfig,
+} from "./tools/built-in/read-file";
+export { createReadFileTool } from "./tools/built-in/read-file";
+export type { RestoreFileData } from "./tools/built-in/restore-file";
+export { createRestoreFileTool } from "./tools/built-in/restore-file";
+export type {
+  PlatformInfo,
+  RunCommandData,
+  RunCommandToolConfig,
+} from "./tools/built-in/run-command";
+export { createRunCommandTool } from "./tools/built-in/run-command";
+export type {
+  GrepData,
+  GrepMatch,
+  GrepToolConfig,
+} from "./tools/built-in/grep";
+export { createGrepTool } from "./tools/built-in/grep";
 export {
-  applyBom,
-  applyNewline,
-  BINARY_DETECTION_SAMPLE_BYTES,
-  BOM,
-  buildSessionFileState,
-  clearTrash,
-  createFileAuditSink,
-  createMemoryAuditSink,
-  detectNewline,
-  hasBom,
-  isLikelyBinary,
-  listTrash,
-  moveToTrash,
-  restoreFromTrash,
-  STALE_FILE_RECOVERY_HINT,
-  sha256OfBuffer,
-  sha256OfFile,
-  stripBom,
-  toLF,
-  trashWorkspaceDir,
-  unifiedDiff,
-  verifySessionFileState,
-  writeAtomic,
-} from "./tools/io";
+  createTodoAddTool,
+  createTodoClearTool,
+  createTodoCompleteTool,
+  createTodoGetNextTool,
+  createTodoGetTool,
+  createTodoRemoveTool,
+} from "./tools/built-in/todo";
+export { createWebFetchTool } from "./tools/built-in/webfetch";
 export type {
-  LaunchStrategyHandle,
-  LaunchStrategyRequest,
-  LaunchStrategyResult,
-} from "./tools/launch-strategy.types";
-export { errorResult, okResult, toolError } from "./tools/result";
+  WriteFileData,
+  WriteFileToolConfig,
+} from "./tools/built-in/write-file";
+export { createWriteFileTool } from "./tools/built-in/write-file";
+
+// -- Tools --
+export { defineTool } from "./tools/define/define-tool";
+// -- Tool registry --
 export {
   getRegisteredToolNames,
   registerTool,
@@ -455,9 +464,141 @@ export {
   unregisterTool,
 } from "./tools/tool.registry";
 export type {
+  FileSearchIssue,
   ToolContext,
   ToolDefinition as ToolDef,
-  ToolError,
-  ToolErrorKind,
   ToolResult,
 } from "./tools/tool.types";
+
+export {
+  clearDeletedFiles,
+  listDeletedFiles,
+  deleteFile,
+  restoreDeletedFile,
+  getDeletedFilesDirectory,
+} from "./tools/built-in/delete-file/deletion";
+export {
+  QuestionFieldSchema,
+  QuestionSchema,
+  QuestionsSchema,
+  QuestionsResponseSchema,
+  validateQuestionsResponse,
+} from "./questions";
+export type {
+  Question,
+  QuestionField,
+  Questionnaire,
+  QuestionsInput,
+  QuestionsRequest,
+  QuestionsRequester,
+  QuestionsResponse,
+  QuestionAnswer,
+  QuestionValue,
+  QuestionIssue,
+} from "./questions";
+
+export {
+  getProviderSettings,
+  ProviderArgumentsSchema,
+  ConfigureProviderArgumentsSchema,
+  AddCustomProviderArgumentsSchema,
+  UpdateCustomProviderArgumentsSchema,
+  CustomProviderModelArgumentsSchema,
+  AddCustomProviderModelArgumentsSchema,
+  CustomModelSettingsSchema,
+  ProviderConfigurationSchema,
+  RemoveCustomProviderOutputSchema,
+  ProviderSettingsSchema,
+  CustomProviderSettingsSchema,
+  ProviderModelSettingsSchema,
+  getProviderConfiguration,
+  configureProvider,
+  removeProviderCredential,
+  addCustomProvider,
+  updateCustomProvider,
+  removeCustomProvider,
+  addCustomProviderModel,
+  removeCustomProviderModel,
+  reloadProviderSettings,
+} from "./model/providers/settings";
+export type {
+  ProviderSettings,
+  CustomProviderSettings,
+  ProviderConfiguration,
+  AddCustomProviderOptions,
+  UpdateCustomProviderOptions,
+  AddCustomProviderModelOptions,
+  CustomModelSettings,
+} from "./model/providers/settings";
+export {
+  verifyProvider,
+  supportsProviderVerification,
+  ProviderVerificationSchema,
+  VerifyProviderArgumentsSchema,
+} from "./model/providers/verification";
+export type {
+  ProviderVerificationResult,
+  ProviderVerificationStatus,
+  VerifyProviderArguments,
+  VerifyProviderOptions,
+} from "./model/providers/verification";
+export {
+  getProviderSettingsPath,
+  setProviderSettingsPath,
+} from "./defaults/defaults";
+export type { CredentialSource } from "./credentials";
+
+export { ModelMetadataSchema } from "./model/providers/providers.schemas";
+export type { ProviderModelMetadata } from "./model/providers/providers.types";
+
+export {
+  createProviderAuthentication,
+  ProviderSignInArgumentsSchema,
+  ProviderSignInAttemptArgumentsSchema,
+  ProviderSignInStatusSchema,
+  ProviderSignInStartSchema,
+} from "./model/providers/authentication";
+export type {
+  ProviderAuthentication,
+  ProviderSignInStatus,
+} from "./model/providers/authentication";
+
+export {
+  ModelInfoSchema,
+  ProviderInfoSchema,
+  ModelSourceSchema,
+  ProviderOriginSchema,
+} from "./model/providers/providers.schemas";
+
+export type {
+  TinfoilPrivacyOptions,
+  TinfoilMeasurementPins,
+} from "./model/providers/tinfoil/tinfoil.types";
+
+export type {
+  DeletedFileMetadata,
+  DeletedFileEntry,
+  SandboxDeletionMetadata,
+  DeleteFileOptions,
+  RestoreDeletedFileOptions,
+} from "./tools/built-in/delete-file/deletion";
+
+export { createSearchSkillsTool } from "./tools/built-in/search-skills";
+
+export {
+  loadSkills,
+  createSkillRegistry,
+  buildSkillsPromptHeader,
+  searchSkills,
+} from "./skills";
+export type {
+  Skill,
+  SkillMetadata,
+  SkillRegistry,
+  SkillSummary,
+  SkillLoadResult,
+  SkillLoadWarning,
+  LoadSkillsOptions,
+  SkillSearchOptions,
+  SkillSearchResult,
+} from "./skills";

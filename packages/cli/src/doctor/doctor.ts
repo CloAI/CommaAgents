@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { resolveDataDir } from "@comma-agents/core";
-import { getDaemonStatus, loadDaemonConfig } from "@comma-agents/daemon";
+import { getApplicationDataDirectory } from "@comma-agents/core";
+import { getDaemonProcessStatus, loadDaemonConfig } from "@comma-agents/daemon";
 import { buildAutostartPlan } from "../autostart";
 import type {
   DoctorCheck,
@@ -66,8 +66,8 @@ function checkPath(pathValue: string | undefined): DoctorCheck {
 
 function checkProviderFiles(dataDir: string): DoctorCheck {
   const credentialsPath = join(dataDir, "credentials.json");
-  const providerRegistryPath = join(dataDir, "provider-registry.json");
-  if (existsSync(credentialsPath) || existsSync(providerRegistryPath)) {
+  const providerSettingsPath = join(dataDir, "provider-settings.json");
+  if (existsSync(credentialsPath) || existsSync(providerSettingsPath)) {
     return {
       id: "providers",
       label: "Providers",
@@ -79,25 +79,24 @@ function checkProviderFiles(dataDir: string): DoctorCheck {
     id: "providers",
     label: "Providers",
     status: "warn",
-    message: "No provider credentials or registry file found yet",
+    message: "No provider credentials or settings file found yet",
   };
 }
 
 export function runDoctor({
-  dataDir = resolveDataDir(),
+  dataDir = getApplicationDataDirectory(),
   pathValue = process.env.PATH,
 }: DoctorOptions = {}): DoctorResult {
-  const daemonStatus = getDaemonStatus();
+  const daemonStatus = getDaemonProcessStatus();
   const autostartPlan = buildAutostartPlan();
   const config = loadDaemonConfig();
   const checks: DoctorCheck[] = [
     {
       id: "runtime",
       label: "Runtime",
-      status: process.versions.bun ? "pass" : "fail",
-      message: process.versions.bun
-        ? `Bun ${process.versions.bun}`
-        : "Bun runtime is required",
+      status:
+        Number(process.versions.node.split(".")[0]) >= 26 ? "pass" : "fail",
+      message: `Node.js ${process.versions.node}${Number(process.versions.node.split(".")[0]) >= 26 ? "" : " (Node.js 26 or newer is required)"}`,
     },
     checkDataDir(dataDir),
     {

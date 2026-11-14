@@ -1,6 +1,10 @@
 import { join } from "node:path";
 
-import { resolveDataDir } from "../data-directory";
+import {
+  getApplicationDataDirectory,
+  getHubDirectory,
+  getPackagesDirectory,
+} from "../defaults/defaults";
 import {
   DEFAULT_HUB_REPOSITORY,
   HUB_INSTALLED_STATE_FILENAME,
@@ -15,6 +19,7 @@ import { createHubRegistryClient } from "./registry-client";
  * Create a manager for discovering, installing, updating, and removing Hub packages.
  *
  * @param options - Optional data directory, repository, and fetch implementation.
+ * @returns A Hub manager for managing Hub packages.
  * @example
  * ```ts
  * const hub = createHubManager();
@@ -25,17 +30,20 @@ import { createHubRegistryClient } from "./registry-client";
 export function createHubManager(
   options: CreateHubManagerOptions = {},
 ): HubManager {
-  const dataDirectory = options.dataDir ?? resolveDataDir();
+  const dataDirectory = options.dataDir ?? getApplicationDataDirectory();
   const repository = options.repository ?? DEFAULT_HUB_REPOSITORY;
   const registryClient = createHubRegistryClient({
     repository,
     fetch: options.fetch ?? globalThis.fetch,
   });
   const installedPackages = createInstalledPackageStore({
-    statePath: join(dataDirectory, "hub", HUB_INSTALLED_STATE_FILENAME),
+    statePath: join(
+      getHubDirectory(dataDirectory),
+      HUB_INSTALLED_STATE_FILENAME,
+    ),
   });
   const packageInstaller = createHubPackageInstaller({
-    packagesRoot: join(dataDirectory, "packages"),
+    packagesRoot: getPackagesDirectory(dataDirectory),
     installedPackages,
     registryClient,
   });
@@ -52,8 +60,9 @@ export function createHubManager(
       return packageInstaller.install(project, snapshot, installOptions, false);
     },
     async update(name, installOptions = {}) {
-      if (!(await installedPackages.get(name)))
+      if (!(await installedPackages.get(name))) {
         throw new Error(`Package ${name} is not installed`);
+      }
 
       const snapshot = await registryClient.refresh();
       const project = findAvailableHubPackage(snapshot, name);

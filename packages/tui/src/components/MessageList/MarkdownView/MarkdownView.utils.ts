@@ -28,12 +28,16 @@ import type { MdBlock, MdInline, MdListItem } from "./MarkdownView.types";
  * by emitting them as code tokens.
  */
 export function tokenizeMarkdown(source: string): readonly MdBlock[] {
-  if (source.length === 0) return [];
+  if (source.length === 0) {
+    return [];
+  }
   const tokens = lexer(source);
   const blocks: MdBlock[] = [];
   for (const token of tokens) {
     const block = blockFromMarkedToken(token);
-    if (block !== null) blocks.push(block);
+    if (block !== null) {
+      blocks.push(block);
+    }
   }
   return blocks;
 }
@@ -96,7 +100,9 @@ function blockFromMarkedToken(token: MarkedToken): MdBlock | null {
               continue;
             }
             const nested = blockFromMarkedToken(child);
-            if (nested !== null) nestedBlocks.push(nested);
+            if (nested !== null) {
+              nestedBlocks.push(nested);
+            }
           }
           return { children: inlineSpans, nested: nestedBlocks };
         }),
@@ -132,7 +138,9 @@ function blockFromMarkedToken(token: MarkedToken): MdBlock | null {
       // term we'd add explicit handling, but it's better to surface
       // unknown content than to drop it.
       const raw = typeof token.raw === "string" ? token.raw : "";
-      if (raw.length === 0) return null;
+      if (raw.length === 0) {
+        return null;
+      }
       return {
         kind: "paragraph",
         children: [{ kind: "text", value: raw }],
@@ -159,7 +167,9 @@ function inlinesFromTokens(
       continue;
     }
     const span = inlineFromMarkedToken(token);
-    if (span !== null) out.push(span);
+    if (span !== null) {
+      out.push(span);
+    }
   }
   return out;
 }
@@ -212,7 +222,9 @@ function inlineFromMarkedToken(token: MarkedToken): MdInline | null {
       };
     default: {
       const raw = typeof token.raw === "string" ? token.raw : "";
-      if (raw.length === 0) return null;
+      if (raw.length === 0) {
+        return null;
+      }
       return { kind: "text", value: raw };
     }
   }
@@ -323,11 +335,15 @@ export function renderTableToText(
  * Pure — no allocation when the input fits.
  */
 export function truncateToLastNLines(text: string, lineCount: number): string {
-  if (lineCount < 1) return text;
+  if (lineCount < 1) {
+    return text;
+  }
   // Normalise CRLF so the slice works the same on Windows-typed pastes.
   const normalised = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const lines = normalised.split("\n");
-  if (lines.length <= lineCount) return normalised;
+  if (lines.length <= lineCount) {
+    return normalised;
+  }
   const tail = lines.slice(lines.length - lineCount);
   return [THINKING_ELLIPSIS_LINE, ...tail].join("\n");
 }

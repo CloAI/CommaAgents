@@ -1,14 +1,13 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "vitest";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { LanguageModel } from "ai";
-import { createJsonFileBackend } from "../credentials/backends/json-file";
+import { createJsonFileCredentialBackend } from "../credentials/backends/json-file";
 import { createCredentialStore } from "../credentials/credentials";
 import {
-  registerProvider,
-  resetGlobalDefaults,
+  resetGlobalCredentialStore,
   setGlobalCredentialStore,
-} from "../defaults/defaults";
+} from "../credentials/global-credential-store";
 import { registerModel, resetModelRegistry, resolveModel } from "./model";
 import {
   getModelCapabilities,
@@ -21,19 +20,25 @@ import {
   getReverseModelIndex,
   resetCatalog,
 } from "./providers/catalog/catalog";
-import { registerProviderDefinition } from "./providers/index";
+import {
+  registerProviderDefinition,
+  resetGlobalProviderResolver,
+} from "./providers/index";
 import { resetProviderRegistry } from "./providers/providers";
 
-const TEST_DIR = join(import.meta.dir, "__test_providers__");
+const TEST_DIR = join(import.meta.dirname, "__test_providers__");
 const TEST_FILE = join(TEST_DIR, "credentials.json");
 
 function cleanup() {
-  if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true });
+  if (existsSync(TEST_DIR)) {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+  }
 }
 
 afterEach(() => {
   cleanup();
-  resetGlobalDefaults();
+  resetGlobalCredentialStore();
+  resetGlobalProviderResolver();
   resetProviderRegistry();
   resetCatalog();
   resetModelRegistry();
@@ -42,7 +47,7 @@ afterEach(() => {
 describe("listProviders", () => {
   test("includes catalog-derived providers", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
 
     const providers = await listProviders(store);
@@ -55,7 +60,7 @@ describe("listProviders", () => {
 
   test("includes built-in override providers (ollama)", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
 
     const providers = await listProviders(store);
@@ -65,7 +70,7 @@ describe("listProviders", () => {
 
   test("returns providers sorted alphabetically", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
 
     const providers = await listProviders(store);
@@ -76,7 +81,7 @@ describe("listProviders", () => {
 
   test("marks providers as 'configured' when env var is set", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({
       backend,
       env: { OPENAI_API_KEY: "sk-env" },
@@ -91,30 +96,30 @@ describe("listProviders", () => {
 
   test("includes custom registered providers", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    registerProvider("my-custom", {
+    registerProviderDefinition({
+      id: "my-custom",
+      name: "My Custom",
       factory: () => () => ({}) as never,
     });
-    registerProviderDefinition({ id: "my-custom", name: "My Custom" });
 
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
 
     const providers = await listProviders(store);
     const custom = providers.find((provider) => provider.id === "my-custom");
     expect(custom).toBeDefined();
-    expect(custom?.isCustom).toBe(true);
+    expect(custom?.origin).toBe("registered");
     expect(custom?.models).toEqual([]);
   });
 
   test("populates catalog model metadata for known providers", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
 
     const providers = await listProviders(store);
     const openai = providers.find((provider) => provider.id === "openai");
     expect(openai?.models.length).toBeGreaterThan(0);
-    expect(openai?.modelsSource).toBe("catalog");
     const modelIds = openai?.models.map((model) => model.id) ?? [];
     expect(modelIds.length).toBeGreaterThan(0);
     // Every model should have a string id
@@ -127,7 +132,7 @@ describe("listProviders", () => {
 describe("getProviderInfo", () => {
   test("returns info for a single provider", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({
       backend,
       env: { ANTHROPIC_API_KEY: "sk-a" },
@@ -136,14 +141,13 @@ describe("getProviderInfo", () => {
     const info = await getProviderInfo("anthropic", store);
     expect(info.id).toBe("anthropic");
     expect(info.authStatus).toBe("configured");
-    expect(info.isCustom).toBe(false);
+    expect(info.origin).toBe("builtin");
     expect(info.models.length).toBeGreaterThan(0);
-    expect(info.modelsSource).toBe("catalog");
   });
 
   test("uses catalog display name when available", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
 
     const info = await getProviderInfo("github-copilot", store);
@@ -169,7 +173,7 @@ describe("getProvidersForModel", () => {
   test("returns provider IDs for a known catalog model", () => {
     const providers = getProvidersForModel("gpt-4o");
     expect(providers.length).toBeGreaterThan(0);
-    expect(providers[0]).toBeString();
+    expect(providers[0]).toBeTypeOf("string");
   });
 
   test("returns empty array for unknown model", () => {
@@ -195,8 +199,8 @@ describe("getModelMetadata", () => {
     const info = getModelMetadata("gpt-4o");
     expect(info).toBeDefined();
     expect(info?.id).toBe("gpt-4o");
-    expect(info?.capabilities).toBeDefined();
-    expect(info?.contextWindow).toBeGreaterThan(0);
+    expect(info?.metadata.capabilities).toBeDefined();
+    expect(info?.metadata.contextWindow).toBeGreaterThan(0);
   });
 });
 
@@ -211,7 +215,7 @@ describe("resolveModel", () => {
 
   test("auto-resolves bare model ID when credentials are configured", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({
       backend,
       env: { OPENAI_API_KEY: "sk-test" },
@@ -219,7 +223,9 @@ describe("resolveModel", () => {
     setGlobalCredentialStore(store);
 
     const mockModel = {} as LanguageModel;
-    registerProvider("openai", {
+    registerProviderDefinition({
+      id: "openai",
+      name: "OpenAI",
       factory: () => (modelId: string) => {
         expect(modelId).toBe("gpt-4o");
         return mockModel;
@@ -232,7 +238,7 @@ describe("resolveModel", () => {
 
   test("registered model takes precedence over auto-resolution", async () => {
     mkdirSync(TEST_DIR, { recursive: true });
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({
       backend,
       env: { OPENAI_API_KEY: "sk-test" },
@@ -243,7 +249,9 @@ describe("resolveModel", () => {
     registerModel("gpt-4o", directMock);
 
     const providerMock = {} as LanguageModel;
-    registerProvider("openai", {
+    registerProviderDefinition({
+      id: "openai",
+      name: "OpenAI",
       factory: () => () => providerMock,
     });
 
@@ -272,7 +280,7 @@ describe("resolveModel", () => {
 
   test("throws when bare model has catalog matches but no credentials", async () => {
     // Ensure no env vars are set
-    const backend = createJsonFileBackend({ filePath: TEST_FILE });
+    const backend = createJsonFileCredentialBackend({ filePath: TEST_FILE });
     const store = createCredentialStore({ backend, env: {} });
     setGlobalCredentialStore(store);
 

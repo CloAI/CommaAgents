@@ -1,30 +1,25 @@
-import { dirname } from "node:path";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+// Agent loader — parse, validate, and instantiate a single agent
+// from a standalone description file.
+//
+// The loader:
+// 1. Reads JSON or YAML from a file path or raw string.
+// 2. Validates the structure with the AgentDescriptionSchema.
+// 3. Passes model string and tool names directly to createAgent()
+//    (which resolves them internally).
+// 4. Builds a system prompt template if defined.
+// 5. Returns a live Agent via createAgent().
 
-import { jsonSchema } from "ai";
 import YAML from "yaml";
-import type { ZodIssue } from "zod";
+import { jsonSchema } from "ai";
 import { StrategyValidationError } from "../../errors/index";
 import { createPromptTemplate } from "../../prompts/template/prompt-template";
 import { createAgent } from "../agent/agent";
 import type { Agent } from "../agent/agent.types";
-import {
-  getRegisteredAgentNames,
-  resolveRegisteredAgent,
-} from "../registry/agent-registry";
-import { BUILT_IN_AGENT_NAMES } from "../registry/agent-registry.constants";
 import { AgentDescriptionSchema } from "./loader.schema";
-import type { LoadAgentOptions } from "./loader.types";
-
-/** Format nested union validation failures with their concrete field paths. */
-function formatValidationIssue(issue: ZodIssue): readonly string[] {
-  if (issue.code === "invalid_union") {
-    return issue.unionErrors.flatMap((unionError) =>
-      unionError.issues.flatMap(formatValidationIssue),
-    );
-  }
-
-  return [`  - ${issue.path.join(".")}: ${issue.message}`];
-}
+import type { AgentTypeRuntime } from "../registry/agent-registry.types";
+import { resolveRegisteredAgent } from "../registry/agent-registry";
 
 // loadAgent — from file path
 
@@ -35,9 +30,9 @@ function formatValidationIssue(issue: ZodIssue): readonly string[] {
  * Validates the structure, resolves model and tools, and returns a
  * live `Agent` ready to call.
  *
- * @param filePath - Absolute or relative path to the agent description file.
- * @param options - Runtime services and optional model override.
- * @returns A live Agent instance.
+ * @param {string} filePath - Absolute or relative path to the agent description file.
+ * @param {AgentTypeRuntime} [options] - Trusted runtime services and optional model override.
+ * @returns {Promise<Agent>} A live Agent instance.
  * @throws {StrategyValidationError} If the file is invalid or missing required fields.
  *
  * @example
@@ -51,7 +46,7 @@ function formatValidationIssue(issue: ZodIssue): readonly string[] {
  */
 export async function loadAgent(
   filePath: string,
-  options: LoadAgentOptions = {},
+  options: AgentTypeRuntime = {},
 ): Promise<Agent> {
   // Validate extension first (cheap check)
   const fileExtension = filePath.split(".").pop()?.toLowerCase();
@@ -68,19 +63,15 @@ export async function loadAgent(
   }
 
   // Read the file
-  const file = Bun.file(filePath);
-  if (!(await file.exists())) {
+  if (!existsSync(filePath)) {
     throw new StrategyValidationError(
       `Agent description file not found: ${filePath}`,
     );
   }
 
-  const content = await file.text();
+  const content = await readFile(filePath, "utf8");
 
-  return await loadAgentFromString(content, format, {
-    ...options,
-    strategyDir: options.strategyDir ?? dirname(filePath),
-  });
+  return await loadAgentFromString(content, format, options);
 }
 
 // loadAgentFromString — from raw content
@@ -91,10 +82,10 @@ export async function loadAgent(
  * Useful when the content is already in memory (e.g., received over
  * a WebSocket, from a database, or from a test fixture).
  *
- * @param content - The raw agent description string.
- * @param format  - "json" or "yaml".
- * @param options - Runtime services and optional model override.
- * @returns A live Agent instance.
+ * @param {string} content - The raw agent description string.
+ * @param {"json" | "yaml"} format - Description encoding.
+ * @param {AgentTypeRuntime} [options] - Trusted runtime services and optional model override.
+ * @returns {Promise<Agent>} A live Agent instance.
  * @throws {StrategyValidationError} If parsing or validation fails.
  *
  * @example
@@ -110,7 +101,7 @@ export async function loadAgent(
 export async function loadAgentFromString(
   content: string,
   format: "json" | "yaml",
-  options: LoadAgentOptions = {},
+  options: AgentTypeRuntime = {},
 ): Promise<Agent> {
   // 1. Parse raw content
   let raw: unknown;
@@ -131,7 +122,7 @@ export async function loadAgentFromString(
   const result = AgentDescriptionSchema.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues
-      .flatMap(formatValidationIssue)
+      .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
       .join("\n");
     throw new StrategyValidationError(
       `Agent description validation failed:\n${issues}`,
@@ -143,19 +134,14 @@ export async function loadAgentFromString(
 
   const description = result.data;
 
-  // A custom registered agent is distinguished by the absence of `model`,
-  // which the LLM schema requires; its `type` names the registered factory.
   if (!("model" in description)) {
-    const registeredAgent = resolveRegisteredAgent(description.type);
-    if (!registeredAgent) {
+    const registered = resolveRegisteredAgent(description.type);
+    if (!registered) {
       throw new StrategyValidationError(
-        `Agent "${description.name}" references unknown agent type "${description.type}". ` +
-          `Built-in agents: [${BUILT_IN_AGENT_NAMES.join(", ")}]. ` +
-          `Registered agents: [${getRegisteredAgentNames().join(", ") || "(none)"}].`,
+        `Unknown registered agent type: ${description.type}`,
       );
     }
-
-    return await registeredAgent.create({
+    return registered.create({
       name: description.name,
       config: description.config ?? {},
       runtime: options,
@@ -171,32 +157,21 @@ export async function loadAgentFromString(
     : description.systemPrompt;
 
   // 4. Create and return the agent — model and tools are resolved internally by createAgent
-  return createAgent({
-    name: description.name,
-    model: options.modelOverride ?? description.model,
-    systemPrompt,
-    tools: description.tools,
-    maxSteps: description.maxSteps,
-    ...(description.providerOptions
-      ? { providerOptions: description.providerOptions }
-      : {}),
-    ...(description.modelOptions
-      ? { modelOptions: description.modelOptions }
-      : {}),
-    ...(description.outputSchema
-      ? { outputSchema: jsonSchema(description.outputSchema) }
-      : {}),
-    ...(description.context ? { context: description.context } : {}),
-    ...(options.skillRegistry ? { skillRegistry: options.skillRegistry } : {}),
-    ...(options.inputCollector
-      ? { inputCollector: options.inputCollector }
-      : {}),
-    ...(options.launchStrategy
-      ? { launchStrategy: options.launchStrategy }
-      : {}),
-    ...(options.languageService
-      ? { languageService: options.languageService }
-      : {}),
-    ...(options.runId ? { runId: options.runId } : {}),
-  });
+  return createAgent(
+    {
+      name: description.name,
+      model: description.model,
+      systemPrompt,
+      tools: description.tools,
+      privacy: description.privacy,
+      providerOptions: description.providerOptions,
+      modelOptions: description.modelOptions,
+      outputSchema: description.outputSchema
+        ? jsonSchema(description.outputSchema)
+        : undefined,
+      context: description.context,
+      maxSteps: description.maxSteps,
+    },
+    options,
+  );
 }

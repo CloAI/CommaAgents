@@ -5,12 +5,12 @@
 // over the filesystem (no caching, no side effects).
 
 import { existsSync, readdirSync } from "node:fs";
-import { realpath, stat } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import stripJsonComments from "strip-json-comments";
 import YAML from "yaml";
-
+import { getPackagesDirectory } from "../../defaults/defaults";
 import { CommaProjectManifestSchema } from "../../hub";
 import { StrategySchema } from "../schema";
 import type {
@@ -61,8 +61,12 @@ export function hasStrategyExtension(filePath: string): boolean {
  */
 export function formatForExtension(filePath: string): "json" | "yaml" {
   const lower = filePath.toLowerCase();
-  if (lower.endsWith(".json") || lower.endsWith(".jsonc")) return "json";
-  if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "yaml";
+  if (lower.endsWith(".json") || lower.endsWith(".jsonc")) {
+    return "json";
+  }
+  if (lower.endsWith(".yaml") || lower.endsWith(".yml")) {
+    return "yaml";
+  }
   throw new Error(`Unrecognized strategy extension: ${filePath}`);
 }
 
@@ -85,11 +89,10 @@ export async function readStrategyFile(filePath: string): Promise<{
       `Unsupported strategy file extension: .${ext}. Use .json, .jsonc, .yaml, or .yml.`,
     );
   }
-  const file = Bun.file(filePath);
-  if (!(await file.exists())) {
+  if (!existsSync(filePath)) {
     throw new Error(`Strategy file not found: ${filePath}`);
   }
-  const content = await file.text();
+  const content = await readFile(filePath, "utf8");
   const format = formatForExtension(filePath);
   return { content, format };
 }
@@ -168,7 +171,9 @@ export async function parseProjectManifest(
   try {
     realManifestDir = await realpath(manifestDir);
     for (const entry of Object.values(result.data.strategies ?? {})) {
-      if (entry.expose !== true) continue;
+      if (entry.expose !== true) {
+        continue;
+      }
       if (isAbsolute(entry.path)) {
         return {
           ok: false,
@@ -215,7 +220,9 @@ export async function parseProjectManifest(
 
 /** List strategy files directly inside `dir` (non-recursive). */
 export function listStrategyFiles(dir: string): string[] {
-  if (!existsSync(dir)) return [];
+  if (!existsSync(dir)) {
+    return [];
+  }
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isFile() && hasStrategyExtension(entry.name))
@@ -230,7 +237,9 @@ export function listStrategyFiles(dir: string): string[] {
  * subdirectory of `dir` that contains one.
  */
 export function listProjectManifests(dir: string): string[] {
-  if (!existsSync(dir)) return [];
+  if (!existsSync(dir)) {
+    return [];
+  }
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter(
@@ -246,8 +255,10 @@ export function listProjectManifests(dir: string): string[] {
 
 /** List installed Hub manifests under `<dataDir>/packages/@scope/project`. */
 export function listInstalledProjectManifests(dataDir: string): string[] {
-  const packagesDir = join(dataDir, "packages");
-  if (!existsSync(packagesDir)) return [];
+  const packagesDir = getPackagesDirectory(dataDir);
+  if (!existsSync(packagesDir)) {
+    return [];
+  }
   try {
     return readdirSync(packagesDir, { withFileTypes: true })
       .filter((scope) => scope.isDirectory() && scope.name.startsWith("@"))

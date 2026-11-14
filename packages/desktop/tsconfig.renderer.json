@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "vitest/globals"],
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "rootDir": "../..",
+    "paths": {
+      "@comma-agents/daemon/protocol": [
+        "../daemon/src/daemon-server/protocol.ts"
+      ]
+    }
+  },
+  "include": ["src/renderer", "src/shared"]
+}

@@ -1,0 +1,130 @@
+---
+title: MCP Plugin
+description: Discover MCP servers, select tools for executions, and manage connection lifetimes.
+---
+
+# MCP Plugin
+
+The daemon kernel provides `daemon.plugins.mcp`. It discovers global, workspace, and strategy-private servers, then supplies tools from enabled servers to their assigned agents.
+
+```ts
+import { createDaemonKernel } from "@comma-agents/daemon";
+
+const daemon = await createDaemonKernel({ runs: { runsDir: "./runs" } });
+const runId = crypto.randomUUID();
+const unsubscribe = await daemon.plugins.mcp.notifications.subscribe(
+  "run_mcp_servers_updated",
+  runId,
+  (event) => console.log(event.runId, event.servers),
+);
+
+try {
+  await daemon.plugins.runs.prepareRun({
+    runId,
+    configuration: {
+      strategyPath: "./strategy.json",
+      cwd: process.cwd(),
+    },
+  });
+  console.log(await daemon.plugins.mcp.listServers({ runId }));
+} finally {
+  unsubscribe();
+  await daemon.dispose();
+}
+```
+
+## CreateMcpPluginOptions
+
+Supply the current runs plugin when constructing the MCP plugin individually. Run-specific selections are saved with the run configuration.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/mcp/mcp.types.ts"
+  name="CreateMcpPluginOptions"
+/>
+
+```ts
+import { createRunsPlugin, createMcpPlugin } from "@comma-agents/daemon";
+
+const runsDir = "./runs";
+const runs = createRunsPlugin({ runsDir });
+const mcp = createMcpPlugin({ dependencies: { runs } });
+
+try {
+  console.log(await mcp.listServers({ cwd: process.cwd() }));
+} finally {
+  await runs.dispose();
+  await mcp.dispose();
+}
+```
+
+## McpPlugin
+
+Inspect server state, change selections, and subscribe to execution updates.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/mcp/mcp.types.ts"
+  name="McpPlugin"
+/>
+
+## RunMcpServerStatus
+
+Server listings expose configuration provenance, assignment, and connection outcomes. Transport definitions and resolved environment values are omitted.
+
+<AutoTypeTable
+  path="../packages/daemon/src/plugins/mcp/mcp.types.ts"
+  name="RunMcpServerStatus"
+/>
+
+## Server selections
+
+Workspace definitions override global definitions, and strategy definitions override shared servers with the same ID. Assigned strategy-private servers start enabled. Shared servers start enabled when their definition sets `enabledByDefault`. Only explicit run overrides take precedence over these defaults. Servers without an override follow the current defaults at each preparation.
+
+```ts
+await daemon.plugins.mcp.updateServer({
+  scope: "run",
+  runId,
+  serverId: "github",
+  enabled: false,
+});
+```
+
+Reset a run's override with `enabled: null`:
+
+```ts
+await daemon.plugins.mcp.updateServer({
+  scope: "run",
+  runId,
+  serverId: "github",
+  enabled: null,
+});
+```
+
+Overrides are saved as `configuration.mcpServerOverrides` in the run's `run.json`, survive restart and strategy switching, and are preserved in copied checkpoints. Existing legacy `<runId>.config.json` files are ignored and left untouched. Requests for missing runs are rejected. Run updates use the run's saved workspace and strategy.
+
+Selection changes apply on the next preparation. Existing connections and tools stay available until the execution ends. `enabled` shows the next selection, while `connected` shows the current connection. A continuation reconnects using the saved selection.
+
+To change a shared default, use `scope: "default"`. Strategy-private servers have no shared default.
+
+```ts
+await daemon.plugins.mcp.updateServer({
+  scope: "default",
+  cwd: process.cwd(),
+  serverId: "github",
+  enabled: true,
+});
+```
+
+## Notifications and cleanup
+
+Root subscriptions receive updates from descendant executions, identified by their own `runId` and immediate `parentRunId`. Subscribing to a known execution replays its current server state. Listings and subscription replay do not create new connections.
+
+```ts
+const servers = await daemon.plugins.mcp.listServers({
+  cwd: process.cwd(),
+  strategyPath: "./strategy.json",
+});
+```
+
+Each execution owns its clients. Completion, cancellation, failed preparation, and plugin disposal close them. Clients that finish connecting after cancellation are closed before preparation settles. Connection failures are reported in server status; the strategy can still prepare with tools from successful connections.
+
+These service APIs operate without a server. Server route and channel integration remains a separate migration phase. The core MCP APIs are available through `@comma-agents/core/mcp`.

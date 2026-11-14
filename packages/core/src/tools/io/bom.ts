@@ -20,6 +20,8 @@ export function stripBom(content: string): string {
  * does not double-prefix when `content` already starts with `\uFEFF`.
  */
 export function applyBom(content: string, hadBom: boolean): string {
-  if (!hadBom) return content;
+  if (!hadBom) {
+    return content;
+  }
   return hasBom(content) ? content : `${BOM}${content}`;
 }

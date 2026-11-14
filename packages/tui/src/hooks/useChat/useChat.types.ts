@@ -6,9 +6,8 @@ import type {
   ConversationRetentionEventWire,
   McpServerStatusWire,
   RequestPermissionMessage,
-  RequestQuestionMessage,
   RunOverview,
-  RunStatus,
+  RunLifecycleStatus,
   RunSummary,
   Usage,
 } from "@comma-agents/daemon";
@@ -92,19 +91,17 @@ export interface ChatMessage {
 /**
  * UI lifecycle status for a chat run.
  *
- * Extends the daemon's `RunStatus` union (`pending | running | completed |
+ * Extends the daemon's `RunLifecycleStatus` union (`pending | running | completed |
  * error | cancelled`) with TUI-only states that the daemon does not model:
  * - `idle` — run exists but hasn't started a run yet.
  * - `waiting_input` — derived from an unanswered `request_input`.
  * - `waiting_permission` — derived from an unanswered `request_permission`.
- * - `waiting_question` — derived from an unanswered `request_question`.
  */
 export type ChatStatus =
-  | RunStatus
+  | RunLifecycleStatus
   | "idle"
   | "waiting_input"
-  | "waiting_permission"
-  | "waiting_question";
+  | "waiting_permission";
 
 /** User-initiated execution waiting for daemon preparation or execution. */
 export interface PendingChatExecution {
@@ -134,8 +131,8 @@ export interface ChatRun {
   readonly strategyName: string | null;
   /** UI lifecycle status (see `ChatStatus`). */
   readonly status: ChatStatus;
-  /** Mirror of the daemon's `RunStatus` for this run, if known. */
-  readonly runStatus: RunStatus | null;
+  /** Mirror of the daemon's `RunLifecycleStatus` for this run, if known. */
+  readonly runStatus: RunLifecycleStatus | null;
   /** Latest error message, or null. */
   readonly error: string | null;
   /** Execution waiting for daemon preparation or execution. */
@@ -152,11 +149,6 @@ export interface ChatRun {
    * `requestId` is echoed back in the `permission_decision` reply.
    */
   readonly pendingPermissionRequests: readonly RequestPermissionMessage[];
-  /**
-   * Queue of `request_question` messages awaiting user answers, stored as
-   * received. The head's `requestId` is echoed back in `question_response`.
-   */
-  readonly pendingQuestionRequests: readonly RequestQuestionMessage[];
   /** Accumulated messages for this run. */
   readonly messages: readonly ChatMessage[];
   /** Stack of active `launch_strategy` tool-call ids for nested strategy output. */
@@ -169,8 +161,6 @@ export interface ChatRun {
 
 /** Pending daemon permission request rendered by the chat UI. */
 export type PendingPermissionRequest = RequestPermissionMessage;
-/** Pending daemon question request rendered by the chat UI. */
-export type PendingQuestionRequest = RequestQuestionMessage;
 
 /** @internal Shared state contracts used by the chat run operation hooks. */
 export type ChatRunsState = ReadonlyMap<ChatRunId, ChatRun>;
@@ -231,8 +221,6 @@ export interface UseChatState {
   readonly strategyPath: string | null;
   /** Current pending permission request (head of queue), or null. */
   readonly pendingPermissionRequest: RequestPermissionMessage | null;
-  /** Current pending question request (head of queue), or null. */
-  readonly pendingQuestionRequest: RequestQuestionMessage | null;
   /** Alias for `daemonRunId` — preserved for back-compatibility. */
   readonly runId: string | null;
   readonly mcpServers: readonly McpServerStatusWire[];
@@ -257,12 +245,10 @@ export interface UseChatState {
   readonly sendPermissionDecision: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
-  /** Resolve the pending question request for the bound run. */
-  readonly sendQuestionResponse: (response: string) => void;
   /** Clear the bound run's UI projection. No-op if no run. */
   readonly reset: () => void;
   /** Send `stop_run` for the bound run. No-op if no run is active. */
   readonly stop: () => void;
 }
 
-export type { RunOverview, RunStatus, RunSummary };
+export type { RunOverview, RunLifecycleStatus, RunSummary };

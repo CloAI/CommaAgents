@@ -217,7 +217,9 @@ function formatInputPreview(input: string): string {
 function parseLaunchStrategyResult(
   output: string | undefined,
 ): ParsedLaunchStrategyResult {
-  if (!output) return { path: "", finishReason: "", resultPreview: "" };
+  if (!output) {
+    return { path: "", finishReason: "", resultPreview: "" };
+  }
 
   try {
     const parsedOutput = JSON.parse(output) as unknown;
@@ -253,7 +255,9 @@ function parseLaunchStrategyResult(
 
 function formatPreview(value: string, limit: number): string {
   const flattened = value.replace(/\s+/gu, " ").trim();
-  if (flattened.length <= limit) return flattened;
+  if (flattened.length <= limit) {
+    return flattened;
+  }
   return `${flattened.slice(0, limit)}…`;
 }
 

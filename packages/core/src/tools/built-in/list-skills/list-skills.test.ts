@@ -1,7 +1,7 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 
 import { createSandbox } from "../../../sandbox/sandbox";
-import { PERMISSIVE_SANDBOX_CONFIG } from "../../../sandbox/sandbox.constants";
+import { PERMISSIVE_SANDBOX_OPTIONS } from "../../../sandbox/sandbox.constants";
 import { createSkillRegistry } from "../../../skills/skills.registry";
 import type { ToolContext } from "../../tool.types";
 import { createListSkillsTool } from "./list-skills";
@@ -10,7 +10,7 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
     agentName: "test-agent",
     abort: new AbortController().signal,
-    guard: createSandbox(PERMISSIVE_SANDBOX_CONFIG).guardFor("test-tool"),
+    guard: createSandbox(PERMISSIVE_SANDBOX_OPTIONS).guardFor("test-tool"),
     ...overrides,
   };
 }
@@ -84,7 +84,9 @@ describe("createListSkillsTool", () => {
     expect(result.data?.count).toBe(1);
     const entry = result.data?.skills[0];
     expect(entry).toBeDefined();
-    if (!entry) throw new Error("Expected one skill entry");
+    if (!entry) {
+      throw new Error("Expected one skill entry");
+    }
     expect(entry.name).toBe("my-skill");
     expect(entry.description).toBe("A skill.");
     expect(entry.origin).toBe("project");

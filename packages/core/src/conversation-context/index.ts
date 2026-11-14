@@ -37,5 +37,7 @@ export type {
 export {
   applyCompaction,
   applyRollingWindow,
+  buildCompactionInstruction,
+  CompactionSummaryRejectedError,
   prepareContextRecords,
 } from "./retention";

@@ -1,11 +1,11 @@
+import { createSearchSkillsTool } from "./built-in/search-skills";
 // // import { createApplyPatchTool } from "./built-in/apply-patch";
-import { createAskQuestionTool } from "./built-in/ask-question";
+import { createAskQuestionsTool } from "./built-in/ask-questions";
 import { createCreateFileTool } from "./built-in/create-file";
 import { createDeleteFileTool } from "./built-in/delete-file";
 import { createEditFileTool } from "./built-in/edit-file";
 import { createGlobTool } from "./built-in/glob";
 import { createLaunchStrategyTool } from "./built-in/launch-strategy";
-import { createListDirectoryTool } from "./built-in/list-directory";
 import { createListSkillsTool } from "./built-in/list-skills";
 import { createListStrategyTool } from "./built-in/list-strategy";
 import { createLoadSkillTool } from "./built-in/load-skill";
@@ -14,7 +14,7 @@ import { createMoveFileTool } from "./built-in/move-file";
 import { createReadFileTool } from "./built-in/read-file";
 import { createRestoreFileTool } from "./built-in/restore-file";
 import { createRunCommandTool } from "./built-in/run-command";
-import { createSearchFilesTool } from "./built-in/search-files";
+import { createGrepTool } from "./built-in/grep";
 import {
   createTodoAddTool,
   createTodoClearTool,
@@ -24,6 +24,10 @@ import {
   createTodoRemoveTool,
 } from "./built-in/todo/todo";
 import { createWebFetchTool } from "./built-in/webfetch/webfetch";
+import { createDelegateTool } from "./built-in/delegate";
+import { createWebSearchTool } from "./built-in/web-search";
+import { createNotesAddTool, createNotesGetTool } from "./built-in/notes";
+import { createRequestStrategySwitchTool } from "./built-in/request-strategy-switch";
 import { createWriteFileTool } from "./built-in/write-file";
 import type { ToolDefinition } from "./tool.types";
 
@@ -32,8 +36,7 @@ import type { ToolDefinition } from "./tool.types";
  */
 export const BUILT_IN_TOOL_NAMES = [
   "read_file",
-  "list_directory",
-  "search_files",
+  "grep",
   "glob",
   "create_file",
   "write_file",
@@ -44,17 +47,23 @@ export const BUILT_IN_TOOL_NAMES = [
   // "apply_patch",
   "run_command",
   "webfetch",
+  "web_search",
+  "notes_add",
+  "notes_get",
   "load_skill",
   "list_skills",
+  "search_skills",
   "list_strategy",
   "launch_strategy",
+  "delegate",
+  "request_strategy_switch",
   "todo_add",
   "todo_complete",
   "todo_get",
   "todo_get_next",
   "todo_remove",
   "todo_clear",
-  "ask_question",
+  "ask_questions",
   "lsp_request",
 ] as const;
 
@@ -63,8 +72,7 @@ export const BUILT_IN_TOOL_FACTORIES: Readonly<
   Record<string, () => ToolDefinition>
 > = {
   read_file: () => createReadFileTool(),
-  list_directory: () => createListDirectoryTool(),
-  search_files: () => createSearchFilesTool(),
+  grep: () => createGrepTool(),
   glob: () => createGlobTool(),
   create_file: () => createCreateFileTool(),
   write_file: () => createWriteFileTool(),
@@ -75,16 +83,22 @@ export const BUILT_IN_TOOL_FACTORIES: Readonly<
   // apply_patch: () => createApplyPatchTool(),
   run_command: () => createRunCommandTool(),
   webfetch: () => createWebFetchTool(),
+  web_search: () => createWebSearchTool(),
+  notes_add: () => createNotesAddTool(),
+  notes_get: () => createNotesGetTool(),
   load_skill: () => createLoadSkillTool(),
   list_skills: () => createListSkillsTool(),
+  search_skills: () => createSearchSkillsTool(),
   list_strategy: () => createListStrategyTool(),
   launch_strategy: () => createLaunchStrategyTool(),
+  delegate: () => createDelegateTool(),
+  request_strategy_switch: () => createRequestStrategySwitchTool(),
   todo_add: () => createTodoAddTool(),
   todo_complete: () => createTodoCompleteTool(),
   todo_get: () => createTodoGetTool(),
   todo_get_next: () => createTodoGetNextTool(),
   todo_remove: () => createTodoRemoveTool(),
   todo_clear: () => createTodoClearTool(),
-  ask_question: () => createAskQuestionTool(),
+  ask_questions: () => createAskQuestionsTool(),
   lsp_request: () => createLspRequestTool(),
 };

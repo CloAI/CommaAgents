@@ -1,6 +1,6 @@
 // Tests for buildToolSystemPrompt helper
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import {
   buildToolSystemPrompt,
   mergeSystemPrompts,
@@ -16,7 +16,6 @@ describe("buildToolSystemPrompt", () => {
       toolName: "test",
       cwd: "/test",
       authorize: async () => "/test",
-      askQuestion: async () => "test",
       canAccess: () => true,
       addPolicy: () => {},
       removePolicy: () => false,

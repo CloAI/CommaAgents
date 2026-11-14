@@ -1,6 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { getCatalogCachePath } from "../../../defaults/defaults";
 import {
   getCatalogModels,
   getCatalogProvider,
@@ -8,7 +9,7 @@ import {
   loadCatalog,
 } from "./catalog";
 import type { CatalogModel } from "./catalog.types";
-import { resolveCatalogCachePath, toModelInfo } from "./catalog.utils";
+import { toModelInfo } from "./catalog.utils";
 
 describe("loadCatalog (bundled snapshot)", () => {
   test("returns an object keyed by provider id", async () => {
@@ -49,7 +50,7 @@ describe("getCatalogModels", () => {
     expect(models.length).toBeGreaterThan(0);
     for (const model of models) {
       expect(typeof model.id).toBe("string");
-      expect(model.capabilities).toBeDefined();
+      expect(model.metadata.capabilities).toBeDefined();
     }
   });
 
@@ -81,17 +82,17 @@ describe("toModelInfo", () => {
     const info = toModelInfo(catalogModel);
 
     expect(info.id).toBe("gpt-test");
-    expect(info.name).toBe("GPT Test");
-    expect(info.family).toBe("gpt");
-    expect(info.contextWindow).toBe(128000);
-    expect(info.maxOutputTokens).toBe(4096);
-    expect(info.capabilities?.tools).toBe(true);
-    expect(info.capabilities?.vision).toBe(true);
-    expect(info.capabilities?.attachment).toBe(true);
-    expect(info.capabilities?.structuredOutput).toBe(true);
-    expect(info.cost?.input).toBe(2.5);
-    expect(info.cost?.cacheRead).toBe(0.25);
-    expect(info.modalities?.input).toEqual(["text", "image"]);
+    expect(info.metadata.name).toBe("GPT Test");
+    expect(info.metadata.family).toBe("gpt");
+    expect(info.metadata.contextWindow).toBe(128000);
+    expect(info.metadata.maxOutputTokens).toBe(4096);
+    expect(info.metadata.capabilities?.tools).toBe(true);
+    expect(info.metadata.capabilities?.vision).toBe(true);
+    expect(info.metadata.capabilities?.attachment).toBe(true);
+    expect(info.metadata.capabilities?.structuredOutput).toBe(true);
+    expect(info.metadata.cost?.input).toBe(2.5);
+    expect(info.metadata.cost?.cacheRead).toBe(0.25);
+    expect(info.metadata.modalities?.input).toEqual(["text", "image"]);
   });
 
   test("drops unknown modalities and statuses", () => {
@@ -114,14 +115,14 @@ describe("toModelInfo", () => {
 
     const info = toModelInfo(catalogModel);
 
-    expect(info.status).toBeUndefined();
-    expect(info.modalities?.input).toEqual(["text"]);
+    expect(info.metadata.status).toBeUndefined();
+    expect(info.metadata.modalities?.input).toEqual(["text"]);
   });
 });
 
-describe("resolveCatalogCachePath", () => {
+describe("getCatalogCachePath", () => {
   test("uses the shared data directory", () => {
-    expect(resolveCatalogCachePath()).toBe(
+    expect(getCatalogCachePath()).toBe(
       join(homedir(), ".comma", "cache", "models-catalog.json"),
     );
   });

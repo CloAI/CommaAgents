@@ -1,11 +1,10 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import { createHubManager } from "@comma-agents/core/hub";
 import {
-  getDaemonStatus,
-  restartDaemon,
-  startDaemon,
-  stopDaemon,
+  type DaemonCommandArguments,
+  daemonStartOptions,
+  runDaemonCommand,
 } from "@comma-agents/daemon";
 import type { Argv } from "yargs";
 import yargs from "yargs";
@@ -13,6 +12,13 @@ import { hideBin } from "yargs/helpers";
 import { disableAutostart, enableAutostart } from "./autostart";
 import { runDoctor } from "./doctor";
 import { runInstaller } from "./install";
+import { MissingModelRolesError } from "@comma-agents/core";
+import {
+  describeMissingModelRoles,
+  parseModelRoleFlags,
+  runModels,
+} from "./models";
+import { runHeadless } from "./run";
 import { launchTui } from "./tui";
 import { resolveSelfDaemonCommand } from "./tui/tui.utils";
 import { runUninstaller } from "./uninstall";
@@ -23,28 +29,6 @@ interface TuiCommandArguments {
   readonly input?: string;
   readonly daemonUrl?: string;
   readonly dev?: boolean;
-}
-
-function printDaemonStatus(json: boolean): void {
-  const status = getDaemonStatus();
-  if (json) {
-    console.log(JSON.stringify(status, null, 2));
-    return;
-  }
-
-  if (!status.running) {
-    console.log("Daemon is not running");
-    return;
-  }
-
-  console.log(`Daemon is running (PID: ${status.pid})`);
-  console.log(`  Host: ${status.host}`);
-  console.log(`  Port: ${status.port}`);
-  console.log(`  Config: ${status.configFile}`);
-  console.log(`  PID file: ${status.pidFile}`);
-  if (status.logFile !== undefined) {
-    console.log(`  Log file: ${status.logFile}`);
-  }
 }
 
 function printDoctor(json: boolean): void {
@@ -72,6 +56,30 @@ function optionalNumber(value: unknown): number | undefined {
 
 function booleanValue(value: unknown): boolean {
   return value === true;
+}
+
+function daemonCommandArguments(
+  commandArguments: Record<string, unknown>,
+): DaemonCommandArguments {
+  return {
+    foreground: booleanValue(commandArguments.foreground),
+    port: optionalNumber(commandArguments.port),
+    verbose: booleanValue(commandArguments.verbose),
+    console:
+      typeof commandArguments.console === "boolean"
+        ? commandArguments.console
+        : undefined,
+    consoleFormat:
+      commandArguments.consoleFormat === "text" ||
+      commandArguments.consoleFormat === "json"
+        ? commandArguments.consoleFormat
+        : undefined,
+    logPayloads:
+      typeof commandArguments.logPayloads === "boolean"
+        ? commandArguments.logPayloads
+        : undefined,
+    json: booleanValue(commandArguments.json),
+  };
 }
 
 async function runTuiCommand(
@@ -103,30 +111,6 @@ const tuiOptions = (commandArguments: Argv) =>
       type: "boolean",
       default: false,
       describe: "Enable TUI development mode",
-    });
-
-const daemonStartOptions = (commandArguments: Argv) =>
-  commandArguments
-    .option("foreground", {
-      alias: "f",
-      type: "boolean",
-      default: false,
-      describe: "Run in foreground",
-    })
-    .option("port", {
-      alias: "p",
-      type: "number",
-      describe: "Override the daemon port",
-    })
-    .option("model-override", {
-      type: "string",
-      describe: "Override model for all agents as provider/model",
-    })
-    .option("verbose", {
-      alias: "v",
-      type: "boolean",
-      default: false,
-      describe: "Enable debug logging",
     });
 
 yargs(hideBin(process.argv))
@@ -184,34 +168,37 @@ yargs(hideBin(process.argv))
     async (commandArguments) => {
       switch (commandArguments.action) {
         case "start": {
-          const result = await startDaemon({
-            foregroundCommand: resolveSelfDaemonCommand(),
-            foreground: booleanValue(commandArguments.foreground),
-            port: optionalNumber(commandArguments.port),
-            modelOverride: optionalString(commandArguments.modelOverride),
-            verbose: booleanValue(commandArguments.verbose),
-          });
-          console.log(result.message);
+          await runDaemonCommand(
+            "start",
+            daemonCommandArguments(commandArguments),
+            {
+              foregroundCommand: resolveSelfDaemonCommand(),
+            },
+          );
           return;
         }
         case "stop": {
-          const result = await stopDaemon();
-          console.log(result.message);
+          await runDaemonCommand(
+            "stop",
+            daemonCommandArguments(commandArguments),
+          );
           return;
         }
         case "restart": {
-          const result = await restartDaemon({
-            foregroundCommand: resolveSelfDaemonCommand(),
-            foreground: booleanValue(commandArguments.foreground),
-            port: optionalNumber(commandArguments.port),
-            modelOverride: optionalString(commandArguments.modelOverride),
-            verbose: booleanValue(commandArguments.verbose),
-          });
-          console.log(result.message);
+          await runDaemonCommand(
+            "restart",
+            daemonCommandArguments(commandArguments),
+            {
+              foregroundCommand: resolveSelfDaemonCommand(),
+            },
+          );
           return;
         }
         case "status":
-          printDaemonStatus(booleanValue(commandArguments.json));
+          await runDaemonCommand(
+            "status",
+            daemonCommandArguments(commandArguments),
+          );
           return;
         case "enable": {
           const plan = await enableAutostart();
@@ -224,13 +211,113 @@ yargs(hideBin(process.argv))
           return;
         }
         case "logs": {
-          const status = getDaemonStatus();
-          console.log(status.logFile ?? "Daemon log file is not configured");
+          await runDaemonCommand(
+            "logs",
+            daemonCommandArguments(commandArguments),
+          );
           return;
         }
         default:
           throw new Error(`Unknown daemon action: ${commandArguments.action}`);
       }
+    },
+  )
+  .command(
+    "run",
+    "Run a strategy headlessly, without the TUI",
+    (commandArguments) =>
+      commandArguments
+        .option("strategy", {
+          alias: "s",
+          type: "string",
+          demandOption: true,
+          describe: "Strategy file path, name, or label",
+        })
+        .option("input", {
+          alias: "i",
+          type: "string",
+          demandOption: true,
+          describe: "First user message",
+        })
+        .option("cwd", {
+          type: "string",
+          describe: "Working directory for the run",
+        })
+        .option("model-role", {
+          type: "string",
+          array: true,
+          describe:
+            "Model for a role in this run, as role=provider/model; repeat for more roles",
+        })
+        .option("max-user-turns", {
+          type: "number",
+          default: 1,
+          describe: "User turns accepted before the run stops",
+        })
+        .option("approve", {
+          type: "string",
+          choices: ["allow", "deny"] as const,
+          default: "deny",
+          describe: "Answer for every sandbox permission request",
+        })
+        .option("then", {
+          type: "string",
+          array: true,
+          describe:
+            "Strategies to switch to in order after the first finishes, in the same conversation",
+        })
+        .option("then-input", {
+          type: "string",
+          describe: "Message sent to each --then strategy",
+        })
+        .option("json", {
+          type: "boolean",
+          default: false,
+          describe: "Print a JSON summary instead of streaming text",
+        }),
+    async (commandArguments) => {
+      try {
+        const result = await runHeadless({
+          strategy: commandArguments.strategy,
+          input: commandArguments.input,
+          cwd: optionalString(commandArguments.cwd),
+          modelRoles: parseModelRoleFlags(commandArguments.modelRole ?? []),
+          maxUserTurns: commandArguments.maxUserTurns,
+          approve: commandArguments.approve === "allow" ? "allow" : "deny",
+          then: commandArguments.then,
+          thenInput: optionalString(commandArguments.thenInput),
+          json: booleanValue(commandArguments.json),
+        });
+        process.exit(result.status === "failed" ? 1 : 0);
+      } catch (error) {
+        if (!(error instanceof MissingModelRolesError)) {
+          throw error;
+        }
+        console.error(describeMissingModelRoles(error.roles));
+        process.exit(1);
+      }
+    },
+  )
+  .command(
+    "models <action> [role] [model]",
+    "List or set the models used by @role references",
+    (commandArguments) =>
+      commandArguments
+        .positional("action", { choices: ["list", "set"] as const })
+        .positional("role", {
+          type: "string",
+          describe: "Role name, e.g. medium",
+        })
+        .positional("model", {
+          type: "string",
+          describe: "provider/model for the role",
+        }),
+    (commandArguments) => {
+      runModels(
+        commandArguments.action === "set" ? "set" : "list",
+        optionalString(commandArguments.role),
+        optionalString(commandArguments.model),
+      );
     },
   )
   .command("install", "Open the terminal installer", {}, async () => {
@@ -291,7 +378,9 @@ yargs(hideBin(process.argv))
       }
 
       const name = optionalString(commandArguments.name);
-      if (!name) throw new Error(`comma hub ${action} requires a package name`);
+      if (!name) {
+        throw new Error(`comma hub ${action} requires a package name`);
+      }
       if (action === "remove") {
         const removed = await manager.remove(name);
         console.log(removed ? `Removed ${name}` : `${name} is not installed`);

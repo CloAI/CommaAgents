@@ -21,8 +21,9 @@ export function createInstalledPackageStore({
         packages: Array.isArray(parsed.packages) ? parsed.packages : [],
       };
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         return { packages: [] };
+      }
       throw error;
     }
   }
@@ -63,7 +64,9 @@ export function createInstalledPackageStore({
     },
     async remove(name) {
       const installedPackage = await get(name);
-      if (!installedPackage) return false;
+      if (!installedPackage) {
+        return false;
+      }
 
       const backupPath = `${installedPackage.path}.${crypto.randomUUID()}.removing`;
       const state = await readState();

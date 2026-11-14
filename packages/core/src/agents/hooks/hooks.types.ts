@@ -1,17 +1,28 @@
 import type { SideEffectHook, TransformHook } from "../../hooks";
 import type { ToolContext } from "../../tools/tool.types";
-import type { AgentCallResult, AgentStreamEvent } from "../agent/agent.types";
+import type {
+  AgentCallResult,
+  AgentStreamEvent,
+  AgentCallIdentity,
+  AgentCallFailure,
+} from "../agent/agent.types";
 
 /**
  * Agent lifecycle hooks.
  *
  * Execution order for a call:
- *   alterCallMessage → beforeCall → [LLM call] → afterCallResult → alterResponse
+ *   onCallStarted → alterCallMessage → beforeCall → [execution] → onCallCompleted → afterCallResult → alterResponse
  *
  * On the first call, `*First*` variants are used if defined.
  * If a `*First*` hook is not set, the corresponding base hook is used as fallback.
  */
 export interface AgentHooks {
+  /** Observe every successful invocation after its conversation record exists, independent of first-call hook overrides. */
+  readonly onCallCompleted?: ReadonlyArray<SideEffectHook<AgentCallResult>>;
+  /** Observe invocation identity before pre-call hooks and execution. */
+  readonly onCallStarted?: ReadonlyArray<SideEffectHook<AgentCallIdentity>>;
+  /** Observe invocation failures with their identity and cancellation state. */
+  readonly onCallFailed?: ReadonlyArray<SideEffectHook<AgentCallFailure>>;
   /** Transform the message before the first call. Falls back to `alterCallMessage`. */
   readonly alterFirstCallMessage?: ReadonlyArray<TransformHook<string>>;
 

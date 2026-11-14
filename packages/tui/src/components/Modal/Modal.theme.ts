@@ -14,7 +14,7 @@ export function createModalTheme(tokens: Theme) {
       borderColor: tokens.borders.color,
       backgroundColor: tokens.colors.background,
       maxHeight: "50%",
-      maxWidth: "40%",
+      width: "40%",
       overflow: "hidden",
     } satisfies BoxProps,
     title: {

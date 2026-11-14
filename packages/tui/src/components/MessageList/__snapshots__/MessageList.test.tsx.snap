@@ -1,6 +1,6 @@
-// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`MessageList empty state should display empty message when there are no messages 1`] = `
+exports[`MessageList > empty state > should display empty message when there are no messages 1`] = `
 " No messages yet.
 
 
@@ -23,30 +23,7 @@ exports[`MessageList empty state should display empty message when there are no 
 "
 `;
 
-exports[`MessageList message rendering should display sender name and text for a single message 1`] = `
-" ╭ you ────────────────────────────────────────────────────────────────────────
- │ Hi there
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"
-`;
-
-exports[`MessageList message rendering should display messages from all roles 1`] = `
+exports[`MessageList > message rendering > should display messages from all roles 1`] = `
 " ╭ you ────────────────────────────────────────────────────────────────────────
  │ Hello
 
@@ -69,7 +46,30 @@ exports[`MessageList message rendering should display messages from all roles 1`
 "
 `;
 
-exports[`MessageList message rendering should render spawned strategy output as a nested panel 1`] = `
+exports[`MessageList > message rendering > should display sender name and text for a single message 1`] = `
+" ╭ you ────────────────────────────────────────────────────────────────────────
+ │ Hi there
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"
+`;
+
+exports[`MessageList > message rendering > should render spawned strategy output as a nested panel 1`] = `
 " ╭ manager ────────────────────────────────────────────────────────────────────
  │
  │ ╭ spawned Plan ────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ exports[`MessageList message rendering should render spawned strategy output as 
 "
 `;
 
-exports[`MessageList streaming indicator should show streaming cursor for messages that are still streaming 1`] = `
+exports[`MessageList > streaming indicator > should show streaming cursor for messages that are still streaming 1`] = `
 " ╭ assistant · 0s ─────────────────────────────────────────────────────────────
  │ Thinking
  │ ▍

@@ -56,7 +56,7 @@ When the on-disk file uses CRLF line endings or starts with a UTF-8 BOM, `write_
 |---|---|
 | `not_found` | The path does not exist or is a directory. Use `create_file` for new files. |
 | `stale_file` | `expectedSha256` does not match the bytes on disk. Re-read and retry. |
-| `outside_workspace` | The path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `outside_workspace` | The path escapes the sandbox or absolute paths are disabled. |
 | `permission_denied` | The path is write-blocked by `forbiddenGlobs` or sandbox policy. |
 
 ## Related

@@ -26,7 +26,7 @@ The bootstrap workflow skips packages that already exist at the requested versio
 Install the repository hooks once per clone:
 
 ```bash
-bun run hooks:install
+pnpm run hooks:install
 ```
 
 Create the release commit and tag with npm's version command:

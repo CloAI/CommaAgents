@@ -47,7 +47,9 @@ export async function buildToolSystemPrompt(
   const contributions: string[] = [];
 
   for (const [name, definition] of Object.entries(toolDefinitions)) {
-    if (!definition.systemPrompt) continue;
+    if (!definition.systemPrompt) {
+      continue;
+    }
 
     let contribution: string;
     if (typeof definition.systemPrompt === "function") {
@@ -62,7 +64,9 @@ export async function buildToolSystemPrompt(
     }
   }
 
-  if (contributions.length === 0) return undefined;
+  if (contributions.length === 0) {
+    return undefined;
+  }
 
   return contributions.join("\n\n");
 }
@@ -81,6 +85,8 @@ export function mergeSystemPrompts(
   const defined = prompts.filter(
     (p): p is string => !!p && p.trim().length > 0,
   );
-  if (defined.length === 0) return undefined;
+  if (defined.length === 0) {
+    return undefined;
+  }
   return defined.join("\n\n");
 }

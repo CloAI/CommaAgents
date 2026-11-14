@@ -6,7 +6,7 @@
  * the response along with token usage.
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/01-basic-agent.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/01-basic-agent.ts
  *
  * Concepts:
  *   - createAgent()  — the primary agent factory

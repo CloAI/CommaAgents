@@ -1,0 +1,38 @@
+---
+title: Daemon
+description: Run strategies through a plugin kernel and typed WebSocket server.
+---
+
+# Daemon
+
+`@comma-agents/daemon` runs strategies in a long-lived process. Its plugins own execution, persistence, interactive requests, providers, and projects. Use the CLI for a managed process:
+
+```bash
+comma daemon start
+comma daemon status
+```
+
+For an embedded host, create a kernel and attach its server:
+
+```ts
+import { createDaemonKernel, createDaemonServer } from "@comma-agents/daemon";
+
+const daemon = await createDaemonKernel({ runs: { runsDir: "./runs" } });
+const server = createDaemonServer({ daemon, host: "127.0.0.1", port: 7422 });
+try {
+  await server.start();
+  console.log(server.url);
+  // Run the host until shutdown is requested.
+} finally {
+  await server.stop();
+  await daemon.dispose();
+}
+```
+
+- [CLI](/docs/daemon/cli) and [process APIs](/docs/daemon/daemon) — start, stop, and inspect the managed daemon.
+- [Configuration](/docs/daemon/config) — files, environment variables, and resolution priority.
+- [Plugin server](/docs/daemon/server/plugin-server) and [protocol](/docs/daemon/server/protocol) — typed commands and subscriptions.
+- [Runs](/docs/daemon/server/runs) — prepare, execute, continue, and observe conversations.
+- [Projects](/docs/daemon/projects-plugin) — durable project and chat organization.
+- [Core](/docs/daemon/core-plugin), [sandbox](/docs/daemon/sandbox-plugin), [questions](/docs/daemon/questions-plugin), [skills](/docs/daemon/skills-plugin), [MCP](/docs/daemon/mcp-plugin), and [LSP](/docs/daemon/lsp) — feature APIs.
+- [Logging](/docs/daemon/logger) and [PID files](/docs/daemon/pid) — process resources.

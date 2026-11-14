@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 // Strategy discovery — find available strategies on disk.
 //
 // Promoted from the TUI into core so that the new built-in
@@ -24,7 +25,14 @@ import { existsSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import stripJsonComments from "strip-json-comments";
 
-import { resolveDataDir } from "../../data-directory";
+import {
+  getApplicationDataDirectory,
+  getPackagesDirectory,
+  findCommaProjectRoot,
+  getProjectDirectory,
+  getProjectStrategiesDirectory,
+  getStrategiesDirectory,
+} from "../../defaults/defaults";
 import { CommaProjectManifestSchema } from "../../hub";
 import type {
   DiscoveredStrategy,
@@ -73,7 +81,9 @@ export async function discoverStrategies(
     origin: DiscoveredStrategyOrigin,
   ): Promise<void> {
     for (const path of listStrategyFiles(dir)) {
-      if (seenPaths.has(path)) continue;
+      if (seenPaths.has(path)) {
+        continue;
+      }
       const header = await parseStrategyHeader(path);
       if (!header.ok) {
         warnings.push({ path, reason: header.reason });
@@ -94,7 +104,9 @@ export async function discoverStrategies(
       return;
     }
     for (const strategyPath of manifest.strategyPaths) {
-      if (seenPaths.has(strategyPath)) continue;
+      if (seenPaths.has(strategyPath)) {
+        continue;
+      }
       const header = await parseStrategyHeader(strategyPath);
       if (!header.ok) {
         warnings.push({ path: strategyPath, reason: header.reason });
@@ -113,24 +125,30 @@ export async function discoverStrategies(
     }
   }
 
-  // 1. Cwd single-file strategies.
-  const cwdStrategiesDir = join(cwd, ".comma", "strategies");
-  await collectSingleFiles(cwdStrategiesDir, "cwd");
+  const projectRoot = findCommaProjectRoot(cwd);
+  if (projectRoot) {
+    // 1. Cwd single-file strategies.
+    const cwdStrategiesDir = getProjectStrategiesDirectory(projectRoot);
+    await collectSingleFiles(cwdStrategiesDir, "cwd");
 
-  // 2. Cwd project strategies (subdirs of `.comma/strategies/`).
-  for (const manifestPath of listProjectManifests(cwdStrategiesDir)) {
-    await collectProjectManifest(manifestPath, "cwd-project");
-  }
+    // 2. Cwd project strategies (subdirs of `.comma/strategies/`).
+    for (const manifestPath of listProjectManifests(cwdStrategiesDir)) {
+      await collectProjectManifest(manifestPath, "cwd-project");
+    }
 
-  // 3. Cwd root project (`.comma/comma-project.json`).
-  const cwdRootManifest = join(cwd, ".comma", "comma-project.json");
-  if (existsSync(cwdRootManifest)) {
-    await collectProjectManifest(cwdRootManifest, "cwd-root-project");
+    // 3. Cwd root project (`.comma/comma-project.json`).
+    const cwdRootManifest = join(
+      getProjectDirectory(projectRoot),
+      "comma-project.json",
+    );
+    if (existsSync(cwdRootManifest)) {
+      await collectProjectManifest(cwdRootManifest, "cwd-root-project");
+    }
   }
 
   if (dataDir) {
     // 4. Data dir single-file strategies.
-    const dataStrategiesDir = join(dataDir, "strategies");
+    const dataStrategiesDir = getStrategiesDirectory(dataDir);
     await collectSingleFiles(dataStrategiesDir, "data");
 
     // 5. Data dir project strategies.
@@ -148,7 +166,9 @@ export async function discoverStrategies(
   // strategies can intentionally shadow default strategy names.
   if (includeBundled) {
     for (const manifestPath of getBundledProjectManifestCandidates()) {
-      if (!existsSync(manifestPath)) continue;
+      if (!existsSync(manifestPath)) {
+        continue;
+      }
       await collectProjectManifest(manifestPath, "bundled");
       break;
     }
@@ -169,14 +189,17 @@ export async function resolveInstalledStrategyReference(
   dataDir = safeResolveDataDir(),
 ): Promise<DiscoveredStrategy | undefined> {
   const match = /^(@[^/]+\/[^/]+)\/strategies\/([^/]+)$/.exec(reference);
-  if (!match) return undefined;
+  if (!match) {
+    return undefined;
+  }
   const [, packageName, artifactId] = match;
-  if (!packageName || !artifactId) return undefined;
+  if (!packageName || !artifactId) {
+    return undefined;
+  }
 
   if (dataDir) {
     const installedManifestPath = join(
-      dataDir,
-      "packages",
+      getPackagesDirectory(dataDir),
       packageName,
       "comma-project.json",
     );
@@ -186,7 +209,9 @@ export async function resolveInstalledStrategyReference(
       artifactId,
       "hub-package",
     );
-    if (installed) return installed;
+    if (installed) {
+      return installed;
+    }
   }
 
   for (const manifestPath of getBundledProjectManifestCandidates()) {
@@ -196,7 +221,9 @@ export async function resolveInstalledStrategyReference(
       artifactId,
       "bundled",
     );
-    if (bundled) return bundled;
+    if (bundled) {
+      return bundled;
+    }
   }
 
   return undefined;
@@ -208,7 +235,7 @@ export async function resolveInstalledStrategyReference(
  */
 function safeResolveDataDir(): string | undefined {
   try {
-    return resolveDataDir();
+    return getApplicationDataDirectory();
   } catch {
     return undefined;
   }
@@ -218,7 +245,7 @@ function getBundledProjectManifestCandidates(): readonly string[] {
   return [
     // Bundled layout: packages/core/dist/index.js -> dist.
     resolve(
-      import.meta.dir,
+      import.meta.dirname,
       "strategies",
       "@comma",
       "core-strategies",
@@ -226,7 +253,7 @@ function getBundledProjectManifestCandidates(): readonly string[] {
     ),
     // Source layout: packages/core/src/strategy/discover -> packages/core.
     resolve(
-      import.meta.dir,
+      import.meta.dirname,
       "..",
       "..",
       "..",
@@ -237,7 +264,7 @@ function getBundledProjectManifestCandidates(): readonly string[] {
     ),
     // Published layout: packages/core/dist/strategy/discover -> dist.
     resolve(
-      import.meta.dir,
+      import.meta.dirname,
       "..",
       "..",
       "strategies",
@@ -254,22 +281,32 @@ async function resolveProjectStrategyReference(
   artifactId: string,
   origin: DiscoveredStrategyOrigin,
 ): Promise<DiscoveredStrategy | undefined> {
-  if (!existsSync(manifestPath)) return undefined;
+  if (!existsSync(manifestPath)) {
+    return undefined;
+  }
 
   try {
     const raw = JSON.parse(
-      stripJsonComments(await Bun.file(manifestPath).text()),
+      stripJsonComments(await readFile(manifestPath, "utf8")),
     );
     const manifest = CommaProjectManifestSchema.parse(raw);
-    if (manifest.name !== packageName) return undefined;
+    if (manifest.name !== packageName) {
+      return undefined;
+    }
     const artifact = manifest.strategies?.[artifactId];
-    if (!artifact || isAbsolute(artifact.path)) return undefined;
+    if (!artifact || isAbsolute(artifact.path)) {
+      return undefined;
+    }
     const manifestDir = resolve(manifestPath, "..");
     const strategyPath = resolve(manifestDir, artifact.path);
     const rel = relative(manifestDir, strategyPath);
-    if (rel.startsWith("..") || isAbsolute(rel)) return undefined;
+    if (rel.startsWith("..") || isAbsolute(rel)) {
+      return undefined;
+    }
     const header = await parseStrategyHeader(strategyPath);
-    if (!header.ok) return undefined;
+    if (!header.ok) {
+      return undefined;
+    }
     return buildDiscoveredStrategy({
       header,
       path: strategyPath,

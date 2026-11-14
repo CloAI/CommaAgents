@@ -1,0 +1,23 @@
+packages:
+  - packages/*
+  - examples
+  - examples/e2e
+  - docs
+  - packages/tui/docs
+
+patchedDependencies:
+  ink@8.0.0: patches/ink@8.0.0.patch
+
+overrides:
+  '@napi-rs/wasm-runtime@1.1.4': 1.2.6
+  # The published code uses the Noble v2 API, but its manifest still declares v1.
+  '@freedomofpress/crypto-browser@0.1.8>@noble/curves': ^2.0.1
+
+onlyBuiltDependencies:
+  - electron
+  - esbuild
+  - sharp
+  - unrs-resolver
+
+linkWorkspacePackages: true
+preferWorkspacePackages: true

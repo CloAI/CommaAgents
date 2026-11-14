@@ -1,0 +1,50 @@
+.chatComposer {
+  min-width: 0;
+  .frame {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    > :last-child {
+      border: 0;
+    }
+  }
+  .controls {
+    padding: var(--space-1);
+    border-bottom: 1px solid var(--color-border);
+    border-radius: var(--radius-control) var(--radius-control) 0 0;
+    background: var(--color-surface-raised);
+  }
+  .warning {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1);
+    padding-left: var(--space-2);
+    border-radius: var(--space-3) var(--space-3) 0 0;
+    background: color-mix(in srgb, var(--color-warning) 24%, transparent);
+    color: var(--color-warning);
+    font-size: var(--font-size-small);
+    &[data-severity="error"] {
+      background: color-mix(in srgb, var(--color-error) 24%, transparent);
+      color: var(--color-text);
+    }
+    p {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+    .pager {
+      display: flex;
+      flex: none;
+      align-items: center;
+      gap: var(--space-1);
+      button {
+        color: inherit;
+      }
+    }
+    &:has(+ .frame) + .frame {
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+    }
+  }
+}

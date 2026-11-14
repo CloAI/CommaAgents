@@ -5,6 +5,7 @@
 // 2. A single entry `flow` (a tree of sequential/cycle/broadcast flows)
 
 import { z } from "zod";
+import { PrivacyRequirementsSchema } from "../model/privacy/privacy.schemas";
 
 import {
   ConversationContextSchema,
@@ -35,12 +36,26 @@ export const UserAgentDefSchema = z
   })
   .strict();
 
+/** Conversation retention plus the run-time blocks added to the agent's system prompt. */
+export const StrategyAgentContextSchema = ConversationContextSchema.extend({
+  /** Add AGENTS.md-style project instruction files found between the repository root and cwd. */
+  instructions: z.boolean().optional(),
+  /** Add the working directory, date, platform, and git state. */
+  environment: z.boolean().optional(),
+}).strict();
+
+/** Model identifiers keyed by role name, referenced from agents as `@role`. */
+export const ModelRolesSchema = z.record(z.string().min(1), z.string().min(1));
+
 /** LLM agent — backed by a language model. */
 export const LLMAgentDefSchema = z
   .object({
     type: z.literal("llm").optional(),
     description: z.string().optional(),
+    /** `provider/model`, or a role reference such as `@medium` resolved through `modelRoles`. */
     model: z.string().optional(),
+    /** Required provider-independent inference protections. */
+    privacy: PrivacyRequirementsSchema.optional(),
     systemPrompt: z.string().optional(),
     systemPromptTemplate: z
       .object({
@@ -60,6 +75,11 @@ export const LLMAgentDefSchema = z
       .strict()
       .optional(),
     tools: z.array(z.string()).optional(),
+    /**
+     * Subagents available through the `delegate` tool, keyed by the name the agent uses.
+     * Each value is a strategy file path relative to this strategy, or a discoverable strategy name.
+     */
+    subagents: z.record(z.string().min(1), z.string().min(1)).optional(),
     /** MCP server IDs whose tools are available to this agent. */
     mcpServers: z.array(z.string().min(1)).optional(),
     /**
@@ -81,8 +101,8 @@ export const LLMAgentDefSchema = z
     modelOptions: ModelOptionsSchema.optional(),
     /** JSON Schema describing the agent's structured output. */
     outputSchema: OutputSchemaSchema.optional(),
-    /** Conversation context retention and compaction controls. */
-    context: ConversationContextSchema.optional(),
+    /** Conversation retention and compaction controls, and run-time system prompt blocks. */
+    context: StrategyAgentContextSchema.optional(),
     /**
      * Maximum number of LLM round-trips (steps) per call.
      * Each tool-call + response counts as one step.
@@ -229,6 +249,8 @@ export const StrategySchema = z
     description: z.string().optional(),
     /** Strategy-private MCP servers, resolved before shared workspace/global definitions. */
     mcpServers: z.record(McpServerDefinitionSchema).optional(),
+    /** Default models for `@role` references; user-configured roles take precedence. */
+    modelRoles: ModelRolesSchema.optional(),
     agents: z.record(AgentDefSchema),
     flow: FlowDefSchema,
   })

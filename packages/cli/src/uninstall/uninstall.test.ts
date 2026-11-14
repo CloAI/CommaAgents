@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { existsSync } from "node:fs";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   mkdir,
   mkdtemp,
@@ -37,10 +38,6 @@ async function createDataDirectory(): Promise<string> {
     await mkdir(join(dataDirectory, entry), { recursive: true });
     await writeFile(join(dataDirectory, entry, "entry.txt"), entry);
   }
-  await writeFile(
-    join(dataDirectory, "provider-registry.json"),
-    JSON.stringify(["openai"]),
-  );
   await writeFile(join(dataDirectory, "credentials.json"), "{}");
   return dataDirectory;
 }
@@ -143,13 +140,13 @@ describe("removeSelectedData", () => {
     });
 
     expect(
-      await Bun.file(join(dataDirectory, "runs", "entry.txt")).exists(),
+      await existsSync(join(dataDirectory, "runs", "entry.txt")),
     ).toBe(false);
     expect(
-      await Bun.file(join(dataDirectory, "packages", "entry.txt")).exists(),
+      await existsSync(join(dataDirectory, "packages", "entry.txt")),
     ).toBe(false);
     expect(
-      await Bun.file(join(dataDirectory, "credentials.json")).exists(),
+      await existsSync(join(dataDirectory, "credentials.json")),
     ).toBe(true);
     expect(
       await readFile(join(dataDirectory, "strategies", "entry.txt"), "utf8"),
@@ -166,19 +163,16 @@ describe("removeSelectedData", () => {
     });
 
     expect(
-      await Bun.file(join(dataDirectory, "runs", "entry.txt")).exists(),
+      await existsSync(join(dataDirectory, "runs", "entry.txt")),
     ).toBe(true);
     expect(
-      await Bun.file(join(dataDirectory, "packages", "entry.txt")).exists(),
+      await existsSync(join(dataDirectory, "packages", "entry.txt")),
     ).toBe(true);
     expect(
-      await Bun.file(join(dataDirectory, "provider-registry.json")).exists(),
-    ).toBe(true);
-    expect(
-      await Bun.file(join(dataDirectory, "credentials.json")).exists(),
+      await existsSync(join(dataDirectory, "credentials.json")),
     ).toBe(false);
     expect(
-      await Bun.file(join(dataDirectory, "strategies", "entry.txt")).exists(),
+      await existsSync(join(dataDirectory, "strategies", "entry.txt")),
     ).toBe(false);
   });
 
@@ -191,6 +185,6 @@ describe("removeSelectedData", () => {
       removeConfig: true,
     });
 
-    expect(await Bun.file(dataDirectory).exists()).toBe(false);
+    expect(await existsSync(dataDirectory)).toBe(false);
   });
 });

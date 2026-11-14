@@ -1,0 +1,77 @@
+---
+title: grep
+description: Search workspace text files for literal text or a regular expression.
+---
+
+# grep
+
+Search file contents and receive workspace-relative paths, line and column positions, and previews. Use [`glob`](/docs/core/tools/built-in/file-io/glob) when you need to find names instead of text.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+
+const agent = createAgent({
+  name: "reviewer",
+  model: "openai/gpt-4o",
+  tools: ["grep", "read_file"],
+});
+```
+
+## GrepToolConfig
+
+Optional factory limits.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/grep/grep.types.ts" name="GrepToolConfig" />
+
+## GrepData
+
+The structured search result.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/grep/grep.types.ts" name="GrepData" />
+
+## GrepMatch
+
+One matching line and its first matching column, both 1-indexed.
+
+<AutoTypeTable path="../packages/core/src/tools/built-in/grep/grep.types.ts" name="GrepMatch" />
+
+## Literal and regex search
+
+Searches are literal and case-sensitive by default. Set `regex: true` for a regular expression, or `ignoreCase: true` for a case-insensitive search. Matching is line-by-line; multiline patterns are not supported.
+
+```ts
+await tool.grep({ query: "createAgent", includeGlobs: ["**/*.ts"] });
+await tool.grep({ query: "^\\s*async function", regex: true });
+await tool.grep({ query: "TODO", ignoreCase: true, contextLines: 2 });
+```
+
+## Scope and exclusions
+
+`root` defaults to `"."`. Include and exclude patterns are relative to `root`; returned paths are relative to the workspace and can be passed to `read_file`.
+
+Hidden files are included. By default, `node_modules`, `.git`, `dist`, `build`, `.next`, `.turbo`, and `coverage` are excluded. `excludeGlobs` replaces those defaults; pass `[]` to disable exclusions. `.gitignore` is not consulted. Guard-blocked paths are silently filtered, and symlinks are not searched.
+
+```ts
+await tool.grep({
+  query: "TODO",
+  root: "packages/core",
+  includeGlobs: ["src/**/*.ts"],
+  excludeGlobs: ["**/*.test.ts"],
+});
+```
+
+## Limits and incomplete results
+
+The default caps are 100 matching lines, depth 32, 4 MiB per searched file, and 256 KiB of returned output. Binary files are skipped. `truncated` and `incompleteReasons` report limits and unreadable or oversized entries, so an incomplete search does not establish that no other matches exist. Cancellation stops the call instead of returning a successful partial result.
+
+```ts
+const result = await tool.grep({ query: "TODO", maxResults: 20 });
+if (result.ok && result.data?.incompleteReasons.length) {
+  // Narrow the root or file patterns before searching again.
+}
+```
+
+## Related
+
+- [glob](/docs/core/tools/built-in/file-io/glob) - Find files, directories, and symlinks by name.
+- [read_file](/docs/core/tools/built-in/file-io/read_file) - Read a matching file or line range.

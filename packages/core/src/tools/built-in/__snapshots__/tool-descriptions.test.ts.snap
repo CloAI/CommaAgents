@@ -1,97 +1,33 @@
-// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`built-in tool descriptions read_file description 1`] = `
-"Read a workspace file and return its UTF-8 content plus a sha256 over the whole on-disk bytes for stale-file detection.
+exports[`built-in tool descriptions > apply_patch description 1`] = `
+"Apply a multi-file patch in the OpenAI \`apply_patch\` v2 envelope format. A single call can Add, Update, Delete, and Move files together.
 
-Inputs:
-  - \`path\` (string, required) — Workspace-relative path to the file.
-  - \`startLine\` (number, optional) — 1-indexed inclusive start line for slicing large files.
-  - \`endLine\` (number, optional) — 1-indexed inclusive end line; clamped to the file's lineCount.
-  - \`maxBytes\` (number, optional, default 262144) — Cap on the UTF-8 byte length of the returned slice; oversized slices set \`data.truncated\`.
-  - \`allowBinary\` (boolean, optional, default false) — Opt in to reading binary content as base64. The first call on a binary file always returns \`binary_file\`.
-
-Outputs (\`data\`):
-  \`{ content?, contentBase64?, startLine, endLine, lineCount, sizeBytes, sha256, truncated, binary, newlineStyle, hasBom, encoding }\`. \`sha256\` always reflects the full file so it can be passed verbatim as \`expectedSha256\`.
-
-Errors:
-  - \`not_found\` — File missing, or path resolves to a directory — use \`list_directory\` instead.
-  - \`outside_workspace\` — Path escapes the sandbox root or is absolute when not allowed.
-  - \`permission_denied\` — Path matches a forbidden glob or is otherwise read-blocked by the sandbox.
-  - \`binary_file\` — File is binary and \`allowBinary\` was not set. \`data.sizeBytes\` and \`data.sha256\` are still returned. Re-call with \`allowBinary: true\` to receive base64.
-
-Notes:
-  Slicing operates on LF-normalized content; \`sha256\` is computed on the raw bytes (BOM and CRLF preserved)."
-`;
-
-exports[`built-in tool descriptions list_directory description 1`] = `
-"List the entries of a workspace directory and return both a structured array and a human-readable tree view.
+By default the whole patch is atomic: every change is staged, then committed by rename; any failure rolls back the files already committed.
 
 Inputs:
-  - \`path\` (string, required) — Workspace-relative directory to list. Use \`.\` for the workspace root.
-  - \`recursive\` (boolean, optional, default false) — Walk subdirectories. Unbounded recursion is capped by \`maxDepth\`.
-  - \`maxDepth\` (number, optional, default 8 when recursive, 1 otherwise (hard cap 32)) — Inclusive maximum depth relative to \`path\`.
-  - \`includeHidden\` (boolean, optional, default false) — Include dot-prefixed entries (\`.git\`, \`.env\`, etc.).
+  - \`patch\` (string, required) — Patch text bounded by \`*** Begin Patch\` / \`*** End Patch\`. See \`docs/patch-envelope.md\` for the grammar and worked examples.
+  - \`expectedSha256ByPath\` (object<string, string>, optional) — Map of path → expected sha256 for Update / Delete / Move sources. Any mismatch fails the whole patch with \`stale_file\`.
+  - \`atomic\` (boolean, optional, default true) — When \`true\`, no on-disk state changes until every hunk validates and stages cleanly. When \`false\`, files are applied sequentially and a failure leaves earlier changes in place.
 
 Outputs (\`data\`):
-  \`{ entries: [{ name, relativePath, type, size, mtime, depth }], truncated }\`.
-  Entries are sorted by (depth asc, type [directory < file < symlink], name asc). Symlinks are reported with \`type: "symlink"\` and \`size: 0\` and are not followed. Results are capped at 5000 entries; \`truncated\` flags when the cap was hit.
+  \`{ atomic, changedFiles: [{ path, operation, beforeSha256?, afterSha256?, diff }] }\`. \`operation\` is one of \`add\` / \`update\` / \`delete\` / \`move\`. For move operations \`path\` is the source and \`afterSha256\` reflects the new location.
 
 Errors:
-  - \`not_found\` — Path is missing or is not a directory.
-  - \`outside_workspace\` — Path escapes the sandbox root or is absolute when not allowed.
-  - \`permission_denied\` — Path is read-blocked by the sandbox (entries blocked by forbidden globs are filtered silently from successful listings).
+  - \`patch_parse_error\` — Patch text does not match the envelope grammar. \`error.details: { line, expected }\` points at the first offending line.
+  - \`patch_apply_error\` — A hunk could not be applied with zero fuzz. \`error.details: { path, hunkIndex, reason }\` localizes the failure.
+  - \`stale_file\` — An \`expectedSha256ByPath\` entry does not match the current on-disk hash.
+  - \`not_found\` — An Update / Delete / Move source file is missing.
+  - \`already_exists\` — An Add or Move destination already exists.
+  - \`outside_workspace\` — A patched path escapes the sandbox root.
+  - \`permission_denied\` — A patched path is blocked by the sandbox or matches a forbidden glob.
 
 Notes:
-  Entries blocked by \`forbiddenGlobs\` or \`canRead\` are filtered silently — best-effort listing semantics."
+  Each changed file is appended to the audit log with the matching operation kind.
+  \`apply_patch\` is the preferred tool for any change touching more than one file — it gives atomicity that sequential \`write_file\` / \`edit_file\` calls can't."
 `;
 
-exports[`built-in tool descriptions search_files description 1`] = `
-"Search the workspace by path glob, literal text, or regex; returns structured match locations with optional context lines.
-
-Inputs:
-  - \`query\` (string, required) — Pattern to match. Interpretation depends on \`mode\`: glob (path), literal (text), or JS regex (regex).
-  - \`mode\` ("path" | "text" | "regex", required) — "path" matches file paths against a Bun.Glob; "text" searches file contents for a literal substring; "regex" compiles \`query\` as a JS regex with the "m" flag so ^/$ anchor on lines.
-  - \`root\` (string, optional, default ".") — Workspace-relative directory to search under.
-  - \`includeGlobs\` (string[], optional) — Path globs that candidate files must match.
-  - \`excludeGlobs\` (string[], optional, default node_modules / .git / dist / build / .next / .turbo / coverage) — Path globs that candidates must NOT match.
-  - \`maxResults\` (number, optional, default 100) — Cap on the number of matches; sets \`data.truncated\` when hit.
-  - \`contextLines\` (number, optional, default 0) — Lines of surrounding context to include in each match's \`preview\`.
-
-Outputs (\`data\`):
-  \`{ matches: [{ path, line?, column?, preview }], truncated }\`. \`line\`/\`column\` are 1-indexed and omitted for \`path\` mode.
-
-Errors:
-  - \`not_found\` — \`root\` is missing or not a directory.
-  - \`outside_workspace\` — \`root\` escapes the sandbox or is absolute when not allowed.
-  - \`permission_denied\` — \`root\` is read-blocked by the sandbox.
-  - \`command_failed\` — \`query\` is not a valid regex (regex mode only).
-
-Notes:
-  Binary files are skipped automatically in content modes. Files larger than 4194304 bytes are skipped. Traversal is capped at depth 32."
-`;
-
-exports[`built-in tool descriptions glob description 1`] = `
-"Search the workspace for files and folders matching a glob pattern.
-
-Inputs:
-  - \`pattern\` (string, required) — Glob pattern to match (e.g., "src/**/*.ts" or "**/*.json").
-  - \`root\` (string, optional, default ".") — Workspace-relative directory to search under.
-  - \`excludeGlobs\` (string[], optional, default node_modules / .git / dist / build / .next / .turbo / coverage) — Glob patterns to exclude from traversal and matching.
-  - \`maxResults\` (number, optional, default 1000) — Cap on the number of matches; sets \`data.truncated\` when hit.
-
-Outputs (\`data\`):
-  \`{ matches: [{ path, type, size, mtime }], truncated }\`.
-
-Errors:
-  - \`not_found\` — \`root\` is missing or not a directory.
-  - \`outside_workspace\` — \`root\` escapes the sandbox or is absolute when not allowed.
-  - \`permission_denied\` — \`root\` is read-blocked by the sandbox.
-
-Notes:
-  Traversal is capped at depth 32."
-`;
-
-exports[`built-in tool descriptions create_file description 1`] = `
+exports[`built-in tool descriptions > create_file description 1`] = `
 "Create a brand-new file at \`path\` with the given UTF-8 content. Refuses to overwrite — use \`write_file\` for existing files.
 
 Inputs:
@@ -113,31 +49,29 @@ Notes:
   Every create is appended to the audit log as a \`create\` operation."
 `;
 
-exports[`built-in tool descriptions write_file description 1`] = `
-"Replace the contents of an existing file. The sha256 from a prior \`read_file\` must be passed as \`expectedSha256\` so concurrent edits are detected.
+exports[`built-in tool descriptions > delete_file description 1`] = `
+"Delete a workspace file. By default the file is moved to a workspace-scoped trash bucket so it can be recovered.
 
 Inputs:
-  - \`path\` (string, required) — Workspace-relative path to the file. Must already exist.
-  - \`content\` (string, required) — New UTF-8 content. The file's existing newline style and BOM are preserved automatically — pass plain LF text.
-  - \`expectedSha256\` (string, required) — sha256 of the file as last read. Mismatch returns \`stale_file\` with the current hash in \`error.details\`.
+  - \`path\` (string, required) — Workspace-relative path to a regular file. Directories are not deletable through this tool.
+  - \`expectedSha256\` (string, optional) — Optional. sha256 of the file as last read. When present, a mismatch returns \`stale_file\`. When omitted, the file is deleted without staleness protection.
+  - \`permanent\` (boolean, optional, default false) — Unlink directly without going through the trash. Not recoverable.
 
 Outputs (\`data\`):
-  \`{ beforeSha256, afterSha256, diff }\`. \`afterSha256\` is the new on-disk hash for use as \`expectedSha256\` next time.
+  \`{ deleted: true, beforeSha256, diff, trashedTo? }\`. \`trashedTo\` is set when the file went through the trash; \`diff\` is the unified diff from the file to \`/dev/null\`.
 
 Errors:
-  - \`not_found\` — File does not exist — use \`create_file\` instead.
-  - \`stale_file\` — \`expectedSha256\` does not match the current on-disk hash. Re-read and retry.
-  - \`binary_file\` — Existing file is binary — use \`apply_patch\` or a binary-aware workflow.
+  - \`not_found\` — File does not exist or is a directory.
+  - \`stale_file\` — \`expectedSha256\` does not match the current hash. Re-read and retry.
   - \`outside_workspace\` — Path escapes the sandbox root or is absolute when not allowed.
   - \`permission_denied\` — Path is write-blocked by the sandbox or matches a forbidden glob.
 
 Notes:
-  Atomic write: staged to a sibling tmp file, fsync'd, then renamed.
-  Parent directories are NOT created — use \`create_file\` with \`createParentDirectories: true\` for new paths.
-  Every write is appended to the audit log as an \`update\` operation."
+  Trash lives under \`<dataDir>/trash/<sha256(workspaceRoot)>/<timestamp>-<uuid>-<basename>.tar.gz\`. Archives are user-managed via the daemon (no automatic GC).
+  Every delete is appended to the audit log as a \`delete\` operation."
 `;
 
-exports[`built-in tool descriptions edit_file description 1`] = `
+exports[`built-in tool descriptions > edit_file description 1`] = `
 "Apply one or more exact-string replacements to a text file in a single transaction.
 
 All edits are matched against the ORIGINAL file snapshot, so edit order is irrelevant and earlier edits never create or hide matches for later edits.
@@ -170,29 +104,54 @@ Notes:
   Every successful run is appended to the audit log as an \`update\` operation."
 `;
 
-exports[`built-in tool descriptions delete_file description 1`] = `
-"Delete a workspace file. By default the file is moved to a workspace-scoped trash bucket so it can be recovered.
+exports[`built-in tool descriptions > glob description 1`] = `
+"Find files, directories, and symlinks by path pattern. Use grep to search contents and read_file to read text.
 
 Inputs:
-  - \`path\` (string, required) — Workspace-relative path to a regular file. Directories are not deletable through this tool.
-  - \`expectedSha256\` (string, optional) — Optional. sha256 of the file as last read. When present, a mismatch returns \`stale_file\`. When omitted, the file is deleted without staleness protection.
-  - \`permanent\` (boolean, optional, default false) — Unlink directly without going through the trash. Not recoverable.
+  - \`pattern\` (string, required) — Root-relative glob. * lists immediate children; **/*.ts searches recursively.
+  - \`root\` (string, optional, default ".") — Workspace-relative directory.
+  - \`excludeGlobs\` (string[], optional) — Root-relative exclusions replacing defaults. [] disables exclusions.
+  - \`maxResults\` (number, optional, default 1000) — Result limit, capped by application configuration.
 
 Outputs (\`data\`):
-  \`{ deleted: true, beforeSha256, diff, trashedTo? }\`. \`trashedTo\` is set when the file went through the trash; \`diff\` is the unified diff from the file to \`/dev/null\`.
+  { matches: [{ path, type }], truncated, incompleteReasons }. Paths are workspace-relative; incompleteReasons explains omitted work.
 
 Errors:
-  - \`not_found\` — File does not exist or is a directory.
-  - \`stale_file\` — \`expectedSha256\` does not match the current hash. Re-read and retry.
-  - \`outside_workspace\` — Path escapes the sandbox root or is absolute when not allowed.
-  - \`permission_denied\` — Path is write-blocked by the sandbox or matches a forbidden glob.
+  - \`not_found\` — Root does not exist or is not a directory.
+  - \`permission_denied\` — Root is not readable.
+  - \`outside_workspace\` — Root escapes the sandbox.
 
 Notes:
-  Trash lives under \`<dataDir>/trash/<sha256(workspaceRoot)>/<timestamp>-<sessionId>-<runId>-<basename>.tar.gz\`. Archives are user-managed via the daemon (no automatic GC).
-  Every delete is appended to the audit log as a \`delete\` operation."
+  Hidden entries are included; .git, node_modules, dist, build, .next, .turbo, and coverage are excluded by default. Symlinks are reported but not traversed. Cancellation aborts the call."
 `;
 
-exports[`built-in tool descriptions move_file description 1`] = `
+exports[`built-in tool descriptions > grep description 1`] = `
+"Search file contents for literal text or line-local regular expressions. Use glob to find paths and read_file to read files.
+
+Inputs:
+  - \`query\` (string, required) — Literal text, or a regular expression when regex is true.
+  - \`root\` (string, optional, default ".") — Directory to search.
+  - \`regex\` (boolean, optional, default false) — Interpret query as a line-local regular expression.
+  - \`ignoreCase\` (boolean, optional, default false) — Ignore letter case.
+  - \`includeGlobs\` (string[], optional) — Only search matching root-relative paths.
+  - \`excludeGlobs\` (string[], optional) — Root-relative exclusions; replaces defaults. [] disables exclusions.
+  - \`contextLines\` (number, optional, default 0) — Surrounding lines per match.
+  - \`maxResults\` (number, optional, default 100) — Maximum matching lines, capped by host configuration.
+
+Outputs (\`data\`):
+  \`{ matches: [{ path, line, column, preview }], truncated, incompleteReasons }\`. Paths are workspace-relative; positions are 1-based. Returns the first match per line.
+
+Errors:
+  - \`command_failed\` — Invalid regex. Correct the syntax or use regex:false for literal text.
+  - \`not_found\` — Root is missing or is not a directory.
+  - \`outside_workspace\` — Root escapes the workspace.
+  - \`permission_denied\` — Root is blocked or unreadable.
+
+Notes:
+  Binary files and child symlinks are skipped. Limits and unreadable files are reported in output and incompleteReasons; cancellation aborts the call."
+`;
+
+exports[`built-in tool descriptions > move_file description 1`] = `
 "Rename or move a regular file inside the workspace. Both paths must resolve inside the sandbox.
 
 Inputs:
@@ -216,34 +175,26 @@ Notes:
   Every move is appended to the audit log as a \`move\` operation."
 `;
 
-exports[`built-in tool descriptions apply_patch description 1`] = `
-"Apply a multi-file patch in the OpenAI \`apply_patch\` v2 envelope format. A single call can Add, Update, Delete, and Move files together.
-
-By default the whole patch is atomic: every change is staged, then committed by rename; any failure rolls back the files already committed.
+exports[`built-in tool descriptions > read_file description 1`] = `
+"Read text as whole lines with a full raw-file SHA-256 for stale-write checks.
 
 Inputs:
-  - \`patch\` (string, required) — Patch text bounded by \`*** Begin Patch\` / \`*** End Patch\`. See \`docs/patch-envelope.md\` for the grammar and worked examples.
-  - \`expectedSha256ByPath\` (object<string, string>, optional) — Map of path → expected sha256 for Update / Delete / Move sources. Any mismatch fails the whole patch with \`stale_file\`.
-  - \`atomic\` (boolean, optional, default true) — When \`true\`, no on-disk state changes until every hunk validates and stages cleanly. When \`false\`, files are applied sequentially and a failure leaves earlier changes in place.
+  - \`path\` (string, required) — Workspace-relative file path.
+  - \`startLine\` (number, optional, default 1) — 1-indexed inclusive first line.
+  - \`endLine\` (number, optional, default EOF) — Inclusive last line, at least startLine; clamped at EOF.
 
 Outputs (\`data\`):
-  \`{ atomic, changedFiles: [{ path, operation, beforeSha256?, afterSha256?, diff }] }\`. \`operation\` is one of \`add\` / \`update\` / \`delete\` / \`move\`. For move operations \`path\` is the source and \`afterSha256\` reflects the new location.
+  { content, startLine, endLine, lineCount, sizeBytes, sha256, truncated }. Text is LF-normalized without BOM; sha256 covers original bytes. endLine is the actual last returned line. Continue truncated reads at endLine + 1.
 
 Errors:
-  - \`patch_parse_error\` — Patch text does not match the envelope grammar. \`error.details: { line, expected }\` points at the first offending line.
-  - \`patch_apply_error\` — A hunk could not be applied with zero fuzz. \`error.details: { path, hunkIndex, reason }\` localizes the failure.
-  - \`stale_file\` — An \`expectedSha256ByPath\` entry does not match the current on-disk hash.
-  - \`not_found\` — An Update / Delete / Move source file is missing.
-  - \`already_exists\` — An Add or Move destination already exists.
-  - \`outside_workspace\` — A patched path escapes the sandbox root.
-  - \`permission_denied\` — A patched path is blocked by the sandbox or matches a forbidden glob.
-
-Notes:
-  Each changed file is appended to the audit log with the matching operation kind.
-  \`apply_patch\` is the preferred tool for any change touching more than one file — it gives atomicity that sequential \`write_file\` / \`edit_file\` calls can't."
+  - \`file_too_large\` — Raw files over 4194304 bytes are refused. Whole-line output including summary is capped at 262144 bytes; a first line that cannot fit is refused. Inspect a bounded portion with a command.
+  - \`binary_file\` — Text only; use a format-aware tool or command for binary files.
+  - \`not_found\` — Missing file or directory path. List directories using glob with pattern *.
+  - \`outside_workspace\` — Path is outside the permitted workspace.
+  - \`permission_denied\` — Path is blocked or unreadable."
 `;
 
-exports[`built-in tool descriptions run_command description 1`] = `
+exports[`built-in tool descriptions > run_command description 1`] = `
 "Execute a shell command inside the workspace and capture its stdout, stderr, and exit code.
 
 Host: Linux TEST (x64). Shell: /bin/sh -c. Runtime: bun TEST.
@@ -264,4 +215,28 @@ Errors:
   - \`permission_denied\` — Command matches the deny list, or the user rejected an approval prompt for a high-risk pattern.
   - \`timeout\` — Exceeded \`timeoutMs\`. \`data.timedOut\` is true and partial stdout/stderr are preserved.
   - \`command_failed\` — Spawn failed (shell missing, etc.). A non-zero exit code is NOT an error: \`ok\` stays true and \`data.exitCode\` reflects the failure so you can inspect both output and status."
+`;
+
+exports[`built-in tool descriptions > write_file description 1`] = `
+"Replace the contents of an existing file. The sha256 from a prior \`read_file\` must be passed as \`expectedSha256\` so concurrent edits are detected.
+
+Inputs:
+  - \`path\` (string, required) — Workspace-relative path to the file. Must already exist.
+  - \`content\` (string, required) — New UTF-8 content. The file's existing newline style and BOM are preserved automatically — pass plain LF text.
+  - \`expectedSha256\` (string, required) — sha256 of the file as last read. Mismatch returns \`stale_file\` with the current hash in \`error.details\`.
+
+Outputs (\`data\`):
+  \`{ beforeSha256, afterSha256, diff }\`. \`afterSha256\` is the new on-disk hash for use as \`expectedSha256\` next time.
+
+Errors:
+  - \`not_found\` — File does not exist — use \`create_file\` instead.
+  - \`stale_file\` — \`expectedSha256\` does not match the current on-disk hash. Re-read and retry.
+  - \`binary_file\` — Existing file is binary — use \`apply_patch\` or a binary-aware workflow.
+  - \`outside_workspace\` — Path escapes the sandbox root or is absolute when not allowed.
+  - \`permission_denied\` — Path is write-blocked by the sandbox or matches a forbidden glob.
+
+Notes:
+  Atomic write: staged to a sibling tmp file, fsync'd, then renamed.
+  Parent directories are NOT created — use \`create_file\` with \`createParentDirectories: true\` for new paths.
+  Every write is appended to the audit log as an \`update\` operation."
 `;

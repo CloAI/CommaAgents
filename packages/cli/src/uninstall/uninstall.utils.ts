@@ -14,10 +14,14 @@ export async function removeSelectedData(
 ): Promise<void> {
   const preservedEntries = new Set<string>();
   if (!selections.removeHistory) {
-    for (const entry of HISTORY_DATA_ENTRIES) preservedEntries.add(entry);
+    for (const entry of HISTORY_DATA_ENTRIES) {
+      preservedEntries.add(entry);
+    }
   }
   if (!selections.removePackages) {
-    for (const entry of PACKAGE_DATA_ENTRIES) preservedEntries.add(entry);
+    for (const entry of PACKAGE_DATA_ENTRIES) {
+      preservedEntries.add(entry);
+    }
   }
 
   if (selections.removeConfig) {
@@ -30,7 +34,9 @@ export async function removeSelectedData(
     try {
       entries = await readdir(dataDirectory);
     } catch (caughtError) {
-      if ((caughtError as NodeJS.ErrnoException).code === "ENOENT") return;
+      if ((caughtError as NodeJS.ErrnoException).code === "ENOENT") {
+        return;
+      }
       throw caughtError;
     }
     await Promise.all(

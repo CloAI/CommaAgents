@@ -1,0 +1,211 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-3);
+  gap: var(--space-2);
+  font-size: var(--font-size-small);
+}
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  > .field {
+    flex: 1 1 11rem;
+  }
+}
+.group {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  legend {
+    margin-bottom: var(--space-2);
+    color: var(--color-muted);
+  }
+}
+.form select {
+  min-width: 0;
+  width: 100%;
+  height: 1.875rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+.capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.capabilityToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+  font-weight: 400;
+  &[aria-pressed="true"] {
+    background: var(--color-surface-raised);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+  &:hover:not(:disabled) {
+    background: var(--color-surface-raised);
+    color: var(--color-text);
+  }
+  &[aria-pressed="true"]:hover:not(:disabled) {
+    background: var(--color-surface-raised);
+    color: var(--color-primary);
+  }
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+.modelIdField {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  input {
+    flex: 1;
+    min-width: 0;
+  }
+}
+.modelPrefix {
+  color: var(--color-muted);
+  font: inherit;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.providerPicker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  max-height: 12rem;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-control);
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    padding: var(--space-2);
+    text-align: left;
+    cursor: pointer;
+    &:hover,
+    &[data-active="true"] {
+      background: var(--color-surface);
+      color: var(--color-primary);
+    }
+    code {
+      color: var(--color-muted);
+      font: inherit;
+    }
+  }
+  p {
+    padding: var(--space-2);
+    margin: 0;
+  }
+}
+.advanced {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-2);
+  summary {
+    cursor: pointer;
+    color: var(--color-muted);
+  }
+}
+.advancedContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+.modalities {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  > span {
+    width: 3rem;
+    color: var(--color-muted);
+  }
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  input {
+    accent-color: var(--color-primary);
+  }
+}
+.hint {
+  color: var(--color-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+.error {
+  margin: 0;
+  border-left: 2px solid var(--color-primary);
+  padding-left: var(--space-2);
+}
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.modal {
+  max-width: 32rem;
+  max-height: calc(100svh - 24px);
+  min-height: 0;
+}

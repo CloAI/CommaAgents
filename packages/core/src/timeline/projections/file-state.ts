@@ -15,13 +15,19 @@ export function projectFileState(
   const state = new Map<string, SessionFileEntry>();
 
   for (const event of events) {
-    if (event.type !== "tool_mutation") continue;
-    if (!event.success) continue;
+    if (event.type !== "tool_mutation") {
+      continue;
+    }
+    if (!event.success) {
+      continue;
+    }
 
     switch (event.operation) {
       case "create":
       case "update": {
-        if (event.afterSha256 === undefined) continue;
+        if (event.afterSha256 === undefined) {
+          continue;
+        }
         state.set(event.path, {
           path: event.path,
           sha256: event.afterSha256,

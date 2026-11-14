@@ -25,7 +25,9 @@ function parseVersion(version: string): ParsedVersion | undefined {
   const match = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+.*)?$/.exec(
     version,
   );
-  if (match === null) return undefined;
+  if (match === null) {
+    return undefined;
+  }
   return {
     core: [Number(match[1]), Number(match[2]), Number(match[3])],
     prerelease: match[4]?.split(".") ?? [],
@@ -42,7 +44,9 @@ export function compareVersions(left: string, right: string): number {
 
   for (let index = 0; index < leftVersion.core.length; index += 1) {
     const difference = leftVersion.core[index]! - rightVersion.core[index]!;
-    if (difference !== 0) return difference;
+    if (difference !== 0) {
+      return difference;
+    }
   }
 
   if (
@@ -62,16 +66,24 @@ export function compareVersions(left: string, right: string): number {
   for (let index = 0; index < identifierCount; index += 1) {
     const leftIdentifier = leftVersion.prerelease[index];
     const rightIdentifier = rightVersion.prerelease[index];
-    if (leftIdentifier === undefined) return -1;
-    if (rightIdentifier === undefined) return 1;
-    if (leftIdentifier === rightIdentifier) continue;
+    if (leftIdentifier === undefined) {
+      return -1;
+    }
+    if (rightIdentifier === undefined) {
+      return 1;
+    }
+    if (leftIdentifier === rightIdentifier) {
+      continue;
+    }
 
     const leftNumeric = /^\d+$/.test(leftIdentifier);
     const rightNumeric = /^\d+$/.test(rightIdentifier);
     if (leftNumeric && rightNumeric) {
       return Number(leftIdentifier) - Number(rightIdentifier);
     }
-    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+    if (leftNumeric !== rightNumeric) {
+      return leftNumeric ? -1 : 1;
+    }
     return leftIdentifier.localeCompare(rightIdentifier);
   }
   return 0;
@@ -84,7 +96,9 @@ export function normalizeReleases(value: unknown): readonly ReleaseInfo[] {
   }
 
   return value.flatMap((entry): readonly ReleaseInfo[] => {
-    if (typeof entry !== "object" || entry === null) return [];
+    if (typeof entry !== "object" || entry === null) {
+      return [];
+    }
     const release = entry as Partial<GitHubRelease>;
     const version = release.tag_name?.replace(/^v/, "");
     if (
@@ -136,7 +150,9 @@ export function selectLatestRelease(
   currentVersion: string,
 ): ReleaseInfo | undefined {
   const current = parseVersion(currentVersion);
-  if (current === undefined) return undefined;
+  if (current === undefined) {
+    return undefined;
+  }
   const includePrereleases = current.prerelease.length > 0;
 
   return releases
@@ -188,13 +204,17 @@ export function resolveExpectedChecksum(
 ): string | undefined {
   for (const line of checksumManifest.split(/\r?\n/)) {
     const match = /^([a-fA-F0-9]{64})\s+\*?(.+)$/.exec(line.trim());
-    if (match?.[2] === assetName) return match[1]?.toLowerCase();
+    if (match?.[2] === assetName) {
+      return match[1]?.toLowerCase();
+    }
   }
   return undefined;
 }
 
 function detectMusl(): boolean {
-  if (process.platform !== "linux") return false;
+  if (process.platform !== "linux") {
+    return false;
+  }
   for (const directory of ["/lib", "/usr/lib"]) {
     try {
       if (

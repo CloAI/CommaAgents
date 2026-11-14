@@ -63,7 +63,7 @@ export async function writeAtomic(
     await writeFile(tempPath, content);
 
     if (options.fsync !== false) {
-      // Open + fsync + close. Bun's fs/promises returns a FileHandle.
+      // Flush the file to disk before replacing its destination.
       const handle = await open(tempPath, "r+");
       try {
         await handle.sync();

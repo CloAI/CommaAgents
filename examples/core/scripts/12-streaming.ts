@@ -13,7 +13,7 @@
  *   - { type: "done", result } — generation complete with final result
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/12-streaming.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/12-streaming.ts
  *
  * Concepts:
  *   - agent.stream(message) for streaming responses
@@ -71,7 +71,7 @@ async function main() {
     model,
     systemPrompt:
       "You are a file explorer. Use tools to answer questions about the project.",
-    tools: ["read_file", "list_directory", "search_files", "run_command"],
+    tools: ["read_file", "glob", "grep", "run_command"],
   });
 
   console.log("Streaming response with tool calls:");

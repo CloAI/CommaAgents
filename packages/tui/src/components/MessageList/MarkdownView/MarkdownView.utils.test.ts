@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { THINKING_ELLIPSIS_LINE } from "./MarkdownView.constants";
 import {
   inlineSpansToPlainText,
@@ -38,14 +38,18 @@ describe("tokenizeMarkdown", () => {
   it("clamps heading depth into the 1..6 range", () => {
     const blocks = tokenizeMarkdown("###### deep");
     const block = blocks[0];
-    if (block?.kind !== "heading") throw new Error("expected heading");
+    if (block?.kind !== "heading") {
+      throw new Error("expected heading");
+    }
     expect(block.depth).toBe(6);
   });
 
   it("emits a list with ordered + start metadata", () => {
     const blocks = tokenizeMarkdown("3. one\n4. two");
     const block = blocks[0];
-    if (block?.kind !== "list") throw new Error("expected list");
+    if (block?.kind !== "list") {
+      throw new Error("expected list");
+    }
     expect(block.ordered).toBe(true);
     expect(block.start).toBe(3);
     expect(block.items).toHaveLength(2);
@@ -54,14 +58,18 @@ describe("tokenizeMarkdown", () => {
   it("captures nested blocks under a list item", () => {
     const blocks = tokenizeMarkdown("- top\n  - nested");
     const list = blocks[0];
-    if (list?.kind !== "list") throw new Error("expected list");
+    if (list?.kind !== "list") {
+      throw new Error("expected list");
+    }
     expect(list.items[0]?.nested[0]?.kind).toBe("list");
   });
 
   it("auto-closes an unfinished fenced block as a code block", () => {
     const blocks = tokenizeMarkdown("```ts\nincomplete");
     const block = blocks[0];
-    if (block?.kind !== "code") throw new Error("expected code");
+    if (block?.kind !== "code") {
+      throw new Error("expected code");
+    }
     expect(block.language).toBe("ts");
     expect(block.value).toBe("incomplete");
   });
@@ -74,7 +82,9 @@ describe("tokenizeMarkdown", () => {
   it("parses tables into header + rows", () => {
     const blocks = tokenizeMarkdown("| a | b |\n|---|---|\n| 1 | 2 |");
     const block = blocks[0];
-    if (block?.kind !== "table") throw new Error("expected table");
+    if (block?.kind !== "table") {
+      throw new Error("expected table");
+    }
     expect(block.header).toHaveLength(2);
     expect(block.rows).toHaveLength(1);
   });
@@ -84,21 +94,27 @@ describe("inlineSpansToPlainText", () => {
   it("flattens nested strong/em wrappers", () => {
     const blocks = tokenizeMarkdown("**bold *and em***");
     const block = blocks[0];
-    if (block?.kind !== "paragraph") throw new Error("expected paragraph");
+    if (block?.kind !== "paragraph") {
+      throw new Error("expected paragraph");
+    }
     expect(inlineSpansToPlainText(block.children)).toBe("bold and em");
   });
 
   it("renders links as `text (url)`", () => {
     const blocks = tokenizeMarkdown("[home](https://x.com)");
     const block = blocks[0];
-    if (block?.kind !== "paragraph") throw new Error("expected paragraph");
+    if (block?.kind !== "paragraph") {
+      throw new Error("expected paragraph");
+    }
     expect(inlineSpansToPlainText(block.children)).toBe("home (https://x.com)");
   });
 
   it("returns plain code content (no backticks) — those are added by the renderer", () => {
     const blocks = tokenizeMarkdown("use `foo`.");
     const block = blocks[0];
-    if (block?.kind !== "paragraph") throw new Error("expected paragraph");
+    if (block?.kind !== "paragraph") {
+      throw new Error("expected paragraph");
+    }
     expect(inlineSpansToPlainText(block.children)).toBe("use foo.");
   });
 });
@@ -107,7 +123,9 @@ describe("renderTableToText", () => {
   it("renders header + rows in an ASCII bordered table", () => {
     const blocks = tokenizeMarkdown("| h1 | h2 |\n|---|---|\n| a | b |");
     const block = blocks[0];
-    if (block?.kind !== "table") throw new Error("expected table");
+    if (block?.kind !== "table") {
+      throw new Error("expected table");
+    }
     const out = renderTableToText(block.header, block.rows);
     expect(out).toContain("h1");
     expect(out).toContain("h2");

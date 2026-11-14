@@ -4,8 +4,8 @@ export type {
   ApplyPatchToolConfig,
 } from "./apply-patch";
 export { createApplyPatchTool } from "./apply-patch";
-export type { AskQuestionData } from "./ask-question";
-export { askQuestionParams, createAskQuestionTool } from "./ask-question";
+export type { AskQuestionsData } from "./ask-questions";
+export { askQuestionsParams, createAskQuestionsTool } from "./ask-questions";
 export type { CreateFileData, CreateFileToolConfig } from "./create-file";
 export { createCreateFileTool } from "./create-file";
 export type { DeleteFileData, DeleteFileToolConfig } from "./delete-file";
@@ -17,20 +17,41 @@ export type {
   MatchRange,
 } from "./edit-file";
 export { createEditFileTool } from "./edit-file";
-export type {
-  GlobData,
-  GlobMatch,
-  GlobToolConfig,
-} from "./glob";
+export type { GlobData, GlobMatch, GlobToolConfig } from "./glob";
 export { createGlobTool, globParams } from "./glob";
+export type {
+  DelegateData,
+  DelegateJsonValue,
+  DelegateTaskResult,
+  SubagentTarget,
+} from "./delegate";
+export { createDelegateTool, delegateParams } from "./delegate";
+export type {
+  RequestStrategySwitchData,
+  StrategySwitchHandle,
+  StrategySwitchRequest,
+} from "./request-strategy-switch";
+export {
+  createRequestStrategySwitchTool,
+  requestStrategySwitchParams,
+} from "./request-strategy-switch";
+export type {
+  WebSearchData,
+  WebSearchProvider,
+  WebSearchRequest,
+  WebSearchResult,
+  WebSearchToolConfig,
+} from "./web-search";
+export {
+  createBraveSearchProvider,
+  createSearxngSearchProvider,
+  createWebSearchTool,
+  webSearchParams,
+} from "./web-search";
+export type { NotesData, ResearchNote } from "./notes";
+export { createNotesAddTool, createNotesGetTool, resetAllNotes } from "./notes";
 export type { LaunchStrategyData } from "./launch-strategy";
 export { createLaunchStrategyTool } from "./launch-strategy";
-export type {
-  ListDirectoryData,
-  ListDirectoryEntry,
-  ListDirectoryToolConfig,
-} from "./list-directory";
-export { createListDirectoryTool } from "./list-directory";
 export type { ListSkillsData, ListSkillsEntry } from "./list-skills";
 export { createListSkillsTool } from "./list-skills";
 export type { ListStrategyData, ListStrategyEntry } from "./list-strategy";
@@ -39,10 +60,7 @@ export type { LoadSkillData } from "./load-skill";
 export { createLoadSkillTool } from "./load-skill";
 export type { LspRequestData } from "./lsp-request";
 export { createLspRequestTool } from "./lsp-request";
-export type {
-  MoveFileData,
-  MoveFileToolConfig,
-} from "./move-file";
+export type { MoveFileData, MoveFileToolConfig } from "./move-file";
 export { createMoveFileTool } from "./move-file";
 export type { ReadFileData, ReadFileToolConfig } from "./read-file";
 export { createReadFileTool } from "./read-file";
@@ -52,15 +70,14 @@ export type {
   PlatformInfo,
   RunCommandData,
   RunCommandToolConfig,
-  RunCommandToolConfigWithRequester,
 } from "./run-command";
 export { createRunCommandTool } from "./run-command";
 export type {
-  SearchFilesData,
-  SearchFilesMatch,
-  SearchFilesToolConfig,
-} from "./search-files";
-export { createSearchFilesTool } from "./search-files";
+  GrepData,
+  GrepMatch,
+  GrepToolConfig,
+} from "./grep";
+export { createGrepTool } from "./grep";
 export {
   createTodoAddTool,
   createTodoClearTool,
@@ -70,8 +87,7 @@ export {
   createTodoRemoveTool,
 } from "./todo";
 export { createWebFetchTool } from "./webfetch";
-export type {
-  WriteFileData,
-  WriteFileToolConfig,
-} from "./write-file";
+export type { WriteFileData, WriteFileToolConfig } from "./write-file";
 export { createWriteFileTool } from "./write-file";
+
+export { createSearchSkillsTool } from "./search-skills";

@@ -1,0 +1,49 @@
+.toolGroupBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font: inherit;
+  text-align: start;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+
+  svg {
+    flex-shrink: 0;
+  }
+  [data-status="running"] {
+    color: var(--color-warning);
+  }
+  [data-status="failed"] {
+    color: var(--color-error-text);
+  }
+  [data-status="stopped"] {
+    color: var(--color-muted);
+  }
+  &[aria-expanded="true"] .chevron {
+    transform: rotate(90deg);
+  }
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  &[hidden] {
+    display: none;
+  }
+}

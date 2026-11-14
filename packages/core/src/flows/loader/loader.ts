@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 // Flow loader — parse, validate, and instantiate a single flow
 // from a standalone description file.
 //
@@ -61,14 +63,13 @@ export async function loadFlow(
   }
 
   // Read the file
-  const file = Bun.file(filePath);
-  if (!(await file.exists())) {
+  if (!existsSync(filePath)) {
     throw new StrategyValidationError(
       `Flow description file not found: ${filePath}`,
     );
   }
 
-  const content = await file.text();
+  const content = await readFile(filePath, "utf8");
 
   return loadFlowFromString(content, format, options);
 }

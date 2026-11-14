@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { getProjectSkillsDirectory } from "../defaults/defaults";
 
 /** Create a unique temp workspace for skill loader tests. */
 export async function createSkillsWorkspace(label: string): Promise<{
@@ -11,7 +12,7 @@ export async function createSkillsWorkspace(label: string): Promise<{
   const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const workspaceRoot = join(tmpdir(), `comma-skills-${label}-${uniqueSuffix}`);
   const globalDir = join(workspaceRoot, "_global");
-  const projectDir = join(workspaceRoot, ".comma", "skills");
+  const projectDir = getProjectSkillsDirectory(workspaceRoot);
   await mkdir(globalDir, { recursive: true });
   await mkdir(projectDir, { recursive: true });
   return { workspaceRoot, globalDir, projectDir };
@@ -27,9 +28,12 @@ export async function writeSkillFile(
   const skillDir = join(parentDir, skillName);
   await mkdir(skillDir, { recursive: true });
   const lines: string[] = ["---"];
-  if (frontmatter.name !== undefined) lines.push(`name: ${frontmatter.name}`);
-  if (frontmatter.description !== undefined)
+  if (frontmatter.name !== undefined) {
+    lines.push(`name: ${frontmatter.name}`);
+  }
+  if (frontmatter.description !== undefined) {
     lines.push(`description: ${frontmatter.description}`);
+  }
   lines.push("---", "", body);
   const filePath = join(skillDir, "SKILL.md");
   await writeFile(filePath, lines.join("\n"), "utf8");

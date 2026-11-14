@@ -3,9 +3,14 @@ const normalize = (path: string): string => {
   const parts: string[] = [];
 
   for (const part of path.split("/")) {
-    if (!part || part === ".") continue;
-    if (part === "..") parts.pop();
-    else parts.push(part);
+    if (!part || part === ".") {
+      continue;
+    }
+    if (part === "..") {
+      parts.pop();
+    } else {
+      parts.push(part);
+    }
   }
 
   return `${absolute ? "/" : ""}${parts.join("/")}` || (absolute ? "/" : ".");
@@ -20,7 +25,9 @@ export const isAbsolute = (path: string) => path.startsWith("/");
 export const dirname = (path: string) => {
   const normalized = normalize(path);
   const separator = normalized.lastIndexOf("/");
-  if (separator < 0) return ".";
+  if (separator < 0) {
+    return ".";
+  }
   return separator === 0 ? "/" : normalized.slice(0, separator);
 };
 

@@ -5,7 +5,7 @@ description: Search the workspace for files and folders matching a glob pattern,
 
 # glob
 
-Search the workspace for files and folders matching a glob pattern and receive both a structured `matches` array and a human-readable summary. Use this whenever you need to find files or folders by name patterns across the project — it is fast, deterministic, and respects sandbox policy.
+Search the workspace for files and folders matching a glob pattern and receive both a structured `matches` array and a human-readable summary. Use this whenever you need to find files or folders by name patterns across the project. Returned paths are workspace-relative and can be passed to `read_file`.
 
 ```ts
 import { createAgent } from "@comma-agents/core";
@@ -35,7 +35,7 @@ The full structured payload.
 
 <AutoTypeTable path="../packages/core/src/tools/built-in/glob/glob.types.ts" name="GlobData" />
 
-## Usage Examples
+## Usage examples
 
 Match all TypeScript files:
 
@@ -43,27 +43,41 @@ Match all TypeScript files:
 await tool.glob({ pattern: "**/*.ts" });
 ```
 
-Match all directories ending with `-folder`:
+List immediate children of `src`, including files, directories, and symlinks:
 
 ```ts
-await tool.glob({ pattern: "*-folder" });
+await tool.glob({ pattern: "*", root: "src" });
 ```
 
-## Exclusions and Sandbox Policy
+## Scope and exclusions
 
-By default, standard project directories (`node_modules`, `.git`, `dist`, `build`, `.next`, `.turbo`, `coverage`) are excluded from search and traversal. You can pass a custom `excludeGlobs` array to override this.
+`pattern` and `excludeGlobs` are relative to `root`, which defaults to `"."`. Hidden entries are included. By default, `node_modules`, `.git`, `dist`, `build`, `.next`, `.turbo`, and `coverage` are excluded. `excludeGlobs` replaces these defaults; pass `[]` to disable exclusions. `.gitignore` is not consulted. Symlinks are reported without traversing their targets.
 
-Entries blocked by `forbiddenGlobs` or by the sandbox read policy are filtered silently. The tool only fails with `permission_denied` when the searched `root` itself is unreadable.
+```ts
+await tool.glob({ pattern: "**/*.ts", root: "src", excludeGlobs: ["**/*.test.ts"] });
+```
+
+Entries blocked by `forbiddenGlobs` or by the sandbox read policy are filtered silently. A blocked root returns `permission_denied`.
+
+## Limits and incomplete results
+
+The default caps are 1,000 matches, depth 32, and 256 KiB of returned output. `truncated` and `incompleteReasons` report result limits, traversal limits, and unreadable entries. Cancellation stops the call instead of returning a successful partial result.
+
+```ts
+const result = await tool.glob({ pattern: "**/*.ts", maxResults: 100 });
+if (result.ok && result.data?.incompleteReasons.length) {
+  // Narrow the root or pattern before searching again.
+}
+```
 
 ## Errors
 
 | Kind | When |
 |---|---|
 | `not_found` | The `root` path is missing or is not a directory. |
-| `outside_workspace` | The `root` path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `outside_workspace` | The `root` path escapes the sandbox or absolute paths are disabled. |
 | `permission_denied` | The `root` directory itself cannot be read. |
 
 ## Related
 
-- [list_directory](/docs/core/tools/built-in/file-io/list_directory) — enumerate a single directory.
-- [search_files](/docs/core/tools/built-in/file-io/search_files) — search file contents using text or regex.
+- [grep](/docs/core/tools/built-in/file-io/grep) — search file contents using literal text or regex.

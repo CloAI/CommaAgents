@@ -1,0 +1,105 @@
+---
+title: Configuration
+description: Resolve daemon settings from environment variables, JSON configuration, and platform defaults.
+---
+
+# Configuration
+
+Use `loadDaemonConfig` to resolve every daemon setting before creating a server or controlling a daemon process.
+
+```ts
+import { loadDaemonConfig } from "@comma-agents/daemon";
+
+const config = loadDaemonConfig();
+console.log(`${config.host}:${config.port}`);
+```
+
+## DaemonConfig
+
+The fully resolved configuration used by the daemon.
+
+<AutoTypeTable path="../packages/daemon/src/config/config.types.ts" name="DaemonConfig" />
+
+## DaemonConfigFile
+
+The optional fields accepted by the JSON configuration file.
+
+<AutoTypeTable path="../packages/daemon/src/config/config.types.ts" name="DaemonConfigFile" />
+
+## LoadConfigOptions
+
+Options for selecting a configuration file or supplying an environment map.
+
+<AutoTypeTable path="../packages/daemon/src/config/config.ts" name="LoadConfigOptions" />
+
+## Validate configuration data
+
+Use `DaemonConfigFileSchema` when another part of your application reads or constructs daemon configuration data.
+
+```ts
+import { DaemonConfigFileSchema } from "@comma-agents/daemon";
+
+const fileConfig = DaemonConfigFileSchema.parse({
+  host: "127.0.0.1",
+  port: 7422,
+  logLevel: "info",
+});
+```
+
+## Resolution priority
+
+Each setting is resolved in this order:
+
+1. `COMMA_DAEMON_*` environment variables.
+2. The JSON configuration file.
+3. Platform-aware built-in defaults.
+
+Set `COMMA_DAEMON_CONFIG_FILE` to choose the JSON file. The supported setting variables are `COMMA_DAEMON_PORT`, `COMMA_DAEMON_HOST`, `COMMA_DAEMON_LOG_LEVEL`, `COMMA_DAEMON_LOG_FILE`, `COMMA_DAEMON_PID_FILE`, and `COMMA_DAEMON_RUNS_DIR`.
+
+```bash
+COMMA_DAEMON_PORT=7423 COMMA_DAEMON_LOG_LEVEL=debug comma daemon start
+```
+
+## Console and payload logging
+
+Set `COMMA_DAEMON_CONSOLE=true|false`, `COMMA_DAEMON_CONSOLE_FORMAT=text|json`, and `COMMA_DAEMON_LOG_PAYLOADS=true|false` to control console output and payload logging. Boolean variables accept only `true` or `false`; empty values use the configured default. Explicit CLI flags override environment values.
+
+The same settings are available in the JSON configuration file:
+
+```json
+{
+  "console": true,
+  "consoleFormat": "text",
+  "logLevel": "debug",
+  "logPayloads": false
+}
+```
+
+Console logging defaults to JSON on stderr. Explicit `console: true` defaults to text unless a format is configured. File output remains JSON. `logPayloads: true` enables debug logging while retaining trace level if already selected; payload records go to each enabled output. Payloads include agent input, available static system prompts, completed responses, and tool arguments/results. These describe agent activity rather than exact provider request bodies.
+
+```bash
+COMMA_DAEMON_CONSOLE=true COMMA_DAEMON_LOG_LEVEL=debug comma daemon start --foreground
+```
+
+Detached processes discard console output; their configured log file retains diagnostics.
+
+## Harness settings
+
+Two settings shape how strategies build their agents:
+
+- `modelRoles` maps role names to models. Strategies refer to roles such as `@simple`, `@medium`, `@complex`, `@memory`, and `@compaction`; a role you configure here wins over the strategy's own default, and a role nobody defines stops the run with a list of what to set. The web UI edits these under Settings → General → Strategy models, and `comma models set <role> <provider/model>` writes them from the CLI. A run can override any role for itself: pass `modelRoles` to `runs.prepare`, use the Strategy models control beside the strategy picker (on the new-chat page the choice is remembered per strategy and sent when the chat starts), or `comma run --model-role medium=provider/model`. Clients can call `core.modelRoles.get` and `core.modelRoles.set`.
+- `instructionFiles` lists the file names read for project instructions, checked in each directory from the repository root down to the working directory. Defaults to `["AGENTS.md", "CLAUDE.md"]`.
+
+```json
+{
+  "modelRoles": {
+    "medium": "anthropic/claude-sonnet-5-5",
+    "simple": "openai/gpt-5-mini"
+  },
+  "instructionFiles": ["AGENTS.md"]
+}
+```
+
+Invalid JSON, unknown configuration shapes, invalid ports, and unsupported log levels cause configuration loading to fail before the server starts.
+
+For Venice protected inference, `COMMA_VENICE_ALLOW_UNBOUND_RECEIPTS=true` permits authenticated receipts with mismatched body hashes. This explicitly trusts the provider path without verified conversation binding; accepted responses and tool calls carry a degraded privacy report and an error log. It defaults to `false`. See [privacy verification logging](/docs/daemon/logger) for the recorded checks.

@@ -50,7 +50,9 @@ export function HubPackagesPage({
 
   useEffect(() => {
     const unsubscribePackages = on("hub_packages", (message) => {
-      if (message.requestId !== requestIdRef.current) return;
+      if (message.requestId !== requestIdRef.current) {
+        return;
+      }
       if (message.operation === "list") {
         setPackages(message.available ?? []);
         setInstalled(message.installed ?? []);
@@ -68,8 +70,9 @@ export function HubPackagesPage({
       void refreshStrategies().finally(requestList);
     });
     const unsubscribeErrors = on("error", (message) => {
-      if (message.requestId === requestIdRef.current)
+      if (message.requestId === requestIdRef.current) {
         setStatus(`Error: ${message.message}`);
+      }
     });
     requestList();
     return () => {
@@ -112,7 +115,9 @@ export function HubPackagesPage({
 
   useInput(
     (input, key) => {
-      if (input && isMouseEscape(input)) return;
+      if (input && isMouseEscape(input)) {
+        return;
+      }
       if (key.escape) {
         onBack();
         return;

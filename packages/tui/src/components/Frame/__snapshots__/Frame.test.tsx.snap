@@ -1,6 +1,6 @@
-// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Frame renders active tabs, content, and a pinned footer snapshot 1`] = `
+exports[`Frame > renders active tabs, content, and a pinned footer snapshot 1`] = `
 " Chat Logs
  ──────────────────────────────────────
 conversation

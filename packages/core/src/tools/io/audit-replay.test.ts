@@ -3,7 +3,7 @@
 // file and rebuild SessionFileState. Verifies that the audit log is a
 // faithful record from which the file-system view can be reconstructed.
 
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { realpathSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -19,7 +19,7 @@ import type { ToolContext } from "../tool.types";
 import { createFileAuditSink } from "./audit-sink";
 import { sha256OfBuffer } from "./hash";
 import { buildSessionFileState } from "./session-file-state";
-import { trashWorkspaceDir } from "./trash";
+import { getDeletedFilesDirectory } from "../built-in/delete-file/deletion";
 
 let workspaceRoot: string;
 
@@ -30,7 +30,10 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
-  await rm(trashWorkspaceDir(workspaceRoot), { recursive: true, force: true });
+  await rm(getDeletedFilesDirectory(workspaceRoot), {
+    recursive: true,
+    force: true,
+  });
 });
 
 function makeCtx(
@@ -39,7 +42,7 @@ function makeCtx(
 ): ToolContext {
   return makeToolContext({
     agentName: "replay-agent",
-    sandbox: createSandbox({ cwd: workspaceRoot, jail: true }),
+    sandbox: createSandbox({ cwd: workspaceRoot, outsideWorkspace: "deny" }),
     sessionId,
     auditSink: sink,
   });

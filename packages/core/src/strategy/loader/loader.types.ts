@@ -4,13 +4,14 @@ import type { Agent } from "../../agents/agent/agent.types";
 import type { AgentTypeRuntime } from "../../agents/registry/agent-registry.types";
 import type { FlowHooks } from "../../flows/flow/flow.types";
 import type { McpAgentToolSet } from "../../mcp";
+import type { ModelRoles } from "../../model/roles";
 import type { Strategy } from "../schema";
 
 /**
  * Options for loading a strategy.
  *
  * Model and tool resolution happen internally via global registries
- * (registerModel / registerProvider / registerTool). The loader does
+ * (registerModel / registerProviderDefinition / registerTool). The loader does
  * not accept provider factories or credential stores — callers must
  * configure those globally before loading a strategy.
  */
@@ -23,6 +24,12 @@ export interface LoadStrategyOptions extends AgentTypeRuntime {
   readonly flowHooks?: FlowHooks;
   /** Run-scoped MCP tools already resolved for each agent name. */
   readonly mcpToolsByAgent?: Readonly<Record<string, McpAgentToolSet>>;
+  /** Working directory used for project instruction and environment blocks. @default sandbox cwd, then process.cwd() */
+  readonly cwd?: string;
+  /** Instruction file names checked per directory, first match wins. @default ["AGENTS.md", "CLAUDE.md"] */
+  readonly instructionFiles?: readonly string[];
+  /** User-configured models for `@role` references; these win over the strategy's `modelRoles`. */
+  readonly modelRoles?: ModelRoles;
 }
 
 /**

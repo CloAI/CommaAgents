@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 
 import {
   buildPackageUpdateCommand,
@@ -73,7 +73,9 @@ describe("update utilities", () => {
         "/home/tester/.bun/install/global/node_modules/@comma-agents/cli/dist/comma.js",
     });
     expect(installation).toEqual({ type: "package", manager: "bun" });
-    if (installation.type !== "package") throw new Error("Expected package");
+    if (installation.type !== "package") {
+      throw new Error("Expected package");
+    }
     expect(
       buildPackageUpdateCommand(
         installation.manager,

@@ -18,7 +18,9 @@ export function toUserMessage(
 export function isConversationRecord(
   value: unknown,
 ): value is ConversationRecord {
-  if (typeof value !== "object" || value === null) return false;
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
   const record = value as Partial<ConversationRecord>;
   return (
     typeof record.id === "string" &&
@@ -45,7 +47,9 @@ export function isConversationRecord(
 
 /** Check the normalized context-usage object persisted on records. */
 function isContextUsage(value: unknown): value is ContextUsage {
-  if (typeof value !== "object" || value === null) return false;
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
   const contextUsage = value as Partial<ContextUsage>;
   return (
     typeof contextUsage.totalTokens === "number" &&
@@ -61,7 +65,9 @@ function isContextUsage(value: unknown): value is ContextUsage {
 }
 
 function isInputTokenDetails(value: unknown): boolean {
-  if (typeof value !== "object" || value === null) return false;
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
   const details = value as {
     readonly noCacheTokens?: unknown;
     readonly cacheReadTokens?: unknown;
@@ -78,7 +84,9 @@ function isInputTokenDetails(value: unknown): boolean {
 }
 
 function isOutputTokenDetails(value: unknown): boolean {
-  if (typeof value !== "object" || value === null) return false;
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
   const details = value as {
     readonly textTokens?: unknown;
     readonly reasoningTokens?: unknown;

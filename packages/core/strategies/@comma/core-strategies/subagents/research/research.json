@@ -1,0 +1,22 @@
+{
+  "name": "Research",
+  "version": "1.0",
+  "description": "Web research on a question: splits it into sub-questions, runs parallel workers, and returns a sourced answer that flags uncertainty.",
+  "agents": {
+    "lead": {
+      "model": "@medium",
+      "maxSteps": 20,
+      "systemPrompt": "./prompts/lead.md",
+      "context": { "environment": true },
+      "subagents": {
+        "research-worker": "../research-worker/research-worker.json"
+      },
+      "tools": ["delegate"]
+    }
+  },
+  "flow": {
+    "name": "Research",
+    "type": "sequential",
+    "steps": [{ "agent": "lead" }]
+  }
+}

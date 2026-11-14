@@ -3,7 +3,7 @@
 Agent orchestration APIs for CommaAgents.
 
 ```bash
-bun add @comma-agents/core@next
+pnpm add @comma-agents/core@next
 ```
 
 ```ts
@@ -15,4 +15,4 @@ const agent = createAgent({
 });
 ```
 
-Requires Bun 1.3 or newer.
+Requires Node.js 26 or newer.

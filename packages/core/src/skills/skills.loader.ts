@@ -1,173 +1,260 @@
+import { lstat, open, readdir, realpath, stat } from "node:fs/promises";
+import { constants } from "node:fs";
 import type { Dirent } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
-import { SKILL_FILENAME, SKILL_MAX_BYTES } from "./skills.constants";
-import { createSkillRegistry } from "./skills.registry";
-import type { LoadSkillsOptions, Skill, SkillRegistry } from "./skills.types";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import {
-  parseSkillFile,
-  resolveDefaultGlobalSkillsDir,
-  resolveDefaultProjectSkillsDir,
-} from "./skills.utils";
+  findCommaProjectRoot,
+  getGlobalSkillsDirectory,
+  getProjectSkillsDirectory,
+} from "../defaults/defaults";
+import {
+  SKILL_FILENAMES,
+  SKILL_MAX_BYTES,
+  RECOMMENDED_GLOBAL_SKILL_DIRECTORIES,
+} from "./skills.constants";
+import { createSkillRegistry } from "./skills.registry";
+import type {
+  LoadSkillsOptions,
+  Skill,
+  SkillLoadResult,
+  SkillLoadWarning,
+  SkillRegistry,
+} from "./skills.types";
+import { parseSkillFile, resolveSkillDirectory } from "./skills.utils";
 
-/**
- * A non-fatal warning produced while scanning a skills directory. Surfaced
- * so callers can log malformed or oversized skills without aborting the
- * whole scan.
- */
-export interface SkillLoadWarning {
-  readonly sourcePath: string;
-  readonly message: string;
-}
+export type { SkillLoadResult, SkillLoadWarning } from "./skills.types";
 
-/** Result returned by {@link loadSkills}. */
-export interface SkillLoadResult {
-  readonly registry: SkillRegistry;
-  readonly warnings: readonly SkillLoadWarning[];
-}
-
-/**
- * Scan the global and project skill directories and return a populated
- * registry. Missing directories are silently ignored (not an error —
- * users may have neither). Project skills override global skills with
- * the same `name`.
- *
- * Each direct subdirectory containing a `SKILL.md` becomes a skill;
- * deeper nesting is ignored to keep discovery predictable. Files larger
- * than {@link SKILL_MAX_BYTES} or with malformed frontmatter are
- * skipped and reported as `warnings`.
- *
- * @param workspaceRoot - Used to resolve the default project skills directory.
- * @param options       - Override or disable either discovery root.
+/** Discover one immutable-in-use snapshot. All sources merge; precedence resolves duplicate names.
+ * @param {string} workspaceRoot - Workspace used for project discovery and relative explicit roots.
+ * @param {LoadSkillsOptions} options - Existing overrides and additional discovery roots.
+ * @returns {Promise<SkillLoadResult>} Loaded registry, recoverable diagnostics, and optional Comma project root.
  */
 export async function loadSkills(
   workspaceRoot: string,
   options: LoadSkillsOptions = {},
 ): Promise<SkillLoadResult> {
-  const globalSkillsDir =
-    options.globalSkillsDir === null
-      ? null
-      : (options.globalSkillsDir ?? resolveDefaultGlobalSkillsDir());
-  const projectSkillsDir =
-    options.projectSkillsDir === null
-      ? null
-      : (options.projectSkillsDir ??
-        resolveDefaultProjectSkillsDir(workspaceRoot));
-
+  const workspace = resolve(workspaceRoot);
+  const projectRoot = findCommaProjectRoot(workspace);
+  const sources: { directory: string; origin: Skill["origin"] }[] = [];
+  if (options.globalSkillsDir !== null) {
+    const directories =
+      options.globalSkillsDir === undefined
+        ? [
+            ...RECOMMENDED_GLOBAL_SKILL_DIRECTORIES.slice(0, -1).map(
+              (directory) => join(homedir(), directory),
+            ),
+            getGlobalSkillsDirectory(),
+          ]
+        : [options.globalSkillsDir];
+    sources.push(
+      ...directories.map((directory) => ({
+        directory,
+        origin: "global" as const,
+      })),
+    );
+  }
+  sources.push(
+    ...(options.additionalDirectories ?? []).map((directory) => ({
+      directory,
+      origin: "global" as const,
+    })),
+  );
+  if (options.projectSkillsDir !== null) {
+    const directory =
+      options.projectSkillsDir ??
+      (projectRoot ? getProjectSkillsDirectory(projectRoot) : undefined);
+    if (directory) {
+      sources.push({ directory, origin: "project" });
+    }
+  }
   const registry = createSkillRegistry();
   const warnings: SkillLoadWarning[] = [];
-
-  // Order matters: register project skills last so that any global skill
-  // sharing a name is overridden. The registry also enforces this defensively.
-  if (globalSkillsDir !== null) {
-    await scanDirectoryInto(globalSkillsDir, "global", registry, warnings);
+  // Traverse high priority first so a symlink alias cannot downgrade the same physical source.
+  const seen = new Set<string>();
+  for (const source of sources.reverse()) {
+    const directory = resolveSkillDirectory(source.directory, workspace);
+    let identity: string;
+    try {
+      identity = await realpath(directory);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        (error.code === "ENOENT" || error.code === "ENOTDIR")
+      ) {
+        try {
+          if ((await lstat(directory)).isSymbolicLink()) {
+            warnings.push({
+              code: "BROKEN_SYMLINK",
+              sourcePath: directory,
+              message: "Unable to resolve the linked skill source.",
+            });
+          }
+        } catch {
+          /* Missing optional roots do not produce diagnostics. */
+        }
+        continue;
+      }
+      warnings.push({
+        code: "SOURCE_UNREADABLE",
+        sourcePath: directory,
+        message: "Unable to access skill directory.",
+      });
+      continue;
+    }
+    if (seen.has(identity)) {
+      continue;
+    }
+    seen.add(identity);
+    await scanDirectoryInto(directory, source.origin, registry, warnings);
   }
-  if (projectSkillsDir !== null) {
-    await scanDirectoryInto(projectSkillsDir, "project", registry, warnings);
-  }
-
-  return { registry, warnings };
+  return { registry, warnings, ...(projectRoot ? { projectRoot } : {}) };
 }
 
-/**
- * Scan a single skills directory and register every well-formed skill.
- * Silently ignores missing directories so an unconfigured global/project
- * root is not an error.
+/** Read direct skill directories, following symlinks without recursive traversal.
+ * @param {string} directory - Skill source root.
+ * @param {Skill["origin"]} origin - Global or project scope.
+ * @param {SkillRegistry} registry - Merged result, already containing higher-priority definitions.
+ * @param {SkillLoadWarning[]} warnings - Recoverable diagnostics.
+ * @returns {Promise<void>} Completion after all direct entries are considered.
  */
 async function scanDirectoryInto(
-  skillsDirectory: string,
+  directory: string,
   origin: Skill["origin"],
   registry: SkillRegistry,
   warnings: SkillLoadWarning[],
 ): Promise<void> {
   let entries: Dirent[];
   try {
-    entries = await readdir(skillsDirectory, { withFileTypes: true });
-  } catch (readError) {
-    const code = (readError as NodeJS.ErrnoException).code;
-    if (code === "ENOENT" || code === "ENOTDIR") return;
-    throw readError;
-  }
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const skillDir = join(skillsDirectory, entry.name);
-    const skillFile = join(skillDir, SKILL_FILENAME);
-
-    let fileStat: Awaited<ReturnType<typeof stat>>;
-    try {
-      fileStat = await stat(skillFile);
-    } catch (statError) {
-      const code = (statError as NodeJS.ErrnoException).code;
-      // Subdirectory without a SKILL.md — silently skip.
-      if (code === "ENOENT" || code === "ENOTDIR") continue;
-      throw statError;
-    }
-    if (!fileStat.isFile()) continue;
-    if (fileStat.size > SKILL_MAX_BYTES) {
-      warnings.push({
-        sourcePath: skillFile,
-        message: `SKILL.md exceeds ${SKILL_MAX_BYTES} bytes (${fileStat.size}). Skipped.`,
-      });
-      continue;
-    }
-
-    let rawContent: string;
-    try {
-      rawContent = await Bun.file(skillFile).text();
-    } catch (readError) {
-      warnings.push({
-        sourcePath: skillFile,
-        message: `Failed to read SKILL.md: ${(readError as Error).message}`,
-      });
-      continue;
-    }
-
-    let parsed: ReturnType<typeof parseSkillFile>;
-    try {
-      parsed = parseSkillFile(rawContent);
-    } catch (parseError) {
-      warnings.push({
-        sourcePath: skillFile,
-        message: (parseError as Error).message,
-      });
-      continue;
-    }
-
-    registry.register({
-      name: parsed.metadata.name,
-      description: parsed.metadata.description,
-      content: parsed.body,
-      sourcePath: skillFile,
-      origin,
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch {
+    warnings.push({
+      code: "SOURCE_UNREADABLE",
+      sourcePath: directory,
+      message: "Unable to read skill directory.",
     });
+    return;
+  }
+  entries.sort((first, second) => first.name.localeCompare(second.name));
+  for (const entry of entries) {
+    if (!entry.isDirectory() && !entry.isSymbolicLink()) {
+      continue;
+    }
+    const skillDirectory = join(directory, entry.name);
+    let filenames: string[];
+    try {
+      if (!(await stat(skillDirectory)).isDirectory()) {
+        continue;
+      }
+      filenames = await readdir(skillDirectory);
+    } catch {
+      warnings.push({
+        code: entry.isSymbolicLink() ? "BROKEN_SYMLINK" : "SKILL_UNREADABLE",
+        sourcePath: skillDirectory,
+        message: "Unable to read skill directory or symlink target.",
+      });
+      continue;
+    }
+    const candidates = SKILL_FILENAMES.filter((filename) =>
+      filenames.includes(filename),
+    );
+    if (!candidates.length) {
+      continue;
+    }
+    const sourcePath = join(skillDirectory, candidates[0]!);
+    if (candidates.length > 1) {
+      warnings.push({
+        code: "DUPLICATE_FILENAME",
+        sourcePath,
+        message: "Both SKILL.md and SKILL.MD exist; SKILL.md takes precedence.",
+      });
+    }
+    let content: string;
+    try {
+      const file = await open(
+        sourcePath,
+        constants.O_RDONLY | constants.O_NONBLOCK,
+      );
+      try {
+        if (!(await file.stat()).isFile()) {
+          continue;
+        }
+        const buffer = Buffer.alloc(SKILL_MAX_BYTES + 1);
+        let bytesRead = 0;
+        while (bytesRead < buffer.length) {
+          const chunk = await file.read(
+            buffer,
+            bytesRead,
+            buffer.length - bytesRead,
+            null,
+          );
+          if (!chunk.bytesRead) {
+            break;
+          }
+          bytesRead += chunk.bytesRead;
+        }
+        if (bytesRead > SKILL_MAX_BYTES) {
+          warnings.push({
+            code: "SKILL_TOO_LARGE",
+            sourcePath,
+            message: `SKILL.md exceeds ${SKILL_MAX_BYTES} bytes. Skipped.`,
+          });
+          continue;
+        }
+        content = buffer.subarray(0, bytesRead).toString("utf8");
+      } finally {
+        await file.close();
+      }
+    } catch {
+      warnings.push({
+        code: "SKILL_UNREADABLE",
+        sourcePath,
+        message: "Unable to read skill instructions.",
+      });
+      continue;
+    }
+    try {
+      const parsed = parseSkillFile(content);
+      const existing = registry.get(parsed.metadata.name);
+      if (existing) {
+        warnings.push({
+          code: "SKILL_SHADOWED",
+          sourcePath,
+          message: `Skill "${parsed.metadata.name}" is shadowed by ${existing.sourcePath}.`,
+        });
+        continue;
+      }
+      registry.register({
+        ...parsed.metadata,
+        content: parsed.body,
+        sourcePath,
+        origin,
+      });
+    } catch (error) {
+      warnings.push({
+        code: "INVALID_SKILL",
+        sourcePath,
+        message: error instanceof Error ? error.message : "Invalid skill file.",
+      });
+    }
   }
 }
 
-/**
- * Build the system-prompt header block advertising available skills.
- * Returns an empty string when the registry is empty so callers can
- * concatenate unconditionally.
- *
- * The block format is deliberately compact — `name: description` per
- * line — so that even dozens of skills cost little context:
- *
- * ```
- * ## Available Skills
- * Call the `load_skill` tool with one of these names to load its full instructions:
- * - ts-patterns: TypeScript conventions for new modules.
- * - react-practices: React component and hook patterns.
- * ```
+/** Build the complete metadata index for consumers explicitly requesting that representation.
+ * @param {SkillRegistry} registry - Registry to describe.
+ * @returns {string} Complete skill metadata header, or an empty string.
  */
 export function buildSkillsPromptHeader(registry: SkillRegistry): string {
-  if (registry.isEmpty()) return "";
-  const lines = registry
-    .list()
-    .map((skill) => `- ${skill.name}: ${skill.description}`)
-    .join("\n");
+  if (registry.isEmpty()) {
+    return "";
+  }
   return [
     "## Available Skills",
     "Call the `load_skill` tool with one of these names to load its full instructions before doing related work:",
-    lines,
+    registry
+      .list()
+      .map((skill) => `- ${skill.name}: ${skill.description}`)
+      .join("\n"),
   ].join("\n");
 }

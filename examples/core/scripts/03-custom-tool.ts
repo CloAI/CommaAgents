@@ -9,7 +9,7 @@
  * demonstrate different parameter shapes and return patterns.
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/03-custom-tool.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/03-custom-tool.ts
  *
  * Concepts:
  *   - defineTool()    — declare a tool with description, Zod schema, execute fn
@@ -79,7 +79,7 @@ const calculatorTool = defineTool({
       if (sanitized !== args.expression.trim()) {
         return { output: "Error: expression contains invalid characters." };
       }
-      // biome-ignore lint/security/noGlobalEval: demo-only arithmetic eval
+      // oxlint-disable-next-line no-eval -- demo-only arithmetic eval
       const result = eval(sanitized) as number;
       return {
         output: `${args.expression} = ${result}`,
@@ -119,8 +119,8 @@ async function main() {
     ].join("\n"),
     tools: [
       "read_file",
-      "list_directory",
-      "search_files",
+      "glob",
+      "grep",
       "run_command",
       "weather",
       "calculator",

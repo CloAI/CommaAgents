@@ -19,7 +19,9 @@ export function nextLogId(): string {
 export function formatArgs(args: readonly unknown[]): string {
   return args
     .map((argument) => {
-      if (typeof argument === "string") return argument;
+      if (typeof argument === "string") {
+        return argument;
+      }
       return inspect(argument, { depth: 4, breakLength: 120, colors: false });
     })
     .join(" ");

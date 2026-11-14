@@ -5,7 +5,7 @@
   "description": "End-to-end tests for comma-agents",
   "type": "module",
   "scripts": {
-    "test": "bun test --coverage"
+    "test": "vitest run --coverage"
   },
   "dependencies": {
     "@comma-agents/core": "workspace:*",
@@ -13,5 +13,8 @@
     "@comma-agents/utils": "workspace:*",
     "ai": "6.0.91",
     "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.70.0"
   }
 }

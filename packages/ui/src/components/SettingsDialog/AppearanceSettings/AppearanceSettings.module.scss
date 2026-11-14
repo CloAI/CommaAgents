@@ -1,0 +1,90 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: var(--font-size-small);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  button[aria-pressed="true"] {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+.hint {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-compact);
+}
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  legend {
+    padding: 0 var(--space-1);
+    color: var(--color-muted);
+  }
+}
+.colorField {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.colorText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.swatch {
+  flex: none;
+  width: 2rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  cursor: pointer;
+}
+.hex {
+  flex: none;
+  width: 6.5rem;
+  font-family: var(--font-mono);
+}
+
+.selection {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.modes {
+  display: inline-flex;
+  flex: none;
+  margin-inline-start: auto;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+  button {
+    border-color: transparent;
+    background: transparent;
+  }
+  button[aria-pressed="true"] {
+    background: var(--color-surface-raised);
+    color: var(--color-primary);
+    border-color: var(--color-border);
+  }
+}

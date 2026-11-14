@@ -16,17 +16,22 @@ export {
   loadCatalog,
   refreshCatalog,
   resetCatalog,
-  resolveCatalogCachePath,
   toModelInfo,
 } from "./catalog/index";
 export { listCopilotModels, listOllamaModels } from "./listers/index";
-export type { ProviderWithModels } from "./providers";
 export {
+  getGlobalProviderResolver,
+  resetGlobalProviderResolver,
+  setProviderInstallDirectory,
+} from "./provider-resolver";
+export {
+  getCustomProviderIdsSync,
   getProviderDefinition,
   getProviderPackageNameSync,
   getRegisteredProviderIds,
+  getRegisteredProviderSync,
   isKnownProviderSync,
-  listAllProviderModels,
+  refreshProviderModels,
   listProviderDefinitions,
   listProviderModels,
   registerProviderDefinition,
@@ -37,18 +42,27 @@ export {
 export type {
   ListModelsContext,
   ListModelsFn,
-  ListModelsResult,
   Modality,
   ModelCapabilities,
   ModelCost,
   ModelInfo,
   ModelModalities,
   ModelStatus,
-  ModelsSource,
+  ModelSource,
+  ProviderOrigin,
   ProviderDefinition,
 } from "./providers.types";
 export {
-  mergeCatalogWithLive,
+  mergeCatalogWithProvider,
   mergeModelInfo,
   sortModels,
 } from "./providers.utils";
+
+export {
+  ModelInfoSchema,
+  ProviderInfoSchema,
+  ModelSourceSchema,
+  ProviderOriginSchema,
+  ModelMetadataSchema,
+} from "./providers.schemas";
+export type { ProviderModelMetadata } from "./providers.types";

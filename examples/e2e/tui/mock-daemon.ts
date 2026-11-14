@@ -1,12 +1,19 @@
 import type { ClientMessage, DaemonMessage } from "@comma-agents/daemon";
 import { parseClientMessage } from "@comma-agents/daemon";
-import type { Server, ServerWebSocket } from "bun";
+import {
+  App,
+  us_listen_socket_close,
+  us_socket_local_port,
+  type WebSocket,
+  type us_listen_socket,
+} from "uWebSockets.js";
+import { setTimeout as delay } from "node:timers/promises";
 
 interface MockDaemonWebSocketData {
   readonly clientId: string;
 }
 
-type MockDaemonSocket = ServerWebSocket<MockDaemonWebSocketData>;
+type MockDaemonSocket = WebSocket<MockDaemonWebSocketData>;
 type ProviderInfo = Extract<
   DaemonMessage,
   { type: "provider_list" }
@@ -77,7 +84,7 @@ export function startMockDaemon({
   const nextUnreadIndexByType = new Map<ClientMessage["type"], number>();
   const sockets = new Set<MockDaemonSocket>();
   let currentMcpServers = [...mcpServers];
-  let server: Server<MockDaemonWebSocketData>;
+  let server: us_listen_socket | undefined;
 
   function base(requestId: string | undefined): {
     readonly ts: string;
@@ -112,10 +119,14 @@ export function startMockDaemon({
     const waiterIndex = waiters.findIndex(
       (waiter) => waiter.type === message.type,
     );
-    if (waiterIndex < 0) return;
+    if (waiterIndex < 0) {
+      return;
+    }
 
     const [waiter] = waiters.splice(waiterIndex, 1);
-    if (!waiter) return;
+    if (!waiter) {
+      return;
+    }
     clearTimeout(waiter.timeout);
     waiter.resolve(message);
   }
@@ -212,7 +223,7 @@ export function startMockDaemon({
         send: (daemonMessage) => send(websocket, daemonMessage),
         base,
       };
-      await Bun.sleep(25);
+      await delay(25);
       if (scenario) {
         await scenario(scenarioContext);
       } else {
@@ -221,29 +232,25 @@ export function startMockDaemon({
     }
   }
 
-  server = Bun.serve<MockDaemonWebSocketData>({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch(request, fetchServer) {
-      const url = new URL(request.url);
-      if (url.pathname !== "/ws") {
-        return new Response("Not Found", { status: 404 });
-      }
-
-      const upgraded = fetchServer.upgrade(request, {
-        data: { clientId: crypto.randomUUID() },
-      });
-      return upgraded
-        ? undefined
-        : new Response("WebSocket upgrade failed", { status: 400 });
-    },
-    websocket: {
+  App()
+    .ws<MockDaemonWebSocketData>("/ws", {
+      upgrade(response, request, context) {
+        response.upgrade(
+          { clientId: crypto.randomUUID() },
+          request.getHeader("sec-websocket-key"),
+          request.getHeader("sec-websocket-protocol"),
+          request.getHeader("sec-websocket-extensions"),
+          context,
+        );
+      },
       open(websocket) {
         sockets.add(websocket);
       },
       message(websocket, rawMessage) {
         try {
-          const parsedJson = JSON.parse(String(rawMessage)) as unknown;
+          const parsedJson = JSON.parse(
+            Buffer.from(rawMessage).toString("utf8"),
+          ) as unknown;
           const result = parseClientMessage(parsedJson);
           if (!result.success) {
             sendError(
@@ -273,11 +280,20 @@ export function startMockDaemon({
       close(websocket) {
         sockets.delete(websocket);
       },
-    },
-  });
+    })
+    .any("/*", (response) =>
+      response.writeStatus("404 Not Found").end("Not Found"),
+    )
+    .listen("127.0.0.1", 0, (socket) => {
+      server = socket;
+    });
+  if (!server) {
+    throw new Error("Failed to listen for mock daemon");
+  }
+  const port = us_socket_local_port(server);
 
   return {
-    url: `ws://127.0.0.1:${server.port}/ws`,
+    url: `ws://127.0.0.1:${port}/ws`,
     receivedMessages,
     sentMessages,
     waitForClientMessage<MessageKind extends ClientMessage["type"]>(
@@ -304,7 +320,9 @@ export function startMockDaemon({
             const waiterIndex = waiters.findIndex(
               (waiter) => waiter.resolve === resolve,
             );
-            if (waiterIndex >= 0) waiters.splice(waiterIndex, 1);
+            if (waiterIndex >= 0) {
+              waiters.splice(waiterIndex, 1);
+            }
             reject(
               new Error(
                 `Timed out waiting for client message ${type}; received: ${receivedMessages.map((message) => message.type).join(", ")}`,
@@ -328,10 +346,12 @@ export function startMockDaemon({
         waiter.reject(new Error("Mock daemon stopped"));
       }
       for (const socket of sockets) {
-        socket.close(1001, "Mock daemon stopped");
+        socket.end(1001, "Mock daemon stopped");
       }
       sockets.clear();
-      server.stop(true);
+      if (server) {
+        us_listen_socket_close(server);
+      }
     },
   };
 }

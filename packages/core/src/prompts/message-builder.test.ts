@@ -1,6 +1,6 @@
 // Tests for message builder — buildMessages and resolveSystemPrompt.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import {
   createConversationContext,
   createConversationRecord,

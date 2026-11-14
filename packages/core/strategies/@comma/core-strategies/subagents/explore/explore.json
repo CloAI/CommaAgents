@@ -1,0 +1,19 @@
+{
+  "name": "Explore",
+  "version": "1.0",
+  "description": "Read-only codebase search. Give it a question; it returns the answer with path:line evidence, without filling your context with file contents.",
+  "agents": {
+    "explorer": {
+      "model": "@simple",
+      "maxSteps": 40,
+      "systemPrompt": "./prompts/explore.md",
+      "context": { "instructions": true, "environment": true },
+      "tools": ["read_file", "glob", "grep", "lsp_request"]
+    }
+  },
+  "flow": {
+    "name": "Explore",
+    "type": "sequential",
+    "steps": [{ "agent": "explorer" }]
+  }
+}

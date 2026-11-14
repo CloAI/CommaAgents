@@ -1,0 +1,93 @@
+.quick {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  max-width: 100%;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  min-height: 1.75rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: var(--font-size-small);
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration),
+    color var(--motion-duration);
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+    color: var(--color-text);
+  }
+}
+
+.chevron {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.modal {
+  width: max-content;
+  max-width: min(calc(100vw - 2 * var(--space-4)), 44rem);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  font-size: var(--font-size-small);
+}
+
+.intro {
+  margin: 0;
+  max-width: 58ch;
+  color: var(--color-muted);
+}
+
+.tag {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-muted);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+
+  &[data-tone="primary"] {
+    border-color: var(--color-primary);
+    color: var(--color-text);
+  }
+}
+
+.action {
+  font-size: var(--font-size-small);
+}
+
+.notSet {
+  color: var(--color-error-text);
+  font-weight: 600;
+}
+
+.dialogToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

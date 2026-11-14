@@ -1,4 +1,4 @@
-import type { DiscoveredStrategy } from "@comma-agents/core";
+import type { DiscoveredStrategy } from "@comma-agents/core/strategy";
 import { Box, Text, useFocusManager } from "ink";
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router";
@@ -17,7 +17,9 @@ import { useIntroPageTheme } from "./IntroPage.theme";
 function getEmptyStrategyLabel(
   status: ReturnType<typeof useStrategyDiscoveryStatus>["status"],
 ): string {
-  if (status === "loading") return "Loading strategies...";
+  if (status === "loading") {
+    return "Loading strategies...";
+  }
   return "No strategies found";
 }
 
@@ -25,8 +27,12 @@ function getEmptyStrategyPlaceholder(
   status: ReturnType<typeof useStrategyDiscoveryStatus>["status"],
   error: string | null,
 ): string {
-  if (status === "loading") return "Loading...";
-  if (error) return error;
+  if (status === "loading") {
+    return "Loading...";
+  }
+  if (error) {
+    return error;
+  }
   return "No bundled or user strategies were found.";
 }
 

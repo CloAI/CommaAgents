@@ -1,0 +1,255 @@
+---
+title: registerAgent
+description: Register reusable custom agent types for JSON and YAML agent or strategy definitions.
+---
+
+# registerAgent
+
+`registerAgent` associates a declarative `type` name with a validation schema and an agent factory. Use it when JSON or YAML definitions need to instantiate a custom implementation rather than the built-in `llm` or `user` agent types.
+
+```ts
+import {
+  createAgent,
+  defineAgentType,
+  registerAgent,
+} from "@comma-agents/core";
+import { z } from "zod";
+
+registerAgent(
+  "prefixed-echo",
+  defineAgentType({
+    configSchema: z
+      .object({
+        prefix: z.string().default("Echo: "),
+      })
+      .strict(),
+    create: ({ name, config }) =>
+      createAgent({
+        name,
+        execute: async (message) => `${config.prefix}${message}`,
+      }),
+  }),
+);
+```
+
+## Type name
+
+The first argument becomes the value used by declarative definitions in their `type` field. Names cannot be empty, and `llm` and `user` are reserved for the built-in types.
+
+Registering the same custom name again replaces the previous definition and emits a warning. This supports controlled replacement during development, but production registration modules should use stable, package-specific names to avoid accidental collisions.
+
+## Configuration schema
+
+`configSchema` validates the definition's `config` object before the factory runs. `defineAgentType` preserves the schema's inferred output type, including defaults and transformations, so `config` is typed and validated inside `create`.
+
+```ts
+import { createAgent, defineAgentType } from "@comma-agents/core";
+import { z } from "zod";
+
+const ticketRouterDefinition = defineAgentType({
+  configSchema: z
+    .object({
+      project: z.string().min(1),
+      labels: z.array(z.string()).default([]),
+      dryRun: z.boolean().default(true),
+    })
+    .strict(),
+  create: ({ name, config }) =>
+    createAgent({
+      name,
+      execute: async (message) =>
+        JSON.stringify({
+          project: config.project,
+          labels: config.labels,
+          dryRun: config.dryRun,
+          message,
+        }),
+    }),
+});
+```
+
+Use `.strict()` when unknown configuration keys should fail fast instead of being ignored.
+
+## Factory context
+
+The `create` callback receives the instance `name`, the validated `config`, and runtime services supplied by the loader. It may return an `Agent` immediately or return a promise.
+
+```ts
+import {
+  createAgent,
+  defineAgentType,
+  registerAgent,
+} from "@comma-agents/core";
+import { z } from "zod";
+
+registerAgent(
+  "reviewer",
+  defineAgentType({
+    configSchema: z.object({
+      model: z.string().default("openai/gpt-4o"),
+      instructions: z.string(),
+    }),
+    create: ({ name, config, runtime }) =>
+      createAgent(
+        {
+          name,
+          model: config.model,
+          systemPrompt: config.instructions,
+          tools: ["read_file", "grep"],
+        },
+        runtime,
+      ),
+  }),
+);
+```
+
+Do not assume every runtime service is present. Forward or use only the services required by the agent you construct.
+
+## Runtime services
+
+`runtime` describes the current load operation:
+
+- `skillRegistry` contains the skills discovered for the workspace.
+- `strategyDir` is the base directory for paths referenced by the definition.
+- `inputCollector` bridges user input into interactive agents and tools.
+- `launchStrategy` runs child strategies through the host runtime.
+- `languageService` provides workspace language intelligence.
+- `runId` identifies the current strategy invocation for run-scoped tool state.
+
+This example creates a registered interactive agent and uses the loader's input bridge:
+
+```ts
+import {
+  createUserAgent,
+  defineAgentType,
+  registerAgent,
+} from "@comma-agents/core";
+import { z } from "zod";
+
+registerAgent(
+  "approval",
+  defineAgentType({
+    configSchema: z.object({
+      prompt: z.string().default("Approve this step?"),
+    }),
+    create: ({ name, config, runtime }) =>
+      createUserAgent({
+        name,
+        requireInput: true,
+        inputCollector: async (request) => {
+          if (!runtime.inputCollector) {
+            throw new Error("The approval agent requires an input collector.");
+          }
+          return runtime.inputCollector({
+            ...request,
+            prompt: `${config.prompt}\n${request.prompt}`,
+          });
+        },
+      }),
+  }),
+);
+```
+
+## Use the registered type
+
+After registration, standalone agent files and strategy agents can reference the custom type. Implementation-specific values belong under `config`.
+
+```yaml
+name: echo
+type: prefixed-echo
+config:
+  prefix: "Result: "
+```
+
+```yaml
+name: Custom Agent Workflow
+version: "1.0"
+agents:
+  echoer:
+    type: prefixed-echo
+    config:
+      prefix: "Result: "
+flow:
+  name: Main
+  type: sequential
+  steps:
+    - agent: echoer
+```
+
+The type must be registered before `loadAgent`, `loadStrategy`, or their string-loading variants parse the definition.
+
+## Register a project type
+
+Put package-level registration in the explicit `entry` module of `comma-project.json`. `loadProject()` imports that module before you load one of the project's strategies.
+
+```json
+{
+  "name": "@acme/review-workflow",
+  "version": "1.0.0",
+  "entry": "./register.ts",
+  "strategies": {
+    "main": {
+      "path": "./strategies/main.yaml",
+      "expose": true
+    }
+  },
+  "permissions": {
+    "executesCode": true
+  }
+}
+```
+
+```ts
+// register.ts
+import { registerAgent } from "@comma-agents/core";
+import { reviewerDefinition } from "./reviewer";
+
+registerAgent("acme-reviewer", reviewerDefinition);
+```
+
+```ts
+import { loadProject, loadStrategy } from "@comma-agents/core";
+
+await loadProject("./comma-project.json");
+const strategy = await loadStrategy("./strategies/main.yaml");
+```
+
+Project `agents` entries are declarative agent files, not executable registration modules. See [Project Packages](/docs/core/strategy/projects) for the complete manifest contract and code-execution permissions.
+
+## Inspect and remove registrations
+
+Use `getRegisteredAgentNames()` for diagnostics and `unregisterAgent()` when a temporary registration is no longer needed. Built-in types are not stored in this custom registry.
+
+```ts
+import {
+  getRegisteredAgentNames,
+  unregisterAgent,
+} from "@comma-agents/core";
+
+console.log(getRegisteredAgentNames());
+
+const removed = unregisterAgent("prefixed-echo");
+console.log(removed); // true when a registration existed
+```
+
+`resetAgentRegistry()` removes every custom registration and is primarily useful for test isolation.
+
+## AgentTypeDefinition
+
+The validation schema and factory registered for one custom agent type.
+
+<AutoTypeTable path="../packages/core/src/agents/registry/agent-registry.types.ts" name="AgentTypeDefinition" />
+
+## AgentTypeContext
+
+The validated configuration and runtime values passed to the factory.
+
+<AutoTypeTable path="../packages/core/src/agents/registry/agent-registry.types.ts" name="AgentTypeContext" />
+
+## AgentTypeRuntime
+
+The optional services available during declarative agent loading.
+
+<AutoTypeTable path="../packages/core/src/agents/registry/agent-registry.types.ts" name="AgentTypeRuntime" />
+
+See [`createAgent`](/docs/core/agents/create-agent) for authored agent configuration and runtime services.

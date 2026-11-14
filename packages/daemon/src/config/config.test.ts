@@ -1,10 +1,11 @@
 // Tests for daemon configuration.
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveDataDir } from "@comma-agents/core";
+import { getApplicationDataDirectory } from "@comma-agents/core";
+import { resetDaemonDefaultOverrides } from "../defaults";
 import { DaemonConfigFileSchema } from ".";
 import { loadDaemonConfig } from "./config";
 
@@ -25,21 +26,27 @@ function writeJsonConfig(dir: string, config: Record<string, unknown>): string {
   return filePath;
 }
 
-/** Clean env — no COMMA_DAEMON_* variables. */
+/**
+ * Clean env — no COMMA_DAEMON_* variables.
+ *
+ * @returns {Record<string, string | undefined>} Empty environment override map.
+ */
 function cleanEnv(): Record<string, string | undefined> {
   return {};
 }
 
-// resolveDataDir
+afterEach(resetDaemonDefaultOverrides);
 
-describe("resolveDataDir", () => {
+// getApplicationDataDirectory
+
+describe("getApplicationDataDirectory", () => {
   test("returns the shared .comma directory", () => {
-    const dir = resolveDataDir();
+    const dir = getApplicationDataDirectory();
     expect(dir).toBe(join(homedir(), ".comma"));
   });
 
   test("returns path under home directory", () => {
-    const dir = resolveDataDir();
+    const dir = getApplicationDataDirectory();
     const home = homedir();
     expect(dir.startsWith(home)).toBe(true);
   });
@@ -58,7 +65,6 @@ describe("DaemonConfigFileSchema", () => {
       host: "0.0.0.0",
       logLevel: "debug",
       logFile: "/var/log/daemon.log",
-      providerCacheDir: "/tmp/providers",
       pidFile: "/tmp/daemon.pid",
     } as const;
     expect(DaemonConfigFileSchema.parse(config)).toMatchObject(config);
@@ -112,23 +118,8 @@ describe("loadDaemonConfig defaults", () => {
       expect(config.host).toBe("127.0.0.1");
       expect(config.logLevel).toBe("info");
       expect(config.logFile).toContain("daemon.log");
-      expect(config.providerCacheDir).toContain("providers");
       expect(config.pidFile).toContain("daemon.pid");
       expect(config.configFile).toBe(configFile);
-    } finally {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
-  });
-
-  test("default providerCacheDir is under data dir", () => {
-    const tempDir = createTempDir();
-    try {
-      const config = loadDaemonConfig({
-        configFile: join(tempDir, "none.json"),
-        env: cleanEnv(),
-      });
-      expect(config.providerCacheDir).toContain(".comma");
-      expect(config.providerCacheDir.endsWith("providers")).toBe(true);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
@@ -186,14 +177,6 @@ describe("loadDaemonConfig JSON file overrides", () => {
     });
     const config = loadDaemonConfig({ configFile, env: cleanEnv() });
     expect(config.logFile).toBe("/var/log/comma.log");
-  });
-
-  test("overrides providerCacheDir from config file", () => {
-    const configFile = writeJsonConfig(tempDir, {
-      providerCacheDir: "/custom/providers",
-    });
-    const config = loadDaemonConfig({ configFile, env: cleanEnv() });
-    expect(config.providerCacheDir).toBe("/custom/providers");
   });
 
   test("overrides pidFile from config file", () => {
@@ -274,14 +257,6 @@ describe("loadDaemonConfig env var overrides", () => {
       env: { COMMA_DAEMON_LOG_FILE: "/tmp/daemon.log" },
     });
     expect(config.logFile).toBe("/tmp/daemon.log");
-  });
-
-  test("COMMA_DAEMON_PROVIDER_CACHE_DIR overrides default", () => {
-    const config = loadDaemonConfig({
-      configFile: join(tempDir, "none.json"),
-      env: { COMMA_DAEMON_PROVIDER_CACHE_DIR: "/custom/cache" },
-    });
-    expect(config.providerCacheDir).toBe("/custom/cache");
   });
 
   test("COMMA_DAEMON_PID_FILE overrides default", () => {
@@ -392,6 +367,79 @@ describe("loadDaemonConfig validation", () => {
   });
 });
 
+describe("console and payload configuration", () => {
+  let directory: string;
+  beforeEach(() => {
+    directory = createTempDir();
+  });
+  afterEach(() => {
+    rmSync(directory, { recursive: true, force: true });
+  });
+  test("should preserve JSON defaults and use text for explicit console enablement", () => {
+    const configFile = join(directory, "missing.json");
+    expect(loadDaemonConfig({ configFile, env: {} })).toMatchObject({
+      console: true,
+      consoleFormat: "json",
+      logPayloads: false,
+    });
+    expect(
+      loadDaemonConfig({ configFile, env: { COMMA_DAEMON_CONSOLE: "true" } }),
+    ).toMatchObject({
+      console: true,
+      consoleFormat: "text",
+    });
+  });
+
+  test("should resolve environment over file values and enable debug for payloads", () => {
+    const configFile = writeJsonConfig(directory, {
+      console: true,
+      consoleFormat: "json",
+      logPayloads: true,
+    });
+    expect(loadDaemonConfig({ configFile, env: {} })).toMatchObject({
+      logLevel: "debug",
+      logPayloads: true,
+    });
+    expect(
+      loadDaemonConfig({
+        configFile,
+        env: {
+          COMMA_DAEMON_CONSOLE: "false",
+          COMMA_DAEMON_CONSOLE_FORMAT: "text",
+          COMMA_DAEMON_LOG_PAYLOADS: "false",
+        },
+      }),
+    ).toMatchObject({
+      console: false,
+      consoleFormat: "text",
+      logPayloads: false,
+    });
+    expect(
+      loadDaemonConfig({ configFile, env: { COMMA_DAEMON_LOG_LEVEL: "trace" } })
+        .logLevel,
+    ).toBe("trace");
+  });
+
+  test("should reject invalid boolean and format environment values", () => {
+    const configFile = join(directory, "missing.json");
+    for (const name of [
+      "COMMA_DAEMON_CONSOLE",
+      "COMMA_DAEMON_LOG_PAYLOADS",
+      "COMMA_DAEMON_CONSOLE_FORMAT",
+    ]) {
+      expect(() =>
+        loadDaemonConfig({ configFile, env: { [name]: "invalid" } }),
+      ).toThrow(name);
+    }
+    expect(DaemonConfigFileSchema.safeParse({ console: "false" }).success).toBe(
+      false,
+    );
+    expect(
+      DaemonConfigFileSchema.safeParse({ consoleFormat: "xml" }).success,
+    ).toBe(false);
+  });
+});
+
 // loadDaemonConfig — COMMA_DAEMON_CONFIG_FILE env var
 
 describe("loadDaemonConfig config file path resolution", () => {
@@ -425,5 +473,45 @@ describe("loadDaemonConfig config file path resolution", () => {
       env: { COMMA_DAEMON_CONFIG_FILE: envConfig },
     });
     expect(config.port).toBe(2222);
+  });
+});
+
+describe("skill discovery configuration", () => {
+  test("should resolve additional roots relative to the config file and expand home paths", () => {
+    const directory = createTempDir();
+    try {
+      const configFile = writeJsonConfig(directory, {
+        skills: {
+          additionalDirectories: [
+            "shared-skills",
+            "~/skills",
+            "/opt/team-skills",
+          ],
+        },
+      });
+      const config = loadDaemonConfig({ configFile, env: cleanEnv() });
+      expect(config.skills.additionalDirectories).toEqual([
+        join(directory, "shared-skills"),
+        join(homedir(), "skills"),
+        "/opt/team-skills",
+      ]);
+      writeJsonConfig(directory, {});
+      expect(
+        loadDaemonConfig({ configFile, env: cleanEnv() }).skills
+          .additionalDirectories,
+      ).toEqual([]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+  test("should reject blank roots and unknown skill settings", () => {
+    expect(
+      DaemonConfigFileSchema.safeParse({
+        skills: { additionalDirectories: [" "] },
+      }).success,
+    ).toBe(false);
+    expect(
+      DaemonConfigFileSchema.safeParse({ skills: { unknown: true } }).success,
+    ).toBe(false);
   });
 });

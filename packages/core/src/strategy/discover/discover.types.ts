@@ -61,7 +61,7 @@ export interface DiscoverStrategiesOptions {
   readonly cwd?: string;
   /**
    * Platform data directory to scan for `strategies/`.
-   * Defaults to `resolveDataDir()`.
+   * Defaults to `getApplicationDataDirectory()`.
    */
   readonly dataDir?: string;
   /**

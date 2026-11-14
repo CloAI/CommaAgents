@@ -75,8 +75,12 @@ export function Button({
     ref: boxRef,
     buttons: [0],
     onClick: () => {
-      if (disabled) return;
-      if (id !== undefined) focus(id);
+      if (disabled) {
+        return;
+      }
+      if (id !== undefined) {
+        focus(id);
+      }
       onPress();
     },
   });
@@ -86,7 +90,9 @@ export function Button({
     ref: boxRef,
     buttons: [2],
     onClick: () => {
-      if (disabled) return;
+      if (disabled) {
+        return;
+      }
       onPress();
     },
   });
@@ -94,8 +100,12 @@ export function Button({
   // Keyboard activation.
   useInput(
     (_input, key) => {
-      if (disabled) return;
-      if (key.return) onPress();
+      if (disabled) {
+        return;
+      }
+      if (key.return) {
+        onPress();
+      }
     },
     { isActive: isFocused },
   );

@@ -1,0 +1,26 @@
+{
+  "name": "Verify",
+  "version": "1.0",
+  "description": "Independent check of a finished change: intent, correctness, tests, and the project's own checks. Answers VERDICT: pass or fail with findings.",
+  "agents": {
+    "verifier": {
+      "model": "@medium",
+      "maxSteps": 60,
+      "systemPrompt": "./prompts/verify.md",
+      "context": { "instructions": true, "environment": true },
+      "tools": [
+        "read_file",
+        "glob",
+        "grep",
+        "lsp_request",
+        "run_command",
+        "load_skill"
+      ]
+    }
+  },
+  "flow": {
+    "name": "Verify",
+    "type": "sequential",
+    "steps": [{ "agent": "verifier" }]
+  }
+}

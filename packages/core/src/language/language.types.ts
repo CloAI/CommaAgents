@@ -8,6 +8,8 @@ export type LspMethod =
   | "textDocument/documentSymbol"
   | "workspace/symbol";
 
+// AI: TODO: need to review why this was added, the lsp ended up going into the daemon, not sure if core can really handle this technically.
+
 export interface LanguagePosition {
   readonly path: string;
   /** 1-indexed line number. */

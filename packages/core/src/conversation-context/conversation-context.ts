@@ -38,7 +38,9 @@ export function createConversationContext(
   const contextOptions = options ?? {};
 
   function records(agentName?: string): readonly ConversationRecord[] {
-    if (agentName === undefined) return conversationRecords;
+    if (agentName === undefined) {
+      return conversationRecords;
+    }
     return conversationRecords.filter(
       (record) => record.agentName === agentName,
     );
@@ -165,7 +167,9 @@ export function parseConversationJsonl(
   const records: ConversationRecord[] = [];
   const lines = jsonl.split("\n");
   for (const [lineIndex, line] of lines.entries()) {
-    if (line.trim().length === 0) continue;
+    if (line.trim().length === 0) {
+      continue;
+    }
     const parsedRecord = JSON.parse(line) as unknown;
     if (!isConversationRecord(parsedRecord)) {
       throw new Error(`Invalid conversation record on line ${lineIndex + 1}`);
@@ -215,7 +219,9 @@ export function serializeConversationRecordsYaml(
 export function serializeConversationRecords(
   records: readonly ConversationRecord[],
 ): string {
-  if (records.length === 0) return "";
+  if (records.length === 0) {
+    return "";
+  }
   return `${records.map(recordToJsonlLine).join("\n")}\n`;
 }
 
@@ -266,10 +272,14 @@ export function contextUsageFromSteps(
   steps: readonly unknown[] | undefined,
 ): ContextUsage | undefined {
   const lastStep = steps?.at(-1);
-  if (typeof lastStep !== "object" || lastStep === null) return undefined;
+  if (typeof lastStep !== "object" || lastStep === null) {
+    return undefined;
+  }
 
   const usage = (lastStep as { readonly usage?: unknown }).usage;
-  if (typeof usage !== "object" || usage === null) return undefined;
+  if (typeof usage !== "object" || usage === null) {
+    return undefined;
+  }
 
   const usageRecord = usage as Readonly<Record<string, unknown>>;
   const inputTokens = readTokenTotal(usageRecord.inputTokens);
@@ -348,7 +358,9 @@ function outputTokenDetailsFromUsage(
 }
 
 function readTokenTotal(value: unknown): number | undefined {
-  if (typeof value === "number") return value;
+  if (typeof value === "number") {
+    return value;
+  }
   return readNumber(objectRecord(value)?.total);
 }
 
@@ -359,6 +371,8 @@ function readNumber(value: unknown): number | undefined {
 function objectRecord(
   value: unknown,
 ): Readonly<Record<string, unknown>> | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
   return value as Readonly<Record<string, unknown>>;
 }

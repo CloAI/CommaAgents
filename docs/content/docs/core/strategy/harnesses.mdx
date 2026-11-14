@@ -1,0 +1,37 @@
+---
+title: Build, Plan, and Chat
+description: The official harnesses in @comma/core-strategies, how they hand work to subagents, and how to move between them.
+---
+
+`@comma/core-strategies` ships three harnesses. Each runs one primary agent in a loop that hands back to you after every turn, so you keep steering the work. Switch between them at any point in the same conversation; the visible messages go with you.
+
+| Harness | Use it to | Primary agent's tools | Subagents |
+|---|---|---|---|
+| **Chat** | Think a problem through, ask about the codebase, research the web | `delegate`, `load_skill`, `request_strategy_switch` | `explore`, `research` |
+| **Plan** | Settle decisions and produce a plan someone else can carry out | Read-only file and language tools, `ask_questions`, `delegate`, `request_strategy_switch` | `explore`, `plan-critic` |
+| **Build** | Change code and verify it | File, command, todo, and language tools, `ask_questions`, `delegate` | `explore`, `verify` |
+
+## Subagents
+
+Subagents run as child strategies with fresh context and return a compact answer, so searches and research do not fill the primary agent's context.
+
+| Subagent | What it returns |
+|---|---|
+| `explore` | The answer to a codebase question, with `path:line` evidence. Read-only. |
+| `verify` | `VERDICT: pass` or `fail` with findings, after reading the change and running the project's checks. Build calls it before ending any turn that changed files. |
+| `plan-critic` | `PLAN: ready` or `revise`, after checking a plan's citations, missed callers, and verification commands. |
+| `research` | A sourced answer. It splits the question across parallel `research-worker` subagents that use [`web_search`](/docs/core/tools/built-in/web_search), [`webfetch`](/docs/core/tools/built-in/webfetch), and [notes](/docs/core/tools/built-in/notes). |
+
+## Moving from Plan to Build
+
+Plan explores first, asks you only what the code cannot answer, and writes the whole plan into its final message: goal, context with `path:line` references, decisions, steps with exact verification commands, risks, and open questions. When nothing is left open it asks to switch to Build with [`request_strategy_switch`](/docs/core/tools/built-in/request_strategy_switch). After you approve, your next message goes to Build, which turns the plan's steps into its todo list.
+
+From a script, run both in one conversation:
+
+```bash
+comma run -s Plan -i "Add retry support to webfetch" --then Build --approve allow
+```
+
+## Choosing models
+
+The harnesses name no models. They use the `@medium`, `@simple`, and `@compaction` roles, which you set in the [daemon configuration](/docs/daemon/config) or under Settings → General → Strategy models; a run that needs an unset role stops and lists what is missing. Summaries written when a conversation is compacted use `@compaction`.

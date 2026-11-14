@@ -1,0 +1,19 @@
+{
+  "name": "Plan Critic",
+  "version": "1.0",
+  "description": "Checks a plan against the codebase: citations, missed callers and tests, real verification commands, and open decisions. Answers PLAN: ready or revise.",
+  "agents": {
+    "critic": {
+      "model": "@medium",
+      "maxSteps": 30,
+      "systemPrompt": "./prompts/plan-critic.md",
+      "context": { "instructions": true, "environment": true },
+      "tools": ["read_file", "glob", "grep", "lsp_request", "load_skill"]
+    }
+  },
+  "flow": {
+    "name": "Plan Critic",
+    "type": "sequential",
+    "steps": [{ "agent": "critic" }]
+  }
+}

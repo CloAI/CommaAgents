@@ -54,7 +54,9 @@ export async function resolveCredential(
   providerID: string,
 ): Promise<string | undefined> {
   const credential = await store.resolve(providerID);
-  if (!credential) return undefined;
+  if (!credential) {
+    return undefined;
+  }
 
   // API key — return directly
   if (credential.type === "api") {

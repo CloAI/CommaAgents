@@ -5,5 +5,4 @@ export const PACKAGE_DATA_ENTRIES = [
   "hub",
   "providers",
   "cache",
-  "provider-registry.json",
 ] as const;

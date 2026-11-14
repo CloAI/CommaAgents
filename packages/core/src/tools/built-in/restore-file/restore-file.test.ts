@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { existsSync, realpathSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSandbox } from "../../../sandbox/sandbox";
-import { moveToTrash, trashWorkspaceDir } from "../../io";
+import { deleteFile, getDeletedFilesDirectory } from "../delete-file/deletion";
 import { makeToolContext } from "../../test.utils";
 import type { ToolContext } from "../../tool.types";
 import { createRestoreFileTool } from "./restore-file";
@@ -19,7 +19,10 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
-  await rm(trashWorkspaceDir(workspaceRoot), { recursive: true, force: true });
+  await rm(getDeletedFilesDirectory(workspaceRoot), {
+    recursive: true,
+    force: true,
+  });
 });
 
 function makeCtx(options?: {
@@ -29,8 +32,8 @@ function makeCtx(options?: {
   return makeToolContext({
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: true,
-      allowAbsolutePaths: false,
+      outsideWorkspace: "deny",
+      absolutePaths: "deny",
       forbiddenGlobs: options?.forbiddenGlobs ?? [],
     }),
     ...(options?.abort ? { abort: options.abort } : {}),
@@ -40,7 +43,7 @@ function makeCtx(options?: {
 async function trashFile(path: string, content: string): Promise<string> {
   const absolutePath = join(workspaceRoot, path);
   await writeFile(absolutePath, content);
-  return moveToTrash(workspaceRoot, absolutePath);
+  return (await deleteFile(workspaceRoot, absolutePath)).archivePath!;
 }
 
 describe("createRestoreFileTool", () => {
@@ -100,7 +103,9 @@ describe("createRestoreFileTool", () => {
   });
 
   it("returns not_found when archive metadata is corrupted", async () => {
-    const archive = join(workspaceRoot, "corrupt.tar.gz");
+    const bucket = getDeletedFilesDirectory(workspaceRoot);
+    await mkdir(bucket, { recursive: true });
+    const archive = join(bucket, "corrupt.tar.gz");
     await writeFile(archive, "not an archive");
 
     const result = await createRestoreFileTool().execute(

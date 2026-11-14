@@ -9,7 +9,7 @@ Use the terminal application for an interactive experience, embed
 through the background daemon. The same agent and flow contracts are used
 across each entry point.
 
-CommaAgents v2 is currently published under the `next` tag and requires Bun 1.3
+CommaAgents v2 is currently published under the `next` tag and requires Node.js 26
 or newer.
 
 ## Installation
@@ -17,14 +17,14 @@ or newer.
 Install the unified CLI:
 
 ```bash
-bun add --global @comma-agents/cli@next
+pnpm add --global @comma-agents/cli@next
 comma install
 ```
 
 `comma install` checks your local environment and configures the background
 daemon.
 
-You can also install a standalone build that includes its runtime:
+You can also use the bootstrap installer to install the CLI package:
 
 ```bash
 curl -fsSL https://commaagents.com/install | bash
@@ -57,7 +57,7 @@ install an available update.
 Install Core when you want to use CommaAgents inside an application:
 
 ```bash
-bun add @comma-agents/core@next
+pnpm add @comma-agents/core@next
 ```
 
 Create an agent and send it a message:
@@ -221,21 +221,21 @@ The repository also contains:
 Install the workspace dependencies and run the CLI:
 
 ```bash
-bun install
-bun run cli install
-bun run cli
+pnpm install
+pnpm run cli install
+pnpm run cli
 ```
 
 Useful development commands:
 
 ```bash
-bun run build          # Build every workspace package
-bun test               # Run package test suites
-bun run lint           # Check formatting and lint rules
-bun run docs           # Start the documentation site
-bun run docs:build     # Build the documentation site
-bun run example --list # List runnable strategy examples
-bun run daemon         # Start the daemon in the foreground
+pnpm run build          # Build and validate the four public packages
+pnpm test               # Run package test suites
+pnpm run lint           # Check formatting and lint rules
+pnpm run docs           # Start the documentation site
+pnpm run docs:build     # Build the documentation site
+pnpm run example --list # List runnable strategy examples
+pnpm run daemon         # Start the daemon in the foreground
 ```
 
 See the [examples](./examples/README.md) for runnable agents, strategies, and
@@ -248,8 +248,8 @@ tests, or reusable packages.
 
 1. Fork and clone the repository.
 2. Create a focused branch for the change.
-3. Install dependencies with `bun install`.
-4. Run the relevant tests and `bun run lint`.
+3. Install dependencies with `pnpm install`.
+4. Run the relevant tests and `pnpm run lint`.
 5. Open a pull request that explains the behavior and verification performed.
 
 Reusable community strategies, agents, tools, and flows should be contributed

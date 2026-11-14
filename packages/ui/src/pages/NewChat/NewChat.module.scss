@@ -1,0 +1,42 @@
+.screen {
+  display: grid;
+  grid-template-columns: minmax(0, var(--content-width));
+  grid-template-rows: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+  // The pane's own height decides whether the logo fits, not the window's.
+  container-type: size;
+  padding: var(--space-4);
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    var(--color-surface) 0%,
+    var(--color-canvas) 65%
+  );
+}
+.logo {
+  grid-row: 1;
+  align-self: end;
+  min-width: 0;
+  padding-bottom: var(--space-4);
+}
+.content {
+  grid-row: 2;
+  width: 100%;
+  max-width: var(--content-width);
+  min-width: 0;
+}
+// Below this height the composer and controls need the room more than the logo does.
+@container (max-height: 24rem) {
+  .logo {
+    display: none;
+  }
+}
+@media (min-width: 48rem) {
+  .screen {
+    padding: var(--space-6);
+  }
+}

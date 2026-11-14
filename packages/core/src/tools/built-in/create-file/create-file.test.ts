@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { realpathSync } from "node:fs";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -23,8 +23,8 @@ afterEach(async () => {
 });
 
 function makeCtx(overrides?: {
-  jail?: boolean;
-  allowAbsolutePaths?: boolean;
+  outsideWorkspace?: "allow" | "deny";
+  absolutePaths?: "allow" | "deny";
   forbiddenGlobs?: readonly string[];
   auditSink?: AuditSink;
   sessionId?: string;
@@ -34,8 +34,8 @@ function makeCtx(overrides?: {
     agentName: overrides?.agentName ?? "test-agent",
     sandbox: createSandbox({
       cwd: workspaceRoot,
-      jail: overrides?.jail ?? true,
-      allowAbsolutePaths: overrides?.allowAbsolutePaths ?? false,
+      outsideWorkspace: overrides?.outsideWorkspace ?? "deny",
+      absolutePaths: overrides?.absolutePaths ?? "deny",
       forbiddenGlobs: overrides?.forbiddenGlobs ?? [],
     }),
     ...(overrides?.auditSink !== undefined
@@ -57,7 +57,9 @@ async function getOk(
       `expected ok, got error: ${result.error?.kind} ${result.error?.message}`,
     );
   }
-  if (!result.data) throw new Error("expected data");
+  if (!result.data) {
+    throw new Error("expected data");
+  }
   return result.data;
 }
 
@@ -160,17 +162,17 @@ describe("createCreateFileTool", () => {
     const tool = createCreateFileTool();
     const result = await tool.execute(
       { path: "../escape.txt", content: "x" },
-      makeCtx({ jail: true }),
+      makeCtx({ outsideWorkspace: "deny" }),
     );
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("outside_workspace");
   });
 
-  it("rejects absolute paths when allowAbsolutePaths is false", async () => {
+  it("rejects absolute paths when absolute paths are disabled", async () => {
     const tool = createCreateFileTool();
     const result = await tool.execute(
       { path: join(workspaceRoot, "f.txt"), content: "x" },
-      makeCtx({ allowAbsolutePaths: false }),
+      makeCtx({ absolutePaths: "deny" }),
     );
     expect(result.ok).toBe(false);
     expect(result.error?.kind).toBe("outside_workspace");
@@ -234,7 +236,7 @@ describe("createCreateFileTool", () => {
     const controller = new AbortController();
     controller.abort();
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspaceRoot, jail: true }),
+      sandbox: createSandbox({ cwd: workspaceRoot, outsideWorkspace: "deny" }),
       abort: controller.signal,
     });
 

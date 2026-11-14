@@ -1,6 +1,6 @@
-// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`ChatTextAreaRender should match snapshot for default state 1`] = `
+exports[`ChatTextAreaRender > should match snapshot for default state 1`] = `
 "│Enter your prompt...
 │
 │

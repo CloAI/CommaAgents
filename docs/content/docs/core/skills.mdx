@@ -1,223 +1,127 @@
 ---
 title: Skills
-description: Reusable instruction bundles that agents list and load on demand via the list_skills and load_skill tools.
+description: Discover, search, and load reusable instructions for agent tasks.
 ---
 
-Skills are reusable instruction bundles — TypeScript conventions, React patterns, review checklists, domain-specific procedures — that agents discover at startup and load on demand. Each skill is a directory containing a single `SKILL.md` file with YAML frontmatter and a markdown body.
+Skills are directories of reusable instructions and supporting files. Agents search names and descriptions, decide which skill applies, and load its full instructions on demand. Searching does not select a skill or add its body to the prompt.
 
-The framework ships no built-in skills. You author them; they are discovered automatically from two locations and surfaced to every agent's system prompt as a compact one-line summary. The agent can list available skills with [`list_skills`](/docs/core/tools/built-in/skill-tools/list_skills) and load the full content by calling [`load_skill`](/docs/core/tools/built-in/skill-tools/load_skill).
+## Create a skill
 
-## Quick Start
-
-Create a skill by adding a `SKILL.md` file in a named directory:
-
-```
-~/.comma/skills/ts-patterns/SKILL.md
-```
+Save this as `~/.config/comma/skills/code-review/SKILL.md` or `<project>/.comma/skills/code-review/SKILL.md`:
 
 ```md
 ---
-name: ts-patterns
-description: TypeScript conventions for new modules — file layout, naming, barrel exports.
+name: code-review
+description: >
+  Review code changes for correctness, maintainability,
+  and missing validation.
+metadata:
+  owner: engineering
 ---
 
-# TypeScript Patterns
+# Code review
 
-Follow these rules for all new TypeScript code:
-
-1. One exported value per file. The filename matches the export.
-2. ...
+Read the changed code and its callers. Explain concrete defects and the
+validation needed to establish that they are fixed.
 ```
 
-Skills are loaded automatically the next time a strategy runs in this workspace. Agents see them advertised in their system prompt:
+Both `SKILL.md` and `SKILL.MD` are accepted. If both exist in one directory, `SKILL.md` wins and discovery reports a warning. The YAML frontmatter must be a mapping with a nonempty `name` and `description`. Names contain lowercase letters, digits, and hyphens, start with a letter or digit, and are at most 64 characters. Other valid frontmatter fields are ignored and have no runtime effect. The Markdown body is returned as instructions without its frontmatter.
 
-```
-## Available Skills
-Call the `load_skill` tool with one of these names to load its full instructions before doing related work:
-- ts-patterns: TypeScript conventions for new modules — file layout, naming, barrel exports.
-```
+Each file is limited to 256 KiB. Supporting files can sit beside it; their contents are not loaded automatically.
 
-The agent calls `load_skill` with `{ name: "ts-patterns" }` to read the body when it needs to.
+## Discovery and merging
 
-## Discovery
+Every source contributes skills to one collection. Only duplicate names use precedence, highest first:
 
-Both roots are scanned on every strategy run. Each direct subdirectory containing a `SKILL.md` becomes a skill. Deeper nesting is ignored. Subdirectories without a `SKILL.md` are silently skipped, so you can keep supporting files (scripts, examples) alongside the skill.
+1. The nearest Comma project's `.comma/skills`.
+2. Explicit additional directories, with later entries winning conflicts.
+3. `~/.config/comma/skills`.
+4. `~/.comma/skills`, retained for compatibility.
+5. `~/.agents/skills`.
 
-## SKILL.md Format
+Comma finds the project by walking upward from the supplied workspace for a `.comma` directory. Git metadata is not used. The global Comma data directory is not treated as a project marker. A project is optional: global and configured sources remain available when none is found, and discovery does not create `.comma`. The daemon logs a missing-project warning without sending a client error or notification.
 
-A `SKILL.md` file consists of YAML frontmatter followed by the markdown body:
+Each root is scanned only for direct child skill directories. Linked directories may point outside the root, and aliases of the same source are deduplicated. Nested groups are not scanned recursively. There is no automatic discovery from `.claude`, `.codex`, or OpenCode locations.
 
-```md
----
-name: react-practices
-description: React component patterns — PascalCase files, container/render split, SCSS modules.
----
+Malformed files, unreadable sources, broken links, duplicate filenames, and shadowed names produce diagnostics while valid skills remain usable. Within one source, directories are considered in name order, making duplicate-name selection deterministic. Missing optional discovery directories are allowed.
 
-# React Practices
-
-## Component Organization
-
-...
-```
-
-### Frontmatter fields
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | `string` | Yes | Unique identifier. Must be kebab-case (lowercase letters, digits, hyphens; 1–64 chars). |
-| `description` | `string` | Yes | One-line summary shown to the LLM in the system prompt. Used to decide whether to call `load_skill`. |
-
-Unknown frontmatter keys are ignored, so you can add fields for tooling without breaking discovery.
-
-### Writing a useful description
-
-The description is the only thing the LLM sees until it loads the skill, so it must answer "when should I load this?". Aim for one specific, action-oriented line:
-
-```md
-# GOOD
-description: TypeScript conventions for new modules — file layout, naming, barrel exports.
-description: React component patterns — PascalCase files, container/render split, SCSS modules.
-
-# BAD
-description: TypeScript skill.
-description: Best practices for writing code in our codebase.
-```
-
-### Body
-
-Everything after the closing `---` is the skill body. It is parsed as markdown but never rendered by the framework — it is passed verbatim to the agent as the `content` field of the `load_skill` tool result. Structure it however helps the LLM follow your conventions: numbered rules, headed sections, checklists, examples.
-
-There is no hard format requirement. The 256 KiB file-size cap is enforced to prevent runaway loads; in practice most useful skills are well under 10 KiB.
-
-## Conflict Resolution
-
-When a global and project skill share the same `name`, the project skill wins. This lets you ship a personal default globally and override it per-repo when a project needs a stricter or different version.
-
-The override is enforced both by load order (project skills are registered last) and defensively by the registry itself, so the result is deterministic regardless of how the loader is invoked.
-
-## Validation and Warnings
-
-Malformed or oversized skills are skipped rather than aborting discovery. Each problem becomes a non-fatal warning that the daemon logs:
-
-- Missing or malformed YAML frontmatter
-- Missing `name` or `description`
-- `name` that is not kebab-case or exceeds 64 characters
-- `SKILL.md` files larger than 256 KiB
-- YAML lists (`- item`) inside frontmatter — frontmatter must use simple `key: value` pairs
-
-The other skills in the directory continue to load normally. Check the daemon log if a skill you expect is not appearing in the agent's prompt.
-
-## How Agents Use Skills
-
-The strategy loader builds a `## Available Skills` block from the registry and prepends it to every agent's system prompt. Agents can call [`list_skills`](/docs/core/tools/built-in/skill-tools/list_skills) to get the full list programmatically, or call [`load_skill`](/docs/core/tools/built-in/skill-tools/load_skill) to fetch the body of a specific skill.
-
-### Tool integration
-
-Both `load_skill` and `list_skills` are the agent's interface to the skill system. Include them in the agent's tools list:
+## Use core directly
 
 ```ts
-const agent = createAgent({
-  name: "coder",
-  model: "openai/gpt-4o",
-  tools: ["load_skill", "list_skills", "read_file", "edit_file"],
-  skillRegistry, // wired automatically by the strategy loader
+import { loadSkills, searchSkills } from "@comma-agents/core/skills";
+
+const { registry, warnings, projectRoot } = await loadSkills(process.cwd(), {
+  additionalDirectories: ["~/team-skills", "./shared-skills"],
 });
+
+const candidates = searchSkills(registry, {
+  query: "code reveiw",
+  limit: 10,
+});
+
+for (const candidate of candidates.matches) {
+  console.log(candidate.name, candidate.description, candidate.score);
+}
+
+const instructions = registry.get("code-review");
 ```
 
-By default, skills are not auto-injected — the LLM decides what to load and when. This keeps the system prompt small (one line per skill) while still giving the agent access to detailed instructions when it needs them.
+Search is case-insensitive and typo-tolerant. Names have greater ranking weight than descriptions. Lower scores indicate closer matches; ties use skill-name order. The result includes metadata and `totalMatches` before limiting, without instruction bodies. The default limit is 10, and accepted limits are integers from 1 through 50. A nonempty query with no matches returns an empty result.
 
-To require skills for a specific strategy agent, list them in the agent's `skills` field. Their full instructions are loaded into that agent's system prompt during strategy loading, while every discovered skill remains available through `list_skills` and `load_skill`:
+Absolute paths and `~/` paths are supported. Relative additional paths resolve against the supplied workspace. An explicit `globalSkillsDir` replaces the conventional global sources; `null` disables them. `projectSkillsDir` similarly overrides or disables project discovery. Additional directories remain explicit global-scope sources, with their source paths retained in results.
+
+## Agent tools and execution snapshots
+
+Built-in tools are available by default, including [`search_skills`](/docs/core/tools/built-in/skill-tools/search_skills), [`list_skills`](/docs/core/tools/built-in/skill-tools/list_skills), and [`load_skill`](/docs/core/tools/built-in/skill-tools/load_skill). An explicit agent `tools` list restricts built-ins; `tools: []` disables them. MCP server selection remains separate.
+
+The strategy loader provides concise guidance for the skill tools actually available. It does not insert the entire skill index into every initial prompt. To require instructions for a strategy agent, use its `skills` field:
 
 ```yaml
 agents:
-  coder:
+  reviewer:
     model: openai/gpt-4o
-    tools: [list_skills, load_skill]
-    skills: [typescript, testing]
+    tools: [search_skills, load_skill, read_file]
+    skills: [code-review]
 ```
 
-Strategy loading fails when a required skill is not registered, so a required instruction bundle cannot be silently skipped.
+Required skills are inserted in full. An unresolved required name prevents strategy loading. Other skills remain candidates for the model to discover and load.
 
-A typical interaction:
+The daemon captures skills during each run preparation. Root and child executions have separate registries; continuations rediscover files. Active snapshots do not change when files are edited. Completion, cancellation, failed preparation, and disposal release the snapshot. Historical skill snapshots are not persisted.
 
-1. Agent sees `- ts-patterns: TypeScript conventions ...` in its system prompt.
-2. User asks the agent to create a new module.
-3. Agent calls `load_skill({ name: "ts-patterns" })`.
-4. The tool returns the full markdown body, which now sits in the agent's context.
-5. Agent follows the conventions when generating files.
+See [Skills plugin](/docs/daemon/skills-plugin) for workspace and active-run inspection through the daemon.
 
-Loading is cheap, but the content stays in context for the rest of the turn — so agents should only load skills they intend to use.
+## Skill
 
-### Where skills live
+A complete resolved instruction bundle.
 
-Skills are discovered from two roots at strategy load time:
+<AutoTypeTable
+  path="../packages/core/src/skills/skills.types.ts"
+  name="Skill"
+/>
 
-| Location | Path | Purpose |
-|---|---|---|
-| Project | `<workspace>/.comma/skills/` | Project-specific skills checked into the repo. |
-| Global | `~/.comma/skills/` | Personal skills available across all projects. |
+## SkillRegistry
 
-Global skills use the same `~/.comma` directory as credentials, daemon state,
-run history, TUI configuration, and Hub packages.
+Lookup and listing operations on one loaded snapshot.
 
-Project skills always override global skills with the same `name`.
+<AutoTypeTable
+  path="../packages/core/src/skills/skills.types.ts"
+  name="SkillRegistry"
+/>
 
-## Programmatic Access
+## Discovery options
 
-The skill loader is exposed from `@comma-agents/core` for integrations that want to discover skills outside the standard daemon flow:
+Explicit sources and compatibility overrides.
 
-```ts
-import { loadSkills } from "@comma-agents/core";
+<AutoTypeTable
+  path="../packages/core/src/skills/skills.types.ts"
+  name="LoadSkillsOptions"
+/>
 
-const { registry, warnings } = await loadSkills(process.cwd());
+## Diagnostics
 
-for (const skill of registry.list()) {
-  console.log(`${skill.name}: ${skill.description}`);
-}
+Recoverable discovery problems returned alongside valid skills.
 
-for (const warning of warnings) {
-  console.warn(`${warning.sourcePath}: ${warning.message}`);
-}
-```
-
-Pass the resulting registry to the strategy loader through `LoadStrategyOptions.skillRegistry` to wire skills into agent tool execution. The daemon does this automatically per run, using the run's working directory as the workspace root.
-
-### Customising discovery roots
-
-Both roots can be overridden or disabled via `LoadSkillsOptions`:
-
-```ts
-import { loadSkills } from "@comma-agents/core";
-
-// Only project skills — skip the global directory.
-const { registry } = await loadSkills(process.cwd(), {
-  globalSkillsDir: null,
-});
-
-// Custom global location.
-const result = await loadSkills(process.cwd(), {
-  globalSkillsDir: "/etc/comma-agents/skills",
-});
-```
-
-<AutoTypeTable path="../packages/core/src/skills/skills.types.ts" name="LoadSkillsOptions" />
-
-## Types
-
-### Skill
-
-A fully loaded skill.
-
-<AutoTypeTable path="../packages/core/src/skills/skills.types.ts" name="Skill" />
-
-### SkillRegistry
-
-In-memory registry returned by `loadSkills`.
-
-<AutoTypeTable path="../packages/core/src/skills/skills.types.ts" name="SkillRegistry" />
-
-### SkillMetadata
-
-The parsed frontmatter of a `SKILL.md` file.
-
-<AutoTypeTable path="../packages/core/src/skills/skills.types.ts" name="SkillMetadata" />
+<AutoTypeTable
+  path="../packages/core/src/skills/skills.types.ts"
+  name="SkillLoadWarning"
+/>

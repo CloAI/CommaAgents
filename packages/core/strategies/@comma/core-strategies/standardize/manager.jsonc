@@ -13,14 +13,13 @@
 
     "manager": {
       "description": "Plans, walks, fixes structural issues, dispatches per-file work, and reports. Full read/write/run toolset. Resolves standards once up-front (configs + skills), maintains its own todo list of files to audit, performs structural fixes itself (rename, move, add barrels), then launches `@comma/core-strategies/strategies/standardize-worker` for each file's content audit. Emits the final user-facing report.",
-      "model": "openrouter/google/gemma-4-31b-it",
+      "model": "@medium",
       "systemPrompt": "./prompts/manager.md",
       "maxSteps": 500,
       "tools": [
         "read_file",
-        "list_directory",
         "glob",
-        "search_files",
+        "grep",
         "create_file",
         "write_file",
         "edit_file",
@@ -37,7 +36,7 @@
         "todo_get",
         "todo_get_next",
         "todo_clear",
-        "ask_question"
+        "ask_questions"
       ]
     }
   },

@@ -67,7 +67,9 @@ export async function createMcpConnectionManager({
       const origins: Record<string, McpToolOrigin> = {};
       for (const serverId of serverIds) {
         const toolSet = toolSets.get(serverId);
-        if (!toolSet) continue;
+        if (!toolSet) {
+          continue;
+        }
         for (const [toolName, tool] of Object.entries(toolSet.tools)) {
           if (tools[toolName]) {
             throw new Error(
@@ -82,7 +84,9 @@ export async function createMcpConnectionManager({
     },
 
     async close(): Promise<void> {
-      if (closed) return;
+      if (closed) {
+        return;
+      }
       closed = true;
       await Promise.allSettled(
         Array.from(clients.values(), (client) => client.close()),
@@ -108,7 +112,9 @@ export function parseMcpToolName(
   const match = /^mcp__([A-Za-z0-9_-]+)__([A-Za-z0-9_-]+)$/.exec(
     namespacedToolName,
   );
-  if (!match) return undefined;
+  if (!match) {
+    return undefined;
+  }
   try {
     return {
       serverId: Buffer.from(match[1]!, "base64url").toString("utf8"),

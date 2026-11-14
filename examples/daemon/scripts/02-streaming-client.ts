@@ -9,13 +9,13 @@
  * text deltas without newlines, then printing the final result when done.
  *
  * Prerequisites:
- *   1. Start the daemon: bun run --cwd packages/daemon start
+ *   1. Start the daemon: pnpm --dir packages/daemon start
  *   2. Ensure a strategy file exists (e.g., ../../examples/core/simple/strategy.json)
  *   3. Set up provider API keys (e.g., OPENAI_API_KEY)
  *
  * Run:
- *   bun run examples/02-streaming-client.ts [strategy-path]
- *   bun run examples/02-streaming-client.ts --daemon-url ws://localhost:8080/ws
+ *   pnpm exec tsx examples/02-streaming-client.ts [strategy-path]
+ *   pnpm exec tsx examples/02-streaming-client.ts --daemon-url ws://localhost:8080/ws
  *
  * Concepts:
  *   - agent_streaming message with text / tool-call / tool-result / done events
@@ -29,7 +29,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 const DEFAULT_STRATEGY = path.resolve(
-  import.meta.dir,
+  import.meta.dirname,
   "../../core/strategies/simple/strategy.json",
 );
 
@@ -52,13 +52,6 @@ const argv = yargs(hideBin(process.argv))
     default: process.env.DAEMON_URL ?? "ws://127.0.0.1:7422/ws",
     describe: "WebSocket URL of the daemon",
   })
-  .option("model-override", {
-    alias: "m",
-    type: "string",
-    default: process.env.MODEL,
-    describe:
-      'Override the model for all agents (e.g. "anthropic/claude-sonnet-4-20250514"). Also reads MODEL env var.',
-  })
   .example("$0", "Stream with default strategy")
   .example("$0 path/to/strategy.json", "Stream a specific strategy")
   .strict()
@@ -69,13 +62,11 @@ const argv = yargs(hideBin(process.argv))
 
 const DAEMON_URL = argv.daemonUrl as string;
 const STRATEGY_PATH = argv.strategyPath as string;
-const MODEL_OVERRIDE = argv.modelOverride as string | undefined;
 
 async function main() {
   const strategyPath = path.resolve(STRATEGY_PATH);
   console.log(`Connecting to daemon at ${DAEMON_URL}...`);
   console.log(`Strategy: ${strategyPath}`);
-  if (MODEL_OVERRIDE) console.log(`Model override: ${MODEL_OVERRIDE}`);
   console.log("Streaming mode — tokens will appear as they arrive.\n");
 
   const ws = new WebSocket(DAEMON_URL);
@@ -94,7 +85,6 @@ async function main() {
         type: "prepare_run",
         strategyPath,
         requestId: "prepare-stream-1",
-        ...(MODEL_OVERRIDE ? { modelOverride: MODEL_OVERRIDE } : {}),
       }),
     );
   };

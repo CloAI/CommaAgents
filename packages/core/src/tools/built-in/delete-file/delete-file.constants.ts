@@ -6,7 +6,7 @@ export const deleteFileParams = z.object({
     .min(1)
     .describe(
       "Workspace-relative path of the file to delete. Absolute paths are rejected unless " +
-        "the sandbox is configured with `allowAbsolutePaths: true`.",
+        "the sandbox is configured with `absolutePaths: 'allow'`.",
     ),
   expectedSha256: z
     .string()
@@ -26,6 +26,6 @@ export const deleteFileParams = z.object({
     .optional()
     .describe(
       "When true, the file is unlinked directly with no recovery path. When false (default), " +
-        "the file is moved to a workspace-scoped trash bucket under the OS temp directory.",
+        "the file is moved to a workspace-scoped trash bucket under the application data directory.",
     ),
 });

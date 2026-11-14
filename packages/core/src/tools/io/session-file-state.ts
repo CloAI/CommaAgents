@@ -62,12 +62,16 @@ export function buildSessionFileState(
   const state = new Map<string, SessionFileEntry>();
 
   for (const entry of entries) {
-    if (!entry.success) continue;
+    if (!entry.success) {
+      continue;
+    }
 
     switch (entry.operation) {
       case "create":
       case "update": {
-        if (entry.afterSha256 === undefined) continue;
+        if (entry.afterSha256 === undefined) {
+          continue;
+        }
         state.set(entry.path, {
           path: entry.path,
           sha256: entry.afterSha256,

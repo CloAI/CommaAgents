@@ -3,7 +3,7 @@
 // Covers: basic interpolation, overrides, dynamic values, env/file/exec
 // filters, conditionals, loops, and error handling.
 
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

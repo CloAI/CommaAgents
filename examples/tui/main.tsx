@@ -2,11 +2,11 @@
  * TUI entry point — renders the App component with Ink.
  *
  * Interactive mode (default):
- *   bun run tui/main.tsx
+ *   pnpm exec tsx tui/main.tsx
  *
  * Batch mode — run all examples with a specific provider/model:
- *   bun run tui/main.tsx --all --provider openai --model gpt-4o
- *   bun run tui/main.tsx --all -p github-copilot -m gpt-4o
+ *   pnpm exec tsx tui/main.tsx --all --provider openai --model gpt-4o
+ *   pnpm exec tsx tui/main.tsx --all -p github-copilot -m gpt-4o
  *
  * Options:
  *   --all              Run all examples sequentially (non-interactive)

@@ -1,0 +1,110 @@
+---
+title: Projects Plugin
+description: Organize root conversations into projects and searchable archives independently of execution state.
+---
+
+# Projects Plugin
+
+Use `daemon.plugins.projects` to organize conversations by project and directory. Every catalog starts with a `general` project for unorganized work. Project membership, completion, and archival remain separate from whether a run is preparing, running, or finished.
+
+```ts
+import { createDaemonKernel } from "@comma-agents/daemon";
+
+const daemon = await createDaemonKernel({
+  runs: { runsDir: "/home/user/.comma/runs" },
+});
+const prepared = await daemon.plugins.runs.prepareRun({
+  configuration: {
+    strategyPath: "/home/user/project/strategy.json",
+    cwd: "/home/user/project",
+  },
+});
+await daemon.plugins.projects.assign({
+  projectId: "general",
+  runId: prepared.runId,
+  title: "Implement search",
+});
+const catalog = await daemon.plugins.projects.list();
+```
+
+## CreateProjectsPluginOptions
+
+Options for using the project service separately from the daemon kernel.
+
+<AutoTypeTable path="../packages/daemon/src/plugins/projects/projects.types.ts" name="CreateProjectsPluginOptions" />
+
+## ProjectsPlugin
+
+Project creation, conversation membership, archival, search, and live observation.
+
+<AutoTypeTable path="../packages/daemon/src/plugins/projects/projects.types.ts" name="ProjectsPlugin" />
+
+## Create a project
+
+Creating from General moves all its unarchived conversations. Its archived conversations remain in General. Creating from another project can start fresh, copy selected conversations, or move selected conversations. Moves preserve execution and working directories; copies use the new project's directory and wait for new input.
+
+Use the same `requestId` when retrying a request after a connection failure. Identical retries return the original project and conversation mapping. Reusing the ID with different options rejects the request.
+
+```ts
+const project = await daemon.plugins.projects.create({
+  requestId: crypto.randomUUID(),
+  name: "Search project",
+  cwd: "/home/user/project",
+  sourceProjectId: "general",
+  mode: "move",
+});
+```
+
+To copy a conversation, read its completed-response checkpoint and pass its ID in `checkpoints`. A running source can continue while you copy the last completed response. A conversation with no completed checkpoint cannot be copied. Copies include delegated conversations and do not copy live subprocesses or pending user decisions.
+
+```ts
+const checkpoint = await daemon.plugins.runs.getCopyCheckpoint(runId);
+if (checkpoint) {
+  await daemon.plugins.projects.create({
+    requestId: crypto.randomUUID(),
+    name: "Alternative implementation",
+    cwd: "/home/user/alternative",
+    sourceProjectId: project.project.projectId,
+    mode: "copy",
+    runIds: [runId],
+    checkpoints: { [runId]: checkpoint.checkpointId },
+  });
+}
+```
+
+## Archive and search
+
+Archiving removes a conversation from the current working set without deleting its history. Set `done` when the user explicitly finishes the subject. Running conversations and conversations awaiting questions or permissions cannot be archived.
+
+Record views and interactions through `activity`. Clients decide inactivity policies and protect chats displayed in their layouts. The daemon does not automatically archive by age.
+
+```ts
+await daemon.plugins.projects.activity({ runId });
+await daemon.plugins.projects.archive({ runId, done: true });
+const results = await daemon.plugins.projects.search({
+  projectId: project.project.projectId,
+  query: "search",
+  limit: 30,
+});
+await daemon.plugins.projects.restore(runId);
+```
+
+Search matches titles and finalized visible text, excluding reasoning and tool payloads. Results are ordered by most recent recorded activity. Restoring clears both archival and completion markers.
+
+## Observe attention
+
+Watch receives an initial catalog and live updates. Each root conversation reports current execution, pending questions and permissions from descendants, and root failure. These indicators do not declare the user's task complete.
+
+```ts
+const unsubscribe = await daemon.plugins.projects.watch((catalog) => {
+  for (const chat of catalog.chats) {
+    if (chat.attention.question || chat.attention.permission) {
+      console.log(chat.title, "needs attention");
+    }
+  }
+});
+// Later:
+unsubscribe();
+```
+
+Service timestamps are native `Date` values. The [project protocol](/docs/daemon/server/protocol/projects) uses ISO timestamps. Pane arrangements and the active project belong to clients.

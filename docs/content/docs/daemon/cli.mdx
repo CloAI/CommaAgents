@@ -5,18 +5,19 @@ description: Command-line interface for managing the daemon process.
 
 # CLI
 
-The primary daemon management interface is `comma daemon`. The legacy `comma-agents-daemon` binary remains available for direct daemon process control.
+The primary daemon management interface is `comma daemon`. The package also provides the standalone `comma-agents-daemon` binary for direct process control.
 
 ```bash
 comma daemon start
 comma daemon status
 comma daemon stop
 comma daemon restart
+comma daemon logs
 ```
 
 Use `comma daemon enable` or `comma daemon disable` to manage user-level daemon autostart.
 
-The compatibility binary supports `start`, `stop`, `restart`, and `status`.
+The standalone binary supports `start`, `stop`, `restart`, `status`, and `logs`. Autostart commands are only available through `comma daemon`.
 
 ## start
 
@@ -36,16 +37,47 @@ comma-agents-daemon start --foreground
 |---|---|---|---|---|
 | `--foreground` | `-f` | boolean | `false` | Run in the foreground (don't daemonize) |
 | `--port` | `-p` | number | from config | Override the listening port |
-| `--model-override` | | string | — | Override model for all agents (e.g. `github-copilot/gpt-4o`) |
 | `--verbose` | `-v` | boolean | `false` | Enable debug-level logging |
+| `--console` / `--no-console` | | boolean | from config | Enable or disable stderr logging; requires `--foreground` |
+| `--console-format` | | `text` or `json` | from config | Select console formatting; requires `--foreground` |
+| `--log-payloads` | | boolean | `false` | Log agent input, completed responses, and tool payloads; enables debug logging |
 
 ```bash
 # Start on a custom port
 comma-agents-daemon start --port 9090
 
-# Start in foreground with model override and verbose logging
-comma-agents-daemon start --foreground --model-override github-copilot/gpt-4o --verbose
+# Start in foreground with verbose logging
+comma-agents-daemon start --foreground --verbose
+
+# Readable invocation and tool logs
+comma-agents-daemon start --foreground --console --verbose
+
+# Include full agent and tool payloads
+comma-agents-daemon start --foreground --console --log-payloads
+
+# Keep application logs in the configured file only
+comma-agents-daemon start --foreground --no-console
 ```
+
+Without console flags, existing JSON stderr output is preserved. Explicit `--console` defaults to readable text; use `--console-format=json` for structured console output. File logs always use JSON. Console flags require foreground mode, and invalid restart options are rejected before the running daemon is stopped. `--no-log-payloads` disables payload logging when enabled by configuration.
+
+Debug logs summarize each agent invocation and tool execution, including duration, usage, errors, and cancellation. An agent invocation can include several model requests; individual provider requests and separate compaction requests are not traced.
+
+The CLI starts the plugin kernel and exposes its commands and channels over the [plugin server](/docs/daemon/server/plugin-server) WebSocket at `/ws`. Background startup waits for the launched daemon to publish its PID after the listener starts and verifies that process is still running. Configuration flags, environment variables, and configuration-file precedence remain the same.
+
+For repository debugging, run the shared foreground runtime with:
+
+```bash
+pnpm run scripts/debug-daemon.ts
+```
+
+The IDE's **Debug: Daemon** launch configuration enables readable debug logs with payloads disabled. For the same output from a terminal:
+
+```bash
+COMMA_DAEMON_CONSOLE=true COMMA_DAEMON_LOG_LEVEL=debug pnpm run scripts/debug-daemon.ts
+```
+
+Both entry points write the configured PID file and release it on shutdown.
 
 If the daemon is already running, `start` exits with an error message and exit code 1.
 
@@ -104,3 +136,13 @@ Autostart is managed through `comma daemon enable` and `comma daemon disable`.
 | macOS | launchd user agent |
 | Linux | systemd user service |
 | Windows | user logon scheduled task |
+
+## logs
+
+Print the configured daemon log-file path:
+
+```bash
+comma daemon logs
+```
+
+When no file sink is configured, the command reports that no daemon log file is available. Foreground and service-manager logs may still be available through standard error or the platform service log.

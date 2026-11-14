@@ -1,3 +1,6 @@
+import { BUILT_IN_TOOL_NAMES } from "../../tools/tool.constants";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 
 import { jsonSchema } from "ai";
@@ -11,6 +14,8 @@ import {
 import { BUILT_IN_AGENT_NAMES } from "../../agents/registry/agent-registry.constants";
 import { StrategyValidationError } from "../../errors/index";
 import type { Guard } from "../../guard/guard.types";
+import { getModelFamily, resolveModelReference } from "../../model/roles";
+import { buildContextBlocks } from "../../prompts/context-blocks";
 import type { PromptTemplate } from "../../prompts/prompts.types";
 import { createPromptTemplate } from "../../prompts/template/prompt-template";
 import { buildSkillsPromptHeader } from "../../skills/skills.loader";
@@ -22,6 +27,18 @@ import {
 import { resolveTools } from "../../tools/tool.registry";
 import type { ToolContext } from "../../tools/tool.types";
 import type { AgentDef, LLMAgentDef, Strategy, UserAgentDef } from "../schema";
+import type { SubagentTarget } from "../../tools/built-in/delegate/delegate.types";
+import {
+  discoverStrategies,
+  resolveInstalledStrategyReference,
+} from "../discover/discover";
+import { parseStrategyHeader } from "../discover/discover.utils";
+import {
+  CONTEXT_BLOCKS_VARIABLE,
+  MODEL_FAMILY_VARIABLE,
+  SKILL_TOOL_NAMES,
+  STRATEGY_FILE_PATTERN,
+} from "./loader.constants";
 import type { LoadStrategyOptions } from "./loader.types";
 
 // Agent instantiation
@@ -30,14 +47,20 @@ type BuiltInAgentFactory = (
   name: string,
   agentDefinition: AgentDef,
   options: LoadStrategyOptions,
+  strategy: Strategy,
 ) => Agent | Promise<Agent>;
 
 const builtInAgentFactories: Readonly<Record<string, BuiltInAgentFactory>> = {
   user(name, agentDefinition, options) {
     return buildUserAgent(name, agentDefinition as UserAgentDef, options);
   },
-  llm(name, agentDefinition, options) {
-    return buildLLMAgent(name, agentDefinition as LLMAgentDef, options);
+  llm(name, agentDefinition, options, strategy) {
+    return buildLLMAgent(
+      name,
+      agentDefinition as LLMAgentDef,
+      options,
+      strategy,
+    );
   },
 };
 
@@ -57,7 +80,12 @@ export async function buildAgentRegistry(
     const agentType = agentDefinition.type ?? "llm";
     const builtInFactory = builtInAgentFactories[agentType];
     if (builtInFactory) {
-      registry[name] = await builtInFactory(name, agentDefinition, options);
+      registry[name] = await builtInFactory(
+        name,
+        agentDefinition,
+        options,
+        strategy,
+      );
       continue;
     }
 
@@ -105,11 +133,8 @@ function createMinimalGuard(cwd: string): Guard {
   return {
     toolName: "unknown",
     cwd,
-    trashMetadata: undefined,
+    deletionMetadata: undefined,
     authorize: async () => {
-      throw new Error("Minimal guard - not for authorization");
-    },
-    askQuestion: async () => {
       throw new Error("Minimal guard - not for authorization");
     },
     canAccess: () => false,
@@ -128,9 +153,15 @@ async function buildLLMAgent(
   name: string,
   agentDefinition: LLMAgentDef,
   options: LoadStrategyOptions,
+  strategy: Strategy,
 ): Promise<Agent> {
-  // modelOverride replaces whatever the strategy file specifies
-  const effectiveModel = options.modelOverride ?? agentDefinition.model;
+  const effectiveModel =
+    agentDefinition.model === undefined
+      ? undefined
+      : resolveModelReference(agentDefinition.model, {
+          configured: options.modelRoles,
+          defaults: strategy.modelRoles,
+        });
 
   // Model is required for LLM agents
   if (!effectiveModel) {
@@ -144,12 +175,31 @@ async function buildLLMAgent(
     name,
     agentDefinition.skills,
     options.skillRegistry,
+    (agentDefinition.tools ?? BUILT_IN_TOOL_NAMES).filter((toolName) =>
+      SKILL_TOOL_NAMES.includes(toolName),
+    ),
   );
+  const { instructions, environment, ...conversationContext } =
+    agentDefinition.context ?? {};
+  const contextBlocks =
+    instructions || environment
+      ? await buildContextBlocks({
+          cwd: options.cwd ?? options.sandbox?.cwd ?? process.cwd(),
+          instructions,
+          environment,
+          instructionFiles: options.instructionFiles,
+        })
+      : "";
+
+  const subagents = agentDefinition.subagents
+    ? await resolveSubagents(name, agentDefinition.subagents, options)
+    : undefined;
 
   // Resolve tool definitions early so we can collect system prompt contributions
-  const toolDefinitions = agentDefinition.tools
-    ? resolveTools(agentDefinition.tools, name)
-    : undefined;
+  const toolDefinitions = resolveTools(
+    agentDefinition.tools ?? BUILT_IN_TOOL_NAMES,
+    name,
+  );
 
   // Collect tool system prompt contributions
   let toolSystemPrompt: string | undefined;
@@ -165,6 +215,7 @@ async function buildLLMAgent(
       ...(options.skillRegistry
         ? { skillRegistry: options.skillRegistry }
         : {}),
+      ...(subagents ? { subagents } : {}),
     };
 
     toolSystemPrompt = await buildToolSystemPrompt({
@@ -188,13 +239,12 @@ async function buildLLMAgent(
         resolvedPath = resolve(resolvedSystemPrompt);
       }
     }
-    const file = Bun.file(resolvedPath);
-    if (!(await file.exists())) {
+    if (!existsSync(resolvedPath)) {
       throw new StrategyValidationError(
         `System prompt file not found: ${resolvedPath}`,
       );
     }
-    resolvedSystemPrompt = await file.text();
+    resolvedSystemPrompt = await readFile(resolvedPath, "utf8");
   }
 
   let resolvedTemplate = agentDefinition.systemPromptTemplate?.template;
@@ -210,88 +260,155 @@ async function buildLLMAgent(
         resolvedPath = resolve(resolvedTemplate);
       }
     }
-    const file = Bun.file(resolvedPath);
-    if (!(await file.exists())) {
+    if (!existsSync(resolvedPath)) {
       throw new StrategyValidationError(
         `System prompt template file not found: ${resolvedPath}`,
       );
     }
-    resolvedTemplate = await file.text();
+    resolvedTemplate = await readFile(resolvedPath, "utf8");
   }
 
-  // Build base prompt (template or static + skills header)
-  let basePrompt: string | PromptTemplate | undefined;
-  let templatePrompt: string | undefined;
+  // Prompt order: base, run-time context blocks, skills, tool contributions.
+  let systemPrompt: string | PromptTemplate | undefined;
   if (agentDefinition.systemPromptTemplate) {
-    templatePrompt = prependSkillsHeader(
+    // Context blocks hold repository files, so they enter as a variable: Liquid never parses their contents.
+    const template = mergeSystemPrompts([
       resolvedTemplate ?? agentDefinition.systemPromptTemplate.template,
+      contextBlocks ? `{{ ${CONTEXT_BLOCKS_VARIABLE} }}` : undefined,
       skillsPrompt,
-    );
-    basePrompt = createPromptTemplate({
-      template: templatePrompt,
-      variables: agentDefinition.systemPromptTemplate.variables,
+      toolSystemPrompt,
+    ]);
+    systemPrompt = createPromptTemplate({
+      template: template ?? "",
+      variables: {
+        [MODEL_FAMILY_VARIABLE]: getModelFamily(effectiveModel),
+        ...agentDefinition.systemPromptTemplate.variables,
+        ...(contextBlocks ? { [CONTEXT_BLOCKS_VARIABLE]: contextBlocks } : {}),
+      },
     });
   } else {
-    basePrompt = prependSkillsHeader(resolvedSystemPrompt, skillsPrompt);
-  }
-
-  // Merge: base prompt + tool contributions
-  let systemPrompt: string | PromptTemplate | undefined;
-  if (toolSystemPrompt && basePrompt) {
-    if (typeof basePrompt === "string") {
-      // Both are strings - merge directly
-      systemPrompt = mergeSystemPrompts([basePrompt, toolSystemPrompt]);
-    } else {
-      // basePrompt is a PromptTemplate - append tool prompt to template
-      systemPrompt = createPromptTemplate({
-        template: `${templatePrompt}\n\n${toolSystemPrompt}`,
-        variables: agentDefinition.systemPromptTemplate?.variables,
-      });
-    }
-  } else {
-    systemPrompt = basePrompt;
+    systemPrompt = mergeSystemPrompts([
+      resolvedSystemPrompt,
+      contextBlocks,
+      skillsPrompt,
+      toolSystemPrompt,
+    ]);
   }
 
   // Pass string model and tool names directly — createAgent resolves internally
-  return createAgent({
-    name,
-    model: effectiveModel,
-    systemPrompt,
-    tools: agentDefinition.tools,
-    ...(options.mcpToolsByAgent?.[name]
-      ? {
-          mcpTools: options.mcpToolsByAgent[name]!.tools,
-          mcpToolOrigins: options.mcpToolsByAgent[name]!.origins,
-        }
-      : {}),
-    ...(agentDefinition.providerOptions
-      ? { providerOptions: agentDefinition.providerOptions }
-      : {}),
-    ...(agentDefinition.modelOptions
-      ? { modelOptions: agentDefinition.modelOptions }
-      : {}),
-    ...(agentDefinition.outputSchema
-      ? { outputSchema: jsonSchema(agentDefinition.outputSchema) }
-      : {}),
-    ...(agentDefinition.context ? { context: agentDefinition.context } : {}),
-    ...(options.skillRegistry ? { skillRegistry: options.skillRegistry } : {}),
-    ...(options.inputCollector
-      ? { inputCollector: options.inputCollector }
-      : {}),
-    ...(options.launchStrategy
-      ? { launchStrategy: options.launchStrategy }
-      : {}),
-    ...(options.languageService
-      ? { languageService: options.languageService }
-      : {}),
-    ...(options.runId ? { runId: options.runId } : {}),
-  });
+  return createAgent(
+    {
+      name,
+      model: effectiveModel,
+      privacy: agentDefinition.privacy,
+      systemPrompt,
+      tools: agentDefinition.tools,
+      maxSteps: agentDefinition.maxSteps,
+      ...(agentDefinition.providerOptions
+        ? { providerOptions: agentDefinition.providerOptions }
+        : {}),
+      ...(agentDefinition.modelOptions
+        ? { modelOptions: agentDefinition.modelOptions }
+        : {}),
+      ...(agentDefinition.outputSchema
+        ? { outputSchema: jsonSchema(agentDefinition.outputSchema) }
+        : {}),
+      ...(agentDefinition.context
+        ? {
+            context:
+              typeof conversationContext.compaction === "object" &&
+              conversationContext.compaction.model !== undefined
+                ? {
+                    ...conversationContext,
+                    compaction: {
+                      ...conversationContext.compaction,
+                      model: resolveModelReference(
+                        conversationContext.compaction.model,
+                        {
+                          configured: options.modelRoles,
+                          defaults: strategy.modelRoles,
+                        },
+                      ),
+                    },
+                  }
+                : conversationContext,
+          }
+        : {}),
+    },
+    {
+      sandbox: options.sandbox,
+      privacyRuntime: options.privacyRuntime,
+      skillRegistry: options.skillRegistry,
+      inputCollector: options.inputCollector,
+      launchStrategy: options.launchStrategy,
+      requestStrategySwitch: options.requestStrategySwitch,
+      languageService: options.languageService,
+      questionsRequester: options.questionsRequester,
+      runId: options.runId,
+      mcpTools: options.mcpToolsByAgent?.[name]?.tools,
+      subagents,
+    },
+  );
+}
+
+/**
+ * Resolve an agent's `subagents` map to launchable strategy files.
+ * File references are relative to the strategy directory; other values are discoverable strategy names.
+ * @param {string} agentName - Agent declaring the subagents, for error messages.
+ * @param {Readonly<Record<string, string>>} references - Subagent names mapped to paths or strategy names.
+ * @param {LoadStrategyOptions} options - Loader options supplying the strategy directory and cwd.
+ * @returns {Promise<SubagentTarget[]>} Launchable targets.
+ */
+export async function resolveSubagents(
+  agentName: string,
+  references: Readonly<Record<string, string>>,
+  options: LoadStrategyOptions,
+): Promise<SubagentTarget[]> {
+  const targets: SubagentTarget[] = [];
+  let discovered: Awaited<ReturnType<typeof discoverStrategies>> | undefined;
+  for (const [subagentName, reference] of Object.entries(references)) {
+    if (STRATEGY_FILE_PATTERN.test(reference)) {
+      const strategyPath = resolve(
+        options.strategyDir ?? process.cwd(),
+        reference,
+      );
+      const header = await parseStrategyHeader(strategyPath);
+      if (!header.ok) {
+        throw new StrategyValidationError(
+          `Agent "${agentName}" subagent "${subagentName}" cannot load ${strategyPath}: ${header.reason}`,
+        );
+      }
+      targets.push({
+        name: subagentName,
+        description: header.description,
+        strategyPath,
+      });
+      continue;
+    }
+    discovered ??= await discoverStrategies({ cwd: options.cwd });
+    const match =
+      discovered.strategies.find((strategy) => strategy.name === reference) ??
+      (await resolveInstalledStrategyReference(reference));
+    if (!match) {
+      throw new StrategyValidationError(
+        `Agent "${agentName}" subagent "${subagentName}" references unknown strategy "${reference}".`,
+      );
+    }
+    targets.push({
+      name: subagentName,
+      description: match.description,
+      strategyPath: match.path,
+      ...(match.manifestPath ? { manifestPath: match.manifestPath } : {}),
+    });
+  }
+  return targets;
 }
 
 function buildAgentSkillsPrompt(
   agentName: string,
   requiredSkillNames: readonly string[] | undefined,
   registry: SkillRegistry | undefined,
+  skillTools: readonly string[],
 ): string {
   if (!registry) {
     if (requiredSkillNames && requiredSkillNames.length > 0) {
@@ -302,7 +419,26 @@ function buildAgentSkillsPrompt(
     return "";
   }
 
-  const availableSkills = buildSkillsPromptHeader(registry);
+  // Describe available actions without injecting the entire optional skill index.
+  const guidance: string[] = [];
+  if (skillTools.includes("search_skills")) {
+    guidance.push(
+      "Use search_skills to find skills relevant to your task by name and description.",
+    );
+  }
+  if (skillTools.includes("list_skills")) {
+    guidance.push(
+      "Use list_skills to inspect the available skill names and descriptions.",
+    );
+  }
+  if (skillTools.includes("load_skill")) {
+    guidance.push(
+      "Use load_skill with an exact skill name to read its full instructions before doing related work. Search results are candidates; decide whether their descriptions apply.",
+    );
+  }
+  const availableSkills = guidance.length
+    ? ["## Skill Tools", ...guidance].join("\n")
+    : "";
   if (!requiredSkillNames || requiredSkillNames.length === 0) {
     return availableSkills;
   }
@@ -333,28 +469,6 @@ function buildAgentSkillsPrompt(
   return availableSkills
     ? `${availableSkills}\n\n${requiredSkillsPrompt}`
     : requiredSkillsPrompt;
-}
-
-/**
- * Concatenate the skills header onto a static system prompt. Used by
- * `buildLLMAgent` so callers don't have to remember to inject skills into
- * every prompt themselves.
- */
-function prependSkillsHeader(
-  systemPrompt: string,
-  skillsHeader: string,
-): string;
-function prependSkillsHeader(
-  systemPrompt: string | undefined,
-  skillsHeader: string,
-): string | undefined;
-function prependSkillsHeader(
-  systemPrompt: string | undefined,
-  skillsHeader: string,
-): string | undefined {
-  if (skillsHeader.length === 0) return systemPrompt;
-  if (!systemPrompt || systemPrompt.length === 0) return skillsHeader;
-  return `${systemPrompt}\n\n${skillsHeader}`;
 }
 
 /** @internal Used by tests to assert the header gets attached. */

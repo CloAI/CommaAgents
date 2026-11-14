@@ -79,9 +79,13 @@ export function ScrollableList<ItemType>({
   useInput(
     (input, key) => {
       const isReturnInput = key.return || input === "\r" || input === "\n";
-      if (totalCount === 0) return;
+      if (totalCount === 0) {
+        return;
+      }
       if (key.upArrow) {
-        if (clampedSelected > 0) onSelectedIndexChange(clampedSelected - 1);
+        if (clampedSelected > 0) {
+          onSelectedIndexChange(clampedSelected - 1);
+        }
         return;
       }
       if (key.downArrow) {
@@ -92,7 +96,9 @@ export function ScrollableList<ItemType>({
       }
       if (isReturnInput && onSelected !== undefined) {
         const item = items[clampedSelected];
-        if (item !== undefined) onSelected(item, clampedSelected);
+        if (item !== undefined) {
+          onSelected(item, clampedSelected);
+        }
       }
     },
     { isActive: isFocused },

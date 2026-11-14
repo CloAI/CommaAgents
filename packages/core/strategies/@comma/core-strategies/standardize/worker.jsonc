@@ -13,13 +13,13 @@
 
     "auditor": {
       "description": "Reads the target file, identifies standards violations, applies minimal in-place fixes (edit_file > write_file), and runs the project's verification commands. Reuses the Manager's resolved standards from the seed input \u2014 only loads a skill if the seed explicitly names one and the auditor needs it. Emits one structured report per iteration.",
-      "model": "openrouter/google/gemma-4-31b-it",
+      "model": "@medium",
       "systemPrompt": "./prompts/worker-auditor.md",
       "maxSteps": 100,
       "tools": [
         "read_file",
-        "list_directory",
-        "search_files",
+        "glob",
+        "grep",
         "write_file",
         "edit_file",
         "run_command",
@@ -34,12 +34,12 @@
 
     "reviewer": {
       "description": "Cycle observer. Reads the Auditor's iteration report (and the file itself when needed) and decides whether the file now meets the agreed standards. Emits `DONE` when satisfied or `CONTINUE: <directive>` otherwise.",
-      "model": "openrouter/google/gemma-4-31b-it",
+      "model": "@medium",
       "systemPrompt": "./prompts/worker-reviewer.md",
       "maxSteps": 20,
       "tools": [
         "read_file",
-        "search_files",
+        "grep",
         "run_command",
         "load_skill"
       ]

@@ -2,7 +2,7 @@
 title: createUserAgent
 description: Factory function for creating human-in-the-loop agents that collect input from the user.
 ---
-`createUserAgent` creates a human-in-the-loop agent that collects input from the console (or a custom source) instead of calling an LLM. It delegates to `createAgent` with a custom `execute` override, so it supports the full hook lifecycle and is usable anywhere an `Agent` is accepted.
+`createUserAgent` creates a human-in-the-loop agent that collects input from the console or a custom source instead of calling a model. It supports agent hooks and can be used anywhere an `Agent` is accepted.
 
 ```ts
 import { createAgent, createUserAgent } from "@comma-agents/core";
@@ -32,7 +32,7 @@ The configuration object passed to `createUserAgent`.
 
 ## Input Collection
 
-By default, input is read from stdin (works in both Node.js and Bun). Pass a custom `inputCollector` to collect input from other sources, such as a WebSocket or UI:
+By default, input is read from stdin (runs in Node.js). Pass a custom `inputCollector` to collect input from other sources, such as a WebSocket or UI:
 
 ```ts
 import { createUserAgent } from "@comma-agents/core";

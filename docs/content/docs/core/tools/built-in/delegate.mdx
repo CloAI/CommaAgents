@@ -1,0 +1,41 @@
+---
+title: delegate
+description: Hand tasks to subagent strategies and wait for their answers, running independent tasks in parallel.
+---
+
+The `delegate` tool lets an agent hand work to the subagents named in its `subagents` definition. Each task runs as a child strategy with fresh context, and every task in one call runs in parallel. Use it for work that would flood the agent's own context (broad searches, web research) or that benefits from fresh eyes (verifying a change).
+
+```json
+{
+  "builder": {
+    "model": "@medium",
+    "tools": ["read_file", "edit_file", "delegate"],
+    "subagents": {
+      "explore": "../subagents/explore/explore.json",
+      "verify": "../subagents/verify/verify.json"
+    }
+  }
+}
+```
+
+The agent's system prompt lists its subagents and their descriptions.
+
+## Parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `tasks` | `array` | One to eight tasks. |
+| `tasks[].agent` | `string` | Subagent name from the agent's `subagents` map. |
+| `tasks[].description` | `string` | Short label shown to the user. |
+| `tasks[].goal` | `string` | What the subagent must accomplish and return. |
+| `tasks[].context` | `string` | Everything the subagent needs; it cannot see the calling conversation. |
+
+## Results
+
+Results come back in request order as `{ agent, description, ok, text, data? }`. A failed task is reported with `ok: false` and the failure message, and the other tasks still return. When a subagent's final answer is JSON (optionally inside a single code fence), `data` holds the parsed value.
+
+## Limits
+
+- Subagents start with no access to the caller's conversation, todo list, or questions to the user.
+- Nesting is limited to two levels below the root run: a subagent may delegate once more, and that subagent's subagents may not.
+- Subagents use the same sandbox as the caller, and a run-wide model override applies to them too.

@@ -1,0 +1,92 @@
+.controls {
+  display: flex;
+  align-items: center;
+  padding-inline: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+
+  &:hover,
+  &[aria-pressed="true"],
+  &[aria-expanded="true"] {
+    background: var(--color-surface-raised);
+    color: var(--color-text);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+  }
+}
+
+.sliderPanel {
+  display: grid;
+  grid-template-columns: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-columns 180ms ease,
+    opacity 180ms ease;
+
+  &[data-expanded="true"] {
+    grid-template-columns: 1fr;
+    opacity: 1;
+  }
+}
+
+.sliderContent {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  gap: 6px;
+
+  input {
+    flex: none;
+    width: 80px;
+    margin: 0 0 0 6px;
+  }
+
+  output {
+    flex: none;
+    width: 34px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  color: var(--color-error);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sliderPanel {
+    transition: none;
+  }
+}

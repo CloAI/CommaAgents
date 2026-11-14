@@ -1,0 +1,1480 @@
+{
+  "schemaVersion": 1,
+  "runtime": "/Users/sync/.nvm/versions/node/v26.13.0/bin/node",
+  "runtimeVersion": "v26.13.0",
+  "sourceHead": "4a410890d5538d6e25d8972897ac5a7d9d9f8b0d",
+  "dirty": true,
+  "workerHash": "8b766b510b124e308074c11c0943c6d50caa5e6c7f581b6c83224e7243b5fd82",
+  "buildHashes": {
+    "packages/core/dist": "1790ec66e253af84cdf9d1481055f7bad660592a62b9a5fe68ebb6368b8fe482",
+    "packages/daemon/dist": "78d6837e85ddb321aa0b59416cee6ef26bc645ea7c50277e2ba4239d16097ee4"
+  },
+  "root": "/Users/sync/VPS/CloAI/CommaAgents2-node26",
+  "trials": 5,
+  "loadGenerator": "v26.13.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "cpu": "Apple M1",
+  "results": [
+    {
+      "trial": 0,
+      "workload": "core-agent-and-template",
+      "iterations": 2000,
+      "durationMs": 60.03633300000001,
+      "cpu": {
+        "user": 96403,
+        "system": 6131
+      },
+      "memory": {
+        "rss": 299958272,
+        "heapTotal": 135397376,
+        "heapUsed": 88538784,
+        "external": 36568242,
+        "arrayBuffers": 10679266
+      },
+      "maxRss": 292928
+    },
+    {
+      "trial": 0,
+      "workload": "daemon-run-persistence",
+      "iterations": 20,
+      "durationMs": 1041.3494580000001,
+      "durationsMs": [
+        81.94170800000006,
+        41.68279200000006,
+        35.12591700000007,
+        33.831249999999955,
+        43.148459,
+        46.91808400000002,
+        53.066291999999976,
+        52.67908399999999,
+        55.712916000000064,
+        57.42558299999996,
+        47.74962500000004,
+        61.83916600000009,
+        54.24341699999991,
+        54.679332999999815,
+        56.62308300000018,
+        51.76754200000005,
+        52.876667,
+        53.05579199999988,
+        50.82458299999985,
+        56.02125000000001
+      ],
+      "cpu": {
+        "user": 260471,
+        "system": 191894
+      },
+      "memory": {
+        "rss": 267845632,
+        "heapTotal": 104169472,
+        "heapUsed": 74174304,
+        "external": 36584885,
+        "arrayBuffers": 10679976
+      },
+      "maxRss": 261568
+    },
+    {
+      "trial": 0,
+      "workload": "startup-idle",
+      "startupMs": 450.0760829999999,
+      "ready": {
+        "url": "ws://127.0.0.1:63860/ws",
+        "runtimeVersion": "v26.13.0",
+        "memory": {
+          "rss": 242515968,
+          "heapTotal": 80871424,
+          "heapUsed": 67504216,
+          "external": 37978948,
+          "arrayBuffers": 10679250
+        },
+        "cpu": {
+          "user": 501647,
+          "system": 66123
+        }
+      },
+      "idle": {
+        "memory": {
+          "rss": 243007488,
+          "heapTotal": 80871424,
+          "heapUsed": 67741792,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 509282,
+          "system": 66410
+        },
+        "subscribers": 0,
+        "maxRss": 237312
+      }
+    },
+    {
+      "trial": 0,
+      "workload": "command-roundtrip",
+      "connections": 1,
+      "durationMs": 18.51241600000003,
+      "requestsPerSecond": 5401.780081000764,
+      "latencyMs": {
+        "count": 100,
+        "p50": 0.16224999999985812,
+        "p95": 0.4719169999998485,
+        "p99": 0.6071249999999964
+      },
+      "cpu": {
+        "user": 5623,
+        "system": 1634
+      },
+      "metrics": {
+        "memory": {
+          "rss": 243728384,
+          "heapTotal": 81395712,
+          "heapUsed": 69285536,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 523987,
+          "system": 68593
+        },
+        "subscribers": 0,
+        "maxRss": 238016
+      }
+    },
+    {
+      "trial": 0,
+      "workload": "command-roundtrip",
+      "connections": 10,
+      "durationMs": 22.14691700000003,
+      "requestsPerSecond": 45153.01159073286,
+      "latencyMs": {
+        "count": 1000,
+        "p50": 0.19291699999985212,
+        "p95": 0.4101670000000013,
+        "p99": 0.477292000000034
+      },
+      "cpu": {
+        "user": 18895,
+        "system": 7885
+      },
+      "metrics": {
+        "memory": {
+          "rss": 254361600,
+          "heapTotal": 91357184,
+          "heapUsed": 79190048,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 543591,
+          "system": 76789
+        },
+        "subscribers": 0,
+        "maxRss": 248400
+      }
+    },
+    {
+      "trial": 0,
+      "workload": "command-roundtrip",
+      "connections": 100,
+      "durationMs": 159.473708,
+      "requestsPerSecond": 62706.26127286136,
+      "latencyMs": {
+        "count": 10000,
+        "p50": 1.4766670000003614,
+        "p95": 2.2634580000003552,
+        "p99": 3.084209000000101
+      },
+      "cpu": {
+        "user": 117391,
+        "system": 50304
+      },
+      "metrics": {
+        "memory": {
+          "rss": 281772032,
+          "heapTotal": 118358016,
+          "heapUsed": 69774272,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 670109,
+          "system": 128923
+        },
+        "subscribers": 0,
+        "maxRss": 275168
+      }
+    },
+    {
+      "trial": 0,
+      "workload": "burst-stream-fanout",
+      "connections": 1,
+      "size": 128,
+      "count": 1000,
+      "received": 1000,
+      "setupMs": 0.6119579999999587,
+      "durationMs": 11.596292000000176,
+      "messagesPerSecond": 86234.46184349142
+    },
+    {
+      "trial": 0,
+      "workload": "burst-stream-fanout",
+      "connections": 10,
+      "size": 128,
+      "count": 1000,
+      "received": 10000,
+      "setupMs": 0.476709000000028,
+      "durationMs": 82.91179199999988,
+      "messagesPerSecond": 120610.10573743256
+    },
+    {
+      "trial": 0,
+      "workload": "burst-stream-fanout",
+      "connections": 100,
+      "size": 128,
+      "count": 100,
+      "received": 10000,
+      "setupMs": 1.8175000000001091,
+      "durationMs": 71.90108400000008,
+      "messagesPerSecond": 139079.96157610067
+    },
+    {
+      "trial": 0,
+      "workload": "burst-stream-fanout",
+      "connections": 1,
+      "size": 65536,
+      "count": 100,
+      "received": 100,
+      "setupMs": 0.13145799999983865,
+      "durationMs": 7.104666000000179,
+      "messagesPerSecond": 14075.257021230482
+    },
+    {
+      "trial": 0,
+      "workload": "paced-token-delivery",
+      "intervalMs": 5,
+      "latencyMs": {
+        "count": 100,
+        "p50": 0.3192079999998896,
+        "p95": 0.47566699999970297,
+        "p99": 0.4997089999997115
+      }
+    },
+    {
+      "trial": 0,
+      "workload": "reconnect-subscribe",
+      "connections": 30,
+      "durationMs": 34.618875000000116
+    },
+    {
+      "trial": 0,
+      "workload": "slow-reader",
+      "publishedBytes": 65536000,
+      "disconnected": true,
+      "before": {
+        "memory": {
+          "rss": 295862272,
+          "heapTotal": 131203072,
+          "heapUsed": 71098584,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 877342,
+          "system": 193902
+        },
+        "subscribers": 1,
+        "maxRss": 288928
+      },
+      "after": {
+        "memory": {
+          "rss": 333070336,
+          "heapTotal": 131203072,
+          "heapUsed": 85986656,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 893727,
+          "system": 196570
+        },
+        "subscribers": 0,
+        "maxRss": 325264
+      }
+    },
+    {
+      "trial": 0,
+      "workload": "shutdown-active-subscription",
+      "stopped": true,
+      "shutdownMs": 0.7892080000001442
+    },
+    {
+      "trial": 1,
+      "workload": "core-agent-and-template",
+      "iterations": 2000,
+      "durationMs": 59.445583,
+      "cpu": {
+        "user": 97150,
+        "system": 6324
+      },
+      "memory": {
+        "rss": 299401216,
+        "heapTotal": 134873088,
+        "heapUsed": 89670128,
+        "external": 36568242,
+        "arrayBuffers": 10679266
+      },
+      "maxRss": 292384
+    },
+    {
+      "trial": 1,
+      "workload": "daemon-run-persistence",
+      "iterations": 20,
+      "durationMs": 987.7490829999999,
+      "durationsMs": [
+        53.29399999999998,
+        36.000790999999936,
+        33.969832999999994,
+        34.82608300000004,
+        44.210083000000054,
+        38.896375000000035,
+        43.35183299999994,
+        55.950709000000074,
+        53.743124999999964,
+        56.95008400000006,
+        50.94904200000008,
+        55.874124999999935,
+        53.13587499999994,
+        55.244208999999955,
+        56.85629199999994,
+        52.729290999999876,
+        55.93479100000013,
+        52.94583299999999,
+        47.85699999999997,
+        54.90408400000001
+      ],
+      "cpu": {
+        "user": 242863,
+        "system": 182707
+      },
+      "memory": {
+        "rss": 267141120,
+        "heapTotal": 103907328,
+        "heapUsed": 73597504,
+        "external": 36584483,
+        "arrayBuffers": 10679898
+      },
+      "maxRss": 260880
+    },
+    {
+      "trial": 1,
+      "workload": "startup-idle",
+      "startupMs": 446.56545899999946,
+      "ready": {
+        "url": "ws://127.0.0.1:64120/ws",
+        "runtimeVersion": "v26.13.0",
+        "memory": {
+          "rss": 242155520,
+          "heapTotal": 80084992,
+          "heapUsed": 67592264,
+          "external": 37978948,
+          "arrayBuffers": 10679250
+        },
+        "cpu": {
+          "user": 490429,
+          "system": 64808
+        }
+      },
+      "idle": {
+        "memory": {
+          "rss": 242647040,
+          "heapTotal": 80084992,
+          "heapUsed": 67829808,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 498158,
+          "system": 65096
+        },
+        "subscribers": 0,
+        "maxRss": 236960
+      }
+    },
+    {
+      "trial": 1,
+      "workload": "command-roundtrip",
+      "connections": 1,
+      "durationMs": 15.78754200000003,
+      "requestsPerSecond": 6334.108248136398,
+      "latencyMs": {
+        "count": 100,
+        "p50": 0.15679199999976845,
+        "p95": 0.27087500000016007,
+        "p99": 0.32150000000001455
+      },
+      "cpu": {
+        "user": 8181,
+        "system": 2374
+      },
+      "metrics": {
+        "memory": {
+          "rss": 243924992,
+          "heapTotal": 81133568,
+          "heapUsed": 69369968,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 517850,
+          "system": 68201
+        },
+        "subscribers": 0,
+        "maxRss": 238208
+      }
+    },
+    {
+      "trial": 1,
+      "workload": "command-roundtrip",
+      "connections": 10,
+      "durationMs": 18.399875000000975,
+      "requestsPerSecond": 54348.195300236934,
+      "latencyMs": {
+        "count": 1000,
+        "p50": 0.16120799999953306,
+        "p95": 0.27016699999876437,
+        "p99": 0.5025839999998425
+      },
+      "cpu": {
+        "user": 16251,
+        "system": 7053
+      },
+      "metrics": {
+        "memory": {
+          "rss": 254672896,
+          "heapTotal": 91357184,
+          "heapUsed": 79276344,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 534736,
+          "system": 75529
+        },
+        "subscribers": 0,
+        "maxRss": 248704
+      }
+    },
+    {
+      "trial": 1,
+      "workload": "command-roundtrip",
+      "connections": 100,
+      "durationMs": 156.09720899999957,
+      "requestsPerSecond": 64062.64445125363,
+      "latencyMs": {
+        "count": 10000,
+        "p50": 1.3967919999995502,
+        "p95": 2.5994159999991098,
+        "p99": 3.2241659999999683
+      },
+      "cpu": {
+        "user": 116192,
+        "system": 49625
+      },
+      "metrics": {
+        "memory": {
+          "rss": 281837568,
+          "heapTotal": 117833728,
+          "heapUsed": 70686168,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 659682,
+          "system": 127082
+        },
+        "subscribers": 0,
+        "maxRss": 275232
+      }
+    },
+    {
+      "trial": 1,
+      "workload": "burst-stream-fanout",
+      "connections": 1,
+      "size": 128,
+      "count": 1000,
+      "received": 1000,
+      "setupMs": 0.5799999999999272,
+      "durationMs": 11.862041999998837,
+      "messagesPerSecond": 84302.51722259102
+    },
+    {
+      "trial": 1,
+      "workload": "burst-stream-fanout",
+      "connections": 10,
+      "size": 128,
+      "count": 1000,
+      "received": 10000,
+      "setupMs": 0.5417919999999867,
+      "durationMs": 79.97762499999953,
+      "messagesPerSecond": 125034.97071837353
+    },
+    {
+      "trial": 1,
+      "workload": "burst-stream-fanout",
+      "connections": 100,
+      "size": 128,
+      "count": 100,
+      "received": 10000,
+      "setupMs": 1.5504169999985606,
+      "durationMs": 71.42329099999915,
+      "messagesPerSecond": 140010.35040516572
+    },
+    {
+      "trial": 1,
+      "workload": "burst-stream-fanout",
+      "connections": 1,
+      "size": 65536,
+      "count": 100,
+      "received": 100,
+      "setupMs": 0.11112499999944703,
+      "durationMs": 6.687667000000147,
+      "messagesPerSecond": 14952.897624836554
+    },
+    {
+      "trial": 1,
+      "workload": "paced-token-delivery",
+      "intervalMs": 5,
+      "latencyMs": {
+        "count": 100,
+        "p50": 0.2974999999987631,
+        "p95": 0.45675000000119326,
+        "p99": 0.603000000000975
+      }
+    },
+    {
+      "trial": 1,
+      "workload": "reconnect-subscribe",
+      "connections": 30,
+      "durationMs": 35.16154099999949
+    },
+    {
+      "trial": 1,
+      "workload": "slow-reader",
+      "publishedBytes": 65536000,
+      "disconnected": true,
+      "before": {
+        "memory": {
+          "rss": 296435712,
+          "heapTotal": 131989504,
+          "heapUsed": 72081952,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 864721,
+          "system": 189298
+        },
+        "subscribers": 1,
+        "maxRss": 289488
+      },
+      "after": {
+        "memory": {
+          "rss": 333676544,
+          "heapTotal": 131989504,
+          "heapUsed": 87043056,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 880763,
+          "system": 191892
+        },
+        "subscribers": 0,
+        "maxRss": 325856
+      }
+    },
+    {
+      "trial": 1,
+      "workload": "shutdown-active-subscription",
+      "stopped": true,
+      "shutdownMs": 0.8313750000002074
+    },
+    {
+      "trial": 2,
+      "workload": "core-agent-and-template",
+      "iterations": 2000,
+      "durationMs": 59.96500000000003,
+      "cpu": {
+        "user": 97143,
+        "system": 6507
+      },
+      "memory": {
+        "rss": 300335104,
+        "heapTotal": 135135232,
+        "heapUsed": 88586480,
+        "external": 36568242,
+        "arrayBuffers": 10679266
+      },
+      "maxRss": 293296
+    },
+    {
+      "trial": 2,
+      "workload": "daemon-run-persistence",
+      "iterations": 20,
+      "durationMs": 1050.8218749999999,
+      "durationsMs": [
+        57.179917000000046,
+        42.83933300000007,
+        37.204417000000035,
+        38.703750000000014,
+        40.02216700000008,
+        42.86312499999997,
+        54.015750000000025,
+        59.803540999999996,
+        57.14366699999994,
+        57.953874999999925,
+        58.777999999999906,
+        60.192957999999976,
+        57.93220800000017,
+        56.966958000000204,
+        57.034875000000056,
+        52.19379099999992,
+        53.46641599999998,
+        56.08958299999995,
+        55.09391700000015,
+        55.209082999999964
+      ],
+      "cpu": {
+        "user": 248874,
+        "system": 183845
+      },
+      "memory": {
+        "rss": 267354112,
+        "heapTotal": 104431616,
+        "heapUsed": 74379632,
+        "external": 36584885,
+        "arrayBuffers": 10679976
+      },
+      "maxRss": 261104
+    },
+    {
+      "trial": 2,
+      "workload": "startup-idle",
+      "startupMs": 449.74775000000045,
+      "ready": {
+        "url": "ws://127.0.0.1:64379/ws",
+        "runtimeVersion": "v26.13.0",
+        "memory": {
+          "rss": 242909184,
+          "heapTotal": 80871424,
+          "heapUsed": 67422328,
+          "external": 37913348,
+          "arrayBuffers": 10679250
+        },
+        "cpu": {
+          "user": 496839,
+          "system": 66054
+        }
+      },
+      "idle": {
+        "memory": {
+          "rss": 243417088,
+          "heapTotal": 80871424,
+          "heapUsed": 67659872,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 504606,
+          "system": 66354
+        },
+        "subscribers": 0,
+        "maxRss": 237712
+      }
+    },
+    {
+      "trial": 2,
+      "workload": "command-roundtrip",
+      "connections": 1,
+      "durationMs": 12.945166999999856,
+      "requestsPerSecond": 7724.890687003197,
+      "latencyMs": {
+        "count": 100,
+        "p50": 0.09116700000049605,
+        "p95": 0.2577079999991838,
+        "p99": 0.28741700000136916
+      },
+      "cpu": {
+        "user": 7174,
+        "system": 2008
+      },
+      "metrics": {
+        "memory": {
+          "rss": 244187136,
+          "heapTotal": 81395712,
+          "heapUsed": 69200280,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 521936,
+          "system": 69007
+        },
+        "subscribers": 0,
+        "maxRss": 238464
+      }
+    },
+    {
+      "trial": 2,
+      "workload": "command-roundtrip",
+      "connections": 10,
+      "durationMs": 17.646958000001177,
+      "requestsPerSecond": 56666.99042406817,
+      "latencyMs": {
+        "count": 1000,
+        "p50": 0.1337919999987207,
+        "p95": 0.29054100000030303,
+        "p99": 0.4025840000012977
+      },
+      "cpu": {
+        "user": 16643,
+        "system": 6775
+      },
+      "metrics": {
+        "memory": {
+          "rss": 254574592,
+          "heapTotal": 91095040,
+          "heapUsed": 79110336,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 539136,
+          "system": 76025
+        },
+        "subscribers": 0,
+        "maxRss": 248608
+      }
+    },
+    {
+      "trial": 2,
+      "workload": "command-roundtrip",
+      "connections": 100,
+      "durationMs": 142.29612500000076,
+      "requestsPerSecond": 70275.98256804215,
+      "latencyMs": {
+        "count": 10000,
+        "p50": 1.1862909999999829,
+        "p95": 2.5107500000012806,
+        "p99": 5.097166999999899
+      },
+      "cpu": {
+        "user": 182710,
+        "system": 46571
+      },
+      "metrics": {
+        "memory": {
+          "rss": 282427392,
+          "heapTotal": 117571584,
+          "heapUsed": 87424296,
+          "external": 27422929,
+          "arrayBuffers": 1535851
+        },
+        "cpu": {
+          "user": 729768,
+          "system": 124550
+        },
+        "subscribers": 0,
+        "maxRss": 275808
+      }
+    },
+    {
+      "trial": 2,
+      "workload": "burst-stream-fanout",
+      "connections": 1,
+      "size": 128,
+      "count": 1000,
+      "received": 1000,
+      "setupMs": 0.5950409999986732,
+      "durationMs": 12.878582999999708,
+      "messagesPerSecond": 77648.29407086344
+    },
+    {
+      "trial": 2,
+      "workload": "burst-stream-fanout",
+      "connections": 10,
+      "size": 128,
+      "count": 1000,
+      "received": 10000,
+      "setupMs": 0.4924169999994774,
+      "durationMs": 74.5242500000004,
+      "messagesPerSecond": 134184.51041103998
+    },
+    {
+      "trial": 2,
+      "workload": "burst-stream-fanout",
+      "connections": 100,
+      "size": 128,
+      "count": 100,
+      "received": 10000,
+      "setupMs": 1.5715410000011616,
+      "durationMs": 69.71429100000023,
+      "messagesPerSecond": 143442.6120750474
+    },
+    {
+      "trial": 2,
+      "workload": "burst-stream-fanout",
+      "connections": 1,
+      "size": 65536,
+      "count": 100,
+      "received": 100,
+      "setupMs": 0.10454199999912817,
+      "durationMs": 7.2239579999986745,
+      "messagesPerSecond": 13842.826882440118
+    },
+    {
+      "trial": 2,
+      "workload": "paced-token-delivery",
+      "intervalMs": 5,
+      "latencyMs": {
+        "count": 100,
+        "p50": 0.3006249999998545,
+        "p95": 0.43879200000083074,
+        "p99": 0.5214999999989232
+      }
+    },
+    {
+      "trial": 2,
+      "workload": "reconnect-subscribe",
+      "connections": 30,
+      "durationMs": 34.25516600000083
+    },
+    {
+      "trial": 2,
+      "workload": "slow-reader",
+      "publishedBytes": 65536000,
+      "disconnected": true,
+      "before": {
+        "memory": {
+          "rss": 296599552,
+          "heapTotal": 131989504,
+          "heapUsed": 88556568,
+          "external": 27422929,
+          "arrayBuffers": 1535851
+        },
+        "cpu": {
+          "user": 931853,
+          "system": 183841
+        },
+        "subscribers": 1,
+        "maxRss": 289648
+      },
+      "after": {
+        "memory": {
+          "rss": 333905920,
+          "heapTotal": 131989504,
+          "heapUsed": 70229832,
+          "external": 27422929,
+          "arrayBuffers": 1535851
+        },
+        "cpu": {
+          "user": 946972,
+          "system": 186634
+        },
+        "subscribers": 0,
+        "maxRss": 326080
+      }
+    },
+    {
+      "trial": 2,
+      "workload": "shutdown-active-subscription",
+      "stopped": true,
+      "shutdownMs": 0.8267499999997199
+    },
+    {
+      "trial": 3,
+      "workload": "core-agent-and-template",
+      "iterations": 2000,
+      "durationMs": 59.678292,
+      "cpu": {
+        "user": 95884,
+        "system": 6603
+      },
+      "memory": {
+        "rss": 300351488,
+        "heapTotal": 135659520,
+        "heapUsed": 88514216,
+        "external": 36568242,
+        "arrayBuffers": 10679266
+      },
+      "maxRss": 293312
+    },
+    {
+      "trial": 3,
+      "workload": "daemon-run-persistence",
+      "iterations": 20,
+      "durationMs": 1106.0036249999998,
+      "durationsMs": [
+        56.846000000000004,
+        47.24545800000004,
+        63.493082999999956,
+        45.64029100000005,
+        50.88812500000006,
+        52.285124999999994,
+        56.805458000000044,
+        60.02616699999999,
+        56.93991700000004,
+        59.202499999999986,
+        51.15066599999989,
+        56.65933300000006,
+        62.52908400000001,
+        53.1647089999999,
+        55.124041000000034,
+        57.869083000000046,
+        52.86433299999999,
+        55.342334000000164,
+        56.75624999999991,
+        55.03495800000019
+      ],
+      "cpu": {
+        "user": 268661,
+        "system": 196823
+      },
+      "memory": {
+        "rss": 266600448,
+        "heapTotal": 103645184,
+        "heapUsed": 73545024,
+        "external": 36584483,
+        "arrayBuffers": 10679898
+      },
+      "maxRss": 260352
+    },
+    {
+      "trial": 3,
+      "workload": "startup-idle",
+      "startupMs": 449.54475000000093,
+      "ready": {
+        "url": "ws://127.0.0.1:64636/ws",
+        "runtimeVersion": "v26.13.0",
+        "memory": {
+          "rss": 242876416,
+          "heapTotal": 81133568,
+          "heapUsed": 67575768,
+          "external": 37433679,
+          "arrayBuffers": 10679250
+        },
+        "cpu": {
+          "user": 497046,
+          "system": 65821
+        }
+      },
+      "idle": {
+        "memory": {
+          "rss": 243400704,
+          "heapTotal": 81133568,
+          "heapUsed": 67813440,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 501673,
+          "system": 66096
+        },
+        "subscribers": 0,
+        "maxRss": 237696
+      }
+    },
+    {
+      "trial": 3,
+      "workload": "command-roundtrip",
+      "connections": 1,
+      "durationMs": 16.538832999998704,
+      "requestsPerSecond": 6046.375823494187,
+      "latencyMs": {
+        "count": 100,
+        "p50": 0.15941600000223843,
+        "p95": 0.30958299999838346,
+        "p99": 0.3621659999989788
+      },
+      "cpu": {
+        "user": 9806,
+        "system": 2715
+      },
+      "metrics": {
+        "memory": {
+          "rss": 244203520,
+          "heapTotal": 82444288,
+          "heapUsed": 69353600,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 521146,
+          "system": 69605
+        },
+        "subscribers": 0,
+        "maxRss": 238480
+      }
+    },
+    {
+      "trial": 3,
+      "workload": "command-roundtrip",
+      "connections": 10,
+      "durationMs": 18.101457999997365,
+      "requestsPerSecond": 55244.1687293999,
+      "latencyMs": {
+        "count": 1000,
+        "p50": 0.13475000000107684,
+        "p95": 0.28387500000098953,
+        "p99": 0.3832079999992857
+      },
+      "cpu": {
+        "user": 16405,
+        "system": 6733
+      },
+      "metrics": {
+        "memory": {
+          "rss": 254869504,
+          "heapTotal": 92143616,
+          "heapUsed": 79260936,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 538184,
+          "system": 76568
+        },
+        "subscribers": 0,
+        "maxRss": 248896
+      }
+    },
+    {
+      "trial": 3,
+      "workload": "command-roundtrip",
+      "connections": 100,
+      "durationMs": 143.3736659999995,
+      "requestsPerSecond": 69747.81547400786,
+      "latencyMs": {
+        "count": 10000,
+        "p50": 1.2129580000000715,
+        "p95": 2.4421670000010636,
+        "p99": 4.0242919999982405
+      },
+      "cpu": {
+        "user": 178434,
+        "system": 46650
+      },
+      "metrics": {
+        "memory": {
+          "rss": 281919488,
+          "heapTotal": 117833728,
+          "heapUsed": 61913200,
+          "external": 27422929,
+          "arrayBuffers": 1535851
+        },
+        "cpu": {
+          "user": 725070,
+          "system": 125131
+        },
+        "subscribers": 0,
+        "maxRss": 275312
+      }
+    },
+    {
+      "trial": 3,
+      "workload": "burst-stream-fanout",
+      "connections": 1,
+      "size": 128,
+      "count": 1000,
+      "received": 1000,
+      "setupMs": 0.6039579999996931,
+      "durationMs": 12.30962499999805,
+      "messagesPerSecond": 81237.2432141644
+    },
+    {
+      "trial": 3,
+      "workload": "burst-stream-fanout",
+      "connections": 10,
+      "size": 128,
+      "count": 1000,
+      "received": 10000,
+      "setupMs": 0.48474999999962165,
+      "durationMs": 76.90766599999915,
+      "messagesPerSecond": 130026.04967884619
+    },
+    {
+      "trial": 3,
+      "workload": "burst-stream-fanout",
+      "connections": 100,
+      "size": 128,
+      "count": 100,
+      "received": 10000,
+      "setupMs": 1.6465419999985897,
+      "durationMs": 72.97058299999844,
+      "messagesPerSecond": 137041.52535001966
+    },
+    {
+      "trial": 3,
+      "workload": "burst-stream-fanout",
+      "connections": 1,
+      "size": 65536,
+      "count": 100,
+      "received": 100,
+      "setupMs": 0.1166670000020531,
+      "durationMs": 7.49974999999904,
+      "messagesPerSecond": 13333.777792594794
+    },
+    {
+      "trial": 3,
+      "workload": "paced-token-delivery",
+      "intervalMs": 5,
+      "latencyMs": {
+        "count": 100,
+        "p50": 0.2821250000015425,
+        "p95": 0.5421249999999418,
+        "p99": 0.6192909999990661
+      }
+    },
+    {
+      "trial": 3,
+      "workload": "reconnect-subscribe",
+      "connections": 30,
+      "durationMs": 27.836374999998952
+    },
+    {
+      "trial": 3,
+      "workload": "slow-reader",
+      "publishedBytes": 65536000,
+      "disconnected": true,
+      "before": {
+        "memory": {
+          "rss": 295878656,
+          "heapTotal": 131989504,
+          "heapUsed": 64588344,
+          "external": 27422929,
+          "arrayBuffers": 1535851
+        },
+        "cpu": {
+          "user": 931386,
+          "system": 182645
+        },
+        "subscribers": 1,
+        "maxRss": 288944
+      },
+      "after": {
+        "memory": {
+          "rss": 332939264,
+          "heapTotal": 131989504,
+          "heapUsed": 79554704,
+          "external": 27422929,
+          "arrayBuffers": 1535851
+        },
+        "cpu": {
+          "user": 948510,
+          "system": 185324
+        },
+        "subscribers": 0,
+        "maxRss": 325136
+      }
+    },
+    {
+      "trial": 3,
+      "workload": "shutdown-active-subscription",
+      "stopped": true,
+      "shutdownMs": 0.8957910000003722
+    },
+    {
+      "trial": 4,
+      "workload": "core-agent-and-template",
+      "iterations": 2000,
+      "durationMs": 60.290209000000004,
+      "cpu": {
+        "user": 99101,
+        "system": 6624
+      },
+      "memory": {
+        "rss": 300417024,
+        "heapTotal": 134873088,
+        "heapUsed": 88954080,
+        "external": 36568242,
+        "arrayBuffers": 10679266
+      },
+      "maxRss": 293376
+    },
+    {
+      "trial": 4,
+      "workload": "daemon-run-persistence",
+      "iterations": 20,
+      "durationMs": 1051.601417,
+      "durationsMs": [
+        49.50858299999999,
+        35.61212499999999,
+        37.980290999999966,
+        44.10191699999996,
+        38.94520800000009,
+        43.014166000000046,
+        52.849249999999984,
+        55.98983399999997,
+        61.94379200000003,
+        56.86708299999998,
+        58.17008300000009,
+        58.03975000000014,
+        63.82424999999989,
+        56.92879200000016,
+        56.21779199999992,
+        57.884874999999965,
+        56.871167000000014,
+        55.912417000000005,
+        56.956707999999935,
+        53.845833000000084
+      ],
+      "cpu": {
+        "user": 248996,
+        "system": 186493
+      },
+      "memory": {
+        "rss": 267665408,
+        "heapTotal": 104169472,
+        "heapUsed": 73596216,
+        "external": 36584483,
+        "arrayBuffers": 10679898
+      },
+      "maxRss": 261392
+    },
+    {
+      "trial": 4,
+      "workload": "startup-idle",
+      "startupMs": 452.3589580000007,
+      "ready": {
+        "url": "ws://127.0.0.1:64897/ws",
+        "runtimeVersion": "v26.13.0",
+        "memory": {
+          "rss": 242237440,
+          "heapTotal": 80347136,
+          "heapUsed": 67460640,
+          "external": 37978948,
+          "arrayBuffers": 10679250
+        },
+        "cpu": {
+          "user": 498709,
+          "system": 65888
+        }
+      },
+      "idle": {
+        "memory": {
+          "rss": 242761728,
+          "heapTotal": 80347136,
+          "heapUsed": 67698240,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 506527,
+          "system": 66357
+        },
+        "subscribers": 0,
+        "maxRss": 237072
+      }
+    },
+    {
+      "trial": 4,
+      "workload": "command-roundtrip",
+      "connections": 1,
+      "durationMs": 15.589083999999275,
+      "requestsPerSecond": 6414.745087011184,
+      "latencyMs": {
+        "count": 100,
+        "p50": 0.1556669999990845,
+        "p95": 0.32041600000229664,
+        "p99": 0.3987909999996191
+      },
+      "cpu": {
+        "user": 9195,
+        "system": 2600
+      },
+      "metrics": {
+        "memory": {
+          "rss": 243695616,
+          "heapTotal": 81657856,
+          "heapUsed": 69239704,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 527273,
+          "system": 69797
+        },
+        "subscribers": 0,
+        "maxRss": 237984
+      }
+    },
+    {
+      "trial": 4,
+      "workload": "command-roundtrip",
+      "connections": 10,
+      "durationMs": 17.340541000001394,
+      "requestsPerSecond": 57668.32764905775,
+      "latencyMs": {
+        "count": 1000,
+        "p50": 0.13816700000097626,
+        "p95": 0.28620799999771407,
+        "p99": 0.3214159999988624
+      },
+      "cpu": {
+        "user": 16178,
+        "system": 6654
+      },
+      "metrics": {
+        "memory": {
+          "rss": 254296064,
+          "heapTotal": 91619328,
+          "heapUsed": 79148288,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 543956,
+          "system": 76716
+        },
+        "subscribers": 0,
+        "maxRss": 248336
+      }
+    },
+    {
+      "trial": 4,
+      "workload": "command-roundtrip",
+      "connections": 100,
+      "durationMs": 132.9212090000001,
+      "requestsPerSecond": 75232.53869892196,
+      "latencyMs": {
+        "count": 10000,
+        "p50": 1.2089999999989232,
+        "p95": 2.378292000001238,
+        "p99": 3.250458999998955
+      },
+      "cpu": {
+        "user": 109480,
+        "system": 41331
+      },
+      "metrics": {
+        "memory": {
+          "rss": 282689536,
+          "heapTotal": 119406592,
+          "heapUsed": 68684416,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 661865,
+          "system": 119773
+        },
+        "subscribers": 0,
+        "maxRss": 276064
+      }
+    },
+    {
+      "trial": 4,
+      "workload": "burst-stream-fanout",
+      "connections": 1,
+      "size": 128,
+      "count": 1000,
+      "received": 1000,
+      "setupMs": 0.5903750000034051,
+      "durationMs": 11.872917000000598,
+      "messagesPerSecond": 84225.30032004348
+    },
+    {
+      "trial": 4,
+      "workload": "burst-stream-fanout",
+      "connections": 10,
+      "size": 128,
+      "count": 1000,
+      "received": 10000,
+      "setupMs": 0.5054579999996349,
+      "durationMs": 76.79383400000006,
+      "messagesPerSecond": 130218.78813864135
+    },
+    {
+      "trial": 4,
+      "workload": "burst-stream-fanout",
+      "connections": 100,
+      "size": 128,
+      "count": 100,
+      "received": 10000,
+      "setupMs": 1.5557079999998678,
+      "durationMs": 71.4305839999979,
+      "messagesPerSecond": 139996.05547114514
+    },
+    {
+      "trial": 4,
+      "workload": "burst-stream-fanout",
+      "connections": 1,
+      "size": 65536,
+      "count": 100,
+      "received": 100,
+      "setupMs": 0.12525000000096043,
+      "durationMs": 7.054167000002053,
+      "messagesPerSecond": 14176.018231489401
+    },
+    {
+      "trial": 4,
+      "workload": "paced-token-delivery",
+      "intervalMs": 5,
+      "latencyMs": {
+        "count": 100,
+        "p50": 0.3043340000003809,
+        "p95": 0.4507499999999709,
+        "p99": 0.49187499999970896
+      }
+    },
+    {
+      "trial": 4,
+      "workload": "reconnect-subscribe",
+      "connections": 30,
+      "durationMs": 32.849458000000595
+    },
+    {
+      "trial": 4,
+      "workload": "slow-reader",
+      "publishedBytes": 65536000,
+      "disconnected": true,
+      "before": {
+        "memory": {
+          "rss": 295567360,
+          "heapTotal": 130940928,
+          "heapUsed": 69875600,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 867856,
+          "system": 178384
+        },
+        "subscribers": 1,
+        "maxRss": 288640
+      },
+      "after": {
+        "memory": {
+          "rss": 332857344,
+          "heapTotal": 131203072,
+          "heapUsed": 84763672,
+          "external": 36566352,
+          "arrayBuffers": 10679274
+        },
+        "cpu": {
+          "user": 884294,
+          "system": 181196
+        },
+        "subscribers": 0,
+        "maxRss": 325056
+      }
+    },
+    {
+      "trial": 4,
+      "workload": "shutdown-active-subscription",
+      "stopped": true,
+      "shutdownMs": 0.8041250000001128
+    }
+  ]
+}

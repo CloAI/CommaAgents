@@ -29,8 +29,7 @@ export const RUN_COMMAND_DEFAULT_DENY_PATTERNS: readonly RegExp[] = [
 
 /**
  * Default approval-required patterns. Commands matching any of these
- * route through the sandbox `PermissionRequester` with operation
- * `"fs.exec"`. Empty by default — production deployments are expected
+ * route through the sandbox permission requester. Empty by default — production deployments are expected
  * to configure these on a per-environment basis.
  */
 export const RUN_COMMAND_DEFAULT_REQUIRE_APPROVAL_PATTERNS: readonly RegExp[] =

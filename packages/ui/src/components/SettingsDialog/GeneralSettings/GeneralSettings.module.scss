@@ -1,0 +1,37 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--font-size-small);
+}
+.hint,
+.error {
+  margin: 0;
+}
+.hint {
+  color: var(--color-muted);
+}
+.error {
+  color: var(--color-text);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--color-primary);
+}
+
+.form {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.notice {
+  padding: var(--space-2);
+  margin: 0 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-small);
+  color: var(--color-muted);
+}
+.message {
+  margin: 0;
+  color: var(--color-text);
+}

@@ -1,4 +1,4 @@
-import { readFile, stat, unlink } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { SandboxViolationError } from "../../../errors";
 import { defineTool } from "../../define/define-tool";
 import {
@@ -6,19 +6,22 @@ import {
   createMemoryAuditSink,
   logAuditFailure,
   logAuditSuccess,
-  moveToTrash,
   STALE_FILE_RECOVERY_HINT,
   sandboxErrorToToolError,
   sha256OfBuffer,
   unifiedDiff,
 } from "../../io";
+import { deleteFile } from "./deletion";
 import { errorResult, okResult, toolError } from "../../result";
 import type { ToolDefinition } from "../../tool.types";
 import { describeTool } from "../describe-tool";
 import { deleteFileParams } from "./delete-file.constants";
 import type { DeleteFileData, DeleteFileToolConfig } from "./delete-file.types";
 
-/** Create the `delete_file` tool. */
+/** Create the recoverable `delete_file` tool.
+ * @param {DeleteFileToolConfig} [config] - Optional audit sink.
+ * @returns {ToolDefinition} Sandbox-authorized file deletion tool.
+ */
 export function createDeleteFileTool(
   config?: DeleteFileToolConfig,
 ): ToolDefinition<typeof deleteFileParams, DeleteFileData> {
@@ -76,7 +79,7 @@ export function createDeleteFileTool(
         },
       ],
       notes: [
-        "Trash lives under `<dataDir>/trash/<sha256(workspaceRoot)>/<timestamp>-<sessionId>-<runId>-<basename>.tar.gz`. Archives are user-managed via the daemon (no automatic GC).",
+        "Trash lives under `<dataDir>/trash/<sha256(workspaceRoot)>/<timestamp>-<uuid>-<basename>.tar.gz`. Archives are user-managed via the daemon (no automatic GC).",
         "Every delete is appended to the audit log as a `delete` operation.",
       ],
     }),
@@ -92,11 +95,11 @@ export function createDeleteFileTool(
 
 - \`expectedSha256\`: when set, must match the file's current hash. Use this if you read the file recently and want staleness protection against concurrent modification.
 
-The result includes a \`trashId\` you can pass to \`restore_file\` to undo the deletion within the same workspace.
+The result includes \`trashedTo\`; pass that path as \`trashedPath\` to \`restore_file\` within the same workspace.
 
 **Pre-delete check + post-delete verification (MANDATORY):**
 
-Before deleting, \`search_files\` for references to the file you're about to delete — if anything imports it, deleting will break that import.
+Before deleting, \`grep\` for references to the file you're about to delete — if anything imports it, deleting will break that import.
 
 After every successful \`delete_file\` call, **run the project's configured verifier with \`run_command\`** to confirm no surviving file still imports the deleted one. If the verifier reports broken imports, either fix the importers (\`edit_file\` to remove the references) or \`restore_file\` to undo the delete.
 
@@ -194,15 +197,14 @@ After every successful \`delete_file\` call, **run the project's configured veri
 
       let trashedTo: string | undefined;
       try {
-        if (permanent) {
-          await unlink(absolutePath);
-        } else {
-          trashedTo = await moveToTrash(guard.cwd, absolutePath, {
-            sessionId,
-            agentName,
-            ...guard.trashMetadata,
-          });
-        }
+        ({ archivePath: trashedTo } = await deleteFile(
+          guard.cwd,
+          absolutePath,
+          {
+            permanent,
+            metadata: { sessionId, agentName, ...guard.deletionMetadata },
+          },
+        ));
       } catch (caughtError) {
         const message = (caughtError as Error).message;
         const failureBase = buildAuditBase(

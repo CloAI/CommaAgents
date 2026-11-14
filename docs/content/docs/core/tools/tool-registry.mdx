@@ -30,7 +30,7 @@ const agent = createAgent({
 When an agent resolves a tool name, the following order is checked:
 
 1. **Global tool registry** — custom tools registered via `registerTool()`
-2. **Built-in tools** — `read_file`, `list_directory`, `search_files`, `create_file`, `write_file`, `edit_file`, `delete_file`, `move_file`, `apply_patch`, `run_command`, `webfetch`, and the `todo_*` tools.
+2. **Built-in tools** — `read_file`, `glob`, `grep`, `create_file`, `write_file`, `edit_file`, `delete_file`, `move_file`, `apply_patch`, `run_command`, `webfetch`, and the `todo_*` tools.
 3. **Error** — unknown tool name throws a `StrategyValidationError`
 
 Custom registry tools shadow built-in tools of the same name.

@@ -43,7 +43,9 @@ export function useRegion(options: RegionOptions): RegionHandle {
 
   /** Recompute position and dimensions from the Yoga layout tree. */
   const recalculate = useCallback(() => {
-    if (!ref.current) return;
+    if (!ref.current) {
+      return;
+    }
 
     const pos = getAbsolutePosition(ref.current);
     positionRef.current = pos;
@@ -61,12 +63,16 @@ export function useRegion(options: RegionOptions): RegionHandle {
     (lines: readonly string[]) => {
       lastLinesRef.current = lines;
 
-      if (!ref.current) return;
+      if (!ref.current) {
+        return;
+      }
       recalculate();
 
       const { top, left } = positionRef.current;
       const { width: regionWidth } = dimensionsRef.current;
-      if (regionWidth === 0) return;
+      if (regionWidth === 0) {
+        return;
+      }
 
       const target = stdout ?? process.stdout;
       const output = buildRegionOutput(lines, top, left, regionWidth);
@@ -79,7 +85,9 @@ export function useRegion(options: RegionOptions): RegionHandle {
   // Ink erases and rewrites all output on any React state change,
   // so regions must repaint themselves afterward.
   useEffect(() => {
-    if (lastLinesRef.current.length === 0) return;
+    if (lastLinesRef.current.length === 0) {
+      return;
+    }
 
     // setTimeout(0) defers until after Ink's synchronous repaint.
     const timer = setTimeout(() => {
@@ -91,7 +99,9 @@ export function useRegion(options: RegionOptions): RegionHandle {
 
   // Recalculate on terminal resize.
   useEffect(() => {
-    if (!stdout) return;
+    if (!stdout) {
+      return;
+    }
 
     const handleResize = () => {
       recalculate();

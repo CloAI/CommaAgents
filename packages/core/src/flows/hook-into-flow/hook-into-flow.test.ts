@@ -1,6 +1,6 @@
 // Tests for hookIntoFlow (flows/hook-into-flow.ts)
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createBroadcastFlow } from "../built-in/broadcast/broadcast-flow";
 import { createCycleFlow } from "../built-in/cycle/cycle-flow";
 import { createSequentialFlow } from "../built-in/sequential/sequential-flow";

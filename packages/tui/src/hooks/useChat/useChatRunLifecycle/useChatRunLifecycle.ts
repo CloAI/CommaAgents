@@ -1,4 +1,4 @@
-import type { DiscoveredStrategy } from "@comma-agents/core";
+import type { DiscoveredStrategy } from "@comma-agents/core/strategy";
 import { useCallback } from "react";
 
 import { useDaemonCommand } from "../../useDaemon/useDaemonCommand/useDaemonCommand";
@@ -30,9 +30,13 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
     (chatRunId: ChatRunId, updater: (chatRun: ChatRun) => ChatRun): void => {
       setChatRuns((previousChatRuns) => {
         const existingChatRun = previousChatRuns.get(chatRunId);
-        if (!existingChatRun) return previousChatRuns;
+        if (!existingChatRun) {
+          return previousChatRuns;
+        }
         const updatedChatRun = updater(existingChatRun);
-        if (updatedChatRun === existingChatRun) return previousChatRuns;
+        if (updatedChatRun === existingChatRun) {
+          return previousChatRuns;
+        }
         const nextChatRuns = new Map(previousChatRuns);
         nextChatRuns.set(chatRunId, {
           ...updatedChatRun,
@@ -244,7 +248,6 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
         pendingExecution: null,
         pendingInputAgent: null,
         pendingPermissionRequests: [],
-        pendingQuestionRequests: [],
         mcpServers: [],
         pendingMcpConfirmation: false,
         activeLaunchStrategyIds: [],
@@ -258,7 +261,9 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
   const removeChatRun = useCallback<ChatRunLifecycle["removeChatRun"]>(
     (chatRunId) => {
       setChatRuns((previousChatRuns) => {
-        if (!previousChatRuns.has(chatRunId)) return previousChatRuns;
+        if (!previousChatRuns.has(chatRunId)) {
+          return previousChatRuns;
+        }
         const nextChatRuns = new Map(previousChatRuns);
         nextChatRuns.delete(chatRunId);
         return nextChatRuns;
@@ -310,7 +315,9 @@ export function useChatRunLifecycle(): ChatRunLifecycle {
                 ? { input: pendingExecution.input }
                 : {}),
             });
-      if (!requestId) return;
+      if (!requestId) {
+        return;
+      }
 
       updateChatRun(chatRunId, (existingChatRun) => ({
         ...existingChatRun,

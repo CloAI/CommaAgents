@@ -1,7 +1,4 @@
-export type {
-  AppProps,
-  AppRenderProps,
-} from "./App";
+export type { AppProps, AppRenderProps } from "./App";
 
 export { App, AppRender } from "./App";
 

@@ -50,7 +50,7 @@ Content is written verbatim by default. When the caller already knows the target
 |---|---|
 | `already_exists` | A file or directory already exists at `path`. Switch to `write_file` (if you want to overwrite by sha256) or `edit_file` (to change part of the file). |
 | `not_found` | A parent directory is missing and `createParents: false` was passed. |
-| `outside_workspace` | The path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `outside_workspace` | The path escapes the sandbox or absolute paths are disabled. |
 | `permission_denied` | The path is write-blocked by `forbiddenGlobs` or sandbox policy. |
 
 ## Related

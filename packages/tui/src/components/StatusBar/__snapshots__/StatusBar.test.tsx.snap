@@ -1,21 +1,21 @@
-// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`StatusBar snapshots should match snapshot for idle status 1`] = `" [Ready]"`;
+exports[`StatusBar > error display > should display both strategy name and error together 1`] = `" [Error] CoT  Timeout"`;
 
-exports[`StatusBar snapshots should match snapshot for pending status 1`] = `" ⠋ [Starting...]"`;
+exports[`StatusBar > error display > should display error text when provided 1`] = `" [Error]  Connection lost"`;
 
-exports[`StatusBar snapshots should match snapshot for running status 1`] = `" ⠋ [Running]"`;
+exports[`StatusBar > snapshots > should match snapshot for cancelled status 1`] = `" [Cancelled]"`;
 
-exports[`StatusBar snapshots should match snapshot for waiting_input status 1`] = `" [Waiting for input]"`;
+exports[`StatusBar > snapshots > should match snapshot for completed status 1`] = `" [Done]"`;
 
-exports[`StatusBar snapshots should match snapshot for completed status 1`] = `" [Done]"`;
+exports[`StatusBar > snapshots > should match snapshot for error status 1`] = `" [Error]"`;
 
-exports[`StatusBar snapshots should match snapshot for cancelled status 1`] = `" [Cancelled]"`;
+exports[`StatusBar > snapshots > should match snapshot for idle status 1`] = `" [Ready]"`;
 
-exports[`StatusBar snapshots should match snapshot for error status 1`] = `" [Error]"`;
+exports[`StatusBar > snapshots > should match snapshot for pending status 1`] = `" ⠋ [Starting...]"`;
 
-exports[`StatusBar strategy name should display the strategy name when provided 1`] = `" ⠋ [Running] ReAct"`;
+exports[`StatusBar > snapshots > should match snapshot for running status 1`] = `" ⠋ [Running]"`;
 
-exports[`StatusBar error display should display error text when provided 1`] = `" [Error]  Connection lost"`;
+exports[`StatusBar > snapshots > should match snapshot for waiting_input status 1`] = `" [Waiting for input]"`;
 
-exports[`StatusBar error display should display both strategy name and error together 1`] = `" [Error] CoT  Timeout"`;
+exports[`StatusBar > strategy name > should display the strategy name when provided 1`] = `" ⠋ [Running] ReAct"`;

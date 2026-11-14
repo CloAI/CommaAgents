@@ -1,7 +1,14 @@
+import type { z } from "zod/v4";
+import type {
+  SkillSummarySchema,
+  SkillSearchArgumentsSchema,
+  SkillSearchOutputSchema,
+} from "./skills.schemas";
+
 /**
  * Frontmatter metadata for a single skill.
  *
- * Skills follow the Anthropic / opencode `SKILL.md` convention: a YAML
+ * Skills use YAML frontmatter in `SKILL.md` or `SKILL.MD`: a YAML
  * frontmatter block at the top of the file declares the skill's identity
  * and a short description, followed by the full instructional body.
  */
@@ -9,9 +16,8 @@ export interface SkillMetadata {
   /** Unique skill identifier. Must be kebab-case. */
   readonly name: string;
   /**
-   * Short, action-oriented description shown to the LLM in the system
-   * prompt header. Used to decide whether to call `load_skill`. Should
-   * fit on one line and answer "when should I load this?".
+   * Action-oriented description returned by listing and fuzzy search.
+   * Explain when the agent should load these instructions.
    */
   readonly description: string;
 }
@@ -51,19 +57,46 @@ export interface SkillRegistry {
  * Options for {@link loadSkills}.
  */
 export interface LoadSkillsOptions {
+  /** Extra roots merged after conventional global roots; later entries win conflicts.
+   * Absolute paths and ~/ paths are accepted; relative paths use the supplied workspace.
+   */
+  readonly additionalDirectories?: readonly string[];
   /**
    * Absolute path to the global skills directory. Each direct subdirectory
    * containing a `SKILL.md` becomes a skill. Defaults to
-   * `~/.comma/skills/`.
+   * `~/.config/comma/skills/`. An override replaces all conventional global sources.
    *
    * Set to `null` to skip global discovery.
    */
   readonly globalSkillsDir?: string | null;
   /**
    * Absolute path to the project-local skills directory. Defaults to
-   * `<cwd>/.comma/skills/`. Skills here override global ones by name.
+   * the nearest ancestor `.comma/skills/`. Skills here override global ones by name.
    *
    * Set to `null` to skip project discovery.
    */
   readonly projectSkillsDir?: string | null;
+}
+
+/** Resolved skill metadata, excluding its instructions. */
+export type SkillSummary = z.output<typeof SkillSummarySchema>;
+/** Plain-text query and optional result limit. */
+export type SkillSearchOptions = z.input<typeof SkillSearchArgumentsSchema>;
+/** Ranked search results with a total before limiting. */
+export type SkillSearchResult = z.output<typeof SkillSearchOutputSchema>;
+/** Recoverable issue encountered while discovering skills. */
+export interface SkillLoadWarning {
+  /** Diagnostic category; optional for compatibility with existing consumers. */
+  readonly code?: string;
+  /** Skill file or discovery directory associated with the issue. */
+  readonly sourcePath: string;
+  /** Explanation of the recoverable problem. */
+  readonly message: string;
+}
+/** One preparation or inspection snapshot. */
+export interface SkillLoadResult {
+  readonly registry: SkillRegistry;
+  readonly warnings: readonly SkillLoadWarning[];
+  /** Closest ancestor containing .comma; absent for a workspace without a project. */
+  readonly projectRoot?: string;
 }

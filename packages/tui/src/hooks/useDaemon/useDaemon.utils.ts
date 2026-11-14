@@ -16,7 +16,9 @@ export function formatDaemonLogPayload(payload: unknown): string {
     return `[unserializable payload: ${error instanceof Error ? error.message : String(error)}]`;
   }
 
-  if (formatted.length <= MAX_LOG_PAYLOAD_LENGTH) return formatted;
+  if (formatted.length <= MAX_LOG_PAYLOAD_LENGTH) {
+    return formatted;
+  }
   return `${formatted.slice(0, MAX_LOG_PAYLOAD_LENGTH)}… (${formatted.length} chars)`;
 }
 
@@ -26,7 +28,9 @@ function sanitizeLogValue(
   visitedObjects: WeakSet<object>,
 ): unknown {
   if (typeof value === "string") {
-    if (value.length <= MAX_LOG_STRING_LENGTH) return value;
+    if (value.length <= MAX_LOG_STRING_LENGTH) {
+      return value;
+    }
     return `${value.slice(0, MAX_LOG_STRING_LENGTH)}… (${value.length} chars)`;
   }
 
@@ -38,8 +42,12 @@ function sanitizeLogValue(
     return value;
   }
 
-  if (typeof value !== "object") return String(value);
-  if (visitedObjects.has(value)) return "[circular]";
+  if (typeof value !== "object") {
+    return String(value);
+  }
+  if (visitedObjects.has(value)) {
+    return "[circular]";
+  }
   visitedObjects.add(value);
 
   if (Array.isArray(value)) {

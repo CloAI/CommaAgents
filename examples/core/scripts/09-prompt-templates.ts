@@ -9,7 +9,7 @@
  * | upcase, | env, | exec for transformations.
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/09-prompt-templates.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/09-prompt-templates.ts
  *
  * Concepts:
  *   - createPromptTemplate() for parameterized prompts

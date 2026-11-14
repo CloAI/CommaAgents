@@ -32,7 +32,9 @@ export function unifiedDiff(
   after: string,
   options: UnifiedDiffOptions,
 ): string {
-  if (before === after) return "";
+  if (before === after) {
+    return "";
+  }
 
   const patch = createTwoFilesPatch(
     options.path,

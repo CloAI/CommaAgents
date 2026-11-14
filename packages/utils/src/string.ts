@@ -9,7 +9,9 @@
  * ```
  */
 export function capitalize(text: string): string {
-  if (text.length === 0) return text;
+  if (text.length === 0) {
+    return text;
+  }
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
@@ -23,7 +25,9 @@ export function capitalize(text: string): string {
  * ```
  */
 export function truncateText(text: string, max: number): string {
-  if (max === 0 || text.length <= max) return text;
+  if (max === 0 || text.length <= max) {
+    return text;
+  }
   return `${text.slice(0, max)}...`;
 }
 
@@ -55,7 +59,9 @@ export function collapseNewlines(text: string): string {
  * ```
  */
 export function breakLines(line: string, width: number): string {
-  if (width <= 0 || line.length <= width) return line;
+  if (width <= 0 || line.length <= width) {
+    return line;
+  }
 
   // Detect leading whitespace for continuation indent
   const match = line.match(/^(\s*)/);
@@ -74,7 +80,9 @@ export function breakLines(line: string, width: number): string {
     }
 
     // No space at all — can't break, emit the whole thing
-    if (breakAt <= 0) break;
+    if (breakAt <= 0) {
+      break;
+    }
 
     result.push(remaining.slice(0, breakAt));
     // Skip the space we broke on, add indent for the continuation line
@@ -94,7 +102,9 @@ export function breakLines(line: string, width: number): string {
  * ```
  */
 export function countOccurrences(content: string, search: string): number {
-  if (search.length === 0) return 0;
+  if (search.length === 0) {
+    return 0;
+  }
   let count = 0;
   let position = content.indexOf(search, 0);
   while (position !== -1) {

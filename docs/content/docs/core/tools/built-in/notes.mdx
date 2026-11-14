@@ -1,0 +1,28 @@
+---
+title: notes_add / notes_get
+description: Record claims with their sources while researching, then return them as JSON.
+---
+
+The notes tools give a research agent an evidence log. `notes_add` records one claim with its URL and an exact quote; `notes_get` returns every note from the current run as a JSON array. Each run keeps its own notes, so parallel research workers never mix evidence. A worker typically ends by calling `notes_get` and returning the notes in its final answer, where the caller can cite them.
+
+```json
+{
+  "worker": {
+    "model": "@simple",
+    "tools": ["web_search", "webfetch", "notes_add", "notes_get"]
+  }
+}
+```
+
+## notes_add parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `claim` | `string` | The claim the source supports, in one sentence. |
+| `url` | `string` | URL of the page the evidence comes from. |
+| `quote` | `string?` | Exact supporting passage from the page. |
+| `title` | `string?` | Page title. |
+
+## notes_get
+
+Takes no parameters. Returns `[{ id, claim, url, quote?, title?, recordedAt }]`.

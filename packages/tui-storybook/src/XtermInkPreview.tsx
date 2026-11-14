@@ -68,10 +68,12 @@ export function XtermInkPreview({
   const inkRef = useRef<ReturnType<typeof inkRender> | null>(null);
 
   // Mount terminal + Ink once per host element.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Story content is updated by the rerender effect below.
+  // oxlint-disable-next-line react/exhaustive-deps -- Story content is updated by the rerender effect below.
   useEffect(() => {
     const host = hostRef.current;
-    if (!host) return;
+    if (!host) {
+      return;
+    }
 
     const term = new Terminal({
       cols,
@@ -85,7 +87,9 @@ export function XtermInkPreview({
     });
 
     const fitAddon = fit ? new FitAddon() : null;
-    if (fitAddon) term.loadAddon(fitAddon);
+    if (fitAddon) {
+      term.loadAddon(fitAddon);
+    }
     term.open(host);
     fitAddon?.fit();
     term.focus();

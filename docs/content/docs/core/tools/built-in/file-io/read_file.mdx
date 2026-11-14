@@ -1,6 +1,6 @@
 ---
 title: read_file
-description: Read a text file from the workspace with line-range slicing, byte caps, and a sha256 checksum for stale-file detection.
+description: Read a workspace text file with line-range slicing and a sha256 checksum for stale-file detection.
 ---
 
 # read_file
@@ -17,7 +17,7 @@ const agent = createAgent({
 });
 ```
 
-Binary files require a two-step opt-in: the first call returns the `binary_file` error with the file's size and sha256, and the agent must re-call with `allowBinary: true` to receive base64 content.
+Binary files return a `binary_file` error. This tool returns text only.
 
 ## ReadFileToolConfig
 
@@ -33,43 +33,32 @@ The structured payload returned in `data` on success.
 
 ## Line slicing
 
-Pass `startLine` and/or `endLine` (1-indexed, inclusive) to read a window instead of the whole file. `endLine` greater than the file's `lineCount` clamps to the end. A `startLine` past the end of the file returns an empty slice with `truncated: false` — it is not an error.
+Pass `startLine` and/or `endLine` (1-indexed, inclusive) to read a window instead of the whole file. Reversed ranges are rejected. `endLine` greater than the file's `lineCount` clamps to the end. A `startLine` past the end of the file returns an empty slice with `truncated: false` — it is not an error.
 
 ```ts
 // Read lines 50-150 of a long file.
 await tool.read_file({ path: "src/server.ts", startLine: 50, endLine: 150 });
 ```
 
-## Byte cap and truncation
+## Output limit
 
-`maxBytes` caps the UTF-8 byte length of the returned `content`. When the slice exceeds the cap, content is byte-truncated at the cap and `data.truncated` is set to `true`. The default cap is 256 KiB. The `sha256` is always computed over the full on-disk bytes, regardless of slicing or truncation.
-
-## Binary files
-
-If the file's first 8 KiB contains a NUL byte it is treated as binary. The first call returns the `binary_file` error containing the size and sha256:
+Files up to 4 MiB are accepted by default, and formatted output is capped at 256 KiB. Oversized slices set `data.truncated` to `true`; request a smaller line range to continue reading. `sha256` always covers the full on-disk bytes, including the original newline encoding and any BOM, regardless of slicing or output truncation.
 
 ```ts
-const first = await tool.read_file({ path: "assets/icon.png" });
-// → ok: false, error.kind: "binary_file"
-
-const second = await tool.read_file({
-  path: "assets/icon.png",
-  allowBinary: true,
-});
-// → ok: true, data.contentBase64: "...", data.encoding: "base64"
+await tool.read_file({ path: "src/server.ts", startLine: 151, endLine: 250 });
 ```
 
 ## Errors
 
 | Kind | When |
 |---|---|
-| `not_found` | The path does not exist or is a directory. The error suggests `list_directory` for directories. |
-| `outside_workspace` | The path escapes the sandbox or is absolute without `allowAbsolutePaths`. |
+| `not_found` | The path does not exist or is a directory. Use `glob` with `pattern: "*"` to inspect a directory. |
+| `outside_workspace` | The path escapes the sandbox or absolute paths are disabled. |
 | `permission_denied` | The path is blocked by `forbiddenGlobs` or sandbox read policy. |
-| `binary_file` | Binary content detected without `allowBinary: true`. Re-call with the flag to receive base64. |
-| `file_too_large` | The file exceeds the sandbox-configured size limit (separate from `maxBytes`). |
+| `binary_file` | The file contains binary content; only text files can be read. |
+| `file_too_large` | The file exceeds the configured file-size limit. |
 
 ## Related
 
-- [list_directory](/docs/core/tools/built-in/file-io/list_directory) — enumerate a directory instead of reading a single file.
+- [glob](/docs/core/tools/built-in/file-io/glob) — enumerate a directory with `pattern: "*"`.
 - [Stale file protocol](/docs/core/tools/built-in/file-io) — how `sha256` flows from read into write/edit/apply_patch.

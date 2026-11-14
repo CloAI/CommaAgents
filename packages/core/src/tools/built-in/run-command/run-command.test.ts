@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -34,7 +34,7 @@ describe("run_command", () => {
   it("captures stdout from a simple echo", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute(
       { command: "echo hello-world" },
@@ -52,7 +52,7 @@ describe("run_command", () => {
   it("captures stderr separately from stdout", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute(
       { command: "echo on-stdout; echo on-stderr 1>&2" },
@@ -68,7 +68,7 @@ describe("run_command", () => {
   it("reports non-zero exit codes via data.exitCode but ok stays true", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute({ command: "exit 7" }, toolContext);
     expect(result.ok).toBe(true);
@@ -84,7 +84,7 @@ describe("run_command", () => {
     // "did NOT succeed" follow-up makes the failure unmissable.
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute(
       { command: "echo verifier-diagnostic 1>&2; exit 7" },
@@ -99,7 +99,7 @@ describe("run_command", () => {
   it("uses STATUS: SUCCESS for exit 0 (no scary banner for the happy path)", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute({ command: "true" }, toolContext);
     expect(result.output).toContain("STATUS: SUCCESS");
@@ -115,7 +115,7 @@ describe("run_command", () => {
     // killed by signal X" plus an explicit "did NOT pass" warning.
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     // Spawn a sub-shell, get its pid, then send it SIGKILL — the
     // child closes with signalCode set and exitCode = null.
@@ -133,7 +133,7 @@ describe("run_command", () => {
   it("honors cwd inside the workspace", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute(
       { command: "pwd", cwd: "." },
@@ -148,7 +148,7 @@ describe("run_command", () => {
   it("rejects cwd outside the workspace with outside_workspace", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute(
       { command: "pwd", cwd: "../../../" },
@@ -160,7 +160,7 @@ describe("run_command", () => {
 
   it("rejects commands matching the default deny list", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
-    const sandbox = createSandbox({ cwd: workspace, jail: true });
+    const sandbox = createSandbox({ cwd: workspace, outsideWorkspace: "deny" });
     const guard = sandbox.guardFor("run_command", tool.policies);
     const result = await tool.execute(
       { command: "rm -rf /" },
@@ -176,7 +176,7 @@ describe("run_command", () => {
       denyPatterns: [],
     });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute(
       { command: "echo would-have-been-denied" },
@@ -190,7 +190,7 @@ describe("run_command", () => {
       platformInfo: POSIX_PLATFORM,
       requireApprovalPatterns: [/pretend-dangerous/],
     });
-    const sandbox = createSandbox({ cwd: workspace, jail: true });
+    const sandbox = createSandbox({ cwd: workspace, outsideWorkspace: "deny" });
     const guard = sandbox.guardFor("run_command", tool.policies);
     const result = await tool.execute(
       { command: "echo pretend-dangerous" },
@@ -205,15 +205,9 @@ describe("run_command", () => {
     const tool = createRunCommandTool({
       platformInfo: POSIX_PLATFORM,
       requireApprovalPatterns: [/needs-approval/],
-      requestPermission: async (req) => {
-        requesterCalls += 1;
-        expect(req.operation).toBe("fs.exec");
-        expect(req.toolName).toBe("run_command");
-        return "allow";
-      },
     });
     const sandbox = createSandbox(
-      { cwd: workspace, jail: true },
+      { cwd: workspace, outsideWorkspace: "deny" },
       {
         onAsk: async (req) => {
           requesterCalls += 1;
@@ -237,10 +231,9 @@ describe("run_command", () => {
     const tool = createRunCommandTool({
       platformInfo: POSIX_PLATFORM,
       requireApprovalPatterns: [/needs-approval/],
-      requestPermission: async () => "deny",
     });
     const sandbox = createSandbox(
-      { cwd: workspace, jail: true },
+      { cwd: workspace, outsideWorkspace: "deny" },
       {
         onAsk: async () => "deny",
       },
@@ -257,7 +250,7 @@ describe("run_command", () => {
   it("times out long-running commands and marks timedOut", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute(
       { command: "sleep 5", timeoutMs: 100 },
@@ -271,7 +264,7 @@ describe("run_command", () => {
   it("preserves partial stdout on timeout", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute(
       {
@@ -291,7 +284,7 @@ describe("run_command", () => {
   it("merges supplied env onto the parent environment", async () => {
     const tool = createRunCommandTool({ platformInfo: POSIX_PLATFORM });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute(
       {
@@ -310,7 +303,7 @@ describe("run_command", () => {
       maxStdoutBytes: 64,
     });
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
     });
     const result = await tool.execute(
       { command: "yes hello 2>/dev/null | head -c 4096" },
@@ -326,7 +319,7 @@ describe("run_command", () => {
     const ac = new AbortController();
     ac.abort();
     const toolContext = makeToolContext({
-      sandbox: createSandbox({ cwd: workspace, jail: true }),
+      sandbox: createSandbox({ cwd: workspace, outsideWorkspace: "deny" }),
       abort: ac.signal,
     });
     const result = await tool.execute({ command: "echo never" }, toolContext);

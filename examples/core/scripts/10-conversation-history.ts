@@ -11,7 +11,7 @@
  *   - How context accumulates and affects responses
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/10-conversation-history.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/10-conversation-history.ts
  *
  * Concepts:
  *   - Agent conversation context (automatic)

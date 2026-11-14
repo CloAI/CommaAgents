@@ -1,0 +1,28 @@
+---
+title: request_strategy_switch
+description: Ask the user to continue the conversation in another strategy, such as moving from Plan to Build.
+---
+
+The `request_strategy_switch` tool lets an agent propose continuing the conversation in another strategy. The user is asked to confirm. When they approve, the switch happens as soon as the current turn hands back to them, and the conversation so far goes with it.
+
+```json
+{
+  "planner": {
+    "model": "@medium",
+    "tools": ["read_file", "grep", "request_strategy_switch"]
+  }
+}
+```
+
+## Parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `strategy` | `string` | Strategy name, for example `Build`. Matched case-insensitively against discovered strategy names and labels. |
+| `reason` | `string` | One sentence telling the user why switching helps now. |
+
+## Behavior
+
+- The user sees a Switch/Stay choice and optional feedback. Only an explicit structured Switch selection approves. Stay, a whole-question Other response, or Skip leaves the current strategy active.
+- Only top-level conversations can switch. Subagents never receive the tool's runtime support, and the tool reports an error there.
+- Visible messages carry over to the new strategy; tool output does not. Agents that hand work over this way should put everything the next strategy needs in their final message.

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "bun:test";
-import { Box, measureLayout, Text } from "ink";
+import { describe, expect, it } from "vitest";
+import { Box, measureLayout, renderToString, Text } from "ink";
+import { useLayoutEffect, useState } from "react";
 
 /**
  * Sanity tests for the patched `measureLayout` helper. These exercise
@@ -67,5 +68,39 @@ describe("measureLayout", () => {
     // text at 5 columns, producing a 2-row natural height.
     expect(result.width).toBe(80);
     expect(result.height).toBe(2);
+  });
+
+  it("should respect an explicit height constraint", () => {
+    expect(measureLayout(<Text>hello</Text>, { width: 20, height: 5 })).toEqual(
+      {
+        width: 20,
+        height: 5,
+      },
+    );
+  });
+
+  it("should propagate render errors and allow subsequent measurements", () => {
+    const error = new Error("Measurement failed");
+    function BrokenRow(): never {
+      throw error;
+    }
+
+    expect(() => measureLayout(<BrokenRow />, { width: 20 })).toThrow(error);
+    expect(measureLayout(<Text>Recovered</Text>, { width: 20 }).height).toBe(1);
+  });
+
+  it("should measure during a live commit without disturbing the primary renderer", () => {
+    function MeasuredRow() {
+      const [height, setHeight] = useState(0);
+      useLayoutEffect(() => {
+        setHeight(
+          measureLayout(<Text>{"x".repeat(30)}</Text>, { width: 10 }).height,
+        );
+      }, []);
+      return <Text>{`Height: ${height}`}</Text>;
+    }
+
+    expect(renderToString(<MeasuredRow />, { columns: 20 })).toBe("Height: 3");
+    expect(renderToString(<Text>Next frame</Text>)).toBe("Next frame");
   });
 });

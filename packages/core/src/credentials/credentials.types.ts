@@ -44,7 +44,7 @@ export type CredentialStoreData = Readonly<
 export interface CredentialBackend {
   /** Read all credential data from storage. Returns empty object if none exists. */
   readAll(): Promise<CredentialStoreData>;
-  /** Write the full credential data to storage (atomic replace). */
+  /** Write the full credential data to storage. */
   writeAll(data: CredentialStoreData): Promise<void>;
 }
 
@@ -70,15 +70,25 @@ export interface CredentialStore {
    */
   resolve(providerId: string, scope?: string): Promise<Credential | undefined>;
 
+  /** Return the effective global credential source, without exposing its value. */
+  getSource(providerId: string): Promise<CredentialSource>;
+
   /**
    * Get a credential from a specific scope (no fallback/resolution chain).
    */
   get(providerId: string, scope: string): Promise<Credential | undefined>;
 
   /**
-   * Set a credential in a specific scope.
+   * Set a credential in a specific scope. When expected is provided, replace
+   * only that exact stored value (null requires absence). The comparison and
+   * write share the mutation queue, preventing refresh from restoring a removed key.
    */
-  set(providerId: string, scope: string, credential: Credential): Promise<void>;
+  set(
+    providerId: string,
+    scope: string,
+    credential: Credential,
+    expected?: Credential | null,
+  ): Promise<void>;
 
   /**
    * Remove a credential from a specific scope.
@@ -120,6 +130,9 @@ export interface CredentialStore {
  * to validate the credential works.
  */
 export type AuthStatus = "none" | "configured";
+
+/** Source selected by global credential resolution; excludes strategy-scoped credentials. */
+export type CredentialSource = "none" | "environment" | "global";
 
 // Environment variable mapping
 

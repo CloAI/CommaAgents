@@ -4,15 +4,6 @@
 // Factories
 export { loadAgent, loadAgentFromString } from "./loader";
 // Types
-export type {
-  AgentDescription,
-  CustomAgentDescription,
-  LLMAgentDescription,
-} from "./loader.schema";
+export type { AgentDescription } from "./loader.schema";
 // Schema
-export {
-  AgentDescriptionSchema,
-  CustomAgentDescriptionSchema,
-  LLMAgentDescriptionSchema,
-} from "./loader.schema";
-export type { LoadAgentOptions } from "./loader.types";
+export { AgentDescriptionSchema } from "./loader.schema";

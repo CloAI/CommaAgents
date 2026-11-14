@@ -6,7 +6,7 @@
 //   2. Fallback — no runtime handle, the tool reads the strategy file
 //      itself and runs it via `loadStrategyFromString` + `flow.call`.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -68,6 +68,11 @@ function withCwdContainingProject(strategy: object): {
   const cwd = createScratchDir("project-host");
   const projectDir = join(cwd, ".comma", "strategies", "demo-project");
   mkdirSync(projectDir, { recursive: true });
+  writeFileSync(
+    join(projectDir, "package.json"),
+    JSON.stringify({ type: "module" }),
+    "utf8",
+  );
   writeFileSync(
     join(projectDir, "strategy.json"),
     JSON.stringify(strategy),

@@ -10,7 +10,7 @@
  *   3. Editor applies the feedback and returns the final version.
  *
  * Run:
- *   MODEL=openai/gpt-4o bun run examples/04-sequential-flow.ts
+ *   MODEL=openai/gpt-4o pnpm exec tsx examples/04-sequential-flow.ts
  *
  * Concepts:
  *   - createSequentialFlow()  — create a flow that chains agents in order

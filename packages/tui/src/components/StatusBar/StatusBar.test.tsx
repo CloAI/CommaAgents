@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { render } from "ink-testing-library";
 import type { ChatStatus } from "../../hooks/useChat/useChat.types";
 import { StatusBar } from "./StatusBar";

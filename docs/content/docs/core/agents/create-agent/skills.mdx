@@ -1,0 +1,31 @@
+---
+title: Skills
+description: Give agents access to relevant reusable instructions.
+---
+
+# Skills
+
+Pass a discovered registry through the agent's runtime options. Skill tools are included with the default built-ins; an explicit tool list limits them.
+
+```ts
+import { createAgent } from "@comma-agents/core";
+import { loadSkills } from "@comma-agents/core/skills";
+
+const { registry } = await loadSkills(process.cwd());
+const coder = createAgent(
+  {
+    name: "coder",
+    model: "openai/gpt-4o",
+    systemPrompt:
+      "Search for relevant skills before working. Load a matching skill by its exact name and follow its instructions.",
+    tools: ["search_skills", "load_skill", "read_file", "edit_file"],
+  },
+  { skillRegistry: registry },
+);
+```
+
+Use `search_skills` for ranked candidates, `list_skills` for the full metadata list, and `load_skill` to retrieve instructions. Neither listing nor search returns the instruction body. The agent decides whether a candidate applies.
+
+Strategy loading supplies the registry and tool-aware skill guidance automatically. It includes required strategy skills in full without inserting every optional skill into the initial prompt. A directly created agent can supply its own concise guidance, as above. `buildSkillsPromptHeader(registry)` remains available for callers that explicitly want a complete metadata index.
+
+See [Skills](/docs/core/skills) for locations, merging, file format, and snapshot behavior.

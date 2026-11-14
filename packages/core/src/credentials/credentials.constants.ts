@@ -1,7 +1,6 @@
 import type { EnvVarMap } from "./credentials.types";
 
-/** Default name for the credentials JSON file. */
-export const CREDENTIALS_FILENAME = "credentials.json";
+export { PROCESS_ENV_COMMA_AGENTS_CREDENTIALS_FILENAME as CREDENTIALS_FILENAME } from "../defaults/defaults.constants";
 
 /**
  * Well-known environment variable names for common AI providers.
@@ -12,6 +11,7 @@ export const CREDENTIALS_FILENAME = "credentials.json";
  */
 export const WELL_KNOWN_ENV_VARS: EnvVarMap = {
   openai: ["OPENAI_API_KEY"],
+  tinfoil: ["TINFOIL_API_KEY"],
   anthropic: ["ANTHROPIC_API_KEY"],
   google: ["GOOGLE_GENERATIVE_AI_API_KEY", "GOOGLE_API_KEY"],
   "google-vertex": ["GOOGLE_VERTEX_API_KEY"],
@@ -25,4 +25,6 @@ export const WELL_KNOWN_ENV_VARS: EnvVarMap = {
   deepseek: ["DEEPSEEK_API_KEY"],
   xai: ["XAI_API_KEY"],
   openrouter: ["OPENROUTER_API_KEY"],
+  "brave-search": ["BRAVE_SEARCH_API_KEY", "BRAVE_API_KEY"],
+  searxng: ["SEARXNG_URL"],
 };

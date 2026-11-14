@@ -3,9 +3,12 @@ node_modules/
 
 # Build output
 dist/
+out/
 
 # Bun
 bun.lockb
+# Temporary runtime extraction directories
+packages/cli/.*.tmp/
 
 # Environment
 .env
@@ -42,3 +45,8 @@ packages/tui/docs/out/
 
 # Storybook
 packages/tui-storybook/storybook-static/assets
+# Web UI Storybook
+packages/ui/storybook-static/
+
+# Eval results
+evals/jobs/

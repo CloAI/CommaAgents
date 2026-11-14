@@ -1,6 +1,6 @@
 // Tests for buildFlowAgent / createFlow — the core flow API.
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { createAbortablePromise } from "@comma-agents/utils";
 import type { Agent, AgentCallResult } from "../../agents/agent/agent.types";
 import { FlowExecutionError } from "../../errors/index";
@@ -323,7 +323,9 @@ describe("createFlow", () => {
       ],
       execute: async (steps, message, ctx) => {
         const check = await ctx.runStep(steps[0]!, message);
-        if (check.text === "SKIP") return check.text;
+        if (check.text === "SKIP") {
+          return check.text;
+        }
         const work = await ctx.runStep(steps[1]!, check.text);
         return work.text;
       },

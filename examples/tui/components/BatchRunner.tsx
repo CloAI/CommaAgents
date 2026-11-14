@@ -88,10 +88,14 @@ export function BatchRunner({ provider, examples, onDone }: BatchRunnerProps) {
 
       // -- Run core examples (no daemon needed) --
       for (let i = 0; i < coreExamples.length; i++) {
-        if (cancelled) break;
+        if (cancelled) {
+          break;
+        }
 
         const example = coreExamples[i];
-        if (!example) break;
+        if (!example) {
+          break;
+        }
         setCurrentIndex(allResults.length);
         setCurrentOutput([]);
         setStatusMessage(null);
@@ -134,10 +138,14 @@ export function BatchRunner({ provider, examples, onDone }: BatchRunnerProps) {
 
         // -- Run daemon examples --
         for (let i = 0; i < daemonExamples.length; i++) {
-          if (cancelled) break;
+          if (cancelled) {
+            break;
+          }
 
           const example = daemonExamples[i];
-          if (!example) break;
+          if (!example) {
+            break;
+          }
           setCurrentIndex(allResults.length);
           setCurrentOutput([]);
 
@@ -381,7 +389,7 @@ export function BatchRunner({ provider, examples, onDone }: BatchRunnerProps) {
  */
 function startDaemon(provider: ProviderSelection): Promise<ChildProcess> {
   return new Promise((resolve, reject) => {
-    const repoRoot = path.resolve(import.meta.dir, "../../..");
+    const repoRoot = path.resolve(import.meta.dirname, "../../..");
     const cliPath = path.resolve(repoRoot, DAEMON_CLI_PATH);
     const modelOverride = `${provider.providerID}/${provider.model}`;
 
@@ -489,7 +497,7 @@ function writeErrorLog(
   provider: ProviderSelection,
 ): string | null {
   try {
-    const examplesDir = path.resolve(import.meta.dir, "../..");
+    const examplesDir = path.resolve(import.meta.dirname, "../..");
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const logFileName = `batch-errors-${timestamp}.log`;
     const logFilePath = path.join(examplesDir, logFileName);
@@ -530,7 +538,7 @@ function runExample(
   onLine: (line: string) => void,
 ): Promise<ExampleResult> {
   return new Promise((resolve) => {
-    const examplesDir = path.resolve(import.meta.dir, "../..");
+    const examplesDir = path.resolve(import.meta.dirname, "../..");
     const scriptPath = path.resolve(examplesDir, example.value);
     const startTime = Date.now();
     const output: string[] = [];
@@ -559,7 +567,9 @@ function runExample(
           child.stdin?.write("done\n");
         } catch {
           // stdin closed — stop writing
-          if (stdinInterval) clearInterval(stdinInterval);
+          if (stdinInterval) {
+            clearInterval(stdinInterval);
+          }
         }
       }, 1_000);
     }
@@ -582,7 +592,9 @@ function runExample(
       const line = `[timeout] Example exceeded ${EXAMPLE_TIMEOUT_MS / 1000}s limit — killed`;
       output.push(line);
       onLine(line);
-      if (stdinInterval) clearInterval(stdinInterval);
+      if (stdinInterval) {
+        clearInterval(stdinInterval);
+      }
       try {
         child.kill("SIGKILL");
       } catch {
@@ -592,7 +604,9 @@ function runExample(
 
     child.on("close", (code) => {
       clearTimeout(timer);
-      if (stdinInterval) clearInterval(stdinInterval);
+      if (stdinInterval) {
+        clearInterval(stdinInterval);
+      }
       resolve({
         example,
         exitCode: code,
@@ -603,7 +617,9 @@ function runExample(
 
     child.on("error", (err) => {
       clearTimeout(timer);
-      if (stdinInterval) clearInterval(stdinInterval);
+      if (stdinInterval) {
+        clearInterval(stdinInterval);
+      }
       const line = `[spawn error] ${err.message}`;
       output.push(line);
       onLine(line);

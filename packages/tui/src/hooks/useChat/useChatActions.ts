@@ -3,7 +3,6 @@ import { useCallback } from "react";
 import type { ChatRunId } from "./useChat.types";
 import { useChatInputRequests } from "./useChatInputRequests";
 import { useChatPermissionRequests } from "./useChatPermissionRequests";
-import { useChatQuestionRequests } from "./useChatQuestionRequests";
 import { useChatRunLifecycle } from "./useChatRunLifecycle";
 import { useChatSteering } from "./useChatSteering";
 
@@ -13,7 +12,6 @@ export interface UseChatActionsResult {
   readonly sendPermissionDecision: (
     decision: "allow" | "deny" | "allow-session" | "deny-session",
   ) => void;
-  readonly sendQuestionResponse: (response: string) => void;
   readonly reset: () => void;
   readonly stop: () => void;
 }
@@ -25,13 +23,13 @@ export function useChatActions(
   const { sendSteer: sendSteerForRun } = useChatSteering();
   const { sendPermissionDecision: sendPermissionDecisionForRun } =
     useChatPermissionRequests();
-  const { sendQuestionResponse: sendQuestionResponseForRun } =
-    useChatQuestionRequests();
   const { resetChatRun, stopChatRun } = useChatRunLifecycle();
 
   const sendInput = useCallback(
     (text: string): void => {
-      if (!chatRunId) return;
+      if (!chatRunId) {
+        return;
+      }
       sendInputForRun(chatRunId, text);
     },
     [chatRunId, sendInputForRun],
@@ -39,7 +37,9 @@ export function useChatActions(
 
   const sendSteer = useCallback(
     (text: string): void => {
-      if (!chatRunId) return;
+      if (!chatRunId) {
+        return;
+      }
       sendSteerForRun(chatRunId, text);
     },
     [chatRunId, sendSteerForRun],
@@ -47,27 +47,26 @@ export function useChatActions(
 
   const sendPermissionDecision = useCallback(
     (decision: "allow" | "deny" | "allow-session" | "deny-session"): void => {
-      if (!chatRunId) return;
+      if (!chatRunId) {
+        return;
+      }
       sendPermissionDecisionForRun(chatRunId, decision);
     },
     [chatRunId, sendPermissionDecisionForRun],
   );
 
-  const sendQuestionResponse = useCallback(
-    (response: string): void => {
-      if (!chatRunId) return;
-      sendQuestionResponseForRun(chatRunId, response);
-    },
-    [chatRunId, sendQuestionResponseForRun],
-  );
 
   const reset = useCallback((): void => {
-    if (!chatRunId) return;
+    if (!chatRunId) {
+      return;
+    }
     resetChatRun(chatRunId);
   }, [chatRunId, resetChatRun]);
 
   const stop = useCallback((): void => {
-    if (!chatRunId) return;
+    if (!chatRunId) {
+      return;
+    }
     stopChatRun(chatRunId);
   }, [chatRunId, stopChatRun]);
 
@@ -75,7 +74,6 @@ export function useChatActions(
     sendInput,
     sendSteer,
     sendPermissionDecision,
-    sendQuestionResponse,
     reset,
     stop,
   };

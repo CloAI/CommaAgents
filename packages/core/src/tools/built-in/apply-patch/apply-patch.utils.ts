@@ -11,13 +11,13 @@ import { dirname } from "node:path";
 import type { StructuredPatch, StructuredPatchHunk } from "diff";
 import { applyPatch as diffApplyPatch } from "diff";
 import {
-  moveToTrash,
   STALE_FILE_RECOVERY_HINT,
   sha256OfBuffer,
   unifiedDiff,
 } from "../../io";
+import { deleteFile } from "../delete-file/deletion";
 import type { AuditEntry, AuditSink } from "../../io/audit.types";
-import type { TrashMetadata } from "../../io/trash";
+import type { DeletedFileMetadata } from "../delete-file/deletion";
 import { okResult, toolError } from "../../result";
 import type { ToolResult } from "../../tool.types";
 import {
@@ -260,7 +260,9 @@ export function applyUpdateHunks(
   let working = source;
   for (let hunkIndex = 0; hunkIndex < hunks.length; hunkIndex++) {
     const hunk = hunks[hunkIndex];
-    if (hunk === undefined) continue;
+    if (hunk === undefined) {
+      continue;
+    }
     const structured = hunkToStructuredPatch(path, hunk);
     if (countMatches(working, hunk) > 1) {
       throw new PatchApplyError(
@@ -315,7 +317,9 @@ export async function dryRunPatch(
     operationIndex++
   ) {
     const operation = plan.operations[operationIndex];
-    if (operation === undefined) continue;
+    if (operation === undefined) {
+      continue;
+    }
     const stagedFile = await dryRunOne(
       operation,
       resolved,
@@ -332,12 +336,12 @@ export async function commitStagedFiles(
   workspaceRoot: string,
   options: {
     readonly atomic: boolean;
-    readonly trashMetadata?: Partial<
-      Pick<TrashMetadata, "sessionId" | "runId" | "agentName">
+    readonly deletionMetadata?: Partial<
+      Pick<DeletedFileMetadata, "sessionId" | "runId" | "agentName">
     >;
   },
 ): Promise<void> {
-  const { atomic, trashMetadata } = options;
+  const { atomic, deletionMetadata } = options;
   const committedFiles: StagedFile[] = [];
   try {
     for (const staged of stagedFiles) {
@@ -351,7 +355,7 @@ export async function commitStagedFiles(
     }
 
     for (const staged of stagedFiles) {
-      await commitOne(staged, workspaceRoot, trashMetadata);
+      await commitOne(staged, workspaceRoot, deletionMetadata);
       staged.committed = true;
       committedFiles.push(staged);
     }
@@ -416,10 +420,7 @@ export async function buildAuditAndResult(params: {
     changedFiles,
   };
 
-  const summary =
-    `Applied patch (${atomic ? "atomic" : "sequential"}): ` +
-    `${changedFiles.length} file(s), ${plan.hunkCount} hunk(s).\n` +
-    changedFiles.map((entry) => formatChangedFileLine(entry)).join("\n");
+  const summary = `Applied patch (${atomic ? "atomic" : "sequential"}): ${changedFiles.length} file(s), ${plan.hunkCount} hunk(s).\n${changedFiles.map((entry) => formatChangedFileLine(entry)).join("\n")}`;
 
   return okResult<ApplyPatchData>(summary, { data });
 }
@@ -501,7 +502,9 @@ function collectAddFileBody(
       cursor++;
       continue;
     }
-    if (rawLine.startsWith("*** ")) break;
+    if (rawLine.startsWith("*** ")) {
+      break;
+    }
     if (rawLine === PATCH_NO_NEWLINE_MARKER) {
       suppressTrailingNewline = true;
       cursor++;
@@ -545,7 +548,9 @@ function collectHunks(
       cursor++;
       continue;
     }
-    if (rawLine.startsWith("*** ")) break;
+    if (rawLine.startsWith("*** ")) {
+      break;
+    }
     if (rawLine === "") {
       cursor++;
       continue;
@@ -567,8 +572,12 @@ function collectHunks(
         cursor++;
         continue;
       }
-      if (candidate.startsWith("*** ")) break;
-      if (candidate.startsWith(PATCH_HUNK_PREFIX)) break;
+      if (candidate.startsWith("*** ")) {
+        break;
+      }
+      if (candidate.startsWith(PATCH_HUNK_PREFIX)) {
+        break;
+      }
       if (
         candidate === "" ||
         candidate.startsWith(" ") ||
@@ -641,7 +650,9 @@ function hunkToStructuredPatch(path: string, hunk: PatchHunk): StructuredPatch {
 function countMatches(source: string, hunk: PatchHunk): number {
   const needleLines: string[] = [];
   for (const rawLine of hunk.lines) {
-    if (rawLine === PATCH_NO_NEWLINE_MARKER) continue;
+    if (rawLine === PATCH_NO_NEWLINE_MARKER) {
+      continue;
+    }
     const sigil = rawLine.charAt(0);
     if (sigil === " " || rawLine === "") {
       needleLines.push(rawLine === "" ? "" : rawLine.slice(1));
@@ -649,17 +660,25 @@ function countMatches(source: string, hunk: PatchHunk): number {
       needleLines.push(rawLine.slice(1));
     }
   }
-  if (needleLines.length === 0) return 1;
+  if (needleLines.length === 0) {
+    return 1;
+  }
   const needle = needleLines.join("\n");
-  if (needle === "") return 1;
+  if (needle === "") {
+    return 1;
+  }
   let count = 0;
   let cursor = 0;
   while (cursor <= source.length) {
     const matchIndex = source.indexOf(needle, cursor);
-    if (matchIndex === -1) break;
+    if (matchIndex === -1) {
+      break;
+    }
     count++;
     cursor = matchIndex + 1;
-    if (count > 1) return count;
+    if (count > 1) {
+      return count;
+    }
   }
   return count;
 }
@@ -717,9 +736,13 @@ async function dryRunAdd(
       ),
     );
   } catch (caughtError) {
-    if (caughtError instanceof DryRunError) throw caughtError;
+    if (caughtError instanceof DryRunError) {
+      throw caughtError;
+    }
     const code = (caughtError as NodeJS.ErrnoException).code;
-    if (code !== "ENOENT" && code !== "ENOTDIR") throw caughtError;
+    if (code !== "ENOENT" && code !== "ENOTDIR") {
+      throw caughtError;
+    }
   }
 
   try {
@@ -734,7 +757,9 @@ async function dryRunAdd(
       );
     }
   } catch (caughtError) {
-    if (caughtError instanceof DryRunError) throw caughtError;
+    if (caughtError instanceof DryRunError) {
+      throw caughtError;
+    }
     const code = (caughtError as NodeJS.ErrnoException).code;
     if (code === "ENOENT") {
       throw new DryRunError(
@@ -921,9 +946,13 @@ async function dryRunMove(
       ),
     );
   } catch (caughtError) {
-    if (caughtError instanceof DryRunError) throw caughtError;
+    if (caughtError instanceof DryRunError) {
+      throw caughtError;
+    }
     const code = (caughtError as NodeJS.ErrnoException).code;
-    if (code !== "ENOENT" && code !== "ENOTDIR") throw caughtError;
+    if (code !== "ENOENT" && code !== "ENOTDIR") {
+      throw caughtError;
+    }
   }
   try {
     const parentStat = await stat(dirname(absoluteTo));
@@ -937,7 +966,9 @@ async function dryRunMove(
       );
     }
   } catch (caughtError) {
-    if (caughtError instanceof DryRunError) throw caughtError;
+    if (caughtError instanceof DryRunError) {
+      throw caughtError;
+    }
     const code = (caughtError as NodeJS.ErrnoException).code;
     if (code === "ENOENT") {
       throw new DryRunError(
@@ -1008,8 +1039,12 @@ function checkExpectedSha(
   expectedShaMap: Readonly<Record<string, string>> | undefined,
 ): void {
   const expectedSha = expectedShaMap?.[path];
-  if (expectedSha === undefined) return;
-  if (expectedSha === actualSha256) return;
+  if (expectedSha === undefined) {
+    return;
+  }
+  if (expectedSha === actualSha256) {
+    return;
+  }
   throw new DryRunError(
     toolError("stale_file", `File has changed since last read: ${path}`, {
       path,
@@ -1050,16 +1085,16 @@ async function stageWrite(
 async function commitOne(
   staged: StagedFile,
   workspaceRoot: string,
-  trashMetadata?: Partial<
-    Pick<TrashMetadata, "sessionId" | "runId" | "agentName">
+  deletionMetadata?: Partial<
+    Pick<DeletedFileMetadata, "sessionId" | "runId" | "agentName">
   >,
 ): Promise<void> {
   if (staged.operation === "delete") {
-    staged.trashedTo = await moveToTrash(
+    ({ archivePath: staged.trashedTo } = await deleteFile(
       workspaceRoot,
       staged.absolutePath,
-      trashMetadata,
-    );
+      { metadata: deletionMetadata },
+    ));
     return;
   }
   if (staged.operation === "move") {
@@ -1099,7 +1134,9 @@ async function rollback(
 ): Promise<void> {
   for (let index = committedFiles.length - 1; index >= 0; index--) {
     const staged = committedFiles[index];
-    if (staged === undefined) continue;
+    if (staged === undefined) {
+      continue;
+    }
     try {
       if (staged.operation === "delete") {
         if (
@@ -1147,7 +1184,9 @@ async function cleanupStagedTempFiles(
   allStaged: ReadonlyArray<StagedFile>,
 ): Promise<void> {
   for (const staged of allStaged) {
-    if (staged.stagedTempPath === undefined) continue;
+    if (staged.stagedTempPath === undefined) {
+      continue;
+    }
     try {
       await unlink(staged.stagedTempPath);
     } catch {
@@ -1160,7 +1199,9 @@ function buildDiff(staged: StagedFile): string {
   const path = staged.toPath ?? staged.path;
   const beforeText = staged.beforeBytes?.toString("utf8") ?? "";
   const afterText = staged.afterBytes?.toString("utf8") ?? "";
-  if (beforeText === afterText) return "";
+  if (beforeText === afterText) {
+    return "";
+  }
   return unifiedDiff(beforeText, afterText, {
     path,
     contextLines: PATCH_DEFAULT_DIFF_CONTEXT,

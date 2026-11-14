@@ -1,0 +1,59 @@
+---
+title: MCP Tools
+description: Provide connected MCP tools through agent runtime services.
+---
+
+# MCP Tools
+
+Provide tools from connected MCP servers through `AgentRuntime.mcpTools`. Strategy definitions normally select MCP servers declaratively; direct callers can connect and assign tools explicitly.
+
+```ts
+import {
+  createAgent,
+  createMcpConnectionManager,
+  discoverMcpConfig,
+} from "@comma-agents/core";
+
+const { servers } = discoverMcpConfig({ cwd: process.cwd() });
+const mcp = await createMcpConnectionManager({
+  servers,
+  enabledServerIds: ["github"],
+});
+const github = mcp.toolsFor(["github"]);
+
+try {
+  const researcher = createAgent(
+    {
+      name: "repository-researcher",
+      model: "openai/gpt-4o",
+    },
+    { mcpTools: github.tools },
+  );
+
+  await researcher.call("Summarize the open issues assigned to me.");
+} finally {
+  await mcp.close();
+}
+```
+
+This example expects a `github` server in the effective MCP configuration.
+
+See [Model Context Protocol](/docs/core/mcp) for configuration discovery, transports, secrets, and strategy assignment.
+
+## Shared configuration defaults
+
+Global definitions are read from `~/.comma/mcp.json` by default. A project's `.comma/mcp.json` overrides global definitions with matching IDs, including when discovery starts in a project subdirectory.
+
+Use the core configuration API to change a shared server's default without connecting to it:
+
+```ts
+import { updateMcpServerDefault } from "@comma-agents/core/mcp";
+
+updateMcpServerDefault({
+  cwd: process.cwd(),
+  serverId: "github",
+  enabled: true,
+});
+```
+
+The effective project or global definition is updated atomically. Other server definitions and environment-variable references are retained. Missing servers and invalid files are rejected. Strategy-private definitions are configured in the strategy itself.

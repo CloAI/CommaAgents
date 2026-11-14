@@ -48,7 +48,9 @@ function toMouseEvent(
   row: number,
   terminator: string,
 ): MouseEvent | null {
-  if (!Number.isFinite(column) || !Number.isFinite(row)) return null;
+  if (!Number.isFinite(column) || !Number.isFinite(row)) {
+    return null;
+  }
 
   const modifiers: MouseModifiers = {
     shift: (rawButton & SHIFT_BIT) !== 0,
@@ -101,8 +103,12 @@ function toMouseEvent(
  * Non-mouse input yields an empty array (fast-path via prefix check).
  */
 export function parseMouseEvents(input: string): readonly MouseEvent[] {
-  if (input.length === 0) return [];
-  if (!input.includes(SGR_MOUSE_PREFIX)) return [];
+  if (input.length === 0) {
+    return [];
+  }
+  if (!input.includes(SGR_MOUSE_PREFIX)) {
+    return [];
+  }
 
   const events: MouseEvent[] = [];
   SGR_MOUSE_TOKEN.lastIndex = 0;
@@ -113,7 +119,9 @@ export function parseMouseEvents(input: string): readonly MouseEvent[] {
     const row = Number.parseInt(match[3] ?? "", 10);
     const terminator = match[4] ?? "";
     const event = toMouseEvent(rawButton, column, row, terminator);
-    if (event !== null) events.push(event);
+    if (event !== null) {
+      events.push(event);
+    }
     match = SGR_MOUSE_TOKEN.exec(input);
   }
 
@@ -146,10 +154,14 @@ export function isInsideRef(
   row: number,
 ): boolean {
   const node = ref.current;
-  if (!node) return false;
+  if (!node) {
+    return false;
+  }
 
   const { top, left, width, height } = getBoundingBox(node);
-  if (width === 0 || height === 0) return false;
+  if (width === 0 || height === 0) {
+    return false;
+  }
 
   // Convert 1-indexed SGR coords to 0-indexed Yoga coords.
   const col0 = column - 1;

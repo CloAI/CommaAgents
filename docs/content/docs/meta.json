@@ -8,6 +8,8 @@
     "daemon",
     "---TUI---",
     "tui",
+    "---Web UI---",
+    "ui",
     "---Debug---",
     "debug"
   ]

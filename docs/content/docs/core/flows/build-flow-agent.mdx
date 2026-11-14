@@ -1,0 +1,147 @@
+---
+title: buildFlowAgent
+description: Build a reusable agent-compatible flow from a step executor.
+---
+
+# buildFlowAgent
+
+`buildFlowAgent` creates a reusable flow factory from a flow configuration and executor. Use it when you are implementing a named TypeScript flow pattern that should support flow results, cancellation, reset behavior, and `hookIntoFlow`.
+
+```ts
+import {
+  buildFlowAgent,
+  createAgent,
+  type FlowConfig,
+} from "@comma-agents/core";
+
+function createFirstAnswerFlow(config: FlowConfig) {
+  return buildFlowAgent(
+    config,
+    "first-answer",
+    {},
+    async (steps, message, flowContext) => {
+      for (const step of steps) {
+        const result = await flowContext.runStep(step, message);
+        if (result.text.trim().length > 0) return result.text;
+      }
+      return "No step produced an answer.";
+    },
+  );
+}
+
+const primary = createAgent({
+  name: "primary",
+  model: "openai/gpt-4o",
+});
+const fallback = createAgent({
+  name: "fallback",
+  model: "openai/gpt-4o",
+});
+const flow = createFirstAnswerFlow({
+  name: "answer-selection",
+  steps: [primary, fallback],
+});
+
+console.log((await flow.call("Answer the question.")).text);
+```
+
+## FlowConfig
+
+The flow name and available agent or nested-flow steps.
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="FlowConfig" />
+
+`steps` must contain at least one entry. An empty list throws `FlowExecutionError` when the flow is created.
+
+## Parameters
+
+The function accepts five arguments:
+
+- `config` supplies the flow name and available steps.
+- `typeName` identifies the flow type in configuration errors.
+- `store` holds hook callbacks. Pass `{}` unless your factory manages an extended hook type.
+- `executor` determines which steps run and what input each receives.
+- `onReset` optionally clears state owned by the factory after all configured steps reset.
+
+This example uses `typeName` and `onReset` in a stateful factory:
+
+```ts
+import { buildFlowAgent, type FlowConfig } from "@comma-agents/core";
+
+function createCountingFlow(config: FlowConfig) {
+  let callCount = 0;
+
+  return buildFlowAgent(
+    config,
+    "counting",
+    {},
+    async (steps, message, flowContext) => {
+      callCount += 1;
+      const result = await flowContext.runStep(steps[0]!, message);
+      return `[call ${callCount}] ${result.text}`;
+    },
+    () => {
+      callCount = 0;
+    },
+  );
+}
+```
+
+## FlowExecutor
+
+The orchestration function called for each flow invocation.
+
+<AutoTypeTable path="../packages/core/src/flows/flow/flow.types.ts" name="FlowExecutor" />
+
+Use `flowContext.runStep()` for every step that should appear in the final `FlowResult`. You can run steps in any order, skip them, repeat them, or pass the same message to several steps.
+
+```ts
+const comparisonFlow = buildFlowAgent(
+  { name: "comparison", steps: [primary, fallback] },
+  "comparison",
+  {},
+  async (steps, message, flowContext) => {
+    const first = await flowContext.runStep(steps[0]!, message);
+    const second = await flowContext.runStep(steps[1]!, message);
+    return `${first.text}\n\n---\n\n${second.text}`;
+  },
+);
+```
+
+## Hooks and cancellation
+
+Flows returned by `buildFlowAgent` work with `hookIntoFlow`. Aborting the promise returned by `call()` also aborts the currently running step.
+
+```ts
+import { hookIntoFlow } from "@comma-agents/core";
+
+hookIntoFlow(flow, {
+  beforeStep: [
+    async ({ stepName }) => console.log(`Starting ${stepName}`),
+  ],
+  afterStep: [
+    async ({ stepName, result }) =>
+      console.log(`${stepName}: ${result.finishReason}`),
+  ],
+});
+
+const pendingResult = flow.call("Run the workflow.");
+pendingResult.abort();
+```
+
+See [hookIntoFlow](/docs/core/flows/flow-hooks) for the hook types and ordering.
+
+## Return value
+
+The returned value implements `Agent`, so it can run as a top-level flow or appear as a step inside another flow. Its `call()` method resolves to a `FlowResult` containing the final text, aggregate usage, and every result recorded through `runStep()`.
+
+```ts
+import type { FlowResult } from "@comma-agents/core";
+
+const result = (await flow.call("Run the workflow.")) as FlowResult;
+console.log(result.text);
+console.log(result.usage);
+console.log(result.stepResults);
+```
+
+Use [`defineFlowType`](/docs/core/flows/define-flow-type) when this factory needs a validated declarative configuration, then expose that definition with [`registerFlow`](/docs/core/flows/register-flow).

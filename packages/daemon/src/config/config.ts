@@ -1,15 +1,29 @@
+import {
+  getDaemonConfigFile,
+  getDaemonConfig,
+  setDaemonConfigFile,
+  setDaemonHost,
+  setDaemonInstructionFiles,
+  setDaemonSkills,
+  setDaemonModelRoles,
+  setDaemonLogFile,
+  setDaemonLogLevel,
+  setDaemonPidFile,
+  setDaemonPort,
+  setDaemonRunsDirectory,
+} from "../defaults";
 import type { DaemonConfig } from "./config.types";
 import {
-  buildDefaults,
   readConfigFile,
-  readEnvOverrides,
+  resolveLoggingConfig,
+  resolveSkillsConfig,
 } from "./config.utils";
 
-/** Options for loadDaemonConfig. Mostly for testing. */
+/** Options for selecting daemon configuration inputs. */
 export interface LoadConfigOptions {
   /** Override the config file path. */
   readonly configFile?: string;
-  /** Override process.env for testing. */
+  /** Environment values used to resolve overrides. @default process.env */
   readonly env?: Record<string, string | undefined>;
 }
 
@@ -21,26 +35,74 @@ export interface LoadConfigOptions {
  * 2. JSON config file
  * 3. Built-in defaults
  *
+ * @param {LoadConfigOptions} [options] - Optional file and environment overrides.
+ * @returns {DaemonConfig} The fully resolved and validated daemon configuration.
  * @throws If the config file exists but contains invalid JSON or fails schema validation.
  */
 export function loadDaemonConfig(options?: LoadConfigOptions): DaemonConfig {
-  const defaults: DaemonConfig = buildDefaults();
-  const env = options?.env ?? process.env;
-
-  // Determine config file path: explicit option > env var > default
+  // Load the config file
   const configFile =
-    options?.configFile ?? env.COMMA_DAEMON_CONFIG_FILE ?? defaults.configFile;
+    options?.configFile ??
+    options?.env?.COMMA_DAEMON_CONFIG_FILE ??
+    getDaemonConfigFile();
+  setDaemonConfigFile(configFile);
 
-  // Layer 1: defaults
-  let config: DaemonConfig = { ...defaults, configFile };
-
-  // Layer 2: JSON config file
+  // Handle all the file overrides if present, and globally update the values.
   const fileOverrides = readConfigFile(configFile);
-  config = { ...config, ...fileOverrides, configFile };
+  // Each load resolves skill roots independently so an omitted setting cannot leak a previous file's roots.
+  setDaemonSkills(resolveSkillsConfig(fileOverrides.skills, configFile));
+  if (fileOverrides.port !== undefined) {
+    setDaemonPort(fileOverrides.port);
+  }
+  if (fileOverrides.host !== undefined) {
+    setDaemonHost(fileOverrides.host);
+  }
+  if (fileOverrides.logLevel !== undefined) {
+    setDaemonLogLevel(fileOverrides.logLevel);
+  }
+  if (fileOverrides.logFile !== undefined) {
+    setDaemonLogFile(fileOverrides.logFile);
+  }
+  if (fileOverrides.pidFile !== undefined) {
+    setDaemonPidFile(fileOverrides.pidFile);
+  }
+  if (fileOverrides.runsDir !== undefined) {
+    setDaemonRunsDirectory(fileOverrides.runsDir);
+  }
+  if (fileOverrides.modelRoles !== undefined) {
+    setDaemonModelRoles(fileOverrides.modelRoles);
+  }
+  if (fileOverrides.instructionFiles !== undefined) {
+    setDaemonInstructionFiles(fileOverrides.instructionFiles);
+  }
 
-  // Layer 3: env vars (highest priority)
-  const envOverrides = readEnvOverrides(env);
-  config = { ...config, ...envOverrides, configFile };
+  // If env variables were defined override the defaults and files, as env take priority.
+  const env = options?.env;
+  if (env) {
+    if (env.COMMA_DAEMON_PORT) {
+      setDaemonPort(Number.parseInt(env.COMMA_DAEMON_PORT, 10));
+    }
+    if (env.COMMA_DAEMON_HOST) {
+      setDaemonHost(env.COMMA_DAEMON_HOST);
+    }
+    if (env.COMMA_DAEMON_LOG_LEVEL) {
+      setDaemonLogLevel(env.COMMA_DAEMON_LOG_LEVEL as DaemonConfig["logLevel"]);
+    }
+    if (env.COMMA_DAEMON_LOG_FILE) {
+      setDaemonLogFile(env.COMMA_DAEMON_LOG_FILE);
+    }
+    if (env.COMMA_DAEMON_PID_FILE) {
+      setDaemonPidFile(env.COMMA_DAEMON_PID_FILE);
+    }
+    if (env.COMMA_DAEMON_RUNS_DIR) {
+      setDaemonRunsDirectory(env.COMMA_DAEMON_RUNS_DIR);
+    }
+  }
+
+  const config = {
+    ...getDaemonConfig(),
+    ...resolveLoggingConfig(fileOverrides, options?.env ?? process.env),
+  };
 
   // Validate the final port is in range
   if (
@@ -54,12 +116,26 @@ export function loadDaemonConfig(options?: LoadConfigOptions): DaemonConfig {
   }
 
   // Validate logLevel
-  const validLevels = ["debug", "info", "warn", "error"];
+  const validLevels = [
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "warning",
+    "error",
+    "fatal",
+  ];
   if (!validLevels.includes(config.logLevel)) {
     throw new Error(
       `Invalid logLevel: "${config.logLevel}". Must be one of: ${validLevels.join(", ")}.`,
     );
   }
 
-  return config;
+  return {
+    ...config,
+    logLevel:
+      config.logPayloads && config.logLevel !== "trace"
+        ? "debug"
+        : config.logLevel,
+  };
 }
